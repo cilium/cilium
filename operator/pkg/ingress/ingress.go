@@ -69,10 +69,10 @@ type IngressController struct {
 	queue      workqueue.RateLimitingInterface
 	maxRetries int
 
-	enforcedHTTPS      bool
-	enabledSecretsSync bool
-	secretsNamespace   string
-	lbAnnotations      []string
+	enforcedHTTPS        bool
+	enabledSecretsSync   bool
+	secretsNamespace     string
+	lbAnnotationPrefixes []string
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -85,12 +85,12 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 	}
 
 	ic := &IngressController{
-		queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries:         opts.MaxRetries,
-		enforcedHTTPS:      opts.EnforcedHTTPS,
-		enabledSecretsSync: opts.EnabledSecretsSync,
-		secretsNamespace:   opts.SecretsNamespace,
-		lbAnnotations:      opts.LBAnnotations,
+		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		maxRetries:           opts.MaxRetries,
+		enforcedHTTPS:        opts.EnforcedHTTPS,
+		enabledSecretsSync:   opts.EnabledSecretsSync,
+		secretsNamespace:     opts.SecretsNamespace,
+		lbAnnotationPrefixes: opts.LBAnnotationPrefixes,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](k8s.WatcherClient().NetworkingV1().Ingresses(corev1.NamespaceAll)),
@@ -329,7 +329,7 @@ func getIngressKeyForService(service *slim_corev1.Service) string {
 }
 
 func (ic *IngressController) createLoadBalancer(ingress *slim_networkingv1.Ingress) error {
-	svc := getServiceForIngress(ingress, ic.lbAnnotations)
+	svc := getServiceForIngress(ingress, ic.lbAnnotationPrefixes)
 	svcKey, err := cache.MetaNamespaceKeyFunc(svc)
 	if err != nil {
 		log.Warn("Failed to get service key for ingress")

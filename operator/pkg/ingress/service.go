@@ -186,10 +186,10 @@ func (sm *serviceManager) notify(service *slim_corev1.Service) {
 	}
 }
 
-func getServiceForIngress(ingress *slim_networkingv1.Ingress, lbAnnotations []string) *v1.Service {
+func getServiceForIngress(ingress *slim_networkingv1.Ingress, lbAnnotationPrefixes []string) *v1.Service {
 	annotations := make(map[string]string)
-	for annotationKey, annotationValue := range ingress.ObjectMeta.Annotations {
-		for _, annotationPrefix := range lbAnnotations {
+	for annotationKey, annotationValue := range ingress.GetAnnotations() {
+		for _, annotationPrefix := range lbAnnotationPrefixes {
 			if strings.HasPrefix(annotationKey, annotationPrefix) {
 				annotations[annotationKey] = annotationValue
 			}
