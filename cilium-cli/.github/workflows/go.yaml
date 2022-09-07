@@ -21,12 +21,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
       with:
-        go-version: 1.19.0
+        go-version: 1.19.1
 
     - name: Run static checks
       uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
       with:
-        version: v1.48.0
+        version: v1.49.0
         args: --config=.golangci.yml --verbose
         skip-cache: true
 

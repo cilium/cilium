@@ -64,7 +64,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
         with:
-          go-version: 1.19.0
+          go-version: 1.19.1
 
       - name: Set up job variables
         id: vars
