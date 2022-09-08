@@ -401,6 +401,9 @@ contributors across the globe, there is almost always someone available to help.
 | l7Proxy | bool | `true` | Enable Layer 7 network policy. |
 | livenessProbe.failureThreshold | int | `10` | failure threshold of liveness probe |
 | livenessProbe.periodSeconds | int | `30` | interval between checks of the liveness probe |
+| loadBalancer | object | `{"l7":{"backend":"disabled"}}` | Configure service load balancing |
+| loadBalancer.l7 | object | `{"backend":"disabled"}` | L7 LoadBalancer |
+| loadBalancer.l7.backend | string | `"disabled"` | Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration. Applicable values: - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well. - disabled: Disable L7 load balancing. |
 | localRedirectPolicy | bool | `false` | Enable Local Redirect Policy. |
 | logSystemLoad | bool | `false` | Enables periodic logging of system load |
 | maglev | object | `{}` | Configure maglev consistent hashing |

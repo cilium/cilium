@@ -251,6 +251,9 @@ const (
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode = "ces-slice-mode"
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
+	LoadBalancerL7 = "loadbalancer-l7"
+
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
@@ -519,6 +522,9 @@ type OperatorConfig struct {
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode string
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services.
+	LoadBalancerL7 string
+
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
 
@@ -603,6 +609,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
+	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)

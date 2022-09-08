@@ -219,6 +219,13 @@ data:
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
 
+{{- if hasKey .Values "loadBalancer" }}
+{{- if eq .Values.loadBalancer.l7.backend "envoy" }}
+  loadbalancer-l7: "envoy"
+  enable-envoy-config: "true"
+{{- end }}
+{{- end }}
+
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
   # address.
   enable-ipv4: {{ .Values.ipv4.enabled | quote }}
