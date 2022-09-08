@@ -217,7 +217,7 @@ function bpf_compile()
 	      -DENABLE_ARP_RESPONDER=1				\
 	      $EXTRA_OPTS					\
 	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
 }
 
 function bpf_unload()
