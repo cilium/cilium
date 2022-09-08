@@ -13,12 +13,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -386,20 +388,60 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	return strict, nil
 }
 
-func probeManagedNeighborSupport() {
+func probeManagedNeighborSupport() error {
 	if option.Config.DryMode {
-		return
+		return nil
 	}
 
-	// Probes for kernel commit:
-	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
-	// This is a bit of a workaround given feature probing for netlink
-	// neighboring subsystem is cumbersome. The commit was added in the
-	// same release as managed neighbors, that is, 5.16+.
-	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
-		log.Info("Using Managed Neighbor Kernel support")
-		option.Config.ARPPingKernelManaged = true
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	oldns, err := netns.Get()
+	if err != nil {
+		return fmt.Errorf("failed to get current netns: %w", err)
 	}
+	defer oldns.Close()
+
+	newns, err := netns.New()
+	if err != nil {
+		return fmt.Errorf("failed to create new netns: %w", err)
+	}
+	defer newns.Close()
+
+	la := netlink.NewLinkAttrs()
+	la.Name = "cilium-dummy"
+
+	dummy := &netlink.Dummy{LinkAttrs: la}
+	if err := netlink.LinkAdd(dummy); err != nil {
+		return fmt.Errorf("failed to add dummy link: %w", err)
+	}
+
+	neigh := netlink.Neigh{
+		LinkIndex: dummy.Index,
+		IP:        net.IPv4(10, 1, 1, 1),
+		Flags:     netlink.NTF_EXT_LEARNED,
+		FlagsExt:  netlink.NTF_EXT_MANAGED,
+	}
+
+	if err := netlink.NeighAdd(&neigh); err != nil {
+		return fmt.Errorf("failed to add neighbor: %w", err)
+	}
+
+	nl, err := netlink.NeighList(dummy.Index, 0)
+	if err != nil {
+		return fmt.Errorf("failed to list neighbors: %w", err)
+	}
+
+	for _, n := range nl {
+		if n.IP.Equal(neigh.IP) && n.Flags == netlink.NTF_EXT_LEARNED && n.FlagsExt == netlink.NTF_EXT_MANAGED {
+			log.Info("Using Managed Neighbor Kernel support")
+			option.Config.ARPPingKernelManaged = true
+			break
+		}
+	}
+
+	netns.Set(oldns)
+	return nil
 }
 
 func probeCgroupSupportTCP(strict, ipv4 bool) error {

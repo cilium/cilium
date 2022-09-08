@@ -402,7 +402,9 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
-	probeManagedNeighborSupport()
+	if err := probeManagedNeighborSupport(); err != nil {
+		log.WithError(err).Warn("Unable to probe managed neighbor kernel support")
+	}
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
