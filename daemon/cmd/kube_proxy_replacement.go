@@ -361,22 +361,6 @@ func probeKubeProxyReplacementOptions() error {
 	return nil
 }
 
-func probeManagedNeighborSupport() {
-	if option.Config.DryMode {
-		return
-	}
-
-	// Probes for kernel commit:
-	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
-	// This is a bit of a workaround given feature probing for netlink
-	// neighboring subsystem is cumbersome. The commit was added in the
-	// same release as managed neighbors, that is, 5.16+.
-	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
-		log.Info("Using Managed Neighbor Kernel support")
-		option.Config.ARPPingKernelManaged = true
-	}
-}
-
 func probeCgroupSupportTCP(ipv4 bool) error {
 	var err error
 

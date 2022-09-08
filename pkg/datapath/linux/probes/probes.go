@@ -59,6 +59,9 @@ func init() {
 	}
 }
 
+// ErrNotSupported indicates that a feature is not supported by the current kernel.
+var ErrNotSupported = errors.New("not supported")
+
 // KernelParam is a type based on string which represents CONFIG_* kernel
 // parameters which usually have values "y", "n" or "m".
 type KernelParam string
