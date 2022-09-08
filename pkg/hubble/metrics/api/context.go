@@ -40,6 +40,10 @@ const (
 	// purpose. It uses "reserved:kube-apiserver" label if it's present in the identity label list.
 	// Otherwise, it uses the first label in the identity label list with "reserved:" prefix.
 	ContextReservedIdentity
+	// ContextWorkloadName uses the pod's workload name for identification.
+	ContextWorkloadName
+	// ContextApp uses the pod's app label for identification.
+	ContextApp
 )
 
 // ContextOptionsHelp is the help text for context options
@@ -47,7 +51,7 @@ const ContextOptionsHelp = `
  sourceContext          ::= identifier , { "|", identifier }
  destinationContext     ::= identifier , { "|", identifier }
  labels                 ::= label , { ",", label }
- identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity
+ identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity | workload-name | app
  label                  ::= source_pod | source_namespace | source_workload | source_app | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 
@@ -99,6 +103,10 @@ func (c ContextIdentifier) String() string {
 		return "ip"
 	case ContextReservedIdentity:
 		return "reserved-identity"
+	case ContextWorkloadName:
+		return "workload-name"
+	case ContextApp:
+		return "app"
 	}
 	return fmt.Sprintf("%d", c)
 }
@@ -142,6 +150,10 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextIP, nil
 	case "reserved-identity":
 		return ContextReservedIdentity, nil
+	case "workload-name":
+		return ContextWorkloadName, nil
+	case "app":
+		return ContextApp, nil
 	default:
 		return ContextDisabled, fmt.Errorf("unknown context '%s'", s)
 	}
@@ -403,6 +415,13 @@ func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source b
 		}
 	case ContextReservedIdentity:
 		labelValue = handleReservedIdentityLabels(ep.GetLabels())
+
+	case ContextWorkloadName:
+		if workloads := ep.GetWorkloads(); len(workloads) != 0 {
+			labelValue = workloads[0].Name
+		}
+	case ContextApp:
+		labelValue = getK8sAppFromLabels(ep.GetLabels())
 	}
 	return labelValue
 }
