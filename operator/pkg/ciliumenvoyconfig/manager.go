@@ -58,6 +58,10 @@ func (m *Manager) OnDeleteService(service *slim_corev1.Service) error {
 	return nil
 }
 
+func (m *Manager) MarkSynced() {
+	m.envoyConfigManager.MarkSynced()
+}
+
 // Run kicks off the controlled loop
 func (m *Manager) Run(ctx context.Context) {
 	defer m.queue.ShutDown()

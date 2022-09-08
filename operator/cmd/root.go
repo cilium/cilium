@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
-
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
@@ -703,6 +702,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 				"Failed to create gateway controller")
 		}
 		go gatewayController.Run()
+	}
+
+	if operatorOption.Config.LoadBalancerL7 == "envoy" {
+		log.Info("Starting Envoy load balancer controller")
+		operatorWatchers.StartCECController(legacy.ctx, legacy.clientset, legacy.resources.Services)
 	}
 
 	log.Info("Initialization complete")
