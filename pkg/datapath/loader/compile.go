@@ -226,9 +226,6 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	}
 
 	linkArgs := make([]string, 0, 8)
-	if debug {
-		linkArgs = append(linkArgs, "-mattr=dwarfris")
-	}
 	linkArgs = append(linkArgs, standardLDFlags...)
 	linkArgs = append(linkArgs, "-mcpu="+GetBPFCPU())
 	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
