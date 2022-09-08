@@ -1477,7 +1477,7 @@ monitor:
   enabled: false
 
 # -- Configure service load balancing
-# loadBalancer:
+loadBalancer:
   # -- standalone enables the standalone L4LB which does not connect to
   # kube-apiserver.
   # standalone: false
@@ -1501,6 +1501,18 @@ monitor:
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
   # serviceTopology: false
+
+  # -- L7 LoadBalancer
+  l7:
+    # -- Enable L7 service load balancing via envoy proxy.
+    # The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol,
+    # will be forwarded to the local backend proxy to be load balanced to the service endpoints.
+    # Please refer to docs for supported annotations for more configuration.
+    #
+    # Applicable values:
+    #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
+    #   - disabled: Disable L7 load balancing.
+    backend: disabled
 
 # -- Configure N-S k8s service loadbalancing
 nodePort:

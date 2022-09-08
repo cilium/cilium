@@ -56,3 +56,7 @@ func (em *envoyConfigManager) getByKey(key string) (*v2.CiliumEnvoyConfig, bool,
 	}
 	return envoyConfig, exists, err
 }
+
+func (em *envoyConfigManager) MarkSynced() {
+	em.informer.HasSynced()
+}
