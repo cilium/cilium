@@ -113,7 +113,7 @@ func (t MapType) requiresPreallocation() bool {
 }
 
 // DesiredAction is the action to be performed on the BPF map
-type DesiredAction int
+type DesiredAction uint8
 
 const (
 	// OK indicates that to further action is required and the entry is in
