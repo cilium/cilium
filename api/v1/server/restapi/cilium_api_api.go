@@ -135,6 +135,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		DaemonGetMapNameHandler: daemon.GetMapNameHandlerFunc(func(params daemon.GetMapNameParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetMapName has not yet been implemented")
 		}),
+		DaemonGetMapNameEventsHandler: daemon.GetMapNameEventsHandlerFunc(func(params daemon.GetMapNameEventsParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetMapNameEvents has not yet been implemented")
+		}),
 		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
 			return middleware.NotImplemented("operation metrics.GetMetrics has not yet been implemented")
 		}),
@@ -286,6 +289,8 @@ type CiliumAPIAPI struct {
 	DaemonGetMapHandler daemon.GetMapHandler
 	// DaemonGetMapNameHandler sets the operation handler for the get map name operation
 	DaemonGetMapNameHandler daemon.GetMapNameHandler
+	// DaemonGetMapNameEventsHandler sets the operation handler for the get map name events operation
+	DaemonGetMapNameEventsHandler daemon.GetMapNameEventsHandler
 	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
@@ -484,6 +489,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.DaemonGetMapNameHandler == nil {
 		unregistered = append(unregistered, "daemon.GetMapNameHandler")
+	}
+	if o.DaemonGetMapNameEventsHandler == nil {
+		unregistered = append(unregistered, "daemon.GetMapNameEventsHandler")
 	}
 	if o.MetricsGetMetricsHandler == nil {
 		unregistered = append(unregistered, "metrics.GetMetricsHandler")
@@ -744,6 +752,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/map/{name}"] = daemon.NewGetMapName(o.context, o.DaemonGetMapNameHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/map/{name}/events"] = daemon.NewGetMapNameEvents(o.context, o.DaemonGetMapNameEventsHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
