@@ -235,6 +235,32 @@ func Test_reservedIdentityContext(t *testing.T) {
 	}), []string{"reserved:host", "reserved:remote-node"})
 }
 
+func Test_workloadNameContext(t *testing.T) {
+	opts, err := ParseContextOptions(Options{"sourceContext": "workload-name", "destinationContext": "workload-name"})
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Workloads: []*pb.Workload{{Name: "foo-deploy", Kind: "Deployment"}}},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Workloads: []*pb.Workload{{Name: "bar-deploy", Kind: "Deployment"}}},
+	}), []string{"foo-deploy", "bar-deploy"})
+}
+
+func Test_appContext(t *testing.T) {
+	opts, err := ParseContextOptions(Options{"sourceContext": "app", "destinationContext": "app"})
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod"},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod"}}), []string{"", ""})
+	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
+		Source:      &pb.Endpoint{Namespace: "foo-ns", PodName: "foo-deploy-pod", Labels: []string{"k8s:app=fooapp"}},
+		Destination: &pb.Endpoint{Namespace: "bar-ns", PodName: "bar-deploy-pod", Labels: []string{"k8s:app=barapp"}},
+	}), []string{"fooapp", "barapp"})
+}
+
 func Test_labelsSetString(t *testing.T) {
 	tests := []struct {
 		name   string
