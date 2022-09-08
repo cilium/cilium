@@ -407,7 +407,7 @@ fi
 #     [ERROR SystemVerification]: unsupported kernel release: 5.0.0-rc6+
 case $K8S_VERSION in
     "1.16")
-        KUBERNETES_CNI_VERSION="0.7.5"
+        KUBERNETES_CNI_VERSION="0.8.7"
         K8S_FULL_VERSION="1.16.15"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
         KUBEADM_WORKER_OPTIONS="--token=$TOKEN --discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification,swap"
