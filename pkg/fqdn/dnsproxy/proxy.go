@@ -378,11 +378,13 @@ func (e ErrTimedOutAcquireSemaphore) Error() string {
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
+	TotalTime      spanstat.SpanStat
 	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
 	// Error is a enum of [timeout, allow, denied, proxyerr].
 	UpstreamTime         spanstat.SpanStat
 	SemaphoreAcquireTime spanstat.SpanStat
 	PolicyCheckTime      spanstat.SpanStat
+	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
 	Success              bool
 	Err                  error
@@ -580,6 +582,8 @@ func setSoMark(fd int, secId identity.NumericIdentity) error {
 //  fqdn/NameManager instance).
 //  - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
+	var stat ProxyRequestContext
+	stat.TotalTime.Start()
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()
@@ -590,7 +594,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.DNSRequestID: requestID,
 	})
 
-	var stat ProxyRequestContext
 	if p.ConcurrencyLimit != nil {
 		// TODO: Consider plumbing the daemon context here.
 		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
