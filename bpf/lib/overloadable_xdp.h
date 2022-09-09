@@ -152,17 +152,12 @@ ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
 		   __u32 dstid __maybe_unused,
 		   __u32 vni __maybe_unused, __u32 *ifindex __maybe_unused)
 {
-/* needs more work in the callers: */
-#ifdef TUNNEL_MODE
-	return DROP_INVALID;
-#else
 	ctx_store_meta(ctx, CB_ENCAP_NODEID, bpf_ntohl(node_id));
 	ctx_store_meta(ctx, CB_ENCAP_SECLABEL, seclabel);
 	ctx_store_meta(ctx, CB_ENCAP_DSTID, dstid);
 	ctx_set_xfer(ctx, XFER_PKT_ENCAP);
 
 	return CTX_ACT_OK;
-#endif /* TUNNEL_MODE */
 }
 #endif /* HAVE_ENCAP */
 

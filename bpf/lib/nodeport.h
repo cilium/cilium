@@ -615,6 +615,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	int verdict = CTX_ACT_REDIRECT;
 	bool l2_hdr_required = true;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -646,11 +647,12 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
 					  &fib_params.l.ifindex);
-		if (ret != CTX_ACT_REDIRECT)
+		if (IS_ERR(ret))
 			goto drop_err;
 
 		BPF_V6(target.addr, ROUTER_IP);
 		use_tunnel = true;
+		verdict = ret;
 	}
 #endif
 	ret = snat_v6_nat(ctx, &target);
@@ -710,7 +712,12 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 	}
 out_send:
 	cilium_capture_out(ctx);
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+	if (verdict == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+	ctx_move_xfer(ctx);
+	return verdict;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
@@ -1678,6 +1685,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	int verdict = CTX_ACT_REDIRECT;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	bool l2_hdr_required = true;
@@ -1719,11 +1727,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 					  (enum trace_reason)CT_NEW,
 					  TRACE_PAYLOAD_LEN,
 					  &fib_params.l.ifindex);
-		if (ret != CTX_ACT_REDIRECT)
+		if (IS_ERR(ret))
 			goto drop_err;
 
 		target.addr = IPV4_GATEWAY;
 		use_tunnel = true;
+		verdict = ret;
 	}
 #endif
 	ret = snat_v4_nat(ctx, &target, false);
@@ -1768,7 +1777,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 
 out_send:
 	cilium_capture_out(ctx);
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+	if (verdict == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+
+	ctx_move_xfer(ctx);
+	return verdict;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
