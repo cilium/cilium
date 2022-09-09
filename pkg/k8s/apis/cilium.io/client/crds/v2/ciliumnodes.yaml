@@ -21,7 +21,20 @@ spec:
     singular: ciliumnode
   scope: Cluster
   versions:
-  - name: v2
+  - additionalPrinterColumns:
+    - description: Cilium internal IP for this node
+      jsonPath: .spec.addresses[?(@.type=="CiliumInternalIP")].ip
+      name: CiliumInternalIP
+      type: string
+    - description: IP of the node
+      jsonPath: .spec.addresses[?(@.type=="InternalIP")].ip
+      name: InternalIP
+      type: string
+    - description: Time duration since creation of Ciliumnode
+      jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2
     schema:
       openAPIV3Schema:
         description: CiliumNode represents a node managed by Cilium. It contains a

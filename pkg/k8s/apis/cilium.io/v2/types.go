@@ -311,6 +311,9 @@ type CiliumEndpointList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"CiliumInternalIP\")].ip",description="Cilium internal IP for this node",name="CiliumInternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"InternalIP\")].ip",description="IP of the node",name="InternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="Time duration since creation of Ciliumnode",name="Age",type=date
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 
