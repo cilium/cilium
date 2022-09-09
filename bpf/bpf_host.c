@@ -1135,7 +1135,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
 
-#if defined(ENABLE_NODEPORT_ACCELERATION) && defined(ENABLE_EGRESS_GATEWAY)
+#ifdef ENABLE_NODEPORT_ACCELERATION
+#ifdef HAVE_ENCAP
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1151,6 +1152,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
 							NOT_VTEP_DST, &trace);
 	}
+#endif
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
