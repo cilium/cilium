@@ -27,6 +27,11 @@ build_all: force
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
 
+testdata: 
+	${CLANG} ${FLAGS} -target bpf -Wall -Werror \
+	-c ../pkg/alignchecker/testdata/bpf_foo.c \
+	-o ../pkg/alignchecker/testdata/bpf_foo.o
+
 BUILD_PERMUTATIONS ?= ""
 
 BPF_SIMPLE_OPTIONS += \
