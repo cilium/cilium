@@ -140,6 +140,9 @@ type Endpoint struct {
 	// libnetwork
 	dockerEndpointID string
 
+	// netNS is the network namespace of interface, veth doesn't need this
+	netNS string
+
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	ifName string

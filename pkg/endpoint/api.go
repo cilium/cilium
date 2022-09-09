@@ -62,6 +62,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	ep.dockerEndpointID = base.DockerEndpointID
 	ep.K8sPodName = base.K8sPodName
 	ep.K8sNamespace = base.K8sNamespace
+	ep.netNS = base.NetNs
 
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)

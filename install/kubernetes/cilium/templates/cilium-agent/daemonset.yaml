@@ -333,6 +333,9 @@ spec:
           mountPath: /host/opt/cni/bin
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
+        - name: netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
         {{- if .Values.etcd.enabled }}
         - name: etcd-config-path
           mountPath: /var/lib/etcd-config
@@ -745,6 +748,10 @@ spec:
         hostPath:
           path: /run/xtables.lock
           type: FileOrCreate
+      - name: netns
+        hostPath:
+          path: /var/run/netns
+          type: DirectoryOrCreate
       {{- if .Values.kubeConfigPath }}
       - name: kube-config
         hostPath:

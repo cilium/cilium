@@ -64,6 +64,9 @@ type EndpointChangeRequest struct {
 	// MAC address
 	Mac string `json:"mac,omitempty"`
 
+	// Network Namespace
+	NetNs string `json:"net-ns,omitempty"`
+
 	// Process ID of the workload belonging to this endpoint
 	Pid int64 `json:"pid,omitempty"`
 

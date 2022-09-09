@@ -6,6 +6,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"net"
 	"os"
 	"path"
@@ -288,24 +289,27 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
-		if err != nil {
-			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
-				logfields.Veth: ep.InterfaceName(),
-			})
-			// Don't log an error here if the context was canceled or timed out;
-			// this log message should only represent failures with respect to
-			// loading the program.
-			if ctx.Err() == nil {
-				scopedLog.WithError(err).Warn("JoinEP: Failed to attach ingress program")
+		var netNS ns.NetNS
+		var err error
+		if ep.NetNS() != "" {
+			netNS, err = ns.GetNS(ep.NetNS())
+			if err != nil {
+				return fmt.Errorf("failed to open netns %q: %s", ep.NetNS(), err)
 			}
-			return err
+		} else {
+			netNS, err = ns.GetCurrentNS()
+			if err != nil {
+				return fmt.Errorf("failed to open current netns: %s", err)
+			}
 		}
-		defer finalize()
-
-		if ep.RequireEgressProg() {
-			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, "")
+		defer netNS.Close()
+		return netNS.Do(func(_ ns.NetNS) error {
+			var finalize func()
+			if ep.NetNS() != "" {
+				finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirEgress, "")
+			} else {
+				finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
+			}
 			if err != nil {
 				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 					logfields.Path: objPath,
@@ -315,17 +319,39 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 				// this log message should only represent failures with respect to
 				// loading the program.
 				if ctx.Err() == nil {
-					scopedLog.WithError(err).Warn("JoinEP: Failed to attach egress program")
+					scopedLog.WithError(err).Warn("JoinEP: Failed to attach ingress program")
 				}
 				return err
 			}
 			defer finalize()
-		} else {
-			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
-			if err != nil {
-				log.WithField("device", ep.InterfaceName()).Error(err)
+			if ep.RequireEgressProg() {
+				if ep.NetNS() != "" {
+					finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirIngress, "")
+				} else {
+					finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, "")
+				}
+				if err != nil {
+					scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
+						logfields.Path: objPath,
+						logfields.Veth: ep.InterfaceName(),
+					})
+					// Don't log an error here if the context was canceled or timed out;
+					// this log message should only represent failures with respect to
+					// loading the program.
+					if ctx.Err() == nil {
+						scopedLog.WithError(err).Warn("JoinEP: Failed to attach egress program")
+					}
+					return err
+				}
+				defer finalize()
+			} else {
+				err = RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
+				if err != nil {
+					log.WithField("device", ep.InterfaceName()).Error(err)
+				}
 			}
-		}
+			return nil
+		})
 	}
 
 	if ep.RequireEndpointRoute() {

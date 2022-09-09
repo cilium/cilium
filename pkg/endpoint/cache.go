@@ -27,6 +27,7 @@ type epInfoCache struct {
 	epdir  string
 	id     uint64
 	ifName string
+	netNS  string
 
 	// For datapath.EndpointConfiguration
 	identity                               identity.NumericIdentity
@@ -80,6 +81,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		options:                e.Options.DeepCopy(),
 		lxcMAC:                 e.mac,
 		ifIndex:                e.ifIndex,
+		netNS:                  e.netNS,
 
 		endpoint: e,
 	}
@@ -98,6 +100,10 @@ func (ep *epInfoCache) LXCMac() mac.MAC {
 // communicating with the endpoint.
 func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
+}
+
+func (ep *epInfoCache) NetNS() string {
+	return ep.netNS
 }
 
 // GetID returns the endpoint's ID.

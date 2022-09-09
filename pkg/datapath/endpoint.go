@@ -12,4 +12,5 @@ type Endpoint interface {
 	InterfaceName() string
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
+	NetNS() string
 }

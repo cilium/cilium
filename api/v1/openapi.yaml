@@ -1149,6 +1149,9 @@ definitions:
       docker-network-id:
         description: Docker network ID
         type: string
+      net-ns:
+        description: Network Namespace
+        type: string
       interface-name:
         description: Name of network device
         type: string
