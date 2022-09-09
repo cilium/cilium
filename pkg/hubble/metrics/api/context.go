@@ -276,63 +276,8 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 	return outputLabels, nil
 }
 
-func sourceNamespaceContext(flow *pb.Flow) (context string) {
-	if flow.GetSource() != nil {
-		context = flow.GetSource().Namespace
-	}
-	return
-}
-
-func sourceIdentityContext(flow *pb.Flow) (context string) {
-	if flow.GetSource() != nil {
-		context = strings.Join(flow.GetSource().Labels, ",")
-	}
-	return
-}
-
-func sourceReservedIdentityContext(flow *pb.Flow) (context string) {
-	if flow.GetSource() != nil {
-		context = handleReservedIdentityLabels(flow.GetSource().Labels)
-	}
-	return
-}
-
-func sourcePodContext(flow *pb.Flow) (context string) {
-	if flow.GetSource() != nil {
-		context = flow.GetSource().PodName
-		if flow.GetSource().Namespace != "" {
-			context = flow.GetSource().Namespace + "/" + context
-		}
-	}
-	return
-}
-
 func shortenPodName(name string) string {
 	return shortPodPattern.ReplaceAllString(name, "${1}")
-}
-
-func sourcePodShortContext(flow *pb.Flow) (context string) {
-	if flow.GetSource() != nil {
-		context = shortenPodName(flow.GetSource().PodName)
-		if flow.GetSource().Namespace != "" {
-			context = flow.GetSource().Namespace + "/" + context
-		}
-	}
-	return
-}
-
-func sourceDNSContext(flow *pb.Flow) (context string) {
-	if flow.GetSourceNames() != nil {
-		context = strings.Join(flow.GetSourceNames(), ",")
-	}
-	return
-}
-
-func sourceIPContext(flow *pb.Flow) (context string) {
-	if flow.GetIP() != nil {
-		context = flow.GetIP().GetSource()
-	}
-	return
 }
 
 func handleReservedIdentityLabels(lbls []string) string {
@@ -347,61 +292,6 @@ func handleReservedIdentityLabels(lbls []string) string {
 		}
 	}
 	return ""
-}
-
-func destinationNamespaceContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = flow.GetDestination().Namespace
-	}
-	return
-}
-
-func destinationIdentityContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = strings.Join(flow.GetDestination().Labels, ",")
-	}
-	return
-}
-
-func destinationReservedIdentityContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = handleReservedIdentityLabels(flow.GetDestination().Labels)
-	}
-	return
-}
-
-func destinationPodContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = flow.GetDestination().PodName
-		if flow.GetDestination().Namespace != "" {
-			context = flow.GetDestination().Namespace + "/" + context
-		}
-	}
-	return
-}
-
-func destinationPodShortContext(flow *pb.Flow) (context string) {
-	if flow.GetDestination() != nil {
-		context = shortenPodName(flow.GetDestination().PodName)
-		if flow.GetDestination().Namespace != "" {
-			context = flow.GetDestination().Namespace + "/" + context
-		}
-	}
-	return
-}
-
-func destinationDNSContext(flow *pb.Flow) (context string) {
-	if flow.GetDestinationNames() != nil {
-		context = strings.Join(flow.GetDestinationNames(), ",")
-	}
-	return
-}
-
-func destinationIPContext(flow *pb.Flow) (context string) {
-	if flow.GetIP() != nil {
-		context = flow.GetIP().GetDestination()
-	}
-	return
 }
 
 func getK8sAppFromLabels(labels []string) string {
@@ -446,60 +336,22 @@ func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []st
 		labels = append(labels, labelsContextLabels...)
 	}
 
-	var sourceLabel, destinationLabel string
-
-	if len(o.Source) != 0 {
-		var context string
-		for _, source := range o.Source {
-			switch source {
-			case ContextNamespace:
-				context = sourceNamespaceContext(flow)
-			case ContextIdentity:
-				context = sourceIdentityContext(flow)
-			case ContextPod:
-				context = sourcePodContext(flow)
-			case ContextPodShort:
-				context = sourcePodShortContext(flow)
-			case ContextDNS:
-				context = sourceDNSContext(flow)
-			case ContextIP:
-				context = sourceIPContext(flow)
-			case ContextReservedIdentity:
-				context = sourceReservedIdentityContext(flow)
-			}
-			// always use first non-empty context
-			if context != "" {
-				break
-			}
+	var sourceLabel string
+	for _, contextID := range o.Source {
+		sourceLabel = getContextIDLabelValue(contextID, flow, true)
+		// always use first non-empty context
+		if sourceLabel != "" {
+			break
 		}
-		sourceLabel = context
 	}
 
-	if len(o.Destination) != 0 {
-		var context string
-		for _, destination := range o.Destination {
-			switch destination {
-			case ContextNamespace:
-				context = destinationNamespaceContext(flow)
-			case ContextIdentity:
-				context = destinationIdentityContext(flow)
-			case ContextPod:
-				context = destinationPodContext(flow)
-			case ContextPodShort:
-				context = destinationPodShortContext(flow)
-			case ContextDNS:
-				context = destinationDNSContext(flow)
-			case ContextIP:
-				context = destinationIPContext(flow)
-			case ContextReservedIdentity:
-				context = destinationReservedIdentityContext(flow)
-			}
-			// always use first non-empty context
-			if context != "" {
-				break
-			}
+	var destinationLabel string
+	for _, contextID := range o.Destination {
+		destinationLabel = getContextIDLabelValue(contextID, flow, false)
+		// always use first non-empty context
+		if destinationLabel != "" {
+			break
 		}
-		destinationLabel = context
 	}
 
 	if invert {
@@ -511,8 +363,48 @@ func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []st
 	if len(o.Destination) != 0 {
 		labels = append(labels, destinationLabel)
 	}
-
 	return
+}
+
+func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source bool) string {
+	var ep *pb.Endpoint
+	if source {
+		ep = flow.GetSource()
+	} else {
+		ep = flow.GetDestination()
+	}
+	var labelValue string
+	switch contextID {
+	case ContextNamespace:
+		labelValue = ep.GetNamespace()
+	case ContextIdentity:
+		labelValue = strings.Join(ep.GetLabels(), ",")
+	case ContextPod:
+		labelValue = ep.GetPodName()
+		if ep.GetNamespace() != "" {
+			labelValue = ep.GetNamespace() + "/" + labelValue
+		}
+	case ContextPodShort:
+		labelValue = shortenPodName(ep.GetPodName())
+		if ep.GetNamespace() != "" {
+			labelValue = ep.GetNamespace() + "/" + labelValue
+		}
+	case ContextDNS:
+		if source {
+			labelValue = strings.Join(flow.GetSourceNames(), ",")
+		} else {
+			labelValue = strings.Join(flow.GetDestinationNames(), ",")
+		}
+	case ContextIP:
+		if source {
+			labelValue = flow.GetIP().GetSource()
+		} else {
+			labelValue = flow.GetIP().GetDestination()
+		}
+	case ContextReservedIdentity:
+		labelValue = handleReservedIdentityLabels(ep.GetLabels())
+	}
+	return labelValue
 }
 
 // GetLabelNames returns a slice of label names required to fulfil the
