@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
@@ -938,3 +939,6 @@ func allocateFirstFreeCIDR(cidrAllocators []CIDRAllocator) (revertFunc revert.Re
 	})
 	return revertStack.Revert, cidr, err
 }
+
+// SyncNodes do nothing
+func (n *NodesPodCIDRManager) SyncNodes(cache.Store) {}

@@ -63,7 +63,7 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 // Start kicks of ENI allocation, the initial connection to AWS
 // APIs is done in a blocking manner, given that is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, k8sCiliumNodesCacheSynced chan struct{}) (allocator.NodeEventHandler, error) {
 	var iMetrics ipam.MetricsAPI
 
 	log.Info("Starting ENI allocator...")
@@ -81,9 +81,12 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}
 
-	if err := nodeManager.Start(ctx); err != nil {
-		return nil, err
-	}
+	go func() {
+		<-k8sCiliumNodesCacheSynced
+		if err := nodeManager.Start(ctx); err != nil {
+			log.WithError(err).Fatal("Unable to start node manager")
+		}
+	}()
 
 	return nodeManager, nil
 }

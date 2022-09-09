@@ -28,7 +28,7 @@ type AllocatorAzure struct{}
 func (*AllocatorAzure) Init(ctx context.Context) error { return nil }
 
 // Start kicks of the Azure IP allocation
-func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, k8sCiliumNodesCacheSynced chan struct{}) (allocator.NodeEventHandler, error) {
 
 	var (
 		azMetrics azureAPI.MetricsAPI
@@ -83,9 +83,12 @@ func (*AllocatorAzure) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 		return nil, fmt.Errorf("unable to initialize Azure node manager: %w", err)
 	}
 
-	if err := nodeManager.Start(ctx); err != nil {
-		return nil, err
-	}
+	go func() {
+		<-k8sCiliumNodesCacheSynced
+		if err := nodeManager.Start(ctx); err != nil {
+			log.WithError(err).Fatal("Unable to start node manager")
+		}
+	}()
 
 	return nodeManager, nil
 }

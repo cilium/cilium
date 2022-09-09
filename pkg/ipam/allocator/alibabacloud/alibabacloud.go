@@ -77,7 +77,7 @@ func (a *AllocatorAlibabaCloud) Init(ctx context.Context) error {
 // Start kicks off ENI allocation, the initial connection to AlibabaCloud
 // APIs is done in a blocking manner. Provided this is successful, a controller is
 // started to manage allocation based on CiliumNode custom resources
-func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
+func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.CiliumNodeGetterUpdater, k8sCiliumNodesCacheSynced chan struct{}) (allocator.NodeEventHandler, error) {
 	var iMetrics ipam.MetricsAPI
 
 	log.Info("Starting AlibabaCloud ENI allocator...")
@@ -94,9 +94,12 @@ func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater ipam.Ci
 		return nil, fmt.Errorf("unable to initialize AlibabaCloud node manager: %w", err)
 	}
 
-	if err := nodeManager.Start(ctx); err != nil {
-		return nil, err
-	}
+	go func() {
+		<-k8sCiliumNodesCacheSynced
+		if err := nodeManager.Start(ctx); err != nil {
+			log.WithError(err).Fatal("Unable to start node manager")
+		}
+	}()
 
 	return nodeManager, nil
 }

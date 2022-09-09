@@ -12,12 +12,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/controller"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -277,12 +279,11 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 		}
 	}()
 	if !ok {
-		node = &Node{
-			name:                resource.Name,
-			manager:             n,
-			ipsMarkedForRelease: make(map[string]time.Time),
-			ipReleaseStatus:     make(map[string]string),
-			logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+		var err error
+		node, err = n.makeNode(resource)
+		if err != nil {
+			nodeSynced = false
+			return false
 		}
 
 		if !n.instancesAPI.HasInstance(resource.InstanceID()) {
@@ -291,50 +292,6 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 			}
 		}
 
-		node.ops = n.instancesAPI.CreateNode(resource, node)
-
-		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
-			Name:            fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
-			MinInterval:     10 * time.Millisecond,
-			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
-			TriggerFunc: func(reasons []string) {
-				if err := node.MaintainIPPool(context.TODO()); err != nil {
-					node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
-				}
-			},
-		})
-		if err != nil {
-			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
-			return false
-		}
-
-		retry, err := trigger.NewTrigger(trigger.Parameters{
-			Name:        fmt.Sprintf("ipam-pool-maintainer-%s-retry", resource.Name),
-			MinInterval: time.Minute, // large minimal interval to not retry too often
-			TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
-		})
-		if err != nil {
-			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
-			return false
-		}
-		node.retry = retry
-
-		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
-			Name:            fmt.Sprintf("ipam-node-k8s-sync-%s", resource.Name),
-			MinInterval:     10 * time.Millisecond,
-			MetricsObserver: n.metricsAPI.K8sSyncTrigger(),
-			TriggerFunc: func(reasons []string) {
-				node.syncToAPIServer()
-			},
-		})
-		if err != nil {
-			poolMaintainer.Shutdown()
-			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
-			return false
-		}
-
-		node.poolMaintainer = poolMaintainer
-		node.k8sSync = k8sSync
 		n.nodes[node.name] = node
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
 	}
@@ -487,4 +444,78 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	for poolID, quota := range n.instancesAPI.GetPoolQuota() {
 		n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)
 	}
+}
+
+// SyncNodes update n.nodes from ciliumNodeStore
+func (n *NodeManager) SyncNodes(ciliumNodeStore cache.Store) {
+	ciliumNodes := ciliumNodeStore.List()
+	for _, obj := range ciliumNodes {
+		ciliumNode, ok := obj.(*v2.CiliumNode)
+		if !ok {
+			continue
+		}
+		node, err := n.makeNode(ciliumNode)
+		if err != nil {
+			log.WithField(logfields.NodeName, node.name).WithError(err).Warning("Failed to make node")
+			continue
+		}
+		node.resource = ciliumNode.DeepCopy()
+		n.nodes[node.name] = node
+	}
+}
+
+// makeNode create node from v2.CiliumNode resource
+func (n *NodeManager) makeNode(resource *v2.CiliumNode) (*Node, error) {
+	node := &Node{
+		name:                resource.Name,
+		manager:             n,
+		ipsMarkedForRelease: make(map[string]time.Time),
+		ipReleaseStatus:     make(map[string]string),
+		logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+	}
+
+	node.ops = n.instancesAPI.CreateNode(resource, node)
+
+	poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
+		Name:            fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
+		MinInterval:     10 * time.Millisecond,
+		MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
+		TriggerFunc: func(reasons []string) {
+			if err := node.MaintainIPPool(context.TODO()); err != nil {
+				node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
+			}
+		},
+	})
+	if err != nil {
+		node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
+		return nil, err
+	}
+
+	retry, err := trigger.NewTrigger(trigger.Parameters{
+		Name:        fmt.Sprintf("ipam-pool-maintainer-%s-retry", resource.Name),
+		MinInterval: time.Minute, // large minimal interval to not retry too often
+		TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
+	})
+	if err != nil {
+		node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
+		return nil, err
+	}
+	node.retry = retry
+
+	k8sSync, err := trigger.NewTrigger(trigger.Parameters{
+		Name:            fmt.Sprintf("ipam-node-k8s-sync-%s", resource.Name),
+		MinInterval:     10 * time.Millisecond,
+		MetricsObserver: n.metricsAPI.K8sSyncTrigger(),
+		TriggerFunc: func(reasons []string) {
+			node.syncToAPIServer()
+		},
+	})
+	if err != nil {
+		poolMaintainer.Shutdown()
+		node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
+		return nil, err
+	}
+	node.poolMaintainer = poolMaintainer
+	node.k8sSync = k8sSync
+	return node, nil
 }

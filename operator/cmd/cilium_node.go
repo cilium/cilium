@@ -217,6 +217,9 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
+		if nodeManager != nil {
+			nodeManager.SyncNodes(ciliumNodeStore)
+		}
 		close(k8sCiliumNodesCacheSynced)
 		log.Info("CiliumNodes caches synced with Kubernetes")
 		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
