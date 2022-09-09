@@ -17,6 +17,8 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
+var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
+
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
@@ -250,6 +252,10 @@ const (
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations = "ingress-lb-annotations"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -466,6 +472,10 @@ type OperatorConfig struct {
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition bool
+
+	// IngressLBAnnotations are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	IngressLBAnnotations []string
 }
 
 // Populate sets all options with the values from viper.
@@ -503,6 +513,7 @@ func (c *OperatorConfig) Populate() {
 	c.CiliumPodLabels = viper.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = viper.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = viper.GetBool(SetCiliumIsUpCondition)
+	c.IngressLBAnnotations = viper.GetStringSlice(IngressLBAnnotations)
 
 	c.CiliumK8sNamespace = viper.GetString(CiliumK8sNamespace)
 	if c.CiliumK8sNamespace == "" {

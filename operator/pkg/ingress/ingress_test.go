@@ -12,11 +12,17 @@ import (
 
 var exactPathType = slim_networkingv1.PathTypeExact
 
+var testAnnotations = map[string]string{
+	"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":    "http",
+	"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled":  "true",
+	"service.alpha.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+}
+
 var baseIngress = &slim_networkingv1.Ingress{
 	ObjectMeta: slim_metav1.ObjectMeta{
 		Name:        "dummy-ingress",
 		Namespace:   "dummy-namespace",
-		Annotations: map[string]string{},
+		Annotations: testAnnotations,
 		UID:         "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
 	Spec: slim_networkingv1.IngressSpec{
