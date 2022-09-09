@@ -537,7 +537,7 @@ kind-image-agent: kind-ready ## Build cilium-dev docker image and import it into
 
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: kind-ready ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)$(MAKE) dev-docker-operator-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
+	$(QUIET)$(MAKE) dev-docker-operator-generic-image DOCKER_IMAGE_TAG=$(LOCAL_IMAGE_TAG)
 	@echo "  DEPLOY image to kind ($(LOCAL_OPERATOR_IMAGE))"
 	$(QUIET)$(CONTAINER_ENGINE) push $(LOCAL_OPERATOR_IMAGE)
 	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
