@@ -1,30 +1,22 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-/* Ensure declaration of notification event types */
 #define DEBUG
 #define TRACE_NOTIFY
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
-#define ENABLE_VTEP
 #define ENABLE_CAPTURE
-#undef ENABLE_ARP_RESPONDER
 
 #include <bpf/ctx/unspec.h>
-#include <bpf/api.h>
 
 #include "node_config.h"
-#include "lib/conntrack.h"
-#include "lib/dbg.h"
-#include "lib/drop.h"
-#include "lib/ipv4.h"
-#define SKIP_UNDEF_LPM_LOOKUP_FN
+#include "lib/common.h"
 #include "lib/maps.h"
+#include "sockops/bpf_sockops.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
 #include "lib/pcap.h"
-#include "sockops/bpf_sockops.h"
 
 struct ipv4_ct_tuple _1;
 struct ipv6_ct_tuple _2;
