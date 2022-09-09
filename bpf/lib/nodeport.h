@@ -600,7 +600,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
-int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
+int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
