@@ -9,6 +9,7 @@ type Options struct {
 	EnforcedHTTPS      bool
 	EnabledSecretsSync bool
 	SecretsNamespace   string
+	LBAnnotations      []string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
@@ -16,6 +17,7 @@ var DefaultIngressOptions = Options{
 	MaxRetries:         10,
 	EnforcedHTTPS:      true,
 	EnabledSecretsSync: true,
+	LBAnnotations:      []string{},
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -49,6 +51,14 @@ func WithSecretsSyncEnabled(enabledSecretsSync bool) Option {
 func WithSecretsNamespace(secretsNamespace string) Option {
 	return func(o *Options) error {
 		o.SecretsNamespace = secretsNamespace
+		return nil
+	}
+}
+
+// WithLBAnnotations configures LB annotations to be used for LB service
+func WithLBAnnotations(lbAnnotations []string) Option {
+	return func(o *Options) error {
+		o.LBAnnotations = lbAnnotations
 		return nil
 	}
 }

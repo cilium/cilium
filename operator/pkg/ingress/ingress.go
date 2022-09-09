@@ -52,11 +52,11 @@ type ingressServiceUpdatedEvent struct {
 // tasks:
 //   - Watch cilium Ingress object
 //   - Manage related child resources for this Ingress
-//   	- Service
-//      - Endpoint
-//      - CiliumEnvoyConfig
+//   - Service
+//   - Endpoint
+//   - CiliumEnvoyConfig
 //   - Manage synced TLS secrets in given namespace
-//		- TLS secrets
+//   - TLS secrets
 type IngressController struct {
 	ingressInformer cache.Controller
 	ingressStore    cache.Store
@@ -72,6 +72,7 @@ type IngressController struct {
 	enforcedHTTPS      bool
 	enabledSecretsSync bool
 	secretsNamespace   string
+	lbAnnotations      []string
 }
 
 // NewIngressController returns a controller for ingress objects having ingressClassName as cilium
@@ -89,6 +90,7 @@ func NewIngressController(options ...Option) (*IngressController, error) {
 		enforcedHTTPS:      opts.EnforcedHTTPS,
 		enabledSecretsSync: opts.EnabledSecretsSync,
 		secretsNamespace:   opts.SecretsNamespace,
+		lbAnnotations:      opts.LBAnnotations,
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.WatcherClient().NetworkingV1().RESTClient(), "ingresses", corev1.NamespaceAll, fields.Everything()),
@@ -327,7 +329,7 @@ func getIngressKeyForService(service *slim_corev1.Service) string {
 }
 
 func (ic *IngressController) createLoadBalancer(ingress *slim_networkingv1.Ingress) error {
-	svc := getServiceForIngress(ingress)
+	svc := getServiceForIngress(ingress, ic.lbAnnotations)
 	svcKey, err := cache.MetaNamespaceKeyFunc(svc)
 	if err != nil {
 		log.Warn("Failed to get service key for ingress")

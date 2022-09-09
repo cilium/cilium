@@ -136,7 +136,7 @@ func Test_getServiceForIngress(t *testing.T) {
 		ingress := baseIngress.DeepCopy()
 		ingress.Spec.TLS = nil
 
-		res := getServiceForIngress(ingress)
+		res := getServiceForIngress(ingress, []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"})
 		assert.Equal(t, "cilium-ingress-dummy-ingress", res.Name)
 		assert.Equal(t, "dummy-namespace", res.Namespace)
 		assert.Equal(t, []metav1.OwnerReference{
@@ -158,6 +158,10 @@ func Test_getServiceForIngress(t *testing.T) {
 			},
 			Type: v1.ServiceTypeLoadBalancer,
 		}, res.Spec)
+		assert.Equal(t, map[string]string{
+			"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":   "http",
+			"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+		}, res.Annotations)
 	})
 
 	t.Run("with TLS", func(t *testing.T) {
@@ -169,7 +173,7 @@ func Test_getServiceForIngress(t *testing.T) {
 			},
 		}
 
-		res := getServiceForIngress(ingress)
+		res := getServiceForIngress(ingress, []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"})
 		assert.Equal(t, "cilium-ingress-dummy-ingress", res.Name)
 		assert.Equal(t, "dummy-namespace", res.Namespace)
 		assert.Equal(t, []metav1.OwnerReference{
@@ -196,6 +200,10 @@ func Test_getServiceForIngress(t *testing.T) {
 			},
 			Type: v1.ServiceTypeLoadBalancer,
 		}, res.Spec)
+		assert.Equal(t, map[string]string{
+			"service.beta.kubernetes.io/dummy-load-balancer-backend-protocol":   "http",
+			"service.beta.kubernetes.io/dummy-load-balancer-access-log-enabled": "true",
+		}, res.Annotations)
 	})
 }
 
