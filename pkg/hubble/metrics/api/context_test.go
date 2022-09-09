@@ -236,3 +236,59 @@ func Test_reservedIdentityContext(t *testing.T) {
 		Destination: &pb.Endpoint{Labels: []string{"c", "d", "reserved:remote-node"}},
 	}), []string{"reserved:host", "reserved:remote-node"})
 }
+
+func Test_labelsSetString(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels []string
+		want   string
+	}{
+		{
+			name:   "nil",
+			labels: nil,
+			want:   "",
+		},
+		{
+			name:   "empty",
+			labels: []string{},
+			want:   "",
+		},
+		{
+			// NOTE: "invalid" is not in the contextLabelsList slice and thus
+			// should be filtered out.
+			name:   "invalid",
+			labels: []string{"invalid"},
+			want:   "",
+		},
+		{
+			name:   "single",
+			labels: []string{"source_pod"},
+			want:   "source_pod",
+		},
+		{
+			name:   "duplicated",
+			labels: []string{"source_pod", "source_pod"},
+			want:   "source_pod",
+		},
+		{
+			name:   "two",
+			labels: []string{"source_pod", "source_namespace"},
+			want:   "source_pod,source_namespace",
+		},
+		{
+			// NOTE: although implemented with a Go map, (labelsSet).String
+			// should consistently output in the order defined by the
+			// contextLabelsList slice.
+			name:   "three",
+			labels: []string{"traffic_direction", "destination_pod", "source_app"},
+			want:   "source_app,destination_pod,traffic_direction",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newLabelsSet(tt.labels)
+			assert.Equal(t, tt.want, s.String())
+		})
+	}
+}

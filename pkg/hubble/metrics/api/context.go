@@ -216,12 +216,12 @@ func (ls labelsSet) HasLabel(label string) bool {
 func (ls labelsSet) String() string {
 	var b strings.Builder
 	// output the labels in a consistent order
-	for i, label := range contextLabelsList {
+	for _, label := range contextLabelsList {
 		if ls.HasLabel(label) {
-			b.WriteString(label)
-			if i < len(ls)-1 {
+			if b.Len() > 0 {
 				b.WriteString(",")
 			}
+			b.WriteString(label)
 		}
 	}
 	return b.String()
