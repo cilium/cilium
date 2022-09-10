@@ -183,7 +183,7 @@ func newClient(namespace, k8sVersion string) (*action.Install, error) {
 	return helmClient, nil
 }
 
-func newChartFromCiliumVersion(ciliumVersion semver2.Version) (*chart.Chart, error) {
+func newChartFromEmbeddedFile(ciliumVersion semver2.Version) (*chart.Chart, error) {
 	helmTgz, err := helm.HelmFS.ReadFile(fmt.Sprintf("cilium-%s.tgz", ciliumVersion))
 	if err != nil {
 		return nil, fmt.Errorf("cilium version not found: %s", err)
@@ -216,7 +216,7 @@ func GenManifests(
 			return nil, err
 		}
 	} else {
-		helmChart, err = newChartFromCiliumVersion(ciliumVer)
+		helmChart, err = newChartFromEmbeddedFile(ciliumVer)
 		if err != nil {
 			return nil, err
 		}
@@ -332,7 +332,7 @@ func ResolveHelmChartVersion(versionFlag, chartDirectoryFlag string) (semver2.Ve
 		if err != nil {
 			return semver2.Version{}, err
 		}
-		if _, err = newChartFromCiliumVersion(version); err != nil {
+		if _, err = newChartFromEmbeddedFile(version); err != nil {
 			return semver2.Version{}, err
 		}
 		return version, nil
