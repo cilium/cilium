@@ -159,23 +159,21 @@ var (
 // GetBPFCPU returns the BPF CPU for this host.
 func GetBPFCPU() string {
 	probeCPUOnce.Do(func() {
-		if !option.Config.DryMode {
-			// We can probe the availability of BPF instructions indirectly
-			// based on what kernel helpers are available when both were
-			// added in the same release.
-			// We want to enable v3 only on kernels 5.10+ where we have
-			// tested it and need it to work around complexity issues.
-			if probes.HaveV3ISA() == nil {
-				if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
-					nameBPFCPU = "v3"
-					return
-				}
+		// We can probe the availability of BPF instructions indirectly
+		// based on what kernel helpers are available when both were
+		// added in the same release.
+		// We want to enable v3 only on kernels 5.10+ where we have
+		// tested it and need it to work around complexity issues.
+		if probes.HaveV3ISA() == nil {
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
+				nameBPFCPU = "v3"
+				return
 			}
-			// We want to enable v2 on all kernels that support it, that is,
-			// kernels 4.14+.
-			if probes.HaveV2ISA() == nil {
-				nameBPFCPU = "v2"
-			}
+		}
+		// We want to enable v2 on all kernels that support it, that is,
+		// kernels 4.14+.
+		if probes.HaveV2ISA() == nil {
+			nameBPFCPU = "v2"
 		}
 	})
 	return nameBPFCPU

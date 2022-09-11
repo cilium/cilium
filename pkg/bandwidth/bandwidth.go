@@ -38,10 +38,6 @@ func GetBytesPerSec(bandwidth string) (uint64, error) {
 }
 
 func ProbeBandwidthManager() {
-	if option.Config.DryMode {
-		return
-	}
-
 	// We at least need 5.1 kernel for native TCP EDT integration
 	// and writable queue_mapping that we use. Below helper is
 	// available for 5.1 kernels and onwards.
@@ -75,7 +71,7 @@ func ProbeBandwidthManager() {
 }
 
 func InitBandwidthManager() {
-	if option.Config.DryMode || !option.Config.EnableBandwidthManager {
+	if !option.Config.EnableBandwidthManager {
 		return
 	}
 

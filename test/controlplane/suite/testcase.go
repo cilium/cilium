@@ -113,7 +113,6 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 
 	agentOption.Config.Populate(agentCmd.Vp)
 	agentOption.Config.IdentityAllocationMode = agentOption.IdentityAllocationModeCRD
-	agentOption.Config.DryMode = true
 	agentOption.Config.IPAM = ipamOption.IPAMKubernetes
 	agentOption.Config.Opts = agentOption.NewIntOptions(&agentOption.DaemonMutableOptionLibrary)
 	agentOption.Config.Opts.SetBool(agentOption.DropNotify, true)

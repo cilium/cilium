@@ -166,11 +166,9 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		err               error
 	)
 
-	if !option.Config.DryMode {
-		existingEndpoints, err = lxcmap.DumpToMap()
-		if err != nil {
-			log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
-		}
+	existingEndpoints, err = lxcmap.DumpToMap()
+	if err != nil {
+		log.WithError(err).Warning("Unable to open endpoint map while restoring. Skipping cleanup of endpoint map on startup")
 	}
 
 	for _, ep := range state.possible {

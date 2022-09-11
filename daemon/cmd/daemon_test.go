@@ -83,7 +83,6 @@ func TestMain(m *testing.M) {
 	// run.
 	option.Config.Populate(Vp)
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
-	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
 	// GetConfig the default labels prefix filter
 	err := labelsfilter.ParseLabelPrefixCfg(nil, "")

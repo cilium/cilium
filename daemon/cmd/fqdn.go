@@ -325,7 +325,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// Do not start the proxy in dry mode or if L7 proxy is disabled.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
-	if option.Config.DryMode || !option.Config.EnableL7Proxy {
+	if !option.Config.EnableL7Proxy {
 		return nil
 	}
 

@@ -438,9 +438,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	}
 
 	// Keep PolicyMap for this endpoint in sync with desired / realized state.
-	if !option.Config.DryMode {
-		e.syncPolicyMapController()
-	}
+	e.syncPolicyMapController()
 
 	if e.desiredPolicy != e.realizedPolicy {
 		// Remove references to the old policy

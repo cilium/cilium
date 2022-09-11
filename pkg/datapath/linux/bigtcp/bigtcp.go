@@ -79,10 +79,6 @@ func setGROGSOMaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 func InitBIGTCP(bigTCPConfig *Configuration) {
 	var err error
 
-	if option.Config.DryMode {
-		return
-	}
-
 	if len(option.Config.GetDevices()) == 0 {
 		if option.Config.EnableIPv6BIGTCP {
 			log.Warn("IPv6 BIG TCP could not detect host devices. Disabling the feature.")

@@ -133,24 +133,22 @@ func CheckMinRequirements() {
 	}
 
 	// bpftool checks
-	if !option.Config.DryMode {
-		probeManager := probes.NewProbeManager()
+	probeManager := probes.NewProbeManager()
 
-		// VTEP integration feature requires kernel 1m large instruction support
-		if option.Config.EnableVTEP {
-			if probes.HaveLargeInstructionLimit() != nil {
-				log.Fatalf("VXLAN Tunnel Endpoint (VTEP) Integration: requires support for large programs (Linux 5.2.0 or newer)")
-			}
+	// VTEP integration feature requires kernel 1m large instruction support
+	if option.Config.EnableVTEP {
+		if probes.HaveLargeInstructionLimit() != nil {
+			log.Fatalf("VXLAN Tunnel Endpoint (VTEP) Integration: requires support for large programs (Linux 5.2.0 or newer)")
 		}
-		if err := probeManager.SystemConfigProbes(); err != nil {
-			errMsg := "BPF system config check: NOT OK."
-			// TODO(brb) warn after GH#14314 has been resolved
-			if !errors.Is(err, probes.ErrKernelConfigNotFound) {
-				log.WithError(err).Warn(errMsg)
-			}
+	}
+	if err := probeManager.SystemConfigProbes(); err != nil {
+		errMsg := "BPF system config check: NOT OK."
+		// TODO(brb) warn after GH#14314 has been resolved
+		if !errors.Is(err, probes.ErrKernelConfigNotFound) {
+			log.WithError(err).Warn(errMsg)
 		}
-		if err := probeManager.CreateHeadersFile(); err != nil {
-			log.WithError(err).Fatal("BPF check: NOT OK.")
-		}
+	}
+	if err := probeManager.CreateHeadersFile(); err != nil {
+		log.WithError(err).Fatal("BPF check: NOT OK.")
 	}
 }

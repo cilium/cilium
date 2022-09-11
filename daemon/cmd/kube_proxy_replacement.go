@@ -215,7 +215,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	}
 
 	if option.Config.EnableNodePort {
-		if !option.Config.DryMode && probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
+		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
 			if strict {
 				return false, fmt.Errorf(msg)
@@ -240,7 +240,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
 
-		if option.Config.EnableMKE && !option.Config.DryMode {
+		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
 				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				if strict {
@@ -254,12 +254,12 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 
 		option.Config.EnableHostServicesPeer = true
-		if option.Config.EnableIPv4 && !option.Config.DryMode {
+		if option.Config.EnableIPv4 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
-		if option.Config.EnableIPv6 && !option.Config.DryMode {
+		if option.Config.EnableIPv6 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
 				option.Config.EnableHostServicesPeer = false
 			}
@@ -300,7 +300,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		return false, err
 	}
 
-	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB && !option.Config.DryMode {
+	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
 		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
 			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
@@ -335,7 +335,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			}
 		}
 
-		if option.Config.EnableRecorder && !option.Config.DryMode {
+		if option.Config.EnableRecorder {
 			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
 				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
@@ -345,7 +345,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&
 				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
-		if option.Config.EnableHealthDatapath && !option.Config.DryMode {
+		if option.Config.EnableHealthDatapath {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
 				option.Config.EnableHealthDatapath = false
 				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
@@ -372,7 +372,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
 			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
-		} else if !option.Config.DryMode {
+		} else {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				option.Config.BPFSocketLBHostnsOnly = false
 				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
@@ -387,10 +387,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 }
 
 func probeManagedNeighborSupport() {
-	if option.Config.DryMode {
-		return
-	}
-
 	// Probes for kernel commit:
 	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
 	// This is a bit of a workaround given feature probing for netlink
@@ -403,10 +399,6 @@ func probeManagedNeighborSupport() {
 }
 
 func probeCgroupSupportTCP(strict, ipv4 bool) error {
-	if option.Config.DryMode {
-		return nil
-	}
-
 	var err error
 
 	if ipv4 {
@@ -431,10 +423,6 @@ func probeCgroupSupportTCP(strict, ipv4 bool) error {
 }
 
 func probeCgroupSupportUDP(strict, ipv4 bool) error {
-	if option.Config.DryMode {
-		return nil
-	}
-
 	var err error
 
 	if ipv4 {
@@ -480,7 +468,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 		return nil
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck && !option.Config.DryMode && !probe.HaveFullLPM() {
+	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
 		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
 			option.EnableSVCSourceRangeCheck)
 		if isKubeProxyReplacementStrict {
@@ -537,7 +525,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
-		(option.Config.DryMode || probes.HaveLargeInstructionLimit() == nil)
+		(probes.HaveLargeInstructionLimit() == nil)
 
 	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
@@ -759,7 +747,7 @@ func hasFullHostReachableServices() bool {
 }
 
 func disableSessionAffinityIfNeeded(strict bool) error {
-	if option.Config.EnableSessionAffinity && !option.Config.DryMode {
+	if option.Config.EnableSessionAffinity {
 		if probes.HaveMapType(ebpf.LRUHash) != nil {
 			msg := "SessionAffinity feature requires BPF LRU maps"
 			if strict {

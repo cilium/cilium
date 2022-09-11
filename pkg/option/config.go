@@ -1307,8 +1307,6 @@ type DaemonConfig struct {
 	Tunnel       string // Tunnel mode
 	TunnelPort   int    // Tunnel port
 
-	DryMode bool // Do not create BPF maps, devices, ..
-
 	// RestoreState enables restoring the state from previous running daemons.
 	RestoreState bool
 

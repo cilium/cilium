@@ -241,27 +241,25 @@ func (d *Daemon) init() error {
 	sockops.SockmapDisable()
 	sockops.SkmsgDisable()
 
-	if !option.Config.DryMode {
-		bandwidth.InitBandwidthManager()
+	bandwidth.InitBandwidthManager()
 
-		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return fmt.Errorf("failed while creating node config header file: %w", err)
-		}
+	if err := d.createNodeConfigHeaderfile(); err != nil {
+		return fmt.Errorf("failed while creating node config header file: %w", err)
+	}
 
-		if option.Config.SockopsEnable {
-			eppolicymap.CreateEPPolicyMap()
-			if err := sockops.SockmapEnable(); err != nil {
-				return fmt.Errorf("failed to enable Sockmap: %w", err)
-			} else if err := sockops.SkmsgEnable(); err != nil {
-				return fmt.Errorf("failed to enable Sockmsg: %w", err)
-			} else {
-				sockmap.SockmapCreate()
-			}
+	if option.Config.SockopsEnable {
+		eppolicymap.CreateEPPolicyMap()
+		if err := sockops.SockmapEnable(); err != nil {
+			return fmt.Errorf("failed to enable Sockmap: %w", err)
+		} else if err := sockops.SkmsgEnable(); err != nil {
+			return fmt.Errorf("failed to enable Sockmsg: %w", err)
+		} else {
+			sockmap.SockmapCreate()
 		}
+	}
 
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
-		}
+	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+		return fmt.Errorf("failed while reinitializing datapath: %w", err)
 	}
 
 	return nil
@@ -524,7 +522,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 	// Collect old CIDR identities
 	var oldNIDs []identity.NumericIdentity
 	var oldIngressIPs []*net.IPNet
-	if option.Config.RestoreState && !option.Config.DryMode {
+	if option.Config.RestoreState {
 		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
 			v := value.(*ipcachemap.RemoteEndpointInfo)
@@ -734,7 +732,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 	// not changing across restarts or that a new service could accidentally
 	// use an existing service ID.
 	// Also, create missing v2 services from the corresponding legacy ones.
-	if option.Config.RestoreState && !option.Config.DryMode {
+	if option.Config.RestoreState {
 		bootstrapStats.restore.Start()
 		if err := d.svc.RestoreServices(); err != nil {
 			log.WithError(err).Warn("Failed to restore services from BPF maps")
@@ -846,10 +844,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup, epMgr *endpointmanag
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
-		if !option.Config.DryMode {
-			if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
-				return nil, restoredEndpoints, err
-			}
+		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+			return nil, restoredEndpoints, err
 		}
 
 		// Launch the K8s node watcher so we can start receiving node events.
@@ -1411,9 +1407,6 @@ func numWorkerThreads() int {
 
 // SendNotification sends an agent notification to the monitor
 func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
-	if option.Config.DryMode {
-		return nil
-	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 

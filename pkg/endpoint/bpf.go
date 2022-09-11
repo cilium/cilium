@@ -199,7 +199,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	if option.Config.DryMode || e.isProxyDisabled() {
+	if e.isProxyDisabled() {
 		return nil, nil, nil
 	}
 
@@ -482,10 +482,6 @@ func (e *Endpoint) addNewRedirects(proxyWaitGroup *completion.WaitGroup) (desire
 
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	if option.Config.DryMode {
-		return nil, nil
-	}
-
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
 	removedRedirects := make(map[string]uint16, len(e.realizedRedirects))
@@ -582,19 +578,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// Also keep track of the regeneration finalization code that can't be
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
-		// Ignore finalizing of proxy state in dry mode.
-		if !option.Config.DryMode {
-			e.finalizeProxyState(regenContext, reterr)
-		}
+		e.finalizeProxyState(regenContext, reterr)
 	}()
 
 	if err != nil {
 		return 0, compilationExecuted, err
-	}
-
-	// No need to compile BPF in dry mode.
-	if option.Config.DryMode {
-		return e.nextPolicyRevision, false, nil
 	}
 
 	// Wait for connection tracking cleaning to complete
@@ -743,45 +731,19 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			if !option.Config.DryMode {
-				ipv4 := option.Config.EnableIPv4
-				ipv6 := option.Config.EnableIPv6
-				exists := ctmap.Exists(nil, ipv4, ipv6)
-				if e.ConntrackLocal() {
-					exists = ctmap.Exists(e, ipv4, ipv6)
-				}
-				if exists {
-					e.scrubIPsInConntrackTable()
-				}
+			ipv4 := option.Config.EnableIPv4
+			ipv6 := option.Config.EnableIPv6
+			exists := ctmap.Exists(nil, ipv4, ipv6)
+			if e.ConntrackLocal() {
+				exists = ctmap.Exists(e, ipv4, ipv6)
+			}
+			if exists {
+				e.scrubIPsInConntrackTable()
 			}
 			close(datapathRegenCtxt.ctCleaned)
 		}()
 	} else {
 		close(datapathRegenCtxt.ctCleaned)
-	}
-
-	// If dry mode is enabled, no further changes to BPF maps are performed
-	if option.Config.DryMode {
-
-		// Compute policy for this endpoint.
-		if err = e.regeneratePolicy(); err != nil {
-			return false, fmt.Errorf("Unable to regenerate policy: %s", err)
-		}
-
-		_ = e.updateAndOverrideEndpointOptions(nil)
-
-		// Dry mode needs Network Policy Updates, but the proxy wait group must
-		// not be initialized, as there is no proxy ACKing the changes.
-		if err, _ = e.updateNetworkPolicy(nil); err != nil {
-			return false, err
-		}
-
-		if err = e.writeHeaderfile(nextDir); err != nil {
-			return false, fmt.Errorf("Unable to write header file: %s", err)
-		}
-
-		log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
-		return false, nil
 	}
 
 	if e.policyMap == nil {

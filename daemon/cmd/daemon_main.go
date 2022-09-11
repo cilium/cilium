@@ -1226,10 +1226,8 @@ func initEnv() {
 	}
 
 	// set rlimit Memlock to INFINITY before creating any bpf resources.
-	if !option.Config.DryMode {
-		if err := rlimit.RemoveMemlock(); err != nil {
-			log.WithError(err).Fatal("unable to set memory resource limits")
-		}
+	if err := rlimit.RemoveMemlock(); err != nil {
+		log.WithError(err).Fatal("unable to set memory resource limits")
 	}
 	linuxdatapath.CheckMinRequirements()
 
@@ -1694,40 +1692,38 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 		ipmasqAgent.Start()
 	}
 
-	if !option.Config.DryMode {
-		go func() {
-			if restoreComplete != nil {
-				<-restoreComplete
-			}
-			d.dnsNameManager.CompleteBootstrap()
+	go func() {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
+		d.dnsNameManager.CompleteBootstrap()
 
-			ms := maps.NewMapSweeper(&EndpointMapManager{
-				EndpointManager: d.endpointManager,
-			})
-			ms.CollectStaleMapGarbage()
-			ms.RemoveDisabledMaps()
+		ms := maps.NewMapSweeper(&EndpointMapManager{
+			EndpointManager: d.endpointManager,
+		})
+		ms.CollectStaleMapGarbage()
+		ms.RemoveDisabledMaps()
 
-			if len(d.restoredCIDRs) > 0 {
-				// Release restored CIDR identities after a grace period (default 10
-				// minutes).  Any identities actually in use will still exist after
-				// this.
-				//
-				// This grace period is needed when running on an external workload
-				// where policy synchronization is not done via k8s. Also in k8s
-				// case it is prudent to allow concurrent endpoint regenerations to
-				// (re-)allocate the restored identities before we release them.
-				time.Sleep(option.Config.IdentityRestoreGracePeriod)
-				log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
+		if len(d.restoredCIDRs) > 0 {
+			// Release restored CIDR identities after a grace period (default 10
+			// minutes).  Any identities actually in use will still exist after
+			// this.
+			//
+			// This grace period is needed when running on an external workload
+			// where policy synchronization is not done via k8s. Also in k8s
+			// case it is prudent to allow concurrent endpoint regenerations to
+			// (re-)allocate the restored identities before we release them.
+			time.Sleep(option.Config.IdentityRestoreGracePeriod)
+			log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
 
-				d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
-				// release the memory held by restored CIDRs
-				d.restoredCIDRs = nil
-			}
-		}()
-		d.endpointManager.Subscribe(d)
-		// Add the endpoint manager unsubscribe as the last step in cleanup
-		defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
-	}
+			d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
+			// release the memory held by restored CIDRs
+			d.restoredCIDRs = nil
+		}
+	}()
+	d.endpointManager.Subscribe(d)
+	// Add the endpoint manager unsubscribe as the last step in cleanup
+	defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
 
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
@@ -2007,22 +2003,20 @@ func initSockmapOption() {
 func initClockSourceOption() {
 	option.Config.ClockSource = option.ClockSourceKtime
 	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
-	if !option.Config.DryMode {
-		hz, err := probes.NewProbeManager().SystemKernelHz()
-		if err != nil {
-			log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
-				option.EnableBPFClockProbe)
-			option.Config.EnableBPFClockProbe = false
-		} else {
-			option.Config.KernelHz = hz
-		}
+	hz, err := probes.NewProbeManager().SystemKernelHz()
+	if err != nil {
+		log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
+			option.EnableBPFClockProbe)
+		option.Config.EnableBPFClockProbe = false
+	} else {
+		option.Config.KernelHz = hz
+	}
 
-		if option.Config.EnableBPFClockProbe {
-			if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
-				t, err := bpf.GetJtime()
-				if err == nil && t > 0 {
-					option.Config.ClockSource = option.ClockSourceJiffies
-				}
+	if option.Config.EnableBPFClockProbe {
+		if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
+			t, err := bpf.GetJtime()
+			if err == nil && t > 0 {
+				option.Config.ClockSource = option.ClockSourceJiffies
 			}
 		}
 	}

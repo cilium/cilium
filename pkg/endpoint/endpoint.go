@@ -1095,9 +1095,7 @@ type DeleteConfig struct {
 func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf DeleteConfig) []error {
 	errors := []error{}
 
-	if !option.Config.DryMode {
-		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
-	}
+	e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
 
 	// Remove policy references from shared policy structures
 	e.desiredPolicy.Detach()
@@ -1149,7 +1147,7 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 
 	if e.ConntrackLocalLocked() {
 		ctmap.CloseLocalMaps(e.conntrackName())
-	} else if !option.Config.DryMode {
+	} else {
 		e.scrubIPsInConntrackTableLocked()
 	}
 
@@ -2148,15 +2146,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	}
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
-	// If dry mode is enabled, no changes to BPF maps are performed
-	if !option.Config.DryMode {
-		if errs2 := lxcmap.DeleteElement(e); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
+	if errs2 := lxcmap.DeleteElement(e); errs2 != nil {
+		errs = append(errs, errs2...)
+	}
 
-		if errs2 := e.deleteMaps(); errs2 != nil {
-			errs = append(errs, errs2...)
-		}
+	if errs2 := e.deleteMaps(); errs2 != nil {
+		errs = append(errs, errs2...)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {

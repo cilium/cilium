@@ -181,9 +181,6 @@ func (mgr *EndpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync
 // InitMetrics hooks the EndpointManager into the metrics subsystem. This can
 // only be done once, globally, otherwise the metrics library will panic.
 func (mgr *EndpointManager) InitMetrics() {
-	if option.Config.DryMode {
-		return
-	}
 	metricsOnce.Do(func() { // Endpoint is a function used to collect this metric. We cannot
 		// increment/decrement a gauge since we invoke Remove gratuitously and that
 		// would result in negative counts.
