@@ -4,6 +4,10 @@
 package ciliumenvoyconfig
 
 import (
+	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -14,6 +18,13 @@ const (
 	lbEnabledAnnotation     = servicePrefixAnnotation + "/lb-l7"
 	lbModeAnnotation        = servicePrefixAnnotation + "/lb-l7-algorithm"
 )
+
+type clusterMutator func(*envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster
+type httpConnectionManagerMutator func(*http_connection_manager_v3.HttpConnectionManager) *http_connection_manager_v3.HttpConnectionManager
+type listenerMutator func(*envoy_config_listener.Listener) *envoy_config_listener.Listener
+type routeMutator func(route *envoy_config_route_v3.Route) *envoy_config_route_v3.Route
+type routeConfigMutator func(*envoy_config_route_v3.RouteConfiguration) *envoy_config_route_v3.RouteConfiguration
+type virtualHostMutator func(*envoy_config_route_v3.VirtualHost) *envoy_config_route_v3.VirtualHost
 
 // IsLBProtocolAnnotationEnabled returns true if the load balancer protocol is enabled
 func IsLBProtocolAnnotationEnabled(obj metav1.Object) bool {
