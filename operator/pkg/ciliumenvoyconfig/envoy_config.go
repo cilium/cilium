@@ -259,7 +259,9 @@ func getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSResource, error
 		},
 	}
 
-	var mutatorFuncs = []httpConnectionManagerMutator{}
+	var mutatorFuncs = []httpConnectionManagerMutator{
+		grpcHttpConnectionManagerMutator(svc),
+	}
 	for _, fn := range mutatorFuncs {
 		connectionManager = fn(connectionManager)
 	}
