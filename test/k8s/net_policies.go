@@ -5,7 +5,6 @@ package k8sTest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sync"
@@ -897,125 +896,6 @@ var _ = SkipDescribeIf(func() bool {
 				err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 				Expect(err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
 			})
-		})
-	})
-
-	Context("GuestBook Examples", func() {
-		var (
-			deployment      = "guestbook_deployment.yaml"
-			redisPolicy     = "guestbook-policy-redis.json"
-			redisPolicyName = "guestbook-policy-redis"
-			webPolicy       = "guestbook-policy-web.yaml"
-			webPolicyName   = "guestbook-policy-web"
-		)
-
-		var ciliumPods []string
-		var err error
-
-		BeforeEach(func() {
-			kubectl.ApplyDefault(helpers.ManifestGet(kubectl.BasePath(), deployment))
-			ciliumPods, err := kubectl.GetCiliumPods()
-			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
-			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
-		})
-
-		getPolicyCmd := func(policy string) string {
-			return fmt.Sprintf("%s=%s %s=%s",
-				helpers.KubectlPolicyNameLabel, policy,
-				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-		}
-
-		AfterEach(func() {
-
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), webPolicy)).ExpectSuccess(
-				"Web policy cannot be deleted")
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), deployment)).ExpectSuccess(
-				"Guestbook deployment cannot be deleted")
-
-			// This policy shouldn't be there, but test can fail before delete
-			// the policy and we want to make sure that it's deleted
-			kubectl.Delete(helpers.ManifestGet(kubectl.BasePath(), redisPolicy))
-			for _, ciliumPod := range ciliumPods {
-				err := kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(webPolicyName))
-				Expect(err).To(
-					BeNil(), "WebPolicy is not deleted")
-
-				err = kubectl.WaitPolicyDeleted(ciliumPod, getPolicyCmd(redisPolicyName))
-				Expect(err).To(
-					BeNil(), "RedisPolicy is not deleted")
-			}
-			ExpectAllPodsTerminated(kubectl)
-		})
-
-		waitforPods := func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=backend", helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "Backend pods are not ready after timeout")
-
-			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=frontend", helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "Frontend pods are not ready after timeout")
-
-			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-master service to be ready")
-
-			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-follower", helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-follower service to be ready")
-		}
-
-		policyCheckStatus := func(policyCheck string) {
-			for _, ciliumPod := range ciliumPods {
-				ExpectWithOffset(1, kubectl.CiliumIsPolicyLoaded(ciliumPod, policyCheck)).To(BeTrue(),
-					"Policy %q is not in cilium pod %s", policyCheck, ciliumPod)
-			}
-		}
-
-		testConnectivitytoRedis := func() {
-			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "app=guestbook")
-			ExpectWithOffset(1, err).To(BeNil(), "Error retrieving web pods")
-			ExpectWithOffset(1, webPods).ShouldNot(BeEmpty(), "Cannot retrieve web pods")
-
-			cmd := helpers.CurlFailNoStats(`"127.0.0.1/guestbook.php?cmd=set&key=messages&value=Hello"`)
-			for pod := range webPods {
-				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Cannot curl webhook frontend of pod %q", pod)
-
-				var response map[string]interface{}
-				err := json.Unmarshal([]byte(res.Stdout()), &response)
-				ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Error parsing JSON response: %s", res.Stdout()))
-			}
-		}
-		It("checks policy example", func() {
-
-			waitforPods()
-
-			By("Apply policy to web")
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), webPolicy),
-				helpers.KubectlApply, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot apply web-policy")
-
-			policyCheck := fmt.Sprintf("%s=%s %s=%s",
-				helpers.KubectlPolicyNameLabel, webPolicyName,
-				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			policyCheckStatus(policyCheck)
-
-			By("Apply policy to Redis")
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
-				helpers.KubectlApply, helpers.HelperTimeout)
-
-			Expect(err).Should(BeNil(), "Cannot apply redis policy")
-
-			policyCheck = fmt.Sprintf("%s=%s %s=%s",
-				helpers.KubectlPolicyNameLabel, redisPolicyName,
-				helpers.KubectlPolicyNameSpaceLabel, helpers.DefaultNamespace)
-			policyCheckStatus(policyCheck)
-
-			testConnectivitytoRedis()
-
-			_, err = kubectl.CiliumPolicyAction(
-				helpers.DefaultNamespace, helpers.ManifestGet(kubectl.BasePath(), redisPolicy),
-				helpers.KubectlDelete, helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Cannot apply redis policy")
 		})
 	})
 
