@@ -35,3 +35,21 @@ func IsLBProtocolAnnotationEnabled(obj metav1.Object) bool {
 func GetLBProtocolModelAnnotation(obj metav1.Object) string {
 	return obj.GetAnnotations()[lbModeAnnotation]
 }
+
+//
+// ClusterMutator functions
+//
+
+//
+// HTTPConnectionManagerMutator functions
+//
+
+// grpcHttpConnectionManagerMutator returns a function that mutates the upgradeConfigs for grpc protocol
+func grpcHttpConnectionManagerMutator(_ metav1.Object) httpConnectionManagerMutator {
+	return func(manager *http_connection_manager_v3.HttpConnectionManager) *http_connection_manager_v3.HttpConnectionManager {
+		manager.UpgradeConfigs = []*http_connection_manager_v3.HttpConnectionManager_UpgradeConfig{
+			{UpgradeType: "websocket"},
+		}
+		return manager
+	}
+}
