@@ -68,7 +68,6 @@ get started and experiment with Cilium.
    installation/k8s-toc
    installation/external-toc
    installation/provider-toc
-   installation/microk8s
 
 .. toctree::
    :maxdepth: 2
