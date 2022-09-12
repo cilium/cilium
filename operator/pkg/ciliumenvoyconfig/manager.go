@@ -148,7 +148,7 @@ func (m *Manager) processEvent(ctx context.Context, event interface{}) error {
 }
 
 func (m *Manager) createEnvoyConfig(ctx context.Context, svc *slim_corev1.Service) error {
-	desired, err := getEnvoyConfigForService(svc)
+	desired, err := m.getEnvoyConfigForService(svc)
 	if err != nil {
 		return err
 	}

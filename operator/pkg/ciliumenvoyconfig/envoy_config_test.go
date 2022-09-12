@@ -17,7 +17,8 @@ import (
 )
 
 func Test_getClusterResources(t *testing.T) {
-	res, err := getClusterResources(&slim_corev1.Service{
+	m := &Manager{}
+	res, err := m.getClusterResources(&slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
@@ -39,7 +40,8 @@ func Test_getClusterResources(t *testing.T) {
 }
 
 func Test_getRouteConfigurationResource(t *testing.T) {
-	res, err := getRouteConfigurationResource(&slim_corev1.Service{
+	m := &Manager{}
+	res, err := m.getRouteConfigurationResource(&slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
@@ -58,7 +60,8 @@ func Test_getRouteConfigurationResource(t *testing.T) {
 }
 
 func Test_getListenerResource(t *testing.T) {
-	res, err := getListenerResource(&slim_corev1.Service{
+	m := &Manager{}
+	res, err := m.getListenerResource(&slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "dummy-service",
 			Namespace: "dummy-namespace",
