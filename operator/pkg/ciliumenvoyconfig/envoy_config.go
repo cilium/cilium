@@ -74,8 +74,8 @@ func (em *envoyConfigManager) MarkSynced() {
 	em.informer.HasSynced()
 }
 
-func getEnvoyConfigForService(svc *slim_corev1.Service) (*ciliumv2.CiliumEnvoyConfig, error) {
-	resources, err := getResources(svc)
+func (m *Manager) getEnvoyConfigForService(svc *slim_corev1.Service) (*ciliumv2.CiliumEnvoyConfig, error) {
+	resources, err := m.getResources(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -108,21 +108,21 @@ func getEnvoyConfigForService(svc *slim_corev1.Service) (*ciliumv2.CiliumEnvoyCo
 	}, nil
 }
 
-func getResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
+func (m *Manager) getResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
 	var resources []ciliumv2.XDSResource
-	listener, err := getListenerResource(svc)
+	listener, err := m.getListenerResource(svc)
 	if err != nil {
 		return nil, err
 	}
 	resources = append(resources, listener)
 
-	routeConfig, err := getRouteConfigurationResource(svc)
+	routeConfig, err := m.getRouteConfigurationResource(svc)
 	if err != nil {
 		return nil, err
 	}
 	resources = append(resources, routeConfig)
 
-	clusters, err := getClusterResources(svc)
+	clusters, err := m.getClusterResources(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func getResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
 	return resources, nil
 }
 
-func getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
+func (m *Manager) getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name:           getName(svc),
 		ConnectTimeout: &durationpb.Duration{Seconds: 5},
@@ -154,7 +154,9 @@ func getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, erro
 		},
 	}
 
-	var mutatorFuncs = []clusterMutator{}
+	var mutatorFuncs = []clusterMutator{
+		lbModeClusterMutator(svc),
+	}
 	for _, fn := range mutatorFuncs {
 		cluster = fn(cluster)
 	}
@@ -173,10 +175,10 @@ func getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, erro
 	}, nil
 }
 
-func getRouteConfigurationResource(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
+func (m *Manager) getRouteConfigurationResource(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
 	routeConfig := &envoy_config_route_v3.RouteConfiguration{
 		Name:         getName(svc),
-		VirtualHosts: []*envoy_config_route_v3.VirtualHost{getVirtualHost(svc)},
+		VirtualHosts: []*envoy_config_route_v3.VirtualHost{m.getVirtualHost(svc)},
 	}
 
 	var mutatorFuncs = []routeConfigMutator{}
@@ -196,8 +198,8 @@ func getRouteConfigurationResource(svc *slim_corev1.Service) (ciliumv2.XDSResour
 	}, nil
 }
 
-func getListenerResource(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
-	defaultHttpConnectionManager, err := getConnectionManager(svc)
+func (m *Manager) getListenerResource(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
+	defaultHttpConnectionManager, err := m.getConnectionManager(svc)
 	if err != nil {
 		return ciliumv2.XDSResource{}, nil
 	}
@@ -246,7 +248,7 @@ func getListenerResource(svc *slim_corev1.Service) (ciliumv2.XDSResource, error)
 	}, nil
 }
 
-func getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
+func (m *Manager) getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSResource, error) {
 	connectionManager := &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager{
 		StatPrefix: getName(svc),
 		RouteSpecifier: &envoy_extensions_filters_network_http_connection_manager_v3.HttpConnectionManager_Rds{
@@ -279,7 +281,7 @@ func getConnectionManager(svc *slim_corev1.Service) (ciliumv2.XDSResource, error
 	}, nil
 }
 
-func getVirtualHost(svc *slim_corev1.Service) *envoy_config_route_v3.VirtualHost {
+func (m *Manager) getVirtualHost(svc *slim_corev1.Service) *envoy_config_route_v3.VirtualHost {
 	route := &envoy_config_route_v3.Route{
 		Match: &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{

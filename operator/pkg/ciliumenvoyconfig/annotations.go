@@ -4,6 +4,8 @@
 package ciliumenvoyconfig
 
 import (
+	"strings"
+
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
@@ -39,6 +41,19 @@ func GetLBProtocolModelAnnotation(obj metav1.Object) string {
 //
 // ClusterMutator functions
 //
+
+// grpcHttpConnectionManagerMutator returns a function that mutates the upgradeConfigs for grpc protocol
+func lbModeClusterMutator(obj metav1.Object) clusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		lbMode := GetLBProtocolModelAnnotation(obj)
+		if lbMode == "" {
+			return cluster
+		}
+
+		cluster.LbPolicy = envoy_config_cluster_v3.Cluster_LbPolicy(envoy_config_cluster_v3.Cluster_LbPolicy_value[strings.ToUpper(lbMode)])
+		return cluster
+	}
+}
 
 //
 // HTTPConnectionManagerMutator functions
