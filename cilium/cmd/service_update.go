@@ -13,7 +13,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/models"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -154,8 +156,13 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(backendWeights) > 0 && len(backendWeights) != len(backends) {
-		Fatalf("Mismatch between number of backend weights and number of backends")
+	if len(backendWeights) > 0 {
+		if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+			Fatalf("Backend weights are supported currently only in lb-only mode")
+		}
+		if len(backendWeights) != len(backends) {
+			Fatalf("Mismatch between number of backend weights and number of backends")
+		}
 	}
 
 	spec.BackendAddresses = nil
