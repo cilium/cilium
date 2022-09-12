@@ -58,3 +58,43 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --namespace=test-clusters --init-manifest=cilium.yaml --image=cilium/cilium-perf-test:8cfdbfe "/usr/local/bin/run_in_test_cluster.sh" "--prom-name=prom" "--prom-ns=prom" "--duration=30m" "--manifest-path=/go/src/github.com/cilium/cilium-perf-test/1.8/manifests/"
+
+  armv64_job:
+      name: Build and Test for arm64
+      runs-on: ubuntu-20.04
+      steps:
+        - uses: actions/checkout@v2
+        - name: Set up QEMU
+          id: qemu
+          uses: docker/setup-qemu-action@v1
+        - name: Install and Run tests
+          run: |
+            docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+              arm64v8/ubuntu:20.04 \
+              bash -exc 'apt-get update && apt-get -y install python3 python3-pip python3-venv curl && \
+              python3 -m pip install virtualenv && python3 -m venv py38-venv && \
+              source py38-venv/bin/activate && \
+              python --version && \
+              curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | tee /usr/share/keyrings/helm.gpg > /dev/null && \
+              apt-get install apt-transport-https --yes && \
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list && \
+              apt-get update && \
+              apt-get install helm && \
+              cat <<EOT > cilium.yaml && \
+              helm template cilium ./install/kubernetes/cilium && \
+                --namespace cilium-perf && \
+                --set enableCriticalPriorityClass=false && \
+                --set nodeinit.enabled=true && \
+                --set nodeinit.reconfigureKubelet=true && \
+                --set nodeinit.removeCbrBridge=true && \
+                --set cni.binPath=/home/kubernetes/bin && && \
+                --set gke.enabled=true && \
+                --set ipam.mode=kubernetes && \
+                --set nodeinit.restartPods=true && \
+                --set hubble.enabled=true && \
+                --set prometheus.enabled=true && \
+                --set operator.prometheus.enabled=true && \
+                --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" && \
+                --set ipv4NativeRoutingCIDR=NATIVE_CIDR_PLACEHOLDER && \
+                | tee -a cilium.yaml && \
+              deactivate'
