@@ -9,7 +9,7 @@ defined_files=$(
 	awk -F: '/^__source_file_name_to_id/{found=1; next}
 		/return 0/{exit}
 		{if (!found || !/_strcase_/) next}
-		{gsub(/.* |"|)|;/, "", $1); print $1}
+		{gsub(/.* |"|\)|;/, "", $1); print $1}
 		' bpf/source_names_to_ids.h
 )
 
