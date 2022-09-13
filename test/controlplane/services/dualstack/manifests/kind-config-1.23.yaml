@@ -2,9 +2,9 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
     - role: control-plane
-      image: kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae
+      image: kindest/node:v1.23.10@sha256:0d4d9019a27c5f0edb4709cc026e87d52c352f795f519a930155793760d196aa
     - role: worker
-      image: kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae
+      image: kindest/node:v1.23.10@sha256:0d4d9019a27c5f0edb4709cc026e87d52c352f795f519a930155793760d196aa
       kubeadmConfigPatches:
       - |
         kind: JoinConfiguration
@@ -12,7 +12,7 @@ nodes:
           kubeletExtraArgs:
             node-labels: "cilium.io/ci-node=k8s1"
     - role: worker
-      image: kindest/node:v1.23.6@sha256:b1fa224cc6c7ff32455e0b1fd9cbfd3d3bc87ecaa8fcb06961ed1afb3db0f9ae
+      image: kindest/node:v1.23.10@sha256:0d4d9019a27c5f0edb4709cc026e87d52c352f795f519a930155793760d196aa
       kubeadmConfigPatches:
       - |
         kind: JoinConfiguration

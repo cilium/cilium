@@ -7,7 +7,7 @@ items:
       kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
       node.alpha.kubernetes.io/ttl: "0"
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
-    creationTimestamp: "2022-08-30T21:16:05Z"
+    creationTimestamp: "2022-09-12T20:52:51Z"
     labels:
       beta.kubernetes.io/arch: amd64
       beta.kubernetes.io/os: linux
@@ -17,8 +17,8 @@ items:
       node-role.kubernetes.io/control-plane: ""
       node.kubernetes.io/exclude-from-external-load-balancers: ""
     name: cilium-nodes-control-plane
-    resourceVersion: "588"
-    uid: e7968749-6ccb-47f4-8ce6-e043094c67dd
+    resourceVersion: "704"
+    uid: 11280b30-6218-4030-ab69-c08bd5ff50b8
   spec:
     podCIDR: 10.244.0.0/24
     podCIDRs:
@@ -27,80 +27,94 @@ items:
     taints:
     - effect: NoSchedule
       key: node-role.kubernetes.io/control-plane
+    - effect: NoSchedule
+      key: node.kubernetes.io/not-ready
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      timeAdded: "2022-09-12T20:54:21Z"
   status:
     addresses:
-    - address: 172.18.0.2
+    - address: 172.18.0.4
       type: InternalIP
     - address: cilium-nodes-control-plane
       type: Hostname
     allocatable:
-      cpu: "20"
-      ephemeral-storage: 487105Mi
+      cpu: "12"
+      ephemeral-storage: 966714Mi
       hugepages-1Gi: "0"
       hugepages-2Mi: "0"
-      memory: 65511300Ki
+      memory: 32485244Ki
       pods: "110"
     capacity:
-      cpu: "20"
-      ephemeral-storage: 487105Mi
+      cpu: "12"
+      ephemeral-storage: 966714Mi
       hugepages-1Gi: "0"
       hugepages-2Mi: "0"
-      memory: 65511300Ki
+      memory: 32485244Ki
       pods: "110"
     conditions:
-    - lastHeartbeatTime: "2022-08-30T21:16:58Z"
-      lastTransitionTime: "2022-08-30T21:16:58Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:20Z"
+      lastTransitionTime: "2022-09-12T20:54:20Z"
       message: Cilium is running on this node
       reason: CiliumIsUp
       status: "False"
       type: NetworkUnavailable
-    - lastHeartbeatTime: "2022-08-30T21:17:00Z"
-      lastTransitionTime: "2022-08-30T21:16:04Z"
+    - lastHeartbeatTime: "2022-09-12T20:53:55Z"
+      lastTransitionTime: "2022-09-12T20:52:50Z"
       message: kubelet has sufficient memory available
       reason: KubeletHasSufficientMemory
       status: "False"
       type: MemoryPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:00Z"
-      lastTransitionTime: "2022-08-30T21:16:04Z"
+    - lastHeartbeatTime: "2022-09-12T20:53:55Z"
+      lastTransitionTime: "2022-09-12T20:52:50Z"
       message: kubelet has no disk pressure
       reason: KubeletHasNoDiskPressure
       status: "False"
       type: DiskPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:00Z"
-      lastTransitionTime: "2022-08-30T21:16:04Z"
+    - lastHeartbeatTime: "2022-09-12T20:53:55Z"
+      lastTransitionTime: "2022-09-12T20:52:50Z"
       message: kubelet has sufficient PID available
       reason: KubeletHasSufficientPID
       status: "False"
       type: PIDPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:00Z"
-      lastTransitionTime: "2022-08-30T21:17:00Z"
-      message: kubelet is posting ready status
-      reason: KubeletReady
-      status: "True"
+    - lastHeartbeatTime: "2022-09-12T20:53:55Z"
+      lastTransitionTime: "2022-09-12T20:52:50Z"
+      message: 'container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady
+        message:Network plugin returns error: cni plugin not initialized'
+      reason: KubeletNotReady
+      status: "False"
       type: Ready
     daemonEndpoints:
       kubeletEndpoint:
         Port: 10250
     images:
     - names:
+      - docker.io/library/import-2022-09-12@sha256:ede905eca3e1479f0017c8baf0d1e752745aa7ea4eaa0c6a8f6b86945cc9f8d4
+      - quay.io/cilium/cilium:v1.12.1
+      sizeBytes: 459801943
+    - names:
       - registry.k8s.io/etcd:3.5.4-0
       sizeBytes: 102157811
     - names:
-      - docker.io/library/import-2022-08-08@sha256:37934c94e6dd63b6763c1519a9d57cc2ddb8fc0b2d173154f544a9a7f0e255db
-      - registry.k8s.io/kube-apiserver:v1.25.0-beta.0
-      sizeBytes: 76233194
+      - docker.io/library/import-2022-09-01@sha256:30939fc09b29e521e204cc1806439c7de757d1f7716024e3d7413aa912c0a23c
+      - registry.k8s.io/kube-apiserver:v1.25.0
+      sizeBytes: 76507626
     - names:
-      - docker.io/library/import-2022-08-08@sha256:dbb1f4beeee3cc8d2e778c3505e7564eda0d994eadee7ca990adca10b718d2b5
-      - registry.k8s.io/kube-controller-manager:v1.25.0-beta.0
-      sizeBytes: 64186998
+      - docker.io/library/import-2022-09-01@sha256:9d9129c9b3fe88d37cec861da9aae338c75bbf3e13fc227e363ce8b3901a5c39
+      - registry.k8s.io/kube-controller-manager:v1.25.0
+      sizeBytes: 64501880
     - names:
-      - docker.io/library/import-2022-08-08@sha256:882ba37f9c3a94b93fb6485aafc6dde48fafb299c31913bcdfb2c7b1bd99b30b
-      - registry.k8s.io/kube-proxy:v1.25.0-beta.0
-      sizeBytes: 63107069
+      - docker.io/library/import-2022-09-01@sha256:d65454a910191947bb360f53bd0dc2faab82d00aba70af7326d21f4cbec71ba9
+      - registry.k8s.io/kube-proxy:v1.25.0
+      sizeBytes: 63266301
     - names:
-      - docker.io/library/import-2022-08-08@sha256:43d29e5de0e2964ecf23beda8a16b6cc4b9ae3c703361efaa2a61f2bb81a5cb5
-      - registry.k8s.io/kube-scheduler:v1.25.0-beta.0
-      sizeBytes: 51763832
+      - docker.io/library/import-2022-09-12@sha256:6f761bfdb87a8a1822ef74a627df64d51118b88e66f7ac20ef860b7af9a4e32e
+      - quay.io/cilium/operator-generic:v1.12.1
+      sizeBytes: 62955304
+    - names:
+      - docker.io/library/import-2022-09-01@sha256:af3e4fe2d95549f9a13867487dfb9d339e7d0c4e7627517a7a1a4934da75b871
+      - registry.k8s.io/kube-scheduler:v1.25.0
+      sizeBytes: 51923064
     - names:
       - docker.io/kindest/kindnetd:v20220726-ed811e41
       sizeBytes: 25818452
@@ -118,15 +132,15 @@ items:
       sizeBytes: 311278
     nodeInfo:
       architecture: amd64
-      bootID: 9974e1a4-0a68-4189-9dbf-cf53ad7dee37
+      bootID: ec0863f3-509c-48ec-affa-0e55bd885008
       containerRuntimeVersion: containerd://1.6.7
-      kernelVersion: 5.18.19-200.fc36.x86_64
-      kubeProxyVersion: v1.25.0-beta.0
-      kubeletVersion: v1.25.0-beta.0
-      machineID: b22fde3ca72040a3a5e18440e7cfeb26
+      kernelVersion: 5.19.6-200.fc36.x86_64
+      kubeProxyVersion: v1.25.0
+      kubeletVersion: v1.25.0
+      machineID: 39cc17e5bc8d48e0831819bda1d22456
       operatingSystem: linux
       osImage: Ubuntu 22.04.1 LTS
-      systemUUID: 6a014cb4-2052-4854-b550-68ed0b19bc77
+      systemUUID: 84dc982a-98f0-4342-8de1-1895fce40929
 - apiVersion: v1
   kind: Node
   metadata:
@@ -134,7 +148,7 @@ items:
       kubeadm.alpha.kubernetes.io/cri-socket: unix:///run/containerd/containerd.sock
       node.alpha.kubernetes.io/ttl: "0"
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
-    creationTimestamp: "2022-08-30T21:16:30Z"
+    creationTimestamp: "2022-09-12T20:53:09Z"
     labels:
       beta.kubernetes.io/arch: amd64
       beta.kubernetes.io/os: linux
@@ -143,8 +157,8 @@ items:
       kubernetes.io/hostname: cilium-nodes-worker
       kubernetes.io/os: linux
     name: cilium-nodes-worker
-    resourceVersion: "645"
-    uid: cbb08ce8-9da9-4630-9bed-118b50ca07a5
+    resourceVersion: "643"
+    uid: a3daf970-df79-4d26-ad05-65f532e910c0
   spec:
     podCIDR: 10.244.1.0/24
     podCIDRs:
@@ -157,46 +171,46 @@ items:
     - address: cilium-nodes-worker
       type: Hostname
     allocatable:
-      cpu: "20"
-      ephemeral-storage: 487105Mi
+      cpu: "12"
+      ephemeral-storage: 966714Mi
       hugepages-1Gi: "0"
       hugepages-2Mi: "0"
-      memory: 65511300Ki
+      memory: 32485244Ki
       pods: "110"
     capacity:
-      cpu: "20"
-      ephemeral-storage: 487105Mi
+      cpu: "12"
+      ephemeral-storage: 966714Mi
       hugepages-1Gi: "0"
       hugepages-2Mi: "0"
-      memory: 65511300Ki
+      memory: 32485244Ki
       pods: "110"
     conditions:
-    - lastHeartbeatTime: "2022-08-30T21:17:06Z"
-      lastTransitionTime: "2022-08-30T21:17:06Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:14Z"
+      lastTransitionTime: "2022-09-12T20:54:14Z"
       message: Cilium is running on this node
       reason: CiliumIsUp
       status: "False"
       type: NetworkUnavailable
-    - lastHeartbeatTime: "2022-08-30T21:17:01Z"
-      lastTransitionTime: "2022-08-30T21:16:30Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:10Z"
+      lastTransitionTime: "2022-09-12T20:53:09Z"
       message: kubelet has sufficient memory available
       reason: KubeletHasSufficientMemory
       status: "False"
       type: MemoryPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:01Z"
-      lastTransitionTime: "2022-08-30T21:16:30Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:10Z"
+      lastTransitionTime: "2022-09-12T20:53:09Z"
       message: kubelet has no disk pressure
       reason: KubeletHasNoDiskPressure
       status: "False"
       type: DiskPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:01Z"
-      lastTransitionTime: "2022-08-30T21:16:30Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:10Z"
+      lastTransitionTime: "2022-09-12T20:53:09Z"
       message: kubelet has sufficient PID available
       reason: KubeletHasSufficientPID
       status: "False"
       type: PIDPressure
-    - lastHeartbeatTime: "2022-08-30T21:17:01Z"
-      lastTransitionTime: "2022-08-30T21:17:01Z"
+    - lastHeartbeatTime: "2022-09-12T20:54:10Z"
+      lastTransitionTime: "2022-09-12T20:54:10Z"
       message: kubelet is posting ready status
       reason: KubeletReady
       status: "True"
@@ -206,7 +220,7 @@ items:
         Port: 10250
     images:
     - names:
-      - docker.io/library/import-2022-08-30@sha256:ede905eca3e1479f0017c8baf0d1e752745aa7ea4eaa0c6a8f6b86945cc9f8d4
+      - docker.io/library/import-2022-09-12@sha256:ede905eca3e1479f0017c8baf0d1e752745aa7ea4eaa0c6a8f6b86945cc9f8d4
       - quay.io/cilium/cilium@sha256:ea2db1ee21b88127b5c18a96ad155c25485d0815a667ef77c2b7c7f31cab601b
       - quay.io/cilium/cilium:v1.12.1
       sizeBytes: 459801943
@@ -214,26 +228,25 @@ items:
       - registry.k8s.io/etcd:3.5.4-0
       sizeBytes: 102157811
     - names:
-      - docker.io/library/import-2022-08-08@sha256:37934c94e6dd63b6763c1519a9d57cc2ddb8fc0b2d173154f544a9a7f0e255db
-      - registry.k8s.io/kube-apiserver:v1.25.0-beta.0
-      sizeBytes: 76233194
+      - docker.io/library/import-2022-09-01@sha256:30939fc09b29e521e204cc1806439c7de757d1f7716024e3d7413aa912c0a23c
+      - registry.k8s.io/kube-apiserver:v1.25.0
+      sizeBytes: 76507626
     - names:
-      - docker.io/library/import-2022-08-08@sha256:dbb1f4beeee3cc8d2e778c3505e7564eda0d994eadee7ca990adca10b718d2b5
-      - registry.k8s.io/kube-controller-manager:v1.25.0-beta.0
-      sizeBytes: 64186998
+      - docker.io/library/import-2022-09-01@sha256:9d9129c9b3fe88d37cec861da9aae338c75bbf3e13fc227e363ce8b3901a5c39
+      - registry.k8s.io/kube-controller-manager:v1.25.0
+      sizeBytes: 64501880
     - names:
-      - docker.io/library/import-2022-08-08@sha256:882ba37f9c3a94b93fb6485aafc6dde48fafb299c31913bcdfb2c7b1bd99b30b
-      - registry.k8s.io/kube-proxy:v1.25.0-beta.0
-      sizeBytes: 63107069
+      - docker.io/library/import-2022-09-01@sha256:d65454a910191947bb360f53bd0dc2faab82d00aba70af7326d21f4cbec71ba9
+      - registry.k8s.io/kube-proxy:v1.25.0
+      sizeBytes: 63266301
     - names:
-      - docker.io/library/import-2022-08-30@sha256:6f761bfdb87a8a1822ef74a627df64d51118b88e66f7ac20ef860b7af9a4e32e
-      - quay.io/cilium/operator-generic@sha256:93d5aaeda37d59e6c4325ff05030d7b48fabde6576478e3fdbfb9bb4a68ec4a1
+      - docker.io/library/import-2022-09-12@sha256:6f761bfdb87a8a1822ef74a627df64d51118b88e66f7ac20ef860b7af9a4e32e
       - quay.io/cilium/operator-generic:v1.12.1
       sizeBytes: 62955304
     - names:
-      - docker.io/library/import-2022-08-08@sha256:43d29e5de0e2964ecf23beda8a16b6cc4b9ae3c703361efaa2a61f2bb81a5cb5
-      - registry.k8s.io/kube-scheduler:v1.25.0-beta.0
-      sizeBytes: 51763832
+      - docker.io/library/import-2022-09-01@sha256:af3e4fe2d95549f9a13867487dfb9d339e7d0c4e7627517a7a1a4934da75b871
+      - registry.k8s.io/kube-scheduler:v1.25.0
+      sizeBytes: 51923064
     - names:
       - docker.io/kindest/kindnetd:v20220726-ed811e41
       sizeBytes: 25818452
@@ -251,19 +264,19 @@ items:
       sizeBytes: 311278
     nodeInfo:
       architecture: amd64
-      bootID: 9974e1a4-0a68-4189-9dbf-cf53ad7dee37
+      bootID: ec0863f3-509c-48ec-affa-0e55bd885008
       containerRuntimeVersion: containerd://1.6.7
-      kernelVersion: 5.18.19-200.fc36.x86_64
-      kubeProxyVersion: v1.25.0-beta.0
-      kubeletVersion: v1.25.0-beta.0
-      machineID: 8277eaae92e74f889b381e02be4548fd
+      kernelVersion: 5.19.6-200.fc36.x86_64
+      kubeProxyVersion: v1.25.0
+      kubeletVersion: v1.25.0
+      machineID: 49444e2bf16f49a0a4e73b25fe1d5ba1
       operatingSystem: linux
       osImage: Ubuntu 22.04.1 LTS
-      systemUUID: 68e88069-2cbf-4bd7-89ed-0854c27a9c67
+      systemUUID: 1596cc63-05d7-49a7-81a5-0e5cf3820f25
 - apiVersion: cilium.io/v2
   kind: CiliumNode
   metadata:
-    creationTimestamp: "2022-08-30T21:16:55Z"
+    creationTimestamp: "2022-09-12T20:54:19Z"
     generation: 1
     labels:
       beta.kubernetes.io/arch: amd64
@@ -278,21 +291,21 @@ items:
     - apiVersion: v1
       kind: Node
       name: cilium-nodes-control-plane
-      uid: e7968749-6ccb-47f4-8ce6-e043094c67dd
-    resourceVersion: "567"
-    uid: 3bdd5d69-2d9e-47e5-be93-0306353d9f6d
+      uid: 11280b30-6218-4030-ab69-c08bd5ff50b8
+    resourceVersion: "695"
+    uid: f07f756a-b39c-47b6-8089-4be66caa1631
   spec:
     addresses:
-    - ip: 172.18.0.2
+    - ip: 172.18.0.4
       type: InternalIP
-    - ip: 10.244.0.24
+    - ip: 10.244.0.4
       type: CiliumInternalIP
     alibaba-cloud: {}
     azure: {}
     encryption: {}
     eni: {}
     health:
-      ipv4: 10.244.0.13
+      ipv4: 10.244.0.162
     ingress: {}
     ipam:
       podCIDRs:
@@ -300,7 +313,7 @@ items:
 - apiVersion: cilium.io/v2
   kind: CiliumNode
   metadata:
-    creationTimestamp: "2022-08-30T21:16:56Z"
+    creationTimestamp: "2022-09-12T20:54:13Z"
     generation: 1
     labels:
       beta.kubernetes.io/arch: amd64
@@ -314,21 +327,21 @@ items:
     - apiVersion: v1
       kind: Node
       name: cilium-nodes-worker
-      uid: cbb08ce8-9da9-4630-9bed-118b50ca07a5
-    resourceVersion: "572"
-    uid: 5ce4a7e5-8291-4de8-aa2b-370324ee010b
+      uid: a3daf970-df79-4d26-ad05-65f532e910c0
+    resourceVersion: "625"
+    uid: 6d5f23c2-ae43-4f3b-9ace-7c4d5b7bfc9f
   spec:
     addresses:
     - ip: 172.18.0.3
       type: InternalIP
-    - ip: 10.244.1.181
+    - ip: 10.244.1.23
       type: CiliumInternalIP
     alibaba-cloud: {}
     azure: {}
     encryption: {}
     eni: {}
     health:
-      ipv4: 10.244.1.103
+      ipv4: 10.244.1.25
     ingress: {}
     ipam:
       podCIDRs:
