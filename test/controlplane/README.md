@@ -52,7 +52,8 @@ generated k8s objects and golden test files).
 To update the k8s versions being tested, the only step necessary is to
 update the `k8s_versions.txt` file and run `make update-k8s-versions
 generate-input-files`. This make target will regenerate all auto-generated
-input files.
+input files. You may also need to run `make update-golden` to regenerate the
+golden files, especially if you bump an existing version's patch revision.
 
 If a new k8s version is being added, remove the oldest kind-config file and
 manually add the new kind-config file in all directories that contain the
