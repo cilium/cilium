@@ -42,6 +42,7 @@ spec:
         - name: cnp-validator
           image: "{{ if .Values.preflight.image.override }}{{ .Values.preflight.image.override }}{{ else }}{{ .Values.preflight.image.repository }}:{{ .Values.preflight.image.tag }}{{ if .Values.preflight.image.useDigest }}@{{ .Values.preflight.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.preflight.image.pullPolicy }}
+          terminationMessagePolicy: FallbackToLogsOnError
           command: ["/bin/sh"]
           args:
           - -c
