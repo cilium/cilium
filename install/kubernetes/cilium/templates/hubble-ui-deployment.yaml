@@ -49,6 +49,7 @@ spec:
         - name: frontend
           image: "{{ if .Values.hubble.ui.frontend.image.override }}{{ .Values.hubble.ui.frontend.image.override }}{{ else }}{{ .Values.hubble.ui.frontend.image.repository }}:{{ .Values.hubble.ui.frontend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.frontend.image.pullPolicy }}
+          terminationMessagePolicy: FallbackToLogsOnError
           ports:
             - containerPort: 8081
               name: http
@@ -61,6 +62,7 @@ spec:
         - name: backend
           image: "{{ if .Values.hubble.ui.backend.image.override }}{{ .Values.hubble.ui.backend.image.override }}{{ else }}{{ .Values.hubble.ui.backend.image.repository }}:{{ .Values.hubble.ui.backend.image.tag }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
+          terminationMessagePolicy: FallbackToLogsOnError
           env:
             - name: EVENTS_SERVER_PORT
               value: "8090"

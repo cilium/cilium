@@ -93,6 +93,7 @@ spec:
         image: {{ if .Values.etcd.image.override }}{{ .Values.etcd.image.override }}{{ else }}{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}{{ end }}
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
+        terminationMessagePolicy: FallbackToLogsOnError
       dnsPolicy: ClusterFirst
       hostNetwork: true
 {{- if and (or (and (eq .Release.Namespace "kube-system") (gt $k8sMinor "10")) (ge $k8sMinor "17") (gt $k8sMajor "1")) .Values.enableCriticalPriorityClass }}

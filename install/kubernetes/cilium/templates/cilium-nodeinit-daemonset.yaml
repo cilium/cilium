@@ -59,6 +59,7 @@ spec:
         - name: node-init
           image: {{ if .Values.nodeinit.image.override }}{{ .Values.nodeinit.image.override }}{{ else }}{{ .Values.nodeinit.image.repository }}:{{ .Values.nodeinit.image.tag }}{{ end }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
+          terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
             privileged: true
           lifecycle:

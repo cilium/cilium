@@ -58,6 +58,7 @@ spec:
             - "--hubble-relay-server-cert-validity-duration={{ $certValiditySecondsStr }}"
             - "--hubble-relay-server-cert-secret-name=hubble-relay-server-certs"
             {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:

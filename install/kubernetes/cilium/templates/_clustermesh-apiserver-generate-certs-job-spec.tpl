@@ -38,6 +38,7 @@ spec:
             {{- if not (and .Values.clustermesh.apiserver.tls.remote.cert .Values.clustermesh.apiserver.tls.remote.key) }}
             - "--clustermesh-apiserver-remote-cert-generate"
             {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       hostNetwork: true
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:

@@ -73,6 +73,7 @@ spec:
       - name: etcd
         image: {{ if .Values.clustermesh.apiserver.etcd.image.override }}{{ .Values.clustermesh.apiserver.etcd.image.override }}{{ else }}{{ .Values.clustermesh.apiserver.etcd.image.repository }}:{{ .Values.clustermesh.apiserver.etcd.image.tag }}{{ end }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.etcd.image.pullPolicy }}
+        terminationMessagePolicy: FallbackToLogsOnError
         env:
         - name: ETCDCTL_API
           value: "3"
@@ -102,6 +103,7 @@ spec:
       - name: "apiserver"
         image: "{{ if .Values.clustermesh.apiserver.image.override }}{{ .Values.clustermesh.apiserver.image.override }}{{ else }}{{ .Values.clustermesh.apiserver.image.repository }}:{{ .Values.clustermesh.apiserver.image.tag }}{{ if .Values.clustermesh.apiserver.image.useDigest }}@{{ .Values.clustermesh.apiserver.image.digest }}{{ end }}{{ end }}"
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
+        terminationMessagePolicy: FallbackToLogsOnError
         command:
           - /usr/bin/clustermesh-apiserver
         args:
