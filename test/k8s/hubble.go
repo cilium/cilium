@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = Describe("K8sHubbleTest", func() {
+var _ = Describe("K8sAgentHubbleTest", func() {
 	// We want to run Hubble tests both with and without our kube-proxy
 	// replacement, as the trace events depend on it. We thus run the tests
 	// on GKE and our 4.9 pipeline.

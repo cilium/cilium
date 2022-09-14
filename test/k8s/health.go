@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = Describe("K8sHealthTest", func() {
+var _ = Describe("K8sAgentHealthTest", func() {
 	SkipContextIf(func() bool {
 		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
 	}, "cilium-health", func() {

@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/constants"
 )
 
-var _ = Describe("RuntimeLB", func() {
+var _ = Describe("RuntimeDatapathLB", func() {
 	var (
 		vm            *helpers.SSHMeta
 		testStartTime time.Time

@@ -114,7 +114,7 @@ zone "dnssec.test" {
 };
 `
 
-var _ = Describe("RuntimeFQDNPolicies", func() {
+var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 	const (
 		bindContainerName = "bind"
 		WorldHttpd1       = "WorldHttpd1"

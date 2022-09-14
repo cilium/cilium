@@ -18,7 +18,7 @@ import (
 
 var _ = SkipDescribeIf(func() bool {
 	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn54OrLaterKernel()
-}, "K8sEgressGatewayTest", func() {
+}, "K8sDatapathEgressGatewayTest", func() {
 	const (
 		namespaceSelector = "ns=cilium-test"
 		testDS            = "zgroup=testDS"

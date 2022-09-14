@@ -47,7 +47,7 @@ const (
 	initContainer = "initContainer"
 )
 
-var _ = Describe("RuntimePolicies", func() {
+var _ = Describe("RuntimeAgentPolicies", func() {
 
 	var (
 		vm            *helpers.SSHMeta

@@ -32,7 +32,7 @@ var _ = SkipDescribeIf(func() bool {
 	// skips GKE).
 	return helpers.DoesNotRunOnNetNextKernel() ||
 		helpers.RunsOnGKE()
-}, "K8sCustomCalls", func() {
+}, "K8sDatapathCustomCalls", func() {
 
 	var (
 		kubectl *helpers.Kubectl

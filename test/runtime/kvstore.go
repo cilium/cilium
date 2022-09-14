@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/constants"
 )
 
-var _ = Describe("RuntimeKVStoreTest", func() {
+var _ = Describe("RuntimeAgentKVStoreTest", func() {
 	var vm *helpers.SSHMeta
 	var testStartTime time.Time
 
