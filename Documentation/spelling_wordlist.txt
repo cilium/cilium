@@ -100,6 +100,7 @@ MiB
 Minikube
 Monnet
 Mythbusters
+NativeRoutingCIDR
 NeighDiscovery
 Netronome
 NewProto
@@ -762,6 +763,7 @@ pre
 preCache
 preallocateMaps
 prebuild
+preconfigured
 prefilter
 preflight
 preload

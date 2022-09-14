@@ -1283,7 +1283,7 @@ vtep:
 # -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
   mac: ""
 
-# -- Allows to explicitly specify the IPv4 CIDR for native routing.
+# -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without
 # applying any SNAT.
@@ -1293,9 +1293,9 @@ vtep:
 # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
-# ipv4NativeRoutingCIDR:
+ipv4NativeRoutingCIDR: ""
 
-# -- Allows to explicitly specify the IPv6 CIDR for native routing.
+# -- (string) Allows to explicitly specify the IPv6 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without
 # applying any SNAT.
@@ -1305,7 +1305,7 @@ vtep:
 # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
-# ipv6NativeRoutingCIDR:
+ipv6NativeRoutingCIDR: ""
 
 # -- cilium-monitor sidecar.
 monitor:
