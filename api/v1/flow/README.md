@@ -302,15 +302,17 @@ multiple fields are set, then all fields must match for the filter to match.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source_ip | [string](#string) | repeated | source_ip filters by a list of source ips. Each of the source ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
-| source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be emitted to only filter by namespace (e.g. &#34;kube-system/&#34;) |
+| source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be omitted to only filter by namespace (e.g. &#34;kube-system/&#34;) |
 | source_fqdn | [string](#string) | repeated | source_fqdn filters by a list of source fully qualified domain names |
 | source_label | [string](#string) | repeated | source_labels filters on a list of source label selectors. Selectors support the full Kubernetes label selector syntax. |
 | source_service | [string](#string) | repeated | source_service filters on a list of source service names. This field supports the same syntax as the source_pod field. |
+| source_workload | [Workload](#flow-Workload) | repeated | source_workload filters by a list of source workload. |
 | destination_ip | [string](#string) | repeated | destination_ip filters by a list of destination ips. Each of the destination ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
 | destination_pod | [string](#string) | repeated | destination_pod filters by a list of destination pod names |
 | destination_fqdn | [string](#string) | repeated | destination_fqdn filters by a list of destination fully qualified domain names |
 | destination_label | [string](#string) | repeated | destination_label filters on a list of destination label selectors |
 | destination_service | [string](#string) | repeated | destination_service filters on a list of destination service names |
+| destination_workload | [Workload](#flow-Workload) | repeated | destination_workload filters by a list of destination workload. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | event_type | [EventTypeFilter](#flow-EventTypeFilter) | repeated | event_type is the list of event types to filter on |
 | http_status_code | [string](#string) | repeated | http_status_code is a list of string prefixes (e.g. &#34;4&#43;&#34;, &#34;404&#34;, &#34;5&#43;&#34;) to filter on the HTTP status code |

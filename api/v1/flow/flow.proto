@@ -359,7 +359,7 @@ message FlowFilter {
     repeated string source_ip = 1;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
-    // The pod name can be emitted to only filter by namespace
+    // The pod name can be omitted to only filter by namespace
     // (e.g. "kube-system/")
     repeated string source_pod = 2;
     // source_fqdn filters by a list of source fully qualified domain names
@@ -370,6 +370,8 @@ message FlowFilter {
     // source_service filters on a list of source service names. This field
     // supports the same syntax as the source_pod field.
     repeated string source_service = 16;
+    // source_workload filters by a list of source workload.
+    repeated Workload source_workload = 26;
 
     // destination_ip filters by a list of destination ips. Each of the
     // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
@@ -383,6 +385,8 @@ message FlowFilter {
     repeated string destination_label = 11;
     // destination_service filters on a list of destination service names
     repeated string destination_service = 17;
+    // destination_workload filters by a list of destination workload.
+    repeated Workload destination_workload = 27;
 
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
