@@ -185,6 +185,11 @@ Users (Alphabetically)
       L: https://github.com/f5devcentral/f5-ci-docs/blob/master/docs/cilium/cilium-bigip-info.rst
       Q: @vincentmli
 
+    * N: Giant Swarm
+      D: Giant Swarm is using Cilium in their Cluster API based managed Kubernetes service (AWS, Azure, GCP, OpenStack, VMware Cloud Director and VMware vSphere) as CNI
+      U: Networking
+      L: https://www.giantswarm.io/
+
     * N: GitLab
       D: GitLab is using Cilium to implement network policies inside Auto DevOps deployed clusters for customers using k8s
       U: Network policies
