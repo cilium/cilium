@@ -1,5 +1,71 @@
 # Changelog
 
+## v1.11.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Added `hubble.ui.frontend.server.ipv6.enabled` helm flag to control nginx server ipv6 listener (Backport PR #21223, Upstream PR #21127, @geakstr)
+* dnsproxy: stop serving DNS traffic before agent shutdown (Backport PR #21223, Upstream PR #20795, @nebril)
+* install: add TerminationMessagePolicy to cilium pods (Backport PR #21291, Upstream PR #21012, @squeed)
+* put stderr of iptables command into error instead of merging into stdout (Backport PR #21139, Upstream PR #20895, @liuyuan10)
+
+**Bugfixes:**
+* clustermesh-apiserver: fix key name for delete during k8s->kvstore sync (Backport PR #21139, Upstream PR #21078, @tklauser)
+* datapath: allow local NodePort traffic for `eni+` container interfaces with CNI chaining (Backport PR #21223, Upstream PR #21126, @ti-mo)
+* Do not enable health checks if only Terminating backends are present on a Node which is selected by a Service with `externalTrafficPolicy: Local` Service (Backport PR #21211, Upstream PR #21062, @zuzzas)
+* Fix conflicting routes for multiple ENIs in IPAM mode (Backport PR #21223, Upstream PR #20112, @recollir)
+* Fix identity garbage collection in clustermesh environments (#20933, @aanm)
+* Fix node label synchronization in the KVStore when IPSec configuration changes (Backport PR #21139, Upstream PR #21087, @aanm)
+* Fix regression with cilium-health-probe controller in IPv6-only clusters (Backport PR #20939, Upstream PR #20849, @aanm)
+* Fix Wireguard connectivity issues when using kvstore mode (Backport PR #21139, Upstream PR #21080, @aanm)
+* Fixed PodCIDR announcement being overwritten by SVC announcement (Backport PR #20880, Upstream PR #20413, @dylandreimerink)
+* Fixes typos in enabling fqdn_semaphore_rejected_total metric (Backport PR #20939, Upstream PR #20893, @rahulkjoshi)
+* For configurations with Egress Gateway and Direct-Routing, avoid recreating the cilium_vxlan interface on every restart. (Backport PR #21139, Upstream PR #20780, @julianwiedmann)
+* ipcache/kvstore: fix panic when processing ip=<nil> entries (Backport PR #20939, Upstream PR #20706, @ArthurChiao)
+* ipsec: Fix incorrect parsing of SPI from mark (Backport PR #20939, Upstream PR #20900, @pchaigno)
+* k8s/watchers: fix panic in CiliumEndpoint labels update (Backport PR #21139, Upstream PR #20865, @jaffcheng)
+* kvstore/allocator: fix panic on receiving invalid identity entries (Backport PR #21291, Upstream PR #21213, @ArthurChiao)
+* operator: do not GC kvstore nodes if CiliumNodes are not available (Backport PR #21223, Upstream PR #21133, @aanm)
+* operator: update CiliumNode in kvstore without lease (Backport PR #21223, Upstream PR #21202, @tklauser)
+* pkg/k8s/watcher: fix deadlock crash that occurs when handling endpoint and service updates. (Backport PR #21223, Upstream PR #21093, @tommyp1ckles)
+* v1.11: operator: fix key name for delete during k8s->kvstore sync (#20983, @tklauser)
+* When systemd-sysctl sets the rp_filter sysctl, tolerate missing lxc_* / cilium_* interfaces. (Backport PR #21223, Upstream PR #21146, @julianwiedmann)
+
+**CI Changes:**
+* backport v1.11: test: Switch to kindest/node:v1.24.3 (#20919, @brb)
+* CI: Enable IPv6 in the L4LB suite (Backport PR #20939, Upstream PR #20821, @brb)
+* config: Fix unit tests for native routing CIDR (Backport PR #20939, Upstream PR #20473, @pchaigno)
+* gh/workflows: stop using ubuntu-18.04 runner (Backport PR #21139, Upstream PR #21015, @julianwiedmann)
+* k8s: fix test flake in TestGenerateToCIDRFromEndpoint. (Backport PR #21223, Upstream PR #21220, @tommyp1ckles)
+* k8s: fix test flake in TestGenerateToCIDRFromEndpoint. (Backport PR #21291, Upstream PR #21220, @tommyp1ckles)
+* Update wrk2 repository (#21158, @michi-covalent)
+
+**Misc Changes:**
+* add kvstore TTL flag in cilium-operator (Backport PR #21139, Upstream PR #21006, @NikhilSharmaWe)
+* bgp: Fixed broken bgp speaker unit tests (Backport PR #20880, Upstream PR #20521, @dylandreimerink)
+* build(deps): bump 8398a7/action-slack from 3.13.0 to 3.13.2 (#21036, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.7 to 3.0.8 (#21024, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.2.1 to 3.3.0 (#21047, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.18 to 2.1.19 (#20988, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.19 to 2.1.20 (#21025, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.20 to 2.1.21 (#21091, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.21 to 2.1.22 (#21172, @dependabot[bot])
+* Coalesce of health endpoint CIDRs (Backport PR #21223, Upstream PR #20848, @dezmodue)
+* docs(bandwidth-manager): add note on per-pod limits (Backport PR #20939, Upstream PR #20916, @raphink)
+* docs: fix check-crd-compat-table script (Backport PR #21291, Upstream PR #21208, @aanm)
+* docs: Update ToServices docs section (Backport PR #21139, Upstream PR #21052, @joestringer)
+* Document per-endpoint route requirement in aws-cni Helm snippet (Backport PR #21291, Upstream PR #21276, @ti-mo)
+* Fix complaint about nil IP address on restore of cilium_host (Backport PR #20939, Upstream PR #20734, @christarazi)
+* Improve CRD schema update automation during release process (Backport PR #20939, Upstream PR #20875, @joestringer)
+* metallb: bump to latest metallb version (Backport PR #21223, Upstream PR #21131, @ldelossa)
+* test: update k8s versions to the latest patched releases (#21101, @aanm)
+
+**Other Changes:**
+* Adding support for tracking instance hypervisor type in ENI limits pkg (#20930, @tommyp1ckles)
+* install: Update image digests for v1.11.8 (#20927, @joestringer)
+
 ## v1.11.8
 
 Summary of Changes
