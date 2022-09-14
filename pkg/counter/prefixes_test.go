@@ -7,21 +7,11 @@ package counter
 
 import (
 	"net"
-	"testing"
 
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 )
-
-// Hook up gocheck into the "go test" runner.
-type CounterTestSuite struct{}
-
-var _ = Suite(&CounterTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
 
 func (cs *CounterTestSuite) TestReferenceTracker(c *C) {
 	v4Prefixes := []*net.IPNet{
