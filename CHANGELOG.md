@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.10.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Added `hubble.ui.frontend.server.ipv6.enabled` helm flag to control nginx server ipv6 listener (Backport PR #21221, Upstream PR #21127, @geakstr)
+* dnsproxy: stop serving DNS traffic before agent shutdown (Backport PR #21221, Upstream PR #20795, @nebril)
+* install: add TerminationMessagePolicy to cilium pods (Backport PR #21290, Upstream PR #21012, @squeed)
+* put stderr of iptables command into error instead of merging into stdout (Backport PR #21138, Upstream PR #20895, @liuyuan10)
+
+**Bugfixes:**
+* datapath: allow local NodePort traffic for `eni+` container interfaces with CNI chaining (Backport PR #21221, Upstream PR #21126, @ti-mo)
+* Fix conflicting routes for multiple ENIs in IPAM mode (Backport PR #21221, Upstream PR #20112, @recollir)
+* ipcache/kvstore: fix panic when processing ip=<nil> entries (Backport PR #20937, Upstream PR #20706, @ArthurChiao)
+* ipsec: Fix incorrect parsing of SPI from mark (Backport PR #20937, Upstream PR #20900, @pchaigno)
+* k8s/watchers: fix panic in CiliumEndpoint labels update (Backport PR #21054, Upstream PR #20865, @jaffcheng)
+* operator: do not GC kvstore nodes if CiliumNodes are not available (Backport PR #21221, Upstream PR #21133, @aanm)
+* operator: update CiliumNode in kvstore without lease (Backport PR #21221, Upstream PR #21202, @tklauser)
+* When systemd-sysctl sets the rp_filter sysctl, tolerate missing lxc_* / cilium_* interfaces. (Backport PR #21221, Upstream PR #21146, @julianwiedmann)
+
+**CI Changes:**
+* backport v1.10: test: Switch to kindest/node:v1.24.3 (#20920, @brb)
+* Update wrk2 repository (#21159, @michi-covalent)
+
+**Misc Changes:**
+* add kvstore TTL flag in cilium-operator (Backport PR #21138, Upstream PR #21006, @NikhilSharmaWe)
+* build(deps): bump 8398a7/action-slack from 3.13.0 to 3.13.2 (#21037, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.7 to 3.0.8 (#21021, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.2.1 to 3.3.0 (#21046, @dependabot[bot])
+* build(deps): bump github/codeql-action from 1.0.0 to 2.1.18 (#20961, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.18 to 2.1.19 (#20987, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.19 to 2.1.20 (#21019, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.20 to 2.1.21 (#21090, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.21 to 2.1.22 (#21170, @dependabot[bot])
+* Coalesce of health endpoint CIDRs (Backport PR #21221, Upstream PR #20848, @dezmodue)
+* docs(bandwidth-manager): add note on per-pod limits (Backport PR #20937, Upstream PR #20916, @raphink)
+* docs: fix check-crd-compat-table script (Backport PR #21290, Upstream PR #21208, @aanm)
+* docs: Update ToServices docs section (Backport PR #21138, Upstream PR #21052, @joestringer)
+* Document per-endpoint route requirement in aws-cni Helm snippet (Backport PR #21290, Upstream PR #21276, @ti-mo)
+* Fix complaint about nil IP address on restore of cilium_host (Backport PR #20937, Upstream PR #20734, @christarazi)
+* Improve CRD schema update automation during release process (Backport PR #20937, Upstream PR #20875, @joestringer)
+
+**Other Changes:**
+* Adding support for tracking instance hypervisor type in ENI limits pkg (#20929, @tommyp1ckles)
+* install: Update image digests for v1.10.14 (#20926, @joestringer)
+
 ## v1.10.14
 
 Summary of Changes
