@@ -405,9 +405,15 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
-  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | quote }}
-  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter | quote }}
-  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | quote }}
+{{- if .Values.eni.subnetIDsFilter }}
+  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
+{{- end }}
+{{- if .Values.eni.subnetTagsFilter }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join " " | quote }}
+{{- end }}
+{{- if .Values.eni.instanceTagsFilter }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
+{{- end }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}
