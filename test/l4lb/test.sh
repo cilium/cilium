@@ -3,6 +3,8 @@
 PS4='+[\t] '
 set -eux
 
+export LC_NUMERIC=C
+
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
 HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
@@ -125,7 +127,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
 set +e
 # Issue 10 requests to LB (with 500ms timeout) which are expected to timeout
 for i in $(seq 1 10); do
-    curl -o /dev/null -m 0,5 "${LB_VIP}:80"
+    curl -o /dev/null -m 0.5 "${LB_VIP}:80"
     # code 28 - Operation timeout
     if [ ! "$?" -eq 28 ]; then
         exit -1;
