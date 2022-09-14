@@ -530,11 +530,11 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
-{{- if hasKey .Values "ipv4NativeRoutingCIDR" }}
+{{- if .Values.ipv4NativeRoutingCIDR }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 
-{{- if hasKey .Values "ipv6NativeRoutingCIDR" }}
+{{- if .Values.ipv6NativeRoutingCIDR }}
   ipv6-native-routing-cidr: {{ .Values.ipv6NativeRoutingCIDR }}
 {{- end }}
 
