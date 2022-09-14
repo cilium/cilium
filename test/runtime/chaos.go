@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/constants"
 )
 
-var _ = Describe("RuntimeChaos", func() {
+var _ = Describe("RuntimeAgentChaos", func() {
 	var (
 		vm            *helpers.SSHMeta
 		testStartTime time.Time

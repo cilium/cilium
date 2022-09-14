@@ -30,7 +30,7 @@ var _ = SkipDescribeIf(func() bool {
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
 	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel()
-}, "K8sPolicyTest", func() {
+}, "K8sAgentPolicyTest", func() {
 
 	var (
 		kubectl *helpers.Kubectl

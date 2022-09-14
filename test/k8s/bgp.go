@@ -26,7 +26,7 @@ var _ = SkipDescribeIf(
 			// Test requests to the LB are going to be sent from the node which
 			// doesn't run Cilium.
 			helpers.DoesNotExistNodeWithoutCilium()
-	}, "K8sBGPTests", func() {
+	}, "K8sDatapathBGPTests", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string

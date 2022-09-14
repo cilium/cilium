@@ -15,7 +15,7 @@ import (
 
 // The 5.4 CI job is intended to catch BPF complexity regressions and as such
 // doesn't need to execute this test suite.
-var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sChaosTest", func() {
+var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentChaosTest", func() {
 
 	var (
 		kubectl        *helpers.Kubectl
