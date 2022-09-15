@@ -551,10 +551,12 @@ of different values being put into the same metric label, the ``labelsContext`` 
 ========================= ===============================================================================
 Option Value              Description
 ========================= ===============================================================================
+``source_ip``             The source IP of the flow.
 ``source_namespace``      The namespace of the pod if the flow source is from a Kubernetes pod.
 ``source_pod``            The pod name if the flow source is from a Kubernetes pod.
 ``source_workload``       The name of the source pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
 ``source_app``            The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
+``destination_ip``        The destination IP of the flow.
 ``destination_namespace`` The namespace of the pod if the flow destination is from a Kubernetes pod.
 ``destination_pod``       The pod name if the flow destination is from a Kubernetes pod.
 ``destination_workload``  The name of the destination pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).

@@ -52,7 +52,7 @@ const ContextOptionsHelp = `
  destinationContext     ::= identifier , { "|", identifier }
  labels                 ::= label , { ",", label }
  identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity | workload-name | app
- label                  ::= source_pod | source_namespace | source_workload | source_app | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
+ label                  ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 
 var (
@@ -61,10 +61,12 @@ var (
 	// contextLabelsList defines available labels for the ContextLabels
 	// ContextIdentifier and the order of those labels for GetLabelNames and GetLabelValues.
 	contextLabelsList = []string{
+		"source_ip",
 		"source_pod",
 		"source_namespace",
 		"source_workload",
 		"source_app",
+		"destination_ip",
 		"destination_pod",
 		"destination_namespace",
 		"destination_workload",
@@ -241,8 +243,10 @@ func (ls labelsSet) String() string {
 
 func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *pb.Flow) (outputLabels []string, err error) {
 	source, destination := flow.GetSource(), flow.GetDestination()
+	sourceIp, destinationIp := flow.GetIP().GetSource(), flow.GetIP().GetDestination()
 	if invertSourceDestination {
 		source, destination = flow.GetDestination(), flow.GetSource()
+		sourceIp, destinationIp = flow.GetIP().GetDestination(), flow.GetIP().GetSource()
 	}
 	// Iterate over contextLabelsList so that the label order is stable,
 	// otherwise GetLabelNames and GetLabelValues might be mismatched
@@ -250,6 +254,8 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 		if wantedLabels.HasLabel(label) {
 			var labelValue string
 			switch label {
+			case "source_ip":
+				labelValue = sourceIp
 			case "source_pod":
 				labelValue = source.GetPodName()
 			case "source_namespace":
@@ -260,6 +266,8 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 				}
 			case "source_app":
 				labelValue = getK8sAppFromLabels(source.GetLabels())
+			case "destination_ip":
+				labelValue = destinationIp
 			case "destination_pod":
 				labelValue = destination.GetPodName()
 			case "destination_namespace":
