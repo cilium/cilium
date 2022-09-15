@@ -685,6 +685,21 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``kafka``
+~~~~~~~~~
+
+=================================== ===================================================== ========== ==============================================
+Name                                Labels                                                Default    Description
+=================================== ===================================================== ========== ==============================================
+``kafka_requests_total``            ``topic``, ``api_key``, ``error_code``, ``reporter``  Disabled   Count of Kafka requests by topic
+``kafka_request_duration_seconds``  ``topic``, ``api_key``, ``reporter``                  Disabled   Histogram of Kafka request duration by topic
+=================================== ===================================================== ========== ==============================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 ``port-distribution``
 ~~~~~~~~~~~~~~~~~~~~~
 
