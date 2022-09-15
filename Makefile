@@ -125,17 +125,13 @@ build-container: check-sources ## Builds components required for cilium-agent co
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-# If the developer provides TESTPKGS to filter the set of packages to use for testing, filter that to only packages with privileged tests.
-# The period at EOL ensures that if TESTPKGS becomes empty, we can still pass some paths to 'xargs dirname' to avoid errors.
-PRIV_TEST_PKGS_FILTER := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril 'go:build [^!]*privileged_tests') .
-PRIV_TEST_PKGS_EVAL := $(shell echo $(PRIV_TEST_PKGS_FILTER) | xargs dirname | sort | uniq | grep -Ev '^\.$$')
-PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
-tests-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run integration-tests for Cilium that requires elevated privileges.
-tests-privileged:
+tests-privileged: ## Run integration tests for Cilium that require elevated privileges.
 	$(MAKE) init-coverage
-	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
+	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
 		>&2 $(ECHO_TEST) $$pkg; \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
+		PATH=$(PATH):$(ROOT_DIR)/bpf \
+		PRIVILEGED_TESTS=true \
+		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done | $(GOTEST_FORMATTER)
@@ -220,11 +216,11 @@ bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repo
 	done
 	$(MAKE) stop-kvstores
 
-bench-privileged: GO_TAGS_FLAGS+=privileged_tests ## Run benchmarks for priviliged tests.
-bench-privileged:
+bench-privileged: ## Run benchmarks for priviliged tests.
 	# Process the packages in different subshells. See comment in the
 	# "integration-tests" target above for an explanation.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
+		PRIVILEGED_TESTS=true \
 		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
 		|| exit 1; \
 	done
