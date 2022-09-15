@@ -936,6 +936,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		case option.Config.EgressMasqueradeInterfaces != "":
 			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
 				option.EgressMasqueradeInterfaces, option.Devices)
+		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
+			msg = "BPF masquerade requires full host reachable services enabled in tunnel mode."
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
