@@ -133,7 +133,7 @@ func (b *ControllerSuite) TestMeanProcessingDuration(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(req, check.Not(check.IsNil))
 		go func(r LimitedRequest) {
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(time.Millisecond)
 			r.Done()
 		}(req)
 	}
@@ -145,9 +145,7 @@ func (b *ControllerSuite) TestMeanProcessingDuration(c *check.C) {
 	}, 5*time.Second), check.IsNil)
 
 	c.Assert(a.requestsProcessed, check.Equals, iterations)
-	// Check if mean value is within range, it should be close to 20ms
-	meanInRange := a.meanProcessingDuration < (25*time.Millisecond).Seconds() && a.meanProcessingDuration > (15*time.Millisecond).Seconds()
-	c.Assert(meanInRange, check.Equals, true)
+	c.Assert(a.meanProcessingDuration, check.Not(check.Equals), 0)
 }
 
 func (b *ControllerSuite) TestMinParallelRequests(c *check.C) {
@@ -600,7 +598,8 @@ func (b *ControllerSuite) TestParseUserConfig(c *check.C) {
 }
 
 func (b *ControllerSuite) TestCalcMeanDuration(c *check.C) {
-	c.Assert(calcMeanDuration([]time.Duration{10, 10.0, 10.0, 10.0}), check.Equals, time.Duration(10.0).Seconds())
+	c.Assert(calcMeanDuration([]time.Duration{10, 10, 10, 10}), check.Equals, time.Duration(10).Seconds())
+	c.Assert(calcMeanDuration([]time.Duration{1, 2, 3}), check.Equals, time.Duration(2).Seconds())
 }
 
 func (b *ControllerSuite) TestDelayedAdjustment(c *check.C) {
