@@ -2130,6 +2130,11 @@ func (s *BgpServer) AddPath(ctx context.Context, r *api.AddPathRequest) (*api.Ad
 	}
 	var uuidBytes []byte
 	err := s.mgmtOperation(func() error {
+		id, err := uuid.NewRandom()
+		if err != nil {
+			return err
+		}
+
 		path, err := api2Path(r.TableType, r.Path, false)
 		if err != nil {
 			return err
@@ -2138,10 +2143,9 @@ func (s *BgpServer) AddPath(ctx context.Context, r *api.AddPathRequest) (*api.Ad
 		if err != nil {
 			return err
 		}
-		if id, err := uuid.NewRandom(); err == nil {
-			s.uuidMap[pathTokey(path)] = id
-			uuidBytes, _ = id.MarshalBinary()
-		}
+
+		s.uuidMap[pathTokey(path)] = id
+		uuidBytes, _ = id.MarshalBinary()
 		return nil
 	}, true)
 	return &api.AddPathResponse{Uuid: uuidBytes}, err

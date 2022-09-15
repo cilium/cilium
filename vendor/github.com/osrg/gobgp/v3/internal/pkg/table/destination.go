@@ -272,7 +272,6 @@ func (dest *Destination) Calculate(logger log.Logger, newPath *Path) *Update {
 // since not all paths get installed into the table due to bgp policy and
 // we can receive withdraws for such paths and withdrawals may not be
 // stopped by the same policies.
-//
 func (dest *Destination) explicitWithdraw(logger log.Logger, withdraw *Path) *Path {
 	logger.Debug("Removing withdrawals",
 		log.Fields{
