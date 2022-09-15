@@ -46,18 +46,36 @@ func (log *FxLogger) PrintObjects() {
 	slices.SortFunc(log.ctors, func(a, b *fxevent.Provided) bool {
 		return a.ModuleName < b.ModuleName || (a.ModuleName == b.ModuleName && a.ConstructorName < b.ConstructorName)
 	})
-	fmt.Print("Constructors:\n\n")
+	// Collapse constructors by ModuleName
+	ctorsByModule := make(map[string][]*fxevent.Provided)
 	for _, ctor := range log.ctors {
-		if ctor.ModuleName != "" {
-			fmt.Printf("  🛠️  %s (%s):\n", ctor.ModuleName, ctor.ConstructorName)
-		} else {
-			fmt.Printf("  🛠️  %s:\n", ctor.ConstructorName)
-		}
+		ctorsByModule[ctor.ModuleName] = append(ctorsByModule[ctor.ModuleName], ctor)
+	}
+
+	fmt.Print("Constructors:\n\n")
+	for _, ctor := range ctorsByModule[""] {
+		fmt.Printf("  🛠️  %s:\n", ctor.ConstructorName)
 		for _, rtype := range ctor.OutputTypeNames {
 			fmt.Printf("    • %s\n", rtype)
 		}
 		if ctor.Err != nil {
 			fmt.Printf("  ❌%s error: %s\n", ctor.ConstructorName, strings.Replace(ctor.Err.Error(), ":", ":\n\t", -1))
+		}
+		fmt.Println()
+	}
+	for modName, ctors := range ctorsByModule {
+		if modName == "" {
+			continue
+		}
+
+		fmt.Printf("  🛠️  %s:\n", modName)
+		for _, ctor := range ctors {
+			for _, rtype := range ctor.OutputTypeNames {
+				fmt.Printf("    • %s\n", rtype)
+			}
+			if ctor.Err != nil {
+				fmt.Printf("  ❌%s error: %s\n", ctor.ConstructorName, strings.Replace(ctor.Err.Error(), ":", ":\n\t", -1))
+			}
 		}
 		fmt.Println()
 	}
