@@ -921,34 +921,35 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
-			(option.Config.TunnelingEnabled() && !hasFullHostReachableServices())) {
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 
-		var msg string
+		var err error
 		switch {
 		case !option.Config.EnableNodePort:
-			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
+			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
 		case !option.Config.EnableRemoteNodeIdentity:
-			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
+			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
 				option.EnableRemoteNodeIdentity)
 		case option.Config.EgressMasqueradeInterfaces != "":
-			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
+			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.EgressMasqueradeInterfaces, option.Devices)
 		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
-			msg = "BPF masquerade requires full host reachable services enabled in tunnel mode."
+			err = fmt.Errorf("BPF masquerade requires full host reachable services enabled in tunnel mode (--%s=\"false\")",
+				option.EnableSocketLB)
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
-		option.Config.EnableBPFMasquerade = false
-		log.Warn(msg + " Falling back to iptables-based masquerading.")
-		// Too bad, if we need to revert to iptables-based MASQ, we also cannot
-		// use BPF host routing since we need the upper stack.
-		if !option.Config.EnableHostLegacyRouting {
-			option.Config.EnableHostLegacyRouting = true
-			log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
-				option.EnableHostLegacyRouting)
+		if err != nil {
+			option.Config.EnableBPFMasquerade = false
+			log.WithError(err).Warn("Falling back to iptables-based masquerading.")
+			// Too bad, if we need to revert to iptables-based MASQ, we also cannot
+			// use BPF host routing since we need the upper stack.
+			if !option.Config.EnableHostLegacyRouting {
+				option.Config.EnableHostLegacyRouting = true
+				log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
+					option.EnableHostLegacyRouting)
+			}
 		}
 	}
 	if option.Config.EnableIPv4EgressGateway {
