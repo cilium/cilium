@@ -75,7 +75,7 @@ func TestParseContextOptions(t *testing.T) {
 	// All of the labelsContext options should work
 	opts, err = ParseContextOptions(Options{"labelsContext": strings.Join(contextLabelsList, ",")})
 	assert.NoError(t, err)
-	assert.EqualValues(t, "labels=source_pod,source_namespace,source_workload,source_app,destination_pod,destination_namespace,destination_workload,destination_app,traffic_direction", opts.Status())
+	assert.EqualValues(t, "labels=source_ip,source_pod,source_namespace,source_workload,source_app,destination_ip,destination_pod,destination_namespace,destination_workload,destination_app,traffic_direction", opts.Status())
 	assert.EqualValues(t, contextLabelsList, opts.GetLabelNames())
 
 	opts, err = ParseContextOptions(Options{"labelsContext": "non_existent_label"})
@@ -187,14 +187,22 @@ func TestParseGetLabelValues(t *testing.T) {
 			"k8s:app=barapp",
 		},
 	}
-	flow := &pb.Flow{Source: sourceEndpoint, Destination: destinationEndpoint, TrafficDirection: pb.TrafficDirection_INGRESS}
+	flow := &pb.Flow{
+		IP: &pb.IP{
+			Source:      "1.2.3.4",
+			Destination: "5.6.7.8",
+		},
+		Source:           sourceEndpoint,
+		Destination:      destinationEndpoint,
+		TrafficDirection: pb.TrafficDirection_INGRESS,
+	}
 	assert.EqualValues(t,
 		mustGetLabelValues(opts, flow),
 		[]string{
-			// source_pod, source_namespace, source_workload, source_app
-			"foo-deploy-pod", "foo-ns", "foo-deploy", "fooapp",
-			// destination_pod, destination_namespace, destination_workload, destination_app
-			"bar-deploy-pod", "bar-ns", "bar-deploy", "barapp",
+			// source_ip, source_pod, source_namespace, source_workload, source_app
+			"1.2.3.4", "foo-deploy-pod", "foo-ns", "foo-deploy", "fooapp",
+			// destination_ip, destination_pod, destination_namespace, destination_workload, destination_app
+			"5.6.7.8", "bar-deploy-pod", "bar-ns", "bar-deploy", "barapp",
 			// traffic_direction
 			"ingress",
 		},
@@ -205,8 +213,8 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.EqualValues(t,
 		mustGetLabelValues(opts, &pb.Flow{}),
 		[]string{
-			"", "", "", "",
-			"", "", "", "",
+			"", "", "", "", "",
+			"", "", "", "", "",
 			"unknown",
 		},
 	)
