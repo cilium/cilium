@@ -552,7 +552,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // Must be called with endpoint.mutex not held and endpoint.buildMutex held.
 //
 // Returns the policy revision number when the regeneration has called,
-// Whether the new state dir is populated with all new BPF state files, and
+// Whether the new state dir is populated with all new BPF state files,
 // and an error if something failed.
 func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, stateDirComplete bool, reterr error) {
 	var (
