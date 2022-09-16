@@ -64,11 +64,7 @@ CNCF Graduation
 ~~~~~~~~~~~~~~~
 
 Given the widespread adoption of Cilium, `CNCF Graduation`_ is a natural goal for
-the project. We believe that the majority of the criteria are already met, but
-the following still need to be addressed: 
-
-* `CII Best Practice Badge`_
-* Third-party security audit
+the project. We hope to apply for graduation soon.
 
 .. _rm-cilium-service-mesh:
 
@@ -193,7 +189,6 @@ anything other than trivial fixes.
 .. _point releases: https://cilium.io/blog/categories/release/
 .. _Get Involved: https://cilium.io/get-involved
 .. _CNCF Graduation: https://github.com/cncf/toc/blob/main/process/graduation_criteria.md
-.. _CII Best Practice Badge: https://bestpractices.coreinfrastructure.org/en
 .. _Hubble OpenTelemetry collector: https://github.com/cilium/hubble-otel
 .. _CI improvements: https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2FCI-improvement
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue
