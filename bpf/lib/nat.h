@@ -534,6 +534,16 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 	return CTX_ACT_OK;
 }
 
+static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
+					       enum nat_dir dir,
+					       struct ipv4_ct_tuple *tuple)
+{
+	tuple->nexthdr = ip4->protocol;
+	tuple->daddr = ip4->daddr;
+	tuple->saddr = ip4->saddr;
+	tuple->flags = dir;
+}
+
 static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	    bool from_endpoint)
@@ -556,10 +566,8 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	tuple.flags = NAT_DIR_EGRESS;
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -622,10 +630,8 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
-	tuple.flags = NAT_DIR_INGRESS;
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
+
 	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -1108,6 +1114,16 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 	return CTX_ACT_OK;
 }
 
+static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
+					       enum nat_dir dir,
+					       struct ipv6_ct_tuple *tuple)
+{
+	tuple->nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+	tuple->flags = dir;
+}
+
 static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 {
@@ -1135,10 +1151,8 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (hdrlen < 0)
 		return hdrlen;
 
-	tuple.nexthdr = nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-	tuple.flags = NAT_DIR_EGRESS;
+	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
+
 	off = ((void *)ip6 - data) + hdrlen;
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -1211,10 +1225,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (hdrlen < 0)
 		return hdrlen;
 
-	tuple.nexthdr = nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-	tuple.flags = NAT_DIR_INGRESS;
+	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, &tuple);
+
 	off = ((void *)ip6 - data) + hdrlen;
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
