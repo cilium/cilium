@@ -1873,6 +1873,7 @@ func (m *Manager) addCiliumENIRules() error {
 
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
+	identityMarkMask := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
 
 	// Note: these rules need the xt_connmark module (iptables usually
 	// loads it when required, unless loading modules after boot has been
@@ -1892,5 +1893,12 @@ func (m *Manager) addCiliumENIRules() error {
 		"-A", ciliumPreMangleChain,
 		"-i", "lxc+",
 		"-m", "comment", "--comment", "cilium: primary ENI",
+		// Don't restore the mark when we are carrying the identity with mark,
+		// because we are using 7th bit to carry the uppermost bit of the identity
+		// and it is overlapping with ENI's mark. Below --restore-mark "restores"
+		// the connmark and it zeros the 7th bit when connmark is zero. As a result,
+		// identity will be changed. This will become a problem only when we are
+		// setting the ClusterID 128-255.
+		"-m", "mark", "!", "--mark", identityMarkMask,
 		"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask})
 }
