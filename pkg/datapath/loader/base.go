@@ -141,7 +141,9 @@ func addENIRules(logger *slog.Logger, sysSettings []tables.Sysctl) ([]tables.Sys
 	if err := route.ReplaceRule(route.Rule{
 		Priority: linux_defaults.RulePriorityNodeport,
 		Mark:     linux_defaults.MarkMultinodeNodeport,
-		Mask:     linux_defaults.MaskMultinodeNodeport,
+		// Avoid selecting this rule when we're carrying identity with mark. See corresponding primary ENI iptables rule
+		// to restore connmark for more details
+		Mask:     uint32(linux_defaults.MagicMarkIdentity | linux_defaults.MaskMultinodeNodeport),
 		Table:    route.MainTable,
 		Protocol: linux_defaults.RTProto,
 	}); err != nil {
