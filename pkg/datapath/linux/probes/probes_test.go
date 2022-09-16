@@ -4,6 +4,8 @@
 package probes
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -245,6 +247,43 @@ func (s *ProbesTestSuite) TestSystemConfigProbes(c *C) {
 			c.Assert(err, NotNil)
 		} else {
 			c.Assert(err, IsNil)
+		}
+	}
+}
+
+func (s *ProbesTestSuite) TestWriteFeatureHeader(c *C) {
+	testCases := []struct {
+		features      map[string]bool
+		common        bool
+		expectedLines []string
+	}{
+		{
+			features: map[string]bool{
+				"HAVE_LRU_HASH_MAP_TYPE": true,
+			},
+			common: true,
+			expectedLines: []string{
+				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+			},
+		},
+		{
+			features: map[string]bool{
+				"HAVE_LRU_HASH_MAP_TYPE": true,
+			},
+			common: false,
+			expectedLines: []string{
+				"#include \"features.h\"",
+				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		buf := new(bytes.Buffer)
+		err := writeFeatureHeader(buf, tc.features, tc.common)
+		c.Assert(err, IsNil)
+		for _, s := range tc.expectedLines {
+			c.Assert(strings.Contains(buf.String(), s), Equals, true)
 		}
 	}
 }

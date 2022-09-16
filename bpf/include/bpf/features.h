@@ -1,43 +1,10 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifndef ____BPF_FEATURES____
-#define ____BPF_FEATURES____
+#pragma once
 
-#include <bpf_features.h>
+/* This file is regenerated with different macros at startup of the agent.
+ * See pkg/datapath/linux/probes/probes.go to add new macros.
+ */
 
 /* Neither skb nor xdp related features. */
-
-/* Testing both here since both were added to the same kernel release
- * and we need to ensure both are enabled.
- */
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_netns_cookie) && \
-    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_get_netns_cookie)
-# define BPF_HAVE_NETNS_COOKIE 1
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_socket_cookie)
-# define BPF_HAVE_SOCKET_COOKIE 1
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_jiffies64) && \
-    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_jiffies64) && \
-    HAVE_PROG_TYPE_HELPER(sched_cls,        bpf_jiffies64) && \
-    HAVE_PROG_TYPE_HELPER(xdp,              bpf_jiffies64)
-# define BPF_HAVE_JIFFIES 1
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_csum_level)
-# define BPF_HAVE_CSUM_LEVEL 1
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_sk_lookup_tcp) && \
-    HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_sk_lookup_udp)
-# define BPF_HAVE_SOCKET_LOOKUP 1
-#endif
-
-#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_get_current_cgroup_id)
-# define BPF_HAVE_CGROUP_ID 1
-#endif
-
-#endif /* ____BPF_FEATURES____ */

@@ -73,15 +73,6 @@
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
 
-/* Before upstream commit d71962f3e627 (4.18), map helpers were not
- * allowed to access map values directly. So for those older kernels,
- * we need to copy the data to the stack first.
- * We don't have a probe for that, but the bpf_fib_lookup helper was
- * introduced in the same release.
- */
-#define HAVE_DIRECT_ACCESS_TO_MAP_VALUES \
-    HAVE_PROG_TYPE_HELPER(sched_cls, bpf_fib_lookup)
-
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 declare_tailcall_if(CONDITION, ID)						\
 int NAME(struct __ctx_buff *ctx)						\
