@@ -1137,7 +1137,6 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	__u8 nexthdr;
 	__u32 off;
 	bool icmp_echoreply = false;
 
@@ -1146,8 +1145,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &ip6->nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1212,7 +1210,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	__u8 nexthdr;
 	__u32 off;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
@@ -1220,8 +1217,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	hdrlen = ipv6_hdrlen(ctx, &ip6->nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
