@@ -276,7 +276,7 @@ can be found in file `USERS.md <https://raw.githubusercontent.com/cilium/cilium/
 
 Roadmap
 -------
-Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a a high-level view of the main priorities for the project, the maturity of different features, and how to influence the project direction.
+Cilium maintains a `public roadmap <https://docs.cilium.io/en/latest/community/roadmap/>`__. It gives a a high-level view of the main priorities for the project, the maturity of different features and projects, and how to influence the project direction.
 
 License
 =======
