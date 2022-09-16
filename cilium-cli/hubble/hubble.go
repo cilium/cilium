@@ -5,9 +5,11 @@ package hubble
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/versioncheck"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/spf13/pflag"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli/values"
@@ -29,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -50,6 +54,7 @@ type k8sHubbleImplementation interface {
 	CreateConfigMap(ctx context.Context, namespace string, config *corev1.ConfigMap, opts metav1.CreateOptions) (*corev1.ConfigMap, error)
 	DeleteConfigMap(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error)
+	PatchConfigMap(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*corev1.ConfigMap, error)
 	UpdateConfigMap(ctx context.Context, configMap *corev1.ConfigMap, opts metav1.UpdateOptions) (*corev1.ConfigMap, error)
 	CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error)
 	GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error)
@@ -64,6 +69,7 @@ type k8sHubbleImplementation interface {
 	GetServerVersion() (*semver.Version, error)
 	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error)
 	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 }
 
@@ -150,18 +156,43 @@ func (p *Parameters) validateParams() error {
 	return nil
 }
 
+func (k *K8sHubble) generateDefaultHelmState(ctx context.Context, client k8sHubbleImplementation, namespace string) (*helm.State, error) {
+	version, err := client.GetRunningCiliumVersion(context.Background(), namespace)
+	if version == "" || err != nil {
+		return nil, fmt.Errorf("unable to obtain cilium version, no cilium pods found in namespace %q", namespace)
+	}
+	semVer, err := utils.ParseCiliumVersion(version)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse cilium version %s: %w", version, err)
+	}
+	k.Log("🔮 Auto-detected cilium version %s", version)
+	return &helm.State{
+		Secret:  nil,
+		Version: semVer,
+		Values:  chartutil.Values{},
+	}, nil
+}
+
 func NewK8sHubble(ctx context.Context, client k8sHubbleImplementation, p Parameters) (*K8sHubble, error) {
 	cm := certs.NewCertManager(client, certs.Parameters{Namespace: p.Namespace})
-	helmState, err := client.GetHelmState(ctx, p.Namespace, p.HelmValuesSecretName)
-	if err != nil {
-		return nil, err
-	}
-	return &K8sHubble{
+	k := K8sHubble{
 		client:      client,
 		params:      p,
 		certManager: cm,
-		helmState:   helmState,
-	}, nil
+	}
+	helmState, err := client.GetHelmState(ctx, p.Namespace, p.HelmValuesSecretName)
+	if err != nil {
+		// if cilium-cli-helm-values secret was not found (e.g. cilium was not installed with cilium-cli)
+		// or the secret parsing failed for whatever reason, then we create a default helm state.
+		k.Log("⚠️  Error parsing helm cli secret: %s", err)
+		k.Log("⚠️  Proceed in unknown install state")
+		helmState, err = k.generateDefaultHelmState(ctx, client, p.Namespace)
+		if err != nil {
+			return nil, err
+		}
+	}
+	k.helmState = helmState
+	return &k, nil
 }
 
 func (k *K8sHubble) Log(format string, a ...interface{}) {
@@ -275,16 +306,11 @@ func (k *K8sHubble) disableHubble(ctx context.Context) error {
 }
 
 func (k *K8sHubble) Disable(ctx context.Context) error {
-	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
-	if err != nil {
-		return err
-	}
-
 	// Generate the manifests has if hubble was being enabled so that we can
 	// retrieve all UI and Relay's resource names.
 	k.params.UI = true
 	k.params.Relay = true
-	err = k.generateManifestsEnable(ctx, false, helmState.Values)
+	err := k.generateManifestsEnable(ctx, false, k.helmState.Values)
 	if err != nil {
 		return err
 	}
@@ -309,7 +335,7 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 
 	// Now that we have delete all UI and Relay's resource names then we can
 	// generate the manifests with UI and Relay disabled.
-	err = k.generateManifestsDisable(ctx, helmState.Values)
+	err = k.generateManifestsDisable(ctx, k.helmState.Values)
 	if err != nil {
 		return err
 	}
@@ -318,12 +344,15 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 		return err
 	}
 
-	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+	// If helm values secret is not present we should not write one to the cluster now
+	if k.helmState.Secret != nil {
+		k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 
-	helmState.Secret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
-	if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, helmState.Secret, metav1.UpdateOptions{}); err != nil {
-		k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
-		return err
+		k.helmState.Secret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
+		if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, k.helmState.Secret, metav1.UpdateOptions{}); err != nil {
+			k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+			return err
+		}
 	}
 
 	k.Log("✅ Hubble was successfully disabled.")
@@ -359,13 +388,80 @@ func (k *K8sHubble) enableHubble(ctx context.Context) error {
 	return k.updateConfigMap(ctx)
 }
 
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+// Removes any values that are not related to hubble from configmap patch
+func (k *K8sHubble) filterConfigmapPatch(patch []byte) ([]byte, error) {
+	patchYaml := map[string]interface{}{}
+	err := json.Unmarshal(patch, &patchYaml)
+	if err != nil {
+		return nil, err
+	}
+
+	hubbleOnlyFields := map[string]interface{}{}
+	data := reflect.ValueOf(patchYaml["data"])
+	if data.Kind() == reflect.Map {
+		for _, key := range data.MapKeys() {
+			keyStr := key.Interface().(string)
+			if contains(defaults.HubbleKeys, keyStr) {
+				if data.MapIndex(key).Interface() == nil {
+					hubbleOnlyFields[keyStr] = nil
+				} else {
+					hubbleOnlyFields[keyStr] = data.MapIndex(key).Interface().(string)
+				}
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("Unable to decode patch data %v", patchYaml)
+	}
+	patchYaml["data"] = hubbleOnlyFields
+	newPatch, err := json.Marshal(patchYaml)
+	if err != nil {
+		return nil, err
+	}
+	return newPatch, nil
+}
+
 func (k *K8sHubble) updateConfigMap(ctx context.Context) error {
+	oldCm, err := k.client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+
 	cm, err := k.generateConfigMap()
 	if err != nil {
 		return err
 	}
+	oldData, err := json.Marshal(oldCm)
+	if err != nil {
+		return err
+	}
+	newData, err := json.Marshal(cm)
+	if err != nil {
+		return err
+	}
+	patch, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return err
+	}
 
-	_, err = k.client.UpdateConfigMap(ctx, cm, metav1.UpdateOptions{})
+	// if helm state secret doesn't exist, we need to make sure to apply only
+	// hubble values so that we don't overwrite any settings with default values.
+	if k.helmState.Secret == nil {
+		patch, err = k.filterConfigmapPatch(patch)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = k.client.PatchConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to patch ConfigMap %s with %s: %w", defaults.ConfigMapName, cm, err)
 	}
@@ -515,12 +611,7 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	}
 
-	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
-	if err != nil {
-		return err
-	}
-
-	err = k.generateManifestsEnable(ctx, true, helmState.Values)
+	err = k.generateManifestsEnable(ctx, true, k.helmState.Values)
 	if err != nil {
 		return err
 	}
@@ -603,12 +694,15 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 		}
 	}
 
-	k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+	// If helm values secret is not present we should not write one to the cluster now
+	if k.helmState.Secret != nil {
+		k.Log("ℹ️  Storing helm values file in %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
 
-	helmState.Secret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
-	if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, helmState.Secret, metav1.UpdateOptions{}); err != nil {
-		k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
-		return err
+		k.helmState.Secret.Data[defaults.HelmValuesSecretKeyName] = []byte(k.helmYAMLValues)
+		if _, err := k.client.UpdateSecret(ctx, k.params.Namespace, k.helmState.Secret, metav1.UpdateOptions{}); err != nil {
+			k.Log("❌ Unable to store helm values file %s/%s Secret", k.params.Namespace, k.params.HelmValuesSecretName)
+			return err
+		}
 	}
 
 	k.Log("✅ Hubble was successfully enabled!")
