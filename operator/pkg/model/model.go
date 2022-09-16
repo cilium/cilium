@@ -63,6 +63,8 @@ type HTTPRoute struct {
 
 // StringMatch describes various types of string matching.
 // Only one field may be set.
+// If no fields are set, all paths should match (no path match criteria should
+// be generated for Envoy.)
 type StringMatch struct {
 	Prefix string
 	Exact  string
