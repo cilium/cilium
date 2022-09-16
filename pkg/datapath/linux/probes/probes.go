@@ -4,7 +4,6 @@
 package probes
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -25,14 +25,40 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
 	once         sync.Once
 	probeManager *ProbeManager
+	tpl          = template.New("headerfile")
 )
+
+func init() {
+	const content = `
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright Authors of Cilium */
+
+/* THIS FILE WAS GENERATED DURING AGENT STARTUP. */
+
+#pragma once
+
+{{- if not .Common}}
+#include "features.h"
+{{- end}}
+
+{{- range $key, $value := .Features}}
+{{- if $value}}
+#define {{$key}} 1
+{{end}}
+{{- end}}
+`
+	var err error
+	tpl, err = tpl.Parse(content)
+	if err != nil {
+		log.WithError(err).Fatal("could not parse headerfile template")
+	}
+}
 
 // KernelParam is a type based on string which represents CONFIG_* kernel
 // parameters which usually have values "y", "n" or "m".
@@ -53,6 +79,21 @@ type kernelOption struct {
 	Description string
 	Enabled     bool
 	CanBeModule bool
+}
+
+type ProgramHelper struct {
+	Program ebpf.ProgramType
+	Helper  asm.BuiltinFunc
+}
+
+type miscFeatures struct {
+	HaveLargeInsnLimit bool
+}
+
+type FeatureProbes struct {
+	Maps           map[ebpf.MapType]bool
+	ProgramHelpers map[ProgramHelper]bool
+	Misc           miscFeatures
 }
 
 // SystemConfig contains kernel configuration and sysctl parameters related to
@@ -306,69 +347,6 @@ func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
 	return kernelParams
 }
 
-// writeHeaders executes bpftool to generate BPF feature C macros and then
-// writes them to the given writer.
-func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
-	cmd := exec.WithTimeout(
-		defaults.ExecTimeout, "bpftool", "feature", "probe", "macros")
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf(
-			"could not initialize stdout pipe for bpftool feature probe: %w", err)
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf(
-			"could not initialize stderr pipe for bpftool feature probe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf(
-			"could not start bpftool for bpftool feature probe: %w", err)
-	}
-
-	writer := bufio.NewWriter(featuresFile)
-	defer writer.Flush()
-
-	io.WriteString(writer, "#ifndef BPF_FEATURES_H_\n")
-	io.WriteString(writer, "#define BPF_FEATURES_H_\n\n")
-
-	io.Copy(writer, stdoutPipe)
-	if err := cmd.Wait(); err != nil {
-		stderr, err := io.ReadAll(stderrPipe)
-		if err != nil {
-			return fmt.Errorf(
-				"reading from bpftool feature probe stderr pipe failed: %w", err)
-		}
-		return fmt.Errorf(
-			"bpftool feature probe did not run successfully: %s (%w)", stderr, err)
-	}
-
-	io.WriteString(writer, "#endif /* BPF_FEATURES_H_ */\n")
-
-	return nil
-}
-
-// CreateHeadersFile creates a C header file with macros indicating which BPF
-// features are available in the kernel.
-func (p *ProbeManager) CreateHeadersFile() error {
-	globalsDir := option.Config.GetGlobalsDir()
-	if err := os.MkdirAll(globalsDir, defaults.StateDirRights); err != nil {
-		return fmt.Errorf("could not create runtime directory %s: %w", globalsDir, err)
-	}
-	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
-	featuresFile, err := os.Create(featuresFilePath)
-	if err != nil {
-		return fmt.Errorf(
-			"could not create features header file %s: %w", featuresFilePath, err)
-	}
-	defer featuresFile.Close()
-
-	if err := p.writeHeaders(featuresFile); err != nil {
-		return err
-	}
-	return nil
-}
-
 // KernelConfigAvailable checks if the Kernel Config is available on the
 // system or not.
 func (p *ProbeManager) KernelConfigAvailable() bool {
@@ -487,5 +465,152 @@ func HaveV3ISA() error {
 	if err != nil {
 		log.WithError(err).Fatal("failed to probe V3 ISA")
 	}
+	return nil
+}
+
+// CreateHeaderFiles creates C header files with macros indicating which BPF
+// features are available in the kernel.
+func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
+	common, err := os.Create(filepath.Join(headerDir, "features.h"))
+	if err != nil {
+		return fmt.Errorf("could not create common features header file: %w", err)
+	}
+	defer common.Close()
+	if err := writeCommonHeader(common, probes); err != nil {
+		return fmt.Errorf("could not write common features header file: %w", err)
+	}
+
+	skb, err := os.Create(filepath.Join(headerDir, "features_skb.h"))
+	if err != nil {
+		return fmt.Errorf("could not create skb related features header file: %w", err)
+	}
+	defer skb.Close()
+	if err := writeSkbHeader(skb, probes); err != nil {
+		return fmt.Errorf("could not write skb related features header file: %w", err)
+	}
+
+	xdp, err := os.Create(filepath.Join(headerDir, "features_xdp.h"))
+	if err != nil {
+		return fmt.Errorf("could not create xdp related features header file: %w", err)
+	}
+	defer xdp.Close()
+	if err := writeXdpHeader(xdp, probes); err != nil {
+		return fmt.Errorf("could not write xdp related features header file: %w", err)
+	}
+
+	return nil
+}
+
+// ExecuteHeaderProbes probes the kernel for a specific set of BPF features
+// which are currently used to generate various feature macros for the datapath.
+// The probe results returned in FeatureProbes are then used in the respective
+// function that writes the actual C macro definitions.
+// Further needed probes should be added here, while new macro strings need to
+// be added in the correct `write*Header()` function.
+func ExecuteHeaderProbes() *FeatureProbes {
+	probes := FeatureProbes{
+		Maps:           make(map[ebpf.MapType]bool),
+		ProgramHelpers: make(map[ProgramHelper]bool),
+		Misc:           miscFeatures{},
+	}
+
+	maps := []ebpf.MapType{
+		ebpf.LRUHash,
+		ebpf.LPMTrie,
+	}
+	for _, m := range maps {
+		probes.Maps[m] = (HaveMapType(m) == nil)
+	}
+
+	progHelpers := []ProgramHelper{
+		// common probes
+		{ebpf.CGroupSock, asm.FnGetNetnsCookie},
+		{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie},
+		{ebpf.CGroupSockAddr, asm.FnGetSocketCookie},
+		{ebpf.CGroupSock, asm.FnJiffies64},
+		{ebpf.CGroupSockAddr, asm.FnJiffies64},
+		{ebpf.SchedCLS, asm.FnJiffies64},
+		{ebpf.XDP, asm.FnJiffies64},
+		{ebpf.CGroupSockAddr, asm.FnSkLookupTcp},
+		{ebpf.CGroupSockAddr, asm.FnSkLookupUdp},
+		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
+
+		// skb related probes
+		{ebpf.SchedCLS, asm.FnSkbChangeTail},
+		{ebpf.SchedCLS, asm.FnFibLookup},
+		{ebpf.SchedCLS, asm.FnCsumLevel},
+
+		// xdp related probes
+		{ebpf.XDP, asm.FnFibLookup},
+	}
+	for _, ph := range progHelpers {
+		probes.ProgramHelpers[ph] = (HaveProgramHelper(ph.Program, ph.Helper) == nil)
+	}
+
+	probes.Misc.HaveLargeInsnLimit = (HaveLargeInstructionLimit() == nil)
+
+	return &probes
+}
+
+// writeCommonHeader defines macross for bpf/include/bpf/features.h
+func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
+	features := map[string]bool{
+		"HAVE_LRU_HASH_MAP_TYPE": probes.Maps[ebpf.LRUHash],
+		"HAVE_LPM_TRIE_MAP_TYPE": probes.Maps[ebpf.LPMTrie],
+		"BPF_HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
+			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
+		"BPF_HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
+		"BPF_HAVE_JIFFIES": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnJiffies64}] &&
+			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnJiffies64}] &&
+			probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnJiffies64}] &&
+			probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnJiffies64}],
+		"BPF_HAVE_SOCKET_LOOKUP": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupTcp}] &&
+			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnSkLookupUdp}],
+		"BPF_HAVE_CGROUP_ID": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId}],
+		// Before upstream commit d71962f3e627 (4.18), map helpers were not
+		// allowed to access map values directly. So for those older kernels,
+		// we need to copy the data to the stack first.
+		// We don't have a probe for that, but the bpf_fib_lookup helper was
+		// introduced in the same release.
+		"HAVE_DIRECT_ACCESS_TO_MAP_VALUES": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
+		"HAVE_LARGE_INSN_LIMIT":            probes.Misc.HaveLargeInsnLimit,
+	}
+
+	return writeFeatureHeader(writer, features, true)
+}
+
+// writeSkbHeader defines macros for bpf/include/bpf/features_skb.h
+func writeSkbHeader(writer io.Writer, probes *FeatureProbes) error {
+	featuresSkb := map[string]bool{
+		"BPF_HAVE_CHANGE_TAIL": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnSkbChangeTail}],
+		"BPF_HAVE_FIB_LOOKUP":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
+		"BPF_HAVE_CSUM_LEVEL":  probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnCsumLevel}],
+	}
+
+	return writeFeatureHeader(writer, featuresSkb, false)
+}
+
+// writeXdpHeader defines macros for bpf/include/bpf/features_xdp.h
+func writeXdpHeader(writer io.Writer, probes *FeatureProbes) error {
+	featuresXdp := map[string]bool{
+		"BPF_HAVE_FIB_LOOKUP": probes.ProgramHelpers[ProgramHelper{ebpf.XDP, asm.FnFibLookup}],
+	}
+
+	return writeFeatureHeader(writer, featuresXdp, false)
+}
+
+func writeFeatureHeader(writer io.Writer, features map[string]bool, common bool) error {
+	input := struct {
+		Common   bool
+		Features map[string]bool
+	}{
+		Common:   common,
+		Features: features,
+	}
+
+	if err := tpl.Execute(writer, input); err != nil {
+		return fmt.Errorf("could not write template: %w", err)
+	}
+
 	return nil
 }

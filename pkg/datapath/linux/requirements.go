@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -143,8 +144,8 @@ func CheckMinRequirements() {
 			// Warn missing required kernel config option
 			log.WithError(err).Warn(errMsg)
 		}
-		if err := probeManager.CreateHeadersFile(); err != nil {
-			log.WithError(err).Fatal("BPF check: NOT OK.")
+		if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
+			log.WithError(err).Fatal("failed to create header files with feature macros")
 		}
 	}
 }
