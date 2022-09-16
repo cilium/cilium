@@ -101,3 +101,22 @@ var (
 	// CiliumPodSelector is the pod selector to be used for the Cilium agents.
 	CiliumPodSelector = "k8s-app=cilium"
 )
+
+// All hubble values from `cilium-config` configmap:
+// https://github.com/cilium/cilium/blob/d9a04be9d714e5f5544cbca7ef8db7a151bfce96/install/kubernetes/cilium/templates/cilium-configmap.yaml#L709-L750
+// this list is used to cherry-pick only hubble related values for configmap patch
+// when running in unknown install state (i.e. when `cilium-cli-helm-values` doesn't exist)
+var HubbleKeys = []string{
+	"enable-hubble",
+	"hubble-disable-tls",
+	"hubble-event-buffer-capacity",
+	"hubble-event-queue-size",
+	"hubble-flow-buffer-size",
+	"hubble-listen-address",
+	"hubble-metrics",
+	"hubble-metrics-server",
+	"hubble-socket-path",
+	"hubble-tls-cert-file",
+	"hubble-tls-client-ca-files",
+	"hubble-tls-key-file",
+}
