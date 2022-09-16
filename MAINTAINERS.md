@@ -2,7 +2,7 @@
 
 See [Governance](Documentation/community/governance/commit_access.rst) for
 governance, commit, and vote guidelines as well as maintainer responsibilities.
-Everybody listed in this file is a committer as per governance definition.
+Everybody listed is a committer as per governance definition.
 
 All committers and maintainers have identical voting rights. Maintainers have
 additional administrative and janitorial responsibilities.
@@ -63,6 +63,11 @@ by the "janitor role" which is rotated between all committers.
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
  * [Zang Li] (Google)
+
+## Cilium & Hubble Emeritus Committers
+
+We would like to acknowledge previous committers and their huge contributions to our collective success:
+
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
