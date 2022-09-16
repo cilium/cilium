@@ -1390,6 +1390,10 @@ func checkReady(pod v1.Pod) bool {
 		return false
 	}
 
+	if len(pod.Status.PodIPs) == 0 {
+		return false
+	}
+
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			return false
@@ -1466,6 +1470,7 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		//  - It is not scheduled for deletion when DeletionTimestamp is set
 		//  - All containers in the pod have passed the liveness check via
 		//  containerStatuses.Ready
+		//  - It has a pod IP set
 		currScheduled := 0
 		for _, pod := range podList.Items {
 			if checkStatus(pod) {
