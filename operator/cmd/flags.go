@@ -321,6 +321,9 @@ func init() {
 	flags.StringSlice(operatorOption.IngressLBAnnotationPrefixes, operatorOption.IngressLBAnnotationsDefault, "Annotation prefixes for propagating from Ingress to the Load Balancer service")
 	option.BindEnv(Vp, operatorOption.IngressLBAnnotationPrefixes)
 
+	flags.Bool(operatorOption.EnableK8s, true, `Enable operation of Kubernetes-related services/controllers when using Cilium with Kubernetes`)
+	option.BindEnv(Vp, operatorOption.EnableK8s)
+
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")
 	flags.MarkHidden(option.KVstoreLeaseTTL)
 	option.BindEnv(Vp, option.KVstoreLeaseTTL)
