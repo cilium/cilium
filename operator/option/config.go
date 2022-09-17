@@ -272,6 +272,11 @@ const (
 	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode = "ingress-default-lb-mode"
+
+	// EnableK8s operation of Kubernet-related services/controllers.
+	// Intended for operating cilium with CNI-compatible orchestrators
+	// other than Kubernetes. (default is true)
+	EnableK8s = "enable-k8s"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -508,6 +513,11 @@ type OperatorConfig struct {
 	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode string
+
+	// Enables/Disables operation of kubernet-related services/controllers.
+	// Intended for operating cilium with CNI-compatible orquestrators
+	// othern than Kubernetes. (default is true)
+	EnableK8s bool
 }
 
 // Populate sets all options with the values from viper.
@@ -548,6 +558,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
+	c.EnableK8s = vp.GetBool(EnableK8s)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
 
