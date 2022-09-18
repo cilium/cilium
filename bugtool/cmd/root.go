@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -80,6 +81,7 @@ var (
 	enableMarkdown  bool
 	archivePrefix   string
 	getPProf        bool
+	envoyDump       bool
 	pprofPort       int
 	traceSeconds    int
 	parallelWorkers int
@@ -89,6 +91,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort, "pprof-port", 6060, "Port on which pprof server is exposed")
+	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
@@ -207,6 +210,12 @@ func runTool() {
 			os.Exit(1)
 		}
 	} else {
+		if envoyDump {
+			if err := dumpEnvoy(cmdDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to dump envoy config: %s\n", err)
+			}
+		}
+
 		// Check if there is a user supplied configuration
 		if config, _ := loadConfigFile(configPath); config != nil {
 			// All of of the commands run are from the configuration file
@@ -453,28 +462,41 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	return ciliumPods, nil
 }
 
+func dumpEnvoy(rootDir string) error {
+	// curl --unix-socket /var/run/cilium/envoy-admin.sock http:/admin/config_dump\?include_eds > dump.json
+	c := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", "/var/run/cilium/envoy-admin.sock")
+			},
+		},
+	}
+	return downloadToFile(c, "http://admin/config_dump?include_eds", filepath.Join(rootDir, "envoy-config.json"))
+}
+
 func pprofTraces(rootDir string) error {
 	var wg sync.WaitGroup
 	var profileErr error
 	pprofHost := fmt.Sprintf("localhost:%d", pprofPort)
 	wg.Add(1)
+	httpClient := http.DefaultClient
 	go func() {
 		url := fmt.Sprintf("http://%s/debug/pprof/profile?seconds=%d", pprofHost, traceSeconds)
 		dir := filepath.Join(rootDir, "pprof-cpu")
-		profileErr = downloadToFile(url, dir)
+		profileErr = downloadToFile(httpClient, url, dir)
 		wg.Done()
 	}()
 
 	url := fmt.Sprintf("http://%s/debug/pprof/trace?seconds=%d", pprofHost, traceSeconds)
 	dir := filepath.Join(rootDir, "pprof-trace")
-	err := downloadToFile(url, dir)
+	err := downloadToFile(httpClient, url, dir)
 	if err != nil {
 		return err
 	}
 
 	url = fmt.Sprintf("http://%s/debug/pprof/heap?debug=1", pprofHost)
 	dir = filepath.Join(rootDir, "pprof-heap")
-	err = downloadToFile(url, dir)
+	err = downloadToFile(httpClient, url, dir)
 	if err != nil {
 		return err
 	}
@@ -495,14 +517,14 @@ func pprofTraces(rootDir string) error {
 	return nil
 }
 
-func downloadToFile(url, file string) error {
+func downloadToFile(client *http.Client, url, file string) error {
 	out, err := os.Create(file)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
