@@ -33,6 +33,7 @@ cilium-bugtool [OPTIONS] [flags]
       --config string             Configuration to decide what should be run (default "./.cilium-bugtool.config")
       --dry-run                   Create configuration file of all commands that would have been executed
       --enable-markdown           Dump output of commands in markdown format
+      --envoy-dump                When set, dump envoy configuration from unix socket (default true)
       --exec-timeout duration     The default timeout for any cmd execution in seconds (default 30s)
       --get-pprof                 When set, only gets the pprof traces from the cilium-agent binary
   -h, --help                      help for cilium-bugtool
