@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,15 +35,17 @@ type Manager struct {
 
 	client       client.Clientset
 	serviceStore cache.Store
+	ports        []string
 }
 
 // New returns a new Manager for CiliumEnvoyConfig
-func New(client client.Clientset, indexer cache.Store) (*Manager, error) {
+func New(client client.Clientset, indexer cache.Store, ports []string) (*Manager, error) {
 	manager := &Manager{
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		client:       client,
 		serviceStore: indexer,
 		maxRetries:   10,
+		ports:        ports,
 	}
 
 	envoyConfigManager, err := newEnvoyConfigManager(client, manager.maxRetries)
@@ -64,13 +67,34 @@ func (m *Manager) OnAddService(service *slim_corev1.Service) error {
 		return err
 	}
 
-	if !IsLBProtocolAnnotationEnabled(service) {
+	if !IsLBProtocolAnnotationEnabled(service) && !hasAnyPort(service, m.ports) {
 		return nil
 	}
 
 	scopedLog.Debug("adding event to queue")
 	m.queue.Add(svcEvent(key))
 	return nil
+}
+
+func hasAnyPort(svc *slim_corev1.Service, ports []string) bool {
+	for _, p := range ports {
+		for _, port := range svc.Spec.Ports {
+			if p == getServiceFrontendPort(port) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func getServiceFrontendPort(port slim_corev1.ServicePort) string {
+	if port.Port != 0 {
+		return strconv.Itoa(int(port.Port))
+	}
+	if port.NodePort != 0 {
+		return strconv.Itoa(int(port.NodePort))
+	}
+	return port.Name
 }
 
 func (m *Manager) OnUpdateService(_, newObj *slim_corev1.Service) error {
@@ -137,7 +161,7 @@ func (m *Manager) processEvent(ctx context.Context, event interface{}) error {
 		if !ok {
 			return fmt.Errorf("got invalid object from cache: %T", objFromCache)
 		}
-		if IsLBProtocolAnnotationEnabled(service) {
+		if IsLBProtocolAnnotationEnabled(service) || hasAnyPort(service, m.ports) {
 			return m.createEnvoyConfig(ctx, service)
 		}
 		return m.deleteEnvoyConfig(ctx, service)
