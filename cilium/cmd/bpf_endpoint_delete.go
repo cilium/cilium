@@ -15,6 +15,7 @@ import (
 var bpfEndpointDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete local endpoint entries",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf endpoint delete")
 
