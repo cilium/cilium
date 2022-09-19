@@ -22,8 +22,8 @@ import (
 // +kubebuilder:resource:categories={cilium},singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
 // +kubebuilder:printcolumn:JSONPath=".status.id",description="Cilium endpoint id",name="Endpoint ID",type=integer
 // +kubebuilder:printcolumn:JSONPath=".status.identity.id",description="Cilium identity id",name="Identity ID",type=integer
-// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.enforcing",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=boolean
-// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.enforcing",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.state",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.state",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.visibility-policy-status",description="Status of visibility policy in the endpoint",name="Visibility Policy",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
@@ -40,6 +40,9 @@ type CiliumEndpoint struct {
 	// +kubebuilder:validation:Optional
 	Status EndpointStatus `json:"status"`
 }
+
+// EndpointPolicyState defines the state of the Policy mode: "enforcing", "non-enforcing", "disabled"
+type EndpointPolicyState string
 
 // EndpointStatus is the status of a Cilium endpoint.
 type EndpointStatus struct {
@@ -141,6 +144,7 @@ type EndpointPolicyDirection struct {
 	Removing AllowedIdentityList `json:"removing,omitempty"`
 	// Deprecated
 	Adding AllowedIdentityList `json:"adding,omitempty"`
+	State  EndpointPolicyState `json:"state,omitempty"`
 }
 
 // IdentityTuple specifies a peer by identity, destination port and protocol.

@@ -201,6 +201,7 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 type Configuration interface {
 	LocalClusterName() string
 	CiliumNamespaceName() string
+	LocalClusterID() int
 }
 
 // InitWellKnownIdentities establishes all well-known identities. Returns the
@@ -341,16 +342,22 @@ func InitWellKnownIdentities(c Configuration) int {
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
-	if option.Config.ClusterID > 0 {
-		// For ClusterID > 0, the identity range just starts from cluster shift,
-		// no well-known-identities need to be reserved from the range.
-		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * option.Config.ClusterID)
-		// The maximum identity also needs to be recalculated as ClusterID
-		// may be overwritten by runtime parameters.
-		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(option.Config.ClusterID+1) - 1)
-	}
+	InitMinMaxIdentityAllocation(c)
 
 	return len(WellKnown)
+}
+
+// InitMinMaxIdentityAllocation sets the minimal and maximum for identities that
+// should be allocated in the cluster.
+func InitMinMaxIdentityAllocation(c Configuration) {
+	if c.LocalClusterID() > 0 {
+		// For ClusterID > 0, the identity range just starts from cluster shift,
+		// no well-known-identities need to be reserved from the range.
+		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * c.LocalClusterID())
+		// The maximum identity also needs to be recalculated as ClusterID
+		// may be overwritten by runtime parameters.
+		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(c.LocalClusterID()+1) - 1)
+	}
 }
 
 var (
