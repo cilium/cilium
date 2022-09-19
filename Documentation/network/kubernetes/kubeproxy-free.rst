@@ -586,8 +586,11 @@ In case of a multi-device environment, where Cilium's device auto-detection sele
 more than a single device to expose NodePort or a user specifies multiple devices
 with ``devices``, the XDP acceleration is enabled on all devices. This means that
 each underlying device's driver must have native XDP support on all Cilium managed
-nodes. In addition, for the performance reasons we recommend kernel >= 5.5 for
+nodes. In addition, for performance reasons we recommend kernel >= 5.5 for
 the multi-device XDP acceleration.
+
+NodePort acceleration can be used with either direct routing (``tunnel=disabled``)
+or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
 A list of drivers supporting native XDP can be found in the table below. The
 corresponding network driver name of an interface can be determined as follows:
@@ -807,7 +810,6 @@ In order to run XDP, large receive offload (LRO) needs to be disabled on the
 
    $ ethtool -K eth0 lro off
 
-NodePort XDP requires Cilium to run in direct routing mode (``tunnel=disabled``).
 It is recommended to use Azure IPAM for the pod IP address allocation, which
 will automatically configure your virtual network to route pod traffic correctly:
 
