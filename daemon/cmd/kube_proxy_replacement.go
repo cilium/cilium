@@ -224,13 +224,6 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.NodePortMode = option.NodePortModeSNAT
 		}
 
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-			option.Config.TunnelingEnabled() {
-
-			return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
-		}
-
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
