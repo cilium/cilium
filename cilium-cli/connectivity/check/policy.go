@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,6 +139,18 @@ func deleteCNP(ctx context.Context, client *k8s.Client, cnp *ciliumv2.CiliumNetw
 	return nil
 }
 
+func defaultDropReason(flow *flowpb.Flow) bool {
+	return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
+}
+
+func policyDenyReason(flow *flowpb.Flow) bool {
+	return flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENY
+}
+
+func defaultDenyReason(flow *flowpb.Flow) bool {
+	return flow.GetDropReasonDesc() == flowpb.DropReason_POLICY_DENIED
+}
+
 var (
 	// ResultNone expects a successful command, don't match any packets.
 	ResultNone = Result{
@@ -154,23 +167,74 @@ var (
 
 	// ResultDNSOKDropCurlTimeout expects a failed command, generating DNS traffic and a dropped flow.
 	ResultDNSOKDropCurlTimeout = Result{
-		DNSProxy: true,
-		Drop:     true,
-		ExitCode: ExitCurlTimeout,
+		DNSProxy:       true,
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlTimeout,
 	}
 
 	// ResultDNSOKDropCurlHTTPError expects a failed command, generating DNS traffic and a dropped flow.
 	ResultDNSOKDropCurlHTTPError = Result{
-		DNSProxy: true,
-		L7Proxy:  true,
-		Drop:     true,
-		ExitCode: ExitCurlHTTPError,
+		DNSProxy:       true,
+		L7Proxy:        true,
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitCurlHTTPError,
 	}
 
 	// ResultDrop expects a dropped flow and a failed command.
 	ResultDrop = Result{
-		Drop:     true,
-		ExitCode: ExitAnyError,
+		Drop:           true,
+		ExitCode:       ExitAnyError,
+		DropReasonFunc: defaultDropReason,
+	}
+
+	// ResultAnyReasonEgressDrop expects a dropped flow at Egress and a failed command.
+	ResultAnyReasonEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: defaultDropReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultPolicyDenyEgressDrop expects a dropped flow at Egress due to policy deny and a failed command.
+	ResultPolicyDenyEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: policyDenyReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultDefaultDenyEgressDrop expects a dropped flow at Egress due to default deny and a failed command.
+	ResultDefaultDenyEgressDrop = Result{
+		Drop:           true,
+		DropReasonFunc: defaultDenyReason,
+		EgressDrop:     true,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultIngressAnyReasonDrop expects a dropped flow at Ingress and a failed command.
+	ResultIngressAnyReasonDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: defaultDropReason,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultPolicyDenyIngressDrop expects a dropped flow at Ingress due to policy deny reason and a failed command.
+	ResultPolicyDenyIngressDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: policyDenyReason,
+		ExitCode:       ExitAnyError,
+	}
+
+	// ResultDefaultDenyIngressDrop expects a dropped flow at Ingress due to default deny reason and a failed command.
+	ResultDefaultDenyIngressDrop = Result{
+		Drop:           true,
+		IngressDrop:    true,
+		DropReasonFunc: defaultDenyReason,
+		ExitCode:       ExitAnyError,
 	}
 
 	// ResultDropCurlTimeout expects a dropped flow and a failed command.
@@ -196,6 +260,15 @@ type HTTP struct {
 type Result struct {
 	// Request is dropped
 	Drop bool
+
+	// Request is dropped at Egress
+	EgressDrop bool
+
+	// Request is dropped at Ingress
+	IngressDrop bool
+
+	// DropReasonFunc
+	DropReasonFunc func(flow *flowpb.Flow) bool
 
 	// No flows are to be expected. Used for ingress when egress drops
 	None bool
