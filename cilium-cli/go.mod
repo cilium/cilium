@@ -6,15 +6,15 @@ go 1.19
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220713202445-9066eee9e0be
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20220808211112-706606a736d5
+	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20220819140146-d9df1ee1f047
 	sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.6.2
 )
 
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20220901170012-feef3c74d1d9
-	github.com/cilium/cilium v1.12.1
+	github.com/cilium/cilium v1.12.2
 	github.com/cilium/hubble v0.10.0
 	github.com/cilium/proxy v0.0.0-20220803100640-5739e4be8ae7
 	github.com/cilium/workerpool v1.1.3
@@ -30,10 +30,10 @@ require (
 	google.golang.org/grpc v1.49.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.9.4
-	k8s.io/api v0.24.2
-	k8s.io/apimachinery v0.24.2
+	k8s.io/api v0.24.4
+	k8s.io/apimachinery v0.24.4
 	k8s.io/cli-runtime v0.24.2
-	k8s.io/client-go v0.24.2
+	k8s.io/client-go v0.24.4
 	k8s.io/klog/v2 v2.60.1
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -253,9 +253,9 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.24.2 // indirect
-	k8s.io/apiserver v0.24.2 // indirect
-	k8s.io/component-base v0.24.2 // indirect
+	k8s.io/apiextensions-apiserver v0.24.4 // indirect
+	k8s.io/apiserver v0.24.4 // indirect
+	k8s.io/component-base v0.24.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8 // indirect
 	k8s.io/kubectl v0.24.2 // indirect
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect

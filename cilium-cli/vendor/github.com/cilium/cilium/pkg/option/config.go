@@ -539,6 +539,9 @@ const (
 	// ClusterMeshConfigName is the name of the ClusterMeshConfig option
 	ClusterMeshConfigName = "clustermesh-config"
 
+	// CNIChainingMode configures which CNI plugin Cilium is chained with.
+	CNIChainingMode = "cni-chaining-mode"
+
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
@@ -1962,6 +1965,9 @@ type DaemonConfig struct {
 	// IPAM is the IPAM method to use
 	IPAM string
 
+	// Enable chaining with another CNI plugin.
+	CNIChainingMode string
+
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
 	AutoCreateCiliumNodeResource bool
@@ -2479,6 +2485,11 @@ func (c *DaemonConfig) LocalClusterName() string {
 	return c.ClusterName
 }
 
+// LocalClusterID returns the ID of the cluster local to the Cilium agent.
+func (c *DaemonConfig) LocalClusterID() int {
+	return c.ClusterID
+}
+
 // K8sServiceProxyName returns the required value for the
 // service.kubernetes.io/service-proxy-name label in order for services to be
 // handled.
@@ -2762,6 +2773,7 @@ func (c *DaemonConfig) Populate() {
 	c.ClusterID = viper.GetInt(ClusterIDName)
 	c.ClusterName = viper.GetString(ClusterName)
 	c.ClusterMeshConfig = viper.GetString(ClusterMeshConfigName)
+	c.CNIChainingMode = viper.GetString(CNIChainingMode)
 	c.DatapathMode = viper.GetString(DatapathMode)
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
@@ -2953,6 +2965,9 @@ func (c *DaemonConfig) Populate() {
 
 	if c.TunnelPort == 0 {
 		switch c.Tunnel {
+		case TunnelDisabled:
+			// tunnel might still be used by eg. EgressGW
+			c.TunnelPort = defaults.TunnelPortVXLAN
 		case TunnelVXLAN:
 			c.TunnelPort = defaults.TunnelPortVXLAN
 		case TunnelGeneve:
@@ -3227,11 +3242,11 @@ func (c *DaemonConfig) Populate() {
 
 func (c *DaemonConfig) additionalMetrics() []string {
 	addMetric := func(name string) string {
-		return "+" + metrics.Namespace + name
+		return "+" + metrics.Namespace + "_" + name
 	}
 	var m []string
 	if c.DNSProxyConcurrencyLimit > 0 {
-		m = append(m, addMetric(metrics.SubsystemFQDN+"_sempaphore_rejected_total"))
+		m = append(m, addMetric(metrics.SubsystemFQDN+"_semaphore_rejected_total"))
 	}
 	return m
 }

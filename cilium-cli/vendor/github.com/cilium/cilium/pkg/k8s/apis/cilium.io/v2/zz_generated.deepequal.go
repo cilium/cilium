@@ -812,6 +812,10 @@ func (in *EndpointPolicyDirection) DeepEqual(other *EndpointPolicyDirection) boo
 		}
 	}
 
+	if in.State != other.State {
+		return false
+	}
+
 	return true
 }
 
