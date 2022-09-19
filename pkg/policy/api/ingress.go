@@ -116,6 +116,13 @@ type IngressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Description is a free form string, it can be used by the creator of
+	// the rule to store human readable explanation of the purpose of this
+	// rule.
+	//
+	// +kubebuilder:validation:Optional
+	Description string `json:"description,omitempty"`
 }
 
 // IngressDenyRule contains all rule types which can be applied at ingress,
@@ -157,6 +164,13 @@ type IngressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Description is a free form string, it can be used by the creator of
+	// the rule to store human readable explanation of the purpose of this
+	// rule.
+	//
+	// +kubebuilder:validation:Optional
+	Description string `json:"description,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following

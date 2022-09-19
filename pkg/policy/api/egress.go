@@ -168,6 +168,13 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Description is a free form string, it can be used by the creator of
+	// the rule to store human readable explanation of the purpose of this
+	// rule.
+	//
+	// +kubebuilder:validation:Optional
+	Description string `json:"description,omitempty"`
 }
 
 // EgressDenyRule contains all rule types which can be applied at egress, i.e.
@@ -208,6 +215,13 @@ type EgressDenyRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Description is a free form string, it can be used by the creator of
+	// the rule to store human readable explanation of the purpose of this
+	// rule.
+	//
+	// +kubebuilder:validation:Optional
+	Description string `json:"description,omitempty"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following

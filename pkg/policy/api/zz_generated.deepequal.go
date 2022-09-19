@@ -322,6 +322,10 @@ func (in *EgressDenyRule) DeepEqual(other *EgressDenyRule) bool {
 		}
 	}
 
+	if in.Description != other.Description {
+		return false
+	}
+
 	return true
 }
 
@@ -385,6 +389,10 @@ func (in *EgressRule) DeepEqual(other *EgressRule) bool {
 				}
 			}
 		}
+	}
+
+	if in.Description != other.Description {
+		return false
 	}
 
 	return true
@@ -696,6 +704,10 @@ func (in *IngressDenyRule) DeepEqual(other *IngressDenyRule) bool {
 		}
 	}
 
+	if in.Description != other.Description {
+		return false
+	}
+
 	return true
 }
 
@@ -732,6 +744,10 @@ func (in *IngressRule) DeepEqual(other *IngressRule) bool {
 		if other == nil || !in.DeepEqual(other) {
 			return false
 		}
+	}
+
+	if in.Description != other.Description {
+		return false
 	}
 
 	return true
