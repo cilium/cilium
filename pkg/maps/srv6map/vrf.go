@@ -116,18 +116,18 @@ type srv6VRFMap struct {
 
 type VRFKey4 struct {
 	// PrefixLen is full 32 bits of VRF ID + DestCIDR's mask bits
-	PrefixLen uint32
+	PrefixLen uint32 `align:"lpm"`
 
-	SourceIP types.IPv4
-	DestCIDR types.IPv4
+	SourceIP types.IPv4 `align:"src_ip"`
+	DestCIDR types.IPv4 `align:"dst_cidr"`
 }
 
 type VRFKey6 struct {
 	// PrefixLen is full 32 bits of VRF ID + DestCIDR's mask bits
-	PrefixLen uint32
+	PrefixLen uint32 `align:"lpm"`
 
-	SourceIP types.IPv6
-	DestCIDR types.IPv6
+	SourceIP types.IPv6 `align:"src_ip"`
+	DestCIDR types.IPv6 `align:"dst_cidr"`
 }
 
 func (k *VRFKey4) getDestCIDR() *net.IPNet {

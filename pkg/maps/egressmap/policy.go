@@ -21,16 +21,16 @@ const (
 // EgressPolicyKey4 is the key of an egress policy map.
 type EgressPolicyKey4 struct {
 	// PrefixLen is full 32 bits of SourceIP + DestCIDR's mask bits
-	PrefixLen uint32
+	PrefixLen uint32 `align:"lpm_key"`
 
-	SourceIP types.IPv4
-	DestCIDR types.IPv4
+	SourceIP types.IPv4 `align:"saddr"`
+	DestCIDR types.IPv4 `align:"daddr"`
 }
 
 // EgressPolicyVal4 is the value of an egress policy map.
 type EgressPolicyVal4 struct {
-	EgressIP  types.IPv4
-	GatewayIP types.IPv4
+	EgressIP  types.IPv4 `align:"egress_ip"`
+	GatewayIP types.IPv4 `align:"gateway_ip"`
 }
 
 // egressPolicyMap is the internal representation of an egress policy map.
