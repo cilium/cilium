@@ -5,6 +5,7 @@ package k8sTest
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -44,7 +45,9 @@ var _ = Describe("K8sNode", func() {
 		err = kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("ciliumnode %s", k8s1NodeName)).Unmarshal(&cn)
 		Expect(err).Should(BeNil(), "Can not retrieve %s CiliumNode %s", k8s1NodeName)
 
-		Expect(cn.ObjectMeta.Labels["test-label"]).To(Equal("test-value"))
+		Eventually(func() bool {
+			return cn.ObjectMeta.Labels["test-label"] == "test-value"
+		}, helpers.ShortCommandTimeout, time.Second).Should(BeTrue(), "%s CiliumNode labels are not in sync with Node object", helpers.K8s1)
 
 		res = kubectl.JsonPatch(helpers.DefaultNamespace, "node", k8s1NodeName, `[{"op": "remove", "path": "/metadata/labels/test-label"}]`)
 		Expect(res).Should(helpers.CMDSuccess(), "Error patching %s Node labels", k8s1NodeName)
@@ -53,6 +56,8 @@ var _ = Describe("K8sNode", func() {
 		err = kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("ciliumnode %s", k8s1NodeName)).Unmarshal(&cn2)
 		Expect(err).Should(BeNil(), "Can not retrieve %s CiliumNode %s", k8s1NodeName)
 
-		Expect(cn2.ObjectMeta.Labels["test-label"]).To(Equal(""))
+		Eventually(func() bool {
+			return cn2.ObjectMeta.Labels["test-label"] == ""
+		}, helpers.ShortCommandTimeout, time.Second).Should(BeTrue(), "%s CiliumNode labels are not in sync with Node object", helpers.K8s1)
 	})
 })
