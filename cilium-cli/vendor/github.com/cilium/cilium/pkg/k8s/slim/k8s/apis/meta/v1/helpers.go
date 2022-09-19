@@ -76,8 +76,9 @@ func FullOwnerReferences(references []OwnerReference) []metav1.OwnerReference {
 	var fullRefs []metav1.OwnerReference
 	for _, ref := range references {
 		full := metav1.OwnerReference{
-			Name: ref.Name,
-			Kind: ref.Kind,
+			Name:       ref.Name,
+			Kind:       ref.Kind,
+			Controller: ref.Controller,
 		}
 		fullRefs = append(fullRefs, full)
 	}
@@ -90,8 +91,9 @@ func SlimOwnerReferences(references []metav1.OwnerReference) []OwnerReference {
 	var slimRefs []OwnerReference
 	for _, ref := range references {
 		slim := OwnerReference{
-			Name: ref.Name,
-			Kind: ref.Kind,
+			Name:       ref.Name,
+			Kind:       ref.Kind,
+			Controller: ref.Controller,
 		}
 		slimRefs = append(slimRefs, slim)
 	}
