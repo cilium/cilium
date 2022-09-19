@@ -308,7 +308,7 @@ func (a *Action) printFlows(peer TestPeer) {
 
 		//nolint:staticcheck // Summary is deprecated but there is no real alternative yet
 		//lint:ignore SA1019 Summary is deprecated but there is no real alternative yet
-		a.Logf("%s [%d] %s: %s -> %s %s %s (%s)", flowPrefix, index, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.Summary)
+		a.Logf("%s [%d] %s: %s -> %s %s %s %s %s (%s)", flowPrefix, index, ts, src, dst, hubprinter.GetFlowType(f), f.Verdict.String(), f.TrafficDirection, f.DropReasonDesc, f.Summary)
 	}
 
 	a.Log()
@@ -433,20 +433,30 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
-		if a.expEgress.Drop {
+		if a.expEgress.Drop || a.expEgress.EgressDrop {
+			dropFilter := filters.Drop()
+			if a.expEgress.EgressDrop {
+				dropFilter = filters.Drop(filters.WithEgress(), filters.WithDropFunc(a.expEgress.DropReasonFunc))
+			}
 			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, dropFilter), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
 				},
 			}
 		} else {
-			if a.expIngress.Drop {
+			if a.expIngress.Drop || a.expIngress.IngressDrop {
+				dropFilter := filters.Drop()
+				if a.expEgress.IngressDrop {
+					dropFilter = filters.Drop(filters.WithIngress(), filters.WithDropFunc(a.expIngress.DropReasonFunc))
+				}
+
 				// If ingress drops is in the same node we get the drop flows also for egress, tolerate that
 				egress = filters.FlowSetRequirement{
 					First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-					Last:  filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, icmpRequest, filters.Drop())), Msg: "ICMP response or request drop", SkipOnAggregation: true},
+					Last: filters.FlowRequirement{Filter: filters.Or(filters.And(ipResponse, icmpResponse), filters.And(ipRequest, icmpRequest,
+						dropFilter)), Msg: "ICMP response or request drop", SkipOnAggregation: true},
 				}
 			} else {
 				egress = filters.FlowSetRequirement{
@@ -466,11 +476,15 @@ func (a *Action) GetEgressRequirements(p FlowParameters) (reqs []filters.FlowSet
 			tcpResponse = filters.Or(filters.TCP(p.AltDstPort, 0), tcpResponse)
 		}
 
-		if a.expEgress.Drop && !a.expEgress.L7Proxy {
+		if (a.expEgress.Drop || a.expEgress.EgressDrop) && !a.expEgress.L7Proxy {
+			dropFilter := filters.Drop()
+			if a.expEgress.EgressDrop {
+				dropFilter = filters.Drop(filters.WithEgress(), filters.WithDropFunc(a.expEgress.DropReasonFunc))
+			}
 			// L3/L4 drop
 			egress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, dropFilter), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
 					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
@@ -581,10 +595,14 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 		icmpRequest := filters.Or(filters.ICMP(8), filters.ICMPv6(128))
 		icmpResponse := filters.Or(filters.ICMP(0), filters.ICMPv6(129))
 
-		if a.expIngress.Drop {
+		if a.expIngress.Drop || a.expIngress.IngressDrop {
+			dropFilter := filters.Drop()
+			if a.expIngress.IngressDrop {
+				dropFilter = filters.Drop(filters.WithIngress(), filters.WithDropFunc(a.expIngress.DropReasonFunc))
+			}
 			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest), Msg: "ICMP request"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, filters.Drop()), Msg: "Drop"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, icmpRequest, dropFilter), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, icmpResponse), Msg: "ICMP response"},
 				},
@@ -599,10 +617,14 @@ func (a *Action) GetIngressRequirements(p FlowParameters) []filters.FlowSetRequi
 			}
 		}
 	case TCP:
-		if a.expIngress.Drop {
+		if a.expIngress.Drop || a.expIngress.IngressDrop {
+			dropFilter := filters.Drop()
+			if a.expIngress.IngressDrop {
+				dropFilter = filters.Drop(filters.WithIngress(), filters.WithDropFunc(a.expIngress.DropReasonFunc))
+			}
 			ingress = filters.FlowSetRequirement{
 				First: filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.SYN()), Msg: "SYN"},
-				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, filters.Drop()), Msg: "Drop"},
+				Last:  filters.FlowRequirement{Filter: filters.And(ipRequest, tcpRequest, dropFilter), Msg: "Drop"},
 				Except: []filters.FlowRequirement{
 					{Filter: filters.And(ipResponse, tcpResponse, filters.SYNACK()), Msg: "SYN-ACK"},
 					{Filter: filters.And(filters.Or(filters.And(ipRequest, tcpRequest), filters.And(ipResponse, tcpResponse)), filters.FIN()), Msg: "FIN"},
