@@ -33,8 +33,7 @@ Major Feature Status
 +-----------------------------+------------------------------------------------------------+
 | Service Mesh                | Stable (:ref:`Roadmap Details<rm-cilium-service-mesh>`)    |
 +-----------------------------+------------------------------------------------------------+
-| Tetragon security           | Beta                                                      |
-+-----------------------------+------------------------------------------------------------+
+
 "Stable" means that the feature is in use in production (though advanced
 features may still be in beta or in development).
 
@@ -42,8 +41,8 @@ Release Cadence
 ~~~~~~~~~~~~~~~
 
 We aim to make 2-3 point releases per year of Cilium and its core components
-(Hubble, Cilium CLI, Tetragon, etc). We also make patch releases available as
-necessary for security or urgent fixes. 
+(Hubble, Cilium CLI etc). We also make patch releases available as necessary for
+security or urgent fixes. 
 
 Focus Areas
 -----------
@@ -147,16 +146,14 @@ CI Test Improvements
 We have a comprehensive set of tests running in CI, but several contributors are
 currently working on `CI improvements`_ to make these more reliable and easier to
 maintain. This is a good area to get involved if you are interested in learning
-more about Cilium internals and development.
+more about Cilium internals and development. 
 
-Tetragon Security
-~~~~~~~~~~~~~~~~~
+Documentation Improvements
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Tetragon provides security observability through the JSON events and the Tetragon
-CLI for things like process execution, file access, network observability, and
-privileged execution.
-
-
+We would like to make this Cilium documentation :ref:`easier to
+navigate<season_of_docs>`, with more example configurations and links to
+articles and videos that explain features in more depth. 
 
 .. _rm-influence:
 
