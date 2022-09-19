@@ -480,6 +480,11 @@ Users (Alphabetically)
       D: Tailor Brands is using Cilium in their production, staging, and development clusters (AWS EKS)
       U: CNI (instead of amazon-vpc-cni-k8s), Hubble, Datadog Integration for Prometheus metrics
       Q: @liorrozen
+      
+    * N: ungleich
+      D: ungleich is using Cilium as part of IPv6-only Kubernetes deployments.
+      U: CNI, IPv6 only networking, BGP, eBPF
+      Q: @Nico Schottelius, @nico:ungleich.ch (Matrix)
 
     * N: Wildlife Studios
       D: Wildlife Studios is using Cilium in AWS for all their game production clusters (self hosted k8s)
