@@ -123,6 +123,9 @@ func (in *ObjectMeta) DeepEqual(other *ObjectMeta) bool {
 	if in.Name != other.Name {
 		return false
 	}
+	if in.GenerateName != other.GenerateName {
+		return false
+	}
 	if in.Namespace != other.Namespace {
 		return false
 	}
@@ -211,6 +214,13 @@ func (in *OwnerReference) DeepEqual(other *OwnerReference) bool {
 	}
 	if in.Name != other.Name {
 		return false
+	}
+	if (in.Controller == nil) != (other.Controller == nil) {
+		return false
+	} else if in.Controller != nil {
+		if *in.Controller != *other.Controller {
+			return false
+		}
 	}
 
 	return true

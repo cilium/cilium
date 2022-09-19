@@ -1251,7 +1251,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, FQDNAliveZombieConnections)
 			c.FQDNActiveZombiesConnections = true
 
-		case metricName + "_" + SubsystemFQDN + "_sempaphore_rejected_total":
+		case Namespace + "_" + SubsystemFQDN + "_semaphore_rejected_total":
 			FQDNSemaphoreRejectedTotal = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemFQDN,
