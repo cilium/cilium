@@ -111,6 +111,11 @@ var (
 	echoIngressICMPDenyPolicyYAML string
 )
 
+var (
+	clientLabel  = map[string]string{"name": "client"}
+	client2Label = map[string]string{"name": "client2"}
+)
+
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	if err := ct.SetupAndValidate(ctx); err != nil {
 		return err
@@ -239,7 +244,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToPodWithEndpoints(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
 	// This policy denies all entities by default
@@ -250,7 +255,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			return check.ResultDrop, check.ResultNone
+			return check.ResultPolicyDenyEgressDrop, check.ResultNone
 		})
 
 	// This policy allows cluster entity
@@ -272,7 +277,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				tests.PodToPod(tests.WithDestinationLabelsOption(map[string]string{"name": "echo-other-node"})),
 			).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			})
 	}
 
@@ -415,14 +420,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithPolicy(allowAllIngressPolicyYAML).                // Allow all ingress traffic
 		WithPolicy(echoIngressFromOtherClientDenyPolicyYAML). // Deny other client contact echo
 		WithScenarios(
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be allowed
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be denied
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be denied
 			tests.ClientToClient(), // Client to client should be allowed
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") &&
 				a.Destination().HasLabel("kind", "echo") {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultDrop, check.ResultPolicyDenyIngressDrop
 			}
 			return check.ResultOK, check.ResultOK
 		})
@@ -440,7 +445,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") &&
 				a.Destination().HasLabel("kind", "client") {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultDrop, check.ResultPolicyDenyIngressDrop
 			}
 			return check.ResultOK, check.ResultNone
 		})
@@ -458,7 +463,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Source().HasLabel("kind", "client") &&
 				a.Destination().HasLabel("kind", "echo") &&
 				a.Destination().Port() == 8080 {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultNone
 		})
@@ -486,13 +491,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithPolicy(clientEgressToEchoExpressionDenyPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be denied
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be denied
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be allowed
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") &&
 				a.Source().HasLabel("name", "client") {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultOK
 		})
@@ -509,7 +514,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") &&
 				a.Source().HasLabel("name", "client") {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultOK, check.ResultOK
 		})
@@ -523,10 +528,27 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address() == "1.0.0.1" {
-				return check.ResultDrop, check.ResultNone
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
 			if a.Destination().Address() == "1.1.1.1" {
 				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultDrop
+		})
+
+	// This test is same as the previous one, but there is no allowed policy.
+	// The goal is to test default deny policy
+	ct.NewTest("client-egress-to-cidr-deny-default").
+		WithPolicy(clientEgressToCIDR1111DenyPolicyYAML).
+		WithScenarios(
+			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Destination().Address() == "1.0.0.1" {
+				return check.ResultPolicyDenyEgressDrop, check.ResultNone
+			}
+			if a.Destination().Address() == "1.1.1.1" {
+				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop
 		})
