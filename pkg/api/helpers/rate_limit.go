@@ -36,6 +36,18 @@ func (l *ApiLimiter) Limit(ctx context.Context, operation string) {
 	r := l.limiter.Reserve()
 	if delay := r.Delay(); delay != time.Duration(0) && delay != rate.InfDuration {
 		l.metrics.ObserveRateLimit(operation, delay)
-		l.limiter.Wait(ctx)
+		// Wait for the required time. We cannot call r.limiter.Wait here, as it
+		// would request a second reservation, effectively doubling the wait time.
+		// Instead, the following logic is similar to what r.limiter.Wait(ctx)
+		// does internally after it successfully obtained/ a reservation.
+		t := time.NewTimer(delay)
+		defer t.Stop()
+		select {
+		case <-t.C:
+			// proceed with the operation
+		case <-ctx.Done():
+			// cancel the reservation to allow other operations to go through
+			r.Cancel()
+		}
 	}
 }
