@@ -118,18 +118,18 @@ type srv6PolicyMap struct {
 
 type PolicyKey4 struct {
 	// PrefixLen is full 32 bits of VRF ID + DestCIDR's mask bits
-	PrefixLen uint32
+	PrefixLen uint32 `align:"lpm"`
 
-	VRFID    uint32
-	DestCIDR types.IPv4
+	VRFID    uint32     `align:"vrf_id"`
+	DestCIDR types.IPv4 `align:"dst_cidr"`
 }
 
 type PolicyKey6 struct {
 	// PrefixLen is full 32 bits of VRF ID + DestCIDR's mask bits
-	PrefixLen uint32
+	PrefixLen uint32 `align:"lpm"`
 
-	VRFID    uint32
-	DestCIDR types.IPv6
+	VRFID    uint32     `align:"vrf_id"`
+	DestCIDR types.IPv6 `align:"dst_cidr"`
 }
 
 func (k *PolicyKey4) getDestCIDR() *net.IPNet {
