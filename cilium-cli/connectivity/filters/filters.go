@@ -113,9 +113,18 @@ func Or(filters ...FlowFilterImplementation) FlowFilterImplementation {
 	return &orFilter{filters: filters}
 }
 
-type dropFilter struct{}
+type dropFilter struct {
+	trafficDirection *flowpb.TrafficDirection
+	dropReasonFunc   func(flow *flowpb.Flow) bool
+}
 
 func (d *dropFilter) Match(flow *flowpb.Flow, fc *FlowContext) bool {
+	if d.trafficDirection != nil && d.dropReasonFunc != nil {
+		return flow.GetTrafficDirection() == *d.trafficDirection && d.dropReasonFunc(flow)
+	}
+	if d.dropReasonFunc != nil {
+		return d.dropReasonFunc(flow)
+	}
 	return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
 }
 
@@ -123,9 +132,42 @@ func (d *dropFilter) String(fc *FlowContext) string {
 	return "drop"
 }
 
+type Option func(*dropFilter) *dropFilter
+
+func WithIngress() Option {
+	return func(f *dropFilter) *dropFilter {
+		ingress := flowpb.TrafficDirection_INGRESS
+		f.trafficDirection = &ingress
+		return f
+	}
+}
+
+func WithEgress() Option {
+	return func(f *dropFilter) *dropFilter {
+		egress := flowpb.TrafficDirection_EGRESS
+		f.trafficDirection = &egress
+		return f
+	}
+}
+
+func WithDropFunc(dropReasonFunc func(flow *flowpb.Flow) bool) Option {
+	return func(f *dropFilter) *dropFilter {
+		f.dropReasonFunc = dropReasonFunc
+		return f
+	}
+}
+
 // Drop matches on drops
-func Drop() FlowFilterImplementation {
-	return &dropFilter{}
+func Drop(opts ...Option) FlowFilterImplementation {
+	f := &dropFilter{
+		dropReasonFunc: func(flow *flowpb.Flow) bool {
+			return flow.GetDropReasonDesc() != flowpb.DropReason_DROP_REASON_UNKNOWN
+		},
+	}
+	for _, fn := range opts {
+		f = fn(f)
+	}
+	return f
 }
 
 type l7DropFilter struct{}
