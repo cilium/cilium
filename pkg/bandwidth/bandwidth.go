@@ -110,6 +110,9 @@ func InitBandwidthManager() {
 		{"net.ipv4.tcp_max_syn_backlog", "4096"},
 		{"net.ipv4.tcp_congestion_control", congctl},
 	}
+	extraSettings := []setting{
+		{"net.ipv4.tcp_slow_start_after_idle", "0"},
+	}
 	for _, s := range baseSettings {
 		log.WithFields(logrus.Fields{
 			logfields.SysParamName:  s.name,
@@ -122,7 +125,22 @@ func InitBandwidthManager() {
 			}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
 		}
 	}
-
+	// Few extra knobs which can be turned on along with pacing. EnableBBR
+	// also provides the right kernel dependency implicitly as well.
+	if option.Config.EnableBBR {
+		for _, s := range extraSettings {
+			log.WithFields(logrus.Fields{
+				logfields.SysParamName:  s.name,
+				logfields.SysParamValue: s.val,
+			}).Info("Setting sysctl")
+			if err := sysctl.Write(s.name, s.val); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.SysParamName:  s.name,
+					logfields.SysParamValue: s.val,
+				}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
+			}
+		}
+	}
 	for _, device := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
