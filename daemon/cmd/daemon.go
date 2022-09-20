@@ -676,9 +676,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
-	cleaner.cleanupFuncs.Add(func() {
-		proxy.DefaultDNSProxy.Cleanup()
-	})
+	if proxy.DefaultDNSProxy != nil {
+		cleaner.cleanupFuncs.Add(func() {
+			proxy.DefaultDNSProxy.Cleanup()
+		})
+	}
 
 	bootstrapStats.fqdn.End(true)
 
