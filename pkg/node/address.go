@@ -739,13 +739,6 @@ func GetK8sNodeIP() net.IP {
 	return n.GetK8sNodeIP()
 }
 
-// SetK8sNodeIP sets k8s Node IP addr.
-func SetK8sNodeIP(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetNodeInternalIP(ip)
-	})
-}
-
 func SetWireguardPubKey(key string) {
 	localNode.Update(func(n *types.Node) {
 		n.WireguardPubKey = key
