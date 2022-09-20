@@ -205,25 +205,10 @@ The following variables are supported:
 +---------------------+--------------------------------------+------------------------+
 | HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
 +---------------------+--------------------------------------+------------------------+
-| CNI_DIR             | Path to mounted CNI directory        | ${HOST_PREFIX}/opt/cni |
+| CNI_DIR             | Path to mounted CNI plugin directory | ${HOST_PREFIX}/opt/cni |
 +---------------------+--------------------------------------+------------------------+
 | CNI_CONF_NAME       | Name of configuration file           | 05-cilium.conf         |
 +---------------------+--------------------------------------+------------------------+
-
-If you want to further adjust the CNI configuration you may do so by creating
-the CNI configuration ``/etc/cni/net.d/05-cilium.conf`` manually:
-
-.. code-block:: shell-session
-
-    sudo mkdir -p /etc/cni/net.d
-    sudo sh -c 'echo "{
-        "name": "cilium",
-        "type": "cilium-cni"
-    }
-    " > /etc/cni/net.d/05-cilium.conf'
-
-Cilium will use any existing ``/etc/cni/net.d/05-cilium.conf`` file if it
-already exists on a worker node and only creates it if it does not exist yet.
 
 CRD Validation
 ==============
