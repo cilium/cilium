@@ -318,6 +318,12 @@ Removed Options
 * The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
   version 1.12 have been removed.
 
+New Options
+~~~~~~~~~~~
+
+* ``cni-exclusive``: If set, this tells the agent to remove non-Cilium CNI configuration files
+* ``cni-log-file``: A file, relative to the host, where the CNI plugin can write logs.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
