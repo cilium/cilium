@@ -86,7 +86,10 @@ ctx_get_xfer(struct xdp_md *ctx __maybe_unused, __u32 off __maybe_unused)
 static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 							__u32 meta)
 {
-	ctx_store_meta(ctx, XFER_MARKER, meta);
+	__u32 val = ctx_load_meta(ctx, XFER_MARKER);
+
+	val |= meta;
+	ctx_store_meta(ctx, XFER_MARKER, val);
 }
 
 static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
@@ -96,15 +99,7 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 	/* We transfer data from XFER_MARKER. This specifically
 	 * does not break packet trains in GRO.
 	 */
-	if (meta_xfer == XFER_PKT_NO_SVC) {
-		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
-			__u32 *data_meta = ctx_data_meta(ctx);
-			__u32 *data = ctx_data(ctx);
-
-			if (!ctx_no_room(data_meta + 1, data))
-				data_meta[XFER_FLAGS] = meta_xfer;
-		}
-	} else if (meta_xfer == XFER_PKT_ENCAP) {
+	if (meta_xfer & XFER_PKT_ENCAP) {
 		if (!ctx_adjust_meta(ctx, -(int)(4 * sizeof(__u32)))) {
 			__u32 *data_meta = ctx_data_meta(ctx);
 			__u32 *data = ctx_data(ctx);
@@ -119,6 +114,14 @@ static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 					ctx_load_meta(ctx, CB_ENCAP_DSTID);
 			}
 		}
+	} else if (meta_xfer) {
+		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
+			__u32 *data_meta = ctx_data_meta(ctx);
+			__u32 *data = ctx_data(ctx);
+
+			if (!ctx_no_room(data_meta + 1, data))
+				data_meta[XFER_FLAGS] = meta_xfer;
+		}
 	}
 }
 
@@ -130,16 +133,15 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 	return 0; /* Only intended for SKB context. */
 }
 
-static __always_inline void ctx_snat_done_set(struct xdp_md *ctx __maybe_unused)
+static __always_inline void ctx_snat_done_set(struct xdp_md *ctx)
 {
-	/* From XDP layer, we do not go through an egress hook from
-	 * here, hence nothing to be done.
-	 */
+	ctx_set_xfer(ctx, XFER_PKT_SNAT_DONE);
 }
 
-static __always_inline bool ctx_snat_done(struct xdp_md *ctx __maybe_unused)
+static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 {
-	return false;
+	/* shouldn't be needed, there's no relevant Egress hook in XDP */
+	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
 #ifdef HAVE_ENCAP

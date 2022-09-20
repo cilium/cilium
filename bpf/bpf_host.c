@@ -210,7 +210,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (ctx_get_xfer(ctx, XFER_FLAGS) != XFER_PKT_NO_SVC &&
+		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
@@ -487,7 +487,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (ctx_get_xfer(ctx, XFER_FLAGS) != XFER_PKT_NO_SVC &&
+		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
 		    !bpf_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
@@ -1136,12 +1136,16 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	__u32 __maybe_unused vlan_id;
 
 #if defined(ENABLE_NODEPORT_ACCELERATION) && defined(ENABLE_EGRESS_GATEWAY)
+	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 
-	if (ctx_get_xfer(ctx, XFER_FLAGS) == XFER_PKT_ENCAP) {
+	if (flags & XFER_PKT_SNAT_DONE)
+		ctx_snat_done_set(ctx);
+
+	if (flags & XFER_PKT_ENCAP) {
 		return __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
 							ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
 							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
