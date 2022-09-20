@@ -91,17 +91,6 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-static __always_inline void
-bpf_mark_snat_done(struct __ctx_buff *ctx __maybe_unused)
-{
-	/* From XDP layer, we do not go through an egress hook from
-	 * here, hence nothing to be done.
-	 */
-#if __ctx_is == __ctx_skb
-	ctx->mark |= MARK_MAGIC_SNAT_DONE;
-#endif
-}
-
 static __always_inline bool
 bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
 {
@@ -600,7 +589,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	bpf_mark_snat_done(ctx);
+	ctx_snat_done_set(ctx);
 
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 	ret = DROP_MISSED_TAIL_CALL;
@@ -668,7 +657,7 @@ int tail_nodeport_nat_ipv6_egress(struct __ctx_buff *ctx)
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
-	bpf_mark_snat_done(ctx);
+	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
 	if (use_tunnel)
@@ -930,7 +919,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		bpf_mark_snat_done(ctx);
+		ctx_snat_done_set(ctx);
 
 		*ifindex = ct_state.ifindex;
 #ifdef TUNNEL_MODE
@@ -1658,7 +1647,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	bpf_mark_snat_done(ctx);
+	ctx_snat_done_set(ctx);
 
 	/* At this point we know that a reverse SNAT mapping exists.
 	 * Otherwise, we would have tail-called back to
@@ -1741,7 +1730,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
-	bpf_mark_snat_done(ctx);
+	ctx_snat_done_set(ctx);
 
 #ifdef TUNNEL_MODE
 	if (use_tunnel)
@@ -2035,7 +2024,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		bpf_mark_snat_done(ctx);
+		ctx_snat_done_set(ctx);
 
 		*ifindex = ct_state.ifindex;
 #if defined(TUNNEL_MODE)

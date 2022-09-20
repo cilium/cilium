@@ -1281,7 +1281,7 @@ out:
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
 	 defined(ENABLE_MASQUERADE) || \
 	 defined(ENABLE_EGRESS_GATEWAY))
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+	if (!ctx_snat_done(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
