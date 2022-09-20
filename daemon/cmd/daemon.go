@@ -844,10 +844,12 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
-	// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
-	cleaner.preCleanupFuncs.Add(func() {
-		proxy.DefaultDNSProxy.Cleanup()
-	})
+	if proxy.DefaultDNSProxy != nil {
+		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
+		cleaner.preCleanupFuncs.Add(func() {
+			proxy.DefaultDNSProxy.Cleanup()
+		})
+	}
 
 	bootstrapStats.fqdn.End(true)
 
