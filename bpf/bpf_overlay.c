@@ -556,7 +556,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE) {
+	if (ctx_snat_done(ctx)) {
 		ret = CTX_ACT_OK;
 		goto out;
 	}
