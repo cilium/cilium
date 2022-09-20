@@ -243,7 +243,7 @@ cilium-agent [flags]
       --proxy-max-connection-duration-seconds int               Set Envoy HTTP option max_connection_duration seconds. Default 0 (disable)
       --proxy-max-requests-per-connection int                   Set Envoy HTTP option max_requests_per_connection. Default 0 (disable)
       --proxy-prometheus-port int                               Port to serve Envoy metrics on. Default 0 (disabled).
-      --read-cni-conf string                                    Read to the CNI configuration at specified path to extract per node configuration
+      --read-cni-conf string                                    CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
       --restore                                                 Restores state, if possible, from previous daemon (default true)
       --route-metric int                                        Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --sidecar-istio-proxy-image string                        Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
@@ -270,7 +270,7 @@ cilium-agent [flags]
       --vtep-endpoint strings                                   List of VTEP IP addresses
       --vtep-mac strings                                        List of VTEP MAC addresses for forwarding traffic outside the cluster
       --vtep-mask string                                        VTEP CIDR Mask for all VTEP CIDRs (default "255.255.255.0")
-      --write-cni-conf-when-ready string                        Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
+      --write-cni-conf-when-ready string                        Write the CNI configuration to the specified path when agent is ready
 ```
 
 ### SEE ALSO

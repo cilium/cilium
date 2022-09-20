@@ -1168,6 +1168,13 @@ const (
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
 
+	// CNIExclusive tells the agent to remove other CNI configuration files
+	CNIExclusive = "cni-exclusive"
+
+	// CNILogFile is the path to a log file (on the host) for the CNI plugin
+	// binary to use for logging.
+	CNILogFile = "cni-log-file"
+
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
 	EnableCiliumEndpointSlice = "enable-cilium-endpoint-slice"
 )
@@ -1820,6 +1827,13 @@ type DaemonConfig struct {
 	// allows to keep a Kubernetes node NotReady until Cilium is up and
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady string
+
+	// CNIExclusive, if true, directs the agent to remove all other CNI configuration files
+	CNIExclusive bool
+
+	// CNILogFile is a path on disk (on the host) for the CNI plugin binary to use
+	// for logging.
+	CNILogFile string
 
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
@@ -2620,10 +2634,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 			int64(defaults.KVstoreLeaseMaxTTL.Seconds()))
 	}
 
-	if c.WriteCNIConfigurationWhenReady != "" && c.ReadCNIConfiguration == "" {
-		return fmt.Errorf("%s must be set when using %s", ReadCNIConfiguration, WriteCNIConfigurationWhenReady)
-	}
-
 	if c.EnableSocketLB && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
 		return fmt.Errorf("%s must be at minimum one of [%s,%s]",
 			HostReachableServicesProtos, HostServicesTCP, HostServicesUDP)
@@ -2895,6 +2905,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = vp.GetString(WriteCNIConfigurationWhenReady)
+	c.CNIExclusive = vp.GetBool(CNIExclusive)
+	c.CNILogFile = vp.GetString(CNILogFile)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
 	c.CTMapEntriesTimeoutTCP = vp.GetDuration(CTMapEntriesTimeoutTCPName)
 	c.CTMapEntriesTimeoutAny = vp.GetDuration(CTMapEntriesTimeoutAnyName)
