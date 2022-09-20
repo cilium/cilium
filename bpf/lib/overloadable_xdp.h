@@ -130,6 +130,18 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 	return 0; /* Only intended for SKB context. */
 }
 
+static __always_inline void ctx_snat_done_set(struct xdp_md *ctx __maybe_unused)
+{
+	/* From XDP layer, we do not go through an egress hook from
+	 * here, hence nothing to be done.
+	 */
+}
+
+static __always_inline bool ctx_snat_done(struct xdp_md *ctx __maybe_unused)
+{
+	return false;
+}
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx __maybe_unused,
