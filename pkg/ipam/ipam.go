@@ -69,11 +69,6 @@ type Configuration interface {
 
 // Owner is the interface the owner of an IPAM allocator has to implement
 type Owner interface {
-	// UpdateCiliumNodeResource is called to create/update the CiliumNode
-	// resource. The function must block until the custom resource has been
-	// created.
-	UpdateCiliumNodeResource()
-
 	// LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have
 	// changed.
 	LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR)

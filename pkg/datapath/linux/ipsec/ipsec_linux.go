@@ -668,15 +668,6 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// package
 			node.SetIPsecKeyIdentity(spi)
 
-			// NodeValidateImplementation will eventually call
-			// nodeUpdate(), which is responsible for updating the
-			// IPSec policies and states for all the different EPs
-			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.NodeValidateImplementation(*nodediscovery.LocalNode())
-
-			// Publish the updated node information to k8s/KVStore
-			nodediscovery.UpdateLocalNode()
-
 		case err := <-watcher.Errors:
 			log.WithError(err).WithField(logfields.Path, keyfilePath).
 				Warning("Error encountered while watching file with fsnotify")

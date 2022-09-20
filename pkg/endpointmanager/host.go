@@ -47,13 +47,13 @@ func (mgr *EndpointManager) OnUpdateNode(oldNode, newNode *v1.Node,
 	oldNodeLabels := oldNode.GetLabels()
 	newNodeLabels := newNode.GetLabels()
 
+	node.SetLabels(newNodeLabels)
+
 	nodeEP := mgr.GetHostEndpoint()
 	if nodeEP == nil {
 		log.Error("Host endpoint not found")
 		return nil
 	}
-
-	node.SetLabels(newNodeLabels)
 
 	err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
 	if err != nil {

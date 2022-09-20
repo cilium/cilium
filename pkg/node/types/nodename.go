@@ -29,6 +29,8 @@ func SetName(name string) {
 // GetName returns the name of the local node. The value returned was either
 // previously set with SetName(), retrieved via `os.Hostname()`, or as a last
 // resort is hardcoded to "localhost".
+//
+// FIXME: Remove in favor of Name in local node.
 func GetName() string {
 	return nodeName
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -31,18 +32,16 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/stream"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
@@ -52,6 +51,10 @@ const (
 
 	nodeDiscoverySubsys = "nodediscovery"
 	maxRetryCount       = 10
+
+	// syncDebounceDuration is the minium amount of time to wait before synchronizing local
+	// node to external data sources.
+	syncDebounceDuration = 100 * time.Millisecond
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
@@ -62,6 +65,10 @@ type k8sNodeGetter interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
 	Manager               *nodemanager.Manager
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
@@ -69,8 +76,7 @@ type NodeDiscovery struct {
 	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
 	k8sNodeGetter         k8sNodeGetter
-	localNodeLock         lock.Mutex
-	localNode             nodeTypes.Node
+	localNodeStore        node.LocalNodeStore
 }
 
 func enableLocalNodeRoute() bool {
@@ -81,7 +87,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(localNodeStore node.LocalNodeStore, manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -102,7 +108,11 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		auxPrefixes = append(auxPrefixes, serviceCIDR)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &NodeDiscovery{
+		ctx:     ctx,
+		cancel:  cancel,
 		Manager: manager,
 		LocalConfig: datapath.LocalNodeConfiguration{
 			MtuConfig:               mtuConfig,
@@ -118,12 +128,10 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
 			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
-		localNode: nodeTypes.Node{
-			Source: source.Local,
-		},
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
+		localNodeStore:        localNodeStore,
 	}
 }
 
@@ -157,13 +165,18 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 	// Override local config based on the response
 	option.Config.ClusterID = resp.ClusterID
 	option.Config.ClusterName = resp.Cluster
-	node.SetLabels(resp.Labels)
-	if resp.IPv4AllocCIDR != nil {
-		node.SetIPv4AllocRange(resp.IPv4AllocCIDR)
-	}
-	if resp.IPv6AllocCIDR != nil {
-		node.SetIPv6NodeRange(resp.IPv6AllocCIDR)
-	}
+
+	n.localNodeStore.Update(func(localNode *nodeTypes.Node) {
+		localNode.Labels = resp.Labels
+		localNode.Cluster = resp.Cluster
+		localNode.ClusterID = resp.ClusterID
+		if resp.IPv4AllocCIDR != nil {
+			localNode.IPv4AllocCIDR = resp.IPv4AllocCIDR
+		}
+		if resp.IPv6AllocCIDR != nil {
+			localNode.IPv6AllocCIDR = resp.IPv6AllocCIDR
+		}
+	})
 	identity.SetLocalNodeID(resp.NodeIdentity)
 }
 
@@ -171,46 +184,44 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
 func (n *NodeDiscovery) StartDiscovery() {
-	n.localNodeLock.Lock()
-	defer n.localNodeLock.Unlock()
+	go n.registerLocalNode()
 
-	n.fillLocalNode()
-
-	go func() {
-		log.WithFields(
-			logrus.Fields{
-				logfields.Node: n.localNode,
-			}).Info("Adding local node to cluster")
-		for {
-			if err := n.Registrar.RegisterNode(&n.localNode, n.Manager); err != nil {
-				log.WithError(err).Error("Unable to initialize local node. Retrying...")
-				time.Sleep(time.Second)
-			} else {
-				break
-			}
-		}
-		close(n.Registered)
-	}()
-
-	go func() {
-		select {
-		case <-n.Registered:
-		case <-time.After(defaults.NodeInitTimeout):
-			log.Fatalf("Unable to initialize local node due to timeout")
-		}
-	}()
-
-	n.Manager.NodeUpdated(n.localNode)
-	close(n.localStateInitialized)
-
-	n.updateLocalNode()
+	n.wg.Add(1)
+	stream.Debounce[nodeTypes.Node](n.localNodeStore, syncDebounceDuration).
+		Observe(n.ctx,
+			n.processNodeUpdate,
+			func(err error) {
+				n.wg.Done()
+				log.WithError(err).Warning("Local node stream completed")
+			})
 }
 
-// WaitForLocalNodeInit blocks until StartDiscovery() has been called.  This is used to block until
-// Node's local IP addresses have been allocated, see https://github.com/cilium/cilium/pull/14299
-// and https://github.com/cilium/cilium/pull/14670.
-func (n *NodeDiscovery) WaitForLocalNodeInit() {
-	<-n.localStateInitialized
+func (n *NodeDiscovery) registerLocalNode() {
+	localNode := n.localNodeStore.Get()
+
+	log.WithFields(
+		logrus.Fields{
+			logfields.Node: n.localNodeStore.Get(),
+		}).Info("Adding local node to cluster")
+
+	startTime := time.Now()
+	timeoutAt := startTime.Add(defaults.NodeInitTimeout)
+	for {
+		if err := n.Registrar.RegisterNode(&localNode, n.Manager); err != nil {
+			log.WithError(err).Error("Unable to initialize local node. Retrying...")
+			time.Sleep(time.Second)
+		} else {
+			break
+		}
+		if time.Now().After(timeoutAt) {
+			log.Fatalf("Unable to initialize local node due to timeout")
+		}
+	}
+	close(n.Registered)
+}
+
+func (n *NodeDiscovery) processNodeUpdate(localNode nodeTypes.Node) {
+	n.localNodeUpdated(localNode)
 }
 
 func (n *NodeDiscovery) NodeDeleted(node nodeTypes.Node) {
@@ -225,121 +236,45 @@ func (n *NodeDiscovery) ClusterSizeDependantInterval(baseInterval time.Duration)
 	return n.Manager.ClusterSizeDependantInterval(baseInterval)
 }
 
-func (n *NodeDiscovery) fillLocalNode() {
-	n.localNode.Name = nodeTypes.GetName()
-	n.localNode.Cluster = option.Config.ClusterName
-	n.localNode.IPAddresses = []nodeTypes.Address{}
-	n.localNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
-	n.localNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
-	n.localNode.IPv4HealthIP = node.GetEndpointHealthIPv4()
-	n.localNode.IPv6HealthIP = node.GetEndpointHealthIPv6()
-	n.localNode.IPv4IngressIP = node.GetIngressIPv4()
-	n.localNode.IPv6IngressIP = node.GetIngressIPv6()
-	n.localNode.ClusterID = option.Config.ClusterID
-	n.localNode.EncryptionKey = node.GetIPsecKeyIdentity()
-	n.localNode.WireguardPubKey = node.GetWireguardPubKey()
-	n.localNode.Labels = node.GetLabels()
-	n.localNode.NodeIdentity = uint32(identity.ReservedIdentityHost)
+func (n *NodeDiscovery) localNodeUpdated(localNode nodeTypes.Node) {
+	log.Info("Propagating local node changes...")
+	defer log.Info("Propagation DONE")
 
-	if node.GetK8sExternalIPv4() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeExternalIP,
-			IP:   node.GetK8sExternalIPv4(),
-		})
-	}
-
-	if node.GetIPv4() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeInternalIP,
-			IP:   node.GetIPv4(),
-		})
-	}
-
-	if node.GetIPv6() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeInternalIP,
-			IP:   node.GetIPv6(),
-		})
-	}
-
-	if node.GetInternalIPv4Router() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetInternalIPv4Router(),
-		})
-	}
-
-	if node.GetIPv6Router() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeCiliumInternalIP,
-			IP:   node.GetIPv6Router(),
-		})
-	}
-
-	if node.GetK8sExternalIPv6() != nil {
-		n.localNode.IPAddresses = append(n.localNode.IPAddresses, nodeTypes.Address{
-			Type: addressing.NodeExternalIP,
-			IP:   node.GetK8sExternalIPv6(),
-		})
-	}
-}
-
-func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
-		go func() {
-			<-n.Registered
-			controller.NewManager().UpdateController("propagating local node change to kv-store",
-				controller.ControllerParams{
-					DoFunc: func(ctx context.Context) error {
-						n.localNodeLock.Lock()
-						localNode := n.localNode.DeepCopy()
-						n.localNodeLock.Unlock()
-						err := n.Registrar.UpdateLocalKeySync(localNode)
-						if err != nil {
-							log.WithError(err).Error("Unable to propagate local node change to kvstore")
-						}
-						return err
-					},
-				})
-		}()
+		controller.NewManager().UpdateController("propagating local node change to kv-store",
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					err := n.Registrar.UpdateLocalKeySync(&localNode)
+					if err != nil {
+						log.WithError(err).Error("Unable to propagate local node change to kvstore")
+					}
+					return err
+				},
+			})
 	}
-
 	if k8s.IsEnabled() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
-		n.UpdateCiliumNodeResource()
+		n.updateCiliumNodeResource(&localNode)
 	}
-}
-
-// UpdateLocalNode syncs the internal localNode object with the actual state of
-// the local node and publishes the corresponding updated KV store entry and/or
-// CiliumNode object
-func (n *NodeDiscovery) UpdateLocalNode() {
-	n.localNodeLock.Lock()
-	defer n.localNodeLock.Unlock()
-
-	n.fillLocalNode()
-	n.updateLocalNode()
-}
-
-// LocalNode syncs the localNode object with the information stored in the node
-// package and then returns a copy of the localNode object
-func (n *NodeDiscovery) LocalNode() *types.Node {
-	n.localNodeLock.Lock()
-	defer n.localNodeLock.Unlock()
-
-	n.fillLocalNode()
-	return n.localNode.DeepCopy()
+	n.Manager.NodeUpdated(localNode)
 }
 
 // Close shuts down the node discovery engine
 func (n *NodeDiscovery) Close() {
+	n.cancel()
+	n.wg.Wait()
 	n.Manager.Close()
+}
+
+func (n *NodeDiscovery) ForceCiliumNodeUpdate() {
+	localNode := n.localNodeStore.Get()
+	n.updateCiliumNodeResource(&localNode)
 }
 
 // UpdateCiliumNodeResource updates the CiliumNode resource representing the
 // local node
-func (n *NodeDiscovery) UpdateCiliumNodeResource() {
+func (n *NodeDiscovery) updateCiliumNodeResource(localNode *nodeTypes.Node) {
 	if !option.Config.AutoCreateCiliumNodeResource {
 		return
 	}
@@ -367,7 +302,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			}
 		}
 
-		if err := n.mutateNodeResource(nodeResource); err != nil {
+		if err := n.mutateNodeResource(localNode, nodeResource); err != nil {
 			log.WithError(err).WithField("retryCount", retryCount).Warning("Unable to mutate nodeResource")
 			continue
 		}
@@ -402,7 +337,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	log.Fatal("Could not create or update CiliumNode resource, despite retries")
 }
 
-func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) error {
+func (n *NodeDiscovery) mutateNodeResource(localNode *nodeTypes.Node, nodeResource *ciliumv2.CiliumNode) error {
 	var (
 		providerID       string
 		k8sNodeAddresses []nodeTypes.Address
@@ -452,11 +387,13 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
 	k8sNodeAddresses = k8sNodeParsed.IPAddresses
 
-	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
+	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels // FIXME: Use localNode.Labels!
 
-	localCN := n.localNode.ToCiliumNode()
+	localCN := localNode.ToCiliumNode()
 	nodeResource.ObjectMeta.Annotations = localCN.Annotations
 
+	// FIXME: Why are we not trusting localNode.IPAddresses? Should we sync
+	// k8s node addresses to local node?
 	for _, k8sAddress := range k8sNodeAddresses {
 		k8sAddressStr := k8sAddress.IP.String()
 		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
@@ -465,7 +402,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		})
 	}
 
-	for _, address := range n.localNode.IPAddresses {
+	for _, address := range localNode.IPAddresses {
 		ciliumNodeAddress := address.IP.String()
 		var found bool
 		for _, nodeResourceAddress := range nodeResource.Spec.Addresses {
@@ -494,38 +431,38 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		// podCIDRs, resulting in an error in the CiliumNode status.
 	default:
 		nodeResource.Spec.IPAM.PodCIDRs = []string{}
-		if cidr := node.GetIPv4AllocRange(); cidr != nil {
+		if cidr := localNode.IPv4AllocCIDR; cidr != nil {
 			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
 		}
 
-		if cidr := node.GetIPv6AllocRange(); cidr != nil {
+		if cidr := localNode.IPv6AllocCIDR; cidr != nil {
 			nodeResource.Spec.IPAM.PodCIDRs = append(nodeResource.Spec.IPAM.PodCIDRs, cidr.String())
 		}
 	}
 
-	nodeResource.Spec.Encryption.Key = int(node.GetIPsecKeyIdentity())
+	nodeResource.Spec.Encryption.Key = int(localNode.EncryptionKey)
 
 	nodeResource.Spec.HealthAddressing.IPv4 = ""
-	if ip := n.localNode.IPv4HealthIP; ip != nil {
+	if ip := localNode.IPv4HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv4 = ip.String()
 	}
 
 	nodeResource.Spec.HealthAddressing.IPv6 = ""
-	if ip := n.localNode.IPv6HealthIP; ip != nil {
+	if ip := localNode.IPv6HealthIP; ip != nil {
 		nodeResource.Spec.HealthAddressing.IPv6 = ip.String()
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV4 = ""
-	if ip := n.localNode.IPv4IngressIP; ip != nil {
+	if ip := localNode.IPv4IngressIP; ip != nil {
 		nodeResource.Spec.IngressAddressing.IPV4 = ip.String()
 	}
 
 	nodeResource.Spec.IngressAddressing.IPV6 = ""
-	if ip := n.localNode.IPv6IngressIP; ip != nil {
+	if ip := localNode.IPv6IngressIP; ip != nil {
 		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
 	}
 
-	if pk := n.localNode.WireguardPubKey; pk != "" {
+	if pk := localNode.WireguardPubKey; pk != "" {
 		if nodeResource.ObjectMeta.Annotations == nil {
 			nodeResource.ObjectMeta.Annotations = make(map[string]string)
 		}
@@ -718,24 +655,21 @@ func (n *NodeDiscovery) RegisterK8sNodeGetter(k8sNodeGetter k8sNodeGetter) {
 // CIDR remains assigned to the local node and may not be switched out or be
 // removed.
 func (n *NodeDiscovery) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {
-	n.localNodeLock.Lock()
-	defer n.localNodeLock.Unlock()
+	n.localNodeStore.Update(func(localNode *nodeTypes.Node) {
+		if option.Config.EnableIPv4 && len(ipv4AllocCIDRs) > 0 {
+			ipv4PrimaryCIDR, ipv4SecondaryCIDRs := splitAllocCIDRs(ipv4AllocCIDRs)
+			validatePrimaryCIDR(localNode.IPv4AllocCIDR, ipv4PrimaryCIDR, ipam.IPv4)
+			localNode.IPv4AllocCIDR = ipv4PrimaryCIDR
+			localNode.IPv4SecondaryAllocCIDRs = ipv4SecondaryCIDRs
+		}
 
-	if option.Config.EnableIPv4 && len(ipv4AllocCIDRs) > 0 {
-		ipv4PrimaryCIDR, ipv4SecondaryCIDRs := splitAllocCIDRs(ipv4AllocCIDRs)
-		validatePrimaryCIDR(n.localNode.IPv4AllocCIDR, ipv4PrimaryCIDR, ipam.IPv4)
-		n.localNode.IPv4AllocCIDR = ipv4PrimaryCIDR
-		n.localNode.IPv4SecondaryAllocCIDRs = ipv4SecondaryCIDRs
-	}
-
-	if option.Config.EnableIPv6 && len(ipv6AllocCIDRs) > 0 {
-		ipv6PrimaryCIDR, ipv6SecondaryCIDRs := splitAllocCIDRs(ipv6AllocCIDRs)
-		validatePrimaryCIDR(n.localNode.IPv6AllocCIDR, ipv6PrimaryCIDR, ipam.IPv6)
-		n.localNode.IPv6AllocCIDR = ipv6PrimaryCIDR
-		n.localNode.IPv6SecondaryAllocCIDRs = ipv6SecondaryCIDRs
-	}
-
-	n.Manager.NodeUpdated(n.localNode)
+		if option.Config.EnableIPv6 && len(ipv6AllocCIDRs) > 0 {
+			ipv6PrimaryCIDR, ipv6SecondaryCIDRs := splitAllocCIDRs(ipv6AllocCIDRs)
+			validatePrimaryCIDR(localNode.IPv6AllocCIDR, ipv6PrimaryCIDR, ipam.IPv6)
+			localNode.IPv6AllocCIDR = ipv6PrimaryCIDR
+			localNode.IPv6SecondaryAllocCIDRs = ipv6SecondaryCIDRs
+		}
+	})
 }
 
 func splitAllocCIDRs(allocCIDRs []*cidr.CIDR) (primaryCIDR *cidr.CIDR, secondaryCIDRS []*cidr.CIDR) {

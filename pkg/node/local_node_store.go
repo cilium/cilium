@@ -113,7 +113,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 // defaultLocalNodeStore constructs the default instance for the LocalNodeStore used by
 // address.go unless changed by call to SetLocalNodeStore. This instance is used by tests
 // that have not transitioned to constructing via hive.
-func defaultLocalNodeStore() LocalNodeStore {
+func DefaultLocalNodeStore() LocalNodeStore {
 	src, emit, complete := stream.Multicast[types.Node](stream.EmitLatest)
 	s := &localNodeStore{
 		Observable: src,

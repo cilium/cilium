@@ -118,7 +118,6 @@ type endpointManager interface {
 }
 
 type nodeDiscoverManager interface {
-	WaitForLocalNodeInit()
 	NodeDeleted(n nodeTypes.Node)
 	NodeUpdated(n nodeTypes.Node)
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
@@ -459,8 +458,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 	close(k.controllersStarted)
 
 	go func() {
-		log.Info("Waiting until local node addressing before starting watchers depending on it")
-		k.nodeDiscoverManager.WaitForLocalNodeInit()
 		if err := k.enableK8sWatchers(ctx, afterNodeInitResources); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")

@@ -39,7 +39,7 @@ var (
 	// This is defined here until all uses of the getters and
 	// setters in this file have been migrated to use LocalNodeStore
 	// directly.
-	localNode LocalNodeStore = defaultLocalNodeStore()
+	localNode LocalNodeStore = DefaultLocalNodeStore()
 )
 
 type addresses struct {

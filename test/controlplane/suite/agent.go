@@ -13,6 +13,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/node"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
 
@@ -43,9 +44,13 @@ func startCiliumAgent(nodeName string, clientset k8sClient.Clientset) (*fakeData
 	cleaner := cmd.NewDaemonCleanup()
 	handle.clean = cleaner.Clean
 
+	localNodeStore := node.DefaultLocalNodeStore()
+	node.SetLocalNodeStore(localNodeStore)
+
 	var err error
 	handle.d, _, err = cmd.NewDaemon(ctx,
 		cleaner,
+		localNodeStore,
 		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
 		fdp,
 		clientset)

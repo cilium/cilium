@@ -1541,6 +1541,15 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
+type daemonParams struct {
+	fx.In
+
+	Shutdowner     fx.Shutdowner
+	Config         DaemonCellConfig
+	Clientset      k8sClient.Clientset
+	LocalNodeStore node.LocalNodeStore
+}
+
 // registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
 // not yet been modularized.
 //
@@ -1551,8 +1560,8 @@ func (d *Daemon) initKVStore() {
 //
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
-func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
-	if cfg.SkipDaemon {
+func registerDaemonHooks(lc fx.Lifecycle, p daemonParams) error {
+	if p.Config.SkipDaemon {
 		return nil
 	}
 
@@ -1563,15 +1572,15 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 		// In lb-only mode the k8s client is not used, even if its configuration
 		// is available, so disable it here before it starts. Using GetString
 		// directly as option.Config not populated yet.
-		clientset.Disable()
+		p.Clientset.Disable()
 	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
 			// by later commits.
-			if clientset.IsEnabled() {
-				k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
+			if p.Clientset.IsEnabled() {
+				k8s.SetClients(p.Clientset, p.Clientset.Slim(), p.Clientset, p.Clientset)
 			}
 
 			bootstrapStats.earlyInit.Start()
@@ -1580,7 +1589,7 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
-			go runDaemon(ctx, cleaner, shutdowner, clientset)
+			go runDaemon(ctx, cleaner, p)
 			return nil
 		},
 		OnStop: func(context.Context) error {
@@ -1593,7 +1602,7 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 }
 
 // runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner, clientset k8sClient.Clientset) {
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, p daemonParams) {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1637,9 +1646,10 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 	}
 
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
+		p.LocalNodeStore,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
-		clientset)
+		p.Clientset)
 	if err != nil {
 		log.Fatalf("daemon creation failed: %s", err)
 	}
@@ -1768,7 +1778,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 		err := <-errs
 		if err != nil {
 			log.WithError(err).Error("Cannot start metrics server")
-			shutdowner.Shutdown()
+			p.Shutdowner.Shutdown()
 		}
 	}(initMetrics())
 
@@ -1857,7 +1867,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 	err = srv.Serve()
 	if err != nil {
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
-		shutdowner.Shutdown()
+		p.Shutdowner.Shutdown()
 	}
 }
 

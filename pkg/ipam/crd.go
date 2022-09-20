@@ -102,9 +102,6 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	}
 	store.refreshTrigger = t
 
-	// Create the CiliumNode custom resource. This call will block until
-	// the custom resource has been created
-	owner.UpdateCiliumNodeResource()
 	apiGroup := "cilium/v2::CiliumNode"
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)

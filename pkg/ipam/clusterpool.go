@@ -490,7 +490,6 @@ func newCRDWatcher(conf Configuration, nodeWatcher nodeWatcher, owner Owner, nod
 
 	// Subscribe to CiliumNode updates
 	nodeWatcher.RegisterCiliumNodeSubscriber(c)
-	owner.UpdateCiliumNodeResource()
 
 	return c
 }

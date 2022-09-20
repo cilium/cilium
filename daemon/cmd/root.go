@@ -78,9 +78,15 @@ func init() {
 		gops.Cell,
 		k8sClient.Cell,
 
-		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
+		hive.NewCellWithConfig[DaemonCellConfig](
+			"daemon",
+			fx.Invoke(registerDaemonHooks),
+		),
 
 		node.LocalNodeStoreCell,
+		// FIXME: Add LocalNodeInitializer that sets:
+		// Cluster, Name, ClusterID, NodeIdentity.
+
 		hive.Invoke(func(store node.LocalNodeStore) {
 			// Set the global LocalNodeStore. This is to retain the API of getters and setters
 			// defined in pkg/node/address.go until uses of them have been converted to use

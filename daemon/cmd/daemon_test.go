@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -140,6 +141,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ds.cancel = cancel
 	d, _, err := NewDaemon(ctx, NewDaemonCleanup(),
+		node.DefaultLocalNodeStore(),
 		WithCustomEndpointManager(&dummyEpSyncher{}),
 		fakedatapath.NewDatapath(),
 		clientset)

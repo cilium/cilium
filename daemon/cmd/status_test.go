@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -53,6 +54,8 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		clientIDs = append(clientIDs, randGen.Int63())
 	}
 
+	localNodeStore := node.DefaultLocalNodeStore()
+
 	var zero int64
 	type args struct {
 		params  GetClusterNodesParams
@@ -71,7 +74,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "create a client ID and store it locally",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -102,7 +105,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes diff from a client that was already present",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -155,7 +158,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes from an expired client, it should be ok because the clean up only happens when on insertion",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -209,7 +212,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a new client, the expired client should be deleted",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -258,7 +261,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a new client, however the randomizer allocated an existing clientID, so we should return a empty clientID",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -307,7 +310,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a client that does not want to have diffs, leave all other stored clients alone",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{},
 					daemon: &Daemon{
@@ -409,6 +412,8 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 		},
 	}
 
+	localNodeStore := node.DefaultLocalNodeStore()
+
 	for _, tt := range tests {
 		c.Log(tt.name)
 		args := tt.setupArgs()
@@ -416,7 +421,7 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 		h := &getNodes{
 			clients: args.clients,
 			d: &Daemon{
-				nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{}),
+				nodeDiscovery: nodediscovery.NewNodeDiscovery(localNodeStore, nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{}),
 			},
 		}
 		h.cleanupClients()

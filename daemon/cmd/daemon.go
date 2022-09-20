@@ -89,6 +89,7 @@ import (
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/cilium/cilium/pkg/stream"
 	"github.com/cilium/cilium/pkg/trigger"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
@@ -371,6 +372,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
 func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
+	localNodeStore node.LocalNodeStore,
 	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
 	clientset k8sClient.Clientset,
 ) (*Daemon, *endpointRestoreState, error) {
@@ -493,7 +495,15 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+	// Set the initial value of the local node info.
+	localNodeStore.Update(func(n *nodeTypes.Node) {
+		n.Cluster = option.Config.ClusterName
+		n.ClusterID = option.Config.ClusterID
+		n.NodeIdentity = uint32(identity.ReservedIdentityHost)
+		n.Name = nodeTypes.GetName()
+	})
+
+	nd := nodediscovery.NewNodeDiscovery(localNodeStore, nodeMngr, mtuConfig, netConf)
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -680,9 +690,6 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	if option.Config.EnableServiceTopology {
 		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
-
-	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
-	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
@@ -876,7 +883,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
-			d.nodeDiscovery.UpdateCiliumNodeResource()
+			nd.ForceCiliumNodeUpdate()
 		}
 
 		if err := k8s.WaitForNodeInformation(d.ctx, d.k8sWatcher); err != nil {
@@ -1124,6 +1131,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
+	//
+	// FIXME: This needs to observe the local node store!
 	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
@@ -1266,6 +1275,12 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 		ipsec.StartStaleKeysReclaimer(ctx)
 	}
+
+	// Sync datapath on changes to the local node state.
+	stream.Debounce[nodeTypes.Node](localNodeStore, time.Second).Observe(
+		ctx,
+		func(n nodeTypes.Node) { dp.Node().NodeValidateImplementation(n) },
+		func(err error) {})
 
 	return &d, restoredEndpoints, nil
 }
