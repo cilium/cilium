@@ -1,16 +1,8 @@
-name: Image CI Build
+name: Image CI Build - Test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-  push:
-    branches:
-      - master
-      - ft/master/**
+  pull_request: {}
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -243,6 +235,30 @@ jobs:
           build-args: |
             NOSTRIP=1
             OPERATOR_VARIANT=${{ matrix.name }}
+
+      - name: Install Bom and generate SBOM
+        shell: bash
+        run: | 
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.3.0/bom-linux-amd64.tar.gz -o bom 
+          tar -xvf bom
+          ./bom generate -o sbom_source_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          --dirs=.
+          ./bom generate -o sbom_image_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          ./bom generate -o sbom_image_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race 
+          ./bom generate -o sbom_image_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped 
+          
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@f3c664df7af409cb4873aa5068053ba9d61a57b6  
+
+      - name: Attach SBOM to container image
+        run: |
+          cosign attach sbom --sbom sbom_source_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }} 
+          cosign attach sbom --sbom sbom_image_ci_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }} 
+          cosign attach sbom --sbom sbom_image_ci_race_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race 
+          cosign attach sbom --sbom sbom_image_ci_unstripped_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped 
 
       - name: CI Image Releases digests
         if: ${{ github.event_name == 'pull_request_target' }}
