@@ -125,8 +125,9 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	// IPv6 address must be in use
 	err = ipam.AllocateIP(ipv6.IP, "foo")
 	c.Assert(err, Not(IsNil))
+
 	// Let expiration timer expire
-	time.Sleep(2 * timeout)
+	time.Sleep(time.Second)
 	// IPv4 address must be available again
 	err = ipam.AllocateIP(ipv4.IP, "foo")
 	c.Assert(err, IsNil)
@@ -148,8 +149,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Let expiration timer expire
-	time.Sleep(2 * timeout)
-
+	time.Sleep(time.Second)
 	// IPv4 address must be in use
 	err = ipam.AllocateIP(ipv4.IP, "foo")
 	c.Assert(err, Not(IsNil))
