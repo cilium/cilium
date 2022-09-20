@@ -104,8 +104,6 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	version.Update(cpt.clients, true)
 	k8s.SetClients(cpt.clients, cpt.clients.Slim(), cpt.clients, cpt.clients)
 
-	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
-
 	agentOption.Config.Populate(agentCmd.Vp)
 	agentOption.Config.IdentityAllocationMode = agentOption.IdentityAllocationModeCRD
 	agentOption.Config.DryMode = true
@@ -130,6 +128,9 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	// Apply the test specific configuration
 	modConfig(agentOption.Config, operatorOption.Config)
 
+	if agentOption.Config.EnableL7Proxy {
+		proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
+	}
 	return cpt
 }
 
