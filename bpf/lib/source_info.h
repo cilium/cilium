@@ -53,6 +53,7 @@ __id_for_file(const char *const header_name)
 	_strcase_(110, "l3.h");
 	_strcase_(111, "trace.h");
 	_strcase_(112, "encap.h");
+	_strcase_(113, "encrypt.h");
 
 	/* @@ source files list end */
 

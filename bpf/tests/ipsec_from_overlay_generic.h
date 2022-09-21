@@ -81,6 +81,7 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 #include "bpf_overlay.c"
 
 #include "lib/endpoint.h"
+#include "lib/ipcache.h"
 
 #define FROM_OVERLAY 0
 #define ESP_SEQUENCE 69865
@@ -135,6 +136,16 @@ int ipv4_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_not_decrypted_ipsec_from_overlay")
 int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	/* We need to populate the node ID map because we'll lookup into it on
+	 * ingress to find the node ID to use to match against XFRM IN states.
+	 */
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_pod_one;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
@@ -160,7 +171,7 @@ int ipv4_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ct
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == MARK_MAGIC_DECRYPT);
+	assert(ctx->mark == (MARK_MAGIC_DECRYPT | NODE_ID << 16));
 
 	l2 = data + sizeof(*status_code);
 
@@ -246,6 +257,25 @@ int ipv6_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_not_decrypted_ipsec_from_overlay")
 int ipv6_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
+	/* To be able to use memcpy, we need to ensure that the memcpy'ed field is
+	 * 8B aligned on the stack. Given the existing node_ip struct, the only way
+	 * to achieve that is to align a parent tmp struct.
+	 * We can't simply use __bpf_memcpy_builtin because that causes a
+	 * relocation error in the lib.
+	 */
+	struct tmp {
+		__u32 _;
+		struct node_key k;
+	} node_ip __align_stack_8 = {};
+	__u32 node_id = NODE_ID;
+
+	/* We need to populate the node ID map because we'll lookup into it on
+	 * ingress to find the node ID to use to match against XFRM IN states.
+	 */
+	node_ip.k.family = ENDPOINT_KEY_IPV6;
+	memcpy((__u8 *)&node_ip.k.ip6, (__u8 *)v6_pod_one, 16);
+	map_update_elem(&NODE_MAP, &node_ip.k, &node_id, BPF_ANY);
+
 	tail_call_static(ctx, entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
@@ -271,7 +301,7 @@ int ipv6_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ct
 
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
-	assert(ctx->mark == MARK_MAGIC_DECRYPT);
+	assert(ctx->mark == (MARK_MAGIC_DECRYPT | NODE_ID << 16));
 
 	l2 = data + sizeof(*status_code);
 
