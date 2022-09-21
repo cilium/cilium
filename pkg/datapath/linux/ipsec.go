@@ -151,81 +151,72 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	errs = errors.Join(errs, upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
-		localIP := newNode.GetCiliumInternalIP(false)
-		if localIP == nil {
-			return errs
-		}
-		remoteNodeID, err := n.allocateIDForNode(newNode)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
-		}
-
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
 			if localCIDR := n.nodeAddressing.IPv4().AllocationCIDR(); localCIDR != nil {
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
+		} else {
+			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
+		}
+	} else {
+		remoteCiliumInternalIP := newNode.GetCiliumInternalIP(false)
+		if remoteCiliumInternalIP == nil {
+			return errs
+		}
+		remoteIP := remoteCiliumInternalIP
 
+		localCiliumInternalIP := n.nodeAddressing.IPv4().Router()
+		localIP := localCiliumInternalIP
+
+		if n.subnetEncryption() {
 			localNodeInternalIP, err := n.getV4LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv4 for ipsec link: %w", err))
 			}
+			remoteNodeInternalIP := newNode.GetNodeIP(false)
 
-			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
-				/* Insert wildcard policy rules for traffic skipping back through host */
-				if err = ipsec.IpSecReplacePolicyFwd(cidr, localIP); err != nil {
-					log.WithError(err).Warning("egress unable to replace policy fwd:")
-				}
-
-				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, zeroMark)
-				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, remoteNodeID))
-
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, zeroMark)
-				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi, remoteNodeID))
-			}
-		} else {
-			/* Insert wildcard policy rules for traffic skipping back through host */
-			if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, localIP); err != nil {
-				log.WithError(err).Warning("egress unable to replace policy fwd:")
-			}
-
-			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
-			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
-			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, false)
-			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, remoteNodeID))
-		}
-	} else {
-		remoteIP := newNode.GetCiliumInternalIP(false)
-		if remoteIP == nil {
-			return errs
-		}
-
-		localIP := n.nodeAddressing.IPv4().Router()
-
-		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
 			// CiliumInternalIPs for the IPsec encapsulation.
 			if !option.Config.UseCiliumInternalIPForIPsec {
-				localIP, err = n.getV4LinkLocalIP()
-				if err != nil {
-					log.WithError(err).Error("Failed to get local IPv4 for IPsec configuration")
-				}
-				remoteIP = newNode.GetNodeIP(false)
+				localIP = localNodeInternalIP
+				remoteIP = remoteNodeInternalIP
 			}
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				errs = errors.Join(errs, upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi, nodeID))
+
+				/* Insert wildcard policy rules for traffic skipping back through host */
+				if err = ipsec.IpSecReplacePolicyFwd(cidr, localIP); err != nil {
+					log.WithError(err).Warning("egress unable to replace policy fwd:")
+				}
+
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, nodeID))
+
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi, nodeID))
 			}
 		} else {
+			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
 			}
 			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			errs = errors.Join(errs, upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi, nodeID))
+
+			/* Insert wildcard policy rules for traffic skipping back through host */
+			if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, localIP); err != nil {
+				log.WithError(err).Warning("egress unable to replace policy fwd:")
+			}
+
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirIn, false)
+			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, nodeID))
 		}
 	}
 	return errs
@@ -245,72 +236,62 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	errs = errors.Join(errs, upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0))
 
 	if newNode.IsLocal() {
-		localIP := newNode.GetCiliumInternalIP(true)
-		if localIP == nil {
-			return errs
-		}
-		remoteNodeID, err := n.allocateIDForNode(newNode)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to allocate ID for node %s: %w", newNode.Name, err))
-		}
-
 		if n.subnetEncryption() {
 			// FIXME: Remove the following four lines in Cilium v1.16
 			if localCIDR := n.nodeAddressing.IPv6().AllocationCIDR(); localCIDR != nil {
 				// This removes a bogus route that Cilium installed prior to v1.15
 				_ = route.Delete(n.createNodeIPSecInRoute(localCIDR.IPNet))
 			}
+		} else {
+			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
+			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
+		}
+	} else {
+		remoteCiliumInternalIP := newNode.GetCiliumInternalIP(true)
+		if remoteCiliumInternalIP == nil {
+			return errs
+		}
+		remoteIP := remoteCiliumInternalIP
 
+		localCiliumInternalIP := n.nodeAddressing.IPv6().Router()
+		localIP := localCiliumInternalIP
+
+		if n.subnetEncryption() {
 			localNodeInternalIP, err := n.getV6LinkLocalIP()
 			if err != nil {
 				log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
 				errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
 			}
+			remoteNodeInternalIP := newNode.GetNodeIP(true)
 
-			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
-				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, zeroMark)
-				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, remoteNodeID))
-
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, zeroMark)
-				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi, remoteNodeID))
-			}
-		} else {
-			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
-			errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localCIDR))
-			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, remoteNodeID, ipsec.IPSecDirIn, false)
-			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi, remoteNodeID))
-		}
-	} else {
-		remoteIP := newNode.GetCiliumInternalIP(true)
-		if remoteIP == nil {
-			return errs
-		}
-
-		localIP := n.nodeAddressing.IPv6().Router()
-
-		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
 			// CiliumInternalIPs for the IPsec encapsulation.
 			if !option.Config.UseCiliumInternalIPForIPsec {
-				localIP, err = n.getV6LinkLocalIP()
-				if err != nil {
-					log.WithError(err).Error("Failed to get local IPv6 for IPsec configuration")
-					errs = errors.Join(errs, fmt.Errorf("failed to get local ipv6 for ipsec link: %w", err))
-				}
-				remoteIP = newNode.GetNodeIP(true)
+				localIP = localNodeInternalIP
+				remoteIP = remoteNodeInternalIP
 			}
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				errs = errors.Join(errs, upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi, nodeID))
+
+				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localCiliumInternalIP, remoteCiliumInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, nodeID))
+
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, remoteNodeInternalIP, nodeID, ipsec.IPSecDirIn, zeroMark)
+				errs = errors.Join(errs, upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi, nodeID))
 			}
 		} else {
+			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			if err := n.replaceNodeIPSecOutRoute(remoteCIDR); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to replace ipsec OUT (%q): %w", remoteCIDR.IP, err))
 			}
 			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			errs = errors.Join(errs, upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID))
+
+			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirIn, false)
+			errs = errors.Join(errs, upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi, nodeID))
 		}
 	}
 	return errs
