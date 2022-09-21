@@ -112,7 +112,7 @@ var (
 
 	defaultDropMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkEncrypt,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
+		Mask:  linux_defaults.IPsecMarkBitMask,
 	}
 	defaultDropPolicyIPv4 = &netlink.XfrmPolicy{
 		Dir:      netlink.XFRM_DIR_OUT,
@@ -411,7 +411,7 @@ func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
 		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
 }
 
-func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
+func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool) (uint8, error) {
 	key := getNodeIPsecKey(localIP, remoteIP, netlink.XFRM_DIR_IN)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -419,10 +419,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	state := ipSecNewState(key)
 	state.Src = remoteIP
 	state.Dst = localIP
-	state.Mark = &netlink.XfrmMark{
-		Value: linux_defaults.RouteMarkDecrypt,
-		Mask:  linux_defaults.IPsecMarkMaskIn,
-	}
+	state.Mark = generateDecryptMark(linux_defaults.RouteMarkDecrypt, nodeID)
 	if !zeroMark {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: linux_defaults.RouteMarkDecrypt,
@@ -434,6 +431,9 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 			Mask:  linux_defaults.OutputMarkMask,
 		}
 	}
+	// We want to clear the node ID regardless of zeroMark parameter. That
+	// value is never needed after decryption.
+	state.OutputMark.Mask |= linux_defaults.IPsecMarkMaskNodeID
 
 	return key.Spi, xfrmStateReplace(state)
 }
@@ -476,7 +476,7 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 		policy.Src = src
 		policy.Dst = dst
 		policy.Mark = &netlink.XfrmMark{
-			Mask: linux_defaults.IPsecMarkMaskIn,
+			Mask: linux_defaults.IPsecMarkBitMask,
 		}
 		if proxyMark {
 			// We require a policy to match on packets going to the proxy which are
@@ -607,6 +607,14 @@ func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
 	return &netlink.XfrmMark{
 		Value: val,
 		Mask:  linux_defaults.IPsecMarkMaskOut,
+	}
+}
+
+func generateDecryptMark(decryptBit uint32, nodeID uint16) *netlink.XfrmMark {
+	val := decryptBit | (uint32(nodeID) << 16)
+	return &netlink.XfrmMark{
+		Value: val,
+		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
 }
 
@@ -743,7 +751,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	 */
 	if !outerLocal.Equal(outerRemote) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
+			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, remoteNodeID, outputMark); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %s", err)
 			}
 			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {

@@ -207,7 +207,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 		Dst: local,
 		Dir: netlink.XFRM_DIR_IN,
 		Mark: &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkMaskIn,
+			Mask:  linux_defaults.IPsecMarkBitMask,
 			Value: linux_defaults.RouteMarkToProxy,
 		},
 	})
