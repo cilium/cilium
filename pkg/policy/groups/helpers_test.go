@@ -8,7 +8,7 @@ package groups
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -95,8 +95,8 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 }
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
-	cb := func(ctx context.Context, group *api.ToGroups) ([]net.IP, error) {
-		return []net.IP{net.ParseIP("192.168.1.1")}, nil
+	cb := func(ctx context.Context, group *api.ToGroups) ([]netip.Addr, error) {
+		return []netip.Addr{netip.MustParseAddr("192.168.1.1")}, nil
 	}
 
 	egressRule := []api.EgressRule{
