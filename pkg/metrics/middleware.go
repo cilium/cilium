@@ -22,12 +22,12 @@ type APIEventTSHelper struct {
 	Histogram prometheus.ObserverVec
 }
 
-type responderWrapper struct {
+type ResponderWrapper struct {
 	http.ResponseWriter
 	code int
 }
 
-func (rw *responderWrapper) WriteHeader(code int) {
+func (rw *ResponderWrapper) WriteHeader(code int) {
 	rw.code = code
 	rw.ResponseWriter.WriteHeader(code)
 }
@@ -60,7 +60,7 @@ func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
 		m.TSGauge.WithLabelValues(LabelEventSourceAPI, path, req.Method).SetToCurrentTime()
 	}
 	duration := spanstat.Start()
-	rw := &responderWrapper{ResponseWriter: r}
+	rw := &ResponderWrapper{ResponseWriter: r}
 	m.Next.ServeHTTP(rw, req)
 	if reqOk {
 		took := float64(duration.End(true).Total().Seconds())
