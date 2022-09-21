@@ -107,6 +107,11 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 // If host is nil then use SockPath provided by CILIUM_SOCK
 // or the cilium default SockPath
 func NewClient(host string) (*Client, error) {
+	clientTrans, err := NewRuntime(host)
+	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, err
+}
+
+func NewRuntime(host string) (*runtime_client.Runtime, error) {
 	if host == "" {
 		host = DefaultSockPath()
 	}
@@ -129,7 +134,7 @@ func NewClient(host string) (*Client, error) {
 	httpClient := &http.Client{Transport: transport}
 	clientTrans := runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
 		clientapi.DefaultSchemes, httpClient)
-	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
+	return clientTrans, nil
 }
 
 // Hint tries to improve the error message displayed to the user.
