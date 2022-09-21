@@ -799,12 +799,15 @@ func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check
 	c.Assert(countXFRMPolicies(policies), check.Equals, 0)
 }
 
-// Counts the number of XFRM policies excluding the catch-all default-drop one.
-// That one is always installed and shouldn't be removed.
+// Counts the number of XFRM OUT policies excluding the catch-all default-drop
+// one. The default-drop is always installed and shouldn't be removed. The IN
+// and FWD policies are installed once and for all in reaction to new nodes;
+// contrary to XFRM IN states, they don't need to be unique per remote node.
 func countXFRMPolicies(policies []netlink.XfrmPolicy) int {
 	nbPolicies := 0
 	for _, policy := range policies {
-		if policy.Action != netlink.XFRM_POLICY_BLOCK {
+		if policy.Action != netlink.XFRM_POLICY_BLOCK &&
+			policy.Dir == netlink.XFRM_DIR_OUT {
 			nbPolicies++
 		}
 	}
