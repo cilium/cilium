@@ -30,6 +30,7 @@ var files = map[uint8]string{
 	110: "l3.h",
 	111: "trace.h",
 	112: "encap.h",
+	113: "encrypt.h",
 
 	// @@ source files list end
 }
