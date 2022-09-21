@@ -10,6 +10,8 @@ import (
 	"net"
 	"net/netip"
 	"sort"
+
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -762,6 +764,20 @@ func KeepUniqueIPs(ips []net.IP) []net.IP {
 	}
 
 	return returnIPs
+}
+
+// KeepUniqueAddrs transforms the provided multiset of IP addresses into a
+// single set, lexicographically sorted via comparison of the addresses using
+// netip.Addr.Compare (i.e. IPv4 addresses show up before IPv6).
+// The slice is manipulated in-place destructively; it does not create a new slice.
+func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
+	if len(addrs) == 0 {
+		return addrs
+	}
+	sort.Slice(addrs, func(i, j int) bool {
+		return addrs[i].Compare(addrs[j]) < 0
+	})
+	return slices.Compact(addrs)
 }
 
 var privateIPBlocks []*net.IPNet
