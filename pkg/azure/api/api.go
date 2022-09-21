@@ -377,6 +377,7 @@ func generateIpConfigName() string {
 func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
 	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
 
+	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Get")
 	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceViewTypesInstanceView)
 	if err != nil {
 		return fmt.Errorf("failed to get VM %s from VMSS %s: %s", instanceID, vmssName, err)
@@ -431,6 +432,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 		result.StorageProfile.ImageReference = nil
 	}
 
+	c.limiter.Limit(ctx, "VirtualMachineScaleSetVMs.Update")
 	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
 	if err != nil {
 		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)
@@ -445,6 +447,7 @@ func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, v
 
 // AssignPrivateIpAddressesVM assign a private IP to an interface attached to a standalone instance
 func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
+	c.limiter.Limit(ctx, "Interfaces.Get")
 	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, "")
 	if err != nil {
 		return fmt.Errorf("failed to get standalone instance's interface %s: %s", interfaceName, err)
@@ -475,6 +478,7 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 	ipConfigurations = append(*iface.IPConfigurations, ipConfigurations...)
 	iface.IPConfigurations = &ipConfigurations
 
+	c.limiter.Limit(ctx, "Interfaces.CreateOrUpdate")
 	future, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface)
 	if err != nil {
 		return fmt.Errorf("unable to update interface %s: %s", interfaceName, err)
