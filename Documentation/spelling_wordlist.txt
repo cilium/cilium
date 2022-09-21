@@ -400,6 +400,8 @@ eventQueueSize
 extendable
 extensibility
 extern
+externalAPILimitBurstSize
+externalAPILimitQPS
 externalIPs
 externalWorkloads
 extraArgs
