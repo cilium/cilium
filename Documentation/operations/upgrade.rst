@@ -371,6 +371,13 @@ Removed Metrics/Labels
   the feature was automatically enabled for the ``partial`` when
   ``upgradeCompatibility`` was not set or it was set to ``>= 1.8``.
 
+* The ``limit-ipam-api-burst`` and ``limit-ipam-api-qps`` default values have
+  been made more conservative to better reflect the rate limits used by cloud
+  providers. The new default values are ``limit-ipam-api-burst=20`` and
+  ``limit-ipam-api-qps=4``.
+  Use the Helm values ``ipam.operator.externalAPILimit{BurstSize,QPS}`` to
+  reconfigure if needed.
+
 New Options
 ~~~~~~~~~~~
 

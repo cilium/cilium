@@ -1153,6 +1153,15 @@ ipam:
     clusterPoolIPv6PodCIDRList: []
     # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv6MaskSize: 120
+    # -- The maximum burst size when rate limiting access to external APIs.
+    # Also known as the token bucket capacity.
+    # @default -- `20`
+    externalAPILimitBurstSize: ~
+    # -- The maximum queries per second when rate limiting access to
+    # external APIs. Also known as the bucket refill rate, which is used to
+    # refill the bucket up to the burst size capacity.
+    # @default -- `4.0`
+    externalAPILimitQPS: ~
 
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
