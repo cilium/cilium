@@ -833,6 +833,14 @@
      - IPv6 CIDR range to delegate to individual nodes for IPAM.
      - string
      - ``"fd00::/104"``
+   * - ipam.operator.externalAPILimitBurstSize
+     - The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity.
+     - string
+     - ``20``
+   * - ipam.operator.externalAPILimitQPS
+     - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
+     - string
+     - ``4.0``
    * - ipv4.enabled
      - Enable IPv4 support.
      - bool

@@ -356,6 +356,8 @@ eventBufferCapacity
 eventQueueSize
 extendable
 extensibility
+externalAPILimitBurstSize
+externalAPILimitQPS
 externalIPs
 externalWorkloads
 extraArgs

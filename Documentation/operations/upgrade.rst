@@ -411,6 +411,13 @@ New Metrics
   * ``cilium_datapath_conntrack_dump_resets_total`` Number of conntrack dump resets. Happens when a BPF entry gets removed
     while dumping the map is in progress.
 
+* The ``limit-ipam-api-burst`` and ``limit-ipam-api-qps`` default values have
+  been made more conservative to better reflect the rate limits used by cloud
+  providers. The new default values are ``limit-ipam-api-burst=20`` and
+  ``limit-ipam-api-qps=4``.
+  Use the Helm values ``ipam.operator.externalAPILimit{BurstSize,QPS}`` to
+  reconfigure if needed.
+
 New Options
 ~~~~~~~~~~~
 

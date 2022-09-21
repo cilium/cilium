@@ -259,6 +259,8 @@ contributors across the globe, there is almost always someone available to help.
 | ipam.operator.clusterPoolIPv4PodCIDR | string | `"10.0.0.0/8"` | IPv4 CIDR range to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv6MaskSize | int | `120` | IPv6 CIDR mask size to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv6PodCIDR | string | `"fd00::/104"` | IPv6 CIDR range to delegate to individual nodes for IPAM. |
+| ipam.operator.externalAPILimitBurstSize | string | `20` | The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity. |
+| ipam.operator.externalAPILimitQPS | string | `4.0` | The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity. |
 | ipv4.enabled | bool | `true` | Enable IPv4 support. |
 | ipv6.enabled | bool | `false` | Enable IPv6 support. |
 | ipvlan.enabled | bool | `false` | Enable the IPVLAN datapath |
