@@ -120,7 +120,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
