@@ -33,7 +33,7 @@ The documentation is divided into the following sections:
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
 
-A `hands-on tutorial <https://play.instruqt.com/isovalent/invite/j4maqox5r1h5>`_ 
+A `hands-on tutorial <https://cilium.io/enterprise/#trainings>`_
 in a live environment is also available for users looking for a way to quickly
 get started and experiment with Cilium.
 
