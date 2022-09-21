@@ -351,10 +351,10 @@ const (
 	ParallelAllocWorkers = 50
 
 	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
-	IPAMAPIBurst = 4
+	IPAMAPIBurst = 20
 
 	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
-	IPAMAPIQPSLimit = 20.0
+	IPAMAPIQPSLimit = 4.0
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
