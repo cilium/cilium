@@ -321,6 +321,20 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 	return nil
 }
 
+func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
+	result := make([]string, 0, int(maxResults))
+	for _, eni := range e.unattached {
+		if ipamTypes.Tags(eni.Tags).Match(tags) {
+			result = append(result, eni.ID)
+		}
+
+		if len(result) >= int(maxResults) {
+			break
+		}
+	}
+	return result, nil
+}
+
 func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
