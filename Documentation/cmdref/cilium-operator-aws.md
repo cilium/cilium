@@ -39,6 +39,8 @@ cilium-operator-aws [flags]
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
+      --eni-gc-interval duration                  Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
+      --eni-gc-tags map                           Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
       --excess-ip-release-delay int               Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gops-port uint16                          Port for gops server to listen on (default 9891)

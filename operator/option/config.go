@@ -161,6 +161,15 @@ const (
 	// AWS ENI IPAM.
 	ENITags = "eni-tags"
 
+	// ENIGarbageCollectionTags is a tag that will be added to every ENI
+	// created by the AWS ENI IPAM.
+	// Any stale and unattached ENIs with this tag will be garbage
+	// collected by the operator.
+	ENIGarbageCollectionTags = "eni-gc-tags"
+
+	// ENIGarbageCollectionInterval defines the interval of ENI GC
+	ENIGarbageCollectionInterval = "eni-gc-interval"
+
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
 
@@ -384,6 +393,15 @@ type OperatorConfig struct {
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags map[string]string
 
+	// ENIGarbageCollectionTags is a tag that will be added to every ENI
+	// created by the AWS ENI IPAM.
+	// Any stale and unattached ENIs with this tag will be garbage
+	// collected by the operator.
+	ENIGarbageCollectionTags map[string]string
+
+	// ENIGarbageCollectionInterval defines the interval of ENI GC
+	ENIGarbageCollectionInterval time.Duration
+
 	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
 	ParallelAllocWorkers int64
 
@@ -555,6 +573,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.UpdateEC2AdapterLimitViaAPI = vp.GetBool(UpdateEC2AdapterLimitViaAPI)
 	c.EC2APIEndpoint = vp.GetString(EC2APIEndpoint)
 	c.ExcessIPReleaseDelay = vp.GetInt(ExcessIPReleaseDelay)
+	c.ENIGarbageCollectionInterval = vp.GetDuration(ENIGarbageCollectionInterval)
 
 	// Azure options
 
@@ -601,13 +620,20 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	} else {
 		c.ENITags = m
 	}
+
+	if m, err := command.GetStringMapStringE(vp, ENIGarbageCollectionTags); err != nil {
+		log.Fatalf("unable to parse %s: %s", ENIGarbageCollectionTags, err)
+	} else {
+		c.ENIGarbageCollectionTags = m
+	}
 }
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:          make([]string, 0),
-	IPAMSubnetsTags:         make(map[string]string),
-	IPAMInstanceTags:        make(map[string]string),
-	AWSInstanceLimitMapping: make(map[string]string),
-	ENITags:                 make(map[string]string),
+	IPAMSubnetsIDs:           make([]string, 0),
+	IPAMSubnetsTags:          make(map[string]string),
+	IPAMInstanceTags:         make(map[string]string),
+	AWSInstanceLimitMapping:  make(map[string]string),
+	ENITags:                  make(map[string]string),
+	ENIGarbageCollectionTags: make(map[string]string),
 }
