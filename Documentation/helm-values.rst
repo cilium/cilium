@@ -557,6 +557,14 @@
      - Tags to apply to the newly created ENIs
      - object
      - ``{}``
+   * - eni.gcInterval
+     - Interval for garbage collection of unattached ENIs. Set to "0s" to disable.
+     - string
+     - ``"5m"``
+   * - eni.gcTags
+     - Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
+     - object
+     - ``{"io.cilium/cilium-managed":"true,"io.cilium/cluster-name":"<auto-detected>"}``
    * - eni.iamRole
      - If using IAM role for Service Accounts will not try to inject identity values from cilium-aws kubernetes secret. Adds annotation to service account if managed by Helm. See https://github.com/aws/amazon-eks-pod-identity-webhook
      - string
