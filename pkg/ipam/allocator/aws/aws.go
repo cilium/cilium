@@ -38,7 +38,7 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 		return err
 	}
 	subnetsFilters := ec2shim.NewSubnetsFilters(operatorOption.Config.IPAMSubnetsTags, operatorOption.Config.IPAMSubnetsIDs)
-	instancesFilters := ec2shim.NewInstancesFilters(operatorOption.Config.IPAMInstanceTags)
+	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	if operatorOption.Config.EnableMetrics {
 		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)

@@ -103,9 +103,9 @@ func NewSubnetsFilters(tags map[string]string, ids []string) []ec2_types.Filter 
 	return filters
 }
 
-// NewInstancsFilters transforms a map of tags and values
-// into a slice of ec2.Filter adequate to filter AWS Instances.
-func NewInstancesFilters(tags map[string]string) []ec2_types.Filter {
+// NewTagsFilter transforms a map of tags and values
+// into a slice of ec2.Filter adequate to filter resources based on tags.
+func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 	filters := make([]ec2_types.Filter, 0, len(tags))
 
 	for k, v := range tags {
