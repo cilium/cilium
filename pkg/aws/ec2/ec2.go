@@ -118,6 +118,18 @@ func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 	return filters
 }
 
+// MergeTags merges all tags into a newly created map. Duplicate tags are
+// overwritten by rightmost argument.
+func MergeTags(tagMaps ...map[string]string) map[string]string {
+	merged := make(map[string]string)
+	for _, tagMap := range tagMaps {
+		for k, v := range tagMap {
+			merged[k] = v
+		}
+	}
+	return merged
+}
+
 // deriveStatus returns a status string based on the HTTP response provided by
 // the AWS API server. If no specific status is provided, either "OK" or
 // "Failed" is returned based on the error variable.
@@ -132,6 +144,37 @@ func deriveStatus(err error) string {
 	}
 
 	return "OK"
+}
+
+func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
+	result := make([]string, 0, int(maxResults))
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters:    append(NewTagsFilter(tags), c.subnetsFilters...),
+		MaxResults: aws.Int32(maxResults),
+	}
+
+	input.Filters = append(input.Filters, ec2_types.Filter{
+		Name:   aws.String("status"),
+		Values: []string{"available"},
+	})
+
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		for _, eni := range output.NetworkInterfaces {
+			result = append(result, aws.ToString(eni.NetworkInterfaceId))
+		}
+		if len(result) >= int(maxResults) {
+			break
+		}
+	}
+	return result, nil
 }
 
 // describeNetworkInterfaces lists all ENIs
