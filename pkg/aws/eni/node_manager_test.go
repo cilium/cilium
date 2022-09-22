@@ -842,7 +842,11 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 
 	// Delete all enis attached to instance, this mocks the operation of
 	// deleting the instance. The deletion should be detected.
+	err = ec2api.DetachNetworkInterface(context.TODO(), "i-testInstanceBeenDeleted-0", eniID1)
+	c.Assert(err, check.IsNil)
 	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID1)
+	c.Assert(err, check.IsNil)
+	err = ec2api.DetachNetworkInterface(context.TODO(), "i-testInstanceBeenDeleted-0", eniID2)
 	c.Assert(err, check.IsNil)
 	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID2)
 	c.Assert(err, check.IsNil)
