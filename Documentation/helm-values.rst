@@ -534,7 +534,7 @@
      - bool
      - ``false``
    * - endpointStatus
-     - Enable endpoint status. Status can be: policy, health, controllers, logs and / or state. For 2 or more options use a comma.
+     - Enable endpoint status. Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
      - object
      - ``{"enabled":false,"status":""}``
    * - eni.awsEnablePrefixDelegation
