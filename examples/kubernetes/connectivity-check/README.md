@@ -15,6 +15,8 @@ liveness and readiness checks. An unhealthy/unready pod indicates a problem.
   * Standard connectivity checks minus the checks that require multiple nodes.
 * [Proxy connectivity checks](./connectivity-check-proxy.yaml)
   * Extra checks for various paths involving Layer 7 policy.
+* [Connectivity checks with only k8s netpol](./connectivity-check-netpol-only.yaml)
+  * Similar to the standard connectivity checks but without using any Cilium CRDs for network policy.
 
 ## Developer documentation
 
