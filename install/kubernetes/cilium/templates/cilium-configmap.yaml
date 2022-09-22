@@ -417,6 +417,12 @@ data:
   instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
 {{- end }}
 {{- end }}
+{{ if .Values.eni.gcInterval }}
+  eni-gc-interval: {{ .Values.eni.gcInterval | quote }}
+{{- end }}
+{{ if .Values.eni.gcTags }}
+  eni-gc-tags: {{ .Values.eni.gcTags | toRawJson | quote }}
+{{- end }}
 
 {{- if .Values.azure.enabled }}
   enable-endpoint-routes: "true"

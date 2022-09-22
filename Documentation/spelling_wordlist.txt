@@ -439,6 +439,8 @@ functionalities
 fwmark
 gRPC
 gVNIC
+gcInterval
+gcTags
 gcc
 gcloud
 gcp
