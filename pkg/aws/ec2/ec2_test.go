@@ -115,3 +115,50 @@ func TestNewSubnetsFilters(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTagsFilters(t *testing.T) {
+	type args struct {
+		tags map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []ec2_types.Filter
+	}{
+		{
+			name: "empty arguments",
+			args: args{
+				tags: map[string]string{},
+			},
+			want: []ec2_types.Filter{},
+		},
+
+		{
+			name: "tags",
+			args: args{
+				tags: map[string]string{"a": "b", "c": "d"},
+			},
+			want: []ec2_types.Filter{
+				{
+					Name:   aws.String("tag:a"),
+					Values: []string{"b"},
+				},
+				{
+					Name:   aws.String("tag:c"),
+					Values: []string{"d"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewTagsFilter(tt.args.tags)
+			sort.Sort(Filters(got))
+			sort.Sort(Filters(tt.want))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewTagsFilter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

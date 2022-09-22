@@ -107,6 +107,21 @@ func NewSubnetsFilters(tags map[string]string, ids []string) []ec2_types.Filter 
 	return filters
 }
 
+// NewTagsFilter transforms a map of tags and values
+// into a slice of ec2.Filter adequate to filter AWS Instances.
+func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
+	filters := make([]ec2_types.Filter, 0, len(tags))
+
+	for k, v := range tags {
+		filters = append(filters, ec2_types.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", k)),
+			Values: []string{v},
+		})
+	}
+
+	return filters
+}
+
 // deriveStatus returns a status string based on the HTTP response provided by
 // the AWS API server. If no specific status is provided, either "OK" or
 // "Failed" is returned based on the error variable.
