@@ -123,7 +123,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 				  TRACE_PAYLOAD_LEN);
 
@@ -282,7 +282,7 @@ skip_vtep:
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 				  TRACE_PAYLOAD_LEN);
 
