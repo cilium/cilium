@@ -158,7 +158,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 /* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
  * set (eg. when IPSec is enabled). Caller should pass the ctx to the stack at this
  * point. Otherwise returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
- * On error returns CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR.
+ * On error returns CTX_ACT_DROP or DROP_WRITE_ERROR.
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
