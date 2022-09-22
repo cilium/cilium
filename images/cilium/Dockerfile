@@ -64,6 +64,8 @@ COPY images/cilium/init-container.sh \
      plugins/cilium-cni/cni-uninstall.sh \
        /tmp/install/${TARGETOS}/${TARGETARCH}
 
+FROM quay.io/cilium/cilium-llvm:3408daa17f6490a464dfc746961e28ae31964c66@sha256:ff13a1a9f973d102c6ac907d2bc38a524c8e1d26c6c1b16ed809a98925206a79 as llvm-dist
+
 #
 # Cilium runtime install.
 #
@@ -89,6 +91,8 @@ COPY --from=hubble /out/${TARGETOS}/${TARGETARCH}/bin/hubble /usr/bin/hubble
 COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
 
 COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH} /
+COPY --from=llvm-dist /usr/local/bin/clang /usr/local/bin/llc /usr/local/bin/
+
 WORKDIR /home/cilium
 
 ENV INITSYSTEM="SYSTEMD"
