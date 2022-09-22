@@ -52,12 +52,23 @@ func (e *MockSuite) TestMock(c *check.C) {
 	_, ok = api.enis["i-1"][eniID2]
 	c.Assert(ok, check.Equals, true)
 
-	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
-	c.Assert(err, check.IsNil)
-
+	// Attached ENIs cannot be deleted
 	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
 	c.Assert(err, check.Not(check.IsNil))
 
+	// Detach and delete ENI
+	err = api.DetachNetworkInterface(context.TODO(), "i-1", eniID1)
+	c.Assert(err, check.IsNil)
+	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
+	c.Assert(err, check.IsNil)
+
+	// ENIs cannot be deleted twice
+	err = api.DeleteNetworkInterface(context.TODO(), eniID1)
+	c.Assert(err, check.Not(check.IsNil))
+
+	// Detach and delete ENI
+	err = api.DetachNetworkInterface(context.TODO(), "i-1", eniID2)
+	c.Assert(err, check.IsNil)
 	err = api.DeleteNetworkInterface(context.TODO(), eniID2)
 	c.Assert(err, check.IsNil)
 
