@@ -7,6 +7,7 @@ package cmd
 
 import (
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -35,6 +36,14 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(Vp, operatorOption.ENITags)
+
+	flags.Var(option.NewNamedMapOptions(operatorOption.ENIGarbageCollectionTags, &operatorOption.Config.ENIGarbageCollectionTags, nil),
+		operatorOption.ENIGarbageCollectionTags, "Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected")
+	option.BindEnv(Vp, operatorOption.ENIGarbageCollectionTags)
+
+	flags.Duration(operatorOption.ENIGarbageCollectionInterval, defaults.ENIGarbageCollectionInterval,
+		"Interval for garbage collection of unattached ENIs. Set to 0 to disable")
+	option.BindEnv(Vp, operatorOption.ENIGarbageCollectionInterval)
 
 	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 	option.BindEnv(Vp, operatorOption.UpdateEC2AdapterLimitViaAPI)

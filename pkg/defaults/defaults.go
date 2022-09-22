@@ -362,6 +362,25 @@ const (
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
 
+	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
+
+	// ENIGarbageCollectionTagManagedValue is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagManagedValue = "true"
+
+	// ENIGarbageCollectionTagClusterName is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagClusterName = "io.cilium/cluster-name"
+
+	// ENIGarbageCollectionTagClusterValue is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagClusterValue = ClusterName
+
+	// ENIGarbageCollectionInterval is the default interval for the ENIGarbageCollectionInterval operator flag
+	ENIGarbageCollectionInterval = 5 * time.Minute
+
+	// ENIGarbageCollectionMaxPerInterval is the maximum number of ENIs which might be garbage collected
+	// per GC interval
+	ENIGarbageCollectionMaxPerInterval = 25
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
