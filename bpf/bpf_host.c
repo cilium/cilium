@@ -210,7 +210,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !bpf_skip_nodeport(ctx)) {
+		    !ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
@@ -482,7 +482,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !bpf_skip_nodeport(ctx)) {
+		    !ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
@@ -929,7 +929,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	} else {
-		bpf_skip_nodeport_clear(ctx);
+		ctx_skip_nodeport_clear(ctx);
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);

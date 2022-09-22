@@ -28,24 +28,6 @@
 
 #define CB_SRC_IDENTITY	0
 
-static __always_inline __maybe_unused void
-bpf_skip_nodeport_clear(struct __ctx_buff *ctx)
-{
-	ctx_skip_nodeport_clear(ctx);
-}
-
-static __always_inline __maybe_unused void
-bpf_skip_nodeport_set(struct __ctx_buff *ctx)
-{
-	ctx_skip_nodeport_set(ctx);
-}
-
-static __always_inline __maybe_unused bool
-bpf_skip_nodeport(struct __ctx_buff *ctx)
-{
-	return ctx_skip_nodeport(ctx);
-}
-
 #ifdef ENABLE_NODEPORT
 #ifdef ENABLE_IPV4
 struct {
@@ -712,7 +694,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		 * BPF calls as we use tail calls) and complexity, hence this is
 		 * done inside a tail call here.
 		 */
-		bpf_skip_nodeport_set(ctx);
+		ctx_skip_nodeport_set(ctx);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
@@ -1125,7 +1107,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		}
 	} else {
 		if (!bpf_skip_recirculation(ctx)) {
-			bpf_skip_nodeport_set(ctx);
+			ctx_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 			return DROP_MISSED_TAIL_CALL;
 		}
@@ -1646,7 +1628,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		 * BPF calls as we use tail calls) and complexity, hence this is
 		 * done inside a tail call here.
 		 */
-		bpf_skip_nodeport_set(ctx);
+		ctx_skip_nodeport_set(ctx);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 		ret = DROP_MISSED_TAIL_CALL;
 		goto drop_err;
@@ -2118,7 +2100,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		}
 	} else {
 		if (!bpf_skip_recirculation(ctx)) {
-			bpf_skip_nodeport_set(ctx);
+			ctx_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 			return DROP_MISSED_TAIL_CALL;
 		}
