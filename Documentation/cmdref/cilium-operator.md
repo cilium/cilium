@@ -43,6 +43,8 @@ cilium-operator [flags]
       --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
       --enable-wireguard                          Enable wireguard
+      --eni-gc-interval duration                  Interval for garbage collection of unattached ENIs. Set to 0 to disable (default 5m0s)
+      --eni-gc-tags map                           Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)
       --gops-port int                             Port for gops server to listen on (default 9891)
   -h, --help                                      help for cilium-operator
