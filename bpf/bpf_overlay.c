@@ -57,7 +57,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb6(ctx, *identity);
 		if (ret < 0)
 			return ret;
@@ -215,7 +215,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		int ret = nodeport_lb4(ctx, *identity);
 
 		if (ret < 0)
@@ -439,7 +439,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	int ret;
 
 	bpf_clear_meta(ctx);
-	bpf_skip_nodeport_clear(ctx);
+	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
 		/* Pass unknown traffic to the stack */

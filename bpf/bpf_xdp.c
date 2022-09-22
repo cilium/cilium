@@ -109,7 +109,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb4(ctx, 0);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
@@ -178,7 +178,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb6(ctx, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -243,7 +243,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 
 	ctx_store_meta(ctx, XFER_MARKER, 0);
-	bpf_skip_nodeport_clear(ctx);
+	ctx_skip_nodeport_clear(ctx);
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
