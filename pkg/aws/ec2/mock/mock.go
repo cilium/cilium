@@ -54,6 +54,7 @@ type API struct {
 	mutex          lock.RWMutex
 	unattached     map[string]*eniTypes.ENI
 	enis           map[string]ENIMap
+	eniTags        map[string]ipamTypes.Tags
 	subnets        map[string]*ipamTypes.Subnet
 	vpcs           map[string]*ipamTypes.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
@@ -74,6 +75,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
 		enis:           map[string]ENIMap{},
+		eniTags:        map[string]ipamTypes.Tags{},
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
@@ -232,6 +234,7 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 
 	if _, ok := e.unattached[eniID]; ok {
 		delete(e.unattached, eniID)
+		delete(e.eniTags, eniID)
 		return nil
 	}
 
@@ -300,6 +303,20 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 	}
 
 	return nil
+}
+
+func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
+	result := make([]string, 0, int(maxResults))
+	for _, eni := range e.unattached {
+		if ipamTypes.Tags(e.eniTags[eni.ID]).Match(tags) {
+			result = append(result, eni.ID)
+		}
+
+		if len(result) >= int(maxResults) {
+			break
+		}
+	}
+	return result, nil
 }
 
 func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {
@@ -450,6 +467,8 @@ func (e *API) TagENI(ctx context.Context, eniID string, eniTags map[string]strin
 	if err, ok := e.errors[TagENI]; ok {
 		return err
 	}
+
+	e.eniTags[eniID] = eniTags
 
 	return nil
 }
