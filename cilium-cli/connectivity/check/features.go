@@ -40,6 +40,8 @@ const (
 	FeatureNodeWithoutCilium Feature = "node-without-cilium"
 
 	FeatureHealthChecking Feature = "health-checking"
+
+	FeatureEncryption Feature = "encryption"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -281,6 +283,16 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 		}
 	}
 	result[FeatureKPRMode] = FeatureStatus{
+		Enabled: mode != "Disabled",
+		Mode:    mode,
+	}
+
+	// encryption
+	mode = "Disabled"
+	if enc := st.Encryption; enc != nil {
+		mode = enc.Mode
+	}
+	result[FeatureEncryption] = FeatureStatus{
 		Enabled: mode != "Disabled",
 		Mode:    mode,
 	}
