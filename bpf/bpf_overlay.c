@@ -47,6 +47,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity)
 {
 	int ret, l3_off = ETH_HLEN, hdrlen;
+	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	struct bpf_tunnel_key key = {};
@@ -70,9 +71,16 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+	/* Lookup the source in the ipcache. After decryption this will be the
+	 * inner source IP to get the source security identity.
+	 */
+	info = ipcache_lookup6(&IPCACHE_MAP, (union v6addr *)&ip6->saddr,
+			       V6_CACHE_KEY_LEN);
+
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
-		*identity = key.tunnel_id = get_identity(ctx);
+		if (info)
+			*identity = key.tunnel_id = info->sec_label;
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
@@ -89,18 +97,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
 		 * this should be removed.
 		 */
-		if (identity_is_remote_node(*identity)) {
-			struct remote_endpoint_info *info;
-
-			/* Look up the ipcache for the src IP, it will give us
-			 * the real identity of that IP.
-			 */
-			info = ipcache_lookup6(&IPCACHE_MAP,
-					       (union v6addr *)&ip6->saddr,
-					       V6_CACHE_KEY_LEN);
-			if (info)
-				*identity = info->sec_label;
-		}
+		if (info && identity_is_remote_node(*identity))
+			*identity = info->sec_label;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -118,7 +116,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Decrypt "key" is determined by SPI */
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity_mark(ctx, *identity);
+
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped
@@ -195,6 +193,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 {
+	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -225,10 +224,16 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	/* Lookup the source in the ipcache. After decryption this will be the
+	 * inner source IP to get the source security identity.
+	 */
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
-		*identity = key.tunnel_id = get_identity(ctx);
+		if (info)
+			*identity = key.tunnel_id = info->sec_label;
 	} else {
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
@@ -239,28 +244,23 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 #ifdef ENABLE_VTEP
 		{
 			struct vtep_key vkey = {};
-			struct vtep_value *info;
+			struct vtep_value *vtep;
 
 			vkey.vtep_ip = ip4->saddr & VTEP_MASK;
-			info = map_lookup_elem(&VTEP_MAP, &vkey);
-			if (!info)
+			vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+			if (!vtep)
 				goto skip_vtep;
-			if (info->tunnel_endpoint) {
+			if (vtep->tunnel_endpoint) {
 				if (*identity != WORLD_ID)
 					return DROP_INVALID_VNI;
 			}
 		}
 skip_vtep:
 #endif
-		/* See comment at equivalent code in handle_ipv6() */
-		if (identity_is_remote_node(*identity)) {
-			struct remote_endpoint_info *info;
 
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr,
-					       V4_CACHE_KEY_LEN);
-			if (info)
-				*identity = info->sec_label;
-		}
+		/* See comment at equivalent code in handle_ipv6() */
+		if (info && identity_is_remote_node(*identity))
+			*identity = info->sec_label;
 	}
 
 	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -277,7 +277,7 @@ skip_vtep:
 		}
 
 		ctx->mark = MARK_MAGIC_DECRYPT;
-		set_identity_mark(ctx, *identity);
+
 		/* To IPSec stack on cilium_vxlan we are going to pass
 		 * this up the stack but eth_type_trans has already labeled
 		 * this as an OTHERHOST type packet. To avoid being dropped
@@ -475,18 +475,15 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	else
 #endif
 	{
-		__u32 identity = 0;
 		enum trace_point obs_point = TRACE_FROM_OVERLAY;
 
 		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
 		 * re-inserted from the stack.
 		 */
-		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT) {
-			identity = get_identity(ctx);
+		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
 			obs_point = TRACE_FROM_STACK;
-		}
 
-		send_trace_notify(ctx, obs_point, identity, 0, 0,
+		send_trace_notify(ctx, obs_point, 0, 0, 0,
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
