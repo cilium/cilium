@@ -315,6 +315,20 @@ type ServeConnOpts struct {
 	// requests. If nil, BaseConfig.Handler is used. If BaseConfig
 	// or BaseConfig.Handler is nil, http.DefaultServeMux is used.
 	Handler http.Handler
+
+	// UpgradeRequest is an initial request received on a connection
+	// undergoing an h2c upgrade. The request body must have been
+	// completely read from the connection before calling ServeConn,
+	// and the 101 Switching Protocols response written.
+	UpgradeRequest *http.Request
+
+	// Settings is the decoded contents of the HTTP2-Settings header
+	// in an h2c upgrade request.
+	Settings []byte
+
+	// SawClientPreface is set if the HTTP/2 connection preface
+	// has already been read from the connection.
+	SawClientPreface bool
 }
 
 func (o *ServeConnOpts) context() context.Context {
@@ -383,6 +397,7 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 		headerTableSize:             initialHeaderTableSize,
 		serveG:                      newGoroutineLock(),
 		pushEnabled:                 true,
+		sawClientPreface:            opts.SawClientPreface,
 	}
 
 	s.state.registerConn(sc)
@@ -465,9 +480,27 @@ func (s *Server) ServeConn(c net.Conn, opts *ServeConnOpts) {
 		}
 	}
 
+	if opts.Settings != nil {
+		fr := &SettingsFrame{
+			FrameHeader: FrameHeader{valid: true},
+			p:           opts.Settings,
+		}
+		if err := fr.ForeachSetting(sc.processSetting); err != nil {
+			sc.rejectConn(ErrCodeProtocol, "invalid settings")
+			return
+		}
+		opts.Settings = nil
+	}
+
 	if hook := testHookGetServerConn; hook != nil {
 		hook(sc)
 	}
+
+	if opts.UpgradeRequest != nil {
+		sc.upgradeRequest(opts.UpgradeRequest)
+		opts.UpgradeRequest = nil
+	}
+
 	sc.serve()
 }
 
@@ -512,6 +545,7 @@ type serverConn struct {
 	// Everything following is owned by the serve loop; use serveG.check():
 	serveG                      goroutineLock // used to verify funcs are on serve()
 	pushEnabled                 bool
+	sawClientPreface            bool // preface has already been read, used in h2c upgrade
 	sawFirstSettings            bool // got the initial SETTINGS frame after the preface
 	needToSendSettingsAck       bool
 	unackedSettings             int    // how many SETTINGS have we sent without ACKs?
@@ -974,6 +1008,9 @@ var errPrefaceTimeout = errors.New("timeout waiting for client preface")
 // returns errPrefaceTimeout on timeout, or an error if the greeting
 // is invalid.
 func (sc *serverConn) readPreface() error {
+	if sc.sawClientPreface {
+		return nil
+	}
 	errc := make(chan error, 1)
 	go func() {
 		// Read the client preface
@@ -1915,6 +1952,26 @@ func (sc *serverConn) processHeaders(f *MetaHeadersFrame) error {
 	return nil
 }
 
+func (sc *serverConn) upgradeRequest(req *http.Request) {
+	sc.serveG.check()
+	id := uint32(1)
+	sc.maxClientStreamID = id
+	st := sc.newStream(id, 0, stateHalfClosedRemote)
+	st.reqTrailer = req.Trailer
+	if st.reqTrailer != nil {
+		st.trailer = make(http.Header)
+	}
+	rw := sc.newResponseWriter(st, req)
+
+	// Disable any read deadline set by the net/http package
+	// prior to the upgrade.
+	if sc.hs.ReadTimeout != 0 {
+		sc.conn.SetReadDeadline(time.Time{})
+	}
+
+	go sc.runHandler(rw, req, sc.handler.ServeHTTP)
+}
+
 func (st *stream) processTrailerHeaders(f *MetaHeadersFrame) error {
 	sc := st.sc
 	sc.serveG.check()
@@ -2145,6 +2202,11 @@ func (sc *serverConn) newWriterAndRequestNoBody(st *stream, rp requestParam) (*r
 	}
 	req = req.WithContext(st.ctx)
 
+	rw := sc.newResponseWriter(st, req)
+	return rw, req, nil
+}
+
+func (sc *serverConn) newResponseWriter(st *stream, req *http.Request) *responseWriter {
 	rws := responseWriterStatePool.Get().(*responseWriterState)
 	bwSave := rws.bw
 	*rws = responseWriterState{} // zero all the fields
@@ -2153,10 +2215,7 @@ func (sc *serverConn) newWriterAndRequestNoBody(st *stream, rp requestParam) (*r
 	rws.bw.Reset(chunkWriter{rws})
 	rws.stream = st
 	rws.req = req
-	rws.body = body
-
-	rw := &responseWriter{rws: rws}
-	return rw, req, nil
+	return &responseWriter{rws: rws}
 }
 
 // Run on its own goroutine.
@@ -2371,7 +2430,6 @@ type responseWriterState struct {
 	// immutable within a request:
 	stream *stream
 	req    *http.Request
-	body   *requestBody // to close at end of request, if DATA frames didn't
 	conn   *serverConn
 
 	// TODO: adjust buffer writing sizes based on server config, frame size updates from peer, etc
