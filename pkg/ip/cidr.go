@@ -46,6 +46,18 @@ func PrefixToIPNet(prefix netip.Prefix) *net.IPNet {
 	}
 }
 
+// AddrToIPNet is a convenience helper to convert a netip.Addr to a *net.IPNet
+// with a mask corresponding to the addresses's bit length.
+func AddrToIPNet(addr netip.Addr) *net.IPNet {
+	if !addr.IsValid() {
+		return nil
+	}
+	return &net.IPNet{
+		IP:   addr.AsSlice(),
+		Mask: net.CIDRMask(addr.BitLen(), addr.BitLen()),
+	}
+}
+
 // IPNetToPrefix is a convenience helper for migrating from the older 'net'
 // standard library types to the newer 'netip' types. Use this to plug the
 // new types in newer code into older types in older code during the migration.
