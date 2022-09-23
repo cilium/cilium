@@ -11,7 +11,6 @@ import (
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -33,19 +32,6 @@ var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
-
-	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
-	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
-
-	for i := 0; i < 10; i++ {
-		_, err := addressing.NewCiliumIPv4(ipv4.String())
-		c.Assert(err, IsNil)
-		nextIP(ipv4)
-
-		_, err = addressing.NewCiliumIPv6(ipv6.String())
-		c.Assert(err, IsNil)
-		nextIP(ipv6)
-	}
 
 	allocv4, allocv6, status := ipam.Dump()
 	c.Assert(status, Not(Equals), "")
