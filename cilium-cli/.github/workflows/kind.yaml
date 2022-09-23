@@ -48,7 +48,7 @@ jobs:
         run: sudo make install
 
       - name: Create kind cluster
-        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
+        uses: helm/kind-action@9e8295d178de23cbfbd8fa16cf844eec1d773a07
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
