@@ -10,6 +10,8 @@ type Options struct {
 	EnabledSecretsSync   bool
 	SecretsNamespace     string
 	LBAnnotationPrefixes []string
+	SharedLBServiceName  string
+	CiliumNamespace      string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
@@ -18,6 +20,8 @@ var DefaultIngressOptions = Options{
 	EnforcedHTTPS:        true,
 	EnabledSecretsSync:   true,
 	LBAnnotationPrefixes: []string{},
+	SharedLBServiceName:  "cilium-ingress",
+	CiliumNamespace:      "kube-system",
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -59,6 +63,22 @@ func WithSecretsNamespace(secretsNamespace string) Option {
 func WithLBAnnotationPrefixes(lbAnnotationPrefixes []string) Option {
 	return func(o *Options) error {
 		o.LBAnnotationPrefixes = lbAnnotationPrefixes
+		return nil
+	}
+}
+
+// WithSharedLBServiceName configures the name of the shared LB service
+func WithSharedLBServiceName(sharedLBServiceName string) Option {
+	return func(o *Options) error {
+		o.SharedLBServiceName = sharedLBServiceName
+		return nil
+	}
+}
+
+// WithCiliumNamespace configures the namespace of cilium
+func WithCiliumNamespace(ciliumNamespace string) Option {
+	return func(o *Options) error {
+		o.CiliumNamespace = ciliumNamespace
 		return nil
 	}
 }
