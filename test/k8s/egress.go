@@ -374,6 +374,32 @@ var _ = SkipDescribeIf(func() bool {
 			"loadBalancer.acceleration": "testing-only",
 		},
 	)
+
+	doContext("tunnel vxlan with endpointRoutes enabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "vxlan",
+			"autoDirectNodeRoutes":      "false",
+			"endpointRoutes.enabled":    "true",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+		},
+	)
+
+	doContext("tunnel vxlan with endpointRoutes disabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "vxlan",
+			"autoDirectNodeRoutes":      "false",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+		},
+	)
 })
 
 // Use x.x.x.100 as the egress IP
