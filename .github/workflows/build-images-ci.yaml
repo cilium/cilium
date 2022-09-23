@@ -1,16 +1,8 @@
-name: Image CI Build
+name: Image CI Build - Test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
-  push:
-    branches:
-      - master
-      - ft/master/**
+  pull_request: {}
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -126,7 +118,7 @@ jobs:
 
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_master
         with:
@@ -145,7 +137,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_master_detect_race_condition
         with:
@@ -167,7 +159,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_master_unstripped
         with:
@@ -187,7 +179,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
@@ -200,7 +192,7 @@ jobs:
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_pr
         with:
@@ -215,7 +207,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_pr_detect_race_condition
         with:
@@ -233,7 +225,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         id: docker_build_ci_pr_unstripped
         with:
@@ -252,7 +244,7 @@ jobs:
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
 
       - name: Sign Container Images
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
@@ -261,7 +253,7 @@ jobs:
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
@@ -279,7 +271,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         with:
           context: .
@@ -291,7 +283,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           mkdir -p /tmp/.cache/${{ matrix.name }}/
@@ -404,7 +396,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
         with:
           context: .
@@ -416,7 +408,7 @@ jobs:
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
-        if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
+        if: ${{ github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true' }}
         shell: bash
         run: |
           mkdir -p /tmp/.cache/${{ matrix.name }}/
