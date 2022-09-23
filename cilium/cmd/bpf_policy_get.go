@@ -62,6 +62,11 @@ func listAllMaps() {
 		log.Fatal(err)
 	}
 
+	if len(matchFiles) == 0 {
+		fmt.Println("no maps found")
+		return
+	}
+
 	for _, file := range matchFiles {
 		fmt.Printf("%s:\n", file)
 		fmt.Println()
