@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"sort"
@@ -28,13 +29,13 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/hooks"
@@ -67,9 +68,9 @@ func init() {
 
 type CmdState struct {
 	Endpoint  *models.EndpointChangeRequest
-	IP6       addressing.CiliumIPv6
+	IP6       netip.Addr
 	IP6routes []route.Route
-	IP4       addressing.CiliumIPv4
+	IP4       netip.Addr
 	IP4routes []route.Route
 	Client    *client.Client
 	HostAddr  *models.NodeAddressing
@@ -194,19 +195,19 @@ func allocateIPsWithDelegatedPlugin(
 	return ipam, releaseFunc, nil
 }
 
-func addIPConfigToLink(ip addressing.CiliumIP, routes []route.Route, link netlink.Link, ifName string) error {
+func addIPConfigToLink(ip netip.Addr, routes []route.Route, link netlink.Link, ifName string) error {
 	log.WithFields(logrus.Fields{
 		logfields.IPAddr:    ip,
 		"netLink":           logfields.Repr(link),
 		logfields.Interface: ifName,
 	}).Debug("Configuring link")
 
-	addr := &netlink.Addr{IPNet: ip.EndpointPrefix()}
-	if ip.IsIPv6() {
+	addr := &netlink.Addr{IPNet: iputil.AddrToIPNet(ip)}
+	if ip.Is6() {
 		addr.Flags = unix.IFA_F_NODAD
 	}
 	if err := netlink.AddrAdd(link, addr); err != nil {
-		return fmt.Errorf("failed to add addr to %q: %v", ifName, err)
+		return fmt.Errorf("failed to add addr to %q: %w", ifName, err)
 	}
 
 	// Sort provided routes to make sure we apply any more specific
@@ -283,18 +284,19 @@ func newCNIRoute(r route.Route) *cniTypes.Route {
 	return rt
 }
 
-func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV1.IPConfig, []*cniTypes.Route, error) {
+func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, []*cniTypes.Route, error) {
 	var (
 		routes []route.Route
-		err    error
 		gw     string
-		ip     addressing.CiliumIP
 	)
 
-	if isIPv6 {
-		if state.IP6, err = addressing.NewCiliumIPv6(ipAddr); err != nil {
-			return nil, nil, err
-		}
+	ip, err := netip.ParseAddr(ipAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ip.Is6() {
+		state.IP6 = ip
 		if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
@@ -302,9 +304,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 		ip = state.IP6
 		gw = connector.IPv6Gateway(state.HostAddr)
 	} else {
-		if state.IP4, err = addressing.NewCiliumIPv4(ipAddr); err != nil {
-			return nil, nil, err
-		}
+		state.IP4 = ip
 		if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
 			return nil, nil, err
 		}
@@ -324,7 +324,7 @@ func prepareIP(ipAddr string, isIPv6 bool, state *CmdState, mtu int) (*cniTypesV
 	}
 
 	return &cniTypesV1.IPConfig{
-		Address: *ip.EndpointPrefix(),
+		Address: *iputil.AddrToIPNet(ip),
 		Gateway: gwIP,
 	}, rt, nil
 }
@@ -537,7 +537,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
 		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
-		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, true, &state, int(conf.RouteMTU))
+		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
 		if err != nil {
 			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV6, err)
 			return
@@ -550,7 +550,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
 		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
-		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, false, &state, int(conf.RouteMTU))
+		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
 		if err != nil {
 			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV4, err)
 			return
