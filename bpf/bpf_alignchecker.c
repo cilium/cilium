@@ -6,6 +6,7 @@
 #define DROP_NOTIFY
 #define POLICY_VERDICT_NOTIFY
 #define ENABLE_CAPTURE
+#define TRACE_SOCK_NOTIFY
 
 #include <bpf/ctx/unspec.h>
 
@@ -17,6 +18,7 @@
 #include "lib/trace.h"
 #include "lib/policy_log.h"
 #include "lib/pcap.h"
+#include "lib/trace_sock.h"
 
 struct ipv4_ct_tuple _1;
 struct ipv6_ct_tuple _2;
@@ -69,3 +71,4 @@ struct srv6_vrf_key4 _48;
 struct srv6_vrf_key6 _49;
 struct srv6_policy_key4 _50;
 struct srv6_policy_key6 _51;
+struct trace_sock_notify _52;
