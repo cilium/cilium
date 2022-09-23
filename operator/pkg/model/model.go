@@ -1,5 +1,7 @@
 package model
 
+import "strconv"
+
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
@@ -89,4 +91,12 @@ type BackendPort struct {
 	// Name holds a string which will be used to connect to the port with a
 	// matching spec.ports[].name in the target Service.
 	Name string `json:"name,omitempty"`
+}
+
+// GetPort return the string representation of the port (either the port number or the port name)
+func (be *BackendPort) GetPort() string {
+	if be.Port != 0 {
+		return strconv.Itoa(int(be.Port))
+	}
+	return be.Name
 }
