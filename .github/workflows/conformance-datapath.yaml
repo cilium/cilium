@@ -165,10 +165,11 @@ jobs:
           done
 
       - name: Run tests
-        uses: cilium/little-vm-helper-action@b1ff6cddb67545973471cadc7a1620b71728c77e
+        uses: cilium/little-vm-helper-action@9eb481cbe6a32bf74273106b315d43aeaa46a2ee
         with:
           test-name: datapath-conformance
           image: kind
+          image-version: '5.10'
           host-mount: ./
           cmd: |
             set -eux
@@ -196,7 +197,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper-action@b1ff6cddb67545973471cadc7a1620b71728c77e
+        uses: cilium/little-vm-helper-action@9eb481cbe6a32bf74273106b315d43aeaa46a2ee
         with:
           provision: 'false'
           cmd: |
