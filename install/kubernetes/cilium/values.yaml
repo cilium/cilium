@@ -506,6 +506,16 @@ ingressController:
     # If disabled, TLS secrets must be maintained externally.
     sync: true
 
+  # -- Load-balancer service in shared mode.
+  # This is a single load-balancer service for all Ingress resources.
+  service:
+    # -- Service name
+    name: cilium-ingress
+    # -- Labels to be added for the shared LB service
+    labels: {}
+    # -- Annotations to be added for the shared LB service
+    annotations: {}
+
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work
 # properly. See documentation for details on when this can be disabled:

@@ -582,7 +582,10 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
 			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace),
-			ingress.WithLBAnnotationPrefixes(operatorOption.Config.IngressLBAnnotationPrefixes))
+			ingress.WithLBAnnotationPrefixes(operatorOption.Config.IngressLBAnnotationPrefixes),
+			ingress.WithCiliumNamespace(operatorOption.Config.CiliumK8sNamespace),
+			ingress.WithSharedLBServiceName(operatorOption.Config.IngressSharedLBServiceName),
+		)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
 				"Failed to start ingress controller")
