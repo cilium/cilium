@@ -14,7 +14,6 @@ type CiliumIP interface {
 	IP() net.IP
 	String() string
 	IsIPv6() bool
-	GetFamilyString() string
 	IsSet() bool
 }
 
@@ -170,14 +169,4 @@ func (ip *CiliumIPv4) UnmarshalJSON(b []byte) error {
 
 	*ip = c
 	return nil
-}
-
-// GetFamilyString returns the address family of ip as a string.
-func (ip CiliumIPv4) GetFamilyString() string {
-	return "IPv4"
-}
-
-// GetFamilyString returns the address family of ip as a string.
-func (ip CiliumIPv6) GetFamilyString() string {
-	return "IPv6"
 }

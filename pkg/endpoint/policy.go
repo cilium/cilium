@@ -703,7 +703,10 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 		return
 	}
 
-	addressFamily := endpointIP.GetFamilyString()
+	addressFamily := "IPv4"
+	if endpointIP.IsIPv6() {
+		addressFamily = "IPv6"
+	}
 
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
