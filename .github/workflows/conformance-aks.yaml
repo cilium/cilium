@@ -257,7 +257,7 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          cilium hubble port-forward&
+          (cilium hubble port-forward > port.log || echo "err: $?" > out) &
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
@@ -297,6 +297,9 @@ jobs:
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
+          cat log
+          cat port.log
+          ps aux
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
