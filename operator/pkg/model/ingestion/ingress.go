@@ -32,6 +32,7 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 		Group:     "",
 		Version:   "v1",
 		Kind:      "Ingress",
+		UID:       string(ing.UID),
 	}
 
 	if ing.Spec.DefaultBackend != nil {
