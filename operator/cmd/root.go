@@ -577,7 +577,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 	}
 
 	if operatorOption.Config.EnableIngressController {
-		ingressController, err := ingress.NewIngressController(
+		ingressController, err := ingress.NewController(
 			clientset,
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
