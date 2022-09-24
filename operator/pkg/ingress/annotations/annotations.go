@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	LBModeAnnotation = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
+
 	TCPKeepAliveEnabledAnnotation          = annotation.Prefix + "/tcp-keep-alive"
 	TCPKeepAliveIdleAnnotation             = annotation.Prefix + "/tcp-keep-alive-idle"
 	TCPKeepAliveProbeIntervalAnnotation    = annotation.Prefix + "/tcp-keep-alive-probe-interval"
@@ -27,6 +29,14 @@ const (
 	defaultTCPKeepAliveMaxProbeCount = 10
 	defaultWebsocketEnabled          = 0 // 1 - Enabled, 0 - Disabled
 )
+
+func HasDedicatedLoadBalancer(ingress *slim_networkingv1.Ingress) bool {
+	val, exists := ingress.GetAnnotations()[LBModeAnnotation]
+	if !exists {
+		return false
+	}
+	return val == "dedicated"
+}
 
 // GetAnnotationTCPKeepAliveEnabled returns 1 if enabled (default), 0 if disabled
 func GetAnnotationTCPKeepAliveEnabled(ingress *slim_networkingv1.Ingress) int64 {
