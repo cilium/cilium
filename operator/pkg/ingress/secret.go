@@ -236,10 +236,6 @@ func (sm *syncSecretManager) handleIngressDeletedEvent(ev ingressDeletedEvent) e
 }
 
 func (sm *syncSecretManager) handleIngressUpsertedEvent(ingress *slim_networkingv1.Ingress) error {
-	if !tlsEnabled(ingress) {
-		return nil
-	}
-
 	for _, tls := range ingress.Spec.TLS {
 		// check if the secret is available
 		key := getSecretKey(ingress.GetNamespace(), tls.SecretName)
