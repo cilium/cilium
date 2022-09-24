@@ -401,10 +401,6 @@ func (ic *Controller) getByKey(key string) (*slim_networkingv1.Ingress, error) {
 	return ingress, nil
 }
 
-func getServiceNameForIngress(ingress *slim_networkingv1.Ingress) string {
-	return ciliumIngressPrefix + ingress.Name
-}
-
 func getIngressKeyForService(service *slim_corev1.Service) string {
 	ingressName := strings.TrimPrefix(service.Name, ciliumIngressPrefix)
 	return fmt.Sprintf("%s/%s", service.Namespace, ingressName)
