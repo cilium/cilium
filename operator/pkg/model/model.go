@@ -46,6 +46,7 @@ type FullyQualifiedResource struct {
 	Group     string `json:"group,omitempty"`
 	Version   string `json:"version,omitempty"`
 	Kind      string `json:"kind,omitempty"`
+	UID       string `json:"uuid,omitempty"`
 }
 
 // TLSSecret holds a reference to a secret containing a TLS keypair.
