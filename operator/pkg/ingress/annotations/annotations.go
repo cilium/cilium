@@ -30,12 +30,9 @@ const (
 	defaultWebsocketEnabled          = 0 // 1 - Enabled, 0 - Disabled
 )
 
-func HasDedicatedLoadBalancer(ingress *slim_networkingv1.Ingress) bool {
-	val, exists := ingress.GetAnnotations()[LBModeAnnotation]
-	if !exists {
-		return false
-	}
-	return val == "dedicated"
+// GetAnnotationIngressLoadbalancerMode returns the loadbalancer mode for the ingress if possible.
+func GetAnnotationIngressLoadbalancerMode(ingress *slim_networkingv1.Ingress) string {
+	return ingress.GetAnnotations()[LBModeAnnotation]
 }
 
 // GetAnnotationTCPKeepAliveEnabled returns 1 if enabled (default), 0 if disabled

@@ -585,6 +585,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			ingress.WithLBAnnotationPrefixes(operatorOption.Config.IngressLBAnnotationPrefixes),
 			ingress.WithCiliumNamespace(operatorOption.Config.CiliumK8sNamespace),
 			ingress.WithSharedLBServiceName(operatorOption.Config.IngressSharedLBServiceName),
+			ingress.WithDefaultLoadbalancerMode(operatorOption.Config.IngressDefaultLoadbalancerMode),
 		)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
