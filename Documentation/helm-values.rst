@@ -1133,6 +1133,10 @@
      - IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate from Ingress to the Load Balancer service
      - list
      - ``["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]``
+   * - ingressController.loadbalancerMode
+     - Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource io.cilium.ingress/loadbalancer-mode: shared
+     - string
+     - ``"dedicated"``
    * - ingressController.secretsNamespace
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object
@@ -1149,6 +1153,22 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - ingressController.service
+     - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
+     - object
+     - ``{"annotations":{},"labels":{},"name":"cilium-ingress"}``
+   * - ingressController.service.annotations
+     - Annotations to be added for the shared LB service
+     - object
+     - ``{}``
+   * - ingressController.service.labels
+     - Labels to be added for the shared LB service
+     - object
+     - ``{}``
+   * - ingressController.service.name
+     - Service name
+     - string
+     - ``"cilium-ingress"``
    * - installIptablesRules
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool

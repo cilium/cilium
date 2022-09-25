@@ -259,6 +259,10 @@ const (
 
 	// IngressSharedLBServiceName is the name of shared LB service name for Ingress.
 	IngressSharedLBServiceName = "ingress-shared-lb-service-name"
+
+	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
+	// Applicable values: dedicated, shared
+	IngressDefaultLoadbalancerMode = "ingress-default-lb-mode"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -482,6 +486,10 @@ type OperatorConfig struct {
 
 	// IngressSharedLBServiceName is the name of shared LB service name for Ingress.
 	IngressSharedLBServiceName string
+
+	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
+	// Applicable values: dedicated, shared
+	IngressDefaultLoadbalancerMode string
 }
 
 // Populate sets all options with the values from viper.
@@ -521,6 +529,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
+	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
 

@@ -5,23 +5,25 @@ package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	MaxRetries           int
-	EnforcedHTTPS        bool
-	EnabledSecretsSync   bool
-	SecretsNamespace     string
-	LBAnnotationPrefixes []string
-	SharedLBServiceName  string
-	CiliumNamespace      string
+	MaxRetries              int
+	EnforcedHTTPS           bool
+	EnabledSecretsSync      bool
+	SecretsNamespace        string
+	LBAnnotationPrefixes    []string
+	SharedLBServiceName     string
+	CiliumNamespace         string
+	DefaultLoadbalancerMode string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	MaxRetries:           10,
-	EnforcedHTTPS:        true,
-	EnabledSecretsSync:   true,
-	LBAnnotationPrefixes: []string{},
-	SharedLBServiceName:  "cilium-ingress",
-	CiliumNamespace:      "kube-system",
+	MaxRetries:              10,
+	EnforcedHTTPS:           true,
+	EnabledSecretsSync:      true,
+	LBAnnotationPrefixes:    []string{},
+	SharedLBServiceName:     "cilium-ingress",
+	CiliumNamespace:         "kube-system",
+	DefaultLoadbalancerMode: "shared",
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -79,6 +81,14 @@ func WithSharedLBServiceName(sharedLBServiceName string) Option {
 func WithCiliumNamespace(ciliumNamespace string) Option {
 	return func(o *Options) error {
 		o.CiliumNamespace = ciliumNamespace
+		return nil
+	}
+}
+
+// WithDefaultLoadbalancerMode configures the default loadbalancer mode
+func WithDefaultLoadbalancerMode(defaultLoadbalancerMode string) Option {
+	return func(o *Options) error {
+		o.DefaultLoadbalancerMode = defaultLoadbalancerMode
 		return nil
 	}
 }
