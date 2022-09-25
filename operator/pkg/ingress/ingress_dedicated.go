@@ -80,7 +80,7 @@ func (ic *Controller) createEndpoints(endpoints *corev1.Endpoints) error {
 }
 
 func (ic *Controller) deleteResources(ing *slim_networkingv1.Ingress) error {
-	cec, svc, ep, err := ic.regenerate(ing)
+	cec, svc, ep, err := ic.regenerate(ing, false)
 	if err != nil {
 		log.WithError(err).Warn("Failed to generate resources")
 		return err

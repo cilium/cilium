@@ -35,6 +35,9 @@ const (
 	ciliumIngressPrefix    = "cilium-ingress-"
 	ciliumIngressLabelKey  = "cilium.io/ingress"
 	ciliumIngressClassName = "cilium"
+
+	dedicatedLoadbalancerMode = "dedicated"
+	sharedLoadbalancerMode    = "shared"
 )
 
 // event types
@@ -80,12 +83,13 @@ type Controller struct {
 	sharedTranslator    translation.Translator
 	dedicatedTranslator translation.Translator
 
-	enforcedHTTPS        bool
-	enabledSecretsSync   bool
-	secretsNamespace     string
-	lbAnnotationPrefixes []string
-	sharedLBServiceName  string
-	ciliumNamespace      string
+	enforcedHTTPS           bool
+	enabledSecretsSync      bool
+	secretsNamespace        string
+	lbAnnotationPrefixes    []string
+	sharedLBServiceName     string
+	ciliumNamespace         string
+	defaultLoadbalancerMode string
 
 	sharedLBStatus *slim_corev1.LoadBalancerStatus
 }
@@ -100,17 +104,18 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 	}
 
 	ic := &Controller{
-		clientset:            clientset,
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries:           opts.MaxRetries,
-		enforcedHTTPS:        opts.EnforcedHTTPS,
-		enabledSecretsSync:   opts.EnabledSecretsSync,
-		secretsNamespace:     opts.SecretsNamespace,
-		lbAnnotationPrefixes: opts.LBAnnotationPrefixes,
-		sharedLBServiceName:  opts.SharedLBServiceName,
-		ciliumNamespace:      opts.CiliumNamespace,
-		sharedTranslator:     ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS),
-		dedicatedTranslator:  ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS),
+		clientset:               clientset,
+		queue:                   workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		maxRetries:              opts.MaxRetries,
+		enforcedHTTPS:           opts.EnforcedHTTPS,
+		enabledSecretsSync:      opts.EnabledSecretsSync,
+		secretsNamespace:        opts.SecretsNamespace,
+		lbAnnotationPrefixes:    opts.LBAnnotationPrefixes,
+		sharedLBServiceName:     opts.SharedLBServiceName,
+		ciliumNamespace:         opts.CiliumNamespace,
+		defaultLoadbalancerMode: opts.DefaultLoadbalancerMode,
+		sharedTranslator:        ingressTranslation.NewSharedIngressTranslator(opts.SharedLBServiceName, opts.CiliumNamespace, opts.SecretsNamespace, opts.EnforcedHTTPS),
+		dedicatedTranslator:     ingressTranslation.NewDedicatedIngressTranslator(opts.SecretsNamespace, opts.EnforcedHTTPS),
 	}
 	ic.ingressStore, ic.ingressInformer = informer.NewInformer(
 		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressList](clientset.Slim().NetworkingV1().Ingresses(corev1.NamespaceAll)),
@@ -216,7 +221,7 @@ func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
 	}
 
 	ic.secretManager.Add(event)
-	return ic.ensureResources(event.ingress)
+	return ic.ensureResources(event.ingress, false)
 }
 
 func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error {
@@ -225,24 +230,33 @@ func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error
 		return nil
 	}
 	ic.secretManager.Add(event)
-	err := ic.ensureResources(event.newIngress)
-	if err != nil {
-		return err
-	}
 
 	// Perform clean up if there is change in LB mode
-	oldLBMode := annotations.HasDedicatedLoadBalancer(event.oldIngress)
-	newLBMode := annotations.HasDedicatedLoadBalancer(event.newIngress)
+	oldLBMode := ic.isEffectiveLoadbalancerModeDedicated(event.oldIngress)
+	newLBMode := ic.isEffectiveLoadbalancerModeDedicated(event.newIngress)
 
 	// If the ingress is being switched from dedicated to shared, we need to
 	// clean up the dedicated resources (service, endpoints, envoy config)
 	if oldLBMode && !newLBMode {
-		if err = ic.deleteResources(event.oldIngress); err != nil {
+		if err := ic.deleteResources(event.oldIngress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
 		}
 	}
 
+	// If the ingress is being switched from shared to dedicated, we need to update
+	// shared CiliumEnvoyConfig.
+	if !oldLBMode && newLBMode {
+		err := ic.ensureResources(event.newIngress, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := ic.ensureResources(event.newIngress, false)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -250,14 +264,14 @@ func (ic *Controller) handleIngressDeletedEvent(event ingressDeletedEvent) error
 	log.WithField(logfields.Ingress, event.ingress.Name).Debug("Deleting CiliumEnvoyConfig for ingress")
 	ic.secretManager.Add(event)
 
-	if annotations.HasDedicatedLoadBalancer(event.ingress) {
+	if ic.isEffectiveLoadbalancerModeDedicated(event.ingress) {
 		if err := ic.deleteResources(event.ingress); err != nil {
 			log.WithError(err).Warn("Failed to delete resources for ingress")
 			return err
 		}
 		return nil
 	}
-	return ic.ensureResources(event.ingress)
+	return ic.ensureResources(event.ingress, true)
 }
 
 func (ic *Controller) handleIngressServiceUpdatedEvent(ingressServiceUpdated ingressServiceUpdatedEvent) error {
@@ -273,7 +287,7 @@ func (ic *Controller) handleIngressServiceUpdatedEvent(ingressServiceUpdated ing
 				item.GetDeletionTimestamp() != nil {
 				continue
 			}
-			if annotations.HasDedicatedLoadBalancer(item) {
+			if ic.isEffectiveLoadbalancerModeDedicated(item) {
 				continue
 			}
 			keys = append(keys, ing)
@@ -296,8 +310,8 @@ func (ic *Controller) handleIngressServiceUpdatedEvent(ingressServiceUpdated ing
 	return nil
 }
 
-func (ic *Controller) ensureResources(ing *slim_networkingv1.Ingress) error {
-	cec, svc, ep, err := ic.regenerate(ing)
+func (ic *Controller) ensureResources(ing *slim_networkingv1.Ingress, forceShared bool) error {
+	cec, svc, ep, err := ic.regenerate(ing, forceShared)
 	if err != nil {
 		log.WithError(err).Warn("Failed to generate resources")
 		return err
@@ -318,7 +332,7 @@ func (ic *Controller) ensureResources(ing *slim_networkingv1.Ingress) error {
 		return err
 	}
 
-	if !annotations.HasDedicatedLoadBalancer(ing) {
+	if !ic.isEffectiveLoadbalancerModeDedicated(ing) {
 		err = ic.updateIngressStatus(ing, ic.sharedLBStatus)
 		if err != nil {
 			return err
@@ -449,7 +463,8 @@ func (ic *Controller) createEnvoyConfig(cec *ciliumv2.CiliumEnvoyConfig) error {
 
 // regenerate regenerates the desired stage for all related resources.
 // This internally leverage different Ingress translators (e.g. shared vs dedicated).
-func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
+// If forceShared is true, only the shared translator will be used.
+func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared bool) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, *corev1.Endpoints, error) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: ing.GetNamespace(),
 		logfields.Ingress:      ing.GetName(),
@@ -457,7 +472,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress) (*ciliumv2.Cili
 
 	var translator translation.Translator
 	m := &model.Model{}
-	if annotations.HasDedicatedLoadBalancer(ing) {
+	if !forceShared && ic.isEffectiveLoadbalancerModeDedicated(ing) {
 		translator = ic.dedicatedTranslator
 		m.HTTP = ingestion.Ingress(*ing)
 	} else {
@@ -466,7 +481,7 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress) (*ciliumv2.Cili
 			item, _ := ic.getByKey(k)
 			if item.Spec.IngressClassName == nil ||
 				*item.Spec.IngressClassName != ciliumIngressClassName ||
-				annotations.HasDedicatedLoadBalancer(item) ||
+				ic.isEffectiveLoadbalancerModeDedicated(item) ||
 				ing.GetDeletionTimestamp() != nil {
 				continue
 			}
@@ -474,7 +489,10 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress) (*ciliumv2.Cili
 		}
 	}
 
-	scopedLog.WithField("model", m).Debug("Generated model for ingress")
+	scopedLog.WithFields(logrus.Fields{
+		"forcedShared": forceShared,
+		"model":        m,
+	}).Debug("Generated model for ingress")
 	cec, svc, ep, err := translator.Translate(m)
 	// Propagate Ingress annotation if required. This is applicable only for dedicated LB mode.
 	// For shared LB mode, the service annotation is defined in other higher level (e.g. helm).
@@ -505,4 +523,16 @@ func (ic *Controller) retrieveSharedLBServiceStatus() *slim_corev1.LoadBalancerS
 		return nil
 	}
 	return &svc.Status.LoadBalancer
+}
+
+func (ic *Controller) isEffectiveLoadbalancerModeDedicated(ing *slim_networkingv1.Ingress) bool {
+	value := annotations.GetAnnotationIngressLoadbalancerMode(ing)
+	switch value {
+	case dedicatedLoadbalancerMode:
+		return true
+	case sharedLoadbalancerMode:
+		return false
+	default:
+		return ic.defaultLoadbalancerMode == dedicatedLoadbalancerMode
+	}
 }
