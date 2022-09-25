@@ -119,7 +119,6 @@ jobs:
       - name: Install cilium chart
         run: |
           helm install cilium ./install/kubernetes/cilium \
-             --wait \
              --namespace kube-system \
              --set nodeinit.enabled=true \
              --set kubeProxyReplacement=partial \
