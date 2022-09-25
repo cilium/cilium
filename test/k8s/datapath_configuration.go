@@ -1000,6 +1000,11 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	deploymentManager.WaitUntilReady()
 
 	label := "zgroup=testDSClient"
+	// The deployment manager wait doesn't wait for all pods in the DS, so
+	// thus the explicit wait here.
+	err := kubectl.WaitforPods(namespace, "-l "+label, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "Failed to wait for pods with labels: %s", label)
+
 	pods, err := kubectl.GetPodNames(namespace, label)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod names by label %s", label)
 
