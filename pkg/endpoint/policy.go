@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -14,7 +16,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -698,13 +699,13 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 
 // This synchronizes the key-value store with a mapping of the endpoint's IP
 // with the numerical ID representing its security identity.
-func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
-	if option.Config.KVStore == "" || !endpointIP.IsSet() || option.Config.JoinCluster {
+func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
+	if option.Config.KVStore == "" || !endpointIP.IsValid() || option.Config.JoinCluster {
 		return
 	}
 
 	addressFamily := "IPv4"
-	if endpointIP.IsIPv6() {
+	if endpointIP.Is6() {
 		addressFamily = "IPv6"
 	}
 
@@ -720,7 +721,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 					return nil
 				}
 
-				IP := endpointIP.IP()
+				IP := net.IP(endpointIP.AsSlice())
 				ID := e.SecurityIdentity.ID
 				hostIP := node.GetIPv4()
 				key := node.GetIPsecKeyIdentity()

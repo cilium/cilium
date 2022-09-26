@@ -833,11 +833,11 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		// This results in a template BPF object without an "LXC_IP" defined,
 		// __but__ the endpoint still has "LXC_IP" defined. This causes a later
 		// call to loader.ELFSubstitutions() to fail on missing a symbol "LXC_IP".
-		if e.IPv6Address() != nil {
-			fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+		if ipv6 := e.IPv6Address(); ipv6.IsValid() {
+			fmt.Fprint(fw, defineIPv6("LXC_IP", ipv6.AsSlice()))
 		}
 
-		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
+		fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address().AsSlice()))
 		fmt.Fprint(fw, defineUint16("LXC_ID", uint16(e.GetID())))
 	}
 

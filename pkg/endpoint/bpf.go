@@ -1023,8 +1023,8 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	e.garbageCollectConntrack(&ctmap.GCFilter{
 		MatchIPs: map[string]struct{}{
-			e.IPv4.String(): {},
-			e.IPv6.String(): {},
+			e.GetIPv4Address(): {},
+			e.GetIPv6Address(): {},
 		},
 	})
 }

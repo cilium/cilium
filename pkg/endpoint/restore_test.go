@@ -9,14 +9,13 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -69,8 +68,8 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
 	ep.ifName = "lxc" + strID
 	ep.mac = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
-	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
-	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
+	ep.IPv4 = netip.AddrFrom4([4]byte{0xc0, 0xa8, b[0], b[1]})
+	ep.IPv6 = netip.AddrFrom16([16]byte{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity

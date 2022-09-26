@@ -6,8 +6,8 @@ package loader
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -27,8 +27,8 @@ const (
 )
 
 var (
-	templateIPv4 = []byte{192, 0, 2, 3}
-	templateIPv6 = []byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
+	templateIPv4 = [4]byte{192, 0, 2, 3}
+	templateIPv6 = [16]byte{0x20, 0x01, 0xdb, 0x8, 0x0b, 0xad, 0xca, 0xfe, 0x60, 0x0d, 0xbe, 0xe2, 0x0b, 0xad, 0xca, 0xfe}
 
 	templateMAC = mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D})
 
@@ -106,16 +106,16 @@ func (t *templateCfg) GetNodeMAC() mac.MAC {
 
 // IPv4Address always returns an IP in the documentation prefix (RFC5737) as
 // a nonsense address that should typically not be routable.
-func (t *templateCfg) IPv4Address() addressing.CiliumIPv4 {
-	return addressing.CiliumIPv4(templateIPv4)
+func (t *templateCfg) IPv4Address() netip.Addr {
+	return netip.AddrFrom4(templateIPv4)
 }
 
 // IPv6Address returns an IP in the documentation prefix (RFC3849) to ensure
 // that each 32-bit segment of the address is non-zero as per the requirements
 // described in the structure definition. This can't be guaranteed while using
 // a more appropriate prefix such as the discard prefix (RFC6666).
-func (t *templateCfg) IPv6Address() addressing.CiliumIPv6 {
-	return addressing.CiliumIPv6(templateIPv6)
+func (t *templateCfg) IPv6Address() netip.Addr {
+	return netip.AddrFrom16(templateIPv6)
 }
 
 // GetPolicyVerdictLogFilter returns an uint32 filter to ensure
@@ -214,14 +214,14 @@ func sliceToBe32(input []byte) uint32 {
 func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	result := make(map[string]uint32)
 
-	if ipv6 := ep.IPv6Address(); ipv6 != nil {
+	if ipv6 := ep.IPv6Address().AsSlice(); ipv6 != nil {
 		// Corresponds to DEFINE_IPV6() in bpf/lib/utils.h
 		result["LXC_IP_1"] = sliceToBe32(ipv6[0:4])
 		result["LXC_IP_2"] = sliceToBe32(ipv6[4:8])
 		result["LXC_IP_3"] = sliceToBe32(ipv6[8:12])
 		result["LXC_IP_4"] = sliceToBe32(ipv6[12:16])
 	}
-	if ipv4 := ep.IPv4Address(); ipv4 != nil {
+	if ipv4 := ep.IPv4Address().AsSlice(); ipv4 != nil {
 		result["LXC_IPV4"] = byteorder.NetIPv4ToHost32(net.IP(ipv4))
 	}
 

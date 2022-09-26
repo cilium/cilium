@@ -6,12 +6,11 @@
 package mcastmanager
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/pkg/addressing"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -29,37 +28,32 @@ func (m *McastManagerSuite) TestAddRemoveEndpoint(c *C) {
 		c.Skip("no interfaces to test")
 	}
 
-	var (
-		ok bool
-
-		iface = ifaces[0]
-		mgr   = New(iface.Attrs().Name)
-	)
+	mgr := New(ifaces[0].Attrs().Name)
 
 	// Add first endpoint
-	mgr.AddAddress(ipv6("f00d::1234"))
+	mgr.AddAddress(netip.MustParseAddr("f00d::1234"))
 
 	c.Assert(mgr.state, HasLen, 1)
-	_, ok = mgr.state["ff02::1:ff00:1234"]
+	_, ok := mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
 	c.Assert(ok, Equals, true)
 
 	// Add another endpoint that shares the same maddr
-	mgr.AddAddress(ipv6("f00d:aabb::1234"))
+	mgr.AddAddress(netip.MustParseAddr("f00d:aabb::1234"))
 
 	c.Assert(mgr.state, HasLen, 1)
 
 	// Remove the first endpoint
-	mgr.RemoveAddress(ipv6("f00d::1234"))
+	mgr.RemoveAddress(netip.MustParseAddr("f00d::1234"))
 
 	c.Assert(mgr.state, HasLen, 1)
-	_, ok = mgr.state["ff02::1:ff00:1234"]
+	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
 	c.Assert(ok, Equals, true)
 
 	// Remove the second endpoint
-	mgr.RemoveAddress(ipv6("f00d:aabb::1234"))
+	mgr.RemoveAddress(netip.MustParseAddr("f00d:aabb::1234"))
 
 	c.Assert(mgr.state, HasLen, 0)
-	_, ok = mgr.state["ff02::1:ff00:1234"]
+	_, ok = mgr.state[netip.MustParseAddr("ff02::1:ff00:1234")]
 	c.Assert(ok, Equals, false)
 }
 
@@ -76,11 +70,8 @@ func (m *McastManagerSuite) TestAddRemoveNil(c *C) {
 		mgr   = New(iface.Attrs().Name)
 	)
 
-	mgr.AddAddress(nil)
-	mgr.RemoveAddress(nil)
-}
-
-func ipv6(addr string) addressing.CiliumIPv6 {
-	ret, _ := addressing.NewCiliumIPv6(addr)
-	return ret
+	mgr.AddAddress(netip.Addr{})
+	c.Assert(mgr.state, HasLen, 0)
+	mgr.RemoveAddress(netip.Addr{})
+	c.Assert(mgr.state, HasLen, 0)
 }

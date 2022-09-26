@@ -5,10 +5,10 @@ package endpoint
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -31,8 +31,8 @@ type epInfoCache struct {
 	// For datapath.EndpointConfiguration
 	identity                               identity.NumericIdentity
 	mac                                    mac.MAC
-	ipv4                                   addressing.CiliumIPv4
-	ipv6                                   addressing.CiliumIPv6
+	ipv4                                   netip.Addr
+	ipv6                                   netip.Addr
 	conntrackLocal                         bool
 	requireARPPassthrough                  bool
 	requireEgressProg                      bool
@@ -126,12 +126,12 @@ func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 }
 
 // IPv4Address returns the cached IPv4 address for the endpoint.
-func (ep *epInfoCache) IPv4Address() addressing.CiliumIPv4 {
+func (ep *epInfoCache) IPv4Address() netip.Addr {
 	return ep.ipv4
 }
 
 // IPv6Address returns the cached IPv6 address for the endpoint.
-func (ep *epInfoCache) IPv6Address() addressing.CiliumIPv6 {
+func (ep *epInfoCache) IPv6Address() netip.Addr {
 	return ep.ipv6
 }
 

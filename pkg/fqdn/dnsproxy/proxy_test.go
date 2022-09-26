@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/netip"
 	"runtime"
 	"sync"
 	"testing"
@@ -22,7 +23,6 @@ import (
 	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -964,8 +964,8 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 	// restore rules, set the mock to restoring state
 	s.restoring = true
 	ep1 := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
-	ep1.IPv4, _ = addressing.NewCiliumIPv4("127.0.0.1")
-	ep1.IPv6, _ = addressing.NewCiliumIPv6("::1")
+	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
+	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists := s.proxy.restored[epID1]

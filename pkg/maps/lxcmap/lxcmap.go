@@ -6,9 +6,9 @@ package lxcmap
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -49,20 +49,20 @@ type EndpointFrontend interface {
 	GetNodeMAC() mac.MAC
 	GetIfIndex() int
 	GetID() uint64
-	IPv4Address() addressing.CiliumIPv4
-	IPv6Address() addressing.CiliumIPv6
+	IPv4Address() netip.Addr
+	IPv6Address() netip.Addr
 }
 
 // GetBPFKeys returns all keys which should represent this endpoint in the BPF
 // endpoints map
 func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 	keys := []*EndpointKey{}
-	if e.IPv6Address().IsSet() {
-		keys = append(keys, NewEndpointKey(e.IPv6Address().IP()))
+	if e.IPv6Address().IsValid() {
+		keys = append(keys, NewEndpointKey(e.IPv6Address().AsSlice()))
 	}
 
-	if e.IPv4Address().IsSet() {
-		keys = append(keys, NewEndpointKey(e.IPv4Address().IP()))
+	if e.IPv4Address().IsValid() {
+		keys = append(keys, NewEndpointKey(e.IPv4Address().AsSlice()))
 	}
 
 	return keys

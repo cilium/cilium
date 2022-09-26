@@ -5,8 +5,8 @@ package datapath
 
 import (
 	"io"
+	"net/netip"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
@@ -43,8 +43,8 @@ type LoadTimeConfiguration interface {
 	// This function should be removed in favour of GetIdentity()
 	GetIdentityLocked() identity.NumericIdentity
 
-	IPv4Address() addressing.CiliumIPv4
-	IPv6Address() addressing.CiliumIPv6
+	IPv4Address() netip.Addr
+	IPv6Address() netip.Addr
 	GetNodeMAC() mac.MAC
 }
 

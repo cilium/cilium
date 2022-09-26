@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -219,7 +219,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 
 	// NOTE: unconditionalRLock is used here because it's used only for logging an already restored endpoint
 	e.unconditionalRLock()
-	scopedLog.WithField(logfields.IPAddr, []string{e.IPv4.String(), e.IPv6.String()}).Info("Restored endpoint")
+	scopedLog.WithField(logfields.IPAddr, []string{e.GetIPv4Address(), e.GetIPv6Address()}).Info("Restored endpoint")
 	e.runlock()
 	return nil
 }
@@ -446,10 +446,10 @@ type serializableEndpoint struct {
 	LXCMAC mac.MAC // Container MAC address.
 
 	// IPv6 is the IPv6 address of the endpoint
-	IPv6 addressing.CiliumIPv6
+	IPv6 netip.Addr
 
 	// IPv4 is the IPv4 address of the endpoint
-	IPv4 addressing.CiliumIPv4
+	IPv4 netip.Addr
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	NodeMAC mac.MAC

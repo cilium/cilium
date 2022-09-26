@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"runtime"
 	"strconv"
@@ -22,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/completion"
@@ -163,10 +163,10 @@ type Endpoint struct {
 	mac mac.MAC // Container MAC address.
 
 	// IPv6 is the IPv6 address of the endpoint
-	IPv6 addressing.CiliumIPv6
+	IPv6 netip.Addr
 
 	// IPv4 is the IPv4 address of the endpoint
-	IPv4 addressing.CiliumIPv4
+	IPv4 netip.Addr
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
@@ -561,21 +561,27 @@ func (e *Endpoint) GetOptions() *option.IntOptions {
 
 // GetIPv4Address returns the IPv4 address of the endpoint as a string
 func (e *Endpoint) GetIPv4Address() string {
+	if !e.IPv4.IsValid() {
+		return ""
+	}
 	return e.IPv4.String()
 }
 
 // GetIPv6Address returns the IPv6 address of the endpoint as a string
 func (e *Endpoint) GetIPv6Address() string {
+	if !e.IPv6.IsValid() {
+		return ""
+	}
 	return e.IPv6.String()
 }
 
 // IPv4Address returns the IPv4 address of the endpoint
-func (e *Endpoint) IPv4Address() addressing.CiliumIPv4 {
+func (e *Endpoint) IPv4Address() netip.Addr {
 	return e.IPv4
 }
 
 // IPv6Address returns the IPv6 address of the endpoint
-func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
+func (e *Endpoint) IPv6Address() netip.Addr {
 	return e.IPv6
 }
 
@@ -2156,7 +2162,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// ingress rule and multiple egress rules. If we find more rules than
 		// expected, then the rules will be left as-is because there was
 		// likely manual intervention.
-		if err := linuxrouting.Delete(e.IPv4.IP(), option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+		if err := linuxrouting.Delete(e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
 		}
 	}
@@ -2167,12 +2173,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 			"ipAddr": e.GetIPv4Address(),
 		}).Debug("Deleting endpoint NOTRACK rules")
 
-		if e.IPv4.IsSet() {
+		if e.IPv4.IsValid() {
 			if err := e.owner.Datapath().RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv4 rules: %s", err))
 			}
 		}
-		if e.IPv6.IsSet() {
+		if e.IPv6.IsValid() {
 			if err := e.owner.Datapath().RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv6 rules: %s", err))
 			}

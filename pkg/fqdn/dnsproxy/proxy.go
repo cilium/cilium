@@ -243,10 +243,10 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
-	if ep.IPv4.IsSet() {
+	if ep.IPv4.IsValid() {
 		p.restoredEPs[ep.IPv4.String()] = ep
 	}
-	if ep.IPv6.IsSet() {
+	if ep.IPv6.IsValid() {
 		p.restoredEPs[ep.IPv6.String()] = ep
 	}
 	p.restored[uint64(ep.ID)] = ep.DNSRules

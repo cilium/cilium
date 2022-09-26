@@ -27,6 +27,6 @@ func Test(t *testing.T) {
 func (s *LoaderTestSuite) SetUpTest(c *C) {
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 	node.InitDefaultPrefix("")
-	node.SetInternalIPv4Router(templateIPv4)
-	node.SetIPv4Loopback(templateIPv4)
+	node.SetInternalIPv4Router(templateIPv4[:])
+	node.SetIPv4Loopback(templateIPv4[:])
 }
