@@ -999,27 +999,27 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	}
 
 	if n.nodeConfig.EnableIPv4 && newNode.IPv4AllocCIDR != nil {
-		new4Net := &net.IPNet{IP: newNode.IPv4AllocCIDR.IP, Mask: newNode.IPv4AllocCIDR.Mask}
+		new4Net := newNode.IPv4AllocCIDR.IPNet
+		wildcardCIDR := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
-			ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false)
-			if ciliumInternalIPv4 != nil {
-				ipsecLocal := &net.IPNet{IP: ciliumInternalIPv4, Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
-				ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv4Wildcard, ipsecLocal, ipsec.IPSecDirIn, false)
-				upsertIPsecLog(err, "local IPv4", ipsecLocal, ipsecIPv4Wildcard, spi)
+			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
+				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localCIDR, ipsec.IPSecDirIn, false)
+				upsertIPsecLog(err, "local IPv4", localCIDR, wildcardCIDR, spi)
 			}
 		} else {
-			if ciliumInternalIPv4 := newNode.GetCiliumInternalIP(false); ciliumInternalIPv4 != nil {
-				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv4().Router(), Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
-				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv4, Mask: newNode.IPv4AllocCIDR.Mask}
+			if remoteIP := newNode.GetCiliumInternalIP(false); remoteIP != nil {
+				localIP := n.nodeAddressing.IPv4().Router()
+				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+				remoteCIDR := &net.IPNet{IP: remoteIP, Mask: newNode.IPv4AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new4Net)
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsecLocal, ipsec.IPSecDirOut, false)
-				upsertIPsecLog(err, "IPv4", ipsecLocal, ipsecRemote, spi)
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localCIDR, ipsec.IPSecDirOut, false)
+				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
 
 				/* Insert wildcard policy rules for traffic skipping back through host */
-				ipsecIPv4Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv4), Mask: net.IPv4Mask(0, 0, 0, 0)}
-				if err = ipsec.IpSecReplacePolicyFwd(ipsecIPv4Wildcard, ipsecRemote, ipsecIPv4Wildcard, ipsecRemote); err != nil {
+				if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, remoteCIDR, wildcardCIDR, remoteCIDR); err != nil {
 					log.WithError(err).Warning("egress unable to replace policy fwd:")
 				}
 			}
@@ -1027,23 +1027,25 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	}
 
 	if n.nodeConfig.EnableIPv6 && newNode.IPv6AllocCIDR != nil {
-		new6Net := &net.IPNet{IP: newNode.IPv6AllocCIDR.IP, Mask: newNode.IPv6AllocCIDR.Mask}
+		new6Net := newNode.IPv6AllocCIDR.IPNet
+		wildcardIP := net.ParseIP(wildcardIPv6)
+		wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 0)}
+
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
-			ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true)
-			if ciliumInternalIPv6 != nil {
-				ipsecLocal := &net.IPNet{IP: ciliumInternalIPv6, Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
-				ipsecIPv6Wildcard := &net.IPNet{IP: net.ParseIP(wildcardIPv6), Mask: net.CIDRMask(0, 0)}
-				spi, err = ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecIPv6Wildcard, ipsecLocal, ipsec.IPSecDirIn, false)
-				upsertIPsecLog(err, "local IPv6", ipsecLocal, ipsecIPv6Wildcard, spi)
+			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
+				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localCIDR, ipsec.IPSecDirIn, false)
+				upsertIPsecLog(err, "local IPv6", localCIDR, wildcardCIDR, spi)
 			}
 		} else {
-			if ciliumInternalIPv6 := newNode.GetCiliumInternalIP(true); ciliumInternalIPv6 != nil {
-				ipsecLocal := &net.IPNet{IP: n.nodeAddressing.IPv6().Router(), Mask: net.CIDRMask(0, 0)}
-				ipsecRemote := &net.IPNet{IP: ciliumInternalIPv6, Mask: newNode.IPv6AllocCIDR.Mask}
+			if remoteIP := newNode.GetCiliumInternalIP(true); remoteIP != nil {
+				localIP := n.nodeAddressing.IPv6().Router()
+				localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
+				remoteCIDR := &net.IPNet{IP: remoteIP, Mask: newNode.IPv6AllocCIDR.Mask}
 				n.replaceNodeIPSecOutRoute(new6Net)
-				spi, err := ipsec.UpsertIPsecEndpoint(ipsecLocal, ipsecRemote, ipsecLocal, ipsec.IPSecDirOut, false)
-				upsertIPsecLog(err, "IPv6", ipsecLocal, ipsecRemote, spi)
+				spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localCIDR, ipsec.IPSecDirOut, false)
+				upsertIPsecLog(err, "IPv6", localCIDR, remoteCIDR, spi)
 			}
 		}
 	}
