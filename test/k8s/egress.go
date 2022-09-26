@@ -173,13 +173,11 @@ var _ = SkipDescribeIf(func() bool {
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
-		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
-
 		By("Testing that a service backend's reply to an outside HTTP request is not SNATed with the egressIP")
-		res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
+		res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,
 			helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))
 		res.ExpectSuccess()
-		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideNodeIP))
+		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
 
 		if ciliumOpts["tunnel"] == "disabled" {
 			// When connecting from outside the cluster directly to a pod which is
@@ -202,21 +200,21 @@ var _ = SkipDescribeIf(func() bool {
 			// Add a route for the target pod's IP on the node running without Cilium to
 			// allow reaching it from outside the cluster
 			By("Adding a IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-			res = kubectl.AddIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String(), false)
+			res = kubectl.AddIPRoute(outsideName, targetPodIP.String(), targetPodHostIP.String(), false)
 			Expect(res).Should(helpers.CMDSuccess(),
 				"Error adding IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
 
 			By("Testing that a pod's reply to an outside HTTP request is not SNATed with the egressIP")
-			res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
+			res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,
 				helpers.CurlFail("http://%s:80", targetPodIP.String()))
 
 			By("Deleting the IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-			res2 := kubectl.DelIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String())
+			res2 := kubectl.DelIPRoute(outsideName, targetPodIP.String(), targetPodHostIP.String())
 			Expect(res2).Should(helpers.CMDSuccess(),
 				"Error removing IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
 
 			res.ExpectSuccess()
-			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideNodeIP))
+			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
 		}
 	}
 
