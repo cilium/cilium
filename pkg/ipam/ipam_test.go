@@ -7,11 +7,11 @@ package ipam
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -27,14 +27,12 @@ type IPAMSuite struct{}
 
 var _ = Suite(&IPAMSuite{})
 
-func fakeIPv4AllocCIDRIP(fakeAddressing types.NodeAddressing) net.IP {
-	// force copy so net.IP can be modified
-	return net.ParseIP(fakeAddressing.IPv4().AllocationCIDR().IP.String())
+func fakeIPv4AllocCIDRIP(fakeAddressing types.NodeAddressing) netip.Addr {
+	return netip.MustParseAddr(fakeAddressing.IPv4().AllocationCIDR().IP.String())
 }
 
-func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) net.IP {
-	// force copy so net.IP can be modified
-	return net.ParseIP(fakeAddressing.IPv6().AllocationCIDR().IP.String())
+func fakeIPv6AllocCIDRIP(fakeAddressing types.NodeAddressing) netip.Addr {
+	return netip.MustParseAddr(fakeAddressing.IPv6().AllocationCIDR().IP.String())
 }
 
 type testConfiguration struct{}
@@ -55,27 +53,22 @@ func (s *IPAMSuite) TestLock(c *C) {
 	// be in the allocrange specified in cilium, we need to specify them
 	// manually on the endpoint based on the alloc range.
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
-	nextIP(ipv4)
-	epipv4, err := addressing.NewCiliumIPv4(ipv4.String())
-	c.Assert(err, IsNil)
-
+	ipv4 = ipv4.Next()
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
-	nextIP(ipv6)
-	epipv6, err := addressing.NewCiliumIPv6(ipv6.String())
-	c.Assert(err, IsNil)
+	ipv6 = ipv6.Next()
 
 	// Forcefully release possible allocated IPs
-	err = ipam.IPv4Allocator.Release(epipv4.IP())
+	err := ipam.IPv4Allocator.Release(ipv4.AsSlice())
 	c.Assert(err, IsNil)
-	err = ipam.IPv6Allocator.Release(epipv6.IP())
+	err = ipam.IPv6Allocator.Release(ipv6.AsSlice())
 	c.Assert(err, IsNil)
 
 	// Let's allocate the IP first so we can see the tests failing
-	result, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
+	result, err := ipam.IPv4Allocator.Allocate(ipv4.AsSlice(), "test")
 	c.Assert(err, IsNil)
-	c.Assert(result.IP, checker.DeepEquals, epipv4.IP())
+	c.Assert(result.IP, checker.DeepEquals, net.IP(ipv4.AsSlice()))
 
-	err = ipam.IPv4Allocator.Release(epipv4.IP())
+	err = ipam.IPv4Allocator.Release(ipv4.AsSlice())
 	c.Assert(err, IsNil)
 }
 
@@ -84,20 +77,20 @@ func (s *IPAMSuite) TestBlackList(c *C) {
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
-	nextIP(ipv4)
+	ipv4 = ipv4.Next()
 
-	ipam.BlacklistIP(ipv4, "test")
-	err := ipam.AllocateIP(ipv4, "test")
+	ipam.BlacklistIP(ipv4.AsSlice(), "test")
+	err := ipam.AllocateIP(ipv4.AsSlice(), "test")
 	c.Assert(err, Not(IsNil))
-	ipam.ReleaseIP(ipv4)
+	ipam.ReleaseIP(ipv4.AsSlice())
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
-	nextIP(ipv6)
+	ipv6 = ipv6.Next()
 
-	ipam.BlacklistIP(ipv6, "test")
-	err = ipam.AllocateIP(ipv6, "test")
+	ipam.BlacklistIP(ipv6.AsSlice(), "test")
+	err = ipam.AllocateIP(ipv6.AsSlice(), "test")
 	c.Assert(err, Not(IsNil))
-	ipam.ReleaseIP(ipv6)
+	ipam.ReleaseIP(ipv6.AsSlice())
 }
 
 func (s *IPAMSuite) TestDeriveFamily(c *C) {
@@ -110,13 +103,13 @@ func (s *IPAMSuite) TestOwnerRelease(c *C) {
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
-	nextIP(ipv4)
-	err := ipam.AllocateIP(ipv4, "default/test")
+	ipv4 = ipv4.Next()
+	err := ipam.AllocateIP(ipv4.AsSlice(), "default/test")
 	c.Assert(err, IsNil)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
-	nextIP(ipv6)
-	err = ipam.AllocateIP(ipv6, "default/test")
+	ipv6 = ipv6.Next()
+	err = ipam.AllocateIP(ipv6.AsSlice(), "default/test")
 	c.Assert(err, IsNil)
 
 	// unknown owner, must fail

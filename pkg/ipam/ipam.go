@@ -160,15 +160,6 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	return ipam
 }
 
-func nextIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
-}
-
 // BlacklistIP ensures that a certain IP is never allocated. It is preferred to
 // use BlacklistIP() instead of allocating the IP as the allocation block can
 // change and suddenly cover the IP to be blacklisted.

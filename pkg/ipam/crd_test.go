@@ -9,13 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
@@ -108,16 +108,16 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 
 	// Allocate the first 3 IPs
 	for i := 1; i <= 3; i++ {
-		epipv4, _ := addressing.NewCiliumIPv4(fmt.Sprintf("1.1.1.%d", i))
-		_, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), fmt.Sprintf("test%d", i))
+		epipv4 := netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i))
+		_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), fmt.Sprintf("test%d", i))
 		c.Assert(err, IsNil)
 	}
 
 	// Update 1.1.1.4 as marked for release like operator would.
 	cn.Status.IPAM.ReleaseIPs["1.1.1.4"] = ipamOption.IPAMMarkForRelease
 	// Attempts to allocate 1.1.1.4 should fail, since it's already marked for release
-	epipv4, _ := addressing.NewCiliumIPv4("1.1.1.4")
-	_, err := ipam.IPv4Allocator.Allocate(epipv4.IP(), "test")
+	epipv4 := netip.MustParseAddr("1.1.1.4")
+	_, err := ipam.IPv4Allocator.Allocate(epipv4.AsSlice(), "test")
 	c.Assert(err, NotNil)
 	// Call agent's CRD update function. status for 1.1.1.4 should change from marked for release to ready for release
 	sharedNodeStore.updateLocalNodeResource(cn)
