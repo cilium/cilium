@@ -164,9 +164,9 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		// Skip local symbols that are objects or untyped. These are usually
 		// program segments referred to using long jumps in bytecode.
 		case !isGlobalData(sym):
-			// LBB is a common llvm symbol prefix (basic block);
-			// Don't flood the logs with messages about it.
-			if !strings.HasPrefix(sym.Name, "LBB") {
+			// Some symbols don't have names and 'LBB0 is a common llvm symbol prefix
+			// (basic block). Don't flood the logs with messages about them.
+			if sym.Name != "" && !strings.HasPrefix(sym.Name, "LBB") {
 				log.Debugf("Skipping %s", sym.Name)
 			}
 			continue
