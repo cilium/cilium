@@ -3210,6 +3210,35 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 	return "", kub.waitNextPolicyRevisions(podRevisions, timeout)
 }
 
+// OutsideNodeReport collects command output on the outside node.
+func (kub *Kubectl) OutsideNodeReport(outsideNode string, commands ...string) {
+	if config.CiliumTestConfig.SkipLogGathering {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
+		return
+	}
+
+	if kub == nil {
+		ginkgoext.GinkgoPrint("Skipped gathering logs due to kubectl not being initialized")
+		return
+	}
+
+	// Log gathering should take at most 10 minutes.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	results := make([]*CmdRes, 0, len(commands))
+	ginkgoext.GinkgoPrint("Fetching command output on outside node %s", outsideNode)
+	for _, cmd := range commands {
+		res := kub.ExecInHostNetNS(ctx, outsideNode, cmd)
+		results = append(results, res)
+	}
+
+	for _, res := range results {
+		res.WaitUntilFinish()
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
+}
+
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
 func (kub *Kubectl) CiliumReport(commands ...string) {
