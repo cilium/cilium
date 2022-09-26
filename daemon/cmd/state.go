@@ -216,8 +216,8 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		state.restored = append(state.restored, ep)
 
 		if existingEndpoints != nil {
-			delete(existingEndpoints, ep.IPv4.String())
-			delete(existingEndpoints, ep.IPv6.String())
+			delete(existingEndpoints, ep.GetIPv4Address())
+			delete(existingEndpoints, ep.GetIPv6Address())
 		}
 	}
 
@@ -339,21 +339,21 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	var err error
 
-	if option.Config.EnableIPv6 && ep.IPv6 != nil {
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
+	if option.Config.EnableIPv6 && ep.IPv6.IsValid() {
+		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanStringLocked()+" [restored]")
 		if err != nil {
-			return fmt.Errorf("unable to reallocate %s IPv6 address: %w", ep.IPv6.IP(), err)
+			return fmt.Errorf("unable to reallocate %s IPv6 address: %w", ep.IPv6, err)
 		}
 
 		defer func() {
 			if err != nil {
-				d.ipam.ReleaseIP(ep.IPv6.IP())
+				d.ipam.ReleaseIP(ep.IPv6.AsSlice())
 			}
 		}()
 	}
 
-	if option.Config.EnableIPv4 && ep.IPv4 != nil {
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), ep.HumanStringLocked()+"[restored]")
+	if option.Config.EnableIPv4 && ep.IPv4.IsValid() {
+		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.AsSlice(), ep.HumanStringLocked()+"[restored]")
 		switch {
 		// We only check for BypassIPAllocUponRestore for IPv4 because we
 		// assume that this flag is only turned on for IPv4-only IPAM modes
@@ -363,10 +363,10 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 		// https://github.com/cilium/cilium/pull/15453. Other errors are not
 		// bypassed.
 		case err != nil &&
-			errors.Is(err, ipam.NewIPNotAvailableInPoolError(ep.IPv4.IP())) &&
+			errors.Is(err, ipam.NewIPNotAvailableInPoolError(ep.IPv4.AsSlice())) &&
 			option.Config.BypassIPAvailabilityUponRestore:
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.IPAddr:     ep.IPv4.IP(),
+				logfields.IPAddr:     ep.IPv4,
 				logfields.EndpointID: ep.ID,
 				logfields.K8sPodName: ep.GetK8sNamespaceAndPodName(),
 			}).Warn(
@@ -376,7 +376,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 					"a fresh IP from the pool.",
 			)
 		case err != nil:
-			return fmt.Errorf("unable to reallocate %s IPv4 address: %w", ep.IPv4.IP(), err)
+			return fmt.Errorf("unable to reallocate %s IPv4 address: %w", ep.IPv4, err)
 		}
 	}
 

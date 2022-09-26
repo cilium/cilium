@@ -249,8 +249,12 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint,
 			if ep.IsHost() {
 				continue
 			}
-			filter.ValidIPs[ep.IPv6.String()] = struct{}{}
-			filter.ValidIPs[ep.IPv4.String()] = struct{}{}
+			if ep.IPv6.IsValid() {
+				filter.ValidIPs[ep.IPv6.String()] = struct{}{}
+			}
+			if ep.IPv4.IsValid() {
+				filter.ValidIPs[ep.IPv4.String()] = struct{}{}
+			}
 		}
 
 		// Once the host firewall is enabled, we will start tracking (and

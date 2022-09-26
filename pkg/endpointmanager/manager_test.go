@@ -7,13 +7,13 @@ package endpointmanager
 
 import (
 	"context"
+	"net/netip"
 	"sync"
 	"testing"
 	"time"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -299,9 +299,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 		{
 			name: "endpoint by ipv4",
 			preTestRun: func() {
-				ipv4, err := addressing.NewCiliumIPv4("127.0.0.1")
-				ep.IPv4 = ipv4
-				c.Assert(err, IsNil)
+				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
 				mgr.expose(ep)
 			},
 			setupArgs: func() args {
@@ -319,7 +317,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
 				ep = endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 10, endpoint.StateReady)
-				ep.IPv4 = nil
+				ep.IPv4 = netip.Addr{}
 			},
 		},
 		{
@@ -527,9 +525,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 		{
 			name: "existing LookupIPv4",
 			preTestRun: func() {
-				ip, err := addressing.NewCiliumIPv4("127.0.0.1")
-				c.Assert(err, IsNil)
-				ep.IPv4 = ip
+				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
 				mgr.expose(ep)
 			},
 			setupArgs: func() args {
@@ -544,7 +540,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.IPv4 = nil
+				ep.IPv4 = netip.Addr{}
 			},
 		},
 		{
@@ -612,7 +608,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 			},
 			postTestRun: func() {
 				mgr.WaitEndpointRemoved(ep)
-				ep.IPv4 = nil
+				ep.IPv4 = netip.Addr{}
 			},
 		},
 		{
@@ -673,9 +669,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 				ep.SetK8sPodName("foo")
 				ep.SetContainerID("container")
 				ep.SetDockerEndpointID("dockerendpointID")
-				ip, err := addressing.NewCiliumIPv4("127.0.0.1")
-				c.Assert(err, IsNil)
-				ep.IPv4 = ip
+				ep.IPv4 = netip.MustParseAddr("127.0.0.1")
 				ep.SetContainerName("containername")
 				return args{
 					ep: ep,
@@ -692,7 +686,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 				ep.SetK8sPodName("")
 				ep.SetContainerID("")
 				ep.SetDockerEndpointID("")
-				ep.IPv4 = nil
+				ep.IPv4 = netip.Addr{}
 				ep.SetContainerName("")
 			},
 		},

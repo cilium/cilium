@@ -7,13 +7,12 @@ package multicast
 
 import (
 	"math/rand"
+	"net/netip"
 	"testing"
 	"time"
 
 	"github.com/vishvananda/netlink"
 	. "gopkg.in/check.v1"
-
-	"github.com/cilium/cilium/pkg/addressing"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -38,20 +37,20 @@ func (m *MulticastSuite) TestGroupOps(c *C) {
 	maddr := m.randMaddr()
 
 	// Join Group
-	err = JoinGroup(ifc.Attrs().Name, maddr.String())
+	err = JoinGroup(ifc.Attrs().Name, maddr)
 	c.Assert(err, IsNil)
 
 	// maddr in group
-	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr.String())
+	inGroup, err := IsInGroup(ifc.Attrs().Name, maddr)
 	c.Assert(err, IsNil)
 	c.Assert(inGroup, Equals, true)
 
 	// LeaveGroup
-	err = LeaveGroup(ifc.Attrs().Name, maddr.String())
+	err = LeaveGroup(ifc.Attrs().Name, maddr)
 	c.Assert(err, IsNil)
 
 	// maddr not in group
-	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr.String())
+	inGroup, err = IsInGroup(ifc.Attrs().Name, maddr)
 	c.Assert(err, IsNil)
 	c.Assert(inGroup, Equals, false)
 }
@@ -68,17 +67,17 @@ func (m *MulticastSuite) TestSolicitedNodeMaddr(c *C) {
 	}
 
 	for _, test := range tests {
-		ip, _ := addressing.NewCiliumIPv6(test.ip)
+		ip := netip.MustParseAddr(test.ip)
 		got := Address(ip).SolicitedNodeMaddr().String()
 		c.Assert(got, Equals, test.expected)
 	}
 
 }
 
-func (m *MulticastSuite) randMaddr() addressing.CiliumIPv6 {
+func (m *MulticastSuite) randMaddr() netip.Addr {
 	maddr := make([]byte, 16)
 	m.r.Read(maddr[13:])
-	return Address(maddr).SolicitedNodeMaddr()
+	return Address(netip.AddrFrom16(*(*[16]byte)(maddr))).SolicitedNodeMaddr()
 }
 
 func (m *MulticastSuite) TestMcastKey(c *C) {
@@ -113,8 +112,7 @@ func (m *MulticastSuite) TestMcastKey(c *C) {
 	}
 
 	for _, test := range tests {
-		ipv6, err := addressing.NewCiliumIPv6(test.ipv6)
-		c.Assert(err, IsNil)
+		ipv6 := netip.MustParseAddr(test.ipv6)
 		c.Assert(Address(ipv6).Key(), Equals, test.key)
 	}
 }

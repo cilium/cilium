@@ -7,6 +7,7 @@ package linuxrouting
 
 import (
 	"net"
+	"net/netip"
 	"runtime"
 	"testing"
 
@@ -48,16 +49,14 @@ func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 
 func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
-	ipv6 := net.ParseIP("fd00::2").To16()
-	c.Assert(ipv6, NotNil)
+	ipv6 := netip.MustParseAddr("fd00::2").AsSlice()
 	err := ri.Configure(ipv6, 1500, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
 
 func (e *LinuxRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
-	ipv6 := net.ParseIP("fd00::2").To16()
-	c.Assert(ipv6, NotNil)
+	ipv6 := netip.MustParseAddr("fd00::2")
 	err := Delete(ipv6, false)
 	c.Assert(err, NotNil)
 	c.Assert(err, ErrorMatches, "IP not compatible")
@@ -69,12 +68,12 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 
 	tests := []struct {
 		name    string
-		preRun  func() net.IP
+		preRun  func() netip.Addr
 		wantErr bool
 	}{
 		{
 			name: "valid IP addr matching rules",
-			preRun: func() net.IP {
+			preRun: func() netip.Addr {
 				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return fakeIP
 			},
@@ -82,9 +81,8 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 		},
 		{
 			name: "IP addr doesn't match rules",
-			preRun: func() net.IP {
-				ip := net.ParseIP("192.168.2.233")
-				c.Assert(ip, NotNil)
+			preRun: func() netip.Addr {
+				ip := netip.MustParseAddr("192.168.2.233")
 
 				runConfigure(c, fakeRoutingInfo, fakeIP, 1500)
 				return ip
@@ -93,9 +91,8 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 		},
 		{
 			name: "IP addr matches more than number expected",
-			preRun: func() net.IP {
-				ip := net.ParseIP("192.168.2.233")
-				c.Assert(ip, NotNil)
+			preRun: func() netip.Addr {
+				ip := netip.MustParseAddr("192.168.2.233")
 
 				runConfigure(c, fakeRoutingInfo, ip, 1500)
 
@@ -112,7 +109,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 				// are setting the Src because ingress rules don't have
 				// one (only Dst), thus we set Src to create a near-duplicate.
 				r := rules[0]
-				r.Src = &net.IPNet{IP: fakeIP, Mask: net.CIDRMask(32, 32)}
+				r.Src = &net.IPNet{IP: fakeIP.AsSlice(), Mask: net.CIDRMask(32, 32)}
 				c.Assert(netlink.RuleAdd(&r), IsNil)
 
 				return ip
@@ -150,7 +147,7 @@ func runFuncInNetNS(c *C, run func()) {
 	run()
 }
 
-func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int) {
+func runConfigureThenDelete(c *C, ri RoutingInfo, ip netip.Addr, mtu int) {
 	// Create rules and routes
 	beforeCreationRules, beforeCreationRoutes := listRulesAndRoutes(c, netlink.FAMILY_V4)
 	runConfigure(c, ri, ip, mtu)
@@ -172,12 +169,12 @@ func runConfigureThenDelete(c *C, ri RoutingInfo, ip net.IP, mtu int) {
 	c.Assert(len(afterDeletionRoutes), Equals, len(beforeCreationRoutes))
 }
 
-func runConfigure(c *C, ri RoutingInfo, ip net.IP, mtu int) {
-	err := ri.Configure(ip, mtu, false)
+func runConfigure(c *C, ri RoutingInfo, ip netip.Addr, mtu int) {
+	err := ri.Configure(ip.AsSlice(), mtu, false)
 	c.Assert(err, IsNil)
 }
 
-func runDelete(c *C, ip net.IP) {
+func runDelete(c *C, ip netip.Addr) {
 	err := Delete(ip, false)
 	c.Assert(err, IsNil)
 }
@@ -233,14 +230,9 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 
 // getFakes returns a fake IP simulating an Endpoint IP and RoutingInfo as test
 // harnesses.
-func getFakes(c *C) (net.IP, RoutingInfo) {
-	fakeGateway := net.ParseIP("192.168.2.1")
-	c.Assert(fakeGateway, NotNil)
-
-	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
-	c.Assert(err, IsNil)
-	c.Assert(fakeCIDR, NotNil)
-
+func getFakes(c *C) (netip.Addr, RoutingInfo) {
+	fakeGateway := netip.MustParseAddr("192.168.2.1")
+	fakeCIDR := netip.MustParsePrefix("192.168.0.0/16")
 	fakeMAC, err := mac.ParseMAC("00:11:22:33:44:55")
 	c.Assert(err, IsNil)
 	c.Assert(fakeMAC, NotNil)
@@ -256,8 +248,7 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 	c.Assert(err, IsNil)
 	c.Assert(fakeRoutingInfo, NotNil)
 
-	fakeIP := net.ParseIP("192.168.2.123")
-	c.Assert(fakeIP, NotNil)
+	fakeIP := netip.MustParseAddr("192.168.2.123")
 
 	return fakeIP, *fakeRoutingInfo
 }

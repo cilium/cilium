@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -492,12 +492,12 @@ func (mgr *EndpointManager) removeReferencesLocked(identifiers endpointid.Identi
 }
 
 // AddIPv6Address notifies an addition of an IPv6 address
-func (mgr *EndpointManager) AddIPv6Address(ipv6 addressing.CiliumIPv6) {
+func (mgr *EndpointManager) AddIPv6Address(ipv6 netip.Addr) {
 	mgr.mcastManager.AddAddress(ipv6)
 }
 
 // RemoveAIPv6ddress notifies a removal of an IPv6 address
-func (mgr *EndpointManager) RemoveIPv6Address(ipv6 addressing.CiliumIPv6) {
+func (mgr *EndpointManager) RemoveIPv6Address(ipv6 netip.Addr) {
 	mgr.mcastManager.RemoveAddress(ipv6)
 }
 

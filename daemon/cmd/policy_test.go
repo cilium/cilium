@@ -8,6 +8,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 	"sort"
 	"sync"
@@ -22,7 +23,6 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -44,10 +44,10 @@ import (
 )
 
 var (
-	QAIPv6Addr, _   = addressing.NewCiliumIPv6("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
-	QAIPv4Addr, _   = addressing.NewCiliumIPv4("10.11.12.13")
-	ProdIPv6Addr, _ = addressing.NewCiliumIPv6("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
-	ProdIPv4Addr, _ = addressing.NewCiliumIPv4("10.11.12.14")
+	QAIPv6Addr   = netip.MustParseAddr("beef:beef:beef:beef:aaaa:aaaa:1111:1112")
+	QAIPv4Addr   = netip.MustParseAddr("10.11.12.13")
+	ProdIPv6Addr = netip.MustParseAddr("cafe:cafe:cafe:cafe:aaaa:aaaa:1111:1112")
+	ProdIPv4Addr = netip.MustParseAddr("10.11.12.14")
 
 	lblProd = labels.ParseLabel("Prod")
 	lblQA   = labels.ParseLabel("QA")
