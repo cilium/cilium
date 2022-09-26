@@ -522,9 +522,9 @@
      - int
      - ``10000``
    * - dnsProxy.minTtl
-     - The minimum time, in seconds, to use DNS data for toFQDNs policies.
+     - The minimum time, in seconds, to use DNS data for toFQDNs policies. If the upstream DNS server returns a DNS record with a shorter TTL, Cilium overwrites the TTL with this value. Setting this value to zero means that Cilium will honor the TTLs returned by the upstream DNS server.
      - int
-     - ``3600``
+     - ``0``
    * - dnsProxy.preCache
      - DNS cache data at this path is preloaded on agent startup.
      - string
