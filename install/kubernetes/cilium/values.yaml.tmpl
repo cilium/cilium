@@ -2558,8 +2558,11 @@ dnsProxy:
   idleConnectionGracePeriod: 0s
   # -- Maximum number of IPs to retain for expired DNS lookups with still-active connections.
   maxDeferredConnectionDeletes: 10000
-  # -- The minimum time, in seconds, to use DNS data for toFQDNs policies.
-  minTtl: 3600
+  # -- The minimum time, in seconds, to use DNS data for toFQDNs policies. If
+  # the upstream DNS server returns a DNS record with a shorter TTL, Cilium
+  # overwrites the TTL with this value. Setting this value to zero means that
+  # Cilium will honor the TTLs returned by the upstream DNS server.
+  minTtl: 0
   # -- DNS cache data at this path is preloaded on agent startup.
   preCache: ""
   # -- Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
