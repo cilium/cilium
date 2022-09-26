@@ -214,7 +214,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Source().HasLabel("other", "client") {
 				return check.ResultOK, check.ResultOK
 			}
-			return check.ResultOK, check.ResultDrop
+			return check.ResultOK, check.ResultDefaultDenyIngressDrop
 		})
 
 	// This policy denies all ingresses by default
@@ -233,7 +233,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Destination().Address() == "1.0.0.1" || a.Destination().Address() == "1.1.1.1" {
 				return check.ResultOK, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 		})
 
 	// This policy denies all egresses by default
@@ -315,7 +315,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			if a.Source().HasLabel("other", "client") {
 				return check.ResultOK, check.ResultOK
 			}
-			return check.ResultOK, check.ResultDrop
+			return check.ResultOK, check.ResultDefaultDenyIngressDrop
 		})
 
 	// This policy allows port 8080 from client to echo, so this should succeed
@@ -387,7 +387,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				}
 				return egress, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 		})
 
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
@@ -411,7 +411,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				}
 				return egress, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
 		})
 
 	// Tests with deny policy
@@ -474,13 +474,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithPolicy(allowAllIngressPolicyYAML). // Allow all ingress traffic
 		WithPolicy(clientEgressToEchoDenyNamedPortPolicyYAML).
 		WithScenarios(
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client"})),  // Client to echo should be denied
-			tests.PodToPod(tests.WithSourceLabelsOption(map[string]string{"name": "client2"})), // Client2 to echo should be allowed
+			tests.PodToPod(tests.WithSourceLabelsOption(clientLabel)),  // Client to echo should be denied
+			tests.PodToPod(tests.WithSourceLabelsOption(client2Label)), // Client2 to echo should be allowed
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") &&
 				a.Source().HasLabel("name", "client") {
-				return check.ResultDropCurlTimeout, check.ResultNone
+				return check.ResultDropCurlTimeout, check.ResultPolicyDenyIngressDrop
 			}
 			return check.ResultOK, check.ResultOK
 		})
@@ -583,7 +583,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// Else expect HTTP drop by proxy
 				return check.ResultDropCurlHTTPError, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
 	// Test L7 HTTP introspection using an egress policy on the clients.
@@ -611,7 +611,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// Else expect HTTP drop by proxy
 				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
@@ -639,7 +639,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				// Else expect HTTP drop by proxy
 				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
-			return check.ResultDrop, check.ResultNone
+			return check.ResultDefaultDenyEgressDrop, check.ResultNone
 		})
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
