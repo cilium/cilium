@@ -35,6 +35,8 @@ var _ = SkipDescribeIf(func() bool {
 		k8s1IP      string
 		k8s2IP      string
 		outsideIP   string
+		k8s1Name    string
+		k8s2Name    string
 		outsideName string
 
 		assignIPYAML string
@@ -78,8 +80,8 @@ var _ = SkipDescribeIf(func() bool {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
-		_, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
+		k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+		k8s2Name, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
 		outsideName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
 		egressIP = getEgressIP(k8s1IP)
@@ -138,8 +140,10 @@ var _ = SkipDescribeIf(func() bool {
 		} else {
 			By("Check connectivity from non-gateway node")
 		}
+		hostName := k8s1Name
 		hostIP := k8s1IP
 		if fromGateway {
+			hostName = k8s2Name
 			hostIP = k8s2IP
 		}
 		srcPod, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
@@ -172,6 +176,10 @@ var _ = SkipDescribeIf(func() bool {
 		res := kubectl.Patch(randomNamespace, "service", "test-external-ips",
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
+
+		By("Waiting for %s to expose service frontend %s", hostName, hostIP)
+		err = kubectl.WaitForServiceFrontend(hostName, hostIP)
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s frontend entry on %s", hostIP, hostName)
 
 		By("Testing that a service backend's reply to an outside HTTP request is not SNATed with the egressIP")
 		res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,

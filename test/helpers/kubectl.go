@@ -4719,6 +4719,26 @@ func (kub *Kubectl) CiliumOptions() map[string]string {
 	return kub.ciliumOptions
 }
 
+// WaitForServiceFrontend waits until the service frontend with the given ipAddr
+// appears in "cilium bpf lb list --frontends" on the given node.
+func (kub *Kubectl) WaitForServiceFrontend(node, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf lb list --frontends | grep -q %s`, ipAddr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("frontend entry for %s was not found in time", ipAddr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // WaitForServiceBackend waits until the service backend with the given ipAddr
 // appears in "cilium bpf lb list" on the given node.
 func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
