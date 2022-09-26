@@ -123,6 +123,7 @@ var _ = SkipDescribeIf(func() bool {
 		srcPod2, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient2, hostIP, false, 1)
 
 		for _, src := range []string{srcPod, srcPod2} {
+			By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
 			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
 			res.ExpectSuccess()
 			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
@@ -144,13 +145,16 @@ var _ = SkipDescribeIf(func() bool {
 
 		for _, src := range []string{srcPod, srcPod2} {
 			// Pod-to-node connectivity should work
+			By("Testing pod-to-node connectivity from %s to %s", src, k8s1IP)
 			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s1IP, 1))
 			res.ExpectSuccess()
 
+			By("Testing pod-to-node connectivity from %s to %s", src, k8s2IP)
 			res = kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s2IP, 1))
 			res.ExpectSuccess()
 
 			// DNS query should work (pod-to-pod connectivity)
+			By("Testing pod-to-pod connectivity for %s", src)
 			res = kubectl.ExecPodCmd(randomNamespace, src, "dig kubernetes +time=2")
 			res.ExpectSuccess()
 		}
@@ -162,12 +166,14 @@ var _ = SkipDescribeIf(func() bool {
 		err := kubectl.Get(randomNamespace, fmt.Sprintf("service %s", "test-external-ips")).Unmarshal(&extIPsService)
 		ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %s", "test-external-ips")
 
+		By("Patching service %s to use externalIP %s", "test-external-ips", hostIP)
 		res := kubectl.Patch(randomNamespace, "service", "test-external-ips",
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
 		outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
+		By("Testing that a service backend's reply to an outside HTTP request is not SNATed with the egressIP")
 		res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
 			helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))
 		res.ExpectSuccess()
@@ -193,13 +199,16 @@ var _ = SkipDescribeIf(func() bool {
 
 			// Add a route for the target pod's IP on the node running without Cilium to
 			// allow reaching it from outside the cluster
+			By("Adding a IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
 			res = kubectl.AddIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String(), false)
 			Expect(res).Should(helpers.CMDSuccess(),
 				"Error adding IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
 
+			By("Testing that a pod's reply to an outside HTTP request is not SNATed with the egressIP")
 			res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
 				helpers.CurlFail("http://%s:80", targetPodIP.String()))
 
+			By("Deleting the IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
 			res2 := kubectl.DelIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String())
 			Expect(res2).Should(helpers.CMDSuccess(),
 				"Error removing IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
