@@ -1008,15 +1008,15 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new4Net)
 			if localIP := newNode.GetCiliumInternalIP(false); localIP != nil {
-				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
+				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
 				upsertIPsecLog(err, "local IPv4", localCIDR, wildcardCIDR, spi)
 			}
 		} else {
 			if remoteIP := newNode.GetCiliumInternalIP(false); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv4().Router()
-				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv4().AllocationCIDR().Mask}
-				remoteCIDR := &net.IPNet{IP: remoteIP, Mask: newNode.IPv4AllocCIDR.Mask}
+				localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
+				remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 				n.replaceNodeIPSecOutRoute(new4Net)
 				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
@@ -1037,7 +1037,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 		if newNode.IsLocal() {
 			n.replaceNodeIPSecInRoute(new6Net)
 			if localIP := newNode.GetCiliumInternalIP(true); localIP != nil {
-				localCIDR := &net.IPNet{IP: localIP, Mask: n.nodeAddressing.IPv6().AllocationCIDR().Mask}
+				localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localCIDR, localIP, wildcardIP, ipsec.IPSecDirIn, false)
 				upsertIPsecLog(err, "local IPv6", localCIDR, wildcardCIDR, spi)
 			}
@@ -1045,7 +1045,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 			if remoteIP := newNode.GetCiliumInternalIP(true); remoteIP != nil {
 				localIP := n.nodeAddressing.IPv6().Router()
 				localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
-				remoteCIDR := &net.IPNet{IP: remoteIP, Mask: newNode.IPv6AllocCIDR.Mask}
+				remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 				n.replaceNodeIPSecOutRoute(new6Net)
 				spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv6", localCIDR, remoteCIDR, spi)

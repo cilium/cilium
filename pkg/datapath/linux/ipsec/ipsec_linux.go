@@ -195,8 +195,8 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir 
 
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
-	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
+	policy.Src = src
+	policy.Dst = dst
 	if dir == netlink.XFRM_DIR_IN {
 		// We require a policy to match on packets going to the proxy which are
 		// therefore carrying the proxy mark. We however don't need a policy
@@ -262,9 +262,9 @@ func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPS
 		wildcardMask := net.IPv4Mask(0, 0, 0, 0)
 		policy.Src = &net.IPNet{IP: wildcardIP, Mask: wildcardMask}
 	} else {
-		policy.Src = &net.IPNet{IP: src.IP.Mask(src.Mask), Mask: src.Mask}
+		policy.Src = src
 	}
-	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
+	policy.Dst = dst
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = &netlink.XfrmMark{
 		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
