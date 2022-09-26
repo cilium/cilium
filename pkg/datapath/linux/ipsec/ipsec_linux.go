@@ -186,7 +186,7 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink.Dir) error {
+func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir netlink.Dir) error {
 	optional := int(0)
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
@@ -217,15 +217,15 @@ func _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst *net.IPNet, dir netlink
 		optional = 1
 		policy.Priority = linux_defaults.IPsecFwdPriority
 	}
-	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, false, optional)
+	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyIn(src, dst, tmplSrc, tmplDst *net.IPNet) error {
+func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_IN)
 }
 
-func IpSecReplacePolicyFwd(src, dst, tmplSrc, tmplDst *net.IPNet) error {
+func IpSecReplacePolicyFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_FWD)
 }
 
@@ -248,7 +248,7 @@ func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
 }
 
-func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) error {
+func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
 
 	key := getIPSecKeys(dst.IP)
@@ -270,7 +270,7 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, key.Spi),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
-	ipSecAttachPolicyTempl(policy, key, tmplSrc.IP, tmplDst.IP, true, 0)
+	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, true, 0)
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
@@ -351,7 +351,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark bool) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -363,19 +363,19 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark
 	 * netlink API at all when we "know" an entry is a duplicate. To do this the xfer
 	 * state would need to be cached in the ipcache.
 	 */
-	if !local.IP.Equal(remote.IP) {
+	if !outerLocal.Equal(outerRemote) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(local.IP, remote.IP, outputMark); err != nil {
+			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace local state: %s", err)
 				}
 			}
-			if err = ipSecReplacePolicyIn(remote, local, remote, local); err != nil {
+			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
-			if err = IpSecReplacePolicyFwd(remote, fwd, remote, local); err != nil {
+			if err = IpSecReplacePolicyFwd(remote, fwd, outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
 				}
@@ -383,13 +383,13 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(remote.IP, local.IP); err != nil {
+			if spi, err = ipSecReplaceStateOut(outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace remote state: %s", err)
 				}
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, local, remote, dir); err != nil {
+			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, dir); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
@@ -401,7 +401,7 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, dir IPSecDir, outputMark
 
 // UpsertIPsecEndpointPolicy adds a policy to the xfrm rules. Used to add a policy when the state
 // rule is already available.
-func UpsertIPsecEndpointPolicy(local, remote, localTmpl, remoteTmpl *net.IPNet, dir IPSecDir) error {
+func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, dir IPSecDir) error {
 	if err := ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, dir); err != nil {
 		if !os.IsExist(err) {
 			return fmt.Errorf("unable to replace templated policy out: %s", err)
