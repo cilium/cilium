@@ -54,7 +54,7 @@ jobs:
           make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -76,7 +76,7 @@ jobs:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -121,7 +121,7 @@ jobs:
           make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

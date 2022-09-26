@@ -103,7 +103,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)

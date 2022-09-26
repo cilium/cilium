@@ -33,7 +33,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -59,7 +59,7 @@ jobs:
           skip-cache: true
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -85,7 +85,7 @@ jobs:
           make precheck
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -111,7 +111,7 @@ jobs:
           contrib/scripts/check-api-code-gen.sh
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
@@ -149,7 +149,7 @@ jobs:
 
       - name: Send slack notification
         if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@22048831299719d772f51719ca7384e34b4cc61d
+        uses: 8398a7/action-slack@a189acbf0b7ea434558662ae25a0de71df69a435
         with:
           status: ${{ job.status }}
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
