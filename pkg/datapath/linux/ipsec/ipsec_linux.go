@@ -411,9 +411,9 @@ func UpsertIPsecEndpointPolicy(local, remote, localTmpl, remoteTmpl *net.IPNet, 
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
-func DeleteIPsecEndpoint(remote *net.IPNet) {
-	ipsecDeleteXfrmState(remote.IP)
-	ipsecDeleteXfrmPolicy(remote.IP)
+func DeleteIPsecEndpoint(remote net.IP) {
+	ipsecDeleteXfrmState(remote)
+	ipsecDeleteXfrmPolicy(remote)
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
