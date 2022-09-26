@@ -31,10 +31,11 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename  string
 		randomNamespace string
 
-		egressIP  string
-		k8s1IP    string
-		k8s2IP    string
-		outsideIP string
+		egressIP    string
+		k8s1IP      string
+		k8s2IP      string
+		outsideIP   string
+		outsideName string
 
 		assignIPYAML string
 		echoPodYAML  string
@@ -79,7 +80,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
 		_, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
-		_, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
+		outsideName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
 		egressIP = getEgressIP(k8s1IP)
 
@@ -105,6 +106,7 @@ var _ = SkipDescribeIf(func() bool {
 	AfterFailed(func() {
 		// Especially check if there are duplicated address allocated on cilium_host
 		kubectl.CiliumReport("ip addr")
+		kubectl.OutsideNodeReport(outsideName, "ip -d route")
 	})
 
 	testEgressGateway := func(fromGateway bool) {
