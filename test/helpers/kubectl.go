@@ -4764,7 +4764,7 @@ func (kub *Kubectl) WaitForServiceFrontend(node, ipAddr string) error {
 }
 
 // WaitForServiceBackend waits until the service backend with the given ipAddr
-// appears in "cilium bpf lb list" on the given node.
+// appears in "cilium bpf lb list --backends" on the given node.
 func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	ciliumPod, err := kub.GetCiliumPodOnNode(node)
 	if err != nil {
@@ -4774,7 +4774,7 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf lb list | grep -q %s`, ipAddr)
+		cmd := fmt.Sprintf(`cilium bpf lb list --backends | grep -q %s`, ipAddr)
 		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
 	}
 
