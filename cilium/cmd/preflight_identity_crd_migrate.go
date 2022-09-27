@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -55,7 +56,13 @@ func migrateIdentityCmd() *cobra.Command {
 		cmd.Flags(),
 
 		k8sClient.Cell,
-		hive.OnStart(migrateIdentities),
+		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					return migrateIdentities(clientset, shutdowner)
+				},
+			})
+		}),
 	)
 	hive.SetTimeouts(opTimeout, opTimeout)
 

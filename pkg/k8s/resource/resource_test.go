@@ -14,7 +14,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	"go.uber.org/fx/fxtest"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +21,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
@@ -422,29 +422,30 @@ func runTestWithNodesResource(t *testing.T, test func(app *fxtest.App, res Resou
 	}
 
 	var (
-		res Resource[*corev1.Node]
-		cs  *k8sClient.FakeClientset
+		res       Resource[*corev1.Node]
+		clientset *k8sClient.FakeClientset
 	)
 
 	// Create a test application with a fake clientset and the nodes resource,
-	// and pull the objects into 'res' and 'cs'.
+	// and pull the objects into 'res' and 'clientset'.
 	testApp, err := hive.New(
 		viper.New(),
 		pflag.NewFlagSet("", pflag.ContinueOnError),
 
 		k8sClient.FakeClientCell,
-		hive.NewCell("test",
-			fx.Provide(
-				NewResourceConstructorWithRateLimiter[*corev1.Node](testRateLimiter(), nodesLW),
-			),
-			fx.Populate(&res, &cs),
-		)).TestApp(t)
+
+		cell.Provide(NewResourceConstructorWithRateLimiter[*corev1.Node](testRateLimiter(), nodesLW)),
+		cell.Invoke(func(r Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+			res = r
+			clientset = cs
+		}),
+	).TestApp(t)
 
 	if err != nil {
 		t.Fatalf("TestApp() error: %s", err)
 	}
 
-	test(testApp, res, cs)
+	test(testApp, res, clientset)
 }
 
 type counter struct{ int64 }

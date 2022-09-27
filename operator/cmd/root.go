@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -111,16 +112,11 @@ func Execute() {
 	}
 }
 
-var operatorCell = hive.NewCell(
-	"operator",
-	fx.Invoke(registerOperatorHooks),
-)
-
 func registerOperatorHooks(lc fx.Lifecycle, clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 	initEnv()
 
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			go runOperator(clientset, shutdowner)
 			return nil
@@ -135,8 +131,6 @@ func registerOperatorHooks(lc fx.Lifecycle, clientset k8sClient.Clientset, shutd
 func init() {
 	rootCmd.AddCommand(MetricsCmd)
 
-	gops.DefaultGopsPort = defaults.GopsPortOperator
-
 	// Enable fallback to direct API probing to check for support of Leases in
 	// case Discovery API fails.
 	Vp.Set(option.K8sEnableAPIDiscovery, true)
@@ -145,9 +139,10 @@ func init() {
 		Vp,
 		rootCmd.Flags(),
 
-		gops.Cell,
+		gops.Cell(defaults.GopsPortOperator),
 		k8sClient.Cell,
-		operatorCell,
+
+		cell.Invoke(registerOperatorHooks),
 	)
 }
 
@@ -214,6 +209,7 @@ func checkStatus(clientset k8sClient.Clientset) error {
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
 func runOperator(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
 	log.Infof("Cilium Operator %s", version.Version)
+
 	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
 

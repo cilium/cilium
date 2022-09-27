@@ -23,39 +23,8 @@ For details related to uber/fx refer to https://pkg.go.dev/go.uber.org/fx.
 Cells are what make up the hive. They're a thin wrapper around fx.Module that include an optional
 configuration structure that knows how to register its associated command-line flags.
 
-# Example program
+# Example
 
-	type Config struct {
-		Hello string
-	}
-
-	func (Config) CellFlags(flags *pflag.FlagSet) {
-		flags.String("hello", "hello world", "sets the greeting")
-	}
-
-	func hello(cfg Config) {
-		fmt.Println(cfg.Hello)
-	}
-
-	var helloCell = hive.NewCellWithConfig[Config](
-		"hello",
-		fx.Invoke(hello),
-	)
-
-	func main() {
-		hive := hive.New(
-			viper.GetViper(), pflag.CommandLine,
-
-			helloCell,
-		)
-
-		pflag.Parse()
-
-		if err := hive.Populate(); err != nil {
-			log.Fatal(err)
-		}
-
-		hive.Run()
-	}
+For a runnable example see pkg/hive/example.
 */
 package hive

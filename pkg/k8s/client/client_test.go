@@ -15,12 +15,12 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -237,7 +237,7 @@ func (s *K8sClientSuite) Test_client(c *C) {
 		flags,
 
 		Cell,
-		hive.NewCell("", fx.Populate(&clientset)),
+		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
 	// Set the server URL and use a low heartbeat timeout for quick test completion.

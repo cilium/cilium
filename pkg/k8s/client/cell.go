@@ -30,7 +30,7 @@ import (
 	"k8s.io/client-go/util/connrotation"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	cilium_clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -48,9 +48,11 @@ import (
 
 // client.Cell provides Clientset, a composition of clientsets to Kubernetes resources
 // used by Cilium.
-var Cell = hive.NewCellWithConfig[Config](
+var Cell = cell.Module(
 	"k8s-client",
-	fx.Provide(newClientset),
+
+	cell.Config(defaultConfig),
+	cell.Provide(newClientset),
 )
 
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
@@ -404,10 +406,7 @@ func isConnReady(c kubernetes.Interface) error {
 	return err
 }
 
-var FakeClientCell = hive.NewCell(
-	"k8s-fake-client",
-	fx.Provide(NewFakeClientset),
-)
+var FakeClientCell = cell.Provide(NewFakeClientset)
 
 type (
 	KubernetesFakeClientset = fake.Clientset

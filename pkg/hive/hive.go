@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -21,6 +20,7 @@ import (
 	"go.uber.org/fx/fxevent"
 	"go.uber.org/fx/fxtest"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -42,10 +42,16 @@ const (
 	defaultEnvPrefix = "CILIUM_"
 )
 
-// Hive is a modular application built from cells.
+// Hive is a framework building modular applications.
+//
+// It implements dependency injection using the fx library and adds on
+// top of it the ability to register command-line flags for parsing prior to
+// object graph construction.
+//
+// See pkg/hive/example for a runnable example application.
 type Hive struct {
 	app                       *fx.App
-	cells                     []*Cell
+	cells                     []cell.Cell
 	dotGraph                  fx.DotGraph
 	envPrefix                 string
 	flags                     *pflag.FlagSet
@@ -60,7 +66,7 @@ type Hive struct {
 //
 // The object graph is not constructed until methods of the hive are
 // invoked.
-func New(v *viper.Viper, flags *pflag.FlagSet, cells ...*Cell) *Hive {
+func New(v *viper.Viper, flags *pflag.FlagSet, cells ...cell.Cell) *Hive {
 	h := &Hive{
 		envPrefix:    defaultEnvPrefix,
 		fxLogger:     logging.NewFxLogger(log),
@@ -79,7 +85,7 @@ func New(v *viper.Viper, flags *pflag.FlagSet, cells ...*Cell) *Hive {
 // NewForTests returns a new hive for testing that does not register
 // the flags declared by the cells. Use in combination with TestApp()
 // to provide cell configurations.
-func NewForTests(cells ...*Cell) *Hive {
+func NewForTests(cells ...cell.Cell) *Hive {
 	return New(viper.New(), pflag.NewFlagSet("", pflag.ContinueOnError), cells...)
 }
 
@@ -142,16 +148,6 @@ func (h *Hive) PrintObjects() {
 		}
 		fmt.Printf("  • %s\n", funcNameAndLocation(hook.OnStop))
 	}
-
-	fmt.Printf("\nConfigurations:\n\n")
-	allSettings := h.viper.AllSettings()
-	for _, cell := range h.cells {
-		if cell.newConfig != nil {
-			cfg := cell.newConfig()
-			h.unmarshalConfig(allSettings, cell, &cfg)
-			fmt.Printf("  ⚙ %s: %#v\n", cell.name, cfg)
-		}
-	}
 }
 
 func (h *Hive) PrintDotGraph() {
@@ -171,12 +167,7 @@ func (h *Hive) getEnvName(option string) string {
 // registerCells registers the command-line flags from all the cells.
 func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 	for _, cell := range h.cells {
-		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-		cell.registerFlags(flags)
-		h.flags.AddFlagSet(flags)
-		flags.VisitAll(func(f *pflag.Flag) {
-			cell.flags = append(cell.flags, f.Name)
-		})
+		cell.RegisterFlags(h.flags)
 	}
 	var err error
 	h.flags.VisitAll(func(f *pflag.Flag) {
@@ -198,45 +189,16 @@ func (h *Hive) registerFlags(parent *pflag.FlagSet) error {
 
 // populate creates the cell configurations from viper and returns the combined
 // fx option for all cells and their configurations.
-func (h *Hive) populate(overrides ...any) (fx.Option, error) {
+func (h *Hive) populate() (fx.Option, error) {
 	allSettings := h.viper.AllSettings()
-
-	overridesMap := map[reflect.Type]any{}
-	for _, cfg := range overrides {
-		overridesMap[reflect.TypeOf(cfg)] = cfg
-	}
 
 	allOpts := []fx.Option{}
 	for _, cell := range h.cells {
-		cell := cell
-
-		cellOpts := cell.opts
-		if cell.newConfig != nil {
-			cfg := cell.newConfig()
-
-			if override, ok := overridesMap[reflect.TypeOf(cfg)]; ok {
-				cfg = override
-			} else {
-				if err := h.unmarshalConfig(allSettings, cell, &cfg); err != nil {
-					return nil, err
-				}
-			}
-			cellOpts = append(cellOpts, fx.Supply(cfg))
+		opt, err := cell.ToOption(allSettings)
+		if err != nil {
+			return nil, err
 		}
-
-		var cellOpt fx.Option
-		if cell.name != "" {
-			// Provide a logger to the cell that has subsys set to the cell name.
-			cellLogger := fx.Decorate(
-				func(log logrus.FieldLogger) logrus.FieldLogger {
-					return log.WithField(logfields.LogSubsys, cell.name)
-				})
-			cellOpts = append(cellOpts, cellLogger)
-			cellOpt = fx.Module(cell.name, cellOpts...)
-		} else {
-			cellOpt = fx.Options(cellOpts...)
-		}
-		allOpts = append(allOpts, cellOpt)
+		allOpts = append(allOpts, opt)
 	}
 	return fx.Options(allOpts...), nil
 }
@@ -267,8 +229,8 @@ func (h *Hive) createApp() error {
 
 // TestApp constructs a test application for the hive with given configuration
 // overrides.
-func (h *Hive) TestApp(tb fxtest.TB, configs ...any) (*fxtest.App, error) {
-	opts, err := h.populate(configs...)
+func (h *Hive) TestApp(tb fxtest.TB) (*fxtest.App, error) {
+	opts, err := h.populate()
 	if err != nil {
 		return nil, err
 	}
@@ -277,54 +239,10 @@ func (h *Hive) TestApp(tb fxtest.TB, configs ...any) (*fxtest.App, error) {
 		opts), nil
 }
 
-func (h *Hive) unmarshalConfig(allSettings map[string]any, cell *Cell, target *any) error {
-	decoder, err := mapstructure.NewDecoder(decoderConfig(target))
-	if err != nil {
-		return fmt.Errorf("failed to create config decoder: %w", err)
-	}
-
-	// As input, only consider the flags declared by CellFlags.
-	input := make(map[string]any)
-	for _, flag := range cell.flags {
-		if v, ok := allSettings[flag]; ok {
-			input[flag] = v
-		} else {
-			return fmt.Errorf("internal error: cell flag %s not found from settings", flag)
-		}
-	}
-
-	if err := decoder.Decode(input); err != nil {
-		return fmt.Errorf("failed to unmarshal config struct %T: %w.\n"+
-			"Hint: field 'FooBar' matches flag 'foo-bar', or use tag `mapstructure:\"flag-name\"` to match field with flag",
-			*target, err)
-	}
-	return nil
-}
-
-func decoderConfig(target *any) *mapstructure.DecoderConfig {
-	return &mapstructure.DecoderConfig{
-		Metadata:         nil,
-		Result:           target,
-		WeaklyTypedInput: true,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToTimeDurationHookFunc(),
-			mapstructure.StringToSliceHookFunc(","),
-		),
-		ZeroFields: true,
-		// Error out if the config struct has fields that are
-		// not found from input.
-		ErrorUnset: true,
-		// Error out also if settings from input are not used.
-		ErrorUnused: true,
-		// Match field FooBarBaz with "foo-bar-baz" by removing
-		// the dashes from the flag.
-		MatchName: func(mapKey, fieldName string) bool {
-			return strings.EqualFold(
-				strings.ReplaceAll(mapKey, "-", ""),
-				fieldName)
-		},
-	}
-
+func funcNameAndLocation(fn any) string {
+	f := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
+	file, line := f.FileLine(f.Entry())
+	return fmt.Sprintf("%s (.../%s/%s:%d)", f.Name(), path.Base(path.Dir(file)), path.Base(file), line)
 }
 
 // lifecycleProxy collects the appended hooks so they can be shown
@@ -340,9 +258,3 @@ func (p *lifecycleProxy) Append(hook fx.Hook) {
 }
 
 var _ fx.Lifecycle = &lifecycleProxy{}
-
-func funcNameAndLocation(fn any) string {
-	f := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
-	file, line := f.FileLine(f.Entry())
-	return fmt.Sprintf("%s (.../%s/%s:%d)", f.Name(), path.Base(path.Dir(file)), path.Base(file), line)
-}

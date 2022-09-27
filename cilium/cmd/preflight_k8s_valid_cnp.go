@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -39,7 +40,12 @@ has an exit code 1 is returned.`,
 		cmd.Flags(),
 
 		k8sClient.Cell,
-		hive.OnStart(validateCNPs),
+
+		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
+			lc.Append(fx.Hook{
+				OnStart: func(context.Context) error { return validateCNPs(clientset, shutdowner) },
+			})
+		}),
 	)
 	hive.SetTimeouts(validateK8sPoliciesTimeout, validateK8sPoliciesTimeout)
 	cmd.Run = func(cmd *cobra.Command, args []string) {

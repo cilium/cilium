@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -99,16 +100,14 @@ var (
 )
 
 func init() {
-	gops.DefaultGopsPort = defaults.GopsPortApiserver
-
 	rootHive = hive.New(
 		vp, rootCmd.Flags(),
 
-		gops.Cell,
+		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
 		healthAPIServerCell,
 
-		hive.Invoke(registerHooks),
+		cell.Invoke(registerHooks),
 	)
 }
 

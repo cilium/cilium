@@ -16,6 +16,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	. "github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -70,10 +71,9 @@ func TestLocalNodeStore(t *testing.T) {
 
 		LocalNodeStoreCell,
 
-		hive.NewCell("test",
-			fx.Provide(func() LocalNodeInitializer { return testInitializer{} }),
-			fx.Invoke(observe),
-			fx.Invoke(update)),
+		cell.Provide(func() LocalNodeInitializer { return testInitializer{} }),
+		cell.Invoke(observe),
+		cell.Invoke(update),
 	)
 
 	app, err := hive.TestApp(t)

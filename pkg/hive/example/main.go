@@ -12,6 +12,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type ExampleConfig struct {
@@ -20,10 +21,18 @@ type ExampleConfig struct {
 	DashedFieldName int
 }
 
-func (ExampleConfig) CellFlags(flags *pflag.FlagSet) {
-	flags.String("foo", "", "foo flag")
-	flags.Float32("bar", 0.25, "bar flag")
-	flags.Int("dashed-field-name", 10, "dashed")
+var defaultExampleConfig = ExampleConfig{
+	Foo:             "",
+	Bar:             0.25,
+	DashedFieldName: 10,
+}
+
+// Flags registers the fields in ExampleConfig as command-line arguments.
+// The receiver is the "defaultExampleConfig" we pass to cell.Config.
+func (def ExampleConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("foo", def.Foo, "foo flag")
+	flags.Float32("bar", def.Bar, "bar flag")
+	flags.Int("dashed-field-name", def.DashedFieldName, "dashed")
 }
 
 type ExampleObject struct {
@@ -46,9 +55,10 @@ func newExampleObject(lc fx.Lifecycle, cfg ExampleConfig) *ExampleObject {
 	return obj
 }
 
-var exampleCell = hive.NewCellWithConfig[ExampleConfig](
+var exampleCell = cell.Module(
 	"example",
-	fx.Provide(newExampleObject),
+	cell.Config(defaultExampleConfig),
+	cell.Provide(newExampleObject),
 )
 
 func main() {
@@ -59,11 +69,21 @@ func main() {
 
 		exampleCell,
 
-		hive.Require[*ExampleObject](),
+		// Mark *ExampleObject as required to force its construction.
+		// By default the provided constructors are not called if
+		// they're not marked required, or used in "fx.Invoke" directly
+		// or indirectly.
+		cell.Invoke(func(*ExampleObject) {}),
 	)
 
+	// After hive.New the command-line flags have been registered.
+	// Before we run the hive, we need to parse the flags.
 	pflag.Parse()
 
 	// Now that flags have been parsed the hive can be started.
+	// This first populates all configurations from Viper (and via pflag)
+	// and then constructs all objects, followed by executing the start
+	// hooks in dependency order. It will then block waiting for signals
+	// after which it will run the stop hooks in reverse order.
 	hive.Run()
 }
