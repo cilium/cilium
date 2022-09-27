@@ -665,15 +665,11 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	if (is_reply)
 		goto skip_egress_gateway;
 
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
-	if (!egress_gw_policy)
-		goto skip_egress_gateway;
+	if (egress_gw_snat_needed(ip4, &target->addr)) {
+		target->egress_gateway = true;
 
-	target->addr = egress_gw_policy->egress_ip;
-	target->egress_gateway = true;
-
-	return true;
-
+		return true;
+	}
 skip_egress_gateway:
 #endif
 
