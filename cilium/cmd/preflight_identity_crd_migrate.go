@@ -11,12 +11,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -51,20 +50,26 @@ func migrateIdentityCmd() *cobra.Command {
 	}
 
 	hive := hive.New(
-		viper.GetViper(),
-		cmd.Flags(),
-
 		k8sClient.Cell,
-		hive.OnStart(migrateIdentities),
+		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					return migrateIdentities(clientset, shutdowner)
+				},
+			})
+		}),
 	)
 	hive.SetTimeouts(opTimeout, opTimeout)
+	hive.RegisterFlags(cmd.Flags())
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		// The internal packages log things. Make sure they follow the setup of
 		// the CLI tool.
 		logging.DefaultLogger.SetFormatter(log.Formatter)
 
-		hive.Run()
+		if err := hive.Run(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	return cmd
@@ -89,8 +94,8 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) error {
-	defer shutdowner.Shutdown()
+func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+	defer shutdowner.Shutdown(nil)
 
 	// Setup global configuration
 	// These are defined in cilium/cmd/kvstore.go

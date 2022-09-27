@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	. "gopkg.in/check.v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -227,25 +226,22 @@ func (s *K8sClientSuite) Test_client(c *C) {
 	srv.Start()
 	defer srv.Close()
 
-	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-
 	var clientset Clientset
 	hive := hive.New(
-		viper.New(),
-		flags,
-
 		Cell,
-		hive.NewCell("", fx.Populate(&clientset)),
+		cell.Invoke(func(c Clientset) { clientset = c }),
 	)
 
 	// Set the server URL and use a low heartbeat timeout for quick test completion.
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	hive.RegisterFlags(flags)
 	flags.Set(option.K8sAPIServer, srv.URL)
 	flags.Set(option.K8sHeartbeatTimeout, "5ms")
 
-	app, err := hive.TestApp(c)
-	c.Assert(err, IsNil)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
-	app.RequireStart()
+	c.Assert(hive.Start(ctx), IsNil)
 
 	// Check that we see the connection probe and version check
 	c.Assert(getRequest("/api/v1/namespaces/kube-system"), NotNil)
@@ -255,7 +251,7 @@ func (s *K8sClientSuite) Test_client(c *C) {
 
 	// Wait until heartbeat has been seen to check that heartbeats are
 	// running.
-	err = testutils.WaitUntil(
+	err := testutils.WaitUntil(
 		func() bool { return getRequest("/healthz") != nil },
 		time.Second)
 	c.Assert(err, IsNil)
@@ -277,5 +273,5 @@ func (s *K8sClientSuite) Test_client(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(getRequest("/apis/cilium.io/v2/namespaces/test/ciliumendpoints/ces"), NotNil)
 
-	app.RequireStop()
+	c.Assert(hive.Stop(ctx), IsNil)
 }

@@ -141,6 +141,8 @@ github.com/aws/smithy-go/time
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
+# github.com/benbjohnson/clock v1.3.0
+## explicit; go 1.15
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -884,16 +886,6 @@ go.uber.org/dig/internal/digerror
 go.uber.org/dig/internal/digreflect
 go.uber.org/dig/internal/dot
 go.uber.org/dig/internal/graph
-# go.uber.org/fx v1.18.1
-## explicit; go 1.17
-go.uber.org/fx
-go.uber.org/fx/fxevent
-go.uber.org/fx/fxtest
-go.uber.org/fx/internal/fxclock
-go.uber.org/fx/internal/fxlog
-go.uber.org/fx/internal/fxreflect
-go.uber.org/fx/internal/lifecycle
-go.uber.org/fx/internal/testutil
 # go.uber.org/goleak v1.2.0
 ## explicit; go 1.18
 go.uber.org/goleak

@@ -5,19 +5,18 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.uber.org/fx"
-	"golang.org/x/sys/unix"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -58,14 +58,6 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   binaryName,
 		Short: "Run " + binaryName,
-		Run: func(cobraCmd *cobra.Command, args []string) {
-			cmdRefDir := Vp.GetString(option.CMDRef)
-			if cmdRefDir != "" {
-				genMarkdown(cobraCmd, cmdRefDir)
-				os.Exit(0)
-			}
-			operatorHive.Run()
-		},
 	}
 
 	shutdownSignal = make(chan struct{})
@@ -94,33 +86,22 @@ var (
 	// elected leader. Otherwise, it is false.
 	IsLeader atomic.Value
 
-	operatorHive *hive.Hive
+	operatorHive *hive.Hive = newOperatorHive()
+
+	Vp *viper.Viper = operatorHive.Viper()
 )
 
 func Execute() {
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, unix.SIGINT, unix.SIGTERM)
-
-	go func() {
-		<-signals
-	}()
-
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-var operatorCell = hive.NewCell(
-	"operator",
-	fx.Invoke(registerOperatorHooks),
-)
-
-func registerOperatorHooks(lc fx.Lifecycle, clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
+func registerOperatorHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
-	initEnv()
 
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			go runOperator(clientset, shutdowner)
 			return nil
@@ -132,30 +113,46 @@ func registerOperatorHooks(lc fx.Lifecycle, clientset k8sClient.Clientset, shutd
 	})
 }
 
-func init() {
-	rootCmd.AddCommand(MetricsCmd)
+func newOperatorHive() *hive.Hive {
+	h := hive.New(
+		gops.Cell(defaults.GopsPortOperator),
+		k8sClient.Cell,
 
-	gops.DefaultGopsPort = defaults.GopsPortOperator
+		cell.Invoke(registerOperatorHooks),
+	)
+	h.RegisterFlags(rootCmd.Flags())
 
 	// Enable fallback to direct API probing to check for support of Leases in
 	// case Discovery API fails.
-	Vp.Set(option.K8sEnableAPIDiscovery, true)
+	h.Viper().Set(option.K8sEnableAPIDiscovery, true)
 
-	operatorHive = hive.New(
-		Vp,
-		rootCmd.Flags(),
+	return h
+}
 
-		gops.Cell,
-		k8sClient.Cell,
-		operatorCell,
-	)
+func init() {
+	rootCmd.AddCommand(MetricsCmd)
+
+	rootCmd.Run = func(cobraCmd *cobra.Command, args []string) {
+		cmdRefDir := operatorHive.Viper().GetString(option.CMDRef)
+		if cmdRefDir != "" {
+			genMarkdown(cobraCmd, cmdRefDir)
+			os.Exit(0)
+		}
+
+		initEnv()
+
+		if err := operatorHive.Run(); err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func initEnv() {
+	vp := operatorHive.Viper()
 	// Prepopulate option.Config with options from CLI.
-	option.Config.Populate(Vp)
-	operatorOption.Config.Populate(Vp)
-	operatorAddr = Vp.GetString(operatorOption.OperatorAPIServeAddr)
+	option.Config.Populate(vp)
+	operatorOption.Config.Populate(vp)
+	operatorAddr = vp.GetString(operatorOption.OperatorAPIServeAddr)
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
@@ -165,7 +162,7 @@ func initEnv() {
 		log.Fatal(err)
 	}
 
-	option.LogRegisteredOptions(Vp, log)
+	option.LogRegisteredOptions(vp, log)
 }
 
 func doCleanup() {
@@ -212,8 +209,9 @@ func checkStatus(clientset k8sClient.Clientset) error {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
+func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	log.Infof("Cilium Operator %s", version.Version)
+
 	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
 
@@ -309,7 +307,7 @@ func runOperator(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) {
 			OnStoppedLeading: func() {
 				log.WithField("operator-id", operatorID).Info("Leader election lost")
 				// Cleanup everything here, and exit.
-				shutdowner.Shutdown()
+				shutdowner.Shutdown(hive.ShutdownWithError(errors.New("Leader election lost")))
 			},
 			OnNewLeader: func(identity string) {
 				if identity == operatorID {
@@ -458,7 +456,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 							}
 							sc.UpdateService(slimSvc, nil)
 							svcGetter = operatorWatchers.NewServiceGetter(&sc)
-						case errors.IsNotFound(err):
+						case k8sErrors.IsNotFound(err):
 							scopedLog.Error("Service not found in k8s")
 						default:
 							scopedLog.Warning("Unable to get service spec from k8s, this might cause network disruptions with etcd")

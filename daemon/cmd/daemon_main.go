@@ -21,7 +21,6 @@ import (
 	"github.com/go-openapi/loads"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/server"
@@ -46,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -99,7 +99,7 @@ const (
 )
 
 var (
-	Vp *viper.Viper = viper.New()
+	Vp *viper.Viper
 
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, daemonSubsys)
 
@@ -1548,7 +1548,7 @@ func (d *Daemon) initKVStore() {
 //
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
-func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
+func registerDaemonHooks(lc hive.Lifecycle, shutdowner hive.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
 	if cfg.SkipDaemon {
 		return nil
 	}
@@ -1563,7 +1563,7 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 		clientset.Disable()
 	}
 
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
 			// by later commits.
@@ -1590,7 +1590,7 @@ func registerDaemonHooks(lc fx.Lifecycle, shutdowner fx.Shutdowner, cfg DaemonCe
 }
 
 // runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdowner, clientset k8sClient.Clientset) {
+func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shutdowner, clientset k8sClient.Clientset) {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1765,7 +1765,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 		err := <-errs
 		if err != nil {
 			log.WithError(err).Error("Cannot start metrics server")
-			shutdowner.Shutdown()
+			shutdowner.Shutdown(hive.ShutdownWithError(err))
 		}
 	}(initMetrics())
 
@@ -1854,7 +1854,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner fx.Shutdo
 	err = srv.Serve()
 	if err != nil {
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
-		shutdowner.Shutdown()
+		shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
 }
 

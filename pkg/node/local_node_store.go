@@ -7,9 +7,8 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/fx"
-
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/stream"
@@ -41,20 +40,16 @@ type LocalNodeStore interface {
 
 // LocalNodeStoreParams are the inputs needed for constructing LocalNodeStore.
 type LocalNodeStoreParams struct {
-	fx.In
+	cell.In
 
-	Lifecycle fx.Lifecycle
+	Lifecycle hive.Lifecycle
 	Init      LocalNodeInitializer `optional:"true"`
 }
 
 // LocalNodeStoreCell provides the LocalNodeStore when given a LocalNodeInitializer.
 // The LocalNodeStore is the canonical owner of `types.Node` for the local node and
 // provides a reactive API for observing and updating it.
-var LocalNodeStoreCell = hive.NewCell(
-	"local-node-store",
-
-	fx.Provide(newLocalNodeStore),
-)
+var LocalNodeStoreCell = cell.Provide(newLocalNodeStore)
 
 // localNodeStore implements the LocalNodeStore using a simple in-memory
 // backing. Reflecting the new state to persistent stores, e.g. kvstore or k8s
@@ -81,7 +76,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 	}
 	s.cond = sync.NewCond(&s.mu)
 
-	params.Lifecycle.Append(fx.Hook{
+	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()

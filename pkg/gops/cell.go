@@ -10,38 +10,36 @@ import (
 	gopsAgent "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var (
-	// DefaultGopsPort is the default for --gops-port option.
-	DefaultGopsPort = uint16(0)
-
-	// Cell runs the gops agent, a tool to list and diagnose Go processes.
-	// See https://github.com/google/gops.
-	Cell = hive.NewCellWithConfig[GopsConfig](
+// Cell creates the cell for the gops agent, a tool to list and diagnose Go processes.
+// See https://github.com/google/gops.
+func Cell(defaultPort uint16) cell.Cell {
+	return cell.Module(
 		"gops",
-		fx.Invoke(registerGopsHooks),
+		cell.Config(GopsConfig{GopsPort: defaultPort}),
+		cell.Invoke(registerGopsHooks),
 	)
-)
+}
 
 type GopsConfig struct {
 	GopsPort uint16 // Port for gops server to listen on
 }
 
-func (GopsConfig) CellFlags(flags *pflag.FlagSet) {
-	flags.Uint16(option.GopsPort, DefaultGopsPort, "Port for gops server to listen on")
+func (def GopsConfig) Flags(flags *pflag.FlagSet) {
+	flags.Uint16(option.GopsPort, def.GopsPort, "Port for gops server to listen on")
 }
 
-func registerGopsHooks(lc fx.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
+func registerGopsHooks(lc hive.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {
 	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GopsPort)
 	addrField := logrus.Fields{"address": addr, logfields.LogSubsys: "gops"}
 	log = log.WithFields(addrField)
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			log.Info("Started gops server")
 			return gopsAgent.Listen(gopsAgent.Options{

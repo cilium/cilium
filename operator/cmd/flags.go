@@ -8,17 +8,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/option"
 	pkgOption "github.com/cilium/cilium/pkg/option"
-)
-
-var (
-	Vp *viper.Viper = viper.New()
 )
 
 func init() {
