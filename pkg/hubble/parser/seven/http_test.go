@@ -43,8 +43,9 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 			Method:   "POST",
 			URL:      requestPath,
 			Protocol: "HTTP/1.1",
-			Headers: map[string][]string{
-				"Host": {"myhost"},
+			Headers: http.Header{
+				"Host":        {"myhost"},
+				"Traceparent": {"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 			},
 		},
 	}
@@ -133,8 +134,12 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		Method:   "POST",
 		Url:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers:  []*flowpb.HTTPHeader{{Key: "Host", Value: "myhost"}},
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+		},
 	}, f.GetL7().GetHttp())
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
 }
 
 func TestDecodeL7HTTPRecordResponse(t *testing.T) {
@@ -157,8 +162,9 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 			Method:   "POST",
 			URL:      requestPath,
 			Protocol: "HTTP/1.1",
-			Headers: map[string][]string{
-				"Host": {"myhost"},
+			Headers: http.Header{
+				"Host":        {"myhost"},
+				"Traceparent": {"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
 			},
 		},
 	}
@@ -247,8 +253,12 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		Method:   "POST",
 		Url:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers:  []*flowpb.HTTPHeader{{Key: "Host", Value: "myhost"}},
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+		},
 	}, f.GetL7().GetHttp())
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
 }
 
 func TestDecodeL7HTTPResponseTime(t *testing.T) {
