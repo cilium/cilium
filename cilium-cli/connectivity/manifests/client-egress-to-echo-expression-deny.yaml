@@ -1,17 +1,16 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-egress-to-echo-expression-deny
 spec:
   endpointSelector:
     matchExpressions:
-      - { key: 'name', operator: In, values: ['client'] }
+    - { key: 'name', operator: In, values: [ 'client' ] }
   egressDeny:
-    - toPorts:
-        - ports:
-            - port: "8080"
-              protocol: TCP
-      toEndpoints:
-        - matchExpressions:
-            - { key: 'kind', operator: In, values: [ "echo" ] }
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+    toEndpoints:
+    - matchExpressions:
+      - { key: 'kind', operator: In, values: [ "echo" ] }
