@@ -6,7 +6,6 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-egress-l7-http-named-port
 spec:
   description: "Allow GET one.one.one.one:80/ and GET <echo>:<http-80>/ from client2"
