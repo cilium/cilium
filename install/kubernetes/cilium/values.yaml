@@ -1520,6 +1520,11 @@ loadBalancer:
     # Any service exposing one of these ports will be automatically redirected.
     # Fine-grained control can be achieved by using the service annotation.
     ports: []
+    # -- Default LB algorithm
+    # The default LB algorithm to be used for services, which can be overridden by the
+    # service annotation (e.g. io.cilium.service/lb-algorithm)
+    # Applicable values: round_robin, least_request, random
+    algorithm: round_robin
 
 # -- Configure N-S k8s service loadbalancing
 nodePort:
