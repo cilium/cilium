@@ -3,7 +3,6 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-egress-to-cidr
 spec:
   endpointSelector:
