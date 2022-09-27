@@ -28,6 +28,62 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
 }
 
+static __always_inline
+bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
+{
+	struct egress_gw_policy_entry *egress_gw_policy;
+	struct endpoint_info *gateway_node_ep;
+
+	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	if (!egress_gw_policy)
+		return false;
+
+	/* If the gateway node is the local node, then just let the
+	 * packet go through, as it will be SNATed later on by
+	 * handle_nat_fwd().
+	 */
+	gateway_node_ep = __lookup_ip4_endpoint(egress_gw_policy->gateway_ip);
+	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
+		return false;
+
+	*tunnel_endpoint = egress_gw_policy->gateway_ip;
+	return true;
+}
+
+static __always_inline
+bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
+{
+	struct egress_gw_policy_entry *egress_gw_policy;
+
+	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	if (!egress_gw_policy)
+		return false;
+
+	*snat_addr = egress_gw_policy->egress_ip;
+	return true;
+}
+
+static __always_inline
+bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
+				    __u32 *dst_id)
+{
+	struct egress_gw_policy_entry *egress_policy;
+	struct remote_endpoint_info *info;
+
+	/* Find a matching policy by looking up the reverse address tuple: */
+	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
+	if (!egress_policy)
+		return false;
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	if (!info || info->tunnel_endpoint == 0)
+		return false;
+
+	*tunnel_endpoint = info->tunnel_endpoint;
+	*dst_id = info->sec_label;
+	return true;
+}
+
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifdef ENABLE_SRV6

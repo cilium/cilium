@@ -1974,30 +1974,12 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		return DROP_INVALID;
 
 #if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
-	/* Traffic from clients to egress gateway nodes reaches said gateways
-	 * by a vxlan tunnel. If we are not using TUNNEL_MODE, we need to
-	 * identify reverse traffic from the gateway to clients and also steer
-	 * it via the vxlan tunnel to avoid issues with iptables dropping these
-	 * packets. We do this in the code below, by performing a lookup in the
-	 * egress gateway map using a reverse address tuple. A match means that
-	 * the corresponding forward traffic was forwarded to the egress gateway
-	 * via the tunnel.
+	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
+	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
+	 * potentially dropping the packets).
 	 */
-	{
-		struct egress_gw_policy_entry *egress_policy;
-
-		egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
-		if (egress_policy) {
-			struct remote_endpoint_info *info;
-
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
-			if (info && info->tunnel_endpoint != 0) {
-				tunnel_endpoint = info->tunnel_endpoint;
-				dst_id = info->sec_label;
-				goto encap_redirect;
-			}
-		}
-	}
+	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_id))
+		goto encap_redirect;
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 	tuple.nexthdr = ip4->protocol;
