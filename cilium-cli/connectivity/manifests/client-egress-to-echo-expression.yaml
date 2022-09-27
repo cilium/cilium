@@ -1,12 +1,11 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-egress-to-echo-expression
 spec:
   endpointSelector:
     matchExpressions:
-      - {key: 'other', operator: Exists}
+    - { key: 'other', operator: Exists }
   egress:
   - toPorts:
     - ports:

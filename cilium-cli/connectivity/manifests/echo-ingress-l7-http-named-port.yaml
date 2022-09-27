@@ -2,7 +2,6 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: echo-ingress-l7-http-named-port
 spec:
   description: "Allow other client to GET on echo via named port"

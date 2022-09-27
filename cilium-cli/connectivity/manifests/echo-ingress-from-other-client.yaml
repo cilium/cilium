@@ -1,7 +1,6 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: echo-ingress-from-other-client
 spec:
   description: "Allow other client to contact echo"

@@ -1,7 +1,6 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  namespace: cilium-test
   name: client-ingress-from-client2-icmp
 spec:
   description: "Allow other client to contact another client via ICMP"
@@ -9,9 +8,9 @@ spec:
     matchLabels:
       kind: client
   ingress:
-    - fromEndpoints:
-        - matchLabels:
-            other: client
-      icmps:
-        - fields:
-            - type: 8
+  - fromEndpoints:
+    - matchLabels:
+        other: client
+    icmps:
+    - fields:
+      - type: 8
