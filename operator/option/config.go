@@ -257,6 +257,9 @@ const (
 	// LoadBalancerL7Ports is a list of service ports that will be automatically redirected to backend.
 	LoadBalancerL7Ports = "loadbalancer-l7-ports"
 
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm = "loadbalancer-l7-algorithm"
+
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
@@ -531,6 +534,9 @@ type OperatorConfig struct {
 	// EnvoyLoadBalancerPorts is a list of service ports that will be automatically redirected to Envoy
 	LoadBalancerL7Ports []string
 
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm string
+
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
 
@@ -617,6 +623,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
 	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
+	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)

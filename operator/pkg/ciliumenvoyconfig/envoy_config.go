@@ -5,6 +5,7 @@ package ciliumenvoyconfig
 
 import (
 	"fmt"
+	"strings"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -131,10 +132,14 @@ func (m *Manager) getResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource
 }
 
 func (m *Manager) getClusterResources(svc *slim_corev1.Service) ([]ciliumv2.XDSResource, error) {
+	lbPolicy, ok := envoy_config_cluster_v3.Cluster_LbPolicy_value[strings.ToUpper(m.algorithm)]
+	if !ok {
+		lbPolicy = int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)
+	}
 	cluster := &envoy_config_cluster_v3.Cluster{
 		Name:           getName(svc),
 		ConnectTimeout: &durationpb.Duration{Seconds: 5},
-		LbPolicy:       envoy_config_cluster_v3.Cluster_ROUND_ROBIN,
+		LbPolicy:       envoy_config_cluster_v3.Cluster_LbPolicy(lbPolicy),
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 				UpstreamProtocolOptions: &envoy_config_upstream.HttpProtocolOptions_UseDownstreamProtocolConfig{

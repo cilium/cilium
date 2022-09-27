@@ -224,6 +224,7 @@ data:
   loadbalancer-l7: "envoy"
   enable-envoy-config: "true"
   loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join " " | quote }}
+  loadbalancer-l7-algorithm: {{ .Values.loadBalancer.l7.algorithm | quote }}
 {{- end }}
 {{- end }}
 
