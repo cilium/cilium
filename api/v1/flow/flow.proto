@@ -87,6 +87,10 @@ message Flow {
     // proxy_port indicates the port of the proxy to which the flow was forwarded
     uint32 proxy_port = 29;
 
+    // trace_context contains information about a trace related to the flow, if
+    // any.
+    TraceContext trace_context = 30;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -154,6 +158,22 @@ message Layer7 {
         HTTP http = 101;
         Kafka kafka = 102;
     }
+}
+
+// TraceContext contains trace context propagation data, ie information about a
+// distributed trace.
+// For more information about trace context, check the W3C Trace Context
+// specification: https://www.w3.org/TR/trace-context/
+message TraceContext {
+    // parent identifies the incoming request in a tracing system.
+    TraceParent parent = 1;
+}
+
+// TraceParent identifies the incoming request in a tracing system.
+message TraceParent {
+    // trace_id is a unique value that identifies a trace. It is a byte array
+    // represented as a hex string.
+    string trace_id = 1;
 }
 
 message Endpoint {

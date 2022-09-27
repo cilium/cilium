@@ -36,6 +36,8 @@
     - [TCP](#flow-TCP)
     - [TCPFlags](#flow-TCPFlags)
     - [TimeNotification](#flow-TimeNotification)
+    - [TraceContext](#flow-TraceContext)
+    - [TraceParent](#flow-TraceParent)
     - [UDP](#flow-UDP)
     - [Workload](#flow-Workload)
   
@@ -285,6 +287,7 @@ EventTypeFilter is a filter describing a particular event type
 | debug_capture_point | [DebugCapturePoint](#flow-DebugCapturePoint) |  | Only applicable to cilium debug capture events, blank for other types |
 | interface | [NetworkInterface](#flow-NetworkInterface) |  | interface is the network interface on which this flow was observed |
 | proxy_port | [uint32](#uint32) |  | proxy_port indicates the port of the proxy to which the flow was forwarded |
+| trace_context | [TraceContext](#flow-TraceContext) |  | trace_context contains information about a trace related to the flow, if any. |
 | Summary | [string](#string) |  | **Deprecated.** This is a temporary workaround to support summary field for pb.Flow without duplicating logic from the old parser. This field will be removed once we fully migrate to the new parser. |
 
 
@@ -685,6 +688,39 @@ that happened before the events were captured by Hubble.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="flow-TraceContext"></a>
+
+### TraceContext
+TraceContext contains trace context propagation data, ie information about a
+distributed trace.
+For more information about trace context, check the W3C Trace Context
+specification: https://www.w3.org/TR/trace-context/
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| parent | [TraceParent](#flow-TraceParent) |  | parent identifies the incoming request in a tracing system. |
+
+
+
+
+
+
+<a name="flow-TraceParent"></a>
+
+### TraceParent
+TraceParent identifies the incoming request in a tracing system.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| trace_id | [string](#string) |  | trace_id is a unique value that identifies a trace. It is a byte array represented as a hex string. |
 
 
 
