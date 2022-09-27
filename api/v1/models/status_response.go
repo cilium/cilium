@@ -49,6 +49,9 @@ type StatusResponse struct {
 	// Status of CNI chaining
 	CniChaining *CNIChainingStatus `json:"cni-chaining,omitempty"`
 
+	// Status of the CNI configuration file
+	CniFile *Status `json:"cni-file,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -127,6 +130,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateCniChaining(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateCniFile(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -318,6 +325,24 @@ func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
 		if err := m.CniChaining.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cni-chaining")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateCniFile(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CniFile) { // not required
+		return nil
+	}
+
+	if m.CniFile != nil {
+		if err := m.CniFile.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-file")
 			}
 			return err
 		}

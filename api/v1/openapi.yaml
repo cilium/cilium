@@ -1727,6 +1727,9 @@ definitions:
       kvstore:
         description: Status of key/value datastore
         "$ref": "#/definitions/Status"
+      cni-file:
+        description: Status of the CNI configuration file
+        "$ref": "#/definitions/Status"
       container-runtime:
         description: Status of local container runtime
         "$ref": "#/definitions/Status"

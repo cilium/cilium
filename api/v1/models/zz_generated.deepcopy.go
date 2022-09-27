@@ -1062,6 +1062,11 @@ func (in *StatusResponse) DeepCopyInto(out *StatusResponse) {
 		*out = new(CNIChainingStatus)
 		**out = **in
 	}
+	if in.CniFile != nil {
+		in, out := &in.CniFile, &out.CniFile
+		*out = new(Status)
+		**out = **in
+	}
 	if in.ContainerRuntime != nil {
 		in, out := &in.ContainerRuntime, &out.ContainerRuntime
 		*out = new(Status)
