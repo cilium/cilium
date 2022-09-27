@@ -11,11 +11,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -58,7 +58,7 @@ type DaemonCellConfig struct {
 	SkipDaemon bool
 }
 
-func (DaemonCellConfig) CellFlags(flags *pflag.FlagSet) {
+func (DaemonCellConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("skip-daemon", false, "Skip running of the daemon, only start normal cells")
 	flags.MarkHidden("skip-daemon")
 }
@@ -69,19 +69,18 @@ func init() {
 	registerBootstrapMetrics()
 	initializeFlags()
 
-	gops.DefaultGopsPort = defaults.GopsPortAgent
-
 	agentHive = hive.New(
 		Vp,
 		RootCmd.PersistentFlags(),
 
-		gops.Cell,
+		gops.Cell(defaults.GopsPortAgent),
 		k8sClient.Cell,
 
-		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
+		cell.Config(DaemonCellConfig{}),
+		cell.Invoke(registerDaemonHooks),
 
 		node.LocalNodeStoreCell,
-		hive.Invoke(func(store node.LocalNodeStore) {
+		cell.Invoke(func(store node.LocalNodeStore) {
 			// Set the global LocalNodeStore. This is to retain the API of getters and setters
 			// defined in pkg/node/address.go until uses of them have been converted to use
 			// LocalNodeStore directly.

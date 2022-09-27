@@ -12,19 +12,20 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
-	"go.uber.org/fx/fxtest"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/stream"
 )
+
+const testTimeout = time.Minute
 
 func testStore(t *testing.T, node *corev1.Node, store Store[*corev1.Node]) {
 	var (
@@ -77,8 +78,8 @@ func TestResourceWithFakeClient(t *testing.T) {
 		},
 	}
 
-	runTestWithNodesResource(t, func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	runTestWithNodesResource(t, func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
 
 		// Create the initial version of the node.
@@ -88,8 +89,6 @@ func TestResourceWithFakeClient(t *testing.T) {
 
 		errs := make(chan error, 1)
 		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, res)
-
-		app.RequireStart()
 
 		// First event should be the node (initial set)
 		(<-xs).Handle(
@@ -203,21 +202,25 @@ func TestResourceWithFakeClient(t *testing.T) {
 			t.Fatalf("expected nil error, got %s", err)
 		}
 
-		// Finally check that the app stops correctly. Note that we're not doing this in a
+		// Finally check that the hive stops correctly. Note that we're not doing this in a
 		// defer to avoid potentially deadlocking on the Fatal calls.
-		app.RequireStop()
+		if err := hive.Stop(ctx); err != nil {
+			t.Fatalf("hive.Stop failed: %s", err)
+		}
 	})
 }
 
 func TestResourceCompletionOnStop(t *testing.T) {
-	runTestWithNodesResource(t, func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	runTestWithNodesResource(t, func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+		ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 		defer cancel()
 
 		errs := make(chan error, 1)
 		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, res)
 
-		app.RequireStart()
+		if err := hive.Start(ctx); err != nil {
+			t.Fatalf("hive.Start failed: %s", err)
+		}
 
 		// We should only see a sync event
 		(<-xs).Handle(
@@ -243,8 +246,10 @@ func TestResourceCompletionOnStop(t *testing.T) {
 			t.Fatalf("expected empty store, got %d items", len(store.List()))
 		}
 
-		// Stop the application to stop the resource.
-		app.RequireStop()
+		// Stop the hive to stop the resource.
+		if err := hive.Stop(ctx); err != nil {
+			t.Fatalf("hive.Stop failed: %s", err)
+		}
 
 		// No event should be observed.
 		ev, ok := <-xs
@@ -262,14 +267,12 @@ func TestResourceCompletionOnStop(t *testing.T) {
 }
 
 func TestResourceSyncEventRetry(t *testing.T) {
-	runTestWithNodesResource(t, func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+	runTestWithNodesResource(t, func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		errs := make(chan error, 1)
 		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, res)
-
-		app.RequireStart()
 
 		expectedErr := errors.New("sync")
 		numRetries := counter{}
@@ -290,7 +293,9 @@ func TestResourceSyncEventRetry(t *testing.T) {
 			)
 		}
 
-		app.RequireStop()
+		if err := hive.Stop(ctx); err != nil {
+			t.Fatalf("hive.Stop failed: %s", err)
+		}
 
 		if numRetries.Get() != defaultMaxRetries {
 			t.Fatalf("expected to see %d retry attempts, saw %d", defaultMaxRetries, numRetries)
@@ -304,14 +309,12 @@ func TestResourceSyncEventRetry(t *testing.T) {
 }
 
 func TestResourceSyncEventRetryOnce(t *testing.T) {
-	runTestWithNodesResource(t, func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+	runTestWithNodesResource(t, func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		errs := make(chan error, 1)
 		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, res)
-
-		app.RequireStart()
 
 		expectedErr := errors.New("update")
 		numRetries := counter{}
@@ -337,7 +340,9 @@ func TestResourceSyncEventRetryOnce(t *testing.T) {
 			)
 		}
 
-		app.RequireStop()
+		if err := hive.Stop(ctx); err != nil {
+			t.Fatalf("hive.Stop failed: %s", err)
+		}
 
 		if numRetries.Get() != 1 {
 			t.Fatalf("expected to see 1 retry attempt, saw %d", numRetries)
@@ -361,7 +366,7 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 		},
 	}
 
-	runTestWithNodesResource(t, func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+	runTestWithNodesResource(t, func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
@@ -372,8 +377,6 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 
 		errs := make(chan error, 1)
 		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, res)
-
-		app.RequireStart()
 
 		expectedErr := errors.New("sync")
 		numRetries := counter{}
@@ -397,7 +400,9 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 			)
 		}
 
-		app.RequireStop()
+		if err := hive.Stop(ctx); err != nil {
+			t.Fatalf("hive.Stop failed: %s", err)
+		}
 
 		if numRetries.Get() != defaultMaxRetries {
 			t.Fatalf("expected to see %d retry attempts, saw %d", defaultMaxRetries, numRetries)
@@ -414,35 +419,28 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 // Helpers
 //
 
-func runTestWithNodesResource(t *testing.T, test func(app *fxtest.App, res Resource[*corev1.Node], cs *k8sClient.FakeClientset)) {
+func runTestWithNodesResource(t *testing.T, test func(hive *hive.Hive, res Resource[*corev1.Node], cs *k8sClient.FakeClientset)) {
 	nodesLW := func(c k8sClient.Clientset) cache.ListerWatcher {
 		return utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
 	}
 
-	var (
-		res Resource[*corev1.Node]
-		cs  *k8sClient.FakeClientset
-	)
-
-	// Create a test application with a fake clientset and the nodes resource,
-	// and pull the objects into 'res' and 'cs'.
-	testApp, err := hive.New(
+	var h *hive.Hive
+	h = hive.New(
 		viper.New(),
 		pflag.NewFlagSet("", pflag.ContinueOnError),
 
 		k8sClient.FakeClientCell,
-		hive.NewCell("test",
-			fx.Provide(
-				NewResourceConstructorWithRateLimiter[*corev1.Node](testRateLimiter(), nodesLW),
-			),
-			fx.Populate(&res, &cs),
-		)).TestApp(t)
 
-	if err != nil {
-		t.Fatalf("TestApp() error: %s", err)
-	}
+		cell.Provide(NewResourceConstructorWithRateLimiter[*corev1.Node](testRateLimiter(), nodesLW)),
+		cell.Invoke(func(lc hive.Lifecycle, res Resource[*corev1.Node], cs *k8sClient.FakeClientset) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					test(h, res, cs)
+					return nil
+				},
+			})
+		}))
 
-	test(testApp, res, cs)
 }
 
 type counter struct{ int64 }

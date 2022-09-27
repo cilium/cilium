@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -47,15 +47,15 @@ func main() {
 		resourcesCell,
 		printServicesCell,
 
-		hive.Require[*PrintServices](),
+		cell.Invoke(func(*PrintServices) {}),
 	)
 	pflag.Parse()
 	hive.Run()
 }
 
-var resourcesCell = hive.NewCell(
+var resourcesCell = cell.Module(
 	"resources",
-	fx.Provide(
+	cell.Provide(
 		resource.NewResourceConstructor[*corev1.Pod](
 			func(c client.Clientset) cache.ListerWatcher {
 				return utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
@@ -69,9 +69,9 @@ var resourcesCell = hive.NewCell(
 	),
 )
 
-var printServicesCell = hive.NewCell(
+var printServicesCell = cell.Module(
 	"print-services",
-	fx.Provide(newPrintServices),
+	cell.Provide(newPrintServices),
 )
 
 type PrintServices struct {
@@ -84,9 +84,9 @@ type PrintServices struct {
 }
 
 type printServicesParams struct {
-	fx.In
+	cell.In
 
-	Lifecycle fx.Lifecycle
+	Lifecycle hive.Lifecycle
 	Pods      resource.Resource[*corev1.Pod]
 	Services  resource.Resource[*corev1.Service]
 }
@@ -102,7 +102,7 @@ func newPrintServices(p printServicesParams) (*PrintServices, error) {
 		pods:     p.Pods,
 		services: p.Services,
 	}
-	p.Lifecycle.Append(fx.Hook{OnStart: ps.start, OnStop: ps.stop})
+	p.Lifecycle.Append(hive.Hook{OnStart: ps.start, OnStop: ps.stop})
 	return ps, nil
 }
 

@@ -9,10 +9,10 @@ import (
 	"net/http"
 
 	"github.com/spf13/pflag"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -21,21 +21,17 @@ type HealthAPIServerConfig struct {
 	ClusterMeshHealthPort int
 }
 
-func (HealthAPIServerConfig) CellFlags(flags *pflag.FlagSet) {
+func (HealthAPIServerConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int(option.ClusterMeshHealthPort, defaults.ClusterMeshHealthPort, "TCP port for ClusterMesh apiserver health API")
 }
 
-var healthAPIServerCell = hive.NewCellWithConfig[HealthAPIServerConfig](
+var healthAPIServerCell = cell.Module(
 	"health-api-server",
-	fx.Provide(newHealthAPIServer),
-	fx.Invoke(func(HealthAPIServer) {}), // Always instantiate.
+	cell.Config(HealthAPIServerConfig{}),
+	cell.Invoke(registerHealthAPIServer),
 )
 
-type HealthAPIServer struct {
-	*http.Server
-}
-
-func newHealthAPIServer(lc fx.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig) HealthAPIServer {
+func registerHealthAPIServer(lc hive.Lifecycle, clientset k8sClient.Clientset, cfg HealthAPIServerConfig) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +53,7 @@ func newHealthAPIServer(lc fx.Lifecycle, clientset k8sClient.Clientset, cfg Heal
 		Addr:    fmt.Sprintf(":%d", cfg.ClusterMeshHealthPort),
 	}
 
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			go func() {
 				log.Info("Started health API")
@@ -69,6 +65,4 @@ func newHealthAPIServer(lc fx.Lifecycle, clientset k8sClient.Clientset, cfg Heal
 		},
 		OnStop: srv.Shutdown,
 	})
-
-	return HealthAPIServer{srv}
 }

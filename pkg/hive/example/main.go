@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type ExampleConfig struct {
@@ -20,10 +20,18 @@ type ExampleConfig struct {
 	DashedFieldName int
 }
 
-func (ExampleConfig) CellFlags(flags *pflag.FlagSet) {
-	flags.String("foo", "", "foo flag")
-	flags.Float32("bar", 0.25, "bar flag")
-	flags.Int("dashed-field-name", 10, "dashed")
+var defaultExampleConfig = ExampleConfig{
+	Foo:             "",
+	Bar:             0.25,
+	DashedFieldName: 10,
+}
+
+// Flags registers the fields in ExampleConfig as command-line arguments.
+// The receiver is the "defaultExampleConfig" we pass to cell.Config.
+func (def ExampleConfig) Flags(flags *pflag.FlagSet) {
+	flags.String("foo", def.Foo, "foo flag")
+	flags.Float32("bar", def.Bar, "bar flag")
+	flags.Int("dashed-field-name", def.DashedFieldName, "dashed")
 }
 
 type ExampleObject struct {
@@ -40,15 +48,16 @@ func (o *ExampleObject) onStop(context.Context) error {
 	return nil
 }
 
-func newExampleObject(lc fx.Lifecycle, cfg ExampleConfig) *ExampleObject {
+func newExampleObject(lc hive.Lifecycle, cfg ExampleConfig) *ExampleObject {
 	obj := &ExampleObject{cfg}
-	lc.Append(fx.Hook{OnStart: obj.onStart, OnStop: obj.onStop})
+	lc.Append(hive.Hook{OnStart: obj.onStart, OnStop: obj.onStop})
 	return obj
 }
 
-var exampleCell = hive.NewCellWithConfig[ExampleConfig](
+var exampleCell = cell.Module(
 	"example",
-	fx.Provide(newExampleObject),
+	cell.Config(defaultExampleConfig),
+	cell.Provide(newExampleObject),
 )
 
 func main() {
@@ -59,11 +68,20 @@ func main() {
 
 		exampleCell,
 
-		hive.Require[*ExampleObject](),
+		// Invoke a function that takes *ExampleObject as a dependency in order
+		// to force its construction. Invoke functions usually perform other tasks,
+		// such as introducing objects to each other.
+		cell.Invoke(func(*ExampleObject) {}),
 	)
 
+	// After hive.New the command-line flags have been registered.
+	// Before we run the hive, we need to parse the flags.
 	pflag.Parse()
 
 	// Now that flags have been parsed the hive can be started.
+	// This first populates all configurations from Viper (and via pflag)
+	// and then constructs all objects, followed by executing the start
+	// hooks in dependency order. It will then block waiting for signals
+	// after which it will run the stop hooks in reverse order.
 	hive.Run()
 }

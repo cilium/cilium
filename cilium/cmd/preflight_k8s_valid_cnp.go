@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
@@ -39,7 +39,12 @@ has an exit code 1 is returned.`,
 		cmd.Flags(),
 
 		k8sClient.Cell,
-		hive.OnStart(validateCNPs),
+
+		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error { return validateCNPs(clientset, shutdowner) },
+			})
+		}),
 	)
 	hive.SetTimeouts(validateK8sPoliciesTimeout, validateK8sPoliciesTimeout)
 	cmd.Run = func(cmd *cobra.Command, args []string) {
@@ -57,8 +62,8 @@ const (
 	ciliumGroup                = "cilium.io"
 )
 
-func validateCNPs(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) error {
-	defer shutdowner.Shutdown()
+func validateCNPs(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+	defer shutdowner.Shutdown(nil)
 
 	if !clientset.IsEnabled() {
 		return fmt.Errorf("Kubernetes client not configured. Please provide configuration via --%s or --%s",
