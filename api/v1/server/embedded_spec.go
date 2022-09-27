@@ -3997,6 +3997,10 @@ func init() {
           "description": "Status of CNI chaining",
           "$ref": "#/definitions/CNIChainingStatus"
         },
+        "cni-file": {
+          "description": "Status of the CNI configuration file",
+          "$ref": "#/definitions/Status"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -8922,6 +8926,10 @@ func init() {
         "cni-chaining": {
           "description": "Status of CNI chaining",
           "$ref": "#/definitions/CNIChainingStatus"
+        },
+        "cni-file": {
+          "description": "Status of the CNI configuration file",
+          "$ref": "#/definitions/Status"
         },
         "container-runtime": {
           "description": "Status of local container runtime",
