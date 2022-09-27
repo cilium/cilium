@@ -8,7 +8,7 @@ git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0#egg=sphinx-rtd-theme-cil
 semver==2.13.0
 
 # Sphinx extensions
-myst-parser==0.18.0
+myst-parser==0.18.1
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
 git+https://github.com/cilium/openapi.git@mdinclude#egg=sphinxcontrib-openapi
