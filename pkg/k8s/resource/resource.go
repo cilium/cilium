@@ -7,12 +7,12 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/fx"
 	corev1 "k8s.io/api/core/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/promise"
@@ -49,9 +49,9 @@ type Resource[T k8sRuntime.Object] interface {
 // NewResourceConstructor provides a constructor for Resource when given a function
 // that maps from a Clientset into a ListerWatcher:
 //
-//	var exampleCell = hive.NewCell(
+//	var exampleCell = cell.Module(
 //		"example",
-//	 	fx.Provide(
+//	 	cell.Provide(
 //		 	// Provide `Resource[*slim_corev1.Pod]` to the hive:
 //	 		resource.NewResourceConstructor(
 //	 			func(c k8sClient.Clientset) cache.ListerWatcher {
@@ -77,19 +77,19 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go.
-func NewResourceConstructor[T k8sRuntime.Object](lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc fx.Lifecycle, c k8sClient.Clientset) Resource[T] {
+func NewResourceConstructor[T k8sRuntime.Object](lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
 	return NewResourceConstructorWithRateLimiter[T](workqueue.DefaultControllerRateLimiter(), lw)
 }
 
 // NewResourceConstructorWithRateLimiter is the same as NewResourceConstructor, but with a custom rate limiter.
-func NewResourceConstructorWithRateLimiter[T k8sRuntime.Object](rateLimiter workqueue.RateLimiter, lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc fx.Lifecycle, c k8sClient.Clientset) Resource[T] {
-	return func(lc fx.Lifecycle, c k8sClient.Clientset) Resource[T] {
+func NewResourceConstructorWithRateLimiter[T k8sRuntime.Object](rateLimiter workqueue.RateLimiter, lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
+	return func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
 		if !c.IsEnabled() {
 			return nil
 		}
 		newLW := func() cache.ListerWatcher { return lw(c) }
 		res := newResource[T](newLW, rateLimiter)
-		lc.Append(fx.Hook{OnStart: res.start, OnStop: res.stop})
+		lc.Append(hive.Hook{OnStart: res.start, OnStop: res.stop})
 		return res
 	}
 }

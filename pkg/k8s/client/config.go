@@ -30,13 +30,22 @@ type Config struct {
 	EnableK8sAPIDiscovery bool
 }
 
-func (cfg Config) CellFlags(flags *pflag.FlagSet) {
-	flags.String(option.K8sAPIServer, "", "Kubernetes API server URL")
-	flags.String(option.K8sKubeConfigPath, "", "Absolute path of the kubernetes kubeconfig file")
-	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
-	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
-	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
-	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
+var defaultConfig = Config{
+	K8sAPIServer:          "",
+	K8sKubeConfigPath:     "",
+	K8sClientQPS:          defaults.K8sClientQPSLimit,
+	K8sClientBurst:        defaults.K8sClientBurst,
+	K8sHeartbeatTimeout:   30 * time.Second,
+	EnableK8sAPIDiscovery: defaults.K8sEnableAPIDiscovery,
+}
+
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")
+	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
+	flags.Float32(option.K8sClientQPSLimit, def.K8sClientQPS, "Queries per second limit for the K8s client")
+	flags.Int(option.K8sClientBurst, def.K8sClientBurst, "Burst value allowed for the K8s client")
+	flags.Duration(option.K8sHeartbeatTimeout, def.K8sHeartbeatTimeout, "Configures the timeout for api-server heartbeat, set to 0 to disable")
+	flags.Bool(option.K8sEnableAPIDiscovery, def.EnableK8sAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
 }
 
 func (cfg Config) isEnabled() bool {

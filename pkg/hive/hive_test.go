@@ -1,101 +1,233 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package hive
+package hive_test
 
 import (
-	"strings"
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 type Config struct {
-	Hello string
+	Foo string
+	Bar int
 }
 
-func (Config) CellFlags(flags *pflag.FlagSet) {
-	flags.String("hello", "hello world", "sets the greeting")
+func (Config) Flags(flags *pflag.FlagSet) {
+	flags.String("foo", "hello world", "sets the greeting")
+	flags.Int("bar", 123, "bar")
 }
 
-func TestHive(t *testing.T) {
-	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	viper := viper.New()
-
+func TestHiveGoodConfig(t *testing.T) {
 	var cfg Config
-	cell := NewCellWithConfig[Config](
-		"test-cell",
-		fx.Populate(&cfg),
+	testCell := cell.Module(
+		"test",
+		cell.Config(Config{}),
+		cell.Invoke(func(c Config) {
+			cfg = c
+		}),
 	)
-	var receivedConfig bool
 
-	hive := New(viper, flags,
-		cell,
-		OnStart(func(c Config) error {
-			receivedConfig = true
-			return nil
-		}))
+	hive := hive.New(testCell)
 
-	flags.Set("hello", "test")
+	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	hive.RegisterFlags(flags)
 
-	// Test with config coming from flags.
-	app, err := hive.TestApp(t)
-	if err != nil {
-		t.Fatalf("TestApp(): %s", err)
-	}
-	app.RequireStart().RequireStop()
-	if cfg.Hello != "test" {
-		t.Fatalf("Config not set correctly, expected 'test', got %v", cfg)
-	}
+	// Test the two ways of setting it
+	flags.Set("foo", "test")
+	hive.Viper().Set("bar", 13)
 
-	if !receivedConfig {
-		t.Fatal("OnStart hook not called")
-	}
+	err := hive.Start(context.TODO())
+	assert.NoError(t, err, "expected Start to succeed")
 
-	// Test with config override
-	app, err = hive.TestApp(t, Config{Hello: "override"})
-	if err != nil {
-		t.Fatalf("TestApp(): %s", err)
-	}
-	app.RequireStart().RequireStop()
-	if cfg.Hello != "override" {
-		t.Fatalf("Config not set correctly, expected 'override', got %v", cfg)
-	}
+	err = hive.Stop(context.TODO())
+	assert.NoError(t, err, "expected Stop to succeed")
 
+	assert.Equal(t, cfg.Foo, "test", "Config.Foo not set correctly")
+	assert.Equal(t, cfg.Bar, 13, "Config.Bar not set correctly")
 }
 
-// BadConfig has a field that matches no flags, and CellFlags
+// BadConfig has a field that matches no flags, and Flags
 // declares a flag that matches no field.
 type BadConfig struct {
 	Bar string
 }
 
-func (BadConfig) CellFlags(flags *pflag.FlagSet) {
+func (BadConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("foo", "foobar", "foo")
 }
 
 func TestHiveBadConfig(t *testing.T) {
-	flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-	viper := viper.New()
-
-	var cfg BadConfig
-	cell := NewCellWithConfig[BadConfig](
-		"test-cell",
-		fx.Populate(&cfg),
+	testCell := cell.Module(
+		"test",
+		cell.Config(BadConfig{}),
+		cell.Invoke(func(c BadConfig) {}),
 	)
 
-	hive := New(viper, flags, cell)
-	_, err := hive.TestApp(t)
-	if err == nil {
-		t.Fatal("Expected TestApp() to fail")
+	hive := hive.New(testCell)
+
+	err := hive.Start(context.TODO())
+	assert.ErrorContains(t, err, "has invalid keys: foo", "expected 'invalid keys' error")
+	assert.ErrorContains(t, err, "has unset fields: Bar", "expected 'unset fields' error")
+}
+
+type SomeObject struct {
+	X int
+}
+
+func TestProvideInvoke(t *testing.T) {
+	invoked := false
+
+	testCell := cell.Module(
+		"test",
+		cell.Provide(func() *SomeObject { return &SomeObject{10} }),
+		cell.Invoke(func(*SomeObject) { invoked = true }),
+	)
+
+	err := hive.New(
+		testCell,
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Run to succeed")
+
+	assert.True(t, invoked, "expected invoke to be called, but it was not")
+}
+
+func TestProvidePrivate(t *testing.T) {
+	invoked := false
+
+	testCell := cell.Module(
+		"test",
+		cell.ProvidePrivate(func() *SomeObject { return &SomeObject{10} }),
+		cell.Invoke(func(*SomeObject) { invoked = true }),
+	)
+
+	// Test happy path.
+	err := hive.New(
+		testCell,
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Start to succeed")
+
+	if !invoked {
+		t.Fatal("expected invoke to be called, but it was not")
 	}
 
-	if !strings.Contains(err.Error(), "has invalid keys: foo") {
-		t.Fatalf("Expected 'invalid keys' error, got: %s", err)
-	}
-	if !strings.Contains(err.Error(), "has unset fields: Bar") {
-		t.Fatalf("Expected 'unset fields' error, got: %s", err)
-	}
+	// Now test that we can't access it from root scope.
+	h := hive.New(
+		testCell,
+		cell.Invoke(func(*SomeObject) {}),
+		shutdownOnStartCell,
+	)
+	err = h.Start(context.TODO())
+	assert.ErrorContains(t, err, "missing type: *hive_test.SomeObject", "expected Start to fail to find *SomeObject")
 }
+
+func TestDecorate(t *testing.T) {
+	invoked := false
+
+	testCell := cell.Decorate(
+		func(o *SomeObject) *SomeObject {
+			return &SomeObject{X: o.X + 1}
+		},
+		cell.Invoke(
+			func(o *SomeObject) error {
+				if o.X != 2 {
+					return errors.New("X != 2")
+				}
+				invoked = true
+				return nil
+			}),
+	)
+
+	hive := hive.New(
+		cell.Provide(func() *SomeObject { return &SomeObject{1} }),
+
+		// Here *SomeObject is not decorated.
+		cell.Invoke(func(o *SomeObject) error {
+			if o.X != 1 {
+				return errors.New("X != 1")
+			}
+			return nil
+		}),
+
+		testCell,
+
+		shutdownOnStartCell,
+	)
+
+	assert.NoError(t, hive.Run(), "expected Run() to succeed")
+	assert.True(t, invoked, "expected decorated invoke function to be called")
+}
+
+func TestShutdown(t *testing.T) {
+	//
+	// Happy paths without a shutdown error:
+	//
+
+	// Test from a start hook
+	h := hive.New(
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					shutdowner.Shutdown()
+					return nil
+				}})
+		}),
+	)
+	assert.NoError(t, h.Run(), "expected Run() to succeed")
+
+	// Test from a goroutine forked from start hook
+	h = hive.New(
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					go shutdowner.Shutdown()
+					return nil
+				}})
+		}),
+	)
+	assert.NoError(t, h.Run(), "expected Run() to succeed")
+
+	// Test from an invoke. Shouldn't really be used, but should still work.
+	h = hive.New(
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			shutdowner.Shutdown()
+		}),
+	)
+	assert.NoError(t, h.Run(), "expected Run() to succeed")
+
+	//
+	// Unhappy paths that fatal with an error:
+	//
+
+	shutdownErr := errors.New("shutdown error")
+
+	// Test from a start hook
+	h = hive.New(
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(context.Context) error {
+					shutdowner.Shutdown(hive.ShutdownWithError(shutdownErr))
+					return nil
+				}})
+		}),
+	)
+	assert.ErrorIs(t, h.Run(), shutdownErr, "expected Run() to fail with shutdownErr")
+
+}
+
+var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+	lc.Append(hive.Hook{
+		OnStart: func(context.Context) error {
+			shutdowner.Shutdown()
+			return nil
+		}})
+})

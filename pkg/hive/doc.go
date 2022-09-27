@@ -4,9 +4,8 @@
 /*
 Package hive provides the infrastructure for building Cilium applications from modular components (cells).
 
-Hive is implemented as a wrapper around the uber/fx library, which provides the dependency injection for
-objects in the hive. Hive adds to uber/fx the ability to associate configuration with command-line flags
-with a module.
+Hive is implemented using the uber/dig library, which provides the dependency injection for
+objects in the hive. It is similar to uber/fx, but adds an opinionated approach to configuration.
 
 The configuration for cells is extracted from Viper. By default the field names are assumed to correspond
 to flag names, e.g. field 'MyOption' corresponds to '--my-option' flag.
@@ -16,46 +15,17 @@ the flags from all cells and binds them to viper variables. Once the FlagSet and
 parsed one can call Populate() to pull the values from viper and construct the application. The hive can
 then be Run().
 
-For details related to uber/fx refer to https://pkg.go.dev/go.uber.org/fx.
+# Example
 
-# Cells
+For a runnable example see pkg/hive/example.
 
-Cells are what make up the hive. They're a thin wrapper around fx.Module that include an optional
-configuration structure that knows how to register its associated command-line flags.
+Try running:
 
-# Example program
+	example$ go run .
+	(ctrl-c stops)
 
-	type Config struct {
-		Hello string
-	}
+	example$ go run . --dot-graph | dot -Tx11
 
-	func (Config) CellFlags(flags *pflag.FlagSet) {
-		flags.String("hello", "hello world", "sets the greeting")
-	}
-
-	func hello(cfg Config) {
-		fmt.Println(cfg.Hello)
-	}
-
-	var helloCell = hive.NewCellWithConfig[Config](
-		"hello",
-		fx.Invoke(hello),
-	)
-
-	func main() {
-		hive := hive.New(
-			viper.GetViper(), pflag.CommandLine,
-
-			helloCell,
-		)
-
-		pflag.Parse()
-
-		if err := hive.Populate(); err != nil {
-			log.Fatal(err)
-		}
-
-		hive.Run()
-	}
+Try also commenting out cell.Provide lines and seeing what the dependency errors look like.
 */
 package hive

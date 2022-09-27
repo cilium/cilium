@@ -7,13 +7,12 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	. "github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 )
@@ -48,8 +47,8 @@ func TestLocalNodeStore(t *testing.T) {
 
 	// update adds a start hook to the application that modifies
 	// the local node.
-	update := func(lc fx.Lifecycle, store LocalNodeStore) {
-		lc.Append(fx.Hook{
+	update := func(lc hive.Lifecycle, store LocalNodeStore) {
+		lc.Append(hive.Hook{
 			OnStart: func(context.Context) error {
 				// emit 2, 3, 4, 5
 				for _, i := range expected[1:] {
@@ -63,30 +62,28 @@ func TestLocalNodeStore(t *testing.T) {
 	}
 
 	hive := hive.New(
-		viper.New(),
-		pflag.NewFlagSet("", pflag.ContinueOnError),
-
 		LocalNodeStoreCell,
 
-		hive.NewCell("test",
-			fx.Provide(func() LocalNodeInitializer { return testInitializer{} }),
-			fx.Invoke(observe),
-			fx.Invoke(update)),
+		cell.Provide(func() LocalNodeInitializer { return testInitializer{} }),
+		cell.Invoke(observe),
+		cell.Invoke(update),
 	)
 
-	app, err := hive.TestApp(t)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
-	app.RequireStart()
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("Failed to start: %s", err)
+	}
 
 	// Wait until all values have been observed
 	waitObserve.Wait()
 
-	app.RequireStop()
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("Failed to stop: %s", err)
+	}
 
 	if !slices.Equal(observed, expected) {
-		t.Fatalf("unexpected values observed: %v, expected: %v", observed, expected)
+		t.Fatalf("Unexpected values observed: %v, expected: %v", observed, expected)
 	}
 }

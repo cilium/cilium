@@ -11,12 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"go.uber.org/fx"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
@@ -48,7 +49,12 @@ var (
 	objectsCmd = &cobra.Command{
 		Use:   "objects",
 		Short: "Print the objects, constructors and lifecycle hooks",
-		Run:   func(cmd *cobra.Command, args []string) { agentHive.PrintObjects() },
+		Run: func(cmd *cobra.Command, args []string) {
+			// Silence log messages from calling invokes and constructors.
+			logging.SetLogLevel(logrus.WarnLevel)
+
+			agentHive.PrintObjects()
+		},
 	}
 
 	agentHive *hive.Hive
@@ -58,36 +64,35 @@ type DaemonCellConfig struct {
 	SkipDaemon bool
 }
 
-func (DaemonCellConfig) CellFlags(flags *pflag.FlagSet) {
+func (DaemonCellConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("skip-daemon", false, "Skip running of the daemon, only start normal cells")
 	flags.MarkHidden("skip-daemon")
 }
 
 func init() {
-	cobra.OnInitialize(option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp))
 	setupSleepBeforeFatal()
 	registerBootstrapMetrics()
-	initializeFlags()
-
-	gops.DefaultGopsPort = defaults.GopsPortAgent
 
 	agentHive = hive.New(
-		Vp,
-		RootCmd.PersistentFlags(),
-
-		gops.Cell,
+		gops.Cell(defaults.GopsPortAgent),
 		k8sClient.Cell,
 
-		hive.NewCellWithConfig[DaemonCellConfig]("daemon", fx.Invoke(registerDaemonHooks)),
+		cell.Config(DaemonCellConfig{}),
+		cell.Invoke(registerDaemonHooks),
 
 		node.LocalNodeStoreCell,
-		hive.Invoke(func(store node.LocalNodeStore) {
+		cell.Invoke(func(store node.LocalNodeStore) {
 			// Set the global LocalNodeStore. This is to retain the API of getters and setters
 			// defined in pkg/node/address.go until uses of them have been converted to use
 			// LocalNodeStore directly.
 			node.SetLocalNodeStore(store)
 		}),
 	)
+	Vp = agentHive.Viper()
+	agentHive.RegisterFlags(RootCmd.PersistentFlags())
+
+	cobra.OnInitialize(option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp))
+	initializeFlags()
 }
 
 func runApp(cmd *cobra.Command, args []string) {
@@ -98,7 +103,9 @@ func runApp(cmd *cobra.Command, args []string) {
 		os.Exit(0)
 	}
 
-	agentHive.Run()
+	if err := agentHive.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func Execute() error {

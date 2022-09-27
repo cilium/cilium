@@ -23,7 +23,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -68,17 +68,18 @@ func (c configuration) K8sServiceProxyNameValue() string {
 }
 
 var (
-	vp *viper.Viper = viper.New()
-
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
 
+	vp       *viper.Viper
 	rootHive *hive.Hive
 
 	rootCmd = &cobra.Command{
 		Use:   "clustermesh-apiserver",
 		Short: "Run the ClusterMesh apiserver",
 		Run: func(cmd *cobra.Command, args []string) {
-			rootHive.Run()
+			if err := rootHive.Run(); err != nil {
+				log.Fatal(err)
+			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
 			option.Config.Populate(vp)
@@ -99,26 +100,24 @@ var (
 )
 
 func init() {
-	gops.DefaultGopsPort = defaults.GopsPortApiserver
-
 	rootHive = hive.New(
-		vp, rootCmd.Flags(),
-
-		gops.Cell,
+		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
 		healthAPIServerCell,
 
-		hive.Invoke(registerHooks),
+		cell.Invoke(registerHooks),
 	)
+	rootHive.RegisterFlags(rootCmd.Flags())
+	vp = rootHive.Viper()
 }
 
-func registerHooks(lc fx.Lifecycle, clientset k8sClient.Clientset) error {
+func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
 	if !clientset.IsEnabled() {
 		return errors.New("Kubernetes client not configured, cannot continue.")
 	}
 
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
-	lc.Append(fx.Hook{
+	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			startServer(clientset)
 			return nil
