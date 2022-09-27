@@ -137,6 +137,10 @@ func init() {
 
 	gops.DefaultGopsPort = defaults.GopsPortOperator
 
+	// Enable fallback to direct API probing to check for support of Leases in
+	// case Discovery API fails.
+	Vp.Set(option.K8sEnableAPIDiscovery, true)
+
 	operatorHive = hive.New(
 		Vp,
 		rootCmd.Flags(),
@@ -162,10 +166,6 @@ func initEnv() {
 	}
 
 	option.LogRegisteredOptions(Vp, log)
-
-	// Enable fallback to direct API probing to check for support of Leases in
-	// case Discovery API fails.
-	Vp.Set(option.K8sEnableAPIDiscovery, true)
 }
 
 func doCleanup() {
