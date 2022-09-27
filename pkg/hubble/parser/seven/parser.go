@@ -133,6 +133,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.DestinationService = destinationService
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
 	decoded.PolicyMatchType = 0
+	decoded.TraceContext = extractTraceContext(r)
 	decoded.Summary = p.getSummary(r, decoded)
 
 	return nil
