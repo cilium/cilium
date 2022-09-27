@@ -706,7 +706,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if operatorOption.Config.LoadBalancerL7 == "envoy" {
 		log.Info("Starting Envoy load balancer controller")
-		operatorWatchers.StartCECController(legacy.ctx, legacy.clientset, legacy.resources.Services, operatorOption.Config.LoadBalancerL7Ports)
+		operatorWatchers.StartCECController(legacy.ctx, legacy.clientset, legacy.resources.Services,
+			operatorOption.Config.LoadBalancerL7Ports,
+			operatorOption.Config.LoadBalancerL7Algorithm)
 	}
 
 	log.Info("Initialization complete")
