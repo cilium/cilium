@@ -199,27 +199,29 @@ var _ = SkipDescribeIf(func() bool {
 			// mode we would need the external node to send the traffic over the tunnel)
 			_, targetPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", testDS, hostIP, false, 1)
 
-			targetPodHostIP, err := targetPodJSON.Filter("{.status.hostIP}")
+			_targetPodHostIP, err := targetPodJSON.Filter("{.status.hostIP}")
 			Expect(err).Should(BeNil(), "Cannot get target pod host IP")
+			targetPodHostIP := _targetPodHostIP.String()
 
-			targetPodIP, err := targetPodJSON.Filter("{.status.podIP}")
+			_targetPodIP, err := targetPodJSON.Filter("{.status.podIP}")
 			Expect(err).Should(BeNil(), "Cannot get target pod IP")
+			targetPodIP := _targetPodIP.String()
 
 			// Add a route for the target pod's IP on the node running without Cilium to
 			// allow reaching it from outside the cluster
-			By("Adding a IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-			res = kubectl.AddIPRoute(outsideName, targetPodIP.String(), targetPodHostIP.String(), false)
+			By("Adding a IP route for %s via %s", targetPodIP, targetPodHostIP)
+			res = kubectl.AddIPRoute(outsideName, targetPodIP, targetPodHostIP, false)
 			Expect(res).Should(helpers.CMDSuccess(),
-				"Error adding IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
+				"Error adding IP route for %s via %s", targetPodIP, targetPodHostIP)
 
 			By("Testing that a pod's reply to an outside HTTP request is not SNATed with the egressIP")
 			res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,
-				helpers.CurlFail("http://%s:80", targetPodIP.String()))
+				helpers.CurlFail("http://%s:80", targetPodIP))
 
-			By("Deleting the IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-			res2 := kubectl.DelIPRoute(outsideName, targetPodIP.String(), targetPodHostIP.String())
+			By("Deleting the IP route for %s via %s", targetPodIP, targetPodHostIP)
+			res2 := kubectl.DelIPRoute(outsideName, targetPodIP, targetPodHostIP)
 			Expect(res2).Should(helpers.CMDSuccess(),
-				"Error removing IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
+				"Error removing IP route for %s via %s", targetPodIP, targetPodHostIP)
 
 			res.ExpectSuccess()
 			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
