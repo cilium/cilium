@@ -172,6 +172,7 @@ apiKeys
 apiVersion
 apiserver
 app
+applySysctlOverwrites
 apps
 archs
 arithmetics
@@ -253,9 +254,11 @@ cheatsheet
 ci
 cidr
 cidrs
+ciliumAgent
 classful
 classid
 cleanBpfState
+cleanCiliumState
 cleanState
 cli
 clockProbe
@@ -676,6 +679,7 @@ mlx
 monitorAggregation
 monitorFlags
 monitorInterval
+mountCgroup
 mountHostBoot
 mountPath
 mov

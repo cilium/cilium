@@ -1729,10 +1729,22 @@
      - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
      - bool
      - ``false``
-   * - securityContext.extraCapabilities
-     - Extra capabilities to add to the ``cilium-agent`` container in the DaemonSet
+   * - securityContext.capabilities.applySysctlOverwrites
+     - capabilities for the ``apply-sysctl-overwrites`` init container
      - list
-     - ``["DAC_OVERRIDE","FOWNER","SETGID","SETUID"]``
+     - ``["SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]``
+   * - securityContext.capabilities.ciliumAgent
+     - Capabilities for the ``cilium-agent`` container
+     - list
+     - ``["CHOWN","KILL","NET_ADMIN","NET_RAW","IPC_LOCK","SYS_MODULE","SYS_ADMIN","SYS_RESOURCE","DAC_OVERRIDE","FOWNER","SETGID","SETUID"]``
+   * - securityContext.capabilities.cleanCiliumState
+     - Capabilities for the ``clean-cilium-state`` init container
+     - list
+     - ``["NET_ADMIN","SYS_MODULE","SYS_ADMIN","SYS_RESOURCE"]``
+   * - securityContext.capabilities.mountCgroup
+     - Capabilities for the ``mount-cgroup`` init container
+     - list
+     - ``["SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]``
    * - securityContext.privileged
      - Run the pod with elevated privileges
      - bool

@@ -338,6 +338,16 @@ Removed Metrics/Labels
 * ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
 * The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
 
+Helm Options
+~~~~~~~~~~~~
+
+* The way Linux capabilities are configured has been revamped in this release. 
+  All capabilities of every container in the ``cilium-agent`` DaemonSet is
+  configured from Helm's values, defaulting to the old behavior. If you have not
+  been using ``securityContext.extraCapabilities`` you do not need to do anything.
+  If you were leveraging ``securityContext.extraCapabilities``, you need to review
+  ``securityContext.capabilities.cilium_agent``.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes
