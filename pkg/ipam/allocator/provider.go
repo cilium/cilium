@@ -22,6 +22,6 @@ type AllocatorProvider interface {
 type NodeEventHandler interface {
 	Create(resource *v2.CiliumNode) bool
 	Update(resource *v2.CiliumNode) bool
-	Delete(resource *v2.CiliumNode)
+	Delete(nodeName string)
 	Resync(context.Context, time.Time)
 }

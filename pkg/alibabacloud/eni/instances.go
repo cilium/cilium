@@ -56,14 +56,6 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *ipam.Node) ipam.
 	return &Node{k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
 }
 
-// HasInstance returns whether the instance is in instances
-func (m *InstancesManager) HasInstance(instanceID string) bool {
-	m.mutex.RLock()
-	instanceExist := m.instances.Exists(instanceID)
-	m.mutex.RUnlock()
-	return instanceExist
-}
-
 // GetPoolQuota returns the number of available IPs in all IP pools
 func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 	pool := ipamTypes.PoolQuotaMap{}
@@ -199,11 +191,4 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 	}
 
 	return securityGroups
-}
-
-// DeleteInstance delete instance from m.instances
-func (m *InstancesManager) DeleteInstance(instanceID string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.instances.Delete(instanceID)
 }
