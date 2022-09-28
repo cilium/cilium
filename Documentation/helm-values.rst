@@ -1729,10 +1729,14 @@
      - Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
      - bool
      - ``false``
-   * - securityContext
-     - Security context to be added to agent pods
-     - object
-     - ``{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false}``
+   * - securityContext.extraCapabilities
+     - Extra capabilities to add to the ``cilium-agent`` container in the DaemonSet
+     - list
+     - ``["DAC_OVERRIDE","FOWNER","SETGID","SETUID"]``
+   * - securityContext.privileged
+     - Run the pod with elevated privileges
+     - bool
+     - ``false``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object

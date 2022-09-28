@@ -171,10 +171,12 @@ resources: {}
   #   cpu: 100m
   #   memory: 512Mi
 
-# -- Security context to be added to agent pods
 securityContext:
+  # -- User to run the pod with
   # runAsUser: 0
+  # -- Run the pod with elevated privileges
   privileged: false
+  # -- Extra capabilities to add to the `cilium-agent` container in the DaemonSet
   extraCapabilities:
     # Allow discretionary access control (e.g. required for package installation)
     - DAC_OVERRIDE
