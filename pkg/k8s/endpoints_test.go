@@ -480,6 +480,46 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 				return svcEP
 			},
 		},
+		{
+			name: "endpoint with SCTP addresses",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []slim_corev1.EndpointSubset{
+							{
+								Addresses: []slim_corev1.EndpointAddress{
+									{
+										IP:       "172.0.0.1",
+										NodeName: &nodeName,
+									},
+								},
+								Ports: []slim_corev1.EndpointPort{
+									{
+										Name:     "sctp-test-svc",
+										Port:     5555,
+										Protocol: slim_corev1.ProtocolSCTP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"sctp-test-svc": loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555),
+					},
+					NodeName: nodeName,
+				}
+				return svcEP
+			},
+		},
 	}
 	for _, tt := range tests {
 		args := tt.setupArgs()
@@ -516,13 +556,18 @@ func (s *K8sSuite) TestEndpointsString(c *check.C) {
 						Port:     8080,
 						Protocol: slim_corev1.ProtocolTCP,
 					},
+					{
+						Name:     "sctp-test-svc",
+						Port:     5555,
+						Protocol: slim_corev1.ProtocolSCTP,
+					},
 				},
 			},
 		},
 	}
 
 	_, ep := ParseEndpoints(endpoints)
-	c.Assert(ep.String(), check.Equals, "172.0.0.1:8080/TCP,172.0.0.1:8081/TCP,172.0.0.2:8080/TCP,172.0.0.2:8081/TCP")
+	c.Assert(ep.String(), check.Equals, "172.0.0.1:5555/SCTP,172.0.0.1:8080/TCP,172.0.0.1:8081/TCP,172.0.0.2:5555/SCTP,172.0.0.2:8080/TCP,172.0.0.2:8081/TCP")
 }
 
 func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
@@ -993,6 +1038,42 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 				return svcEP
 			},
 		},
+		{
+			name: "endpoints with SCTP",
+			setupArgs: func() args {
+				return args{
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "sctp-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolSCTP; return &a }(),
+								Port:     func() *int32 { a := int32(5555); return &a }(),
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() *Endpoints {
+				svcEP := newEndpoints()
+				svcEP.Backends[cmtypes.MustParseAddrCluster("172.0.0.1")] = &Backend{
+					Ports: serviceStore.PortConfiguration{
+						"sctp-test-svc": loadbalancer.NewL4Addr(loadbalancer.SCTP, 5555),
+					},
+				}
+				return svcEP
+			},
+		},
 	}
 	for _, tt := range tests {
 		args := tt.setupArgs()
@@ -1045,6 +1126,21 @@ func Test_parseEndpointPortV1Beta1(t *testing.T) {
 			l4Addr: &loadbalancer.L4Addr{
 				Protocol: loadbalancer.UDP,
 				Port:     8080,
+			},
+		},
+		{
+			name: "sctp-port",
+			args: args{
+				port: slim_discovery_v1beta1.EndpointPort{
+					Name:     func() *string { a := "sctp-test-svc"; return &a }(),
+					Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolSCTP; return &a }(),
+					Port:     func() *int32 { a := int32(5555); return &a }(),
+				},
+			},
+			portName: "sctp-test-svc",
+			l4Addr: &loadbalancer.L4Addr{
+				Protocol: loadbalancer.SCTP,
+				Port:     5555,
 			},
 		},
 		{
@@ -1703,6 +1799,21 @@ func Test_parseEndpointPortV1(t *testing.T) {
 			l4Addr: &loadbalancer.L4Addr{
 				Protocol: loadbalancer.UDP,
 				Port:     8080,
+			},
+		},
+		{
+			name: "sctp-port",
+			args: args{
+				port: slim_discovery_v1.EndpointPort{
+					Name:     func() *string { a := "sctp-test-svc"; return &a }(),
+					Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolSCTP; return &a }(),
+					Port:     func() *int32 { a := int32(5555); return &a }(),
+				},
+			},
+			portName: "sctp-test-svc",
+			l4Addr: &loadbalancer.L4Addr{
+				Protocol: loadbalancer.SCTP,
+				Port:     5555,
 			},
 		},
 		{
