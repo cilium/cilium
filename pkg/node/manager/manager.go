@@ -6,7 +6,6 @@ package manager
 import (
 	"context"
 	"errors"
-	"math"
 	"net"
 	"net/netip"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
@@ -302,15 +302,7 @@ func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.
 	numNodes := len(m.nodes)
 	m.mutex.RUnlock()
 
-	// no nodes are being managed, no work will be performed, return
-	// baseInterval to check again in a reasonable timeframe
-	if numNodes == 0 {
-		return baseInterval
-	}
-
-	waitNanoseconds := float64(baseInterval.Nanoseconds()) * math.Log1p(float64(numNodes))
-	return time.Duration(int64(waitNanoseconds))
-
+	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
 }
 
 func (m *Manager) backgroundSyncInterval() time.Duration {
