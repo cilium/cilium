@@ -56,7 +56,7 @@ func (k *K8sConfig) Set(ctx context.Context, key, value string, params Parameter
 		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
 	}
 
-	return k.restartPodsUponConfigChange(params)
+	return k.restartPodsUponConfigChange(ctx, params)
 }
 
 func (k *K8sConfig) Delete(ctx context.Context, key string, params Parameters) error {
@@ -69,7 +69,7 @@ func (k *K8sConfig) Delete(ctx context.Context, key string, params Parameters) e
 		return fmt.Errorf("unable to patch ConfigMap %s with patch %q: %w", defaults.ConfigMapName, patch, err)
 	}
 
-	return k.restartPodsUponConfigChange(params)
+	return k.restartPodsUponConfigChange(ctx, params)
 }
 
 func (k *K8sConfig) View(ctx context.Context) (string, error) {
@@ -97,13 +97,13 @@ func (k *K8sConfig) View(ctx context.Context) (string, error) {
 	return buf.String(), nil
 }
 
-func (k *K8sConfig) restartPodsUponConfigChange(params Parameters) error {
+func (k *K8sConfig) restartPodsUponConfigChange(ctx context.Context, params Parameters) error {
 	if !params.Restart {
 		fmt.Println("⚠️  Restart Cilium pods for configmap changes to take effect")
 		return nil
 	}
 
-	if err := k.client.DeletePodCollection(context.Background(), params.Namespace,
+	if err := k.client.DeletePodCollection(ctx, params.Namespace,
 		metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
 		return fmt.Errorf("⚠️  unable to restart Cilium pods: %v", err)
 	}

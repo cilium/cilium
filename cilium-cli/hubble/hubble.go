@@ -157,7 +157,7 @@ func (p *Parameters) validateParams() error {
 }
 
 func (k *K8sHubble) generateDefaultHelmState(ctx context.Context, client k8sHubbleImplementation, namespace string) (*helm.State, error) {
-	version, err := client.GetRunningCiliumVersion(context.Background(), namespace)
+	version, err := client.GetRunningCiliumVersion(ctx, namespace)
 	if version == "" || err != nil {
 		return nil, fmt.Errorf("unable to obtain cilium version, no cilium pods found in namespace %q", namespace)
 	}
