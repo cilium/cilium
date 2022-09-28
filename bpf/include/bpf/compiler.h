@@ -4,9 +4,7 @@
 #ifndef __BPF_COMPILER_H_
 #define __BPF_COMPILER_H_
 
-#ifndef __non_bpf_context
 # include "stddef.h"
-#endif
 
 #ifndef __section
 # define __section(X)		__attribute__((section(X), used))
