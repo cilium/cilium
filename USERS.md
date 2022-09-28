@@ -385,6 +385,12 @@ Users (Alphabetically)
       L: https://www.concur.com, https://gardener.cloud/, https://github.com/gardener/gardener-extension-networking-cilium
       Q: @dragan (SAP Concur), @docktofuture & @ScheererJ (Gardener)
 
+    * N: Sapian
+      D: Sapian uses Cilium as default CNI in our product DialBox Cloud, DialBox cloud is a Edge Kubernetes cluster using [kilo](https://github.com/squat/kilo) for wirguard mesh connectivity inter-nodes. Cilium is crucial for low latancy on realtime communincations enviroments.
+      U: CNI, Network Policies, Hubble, kube-proxy replacement
+      L: https://sapian.com.co, https://arapgon.co/blog/k8s-edge
+      Q: @arpagon
+
     * N: Simple
       D: Simple uses cilium as default CNI in Kubernetes clusters (AWS EKS) for both development and production environments.
       U: CNI, Network Policies, Hubble
