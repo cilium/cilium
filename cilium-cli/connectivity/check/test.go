@@ -22,6 +22,11 @@ const (
 	// indicate they are sourced from Kubernetes.
 	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
 	kubernetesSourcedLabelPrefix = "k8s."
+
+	// anySourceLabelPrefix is the optional prefix used in labels to
+	// indicate they could be from anywhere.
+	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
+	anySourceLabelPrefix = "any."
 )
 
 type Test struct {
@@ -218,8 +223,11 @@ func (t *Test) WithPolicy(policy string) *Test {
 	for i := range pl {
 		pl[i].Namespace = t.ctx.params.TestNamespace
 		if pl[i].Spec != nil {
-			// Check both 'io.kubernetes.pod.namespace' and 'k8s:io.kubernetes.pod.namespace'.
-			for _, k := range []string{k8sConst.PodNamespaceLabel, kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel} {
+			for _, k := range []string{
+				k8sConst.PodNamespaceLabel,
+				kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+				anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+			} {
 				for _, e := range pl[i].Spec.Egress {
 					for _, es := range e.ToEndpoints {
 						if n, ok := es.MatchLabels[k]; ok && n == defaults.ConnectivityCheckNamespace {
