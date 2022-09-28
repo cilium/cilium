@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -151,6 +152,14 @@ type NodeManager struct {
 	prefixDelegation   bool
 }
 
+func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	n.mutex.RLock()
+	numNodes := len(n.nodes)
+	n.mutex.RUnlock()
+
+	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
+}
+
 // NewNodeManager returns a new NodeManager
 func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI,
 	parallelWorkers int64, releaseExcessIPs bool, prefixDelegation bool) (*NodeManager, error) {
@@ -281,15 +290,24 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
+		ctx, cancel := context.WithCancel(context.Background())
+		backoff := &backoff.Exponential{
+			Max:         5 * time.Minute,
+			Jitter:      true,
+			NodeManager: n,
+			Name:        fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
+		}
 		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
 			MinInterval:     10 * time.Millisecond,
 			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
 			TriggerFunc: func(reasons []string) {
-				if err := node.MaintainIPPool(context.TODO()); err != nil {
+				if err := node.MaintainIPPool(ctx); err != nil {
 					node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
+					backoff.Wait(ctx)
 				}
 			},
+			ShutdownFunc: cancel,
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
