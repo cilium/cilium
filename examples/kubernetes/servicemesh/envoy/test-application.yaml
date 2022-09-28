@@ -46,7 +46,7 @@ spec:
           env:
             - name: PORT
               value: "8080"
-          image: quay.io/cilium/alpine-curl:v1.4.0@sha256:2550c747831ff575f2147149b088ea981c06f9b6bcd188756d1b82cc10997956
+          image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
           imagePullPolicy: IfNotPresent
           name: client
           ports:
@@ -93,7 +93,7 @@ spec:
           env:
             - name: PORT
               value: "8080"
-          image: quay.io/cilium/alpine-curl:v1.4.0@sha256:2550c747831ff575f2147149b088ea981c06f9b6bcd188756d1b82cc10997956
+          image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
           imagePullPolicy: IfNotPresent
           name: client2
           ports:
@@ -147,7 +147,7 @@ spec:
         - env:
             - name: PORT
               value: "8080"
-          image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+          image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
           imagePullPolicy: IfNotPresent
           name: echo-service-1
           ports:
@@ -238,7 +238,7 @@ spec:
         - env:
             - name: PORT
               value: "8080"
-          image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+          image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
           imagePullPolicy: IfNotPresent
           name: echo-service-2
           ports:
@@ -264,7 +264,7 @@ spec:
         - args:
             - -conf
             - /etc/coredns/Corefile
-          image: coredns/coredns:1.9.3@sha256:8e352a029d304ca7431c6507b56800636c321cb52289686a581ab70aaa8a2e2a
+          image: coredns/coredns:1.9.4@sha256:b82e294de6be763f73ae71266c8f5466e7e03c69f3a1de96efd570284d35bb18
           imagePullPolicy: IfNotPresent
           name: dns-test-server
           ports:
