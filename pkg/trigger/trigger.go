@@ -34,6 +34,9 @@ type Parameters struct {
 	// while respecting MinInterval and serialization
 	TriggerFunc func(reasons []string)
 
+	// ShutdownFunc is called when the trigger is shut down
+	ShutdownFunc func()
+
 	MetricsObserver MetricsObserver
 
 	// Name is the unique name of the trigger. It must be provided in a
@@ -208,6 +211,10 @@ func (t *Trigger) waiter() {
 		case <-sleepTimer.After(t.params.sleepInterval):
 
 		case <-t.closeChan:
+			shutdownFunc := t.params.ShutdownFunc
+			if shutdownFunc != nil {
+				shutdownFunc()
+			}
 			return
 		}
 	}
