@@ -115,12 +115,6 @@ type AllocationImplementation interface {
 	// chance to resync its own state with external APIs or systems. It is
 	// also called when the IPAM layer detects that state got out of sync.
 	Resync(ctx context.Context) time.Time
-
-	// HasInstance returns whether the instance is in instances
-	HasInstance(instanceID string) bool
-
-	// DeleteInstance deletes the instance from instances
-	DeleteInstance(instanceID string)
 }
 
 // MetricsAPI represents the metrics being maintained by a NodeManager
@@ -285,12 +279,6 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 			logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		}
 
-		if !n.instancesAPI.HasInstance(resource.InstanceID()) {
-			if _, ok := n.instancesAPIResync(context.TODO()); !ok {
-				node.logger().Warning("Failed to resync the instances from the API after new node was found")
-			}
-		}
-
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
 		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
@@ -344,10 +332,10 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 
 // Delete is called after a CiliumNode resource has been deleted via the
 // Kubernetes apiserver
-func (n *NodeManager) Delete(resource *v2.CiliumNode) {
+func (n *NodeManager) Delete(nodeName string) {
 	n.mutex.Lock()
 
-	if node, ok := n.nodes[resource.Name]; ok {
+	if node, ok := n.nodes[nodeName]; ok {
 		if node.poolMaintainer != nil {
 			node.poolMaintainer.Shutdown()
 		}
@@ -359,15 +347,7 @@ func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 		}
 	}
 
-	// Delete the instance from instanceManager. This will cause Update() to
-	// invoke instancesAPIResync if this instance rejoins the cluster.
-	// This ensures that Node.recalculate() does not use stale data for
-	// instances which rejoin the cluster after their EC2 configuration has changed.
-	if resource.Spec.InstanceID != "" {
-		n.instancesAPI.DeleteInstance(resource.Spec.InstanceID)
-	}
-
-	delete(n.nodes, resource.Name)
+	delete(n.nodes, nodeName)
 	n.mutex.Unlock()
 }
 

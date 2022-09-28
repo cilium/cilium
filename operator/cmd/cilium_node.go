@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -118,8 +117,8 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 
 	if nodeManager != nil {
 		nodeManagerSyncHandler = syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
-				nodeManager.Delete(node)
+			func(name string) {
+				nodeManager.Delete(name)
 			},
 			func(node *cilium_v2.CiliumNode) {
 				// node is deep copied before it is stored in pkg/aws/eni
@@ -128,10 +127,10 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	}
 	if withKVStore {
 		kvStoreSyncHandler = syncHandlerConstructor(
-			func(node *cilium_v2.CiliumNode) {
+			func(name string) {
 				nodeDel := ciliumNodeName{
 					cluster: option.Config.ClusterName,
-					name:    node.Name,
+					name:    name,
 				}
 				ciliumNodeKVStore.DeleteLocalKey(ctx, &nodeDel)
 			},
@@ -250,7 +249,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	return nil
 }
 
-func syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
+func syncHandlerConstructor(notFoundHandler func(name string), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
 	return func(key string) error {
 		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
@@ -261,11 +260,7 @@ func syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), fo
 
 		// Delete handling
 		if !exists || errors.IsNotFound(err) {
-			notFoundHandler(&cilium_v2.CiliumNode{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name: name,
-				},
-			})
+			notFoundHandler(name)
 			return nil
 		}
 		if err != nil {
@@ -274,18 +269,8 @@ func syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), fo
 		}
 		cn, ok := obj.(*cilium_v2.CiliumNode)
 		if !ok {
-			tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-			if !ok {
-				return fmt.Errorf("couldn't get object from tombstone %#v", obj)
-			}
-			cn, ok = tombstone.Obj.(*cilium_v2.CiliumNode)
-			if !ok {
-				return fmt.Errorf("tombstone contained object that is not a *cilium_v2.CiliumNode %#v", obj)
-			}
-		}
-		if cn.DeletionTimestamp != nil {
-			notFoundHandler(cn)
-			return nil
+			log.Errorf("Object stored in store is not *cilium_v2.CiliumNode but %T", obj)
+			return err
 		}
 		foundHandler(cn)
 		return nil
