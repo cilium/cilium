@@ -23,7 +23,7 @@ spec:
           value: "8080"
         ports:
         - containerPort: 8080
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -80,7 +80,7 @@ spec:
         ports:
         - containerPort: 8080
           hostPort: 40000
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -135,7 +135,7 @@ spec:
         - name: PORT
           value: "31000"
         ports: []
-        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        image: quay.io/cilium/json-mock:v1.3.2@sha256:bc6c46c74efadb135bc996c2467cece6989302371ef4e3f068361460abaf39be
         imagePullPolicy: IfNotPresent
         readinessProbe:
           timeoutSeconds: 7
@@ -197,7 +197,7 @@ spec:
       containers:
       - name: pod-to-a-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -253,7 +253,7 @@ spec:
       containers:
       - name: pod-to-external-1111-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -309,7 +309,7 @@ spec:
       containers:
       - name: pod-to-a-denied-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -355,7 +355,7 @@ spec:
       containers:
       - name: pod-to-a-allowed-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -411,7 +411,7 @@ spec:
       containers:
       - name: pod-to-external-fqdn-allow-google-cnp-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
@@ -467,7 +467,7 @@ spec:
       containers:
       - name: pod-to-b-intra-node-nodeport-container
         ports: []
-        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        image: quay.io/cilium/alpine-curl:v1.5.0@sha256:7b286939730d8af1149ef88dba15739d8330bb83d7d9853a23e5ab4043e2d33c
         imagePullPolicy: IfNotPresent
         command:
         - /bin/ash
