@@ -75,7 +75,7 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
-#ifdef BPF_HAVE_NETNS_COOKIE
+#ifdef HAVE_NETNS_COOKIE
 	__net_cookie own_cookie = get_netns_cookie(ctx);
 
 	if (cookie)
@@ -265,7 +265,7 @@ static __always_inline bool
 sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 			       const struct lb4_backend *backend __maybe_unused)
 {
-#ifdef BPF_HAVE_SOCKET_LOOKUP
+#ifdef HAVE_SOCKET_LOOKUP
 	struct bpf_sock_tuple tuple = {
 		.ipv4.daddr = backend->address,
 		.ipv4.dport = backend->port,
@@ -287,7 +287,7 @@ sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 		sk_release(sk);
 		return true;
 	}
-#endif /* BPF_HAVE_SOCKET_LOOKUP */
+#endif /* HAVE_SOCKET_LOOKUP */
 	return false;
 }
 
@@ -350,7 +350,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		/* TC level eBPF datapath does not handle node local traffic,
 		 * but we need to redirect for L7 LB also in that case.
 		 */
-		if (is_defined(BPF_HAVE_NETNS_COOKIE) && in_hostns) {
+		if (is_defined(HAVE_NETNS_COOKIE) && in_hostns) {
 			/* Use the L7 LB proxy port as a backend. Normally this
 			 * would cause policy enforcement to be done before the
 			 * L7 LB (which should not be done), but in this case
@@ -987,7 +987,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 #ifdef ENABLE_L7_LB
 	/* See __sock4_xlate_fwd for commentary. */
 	if (lb6_svc_is_l7loadbalancer(svc)) {
-		if (is_defined(BPF_HAVE_NETNS_COOKIE) && in_hostns) {
+		if (is_defined(HAVE_NETNS_COOKIE) && in_hostns) {
 			union v6addr loopback = { .addr[15] = 1, };
 
 			l7backend.address = loopback;

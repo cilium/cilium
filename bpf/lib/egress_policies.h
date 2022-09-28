@@ -200,7 +200,7 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 # ifndef SKIP_SRV6_HANDLING
 static __always_inline __u64 ctx_adjust_hroom_flags(void)
 {
-#ifdef BPF_HAVE_CSUM_LEVEL
+#ifdef HAVE_CSUM_LEVEL
 	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
 #else
 	return 0;
