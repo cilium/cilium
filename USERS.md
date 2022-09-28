@@ -229,6 +229,12 @@ Users (Alphabetically)
       U: Networking, network policy, network visibility, cluster mesh
       Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
 
+    * N: Kilo
+      D: Cilium is a supported CNI for Kilo. When used together, Cilium + Kilo create a full mesh via WireGuard for Kubernetes in edge environments.
+      U: CNI, Networking, Hubble, kube-proxy replacement, network policy
+      L: https://kilo.squat.ai/
+      Q: @squat, @arpagon
+
     * N: kOps
       D: kOps is using Cilium as one of the supported CNIs
       U: Networking, Hubble, Encryption, kube-proxy replacement
