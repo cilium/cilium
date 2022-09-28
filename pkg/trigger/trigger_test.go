@@ -111,3 +111,28 @@ func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 
 	t.Shutdown()
 }
+
+func (s *TriggerTestSuite) TestShutdownFunc(c *C) {
+	done := make(chan struct{})
+	t, err := NewTrigger(Parameters{
+		TriggerFunc: func(reasons []string) {},
+		ShutdownFunc: func() {
+			close(done)
+		},
+	})
+	c.Assert(err, IsNil)
+
+	t.Trigger()
+	select {
+	case <-done:
+		c.Errorf("shutdown func called unexpectedly")
+	default:
+	}
+
+	t.Shutdown()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		c.Errorf("timed out while waiting for shutdown func")
+	}
+}
