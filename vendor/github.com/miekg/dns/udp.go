@@ -23,6 +23,10 @@ type SessionUDPFactory interface {
 	// Returns the message buffer and the SessionUDP instance
 	// that is used to send the response.
 	ReadRequest(conn *net.UDPConn) ([]byte, SessionUDP, error)
+
+	// ReadRequestConn reads a single request from 'conn'.
+	// Returns the message buffer and the source address
+	ReadRequestConn(conn net.PacketConn) ([]byte, net.Addr, error)
 }
 
 // SessionUDP holds manages a UDP Request/Response transaction.
@@ -111,6 +115,17 @@ func (f *sessionUDPFactory) ReadRequest(conn *net.UDPConn) ([]byte, SessionUDP, 
 	s.m = s.m[:n]        // Re-slice to the actual size
 	s.oob = s.oob[:oobn] // Re-slice to the actual size
 	return s.m, s, err
+}
+
+func (f *sessionUDPFactory) ReadRequestConn(conn net.PacketConn) ([]byte, net.Addr, error) {
+	s := f.udpPool.Get().(*sessionUDP)
+	n, addr, err := conn.ReadFrom(s.m)
+	if err != nil {
+		s.Discard()
+		return nil, nil, err
+	}
+	s.m = s.m[:n]        // Re-slice to the actual size
+	return s.m, addr, err
 }
 
 // Discard returns 's' to the factory pool
