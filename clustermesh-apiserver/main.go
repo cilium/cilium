@@ -99,6 +99,8 @@ var (
 )
 
 func init() {
+	gops.DefaultGopsPort = defaults.GopsPortApiserver
+
 	rootHive = hive.New(
 		vp, rootCmd.Flags(),
 

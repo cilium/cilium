@@ -30,6 +30,7 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -133,6 +134,8 @@ func registerOperatorHooks(lc fx.Lifecycle, clientset k8sClient.Clientset, shutd
 
 func init() {
 	rootCmd.AddCommand(MetricsCmd)
+
+	gops.DefaultGopsPort = defaults.GopsPortOperator
 
 	operatorHive = hive.New(
 		Vp,
