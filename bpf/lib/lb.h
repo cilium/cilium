@@ -1714,7 +1714,7 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 static __always_inline __maybe_unused
 __sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
 {
-#ifdef BPF_HAVE_SOCKET_COOKIE
+#ifdef HAVE_SOCKET_COOKIE
 	/* prandom() breaks down on UDP, hence preference is on
 	 * socket cookie as built-in selector. On older kernels,
 	 * get_socket_cookie() provides a unique per netns cookie

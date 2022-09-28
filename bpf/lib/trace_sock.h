@@ -83,7 +83,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
 
-	if (is_defined(BPF_HAVE_CGROUP_ID))
+	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
 
 	msg = (typeof(msg)){
@@ -109,7 +109,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 	__u64 cgroup_id = 0;
 	struct trace_sock_notify msg __align_stack_8;
 
-	if (is_defined(BPF_HAVE_CGROUP_ID))
+	if (is_defined(HAVE_CGROUP_ID))
 		cgroup_id = get_current_cgroup_id();
 	msg = (typeof(msg)){
 		.type		= CILIUM_NOTIFY_TRACE_SOCK,

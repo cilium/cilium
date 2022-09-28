@@ -18,7 +18,7 @@
 #define DST_PORT_HOSTNS 6001
 #define BACKEND_PORT 7000
 
-#define BPF_HAVE_NETNS_COOKIE 1
+#define HAVE_NETNS_COOKIE 1
 
 /* Hardcode the host netns cookie to 0 */
 #define HOST_NETNS_COOKIE 0
