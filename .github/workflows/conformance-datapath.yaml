@@ -116,7 +116,11 @@ jobs:
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
-    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: ['5.4', '5.10', '5.15', 'bpf-next']
+    timeout-minutes: 120
     steps:
       - name: Set up job variables
         id: vars
@@ -169,8 +173,8 @@ jobs:
         with:
           test-name: datapath-conformance
           image: kind
-          image-version: '5.10'
           lvh-version: 'v0.0.1'
+          image-version: ${{ matrix.kernel }}
           host-mount: ./
           cmd: |
             set -eux
@@ -209,7 +213,7 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance
+            ./cilium-cli sysdump --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance-${{ matrix.kernel }}
 
       - name: Upload artifacts
         if: ${{ !success() }}
