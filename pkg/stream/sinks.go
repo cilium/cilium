@@ -99,7 +99,6 @@ func ToChannel[T any](ctx context.Context, errs chan<- error, src Observable[T])
 		func(err error) {
 			close(items)
 			errs <- err
-			close(errs)
 		})
 	return items
 }
