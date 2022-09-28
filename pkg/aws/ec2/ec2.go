@@ -146,6 +146,30 @@ func deriveStatus(err error) string {
 	return "OK"
 }
 
+func DetectEKSClusterName(ctx context.Context, cfg aws.Config) (string, error) {
+	instance, err := imds.NewFromConfig(cfg).GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve instance identity document: %w", err)
+	}
+
+	const eksClusterNameTag = "aws:eks:cluster-name"
+	tags, err := ec2.NewFromConfig(cfg).DescribeTags(ctx, &ec2.DescribeTagsInput{
+		Filters: []ec2_types.Filter{
+			{Name: aws.String("resource-type"), Values: []string{"instance"}},
+			{Name: aws.String("resource-id"), Values: []string{instance.InstanceID}},
+			{Name: aws.String("key"), Values: []string{eksClusterNameTag}},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve instance identity document: %w", err)
+	}
+	if len(tags.Tags) == 0 || aws.ToString(tags.Tags[0].Key) != eksClusterNameTag {
+		return "", fmt.Errorf("tag not found: %s", eksClusterNameTag)
+	}
+
+	return aws.ToString(tags.Tags[0].Value), nil
+}
+
 func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
 	result := make([]string, 0, int(maxResults))
 	input := &ec2.DescribeNetworkInterfacesInput{
