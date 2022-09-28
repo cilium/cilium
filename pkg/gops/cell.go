@@ -12,17 +12,21 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/fx"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// Gops runs the gops agent, a tool to list and diagnose Go processes.
-// See https://github.com/google/gops.
-var Cell = hive.NewCellWithConfig[GopsConfig](
-	"gops",
-	fx.Invoke(registerGopsHooks),
+var (
+	// DefaultGopsPort is the default for --gops-port option.
+	DefaultGopsPort = uint16(0)
+
+	// Cell runs the gops agent, a tool to list and diagnose Go processes.
+	// See https://github.com/google/gops.
+	Cell = hive.NewCellWithConfig[GopsConfig](
+		"gops",
+		fx.Invoke(registerGopsHooks),
+	)
 )
 
 type GopsConfig struct {
@@ -30,7 +34,7 @@ type GopsConfig struct {
 }
 
 func (GopsConfig) CellFlags(flags *pflag.FlagSet) {
-	flags.Uint16(option.GopsPort, defaults.GopsPortAgent, "Port for gops server to listen on")
+	flags.Uint16(option.GopsPort, DefaultGopsPort, "Port for gops server to listen on")
 }
 
 func registerGopsHooks(lc fx.Lifecycle, log logrus.FieldLogger, cfg GopsConfig) {

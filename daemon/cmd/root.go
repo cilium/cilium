@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/fx"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -67,6 +68,8 @@ func init() {
 	setupSleepBeforeFatal()
 	registerBootstrapMetrics()
 	initializeFlags()
+
+	gops.DefaultGopsPort = defaults.GopsPortAgent
 
 	agentHive = hive.New(
 		Vp,
