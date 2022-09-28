@@ -5,6 +5,8 @@ Please ensure your pull request adheres to the following guidelines:
 - [ ] All commits contain a well written commit description including a title,
       description and a `Fixes: #XXX` line if the commit addresses a particular
       GitHub issue.
+- [ ] If your commit description contains a `Fixes: <commit-id>` tag, then
+      please add the commit author[s] as reviewer[s] to this issue.
 - [ ] All commits are signed off. See the section [Developer’s Certificate of Origin](https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#dev-coo)
 - [ ] Provide a title or release-note blurb suitable for the release notes.
 - [ ] Thanks for contributing!
