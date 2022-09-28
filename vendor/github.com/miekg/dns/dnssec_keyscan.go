@@ -3,15 +3,13 @@ package dns
 import (
 	"bufio"
 	"crypto"
-	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/rsa"
 	"io"
 	"math/big"
 	"strconv"
 	"strings"
-
-	"golang.org/x/crypto/ed25519"
 )
 
 // NewPrivateKey returns a PrivateKey by parsing the string s.
@@ -44,26 +42,7 @@ func (k *DNSKEY) ReadPrivateKey(q io.Reader, file string) (crypto.PrivateKey, er
 		return nil, ErrPrivKey
 	}
 	switch uint8(algo) {
-	case DSA:
-		priv, err := readPrivateKeyDSA(m)
-		if err != nil {
-			return nil, err
-		}
-		pub := k.publicKeyDSA()
-		if pub == nil {
-			return nil, ErrKey
-		}
-		priv.PublicKey = *pub
-		return priv, nil
-	case RSAMD5:
-		fallthrough
-	case RSASHA1:
-		fallthrough
-	case RSASHA1NSEC3SHA1:
-		fallthrough
-	case RSASHA256:
-		fallthrough
-	case RSASHA512:
+	case RSASHA1, RSASHA1NSEC3SHA1, RSASHA256, RSASHA512:
 		priv, err := readPrivateKeyRSA(m)
 		if err != nil {
 			return nil, err
@@ -74,11 +53,7 @@ func (k *DNSKEY) ReadPrivateKey(q io.Reader, file string) (crypto.PrivateKey, er
 		}
 		priv.PublicKey = *pub
 		return priv, nil
-	case ECCGOST:
-		return nil, ErrPrivKey
-	case ECDSAP256SHA256:
-		fallthrough
-	case ECDSAP384SHA384:
+	case ECDSAP256SHA256, ECDSAP384SHA384:
 		priv, err := readPrivateKeyECDSA(m)
 		if err != nil {
 			return nil, err
@@ -92,7 +67,7 @@ func (k *DNSKEY) ReadPrivateKey(q io.Reader, file string) (crypto.PrivateKey, er
 	case ED25519:
 		return readPrivateKeyED25519(m)
 	default:
-		return nil, ErrPrivKey
+		return nil, ErrAlg
 	}
 }
 
@@ -124,24 +99,6 @@ func readPrivateKeyRSA(m map[string]string) (*rsa.PrivateKey, error) {
 			// not used in Go (yet)
 		case "created", "publish", "activate":
 			// not used in Go (yet)
-		}
-	}
-	return p, nil
-}
-
-func readPrivateKeyDSA(m map[string]string) (*dsa.PrivateKey, error) {
-	p := new(dsa.PrivateKey)
-	p.X = new(big.Int)
-	for k, v := range m {
-		switch k {
-		case "private_value(x)":
-			v1, err := fromBase64([]byte(v))
-			if err != nil {
-				return nil, err
-			}
-			p.X.SetBytes(v1)
-		case "created", "publish", "activate":
-			/* not used in Go (yet) */
 		}
 	}
 	return p, nil
