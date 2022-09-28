@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -169,13 +169,15 @@ jobs:
         with:
           test-name: datapath-conformance
           image: kind
-          image-version: '5.10'
+          image-version: '4.19'
           lvh-version: 'v0.0.1'
           host-mount: ./
+          serial-port: 6666
           cmd: |
             set -eux
 
             echo 'nameserver 1.1.1.1' > /etc/resolv.conf
+            curl -vvv registry.docker.io
 
             cd /host/
 
@@ -205,6 +207,7 @@ jobs:
         with:
           provision: 'false'
           cmd: |
+            sleep 3600
             cd /host
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
