@@ -284,7 +284,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
+func (d *Daemon) restoreCiliumHostIPs(n *nodeTypes.Node, ipv6 bool, fromK8s net.IP) {
 	var (
 		cidrs  []*cidr.CIDR
 		fromFS net.IP
@@ -296,9 +296,9 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 			// The native routing CIDR is the pod CIDR in these IPAM modes.
 			cidrs = []*cidr.CIDR{option.Config.GetIPv6NativeRoutingCIDR()}
 		default:
-			cidrs = []*cidr.CIDR{node.GetIPv6AllocRange()}
+			cidrs = []*cidr.CIDR{n.IPv6AllocCIDR}
 		}
-		fromFS = node.GetIPv6Router()
+		fromFS = n.GetCiliumInternalIP(true)
 	} else {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMCRD:
@@ -309,12 +309,12 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 			// needed for GetVpcCIDRs()
 			cidrs = d.ipam.GetVpcCIDRs()
 		default:
-			cidrs = []*cidr.CIDR{node.GetIPv4AllocRange()}
+			cidrs = []*cidr.CIDR{n.IPv4AllocCIDR}
 		}
-		fromFS = node.GetInternalIPv4Router()
+		fromFS = n.GetCiliumInternalIP(false)
 	}
 
-	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
+	restoredIP := node.RestoreHostIPs(n, ipv6, fromK8s, fromFS, cidrs)
 	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
 		log.WithError(err).Warnf(
 			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
@@ -552,12 +552,14 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 				oldNIDs = append(oldNIDs, nid)
 			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
 				oldIngressIPs = append(oldIngressIPs, k.IPNet())
-				ip := k.IPNet().IP
-				if ip.To4() != nil {
-					node.SetIngressIPv4(ip)
-				} else {
-					node.SetIngressIPv6(ip)
-				}
+				localNodeStore.Update(func(n *nodeTypes.Node) {
+					ip := k.IPNet().IP
+					if ip.To4() != nil {
+						n.IPv4IngressIP = ip
+					} else {
+						n.IPv6IngressIP = ip
+					}
+				})
 			}
 		}); err != nil && !os.IsNotExist(err) {
 			log.WithError(err).Debug("Error dumping ipcache")
@@ -1089,7 +1091,9 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		agentLabels[k8sConst.PodNameLabel] = nodeTypes.GetName()
 		agentLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 		// Set configured agent labels to local node for node registration
-		node.SetLabels(agentLabels)
+		localNodeStore.Update(func(n *nodeTypes.Node) {
+			n.Labels = agentLabels
+		})
 
 		// This can override node addressing config, so do this before starting IPAM
 		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
@@ -1106,12 +1110,17 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// router IPs from the K8s resources if we weren't able to restore them
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
-	if option.Config.EnableIPv4 {
-		d.restoreCiliumHostIPs(false, router4FromK8s)
-	}
-	if option.Config.EnableIPv6 {
-		d.restoreCiliumHostIPs(true, router6FromK8s)
-	}
+	localNodeStore.Update(func(n *nodeTypes.Node) {
+		if option.Config.EnableIPv4 {
+			d.restoreCiliumHostIPs(n, false, router4FromK8s)
+		}
+		if option.Config.EnableIPv6 {
+			d.restoreCiliumHostIPs(n, true, router6FromK8s)
+		}
+
+		// TODO(JM): Can we move allocateIPs inside this update and
+		// do the restoreOldEndpoints before restoreCiliumHostIPs?
+	})
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the

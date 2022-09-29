@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -86,6 +88,15 @@ func init() {
 		node.LocalNodeStoreCell,
 		// FIXME: Add LocalNodeInitializer that sets:
 		// Cluster, Name, ClusterID, NodeIdentity.
+
+		// XXX: log the updates:
+		hive.Invoke(func(store node.LocalNodeStore) {
+			store.Observe(context.TODO(),
+				func(n nodeTypes.Node) {
+					log.Infof("NODE ADDRS: %#v", n.IPAddresses)
+				},
+				func(err error) { panic(err) })
+		}),
 
 		hive.Invoke(func(store node.LocalNodeStore) {
 			// Set the global LocalNodeStore. This is to retain the API of getters and setters

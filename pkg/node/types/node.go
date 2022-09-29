@@ -333,7 +333,10 @@ func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
 }
 
 // SetCiliumInternalIP sets the CiliumInternalIP e.g. the IP associated
-// with cilium_host on the node.
+// with cilium_host on the node. It is allocated from the node prefix.
+// This must not be conflated with k8s internal IP as this IP address is only relevant within the
+// Cilium-managed network (this means within the node for direct routing mode and on the overlay
+// for tunnel mode).
 func (n *Node) SetCiliumInternalIP(newAddr net.IP) {
 	n.setAddress(addressing.NodeCiliumInternalIP, newAddr)
 }

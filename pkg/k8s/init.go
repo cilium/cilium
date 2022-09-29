@@ -118,17 +118,6 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeNam
 	return n, nil
 }
 
-// useNodeCIDR sets the ipv4-range and ipv6-range values values from the
-// addresses defined in the given node.
-func useNodeCIDR(localNode, k8sNode *nodeTypes.Node) {
-	if k8sNode.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
-		localNode.IPv4AllocCIDR = k8sNode.IPv4AllocCIDR
-	}
-	if k8sNode.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		localNode.IPv6AllocCIDR = k8sNode.IPv6AllocCIDR
-	}
-}
-
 // WaitForNodeInformation retrieves the node information via the CiliumNode or
 // Kubernetes Node resource. This function will block until the information is
 // received. nodeGetter is a function used to retrieved the node from either
@@ -151,13 +140,13 @@ func WaitForNodeInformation(ctx context.Context, localNodeStore node.LocalNodeSt
 
 		localNodeStore.Update(func(localNode *nodeTypes.Node) {
 			localNode.IPAddresses = n.IPAddresses
+			localNode.IPv4AllocCIDR = n.IPv4AllocCIDR
+			localNode.IPv6AllocCIDR = n.IPv6AllocCIDR
 			localNode.Labels = n.Labels
 
 			if !option.Config.EnableHostIPRestore {
 				localNode.RemoveAddresses(addressing.NodeCiliumInternalIP)
 			}
-
-			useNodeCIDR(localNode, n)
 		})
 
 		log.WithFields(logrus.Fields{
@@ -167,7 +156,7 @@ func WaitForNodeInformation(ctx context.Context, localNodeStore node.LocalNodeSt
 			logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
 			logfields.V4Prefix:         n.IPv4AllocCIDR,
 			logfields.V6Prefix:         n.IPv6AllocCIDR,
-			logfields.K8sNodeIP:        n.GetK8sNodeIP,
+			logfields.K8sNodeIP:        n.GetK8sNodeIP(),
 		}).Info("Received own node information from API server")
 
 	} else {

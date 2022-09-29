@@ -1083,7 +1083,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv() {
+func initEnv(localNodeStore node.LocalNodeStore) {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(
@@ -1370,25 +1370,26 @@ func initEnv() {
 	// late there?
 	//node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
-	if option.Config.IPv6NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
-		} else {
-			if !ip.IsGlobalUnicast() {
-				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
+	localNodeStore.Update(func(n *nodeTypes.Node) {
+		if option.Config.IPv6NodeAddr != "auto" {
+			if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
+				log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
+			} else {
+				if !ip.IsGlobalUnicast() {
+					log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
+				}
+				n.SetNodeInternalIP(ip)
 			}
-
-			node.SetIPv6(ip)
 		}
-	}
 
-	if option.Config.IPv4NodeAddr != "auto" {
-		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
-			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
-		} else {
-			node.SetIPv4(ip)
+		if option.Config.IPv4NodeAddr != "auto" {
+			if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
+				log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
+			} else {
+				n.SetNodeInternalIP(ip)
+			}
 		}
-	}
+	})
 
 	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(option.Config.SidecarIstioProxyImage)
 	if err != nil {
@@ -1586,7 +1587,7 @@ func registerDaemonHooks(lc fx.Lifecycle, p daemonParams) error {
 			}
 
 			bootstrapStats.earlyInit.Start()
-			initEnv()
+			initEnv(p.LocalNodeStore)
 			bootstrapStats.earlyInit.End(true)
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest

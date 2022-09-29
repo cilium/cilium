@@ -260,17 +260,6 @@ func GetIPv6AllocRange() *cidr.CIDR {
 	return localNode.Get().IPv6AllocCIDR.DeepCopy()
 }
 
-// SetIPv4 sets the IPv4 node address. It must be reachable on the network.
-// It is set based on the following priority:
-// - NodeInternalIP
-// - NodeExternalIP
-// - other IP address type
-func SetIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetNodeInternalIP(ip)
-	})
-}
-
 // GetIPv4 returns one of the IPv4 node address available with the following
 // priority:
 // - NodeInternalIP
@@ -282,37 +271,12 @@ func GetIPv4() net.IP {
 	return clone(n.GetNodeIP(false))
 }
 
-// SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
-// This must not be conflated with k8s internal IP as this IP address is only relevant within the
-// Cilium-managed network (this means within the node for direct routing mode and on the overlay
-// for tunnel mode).
-func SetInternalIPv4Router(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetCiliumInternalIP(ip)
-	})
-}
-
 // GetInternalIPv4Router returns the cilium internal IPv4 node address. This must not be conflated with
 // k8s internal IP as this IP address is only relevant within the Cilium-managed network (this means
 // within the node for direct routing mode and on the overlay for tunnel mode).
 func GetInternalIPv4Router() net.IP {
 	n := localNode.Get()
 	return n.GetCiliumInternalIP(false)
-}
-
-// SetK8sExternalIPv4 sets the external IPv4 node address. It must be a public IP that is routable
-// on the network as well as the internet.
-func SetK8sExternalIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetNodeExternalIP(ip)
-	})
-}
-
-// GetK8sExternalIPv4 returns the external IPv4 node address. It must be a public IP that is routable
-// on the network as well as the internet. It can return nil if no External IPv4 address is assigned.
-func GetK8sExternalIPv4() net.IP {
-	n := localNode.Get()
-	return n.GetExternalIP(false)
 }
 
 // GetRouterInfo returns additional information for the router, the cilium_host interface.
@@ -333,14 +297,6 @@ func SetRouterInfo(info RouterInfo) {
 // any traffic that is being forwarded from the host into the Cilium cluster.
 func GetHostMasqueradeIPv4() net.IP {
 	return GetInternalIPv4Router()
-}
-
-// SetIPv4AllocRange sets the IPv4 address pool to use when allocating
-// addresses for local endpoints
-func SetIPv4AllocRange(net *cidr.CIDR) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv4AllocCIDR = net
-	})
 }
 
 // Uninitialize resets this package to the default state, for use in
@@ -394,13 +350,6 @@ func GetMasqIPv4AddrsWithDevices() map[string]net.IP {
 	return copyStringToNetIPMap(addrs.ipv4MasqAddrs)
 }
 
-// SetIPv6NodeRange sets the IPv6 address pool to be used on this node
-func SetIPv6NodeRange(net *cidr.CIDR) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv6AllocCIDR = net
-	})
-}
-
 // AutoComplete completes the parts of addressing that can be auto derived
 func AutoComplete(n *types.Node) error {
 	if option.Config.EnableHostIPRestore {
@@ -430,18 +379,9 @@ func AutoComplete(n *types.Node) error {
 // If not, then the router IP is discarded and not restored.
 //
 // The restored IP is returned.
-func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.IP {
+func RestoreHostIPs(n *types.Node, ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.IP {
 	if !option.Config.EnableHostIPRestore {
 		return nil
-	}
-
-	var (
-		setter func(net.IP)
-	)
-	if ipv6 {
-		setter = SetIPv6Router
-	} else {
-		setter = SetInternalIPv4Router
 	}
 
 	ip, err := chooseHostIPsToRestore(ipv6, fromK8s, fromFS, cidrs)
@@ -456,7 +396,7 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.I
 		// Indicate that this IP will not be restored by setting to nil after
 		// we've used it to log above.
 		ip = nil
-		setter(nil)
+		n.SetCiliumInternalIP(nil)
 	case err != nil && errors.Is(err, errMismatch):
 		log.Warnf(
 			mismatchRouterIPsMsg,
@@ -464,7 +404,7 @@ func RestoreHostIPs(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CIDR) net.I
 		)
 		fallthrough // Above is just a warning; we still want to set the router IP regardless.
 	case err == nil:
-		setter(ip)
+		n.SetCiliumInternalIP(ip)
 	}
 
 	return ip
@@ -552,13 +492,6 @@ func ValidatePostInit() error {
 	return nil
 }
 
-// SetIPv6 sets the IPv6 address of the node
-func SetIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetNodeInternalIP(ip)
-	})
-}
-
 // GetIPv6 returns the IPv6 address of the node
 func GetIPv6() net.IP {
 	n := localNode.Get()
@@ -576,28 +509,6 @@ func GetHostMasqueradeIPv6() net.IP {
 func GetIPv6Router() net.IP {
 	n := localNode.Get()
 	return clone(n.GetCiliumInternalIP(true))
-}
-
-// SetIPv6Router sets the IPv6 address of the router address, e.g. address
-// of cilium_host device.
-func SetIPv6Router(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetCiliumInternalIP(ip)
-	})
-}
-
-// GetK8sExternalIPv6 returns the external IPv6 node address.
-func GetK8sExternalIPv6() net.IP {
-	n := localNode.Get()
-	return clone(n.GetExternalIP(false))
-}
-
-// SetK8sExternalIPv6 sets the external IPv6 node address. It must be a public IP that is routable
-// on the network as well as the internet.
-func SetK8sExternalIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.SetNodeExternalIP(ip)
-	})
 }
 
 // GetNodeAddressing returns the NodeAddressing model for the local IPs.
@@ -743,23 +654,9 @@ func GetWireguardPubKey() string {
 	return localNode.Get().WireguardPubKey
 }
 
-// SetEndpointHealthIPv4 sets the IPv4 cilium-health endpoint address.
-func SetEndpointHealthIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv4HealthIP = ip
-	})
-}
-
 // GetEndpointHealthIPv4 returns the IPv4 cilium-health endpoint address.
 func GetEndpointHealthIPv4() net.IP {
 	return localNode.Get().IPv4HealthIP
-}
-
-// SetEndpointHealthIPv6 sets the IPv6 cilium-health endpoint address.
-func SetEndpointHealthIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv6HealthIP = ip
-	})
 }
 
 // GetEndpointHealthIPv6 returns the IPv6 cilium-health endpoint address.
@@ -767,23 +664,9 @@ func GetEndpointHealthIPv6() net.IP {
 	return localNode.Get().IPv6HealthIP
 }
 
-// SetIngressIPv4 sets the local IPv4 source address for Cilium Ingress.
-func SetIngressIPv4(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv4IngressIP = ip
-	})
-}
-
 // GetIngressIPv4 returns the local IPv4 source address for Cilium Ingress.
 func GetIngressIPv4() net.IP {
 	return localNode.Get().IPv4IngressIP
-}
-
-// SetIngressIPv6 sets the local IPv6 source address for Cilium Ingress.
-func SetIngressIPv6(ip net.IP) {
-	localNode.Update(func(n *types.Node) {
-		n.IPv6IngressIP = ip
-	})
 }
 
 // GetIngressIPv6 returns the local IPv6 source address for Cilium Ingress.

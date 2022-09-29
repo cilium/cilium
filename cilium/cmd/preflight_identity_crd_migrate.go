@@ -28,6 +28,7 @@ import (
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -201,8 +202,11 @@ func migrateIdentities(clientset k8sClient.Clientset, shutdowner fx.Shutdowner) 
 func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
+	localNodeStore := node.DefaultLocalNodeStore()
+	node.SetLocalNodeStore(localNodeStore)
+
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
-	if err := k8s.WaitForNodeInformation(ctx, k8s.Client()); err != nil {
+	if err := k8s.WaitForNodeInformation(ctx, localNodeStore, k8s.Client()); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
