@@ -235,6 +235,12 @@ Users (Alphabetically)
       U: Networking, network policy, network visibility, cluster mesh
       Q: @Matthieu ANTOINE, @Carlos Castro, @Joao Coutinho (Slack)
 
+    * N: Kilo
+      D: Cilium is a supported CNI for Kilo. When used together, Cilium + Kilo create a full mesh via WireGuard for Kubernetes in edge environments.
+      U: CNI, Networking, Hubble, kube-proxy replacement, network policy
+      L: https://kilo.squat.ai/
+      Q: @squat, @arpagon
+
     * N: kOps
       D: kOps is using Cilium as one of the supported CNIs
       U: Networking, Hubble, Encryption, kube-proxy replacement
@@ -390,6 +396,12 @@ Users (Alphabetically)
       U: CNI , Overlay Network, Network Policies
       L: https://www.concur.com, https://gardener.cloud/, https://github.com/gardener/gardener-extension-networking-cilium
       Q: @dragan (SAP Concur), @docktofuture & @ScheererJ (Gardener)
+
+    * N: Sapian
+      D: Sapian uses Cilium as the default CNI in our product DialBox Cloud; DialBox cloud is an Edge Kubernetes cluster using [kilo](https://github.com/squat/kilo) for WireGuard mesh connectivity inter-nodes. Therefore, Cilium is crucial for low latency in real-time communications environments.
+      U: CNI, Network Policies, Hubble, kube-proxy replacement
+      L: https://sapian.com.co, https://arpagon.co/blog/k8s-edge
+      Q: @arpagon
 
     * N: Simple
       D: Simple uses cilium as default CNI in Kubernetes clusters (AWS EKS) for both development and production environments.
