@@ -74,6 +74,15 @@ Configuration
   additional information how to install and run Prometheus including the
   Grafana dashboard.
 
+* By default, ENIs will be tagged with the cluster name, to allow Cilium
+  Operator to garbage collect these ENIs if left dangling. The cluster name is
+  either extracted from Cilium's own ``cluster-name`` flag or from the
+  ``aws:eks:cluster-name`` tag on the operator's EC2 instance. If neither
+  cluster names are available, a static default cluster name is assumed and
+  ENI garbage collection will be performed across all such unnamed clusters.
+  You may override this behavior by setting a cluster-specific ``--eni-gc-tags``
+  tag set.
+
 Custom ENI Configuration
 ========================
 
