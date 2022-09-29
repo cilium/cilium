@@ -1366,7 +1366,9 @@ func initEnv() {
 
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
-	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
+	// FIXME(JM): Is this needed? It's also called from configureIPAM? Is it too
+	// late there?
+	//node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
 	if option.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {

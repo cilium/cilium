@@ -269,7 +269,7 @@ func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerI
 	return
 }
 
-func (d *Daemon) allocateHealthIPs() error {
+func (d *Daemon) allocateHealthIPs(n *nodeTypes.Node) error {
 	bootstrapStats.healthCheck.Start()
 	if option.Config.EnableHealthChecking && option.Config.EnableEndpointHealthChecking {
 		if option.Config.EnableIPv4 {
@@ -287,7 +287,7 @@ func (d *Daemon) allocateHealthIPs() error {
 			}
 
 			log.Debugf("IPv4 health endpoint address: %s", result.IP)
-			node.SetEndpointHealthIPv4(result.IP)
+			n.IPv4HealthIP = result.IP
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 			// in order to set up rules and routes on the local node to direct
@@ -303,9 +303,9 @@ func (d *Daemon) allocateHealthIPs() error {
 		if option.Config.EnableIPv6 {
 			result, err := d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "health")
 			if err != nil {
-				if healthIPv4 := node.GetEndpointHealthIPv4(); healthIPv4 != nil {
-					d.ipam.ReleaseIP(healthIPv4)
-					node.SetEndpointHealthIPv4(nil)
+				if n.IPv4HealthIP != nil {
+					d.ipam.ReleaseIP(n.IPv4HealthIP)
+					n.IPv4HealthIP = nil
 				}
 				return fmt.Errorf("unable to allocate health IPs: %s, see https://cilium.link/ipam-range-full", err)
 			}
@@ -318,7 +318,8 @@ func (d *Daemon) allocateHealthIPs() error {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
-			node.SetEndpointHealthIPv6(result.IP)
+			n.IPv6HealthIP = result.IP
+
 			log.Debugf("IPv6 health endpoint address: %s", result.IP)
 		}
 	}
@@ -326,7 +327,7 @@ func (d *Daemon) allocateHealthIPs() error {
 	return nil
 }
 
-func (d *Daemon) allocateIngressIPs() error {
+func (d *Daemon) allocateIngressIPs(n *nodeTypes.Node) error {
 	bootstrapStats.ingressIPAM.Start()
 	if option.Config.EnableEnvoyConfig {
 		if option.Config.EnableIPv4 {
@@ -334,11 +335,10 @@ func (d *Daemon) allocateIngressIPs() error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv4 := node.GetIngressIPv4()
-			if ingressIPv4 != nil {
-				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv4, "ingress")
+			if n.IPv4IngressIP != nil {
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(n.IPv4IngressIP, "ingress")
 				if err != nil {
-					log.WithError(err).WithField(logfields.SourceIP, ingressIPv4).Warn("unable to re-allocate ingress IPv4.")
+					log.WithError(err).WithField(logfields.SourceIP, n.IPv4IngressIP).Warn("unable to re-allocate ingress IPv4.")
 					result = nil
 				}
 			}
@@ -360,8 +360,8 @@ func (d *Daemon) allocateIngressIPs() error {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
-			node.SetIngressIPv4(result.IP)
-			log.Infof("  Ingress IPv4: %s", node.GetIngressIPv4())
+			n.IPv4IngressIP = result.IP
+			log.Infof("  Ingress IPv4: %s", n.IPv4IngressIP)
 
 			// In ENI and AlibabaCloud ENI mode, we require the gateway, CIDRs, and the
 			// ENI MAC addr in order to set up rules and routes on the local node to
@@ -387,11 +387,10 @@ func (d *Daemon) allocateIngressIPs() error {
 			var err error
 
 			// Reallocate the same address as before, if possible
-			ingressIPv6 := node.GetIngressIPv6()
-			if ingressIPv6 != nil {
-				result, err = d.ipam.AllocateIPWithoutSyncUpstream(ingressIPv6, "ingress")
+			if n.IPv6IngressIP != nil {
+				result, err = d.ipam.AllocateIPWithoutSyncUpstream(n.IPv6IngressIP, "ingress")
 				if err != nil {
-					log.WithError(err).WithField(logfields.SourceIP, ingressIPv6).Warn("unable to re-allocate ingress IPv6.")
+					log.WithError(err).WithField(logfields.SourceIP, n.IPv6IngressIP).Warn("unable to re-allocate ingress IPv6.")
 					result = nil
 				}
 			}
@@ -401,9 +400,9 @@ func (d *Daemon) allocateIngressIPs() error {
 			if result == nil {
 				result, err = d.ipam.AllocateNextFamilyWithoutSyncUpstream(ipam.IPv6, "ingress")
 				if err != nil {
-					if ingressIPv4 := node.GetIngressIPv4(); ingressIPv4 != nil {
-						d.ipam.ReleaseIP(ingressIPv4)
-						node.SetIngressIPv4(nil)
+					if n.IPv4IngressIP != nil {
+						d.ipam.ReleaseIP(n.IPv4IngressIP)
+						n.IPv4IngressIP = nil
 					}
 					return fmt.Errorf("unable to allocate ingress IPs: %s, see https://cilium.link/ipam-range-full", err)
 				}
@@ -417,63 +416,83 @@ func (d *Daemon) allocateIngressIPs() error {
 				result.CIDRs = coalesceCIDRs(result.CIDRs)
 			}
 
-			node.SetIngressIPv6(result.IP)
-			log.Infof("  Ingress IPv6: %s", node.GetIngressIPv6())
+			n.IPv6IngressIP = result.IP
+			log.Infof("  Ingress IPv6: %s", n.IPv6IngressIP)
 		}
 	}
 	bootstrapStats.ingressIPAM.End(true)
 	return nil
 }
 
-func (d *Daemon) allocateIPs() error {
-	bootstrapStats.ipam.Start()
-	if option.Config.EnableIPv4 {
-		routerIP, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
-		if err != nil {
-			return err
-		}
-		if routerIP != nil {
-			node.SetInternalIPv4Router(routerIP)
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		routerIP, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
-		if err != nil {
-			return err
-		}
-		if routerIP != nil {
-			node.SetIPv6Router(routerIP)
-		}
-	}
-
-	log.Info("Addressing information:")
-	log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
-	log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
-	log.Infof("  Local node-name: %s", nodeTypes.GetName())
-	log.Infof("  Node-IPv6: %s", node.GetIPv6())
-
-	if option.Config.EnableIPv6 {
-		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
-
-		if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
-			log.Infof("  IPv6 native routing prefix: %s", c.String())
-		}
-
-		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
-
-		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
-			log.WithError(err).Fatal("Unable to list local IPv6 addresses")
-		} else {
-			log.Info("  Local IPv6 addresses:")
-			for _, ip := range addrs {
-				log.Infof("  - %s", ip)
+func (d *Daemon) allocateIPs(localNodeStore node.LocalNodeStore) error {
+	var updateErr error
+	localNodeStore.Update(func(n *nodeTypes.Node) {
+		bootstrapStats.ipam.Start()
+		if option.Config.EnableIPv4 {
+			routerIP, err := d.allocateRouterIPv4(d.datapath.LocalNodeAddressing().IPv4())
+			if err != nil {
+				updateErr = err
+				return
+			}
+			if routerIP != nil {
+				n.SetCiliumInternalIP(routerIP)
 			}
 		}
-	}
 
-	log.Infof("  External-Node IPv4: %s", node.GetIPv4())
-	log.Infof("  Internal-Node IPv4: %s", node.GetInternalIPv4Router())
+		if option.Config.EnableIPv6 {
+			routerIP, err := d.allocateRouterIPv6(d.datapath.LocalNodeAddressing().IPv6())
+			if err != nil {
+				updateErr = err
+				return
+			}
+			if routerIP != nil {
+				n.SetCiliumInternalIP(routerIP)
+			}
+		}
+
+		log.Info("Addressing information:")
+		log.Infof("  Cluster-Name: %s", option.Config.ClusterName)
+		log.Infof("  Cluster-ID: %d", option.Config.ClusterID)
+		log.Infof("  Local node-name: %s", nodeTypes.GetName())
+		log.Infof("  Node-IPv6: %s", n.GetNodeIP(true))
+
+		if option.Config.EnableIPv6 {
+			log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
+
+			if c := option.Config.GetIPv6NativeRoutingCIDR(); c != nil {
+				log.Infof("  IPv6 native routing prefix: %s", c.String())
+			}
+
+			log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
+
+			if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
+				log.WithError(err).Fatal("Unable to list local IPv6 addresses")
+			} else {
+				log.Info("  Local IPv6 addresses:")
+				for _, ip := range addrs {
+					log.Infof("  - %s", ip)
+				}
+			}
+		}
+
+		log.Infof("  External-Node IPv4: %s", n.GetNodeIP(false))
+		log.Infof("  Internal-Node IPv4: %s", n.GetCiliumInternalIP(false))
+
+		bootstrapStats.ipam.End(true)
+
+		if option.Config.EnableEnvoyConfig {
+			if err := d.allocateIngressIPs(n); err != nil {
+				updateErr = err
+				return
+			}
+		}
+
+		updateErr = d.allocateHealthIPs(n)
+	})
+
+	if updateErr != nil {
+		return updateErr
+	}
 
 	if option.Config.EnableIPv4 {
 		log.Infof("  IPv4 allocation prefix: %s", node.GetIPv4AllocRange())
@@ -500,18 +519,10 @@ func (d *Daemon) allocateIPs() error {
 		}
 	}
 
-	bootstrapStats.ipam.End(true)
-
-	if option.Config.EnableEnvoyConfig {
-		if err := d.allocateIngressIPs(); err != nil {
-			return err
-		}
-	}
-
-	return d.allocateHealthIPs()
+	return nil
 }
 
-func (d *Daemon) configureIPAM() {
+func (d *Daemon) configureIPAM(localNodeStore node.LocalNodeStore) {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -524,26 +535,28 @@ func (d *Daemon) configureIPAM() {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	if option.Config.IPv4Range != AutoCIDR {
-		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
-		}
-		node.SetIPv4AllocRange(allocCIDR)
-	}
-
-	if option.Config.IPv6Range != AutoCIDR {
-		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
-		if err != nil {
-			log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
+	localNodeStore.Update(func(n *nodeTypes.Node) {
+		if option.Config.IPv4Range != AutoCIDR {
+			allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
+			if err != nil {
+				log.WithError(err).WithField(logfields.V4Prefix, option.Config.IPv4Range).Fatal("Invalid IPv4 allocation prefix")
+			}
+			n.IPv4AllocCIDR = allocCIDR
 		}
 
-		node.SetIPv6NodeRange(allocCIDR)
-	}
+		if option.Config.IPv6Range != AutoCIDR {
+			allocCIDR, err := cidr.ParseCIDR(option.Config.IPv6Range)
+			if err != nil {
+				log.WithError(err).WithField(logfields.V6Prefix, option.Config.IPv6Range).Fatal("Invalid IPv6 allocation prefix")
+			}
+			n.IPv6AllocCIDR = allocCIDR
+		}
 
-	if err := node.AutoComplete(); err != nil {
-		log.WithError(err).Fatal("Cannot autocomplete node addresses")
-	}
+		if err := node.AutoComplete(n); err != nil {
+			log.WithError(err).Fatal("Cannot autocomplete node addresses")
+		}
+	})
+
 }
 
 func (d *Daemon) startIPAM() {

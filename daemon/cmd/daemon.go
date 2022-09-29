@@ -1071,7 +1071,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	router4FromK8s, router6FromK8s := node.GetInternalIPv4Router(), node.GetIPv6Router()
 
 	// Configure IPAM without using the configuration yet.
-	d.configureIPAM()
+	d.configureIPAM(localNodeStore)
 
 	if option.Config.JoinCluster {
 		if k8s.IsEnabled() {
@@ -1122,7 +1122,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 	bootstrapStats.restore.End(true)
 
-	if err := d.allocateIPs(); err != nil { // will log errors/fatal internally
+	if err := d.allocateIPs(localNodeStore); err != nil { // will log errors/fatal internally
 		return nil, nil, err
 	}
 
