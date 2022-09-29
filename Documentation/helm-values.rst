@@ -733,6 +733,10 @@
      - Additional agent volumes.
      - list
      - ``[]``
+   * - gatewayAPI.enabled
+     - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
+     - bool
+     - ``false``
    * - gke.enabled
      - Enable Google Kubernetes Engine integration
      - bool

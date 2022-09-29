@@ -25,6 +25,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
+	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 
@@ -641,6 +642,15 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 				"Failed to start ingress controller")
 		}
 		go ingressController.Run()
+	}
+
+	if operatorOption.Config.EnableGatewayAPI {
+		gatewayController, err := gatewayapi.NewController()
+		if err != nil {
+			log.WithError(err).WithField(logfields.LogSubsys, gatewayapi.Subsys).Fatal(
+				"Failed to create gateway controller")
+		}
+		go gatewayController.Run()
 	}
 
 	log.Info("Initialization complete")

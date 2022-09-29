@@ -445,6 +445,7 @@ functionalities
 fwmark
 gRPC
 gVNIC
+gatewayAPI
 gcInterval
 gcTags
 gcc

@@ -46,12 +46,12 @@
   {{- end }}
 {{- end }}
 
-{{- if .Values.ingressController.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   {{- if hasKey .Values "kubeProxyReplacement" }}
     {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
-      {{ fail "Ingress controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+      {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
     {{- end }}
   {{- else }}
-    {{ fail "Ingress controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+    {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
   {{- end }}
 {{- end }}
