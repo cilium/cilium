@@ -19,6 +19,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -119,12 +120,12 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeNam
 
 // useNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
-func useNodeCIDR(n *nodeTypes.Node) {
-	if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
-		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
+func useNodeCIDR(localNode, k8sNode *nodeTypes.Node) {
+	if k8sNode.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
+		localNode.IPv4AllocCIDR = k8sNode.IPv4AllocCIDR
 	}
-	if n.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
-		node.SetIPv6NodeRange(n.IPv6AllocCIDR)
+	if k8sNode.IPv6AllocCIDR != nil && option.Config.EnableIPv6 {
+		localNode.IPv6AllocCIDR = k8sNode.IPv6AllocCIDR
 	}
 }
 
@@ -132,7 +133,7 @@ func useNodeCIDR(n *nodeTypes.Node) {
 // Kubernetes Node resource. This function will block until the information is
 // received. nodeGetter is a function used to retrieved the node from either
 // the kube-apiserver or a local cache, depending on the caller.
-func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
+func WaitForNodeInformation(ctx context.Context, localNodeStore node.LocalNodeStore, nodeGetter nodeGetter) error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -147,43 +148,28 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 	}
 
 	if n := waitForNodeInformation(ctx, nodeGetter, nodeName); n != nil {
-		nodeIP4 := n.GetNodeIP(false)
-		nodeIP6 := n.GetNodeIP(true)
 
-		k8sNodeIP := n.GetK8sNodeIP()
+		localNodeStore.Update(func(localNode *nodeTypes.Node) {
+			localNode.IPAddresses = n.IPAddresses
+			localNode.Labels = n.Labels
+
+			if !option.Config.EnableHostIPRestore {
+				localNode.RemoveAddresses(addressing.NodeCiliumInternalIP)
+			}
+
+			useNodeCIDR(localNode, n)
+		})
 
 		log.WithFields(logrus.Fields{
 			logfields.NodeName:         n.Name,
 			logfields.Labels:           logfields.Repr(n.Labels),
-			logfields.IPAddr + ".ipv4": nodeIP4,
-			logfields.IPAddr + ".ipv6": nodeIP6,
+			logfields.IPAddr + ".ipv4": n.GetNodeIP(false),
+			logfields.IPAddr + ".ipv6": n.GetNodeIP(true),
 			logfields.V4Prefix:         n.IPv4AllocCIDR,
 			logfields.V6Prefix:         n.IPv6AllocCIDR,
-			logfields.K8sNodeIP:        k8sNodeIP,
+			logfields.K8sNodeIP:        n.GetK8sNodeIP,
 		}).Info("Received own node information from API server")
 
-		useNodeCIDR(n)
-
-		// Note: Node IPs are derived regardless of
-		// option.Config.EnableIPv4 and
-		// option.Config.EnableIPv6. This is done to enable
-		// underlay addressing to be different from overlay
-		// addressing, e.g. an IPv6 only PodCIDR running over
-		// IPv4 encapsulation.
-		if nodeIP4 != nil {
-			node.SetIPv4(nodeIP4)
-		}
-
-		if nodeIP6 != nil {
-			node.SetIPv6(nodeIP6)
-		}
-
-		node.SetLabels(n.Labels)
-
-		node.SetK8sExternalIPv4(n.GetExternalIP(false))
-		node.SetK8sExternalIPv6(n.GetExternalIP(true))
-
-		restoreRouterHostIPs(n)
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
@@ -195,30 +181,4 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 	// Annotate addresses will occur later since the user might
 	// want to specify them manually
 	return nil
-}
-
-// restoreRouterHostIPs restores (sets) the router IPs found from the
-// Kubernetes resource.
-//
-// Note that it does not validate the correctness of the IPs, as that is done
-// later in the daemon initialization when node.AutoComplete() is called.
-func restoreRouterHostIPs(n *nodeTypes.Node) {
-	if !option.Config.EnableHostIPRestore {
-		return
-	}
-
-	router4 := n.GetCiliumInternalIP(false)
-	router6 := n.GetCiliumInternalIP(true)
-	if router4 != nil {
-		node.SetInternalIPv4Router(router4)
-	}
-	if router6 != nil {
-		node.SetIPv6Router(router6)
-	}
-	if router4 != nil || router6 != nil {
-		log.WithFields(logrus.Fields{
-			logfields.IPv4: router4,
-			logfields.IPv6: router6,
-		}).Info("Restored router IPs from node information")
-	}
 }
