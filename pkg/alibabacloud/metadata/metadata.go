@@ -56,10 +56,16 @@ func getMetadata(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("metadata service returned status code %d", resp.StatusCode)
+	}
+
 	defer resp.Body.Close()
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
