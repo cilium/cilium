@@ -21,7 +21,8 @@ Installation
             $ helm upgrade cilium |CHART_RELEASE| \\
                 --namespace kube-system \\
                 --reuse-values \\
-                --set ingressController.enabled=true
+                --set ingressController.enabled=true \\
+                --set ingressController.loadbalancerMode=dedicated
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
 
@@ -57,7 +58,8 @@ Installation
 
             $ cilium install \\
                 --kube-proxy-replacement=strict \\
-                --helm-set ingressController.enabled=true
+                --helm-set ingressController.enabled=true \\
+                --helm-set ingressController.loadbalancerMode=dedicated
 
 
         If you only want to use envoy traffic management feature without Ingress support, you should only
