@@ -15,9 +15,6 @@
 
 #include <sys/resource.h>
 
-#define __non_bpf_context	1
-#include "bpf/compiler.h"
-
 struct cpu_jiffies {
 	uint64_t *jiffies;
 	uint32_t cpus;
@@ -26,6 +23,8 @@ struct cpu_jiffies {
 static const uint64_t kernel_hz[] = { 100, 250, 300, 1000 };
 
 #define abs(x)	({ x < 0 ? -x : x; })
+
+#define array_len(A) (sizeof(A) / sizeof((A)[0]))
 
 static int pin_to_cpu(int cpu)
 {
@@ -122,7 +121,7 @@ static int dump_kern_jiffies(const struct cpu_jiffies *fixed,
 
 	for (i = 0; i < result->cpus; i++) {
 		result->jiffies[i] -= fixed->jiffies[i];
-		for (j = 0, delta = ~0; j < ARRAY_SIZE(kernel_hz); j++) {
+		for (j = 0, delta = ~0; j < array_len(kernel_hz); j++) {
 			x = abs((int64_t)(kernel_hz[j] - result->jiffies[i]));
 			if (x < delta) {
 				delta = x;

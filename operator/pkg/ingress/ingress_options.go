@@ -1,23 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package ingress
 
 // Options stores all the configurations values for cilium ingress controller.
 type Options struct {
-	MaxRetries           int
-	EnforcedHTTPS        bool
-	EnabledSecretsSync   bool
-	SecretsNamespace     string
-	LBAnnotationPrefixes []string
+	MaxRetries              int
+	EnforcedHTTPS           bool
+	EnabledSecretsSync      bool
+	SecretsNamespace        string
+	LBAnnotationPrefixes    []string
+	SharedLBServiceName     string
+	CiliumNamespace         string
+	DefaultLoadbalancerMode string
 }
 
 // DefaultIngressOptions specifies default values for cilium ingress controller.
 var DefaultIngressOptions = Options{
-	MaxRetries:           10,
-	EnforcedHTTPS:        true,
-	EnabledSecretsSync:   true,
-	LBAnnotationPrefixes: []string{},
+	MaxRetries:              10,
+	EnforcedHTTPS:           true,
+	EnabledSecretsSync:      true,
+	LBAnnotationPrefixes:    []string{},
+	SharedLBServiceName:     "cilium-ingress",
+	CiliumNamespace:         "kube-system",
+	DefaultLoadbalancerMode: "shared",
 }
 
 // Option customizes the configuration of cilium ingress controller
@@ -59,6 +65,30 @@ func WithSecretsNamespace(secretsNamespace string) Option {
 func WithLBAnnotationPrefixes(lbAnnotationPrefixes []string) Option {
 	return func(o *Options) error {
 		o.LBAnnotationPrefixes = lbAnnotationPrefixes
+		return nil
+	}
+}
+
+// WithSharedLBServiceName configures the name of the shared LB service
+func WithSharedLBServiceName(sharedLBServiceName string) Option {
+	return func(o *Options) error {
+		o.SharedLBServiceName = sharedLBServiceName
+		return nil
+	}
+}
+
+// WithCiliumNamespace configures the namespace of cilium
+func WithCiliumNamespace(ciliumNamespace string) Option {
+	return func(o *Options) error {
+		o.CiliumNamespace = ciliumNamespace
+		return nil
+	}
+}
+
+// WithDefaultLoadbalancerMode configures the default loadbalancer mode
+func WithDefaultLoadbalancerMode(defaultLoadbalancerMode string) Option {
+	return func(o *Options) error {
+		o.DefaultLoadbalancerMode = defaultLoadbalancerMode
 		return nil
 	}
 }

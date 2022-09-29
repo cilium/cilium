@@ -3,7 +3,7 @@
 
 //go:build !privileged_tests
 
-package ingress
+package translation
 
 import (
 	"sort"
