@@ -14,6 +14,15 @@ const (
 	// ClusterHealthPort is the default value for option.ClusterHealthPort
 	ClusterHealthPort = 4240
 
+	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
+	ClusterMeshHealthPort = 80
+
+	// PprofPortAgent is the default value for pprof in the agent
+	PprofPortAgent = 6060
+
+	// PprofPortAgent is the default value for pprof in the operator
+	PprofPortOperator = 6061
+
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 
