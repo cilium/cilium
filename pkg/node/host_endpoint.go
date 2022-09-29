@@ -4,8 +4,6 @@
 package node
 
 import (
-	"fmt"
-
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -25,7 +23,6 @@ func GetLabels() map[string]string {
 // SetLabels sets the labels of this node.
 func SetLabels(l map[string]string) {
 	localNode.Update(func(n *types.Node) {
-		fmt.Printf("LABELS UPDATED\n")
 		n.Labels = l
 	})
 }

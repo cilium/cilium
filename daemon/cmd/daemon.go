@@ -1131,27 +1131,27 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	//
-	// FIXME: This needs to observe the local node store!
 	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
+
+		localNode := localNodeStore.Get()
 		log.WithFields(logrus.Fields{
-			logfields.V4Prefix:       node.GetIPv4AllocRange(),
-			logfields.V6Prefix:       node.GetIPv6AllocRange(),
-			logfields.V4HealthIP:     node.GetEndpointHealthIPv4(),
-			logfields.V6HealthIP:     node.GetEndpointHealthIPv6(),
-			logfields.V4IngressIP:    node.GetIngressIPv4(),
-			logfields.V6IngressIP:    node.GetIngressIPv6(),
-			logfields.V4CiliumHostIP: node.GetInternalIPv4Router(),
-			logfields.V6CiliumHostIP: node.GetIPv6Router(),
+			logfields.V4Prefix:       localNode.IPv4AllocCIDR,
+			logfields.V6Prefix:       localNode.IPv6AllocCIDR,
+			logfields.V4HealthIP:     localNode.IPv4HealthIP,
+			logfields.V6HealthIP:     localNode.IPv6HealthIP,
+			logfields.V4IngressIP:    localNode.IPv4IngressIP,
+			logfields.V6IngressIP:    localNode.IPv6IngressIP,
+			logfields.V4CiliumHostIP: localNode.GetCiliumInternalIP(false),
+			logfields.V6CiliumHostIP: localNode.GetCiliumInternalIP(true),
 		}).Info("Annotating k8s node")
 
 		err := k8s.Client().AnnotateNode(nodeTypes.GetName(),
 			encryptKeyID,
-			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
-			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
-			node.GetIngressIPv4(), node.GetIngressIPv6(),
-			node.GetInternalIPv4Router(), node.GetIPv6Router())
+			localNode.IPv4AllocCIDR, localNode.IPv6AllocCIDR,
+			localNode.IPv4HealthIP, localNode.IPv6HealthIP,
+			localNode.IPv4IngressIP, localNode.IPv6IngressIP,
+			localNode.GetCiliumInternalIP(false), localNode.GetCiliumInternalIP(true))
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
