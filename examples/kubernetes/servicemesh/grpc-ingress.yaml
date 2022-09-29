@@ -8,19 +8,19 @@ metadata:
 spec:
   ingressClassName: cilium
   rules:
-    - http:
-        paths:
-          - backend:
-              service:
-                name: productcatalogservice
-                port:
-                  number: 3550
-            path: /hipstershop.ProductCatalogService
-            pathType: Prefix
-          - backend:
-              service:
-                name: currencyservice
-                port:
-                  number: 7000
-            path: /hipstershop.CurrencyService
-            pathType: Prefix
+  - http:
+      paths:
+      - backend:
+          service:
+            name: productcatalogservice
+            port:
+              number: 3550
+        path: /hipstershop.ProductCatalogService
+        pathType: Prefix
+      - backend:
+          service:
+            name: currencyservice
+            port:
+              number: 7000
+        path: /hipstershop.CurrencyService
+        pathType: Prefix

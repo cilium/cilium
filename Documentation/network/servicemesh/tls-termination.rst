@@ -13,6 +13,8 @@ Ingress Example with TLS Termination
 This example builds on the HTTP and gRPC ingress examples, adding TLS
 termination.
 
+.. literalinclude:: ../../../examples/kubernetes/servicemesh/tls-ingress.yaml
+
 Create TLS Certificate and Private Key
 ======================================
 
@@ -113,7 +115,7 @@ assigned to the ingress service, so your file looks something like this:
 .. code-block:: shell-session
 
     $ sudo perl -ni -e 'print if !/\.cilium\.rocks$/d' /etc/hosts; sudo tee -a /etc/hosts \
-      <<<"$(kubectl get svc/cilium-ingress-tls-ingress -o=jsonpath='{.status.loadBalancer.ingress[0].ip}') bookinfo.cilium.rocks hipstershop.cilium.rocks"
+      <<<"$(kubectl get ing tls-ingress -o=jsonpath='{.status.loadBalancer.ingress[0].ip}') bookinfo.cilium.rocks hipstershop.cilium.rocks"
 
 
 Make HTTPS Requests
