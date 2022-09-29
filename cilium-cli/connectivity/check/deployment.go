@@ -335,121 +335,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
-	if ct.params.MultiCluster != "" {
-		if ct.params.ForceDeploy {
-			if err := ct.deleteDeployments(ctx, ct.clients.dst); err != nil {
-				return err
-			}
-		}
-
-		_, err = ct.clients.dst.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.dst.ClusterName(), ct.params.TestNamespace)
-			_, err = ct.clients.dst.CreateNamespace(ctx, ct.params.TestNamespace, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
-			}
-		}
-	}
-
-	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
-		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
-		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	if ct.params.MultiCluster != "" {
-		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoOtherNodeDeploymentName)
-			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
-			svc.ObjectMeta.Annotations = map[string]string{}
-			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
-
-			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	hostPort := 0
-	if ct.features[FeatureHostPort].Enabled {
-		hostPort = EchoServerHostPort
-	}
-	dnsConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: corednsConfigMapName,
-		},
-		Data: map[string]string{
-			"Corefile": `. {
-				local
-				ready
-				log
-			}`,
-		},
-	}
-	_, err = ct.clients.src.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.src.ClusterName())
-		_, err = ct.clients.src.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
-		}
-	}
-	if ct.params.MultiCluster != "" {
-		_, err = ct.clients.dst.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.dst.ClusterName())
-			_, err = ct.clients.dst.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
-			}
-		}
-	}
-
-	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
-		containerPort := 8080
-		echoDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
-			Name:      echoSameNodeDeploymentName,
-			Kind:      kindEchoName,
-			Port:      containerPort,
-			NamedPort: "http-8080",
-			HostPort:  hostPort,
-			Image:     ct.params.JSONMockImage,
-			Labels:    map[string]string{"other": "echo"},
-			Affinity: &corev1.Affinity{
-				PodAffinity: &corev1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-						{
-							LabelSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
-								},
-							},
-							TopologyKey: "kubernetes.io/hostname",
-						},
-					},
-				},
-			},
-			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
-		}, ct.params.DNSTestServerImage)
-		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create service account %s: %s", echoSameNodeDeploymentName, err)
-		}
-		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoDeployment, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
-		}
-	}
-
 	if ct.params.Perf {
 		// For performance workloads, we want to ensure the client/server are in the same zone
 		// If a zone has > 1 node, use that zone
@@ -576,8 +461,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		if !ct.params.SingleNode {
 			_, err := ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, nm.ClientAcrossName(), metav1.GetOptions{})
 			if err != nil {
-				ct.Logf("✨ [%s] Deploying Perf Client deployment...", ct.clients.src.ClusterName())
-				perfClientDeployment := newDeployment(deploymentParameters{
+				ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), nm.ClientAcrossName())
+				perfOtherClientDeployment := newDeployment(deploymentParameters{
 					Name: nm.ClientAcrossName(),
 					Kind: kindPerfName,
 					Port: 5001,
@@ -613,11 +498,127 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					return fmt.Errorf("unable to create service account %s: %s", nm.ClientAcrossName(), err)
 				}
 
-				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfClientDeployment, metav1.CreateOptions{})
+				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, perfOtherClientDeployment, metav1.CreateOptions{})
 				if err != nil {
-					return fmt.Errorf("unable to create deployment %s: %s", perfClientDeployment, err)
+					return fmt.Errorf("unable to create deployment %s: %s", perfOtherClientDeployment, err)
 				}
 			}
+		}
+		return nil
+	}
+
+	if ct.params.MultiCluster != "" {
+		if ct.params.ForceDeploy {
+			if err := ct.deleteDeployments(ctx, ct.clients.dst); err != nil {
+				return err
+			}
+		}
+
+		_, err = ct.clients.dst.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.dst.ClusterName(), ct.params.TestNamespace)
+			_, err = ct.clients.dst.CreateNamespace(ctx, ct.params.TestNamespace, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
+			}
+		}
+	}
+
+	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
+		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080)
+		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	if ct.params.MultiCluster != "" {
+		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoOtherNodeDeploymentName)
+			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
+			svc.ObjectMeta.Annotations = map[string]string{}
+			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
+
+			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	hostPort := 0
+	if ct.features[FeatureHostPort].Enabled {
+		hostPort = EchoServerHostPort
+	}
+	dnsConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: corednsConfigMapName,
+		},
+		Data: map[string]string{
+			"Corefile": `. {
+				local
+				ready
+				log
+			}`,
+		},
+	}
+	_, err = ct.clients.src.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.src.ClusterName())
+		_, err = ct.clients.src.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+		}
+	}
+	if ct.params.MultiCluster != "" {
+		_, err = ct.clients.dst.GetConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			ct.Logf("✨ [%s] Deploying DNS test server configmap...", ct.clients.dst.ClusterName())
+			_, err = ct.clients.dst.CreateConfigMap(ctx, ct.params.TestNamespace, dnsConfigMap, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create configmap %s: %s", corednsConfigMapName, err)
+			}
+		}
+	}
+
+	_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying same-node deployment...", ct.clients.src.ClusterName())
+		containerPort := 8080
+		echoDeployment := newDeploymentWithDNSTestServer(deploymentParameters{
+			Name:      echoSameNodeDeploymentName,
+			Kind:      kindEchoName,
+			Port:      containerPort,
+			NamedPort: "http-8080",
+			HostPort:  hostPort,
+			Image:     ct.params.JSONMockImage,
+			Labels:    map[string]string{"other": "echo"},
+			Affinity: &corev1.Affinity{
+				PodAffinity: &corev1.PodAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{clientDeploymentName}},
+								},
+							},
+							TopologyKey: "kubernetes.io/hostname",
+						},
+					},
+				},
+			},
+			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+		}, ct.params.DNSTestServerImage)
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoSameNodeDeploymentName), metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create service account %s: %s", echoSameNodeDeploymentName, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoDeployment, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("unable to create deployment %s: %s", echoSameNodeDeploymentName, err)
 		}
 	}
 
@@ -821,6 +822,42 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		return err
 	}
 
+	if ct.params.Perf {
+		perfPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindPerfName})
+		if err != nil {
+			return fmt.Errorf("unable to list perf pods: %w", err)
+		}
+		for _, perfPod := range perfPods.Items {
+			// Filter out existing perf pods in cilium-test based on scenario
+			if ct.params.PerfHostNet != perfPod.Spec.HostNetwork {
+				continue
+			}
+
+			// Individual endpoints will not be created for pods using node's network stack
+			if !ct.params.PerfHostNet {
+				ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
+				defer cancel()
+				if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
+					return err
+				}
+			}
+			_, hasLabel := perfPod.GetLabels()["server"]
+			if hasLabel {
+				ct.perfServerPod[perfPod.Name] = Pod{
+					K8sClient: ct.client,
+					Pod:       perfPod.DeepCopy(),
+					port:      5201,
+				}
+			} else {
+				ct.perfClientPods[perfPod.Name] = Pod{
+					K8sClient: ct.client,
+					Pod:       perfPod.DeepCopy(),
+				}
+			}
+		}
+		return nil
+	}
+
 	clientPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 	if err != nil {
 		return fmt.Errorf("unable to list client pods: %s", err)
@@ -887,39 +924,6 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		err := ct.waitForServiceDNS(svcDNSCtx, cp)
 		if err != nil {
 			return err
-		}
-	}
-
-	perfPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindPerfName})
-	if err != nil {
-		return fmt.Errorf("unable to list perf pods: %w", err)
-	}
-	for _, perfPod := range perfPods.Items {
-		// Filter out existing perf pods in cilium-test based on scenario
-		if ct.params.PerfHostNet != perfPod.Spec.HostNetwork {
-			continue
-		}
-
-		// Individual endpoints will not be created for pods using node's network stack
-		if !ct.params.PerfHostNet {
-			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
-			defer cancel()
-			if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
-				return err
-			}
-		}
-		_, hasLabel := perfPod.GetLabels()["server"]
-		if hasLabel {
-			ct.perfServerPod[perfPod.Name] = Pod{
-				K8sClient: ct.client,
-				Pod:       perfPod.DeepCopy(),
-				port:      5201,
-			}
-		} else {
-			ct.perfClientPods[perfPod.Name] = Pod{
-				K8sClient: ct.client,
-				Pod:       perfPod.DeepCopy(),
-			}
 		}
 	}
 
