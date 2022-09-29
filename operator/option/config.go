@@ -247,6 +247,10 @@ const (
 	// IngressSecretsNamespace is the namespace having tls secrets used by Ingress and CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
 
+	// EnableGatewayAPI enables support of Gateway API
+	// This must be enabled along with enable-envoy-config in cilium agent.
+	EnableGatewayAPI = "enable-gateway-api"
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -479,6 +483,9 @@ type OperatorConfig struct {
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
 
+	// EnableGatewayAPI enables support of Gateway API
+	EnableGatewayAPI bool
+
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
 
@@ -549,6 +556,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
+	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
