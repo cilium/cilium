@@ -791,7 +791,7 @@ func initializeFlags() {
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
-	flags.Int(option.PProfPort, 6060, "Port that the pprof listens on")
+	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that the pprof listens on")
 	option.BindEnv(option.PProfPort)
 
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
