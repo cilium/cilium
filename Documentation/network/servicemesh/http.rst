@@ -46,6 +46,8 @@ Deploy the First Ingress
 
 You'll find the example Ingress definition in ``basic-ingress.yaml``.
 
+.. literalinclude:: ../../../examples/kubernetes/servicemesh/basic-ingress.yaml
+
 .. parsed-literal::
 
     $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/basic-ingress.yaml
@@ -60,6 +62,7 @@ external IP address, but it may take around 30 seconds.
 
 .. code-block:: shell-session
 
+    # For dedicated load balancer mode
     $ kubectl get svc
     NAME                           TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)        AGE
     cilium-ingress-basic-ingress   LoadBalancer   10.98.169.125    10.98.169.125   80:32478/TCP   2m11s
@@ -69,6 +72,10 @@ external IP address, but it may take around 30 seconds.
     ratings                        ClusterIP      10.108.152.42    <none>          9080/TCP       2m15s
     reviews                        ClusterIP      10.111.145.160   <none>          9080/TCP       2m15s
 
+    # For shared load balancer mode
+    $ kubectl get services -n kube-system cilium-ingress
+    NAME             TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                      AGE
+    cilium-ingress   LoadBalancer   10.98.169.125   10.98.169.125   80:32690/TCP,443:31566/TCP   18m
 
 The external IP address should also be populated into the Ingress:
 
