@@ -384,6 +384,15 @@ func (e ErrTimedOutAcquireSemaphore) Error() string {
 	)
 }
 
+// ErrDNSRequestNoEndpoint represents an error when the local daemon cannot
+// find the corresponding endpoint that triggered a DNS request processed by
+// the local DNS proxy (FQDN proxy).
+type ErrDNSRequestNoEndpoint struct{}
+
+func (ErrDNSRequestNoEndpoint) Error() string {
+	return "DNS request cannot be associated with an existing endpoint"
+}
+
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
 	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.

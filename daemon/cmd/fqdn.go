@@ -461,7 +461,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		err := errors.New("DNS request cannot be associated with an existing endpoint")
+		err := dnsproxy.ErrDNSRequestNoEndpoint{}
 		log.WithFields(logrus.Fields{
 			logfields.L3n4Addr: epIPPort,
 		}).WithError(err).Error("cannot find matching endpoint")
