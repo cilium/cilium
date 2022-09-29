@@ -249,6 +249,8 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		m.policyVerdictEvents(prefix, data)
 	case monitorAPI.MessageTypeRecCapture:
 		m.recorderCaptureEvents(prefix, data)
+	case monitorAPI.MessageTypeTraceSock:
+		// TODO: events to be formatted
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}
