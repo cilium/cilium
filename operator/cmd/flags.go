@@ -257,7 +257,7 @@ func init() {
 	flags.Bool(operatorOption.PProf, false, "Enable pprof debugging endpoint")
 	option.BindEnv(Vp, operatorOption.PProf)
 
-	flags.Int(operatorOption.PProfPort, 6061, "Port that the pprof listens on")
+	flags.Int(operatorOption.PProfPort, defaults.PprofPortOperator, "Port that the pprof listens on")
 	option.BindEnv(Vp, operatorOption.PProfPort)
 
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")

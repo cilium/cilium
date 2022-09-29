@@ -81,10 +81,10 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
 	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
-		"pprof-port", defaults.GopsPortAgent,
+		"pprof-port", defaults.PprofPortAgent,
 		fmt.Sprintf(
-			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d, apiserver:%d",
-			defaults.GopsPortAgent, defaults.GopsPortOperator, defaults.GopsPortApiserver,
+			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d",
+			defaults.PprofPortAgent, defaults.PprofPortOperator,
 		),
 	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
