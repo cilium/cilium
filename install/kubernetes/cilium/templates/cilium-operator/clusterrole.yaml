@@ -82,10 +82,11 @@ rules:
   - get
   - list
   - watch
-{{- if .Values.ingressController.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
   - create
   - update
   - delete
+  - patch
 {{- end }}
 - apiGroups:
   - cilium.io
@@ -160,6 +161,7 @@ rules:
   - list
   - watch
   - delete
+  - patch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -219,5 +221,28 @@ rules:
   - ingresses/status # To update ingress status with load balancer IP.
   verbs:
   - update
+{{- end }}
+{{- if .Values.gatewayAPI.enabled }}
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses
+  - gateways
+  - httproutes
+  - referencegrants
+  - referencepolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  - gateways/status
+  - httproutes/status
+  verbs:
+  - update
+  - patch
 {{- end }}
 {{- end }}
