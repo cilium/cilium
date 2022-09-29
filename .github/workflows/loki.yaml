@@ -30,6 +30,8 @@ on:
       - ConformanceGKE (ci-gke-1.11)
       - ConformanceGKE (ci-gke-1.12)
       - ConformanceIngress
+      - ConformanceIngress (Dedicated LB)
+      - ConformanceIngress (Shared LB)
       - ConformanceKind1.19
       - Cyclonus network policy test
       - Documentation Updates
