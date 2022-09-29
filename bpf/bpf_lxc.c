@@ -11,6 +11,8 @@
 
 #include <linux/icmpv6.h>
 
+#define IS_BPF_LXC 1
+
 #define EVENT_SOURCE LXC_ID
 
 #include "lib/tailcall.h"

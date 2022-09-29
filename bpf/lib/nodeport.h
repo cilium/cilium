@@ -544,7 +544,7 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
 	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
@@ -1421,7 +1421,7 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 {
 	enum nat_dir dir = (enum nat_dir)ctx_load_meta(ctx, CB_NAT);
