@@ -394,7 +394,7 @@ Users (Alphabetically)
     * N: Sapian
       D: Sapian uses Cilium as default CNI in our product DialBox Cloud, DialBox cloud is a Edge Kubernetes cluster using [kilo](https://github.com/squat/kilo) for wirguard mesh connectivity inter-nodes. Cilium is crucial for low latancy on realtime communincations enviroments.
       U: CNI, Network Policies, Hubble, kube-proxy replacement
-      L: https://sapian.com.co, https://arapgon.co/blog/k8s-edge
+      L: https://sapian.com.co, https://arpagon.co/blog/k8s-edge
       Q: @arpagon
 
     * N: Simple
