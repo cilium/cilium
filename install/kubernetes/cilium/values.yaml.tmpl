@@ -483,6 +483,12 @@ ingressController:
   # This will automatically set enable-envoy-config as well.
   enabled: false
 
+  # -- Default ingress load balancer mode
+  # Supported values: shared, dedicated
+  # For granular control, use the following annotations on the ingress resource
+  # io.cilium.ingress/loadbalancer-mode: shared|dedicated,
+  loadbalancerMode: dedicated
+
   # -- Enforce https for host having matching TLS host in Ingress.
   # Incoming traffic to http listener will return 308 http error code with respective location in header.
   enforceHttps: true
@@ -502,6 +508,16 @@ ingressController:
     # -- Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name.
     # If disabled, TLS secrets must be maintained externally.
     sync: true
+
+  # -- Load-balancer service in shared mode.
+  # This is a single load-balancer service for all Ingress resources.
+  service:
+    # -- Service name
+    name: cilium-ingress
+    # -- Labels to be added for the shared LB service
+    labels: {}
+    # -- Annotations to be added for the shared LB service
+    annotations: {}
 
 # -- Enables the fallback compatibility solution for when the xt_socket kernel
 # module is missing and it is needed for the datapath L7 redirection to work

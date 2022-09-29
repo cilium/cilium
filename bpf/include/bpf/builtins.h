@@ -6,8 +6,6 @@
 
 #include "compiler.h"
 
-#ifndef __non_bpf_context
-
 #ifndef lock_xadd
 # define lock_xadd(P, V)	((void) __sync_fetch_and_add((P), (V)))
 #endif
@@ -491,5 +489,4 @@ static __always_inline __nobuiltin("memmove") void memmove(void *d,
 	return __bpf_memmove(d, s, len);
 }
 
-#endif /* __non_bpf_context */
 #endif /* __BPF_BUILTINS__ */
