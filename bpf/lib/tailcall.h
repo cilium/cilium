@@ -27,6 +27,10 @@
 #define __or3_0(y, z)  __or(y, z)
 #define __or3(x, y, z) __eval(__or3_, x)(y, z)
 
+#define __not_0 1
+#define __not_1 0
+#define __not(x) __eval(__not_, x)
+
 /* declare_tailcall_if() and invoke_tailcall_if() is a pair
  * of helpers which based on COND either selects to emit a
  * tail call for the underlying function when true or emits

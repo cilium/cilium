@@ -533,7 +533,7 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
@@ -572,7 +572,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
@@ -1425,7 +1425,7 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct ipv4_nat_target target = {
@@ -1472,7 +1472,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
 int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 {
 	struct bpf_fib_lookup_padded fib_params = {

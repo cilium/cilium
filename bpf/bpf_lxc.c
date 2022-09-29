@@ -11,6 +11,8 @@
 
 #include <linux/icmpv6.h>
 
+#define IS_BPF_LXC 1
+
 /* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
  */
 #define SKIP_SRV6_HANDLING
