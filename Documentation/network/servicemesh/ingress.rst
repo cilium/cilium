@@ -19,6 +19,25 @@ routing and for TLS termination.
     The ingress controller creates a service of LoadBalancer type, so
     your environment will need to support this.
 
+Cilium allows you to specify load balancer mode for the Ingress resource:
+
+- ``dedicated``: The Ingress controller will create a dedicated loadbalancer
+  for the Ingress.
+- ``shared``: The Ingress controller will use a shared loadbalancer for all
+  Ingress resources.
+
+Each load balancer mode has its own benefits and drawbacks. The shared mode saves
+resources by sharing a single LoadBalancer config across all Ingress resources in
+the cluster, while the dedicated mode can help to avoid potential conflicts (e.g.
+path prefix) between resources.
+
+.. Note::
+
+    It is possible to change the load balancer mode for an Ingress resource.
+    When the mode is changed, active connections to backends of the Ingress
+    may be terminated during the reconfiguration due to a new load balancer
+    IP address being assigned to the Ingress resource.
+
 This is a step-by-step guide on how to enable the Ingress Controller in
 an existing K8s cluster with Cilium installed.
 
@@ -34,6 +53,9 @@ Supported Ingress Annotations
    * - Name
      - Description
      - Default Value
+   * - ``io.cilium.ingress/loadbalancer-mode``
+     - The loadbalancer mode for the ingress. Applicable values are ``dedicated`` and ``shared``.
+     - Defaults to Helm option ``ingressController.loadbalancerMode`` value.
    * - ``io.cilium/tcp-keep-alive``
      - Enable TCP keep-alive
      - 1 (enabled)
