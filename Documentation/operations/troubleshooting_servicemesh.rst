@@ -53,13 +53,25 @@ Internally, the Cilium Ingress controller will create one Load Balancer service,
         NAME            CLASS    HOSTS   ADDRESS        PORTS   AGE
         basic-ingress   cilium   *       10.97.60.117   80      16m
 
+        # For dedicated Load Balancer mode
         $ kubectl get service cilium-ingress-basic-ingress
         NAME                           TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
         cilium-ingress-basic-ingress   LoadBalancer   10.97.60.117   10.97.60.117   80:31911/TCP   17m
 
+        # For dedicated Load Balancer mode
         $ kubectl get cec cilium-ingress-default-basic-ingress
         NAME                                   AGE
         cilium-ingress-default-basic-ingress   18m
+
+        # For shared Load Balancer mode
+        $ kubectl get services -n kube-system cilium-ingress
+        NAME             TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)                      AGE
+        cilium-ingress   LoadBalancer   10.111.109.99   10.111.109.99   80:32690/TCP,443:31566/TCP   38m
+
+        # For shared Load Balancer mode
+        $ kubectl get cec -n kube-system cilium-ingress
+        NAME             AGE
+        cilium-ingress   15m
 
  #. Validate that the Load Balancer service has either an external IP or FQDN assigned.
     If it's not available after a long time, please check the Load Balancer related
