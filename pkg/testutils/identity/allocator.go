@@ -6,6 +6,7 @@ package testidentity
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -14,7 +15,9 @@ import (
 
 type IdentityAllocatorOwnerMock struct{}
 
-func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) {}
+func (i *IdentityAllocatorOwnerMock) UpdateIdentities(added, deleted cache.IdentityCache) *sync.WaitGroup {
+	return nil
+}
 
 func (i *IdentityAllocatorOwnerMock) GetNodeSuffix() string {
 	return "foo"
@@ -62,9 +65,9 @@ func (f *MockIdentityAllocator) GetIdentities() cache.IdentitiesModel {
 
 // AllocateIdentity allocates a fake identity. It is meant to generally mock
 // the canonical identity allocator logic.
-func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, _ identity.NumericIdentity) (*identity.Identity, bool, error) {
+func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.Labels, _ bool, _ identity.NumericIdentity) (*identity.Identity, bool, *sync.WaitGroup, error) {
 	if reservedIdentity := identity.LookupReservedIdentityByLabels(lbls); reservedIdentity != nil {
-		return reservedIdentity, false, nil
+		return reservedIdentity, false, nil, nil
 	}
 
 	requiresGlobal := identity.RequiresGlobalIdentity(lbls)
@@ -72,7 +75,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	if numID, ok := f.labelsToIdentity[lbls.String()]; ok && !requiresGlobal {
 		id := f.idToIdentity[numID]
 		id.ReferenceCount++
-		return id, false, nil
+		return id, false, nil, nil
 	}
 
 	var id int
@@ -94,7 +97,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 	}
 	f.idToIdentity[id] = realID
 
-	return realID, true, nil
+	return realID, true, nil, nil
 }
 
 // Release releases a fake identity. It is meant to generally mock the

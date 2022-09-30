@@ -1870,7 +1870,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	// identity is new, then this will start updating the policy for other
 	// co-located endpoints without having to wait for that RTT.
 	notifySelectorCache := true
-	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
+	allocatedIdentity, _, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))

@@ -8,6 +8,7 @@ package watchers
 import (
 	"context"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -111,12 +112,13 @@ type fakePolicyManager struct {
 	OnPolicyDelete         func(labels labels.LabelArray) (newRev uint64, err error)
 }
 
-func (f *fakePolicyManager) TriggerPolicyUpdates(force bool, reason string) {
+func (f *fakePolicyManager) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	if f.OnTriggerPolicyUpdates != nil {
 		f.OnTriggerPolicyUpdates(force, reason)
-		return
+		return nil
 	}
 	panic("OnTriggerPolicyUpdates(force bool, reason string) was called and is not set!")
+	return nil
 }
 
 func (f *fakePolicyManager) PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error) {

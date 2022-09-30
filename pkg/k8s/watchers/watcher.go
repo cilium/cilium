@@ -125,7 +125,7 @@ type nodeDiscoverManager interface {
 }
 
 type policyManager interface {
-	TriggerPolicyUpdates(force bool, reason string)
+	TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup
 	PolicyAdd(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
 	PolicyDelete(labels labels.LabelArray) (newRev uint64, err error)
 }

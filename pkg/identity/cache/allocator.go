@@ -9,9 +9,7 @@ import (
 	"net"
 	"path"
 	"strings"
-
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
@@ -25,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/sirupsen/logrus"
+	"k8s.io/client-go/tools/cache"
 )
 
 var (
@@ -98,7 +98,10 @@ type IdentityAllocatorOwner interface {
 	// The caller is responsible for making sure the same identity
 	// is not present in both 'added' and 'deleted', so that they
 	// can be processed in either order.
-	UpdateIdentities(added, deleted IdentityCache)
+	//
+	// This method asynchronously triggers TriggerPolicyUpdate. It returns a
+	// wait group whose counter becomes zero when endpoint regeneration completes.
+	UpdateIdentities(added, deleted IdentityCache) *sync.WaitGroup
 
 	// GetSuffix must return the node specific suffix to use
 	GetNodeSuffix() string
@@ -116,7 +119,7 @@ type IdentityAllocator interface {
 	// A possible previously used numeric identity for these labels can be passed
 	// in as the last parameter; identity.InvalidIdentity must be passed if no
 	// previous numeric identity exists.
-	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, error)
+	AllocateIdentity(context.Context, labels.Labels, bool, identity.NumericIdentity) (*identity.Identity, bool, *sync.WaitGroup, error)
 
 	// Release is the reverse operation of AllocateIdentity() and releases the
 	// specified identity.
@@ -315,7 +318,7 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 // A possible previously used numeric identity for these labels can be passed
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists.
-func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, err error) {
+func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool, oldNID identity.NumericIdentity) (id *identity.Identity, allocated bool, regenWG *sync.WaitGroup, err error) {
 	isNewLocally := false
 
 	// Notify the owner of the newly added identities so that the
@@ -337,7 +340,8 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 				added := IdentityCache{
 					id.ID: id.LabelArray,
 				}
-				m.owner.UpdateIdentities(added, nil)
+				// regenWG is a named return values.
+				regenWG = m.owner.UpdateIdentities(added, nil)
 			}
 		}
 	}()
@@ -357,30 +361,31 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 				"isNew":                  false,
 			}).Debug("Resolved reserved identity")
 		}
-		return reservedIdentity, false, nil
+		return reservedIdentity, false, nil, nil
 	}
 
 	if !identity.RequiresGlobalIdentity(lbls) {
-		return m.localIdentities.lookupOrCreate(lbls, oldNID)
+		allocatedIdentity, allocated, err := m.localIdentities.lookupOrCreate(lbls, oldNID)
+		return allocatedIdentity, allocated, nil, err
 	}
 
 	// This will block until the kvstore can be accessed and all identities
 	// were successfully synced
 	err = m.WaitForInitialGlobalIdentities(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 
 	if m.IdentityAllocator == nil {
-		return nil, false, fmt.Errorf("allocator not initialized")
+		return nil, false, nil, fmt.Errorf("allocator not initialized")
 	}
 
 	idp, isNew, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, GlobalIdentity{lbls.LabelArray()})
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil, err
 	}
 	if idp > identity.MaxNumericIdentity {
-		return nil, false, fmt.Errorf("%d: numeric identity too large", idp)
+		return nil, false, nil, fmt.Errorf("%d: numeric identity too large", idp)
 	}
 
 	if option.Config.Debug {
@@ -392,7 +397,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		}).Debug("Resolved identity")
 	}
 
-	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil
+	return identity.NewIdentity(identity.NumericIdentity(idp), lbls), isNew, nil, nil
 }
 
 // Release is the reverse operation of AllocateIdentity() and releases the

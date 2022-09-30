@@ -9,6 +9,7 @@ import (
 	"net"
 	"path"
 	"sort"
+	"sync"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -97,7 +98,9 @@ func (m *VMManager) startCiliumExternalWorkloadWatcher(clientset k8sClient.Clien
 //
 
 // UpdateIdentities will be called when identities have changed
-func (m *VMManager) UpdateIdentities(added, deleted identityCache.IdentityCache) {}
+func (m *VMManager) UpdateIdentities(added, deleted identityCache.IdentityCache) *sync.WaitGroup {
+	return nil
+}
 
 // GetNodeSuffix must return the node specific suffix to use
 func (m *VMManager) GetNodeSuffix() string {

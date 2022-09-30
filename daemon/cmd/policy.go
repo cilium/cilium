@@ -69,8 +69,8 @@ func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {
 
 // TriggerPolicyUpdates triggers policy updates by deferring to the
 // policy.Updater to handle them.
-func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
-	d.policyUpdater.TriggerPolicyUpdates(force, reason)
+func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
+	return d.policyUpdater.TriggerPolicyUpdates(force, reason)
 }
 
 // UpdateIdentities informs the policy package of all identity changes
@@ -78,12 +78,12 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
+func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	d.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()
-	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+	return d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
 }
 
 type getPolicyResolve struct {

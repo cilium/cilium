@@ -395,7 +395,7 @@ func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]
 
 // Mock the creation of endpoint and its corresponding identity, returns endpoint and ID.
 func newEndpointAndIdentity(name, ip string, epLabels map[string]string) (k8sTypes.CiliumEndpoint, *identity.Identity) {
-	id, _, _ := identityAllocator.AllocateIdentity(context.Background(), labels.Map2Labels(epLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
+	id, _, _, _ := identityAllocator.AllocateIdentity(context.Background(), labels.Map2Labels(epLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
 
 	return k8sTypes.CiliumEndpoint{
 		ObjectMeta: slimv1.ObjectMeta{
@@ -419,7 +419,7 @@ func updateEndpointAndIdentity(endpoint *k8sTypes.CiliumEndpoint, oldID *identit
 	ctx := context.Background()
 
 	identityAllocator.Release(ctx, oldID, true)
-	newID, _, _ := identityAllocator.AllocateIdentity(ctx, labels.Map2Labels(newEpLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
+	newID, _, _, _ := identityAllocator.AllocateIdentity(ctx, labels.Map2Labels(newEpLabels, labels.LabelSourceK8s), true, identity.InvalidIdentity)
 	endpoint.Identity.ID = int64(newID.ID)
 	return newID
 }

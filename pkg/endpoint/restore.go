@@ -248,7 +248,7 @@ func (e *Endpoint) restoreIdentity() error {
 			DoFunc: func(ctx context.Context) (err error) {
 				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 				defer cancel()
-				id, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true, identity.InvalidIdentity)
+				id, _, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true, identity.InvalidIdentity)
 				if err != nil {
 					return err
 				}

@@ -17,13 +17,13 @@ import (
 // TriggerPolicyUpdates triggers the policy update trigger.
 //
 // To follow what the trigger does, see NewUpdater.
-func (u *Updater) TriggerPolicyUpdates(force bool, reason string) {
+func (u *Updater) TriggerPolicyUpdates(force bool, reason string) *sync.WaitGroup {
 	if force {
 		log.Debugf("Artificially increasing policy revision to enforce policy recalculation")
 		u.repo.BumpRevision()
 	}
 
-	u.TriggerWithReason(reason)
+	return u.TriggerWithReason(reason)
 }
 
 // NewUpdater returns a new Updater instance to handle triggering policy
