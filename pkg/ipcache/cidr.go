@@ -48,6 +48,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	ipc.metadata.RLock()
 	ipc.Lock()
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
 	for i, p := range prefixes {
@@ -56,7 +57,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
-		lbls.MergeLabels(ipc.GetIDMetadataByIP(p.IP.String()))
+		lbls.MergeLabels(ipc.metadata.getLocked(p.IP.String()))
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
@@ -65,6 +66,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			ipc.Unlock()
+			ipc.metadata.RUnlock()
 			return nil, err
 		}
 
@@ -76,6 +78,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 	}
 	ipc.Unlock()
+	ipc.metadata.RUnlock()
 
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
