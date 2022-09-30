@@ -94,7 +94,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77
+        uses: actions/cache@ac8075791e805656e71b4ba23325ace9e3421120
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -329,7 +329,7 @@ jobs:
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77
+        uses: actions/cache@ac8075791e805656e71b4ba23325ace9e3421120
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
