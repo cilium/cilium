@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/netip"
 	"regexp"
 	"sort"
 	"time"
@@ -589,7 +590,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 
 	c.Assert(cache.Lookup("test.com"), HasLen, limit)
 	c.Assert(cache.LookupIP(net.ParseIP("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
-	c.Assert(cache.forward["test.com"]["1.1.1.1"], IsNil)
+	c.Assert(cache.forward["test.com"][netip.MustParseAddr("1.1.1.1")], IsNil)
 	c.Assert(cache.Lookup("foo.bar"), HasLen, 1)
 	c.Assert(cache.Lookup("bar.foo"), HasLen, 1)
 	c.Assert(cache.overLimit, HasLen, 0)

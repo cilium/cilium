@@ -6,6 +6,7 @@ package fqdn
 import (
 	"encoding/json"
 	"net"
+	"net/netip"
 	"regexp"
 	"sort"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/ip"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -60,7 +61,7 @@ func (entry *cacheEntry) isExpiredBy(pointInTime time.Time) bool {
 // The DNS name in the entries is not checked, but is assumed to be the same
 // for all entries.
 // Note: They are guarded by the DNSCache mutex.
-type ipEntries map[string]*cacheEntry
+type ipEntries map[netip.Addr]*cacheEntry
 
 // nameEntries maps a DNS name to the cache entry that inserted it into the
 // cache. It used in reverse DNS lookups. It is similar to ipEntries, above,
@@ -73,11 +74,11 @@ func (s ipEntries) getIPs(now time.Time) []net.IP {
 	ips := make([]net.IP, 0, len(s)) // worst case size
 	for ip, entry := range s {
 		if entry != nil && !entry.isExpiredBy(now) {
-			ips = append(ips, net.ParseIP(ip))
+			ips = append(ips, ip.Unmap().AsSlice())
 		}
 	}
 
-	return ip.KeepUniqueIPs(ips) // sorts IPs
+	return ippkg.KeepUniqueIPs(ips) // sorts IPs
 }
 
 // DNSCache manages DNS data that will expire after a certain TTL. Information
@@ -200,7 +201,7 @@ func (c *DNSCache) updateWithEntry(entry *cacheEntry) bool {
 	entries, exists := c.forward[entry.Name]
 	if !exists {
 		changed = true
-		entries = make(map[string]*cacheEntry)
+		entries = make(map[netip.Addr]*cacheEntry)
 		c.forward[entry.Name] = entries
 	}
 
@@ -237,7 +238,7 @@ func (c *DNSCache) addNameToCleanup(entry *cacheEntry) {
 // cleanups begin from that time.
 // It returns the list of names that have expired data and a map of removed DNS
 // cache entries, keyed by IP.
-func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []string, removed map[string][]*cacheEntry) {
+func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []string, removed map[netip.Addr][]*cacheEntry) {
 	if c.lastCleanup.IsZero() {
 		return nil, nil
 	}
@@ -252,7 +253,7 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []str
 		c.lastCleanup = c.lastCleanup.Add(time.Second).Truncate(time.Second)
 	}
 
-	removed = make(map[string][]*cacheEntry)
+	removed = make(map[netip.Addr][]*cacheEntry)
 	for _, name := range KeepUniqueNames(toCleanNames) {
 		if entries, exists := c.forward[name]; exists {
 			affectedNames = append(affectedNames, name)
@@ -268,12 +269,12 @@ func (c *DNSCache) cleanupExpiredEntries(expires time.Time) (affectedNames []str
 // cleanupOverLimitEntries returns the names that has reached the max number of
 // IP per host. Internally the function sort the entries by the expiration
 // time.
-func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed map[string][]*cacheEntry) {
+func (c *DNSCache) cleanupOverLimitEntries() (affectedNames []string, removed map[netip.Addr][]*cacheEntry) {
 	type IPEntry struct {
-		ip    string
+		ip    netip.Addr
 		entry *cacheEntry
 	}
-	removed = make(map[string][]*cacheEntry)
+	removed = make(map[netip.Addr][]*cacheEntry)
 
 	// For global cache the limit maybe is not used at all.
 	if c.perHostLimit == 0 {
@@ -324,13 +325,13 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 
 	if zombies != nil {
 		// Iterate over 2 maps
-		for _, m := range []map[string][]*cacheEntry{
+		for _, m := range []map[netip.Addr][]*cacheEntry{
 			expiredEntries,
 			overLimitEntries,
 		} {
-			for ipStr, entries := range m {
+			for ip, entries := range m {
 				for _, entry := range entries {
-					zombies.Upsert(entry.ExpirationTime, ipStr, entry.Name)
+					zombies.Upsert(entry.ExpirationTime, ip.String(), entry.Name)
 				}
 			}
 		}
@@ -475,11 +476,11 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
 func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool {
 	added := false
 	for _, ip := range entry.IPs {
-		ipStr := ip.String()
-		old, exists := entries[ipStr]
+		addr := ippkg.MustAddrFromIP(ip)
+		old, exists := entries[addr]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
-			entries[ipStr] = entry
-			c.upsertReverse(ipStr, entry)
+			entries[addr] = entry
+			c.upsertReverse(addr.String(), entry)
 			c.addNameToCleanup(entry)
 			added = true
 		}
@@ -527,7 +528,7 @@ func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
 // remove removes the reference between ip and the name stored in entry from
 // the DNS cache (both in forward and reverse maps). This assumes the write
 // lock is taken.
-func (c *DNSCache) remove(ip string, entry *cacheEntry) {
+func (c *DNSCache) remove(ip netip.Addr, entry *cacheEntry) {
 	c.removeForward(ip, entry)
 	c.removeReverse(ip, entry)
 }
@@ -537,7 +538,7 @@ func (c *DNSCache) remove(ip string, entry *cacheEntry) {
 // outright.
 // It is assumed that entry includes ip.
 // This needs a write lock.
-func (c *DNSCache) removeForward(ip string, entry *cacheEntry) {
+func (c *DNSCache) removeForward(ip netip.Addr, entry *cacheEntry) {
 	entries, exists := c.forward[entry.Name]
 	if entries == nil || !exists {
 		return
@@ -549,14 +550,15 @@ func (c *DNSCache) removeForward(ip string, entry *cacheEntry) {
 }
 
 // removeReverse is the equivalent of removeForward() but for the reverse map.
-func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
-	entries, exists := c.reverse[ip]
+func (c *DNSCache) removeReverse(ip netip.Addr, entry *cacheEntry) {
+	ipStr := ip.String()
+	entries, exists := c.reverse[ipStr]
 	if entries == nil || !exists {
 		return
 	}
 	delete(entries, entry.Name)
 	if len(entries) == 0 {
-		delete(c.reverse, ip)
+		delete(c.reverse, ipStr)
 	}
 }
 
