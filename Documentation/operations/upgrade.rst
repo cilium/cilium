@@ -312,6 +312,12 @@ Annotations:
 1.13 Upgrade Notes
 ------------------
 
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
+  version 1.12 have been removed.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
@@ -323,7 +329,6 @@ Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
 * ``http`` is deprecated. Please use ``httpV2`` instead.
-
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
