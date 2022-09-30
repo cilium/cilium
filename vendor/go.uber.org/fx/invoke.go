@@ -38,6 +38,21 @@ import (
 // was successful.
 // All other returned values are discarded.
 //
+// Invokes registered in [Module]s are run before the ones registered at the
+// scope of the parent. Invokes within the same Module is run in the order
+// they were provided. For example,
+//
+//	fx.New(
+//		fx.Invoke(func3),
+//		fx.Module("someModule",
+//			fx.Invoke(func1),
+//			fx.Invoke(func2),
+//		),
+//		fx.Invoke(func4),
+//	)
+//
+// invokes func1, func2, func3, func4 in that order.
+//
 // Typically, invoked functions take a handful of high-level objects (whose
 // constructors depend on lower-level objects) and introduce them to each
 // other. This kick-starts the application by forcing it to instantiate a

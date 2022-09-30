@@ -129,7 +129,7 @@ type paramTagsAnnotation struct {
 	tags []string
 }
 
-var _ paramTagsAnnotation = paramTagsAnnotation{}
+var _ Annotation = paramTagsAnnotation{}
 
 // Given func(T1, T2, T3, ..., TN), this generates a type roughly
 // equivalent to,
@@ -165,7 +165,7 @@ type resultTagsAnnotation struct {
 	tags []string
 }
 
-var _ resultTagsAnnotation = resultTagsAnnotation{}
+var _ Annotation = resultTagsAnnotation{}
 
 // Given func(T1, T2, T3, ..., TN), this generates a type roughly
 // equivalent to,
@@ -208,6 +208,8 @@ type lifecycleHookAnnotation struct {
 	Type   _lifecycleHookAnnotationType
 	Target interface{}
 }
+
+var _ Annotation = (*lifecycleHookAnnotation)(nil)
 
 func (la *lifecycleHookAnnotation) String() string {
 	name := "UnknownHookAnnotation"
@@ -523,7 +525,7 @@ type asAnnotation struct {
 	targets []interface{}
 }
 
-var _ asAnnotation = asAnnotation{}
+var _ Annotation = asAnnotation{}
 
 // As is an Annotation that annotates the result of a function (i.e. a
 // constructor) to be provided as another interface.
@@ -955,11 +957,14 @@ func (ann *annotated) results() (
 //	  fx.Out
 //
 //	  GW *Gateway `name:"foo"`
-//	 }
+//	}
 //
-//	 fx.Provide(func(p params) result {
+//	fx.Provide(func(p params) result {
 //	   return result{GW: NewGateway(p.RO, p.RW)}
-//	 })
+//	})
+//
+// Annotate cannot be used on functions that takes in or returns
+// [In] or [Out] structs.
 //
 // Using the same annotation multiple times is invalid.
 // For example, the following will fail with an error:

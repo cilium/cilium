@@ -182,7 +182,7 @@ import "go.uber.org/dig"
 //	type Params struct {
 //	  fx.In
 //
-//	  Handlers []Handler `group:"server"`
+//	  Handlers []Handler `group:"server,soft"`
 //	  Logger   *zap.Logger
 //	}
 //
@@ -191,13 +191,14 @@ import "go.uber.org/dig"
 //	Foo := func(Params) { ... }
 //
 //	app := fx.New(
-//	  fx.Provide(NewHandlerAndLogger),
-//	  fx.Provide(NewHandler),
+//	  fx.Provide(fx.Annotate(NewHandlerAndLogger, fx.ResultTags(`group:"server"`))),
+//	  fx.Provide(fx.Annotate(NewHandler, fx.ResultTags(`group::"server"`))),
 //	  fx.Invoke(Foo),
 //	)
 //
-// The only constructor called is `NewHandler`, because this also provides
-// `*zap.Logger` needed in the `Params` struct received by `Foo`.
+// The only constructor called is `NewHandlerAndLogger`, because this also provides
+// `*zap.Logger` needed in the `Params` struct received by `Foo`. The Handlers
+// group will be populated with a single Handler returned by `NewHandlerAndLogger`.
 //
 // In the next example, the slice `s` isn't populated as the provider would be
 // called only because `strings` soft group value is its only consumer.
@@ -205,7 +206,7 @@ import "go.uber.org/dig"
 //	 app := fx.New(
 //	   fx.Provide(
 //	     fx.Annotate(
-//	       func() (string,int) { return "hello" },
+//	       func() (string, int) { return "hello", 42 },
 //	       fx.ResultTags(`group:"strings"`),
 //	     ),
 //	   ),

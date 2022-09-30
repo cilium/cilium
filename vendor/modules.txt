@@ -884,7 +884,7 @@ go.uber.org/dig/internal/digerror
 go.uber.org/dig/internal/digreflect
 go.uber.org/dig/internal/dot
 go.uber.org/dig/internal/graph
-# go.uber.org/fx v1.18.1
+# go.uber.org/fx v1.18.2
 ## explicit; go 1.17
 go.uber.org/fx
 go.uber.org/fx/fxevent

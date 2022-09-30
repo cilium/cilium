@@ -40,6 +40,8 @@ type container interface {
 }
 
 // Module is a named group of zero or more fx.Options.
+// A Module creates a scope in which certain operations are taken
+// place. For more information, see [Decorate], [Replace], or [Invoke].
 func Module(name string, opts ...Option) Option {
 	mo := moduleOption{
 		name:    name,
@@ -79,12 +81,23 @@ func (o moduleOption) apply(mod *module) {
 type module struct {
 	parent     *module
 	name       string
-	scope      *dig.Scope
+	scope      scope
 	provides   []provide
 	invokes    []invoke
 	decorators []decorator
 	modules    []*module
 	app        *App
+}
+
+// scope is a private wrapper interface for dig.Container and dig.Scope.
+// We can consider moving this into Fx using type constraints after Go 1.20
+// is released and 1.17 is deprecated.
+type scope interface {
+	Decorate(f interface{}, opts ...dig.DecorateOption) error
+	Invoke(f interface{}, opts ...dig.InvokeOption) error
+	Provide(f interface{}, opts ...dig.ProvideOption) error
+	Scope(name string, opts ...dig.ScopeOption) *dig.Scope
+	String() string
 }
 
 // builds the Scopes using the App's Container. Note that this happens
@@ -93,9 +106,7 @@ type module struct {
 // before the Container can get initialized.
 func (m *module) build(app *App, root *dig.Container) {
 	if m.parent == nil {
-		m.scope = root.Scope(m.name)
-		// TODO: Once fx.Decorate is in-place,
-		// use the root container instead of subscope.
+		m.scope = root
 	} else {
 		parentScope := m.parent.scope
 		m.scope = parentScope.Scope(m.name)
@@ -151,17 +162,18 @@ func (m *module) provide(p provide) {
 }
 
 func (m *module) executeInvokes() error {
+	for _, m := range m.modules {
+		if err := m.executeInvokes(); err != nil {
+			return err
+		}
+	}
+
 	for _, invoke := range m.invokes {
 		if err := m.executeInvoke(invoke); err != nil {
 			return err
 		}
 	}
 
-	for _, m := range m.modules {
-		if err := m.executeInvokes(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
