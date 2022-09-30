@@ -4,9 +4,12 @@
 package ipcache
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/sirupsen/logrus"
 )
 
 // prefixInfo holds all of the information (labels, etc.) about a given prefix
@@ -20,8 +23,10 @@ type prefixInfo map[types.ResourceID]*resourceInfo
 // value that indicates that it should be ignored for purposes of merging
 // multiple resourceInfo across multiple ResourceIDs together.
 type resourceInfo struct {
-	labels labels.Labels
-	source source.Source
+	// identity takes precedence over labels if it is non-nil.
+	identity *identity.Identity
+	labels   labels.Labels
+	source   source.Source
 }
 
 // IPMetadata is an empty interface intended to inform developers using the
@@ -43,6 +48,15 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
 		l := labels.NewLabelsFromModel(nil)
 		l.MergeLabels(info)
 		m.labels = l
+	case *identity.Identity:
+		if m.identity != nil {
+			log.WithFields(logrus.Fields{
+				logfields.OldIdentity: m.identity,
+				logfields.Identity:    info,
+				logfields.URL:         "https://github.com/cilium/cilium/issues",
+			}).Errorf("BUG: Prefix maps to multiple identities. Please report this issue.")
+		}
+		m.identity = info
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
 		return
@@ -55,6 +69,8 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 	switch info.(type) {
 	case labels.Labels:
 		m.labels = nil
+	case *identity.Identity:
+		m.identity = nil
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.unmerge(): %+v", info)
 		return
@@ -62,7 +78,7 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 }
 
 func (m *resourceInfo) isValid() bool {
-	return m.labels != nil
+	return m.identity != nil || m.labels != nil
 }
 
 func (s prefixInfo) isValid() bool {
@@ -76,6 +92,28 @@ func (s prefixInfo) isValid() bool {
 
 func (s prefixInfo) ToLabels() labels.Labels {
 	l := labels.NewLabelsFromModel(nil)
+	// TODO: Actually we should probably just return an error here,
+	//       Then force the caller to pick the identity directly
+	//       This way, the identity reference counting can be entirely
+	//       external to the ipcache metadata map. This helps callers
+	//       understand when to remove the entry from the ipcache map,
+	//       otherwise you either:
+	//       - Add an extra identity allocation for the direct identity,
+	//         meaning that callers cannot decide when they are the "last"
+	//         user of the identity, or
+	//       - Trigger the regular "release the old identity" logic in the
+	//         main TriggerLabelInjection() loop, thereby dropping the
+	//         reference count below zero (which is probably bad?)
+	//       ... The worst danger is some combination where the main loop
+	//       resolves the labels to that identity via this logic, thereby
+	//       adding a reference which can never be decremented because the
+	//       callers remove from the metadata map based on identity refs
+	for _, v := range s {
+		if v.identity != nil {
+			l.MergeLabels(v.labels)
+			return l
+		}
+	}
 	for _, v := range s {
 		l.MergeLabels(v.labels)
 	}
