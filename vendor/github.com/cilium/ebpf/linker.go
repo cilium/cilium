@@ -1,12 +1,14 @@
 package ebpf
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
+	"github.com/cilium/ebpf/internal"
 )
 
 // splitSymbols splits insns into subsections delimited by Symbol Instructions.
@@ -67,7 +69,7 @@ func hasFunctionReferences(insns asm.Instructions) bool {
 //
 // Passing a nil target will relocate against the running kernel. insns are
 // modified in place.
-func applyRelocations(insns asm.Instructions, local, target *btf.Spec) error {
+func applyRelocations(insns asm.Instructions, target *btf.Spec, bo binary.ByteOrder) error {
 	var relos []*btf.CORERelocation
 	var reloInsns []*asm.Instruction
 	iter := insns.Iterate()
@@ -82,12 +84,16 @@ func applyRelocations(insns asm.Instructions, local, target *btf.Spec) error {
 		return nil
 	}
 
+	if bo == nil {
+		bo = internal.NativeEndian
+	}
+
 	target, err := maybeLoadKernelBTF(target)
 	if err != nil {
 		return err
 	}
 
-	fixups, err := btf.CORERelocate(local, target, relos)
+	fixups, err := btf.CORERelocate(relos, target, bo)
 	if err != nil {
 		return err
 	}

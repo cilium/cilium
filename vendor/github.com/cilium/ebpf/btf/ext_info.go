@@ -605,9 +605,12 @@ type bpfCORERelo struct {
 }
 
 type CORERelocation struct {
+	// The local type of the relocation, stripped of typedefs and qualifiers.
 	typ      Type
 	accessor coreAccessor
 	kind     coreKind
+	// The ID of the local type in the source BTF.
+	id TypeID
 }
 
 func CORERelocationMetadata(ins *asm.Instruction) *CORERelocation {
@@ -641,6 +644,7 @@ func newRelocationInfo(relo bpfCORERelo, ts types, strings *stringTable) (*coreR
 			typ,
 			accessor,
 			relo.Kind,
+			relo.TypeID,
 		},
 		asm.RawInstructionOffset(relo.InsnOff),
 	}, nil

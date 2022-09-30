@@ -3,9 +3,9 @@
 // In general, the error return values from feature probes in this package
 // all have the following semantics unless otherwise specified:
 //
-//   err == nil: The feature is available.
-//   errors.Is(err, ebpf.ErrNotSupported): The feature is not available.
-//   err != nil: Any errors encountered during probe execution, wrapped.
+//	err == nil: The feature is available.
+//	errors.Is(err, ebpf.ErrNotSupported): The feature is not available.
+//	err != nil: Any errors encountered during probe execution, wrapped.
 //
 // Note that the latter case may include false negatives, and that resource
 // creation may succeed despite an error being returned. For example, some

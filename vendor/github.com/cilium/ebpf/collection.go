@@ -111,8 +111,8 @@ func (cs *CollectionSpec) RewriteMaps(maps map[string]*Map) error {
 //
 // The constant must be defined like so in the C program:
 //
-//    volatile const type foobar;
-//    volatile const type foobar = default;
+//	volatile const type foobar;
+//	volatile const type foobar = default;
 //
 // Replacement values must be of the same length as the C sizeof(type).
 // If necessary, they are marshalled according to the same rules as
@@ -198,11 +198,11 @@ func (cs *CollectionSpec) RewriteConstants(consts map[string]interface{}) error 
 // The tag's value specifies the name of the program or map as
 // found in the CollectionSpec.
 //
-//    struct {
-//        Foo     *ebpf.ProgramSpec `ebpf:"xdp_foo"`
-//        Bar     *ebpf.MapSpec     `ebpf:"bar_map"`
-//        Ignored int
-//    }
+//	struct {
+//	    Foo     *ebpf.ProgramSpec `ebpf:"xdp_foo"`
+//	    Bar     *ebpf.MapSpec     `ebpf:"bar_map"`
+//	    Ignored int
+//	}
 //
 // Returns an error if any of the eBPF objects can't be found, or
 // if the same MapSpec or ProgramSpec is assigned multiple times.
@@ -249,11 +249,11 @@ func (cs *CollectionSpec) Assign(to interface{}) error {
 // dependent resources are loaded into the kernel and populated with values if
 // specified.
 //
-//    struct {
-//        Foo     *ebpf.Program `ebpf:"xdp_foo"`
-//        Bar     *ebpf.Map     `ebpf:"bar_map"`
-//        Ignored int
-//    }
+//	struct {
+//	    Foo     *ebpf.Program `ebpf:"xdp_foo"`
+//	    Bar     *ebpf.Map     `ebpf:"bar_map"`
+//	    Ignored int
+//	}
 //
 // opts may be nil.
 //

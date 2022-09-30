@@ -42,9 +42,9 @@ type featureTest struct {
 //
 // The return values have the following semantics:
 //
-//   err == ErrNotSupported: the feature is not available
-//   err == nil: the feature is available
-//   err != nil: the test couldn't be executed
+//	err == ErrNotSupported: the feature is not available
+//	err == nil: the feature is available
+//	err != nil: the test couldn't be executed
 type FeatureTestFn func() error
 
 // FeatureTest wraps a function so that it is run at most once.

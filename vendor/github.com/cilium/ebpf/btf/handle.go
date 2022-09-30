@@ -71,51 +71,89 @@ func (i *HandleInfo) IsModule() bool {
 
 // HandleIterator allows enumerating BTF blobs loaded into the kernel.
 type HandleIterator struct {
-	// The ID of the last retrieved handle. Only valid after a call to Next.
-	ID  ID
-	err error
+	// The ID of the current handle. Only valid after a call to Next.
+	ID ID
+	// The current Handle. Only valid until a call to Next.
+	// See Take if you want to retain the handle.
+	Handle *Handle
+	err    error
 }
 
-// Next retrieves a handle for the next BTF blob.
+// Next retrieves a handle for the next BTF object.
 //
-// [Handle.Close] is called if *handle is non-nil to avoid leaking fds.
-//
-// Returns true if another BTF blob was found. Call [HandleIterator.Err] after
+// Returns true if another BTF object was found. Call [HandleIterator.Err] after
 // the function returns false.
-func (it *HandleIterator) Next(handle **Handle) bool {
-	if *handle != nil {
-		(*handle).Close()
-		*handle = nil
-	}
-
+func (it *HandleIterator) Next() bool {
 	id := it.ID
 	for {
 		attr := &sys.BtfGetNextIdAttr{Id: id}
 		err := sys.BtfGetNextId(attr)
 		if errors.Is(err, os.ErrNotExist) {
 			// There are no more BTF objects.
-			return false
+			break
 		} else if err != nil {
 			it.err = fmt.Errorf("get next BTF ID: %w", err)
-			return false
+			break
 		}
 
 		id = attr.NextId
-		*handle, err = NewHandleFromID(id)
+		handle, err := NewHandleFromID(id)
 		if errors.Is(err, os.ErrNotExist) {
 			// Try again with the next ID.
 			continue
 		} else if err != nil {
 			it.err = fmt.Errorf("retrieve handle for ID %d: %w", id, err)
-			return false
+			break
 		}
 
-		it.ID = id
+		it.Handle.Close()
+		it.ID, it.Handle = id, handle
 		return true
 	}
+
+	// No more handles or we encountered an error.
+	it.Handle.Close()
+	it.Handle = nil
+	return false
+}
+
+// Take the ownership of the current handle.
+//
+// It's the callers responsibility to close the handle.
+func (it *HandleIterator) Take() *Handle {
+	handle := it.Handle
+	it.Handle = nil
+	return handle
 }
 
 // Err returns an error if iteration failed for some reason.
 func (it *HandleIterator) Err() error {
 	return it.err
+}
+
+// FindHandle returns the first handle for which predicate returns true.
+//
+// Requires CAP_SYS_ADMIN.
+//
+// Returns an error wrapping ErrNotFound if predicate never returns true or if
+// there is no BTF loaded into the kernel.
+func FindHandle(predicate func(info *HandleInfo) bool) (*Handle, error) {
+	it := new(HandleIterator)
+	defer it.Handle.Close()
+
+	for it.Next() {
+		info, err := it.Handle.Info()
+		if err != nil {
+			return nil, fmt.Errorf("info for ID %d: %w", it.ID, err)
+		}
+
+		if predicate(info) {
+			return it.Take(), nil
+		}
+	}
+	if err := it.Err(); err != nil {
+		return nil, fmt.Errorf("iterate handles: %w", err)
+	}
+
+	return nil, fmt.Errorf("find handle: %w", ErrNotFound)
 }
