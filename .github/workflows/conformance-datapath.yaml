@@ -170,6 +170,7 @@ jobs:
           test-name: datapath-conformance
           image: kind
           image-version: '5.10'
+          lvh-version: 'v0.0.1'
           host-mount: ./
           cmd: |
             set -eux
