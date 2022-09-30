@@ -767,9 +767,11 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 	if !ct.params.Perf {
 		srcList = []string{clientDeploymentName, client2DeploymentName, echoSameNodeDeploymentName}
 	} else {
-		perfDeploymentNameManager := newPerfDeploymentNameManager(&ct.params)
-		srcList = []string{perfDeploymentNameManager.ClientName()}
-		dstList = append(dstList, perfDeploymentNameManager.ServerName())
+		perfNm := newPerfDeploymentNameManager(&ct.params)
+		srcList = []string{perfNm.ClientName(), perfNm.ServerName()}
+		if !ct.params.SingleNode {
+			srcList = append(srcList, perfNm.ClientAcrossName())
+		}
 	}
 
 	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
