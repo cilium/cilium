@@ -33,8 +33,9 @@ func TestPodCIDRAllocatorOverlap(t *testing.T) {
 
 		podCIDRAllocatorOverlapTestRun(t)
 
-		// Reset synced chanel after test run
+		// Reset synced channels after test run
 		k8sCiliumNodesCacheSynced = make(chan struct{})
+		ciliumNodeManagerQueueSynced = make(chan struct{})
 	}
 }
 
@@ -124,8 +125,8 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Wait for the "cache synced" signal, just like we would normally.
-	<-k8sCiliumNodesCacheSynced
+	// Wait for the "node manager synced" signal, just like we would normally.
+	<-ciliumNodeManagerQueueSynced
 
 	// Trigger the Resync after the cache sync signal
 	podCidrManager.Resync(ctx, time.Time{})

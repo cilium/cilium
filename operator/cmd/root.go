@@ -566,7 +566,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		// Once the CiliumNodes are synchronized with the operator we will
 		// be able to watch for K8s Node events which they will be used
 		// to create the remaining CiliumNodes.
-		<-k8sCiliumNodesCacheSynced
+		<-ciliumNodeManagerQueueSynced
 
 		// We don't want CiliumNodes that don't have podCIDRs to be
 		// allocated with a podCIDR already being used by another node.
@@ -653,4 +653,5 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 // before executing the next test case.
 func ResetCiliumNodesCacheSyncedStatus() {
 	k8sCiliumNodesCacheSynced = make(chan struct{})
+	ciliumNodeManagerQueueSynced = make(chan struct{})
 }
