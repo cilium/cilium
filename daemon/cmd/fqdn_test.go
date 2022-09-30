@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func NewFakeIdentityAllocator(c cache.IdentityCache) *FakeRefcountingIdentityAll
 // 'newlyAllocatedIdentities' is not properly mocked out.
 //
 // The resulting identities are not guaranteed to have all fields populated.
-func (f *FakeRefcountingIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (f *FakeRefcountingIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	result := make([]*identity.Identity, 0, len(IPs))
 	for _, ip := range IPs {
 		id, ok := f.ipToIdentity[ip.String()]

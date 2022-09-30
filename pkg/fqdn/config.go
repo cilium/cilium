@@ -6,6 +6,7 @@ package fqdn
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -24,5 +25,5 @@ type Config struct {
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
-	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[string]*identity.Identity, error)
+	UpdateSelectors func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error)
 }

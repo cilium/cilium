@@ -8,6 +8,7 @@ package endpoint
 import (
 	"context"
 	"net"
+	"net/netip"
 	"reflect"
 	"strings"
 	"testing"
@@ -128,7 +129,7 @@ type fakeIdentityAllocator struct {
 	*cache.CachingIdentityAllocator
 }
 
-func (f fakeIdentityAllocator) AllocateCIDRsForIPs([]net.IP, map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (f fakeIdentityAllocator) AllocateCIDRsForIPs([]net.IP, map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	return nil, nil
 }
 

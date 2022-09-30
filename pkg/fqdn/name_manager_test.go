@@ -6,6 +6,7 @@ package fqdn
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -29,7 +30,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[string]*identity.Identity, error) {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}
@@ -75,7 +76,7 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[string]*identity.Identity, error) {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}

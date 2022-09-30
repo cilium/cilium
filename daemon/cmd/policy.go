@@ -290,7 +290,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	//
 	// Release of these identities will be tied to the corresponding policy
 	// in the policy.Repository and released upon policyDelete().
-	newlyAllocatedIdentities := make(map[string]*identity.Identity)
+	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	if _, err := d.ipcache.AllocateCIDRs(prefixes, nil, newlyAllocatedIdentities); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
@@ -440,8 +440,8 @@ type PolicyReactionEvent struct {
 	epsToBumpRevision *policy.EndpointSet
 	endpointsToRegen  *policy.EndpointSet
 	newRev            uint64
-	upsertIdentities  map[string]*identity.Identity // deferred CIDR identity upserts, if any
-	releasePrefixes   []netip.Prefix                // deferred CIDR identity deletes, if any
+	upsertIdentities  map[netip.Prefix]*identity.Identity // deferred CIDR identity upserts, if any
+	releasePrefixes   []netip.Prefix                      // deferred CIDR identity deletes, if any
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
@@ -458,7 +458,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 //     in allEps, to revision rev.
 //   - wait for the regenerations to be finished
 //   - upsert or delete CIDR identities to the ipcache, as needed.
-func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[string]*identity.Identity, releasePrefixes []netip.Prefix) {
+func (d *Daemon) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertIdentities map[netip.Prefix]*identity.Identity, releasePrefixes []netip.Prefix) {
 	var enqueueWaitGroup sync.WaitGroup
 
 	// Release CIDR identities before regenerations have been started, if any. This makes sure

@@ -587,7 +587,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
 	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
 	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
-	restoredCIDRidentities := make(map[string]*identity.Identity)
+	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
 	if len(d.restoredCIDRs) > 0 {
 		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
 		prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
@@ -602,7 +602,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		// same numeric identity as before the restart. This can only happen if we have
 		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
 		for i, prefix := range d.restoredCIDRs {
-			id, exists := restoredCIDRidentities[prefix.String()]
+			id, exists := restoredCIDRidentities[ip.IPNetToPrefix(prefix)]
 			if !exists || id.ID != oldNIDs[i] {
 				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
 				break
