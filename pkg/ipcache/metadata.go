@@ -382,6 +382,14 @@ func (ipc *IPCache) injectLabels(ctx context.Context, prefix netip.Prefix, lbls 
 
 	// If no other labels are associated with this IP, we assume that it's
 	// outside of the cluster and hence needs a CIDR identity.
+	//
+	// This is trying to ensure that remote nodes are assigned the reserved
+	// identity "remote-node" (6) or "kube-apiserver" (7). The datapath
+	// later makes assumptions about remote cluster nodes in the function
+	// identity_is_remote_node(). For now, there is no way to associate any
+	// other labels with such IPs, but this assumption will break if/when
+	// we allow more arbitrary labels to be associated with these IPs that
+	// correspond to remote nodes.
 	if !(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode])) {
 		// GH-17962: Handle the following case:
 		//   1) Apply ToCIDR policy (matching IPs of kube-apiserver)
