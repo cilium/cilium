@@ -71,9 +71,9 @@ func (k TupleKey6) Dump(sb *strings.Builder, reverse bool) bool {
 
 	// Addresses swapped, see issue #5848
 	if reverse {
-		addrDest = k.SourceAddr.IP().String()
+		addrDest = k.SourceAddr.String()
 	} else {
-		addrDest = k.DestAddr.IP().String()
+		addrDest = k.DestAddr.String()
 	}
 
 	if k.Flags&TUPLE_F_IN != 0 {
@@ -149,11 +149,11 @@ func (k TupleKey6Global) Dump(sb *strings.Builder, reverse bool) bool {
 
 	// Addresses swapped, see issue #5848
 	if reverse {
-		addrSource = k.DestAddr.IP().String()
-		addrDest = k.SourceAddr.IP().String()
+		addrSource = k.DestAddr.String()
+		addrDest = k.SourceAddr.String()
 	} else {
-		addrSource = k.SourceAddr.IP().String()
-		addrDest = k.DestAddr.IP().String()
+		addrSource = k.SourceAddr.String()
+		addrDest = k.DestAddr.String()
 	}
 
 	if k.Flags&TUPLE_F_IN != 0 {
