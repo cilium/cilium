@@ -80,12 +80,6 @@ func init() {
 		cell.Invoke(registerDaemonHooks),
 
 		node.LocalNodeStoreCell,
-		cell.Invoke(func(store node.LocalNodeStore) {
-			// Set the global LocalNodeStore. This is to retain the API of getters and setters
-			// defined in pkg/node/address.go until uses of them have been converted to use
-			// LocalNodeStore directly.
-			node.SetLocalNodeStore(store)
-		}),
 	)
 }
 
