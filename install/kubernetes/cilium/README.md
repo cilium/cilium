@@ -1,6 +1,6 @@
 # cilium
 
-![Version: 1.12.90](https://img.shields.io/badge/Version-1.12.90-informational?style=flat-square) ![AppVersion: 1.12.90](https://img.shields.io/badge/AppVersion-1.12.90-informational?style=flat-square)
+![Version: 1.13.0-rc1](https://img.shields.io/badge/Version-1.13.0--rc1-informational?style=flat-square) ![AppVersion: 1.13.0-rc1](https://img.shields.io/badge/AppVersion-1.13.0--rc1-informational?style=flat-square)
 
 Cilium is open source software for providing and transparently securing
 network connectivity and loadbalancing between application workloads such as
