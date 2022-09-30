@@ -4,8 +4,11 @@
 # stack. Addresses, goroutine ID and goroutine ages are ignored when determining
 # uniqeness. A sample of each unique trace is printed
 
-import re,sys,collections
+import re
+import sys
+import collections
 from functools import cmp_to_key
+
 
 def get_stacks(f):
     """
@@ -20,10 +23,13 @@ def get_stacks(f):
         else:
             accum.append(line)
 
+
 # Regexes used to find and remove addresses, ids and age
 strip_addresses = re.compile(r"0x[0-9a-fA-F]+")
 strip_goroutine_id = re.compile(r"goroutine [0-9]+")
 strip_goroutine_time = re.compile(r", [0-9]+ minutes")
+
+
 def strip_stack(stack):
     """
     strip_stack replaces addresses, goroutine IDs and ages with a fixed sentinel
@@ -33,6 +39,7 @@ def strip_stack(stack):
     stack = [strip_goroutine_time.sub("", l) for l in stack]
     return stack
 
+
 def get_hashable_stack_value(stack):
     """
     get_hashable_stack_value transforms stack (and array of strings) into
@@ -40,11 +47,13 @@ def get_hashable_stack_value(stack):
     """
     return "".join(strip_stack(stack))
 
+
 def print_usage():
     print("""usage: {} [-h | path/to/file]
         -h:         This help.
         path/to/file:   Read and parse file with go stacktraces
         '-' or no params: Read and parse stdin""".format(sys.argv[0]))
+
 
 if __name__ == "__main__":
     # Handle arguments. We only support a file path, or stdin on "-" or no
@@ -67,7 +76,12 @@ if __name__ == "__main__":
 
     # print count of each unique stack, and a sample, sorted by frequency
     print("{} unique stack traces".format(len(consolidated)))
-    for stack in sorted(consolidated.values(), key=cmp_to_key(lambda a,b: len(a)-len(b)), reverse=True):
+    for stack in sorted(
+            consolidated.values(),
+            key=cmp_to_key(
+                lambda a,
+                b: len(a) - len(b)),
+            reverse=True):
         print("{} occurences. Sample stack trace:".format(len(stack)))
         print("\n".join(stack[0]))
 
