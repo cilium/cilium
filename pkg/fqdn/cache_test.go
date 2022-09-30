@@ -856,7 +856,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	// Expire only 1 name on 1 zombie
 	nameMatch, err := regexp.Compile("^test.com$")
 	c.Assert(err, IsNil)
-	zombies.ForceExpire(time.Time{}, nameMatch, nil)
+	zombies.ForceExpire(time.Time{}, nameMatch)
 
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
@@ -869,7 +869,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	// GC
 	nameMatch, err = regexp.Compile("^anothertest.com$")
 	c.Assert(err, IsNil)
-	zombies.ForceExpire(time.Time{}, nameMatch, nil)
+	zombies.ForceExpire(time.Time{}, nameMatch)
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{

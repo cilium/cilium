@@ -1003,11 +1003,10 @@ func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart time.Time) {
 //
 // nameMatch will remove that specific DNS name from zombies that include it,
 // deleting it when no DNS names remain.
-func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
+func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp) (namesAffected []string) {
 	zombies.Lock()
 	defer zombies.Unlock()
-	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, cidr)
-
+	return zombies.forceExpireLocked(expireLookupsBefore, nameMatch, nil)
 }
 
 func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {
