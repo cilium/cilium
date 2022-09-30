@@ -86,10 +86,14 @@ func (ipc *IPCache) GetIDMetadataByIP(prefix string) labels.Labels {
 	return ipc.metadata.get(prefix)
 }
 
+func (m *metadata) getLocked(prefix string) labels.Labels {
+	return m.m[prefix]
+}
+
 func (m *metadata) get(prefix string) labels.Labels {
 	m.RLock()
 	defer m.RUnlock()
-	return m.m[prefix]
+	return m.getLocked(prefix)
 }
 
 // InjectLabels injects labels from the ipcache metadata (IDMD) map into the
