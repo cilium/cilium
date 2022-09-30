@@ -494,7 +494,7 @@ func (sc *SelectorCache) allocateIdentityMappings(sel api.FQDNSelector, selector
 	// any existing IPs would typically already have been pushed to the ipcache as they would
 	// not be newly allocated. We need the 'allocation' here to get a reference count on the
 	// allocations.
-	currentlyAllocatedIdentities, err = sc.idAllocator.AllocateCIDRsForIPs(selectorIPs, nil)
+	currentlyAllocatedIdentities, _, err = sc.idAllocator.AllocateCIDRsForIPs(selectorIPs, nil)
 	if err != nil {
 		log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 			"failed to allocate identities for IPs")

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -35,9 +36,8 @@ import (
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByCIDR().
-func (ipc *IPCache) AllocateCIDRs(
-	prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity,
-) ([]*identity.Identity, error) {
+func (ipc *IPCache) AllocateCIDRs(prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, *sync.WaitGroup, error) {
+	var regenWG *sync.WaitGroup
 	// maintain list of used identities to undo on error
 	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
 
@@ -61,13 +61,19 @@ func (ipc *IPCache) AllocateCIDRs(
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
 		}
-		id, isNew, err := ipc.allocate(allocateCtx, prefix, lbls, oldNID)
+		id, isNew, wg, err := ipc.allocate(allocateCtx, prefix, lbls, oldNID)
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			ipc.Unlock()
-			return nil, err
+			return nil, nil, err
 		}
 
+		// We call ipc.allocate() in a loop to allocate identities for multiple
+		// CIDR prefixes. We want to return the WaitGroup from the last invocation
+		// of ipc.allocate(). This way callers of this function can wait on a single
+		// WaitGroup to ensure that the policies are up-to-date with respect to all
+		// the CIDR identities allocated here.
+		regenWG = wg
 		usedIdentities = append(usedIdentities, id)
 		allocatedIdentities[prefix] = id
 		if isNew {
@@ -86,7 +92,7 @@ func (ipc *IPCache) AllocateCIDRs(
 	for _, id := range allocatedIdentities {
 		identities = append(identities, id)
 	}
-	return identities, nil
+	return identities, regenWG, nil
 }
 
 // AllocateCIDRsForIPs performs the same action as AllocateCIDRs but for IP
@@ -94,9 +100,7 @@ func (ipc *IPCache) AllocateCIDRs(
 //
 // Upon success, the caller must also arrange for the resulting identities to
 // be released via a subsequent call to ReleaseCIDRIdentitiesByID().
-func (ipc *IPCache) AllocateCIDRsForIPs(
-	prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity,
-) ([]*identity.Identity, error) {
+func (ipc *IPCache) AllocateCIDRsForIPs(prefixes []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, *sync.WaitGroup, error) {
 	return ipc.AllocateCIDRs(ip.IPsToNetPrefixes(prefixes), nil, newlyAllocatedIdentities)
 }
 
@@ -165,17 +169,17 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 //
 // It is up to the caller to provide the full set of labels for identity
 // allocation.
-func (ipc *IPCache) allocate(ctx context.Context, prefix netip.Prefix, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
-	id, isNew, _, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
+func (ipc *IPCache) allocate(ctx context.Context, prefix netip.Prefix, lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, *sync.WaitGroup, error) {
+	id, isNew, regenWG, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, oldNID)
 	if err != nil {
-		return nil, isNew, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
+		return nil, isNew, nil, fmt.Errorf("failed to allocate identity for cidr %s: %s", prefix, err)
 	}
 
 	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 
-	return id, isNew, err
+	return id, isNew, regenWG, err
 }
 
 func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[netip.Prefix]*identity.Identity) {

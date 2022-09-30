@@ -594,7 +594,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		for _, c := range d.restoredCIDRs {
 			prefixes = append(prefixes, ip.IPNetToPrefix(c))
 		}
-		_, err = d.ipcache.AllocateCIDRs(prefixes, oldNIDs, restoredCIDRidentities)
+		_, _, err = d.ipcache.AllocateCIDRs(prefixes, oldNIDs, restoredCIDRidentities)
 		if err != nil {
 			log.WithError(err).Error("Error allocating old CIDR identities")
 		}

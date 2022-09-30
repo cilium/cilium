@@ -56,8 +56,9 @@ const (
 	dnsSourceConnection = "connection"
 )
 
-func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[string]*identity.Identity, error) {
+func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[string]*identity.Identity, *sync.WaitGroup, error) {
 	var err error
+	var regenWG *sync.WaitGroup
 
 	// Used to track identities which are allocated in calls to
 	// AllocateCIDRs. If we for some reason cannot allocate new CIDRs,
@@ -101,17 +102,17 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 			"ips":          selectorIPs,
 		}).Debug("getting identities for IPs associated with FQDNSelector")
 		var currentlyAllocatedIdentities []*identity.Identity
-		if currentlyAllocatedIdentities, err = identityAllocator.AllocateCIDRsForIPs(selectorIPs, newlyAllocatedIdentities); err != nil {
+		if currentlyAllocatedIdentities, regenWG, err = identityAllocator.AllocateCIDRsForIPs(selectorIPs, newlyAllocatedIdentities); err != nil {
 			identityAllocator.ReleaseSlice(context.TODO(), nil, usedIdentities)
 			log.WithError(err).WithField("prefixes", selectorIPs).Warn(
 				"failed to allocate identities for IPs")
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		usedIdentities = append(usedIdentities, currentlyAllocatedIdentities...)
 		selectorIdentitySliceMapping[selector] = currentlyAllocatedIdentities
 	}
 
-	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, nil
+	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, regenWG, nil
 }
 
 func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
@@ -375,10 +376,12 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[string]*identity.Identity, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
-	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
+	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, regenWG, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
 	if err != nil {
 		return &sync.WaitGroup{}, nil, nil, err
 	}
+	// TODO(michi-covalent) Is this the right spot to wait for endpoint regeneration?????
+	regenWG.Wait()
 
 	// Update mapping in selector cache with new identities.
 	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), usedIdentities, newlyAllocatedIdentities, nil

@@ -146,7 +146,7 @@ func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 
 // AllocateCIDRsForIPs allocates CIDR identities for the given IPs. It is meant
 // to generally mock the CIDR identity allocator logic.
-func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (f *MockIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, *sync.WaitGroup, error) {
 	result := make([]*identity.Identity, 0, len(IPs))
 	for _, ip := range IPs {
 		id, ok := f.ipToIdentity[ip.String()]
@@ -161,7 +161,7 @@ func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[string]*
 			CIDRLabel: labels.NewLabelsFromModel(cidrLabels),
 		})
 	}
-	return result, nil
+	return result, nil, nil
 }
 
 func (f *MockIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
