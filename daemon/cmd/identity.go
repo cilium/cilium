@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"net"
+	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
 	k8sCache "k8s.io/client-go/tools/cache"
@@ -110,7 +111,7 @@ func NewCachingIdentityAllocator(d *Daemon) cachingIdentityAllocator {
 	}
 }
 
-func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	return c.d.ipcache.AllocateCIDRsForIPs(ips, newlyAllocatedIdentities)
 }
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"path"
 	"strings"
 
@@ -153,7 +154,7 @@ type IdentityAllocator interface {
 	// be released via a subsequent call to ReleaseCIDRIdentitiesByID().
 	//
 	// The implementation for this function currently lives in pkg/ipcache.
-	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error)
+	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
 
 	// ReleaseCIDRIdentitiesByID() is a wrapper for ReleaseSlice() that
 	// also handles ipcache entries.
