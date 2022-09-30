@@ -102,7 +102,7 @@ type DNSCache struct {
 	// IP->dnsNames lookup
 	// This map is subordinate to forward, above. An IP inserted into forward, or
 	// expired in forward, should also be added/removed in reverse.
-	reverse map[string]nameEntries
+	reverse map[netip.Addr]nameEntries
 
 	// LastCleanup is the latest time for which entries have been expired. It is
 	// used as "now" when doing lookups and advanced by calls to .GC
@@ -142,7 +142,7 @@ type DNSCache struct {
 func NewDNSCache(minTTL int) *DNSCache {
 	c := &DNSCache{
 		forward: make(map[string]ipEntries),
-		reverse: make(map[string]nameEntries),
+		reverse: make(map[netip.Addr]nameEntries),
 		// lastCleanup is populated on the first insert
 		cleanup:      map[int64][]string{},
 		overLimit:    map[string]bool{},
@@ -447,14 +447,13 @@ func (c *DNSCache) LookupIP(ip net.IP) (names []string) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.lookupIPByTime(c.lastCleanup, ip)
+	return c.lookupIPByTime(c.lastCleanup, ippkg.MustAddrFromIP(ip))
 }
 
 // lookupIPByTime takes a timestamp for expiration comparisons, and is
 // only intended for testing.
-func (c *DNSCache) lookupIPByTime(now time.Time, ip net.IP) (names []string) {
-	ipKey := ip.String()
-	cacheEntries, found := c.reverse[ipKey]
+func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string) {
+	cacheEntries, found := c.reverse[ip]
 	if !found {
 		return nil
 	}
@@ -480,7 +479,7 @@ func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool
 		old, exists := entries[addr]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
 			entries[addr] = entry
-			c.upsertReverse(addr.String(), entry)
+			c.upsertReverse(addr, entry)
 			c.addNameToCleanup(entry)
 			added = true
 		}
@@ -516,7 +515,7 @@ func (c *DNSCache) removeExpired(entries ipEntries, now time.Time, expireLookups
 // later than the already-stored entry.
 // It is assumed that entry includes ip.
 // This needs a write lock
-func (c *DNSCache) upsertReverse(ip string, entry *cacheEntry) {
+func (c *DNSCache) upsertReverse(ip netip.Addr, entry *cacheEntry) {
 	entries, exists := c.reverse[ip]
 	if entries == nil || !exists {
 		entries = make(map[string]*cacheEntry)
@@ -551,14 +550,13 @@ func (c *DNSCache) removeForward(ip netip.Addr, entry *cacheEntry) {
 
 // removeReverse is the equivalent of removeForward() but for the reverse map.
 func (c *DNSCache) removeReverse(ip netip.Addr, entry *cacheEntry) {
-	ipStr := ip.String()
-	entries, exists := c.reverse[ipStr]
+	entries, exists := c.reverse[ip]
 	if entries == nil || !exists {
 		return
 	}
 	delete(entries, entry.Name)
 	if len(entries) == 0 {
-		delete(c.reverse, ipStr)
+		delete(c.reverse, ip)
 	}
 }
 
@@ -692,7 +690,7 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 	defer c.Unlock()
 
 	c.forward = make(map[string]ipEntries)
-	c.reverse = make(map[string]nameEntries)
+	c.reverse = make(map[netip.Addr]nameEntries)
 
 	for _, newLookup := range lookups {
 		c.updateWithEntry(newLookup)

@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
 type DNSCacheTestSuite struct{}
@@ -105,7 +106,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
 		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
 		for _, ip := range ips {
-			c.Assert(cache.reverse, checker.HasKey, ip.String(), Commentf("Expired IP '%s' not deleted from reverse", ip))
+			c.Assert(cache.reverse, checker.HasKey, ippkg.MustAddrFromIP(ip), Commentf("Expired IP '%s' not deleted from reverse", ip))
 		}
 	}
 
@@ -128,7 +129,7 @@ func (ds *DNSCacheTestSuite) TestDelete(c *C) {
 		c.Assert(len(ips), Equals, 2, Commentf("Wrong count of IPs returned (%v) for non-deleted name '%s'", ips, name))
 		c.Assert(cache.forward, checker.HasKey, name, Commentf("Expired name '%s' not deleted from forward", name))
 		for _, ip := range ips {
-			c.Assert(cache.reverse, checker.HasKey, ip.String(), Commentf("Expired IP '%s' not deleted from reverse", ip))
+			c.Assert(cache.reverse, checker.HasKey, ippkg.MustAddrFromIP(ip), Commentf("Expired IP '%s' not deleted from reverse", ip))
 		}
 	}
 
@@ -171,17 +172,17 @@ func (ds *DNSCacheTestSuite) Test_forceExpiredByNames(c *C) {
 }
 
 func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
-	names := map[string]net.IP{
-		"test1.com": net.ParseIP("2.2.2.1"),
-		"test2.com": net.ParseIP("2.2.2.2"),
-		"test3.com": net.ParseIP("2.2.2.3")}
-	sharedIP := net.ParseIP("1.1.1.1")
+	names := map[string]netip.Addr{
+		"test1.com": netip.MustParseAddr("2.2.2.1"),
+		"test2.com": netip.MustParseAddr("2.2.2.2"),
+		"test3.com": netip.MustParseAddr("2.2.2.3")}
+	sharedIP := netip.MustParseAddr("1.1.1.1")
 	now := time.Now()
 	cache := NewDNSCache(0)
 
 	// insert 2 records, with 1 shared IP
-	cache.Update(now, "test1.com", []net.IP{sharedIP, names["test1.com"]}, 2)
-	cache.Update(now, "test2.com", []net.IP{sharedIP, names["test2.com"]}, 4)
+	cache.Update(now, "test1.com", []net.IP{sharedIP.AsSlice(), names["test1.com"].AsSlice()}, 2)
+	cache.Update(now, "test2.com", []net.IP{sharedIP.AsSlice(), names["test2.com"].AsSlice()}, 4)
 
 	// lookup within the TTL for both names should return 2 names for sharedIPs,
 	// and one name for the 2.2.2.* IPs
@@ -932,9 +933,9 @@ func (ds *DNSCacheTestSuite) TestCacheToZombiesGCCascade(c *C) {
 	// Not all IPs expired (3.3.3.3 still alive) so we expect test.com to be
 	// present in the cache.
 	c.Assert(cache.forward, checker.HasKey, "test.com")
-	c.Assert(cache.reverse, checker.HasKey, "3.3.3.3")
-	c.Assert(cache.reverse, Not(checker.HasKey), "1.1.1.1")
-	c.Assert(cache.reverse, Not(checker.HasKey), "2.2.2.2")
+	c.Assert(cache.reverse, checker.HasKey, netip.MustParseAddr("3.3.3.3"))
+	c.Assert(cache.reverse, Not(checker.HasKey), netip.MustParseAddr("1.1.1.1"))
+	c.Assert(cache.reverse, Not(checker.HasKey), netip.MustParseAddr("2.2.2.2"))
 	alive, dead := zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
