@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1538,6 +1539,16 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
+type daemonParams struct {
+	cell.In
+
+	Lifecycle      hive.Lifecycle
+	Shutdowner     hive.Shutdowner
+	Config         DaemonCellConfig
+	LocalNodeStore node.LocalNodeStore
+	Clientset      k8sClient.Clientset
+}
+
 // registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
 // not yet been modularized.
 //
@@ -1548,8 +1559,8 @@ func (d *Daemon) initKVStore() {
 //
 // If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
 // a callback.
-func registerDaemonHooks(lc hive.Lifecycle, shutdowner hive.Shutdowner, cfg DaemonCellConfig, clientset k8sClient.Clientset) error {
-	if cfg.SkipDaemon {
+func registerDaemonHooks(params daemonParams) error {
+	if params.Config.SkipDaemon {
 		return nil
 	}
 
@@ -1560,15 +1571,20 @@ func registerDaemonHooks(lc hive.Lifecycle, shutdowner hive.Shutdowner, cfg Daem
 		// In lb-only mode the k8s client is not used, even if its configuration
 		// is available, so disable it here before it starts. Using GetString
 		// directly as option.Config not populated yet.
-		clientset.Disable()
+		params.Clientset.Disable()
 	}
 
-	lc.Append(hive.Hook{
+	// Set the global LocalNodeStore. This is to retain the API of getters and setters
+	// defined in pkg/node/address.go until uses of them have been converted to use
+	// LocalNodeStore directly.
+	node.SetLocalNodeStore(params.LocalNodeStore)
+
+	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(context.Context) error {
 			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
 			// by later commits.
-			if clientset.IsEnabled() {
-				k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
+			if params.Clientset.IsEnabled() {
+				k8s.SetClients(params.Clientset, params.Clientset.Slim(), params.Clientset, params.Clientset)
 			}
 
 			bootstrapStats.earlyInit.Start()
@@ -1577,7 +1593,7 @@ func registerDaemonHooks(lc hive.Lifecycle, shutdowner hive.Shutdowner, cfg Daem
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
-			go runDaemon(ctx, cleaner, shutdowner, clientset)
+			go runDaemon(ctx, cleaner, params.Shutdowner, params.Clientset)
 			return nil
 		},
 		OnStop: func(context.Context) error {
