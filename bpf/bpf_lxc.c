@@ -673,7 +673,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		 * the CT entry for destination endpoints where we can't encode the
 		 * state in the address.
 		 */
-		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb6_svc_is_l7loadbalancer(svc)) {
@@ -681,6 +681,9 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 				goto skip_service_lookup;
 			}
 #endif /* ENABLE_L7_LB */
+			if (unlikely(svc->count == 0))
+				return DROP_NO_SERVICE;
+
 			ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					false);
@@ -1244,7 +1247,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 				return ret;
 		}
 
-		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb4_svc_is_l7loadbalancer(svc)) {
@@ -1252,6 +1255,9 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 				goto skip_service_lookup;
 			}
 #endif /* ENABLE_L7_LB */
+			if (unlikely(svc->count == 0))
+				return DROP_NO_SERVICE;
+
 			ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, has_l4_header, false);
