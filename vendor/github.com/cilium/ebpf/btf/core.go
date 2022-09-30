@@ -536,9 +536,9 @@ func (ca coreAccessor) enumValue(t Type) (*EnumValue, error) {
 // coreField represents the position of a "child" of a composite type from the
 // start of that type.
 //
-//     /- start of composite
-//     | offset * 8 | bitfieldOffset | bitfieldSize | ... |
-//                  \- start of field       end of field -/
+//	/- start of composite
+//	| offset * 8 | bitfieldOffset | bitfieldSize | ... |
+//	             \- start of field       end of field -/
 type coreField struct {
 	Type Type
 

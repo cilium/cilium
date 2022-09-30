@@ -48,7 +48,7 @@ func newMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
 		info.KeySize,
 		info.ValueSize,
 		info.MaxEntries,
-		info.MapFlags,
+		uint32(info.MapFlags),
 		unix.ByteSliceToString(info.Name[:]),
 	}, nil
 }

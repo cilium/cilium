@@ -101,7 +101,12 @@ var HaveProgType = HaveProgramType
 // HaveProgramType probes the running kernel for the availability of the specified program type.
 //
 // See the package documentation for the meaning of the error return value.
-func HaveProgramType(pt ebpf.ProgramType) error {
+func HaveProgramType(pt ebpf.ProgramType) (err error) {
+	defer func() {
+		// This closure modifies a named return variable.
+		err = wrapProbeErrors(err)
+	}()
+
 	if err := validateProgramType(pt); err != nil {
 		return err
 	}
@@ -138,6 +143,9 @@ func haveProgramType(pt ebpf.ProgramType) error {
 	}
 
 	fd, err := sys.ProgLoad(attr)
+	if fd != nil {
+		fd.Close()
+	}
 
 	switch {
 	// EINVAL occurs when attempting to create a program with an unknown type.
@@ -147,16 +155,11 @@ func haveProgramType(pt ebpf.ProgramType) error {
 	case errors.Is(err, unix.EINVAL), errors.Is(err, unix.E2BIG):
 		err = ebpf.ErrNotSupported
 
-	// EPERM is kept as-is and is not converted or wrapped.
-	case errors.Is(err, unix.EPERM):
-		break
-
-	// Wrap unexpected errors.
-	case err != nil:
-		err = fmt.Errorf("unexpected error during feature probe: %w", err)
-
-	default:
-		fd.Close()
+	// ENOTSUPP means the program type is at least known to the kernel.
+	case errors.Is(err, sys.ENOTSUPP):
+		if pt == ebpf.StructOps {
+			err = nil
+		}
 	}
 
 	pc.types[pt] = err
@@ -168,16 +171,21 @@ func haveProgramType(pt ebpf.ProgramType) error {
 // function to a specified program type.
 // Return values have the following semantics:
 //
-//   err == nil: The feature is available.
-//   errors.Is(err, ebpf.ErrNotSupported): The feature is not available.
-//   err != nil: Any errors encountered during probe execution, wrapped.
+//	err == nil: The feature is available.
+//	errors.Is(err, ebpf.ErrNotSupported): The feature is not available.
+//	err != nil: Any errors encountered during probe execution, wrapped.
 //
 // Note that the latter case may include false negatives, and that program creation may
 // succeed despite an error being returned.
 // Only `nil` and `ebpf.ErrNotSupported` are conclusive.
 //
 // Probe results are cached and persist throughout any process capability changes.
-func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
+func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) (err error) {
+	defer func() {
+		// This closure modifies a named return variable.
+		err = wrapProbeErrors(err)
+	}()
+
 	if err := validateProgramType(pt); err != nil {
 		return err
 	}
@@ -210,12 +218,11 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	}
 
 	fd, err := sys.ProgLoad(attr)
+	if fd != nil {
+		fd.Close()
+	}
 
 	switch {
-	// If there is no error we need to close the FD of the prog.
-	case err == nil:
-		fd.Close()
-
 	// EACCES occurs when attempting to create a program probe with a helper
 	// while the register args when calling this helper aren't set up properly.
 	// We interpret this as the helper being available, because the verifier
@@ -231,14 +238,6 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	case errors.Is(err, unix.EINVAL), errors.Is(err, unix.E2BIG):
 		// TODO: possibly we need to check verifier output here to be sure
 		err = ebpf.ErrNotSupported
-
-	// EPERM is kept as-is and is not converted or wrapped.
-	case errors.Is(err, unix.EPERM):
-		break
-
-	// Wrap unexpected errors.
-	case err != nil:
-		err = fmt.Errorf("unexpected error during feature probe: %w", err)
 	}
 
 	pc.helpers[pt][helper] = err
@@ -248,7 +247,7 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 
 func progLoadProbeNotImplemented(pt ebpf.ProgramType) bool {
 	switch pt {
-	case ebpf.Tracing, ebpf.StructOps, ebpf.Extension, ebpf.LSM:
+	case ebpf.Tracing, ebpf.Extension, ebpf.LSM:
 		return true
 	}
 	return false

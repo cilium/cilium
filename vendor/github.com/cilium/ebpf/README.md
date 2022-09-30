@@ -30,7 +30,7 @@ have questions regarding the library.
 
 ## Packages
 
-This library includes the following packages: 
+This library includes the following packages:
 
 * [asm](https://pkg.go.dev/github.com/cilium/ebpf/asm) contains a basic
   assembler, allowing you to write eBPF assembly instructions directly
@@ -38,7 +38,7 @@ This library includes the following packages:
 * [cmd/bpf2go](https://pkg.go.dev/github.com/cilium/ebpf/cmd/bpf2go) allows
   compiling and embedding eBPF programs written in C within Go code. As well as
   compiling the C code, it auto-generates Go code for loading and manipulating
-  the eBPF program and map objects. 
+  the eBPF program and map objects.
 * [link](https://pkg.go.dev/github.com/cilium/ebpf/link) allows attaching eBPF
   to various hooks
 * [perf](https://pkg.go.dev/github.com/cilium/ebpf/perf) allows reading from a

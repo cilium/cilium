@@ -273,7 +273,9 @@ type Member struct {
 type Enum struct {
 	Name string
 	// Size of the enum value in bytes.
-	Size   uint32
+	Size uint32
+	// True if the values should be interpreted as signed integers.
+	Signed bool
 	Values []EnumValue
 }
 
@@ -288,7 +290,7 @@ func (e *Enum) TypeName() string { return e.Name }
 // Is is not a valid Type
 type EnumValue struct {
 	Name  string
-	Value int32
+	Value uint64
 }
 
 func (e *Enum) size() uint32    { return e.Size }
@@ -541,6 +543,45 @@ func (f *Float) copy() Type {
 	return &cpy
 }
 
+// declTag associates metadata with a declaration.
+type declTag struct {
+	Type  Type
+	Value string
+	// The index this tag refers to in the target type. For composite types,
+	// a value of -1 indicates that the tag refers to the whole type. Otherwise
+	// it indicates which member or argument the tag applies to.
+	Index int
+}
+
+func (dt *declTag) Format(fs fmt.State, verb rune) {
+	formatType(fs, verb, dt, "type=", dt.Type, "value=", dt.Value, "index=", dt.Index)
+}
+
+func (dt *declTag) TypeName() string   { return "" }
+func (dt *declTag) walk(td *typeDeque) { td.push(&dt.Type) }
+func (dt *declTag) copy() Type {
+	cpy := *dt
+	return &cpy
+}
+
+// typeTag associates metadata with a type.
+type typeTag struct {
+	Type  Type
+	Value string
+}
+
+func (tt *typeTag) Format(fs fmt.State, verb rune) {
+	formatType(fs, verb, tt, "type=", tt.Type, "value=", tt.Value)
+}
+
+func (tt *typeTag) TypeName() string   { return "" }
+func (tt *typeTag) qualify() Type      { return tt.Type }
+func (tt *typeTag) walk(td *typeDeque) { td.push(&tt.Type) }
+func (tt *typeTag) copy() Type {
+	cpy := *tt
+	return &cpy
+}
+
 // cycle is a type which had to be elided since it exceeded maxTypeDepth.
 type cycle struct {
 	root Type
@@ -576,6 +617,7 @@ var (
 	_ qualifier = (*Const)(nil)
 	_ qualifier = (*Restrict)(nil)
 	_ qualifier = (*Volatile)(nil)
+	_ qualifier = (*typeTag)(nil)
 )
 
 // Sizeof returns the size of a type in bytes.
@@ -903,6 +945,7 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 		return members, nil
 	}
 
+	var declTags []*declTag
 	for i, raw := range rawTypes {
 		var (
 			id  = typeIDOffset + TypeID(i)
@@ -952,17 +995,20 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 		case kindEnum:
 			rawvals := raw.data.([]btfEnum)
 			vals := make([]EnumValue, 0, len(rawvals))
+			signed := raw.KindFlag()
 			for i, btfVal := range rawvals {
 				name, err := rawStrings.Lookup(btfVal.NameOff)
 				if err != nil {
 					return nil, fmt.Errorf("get name for enum value %d: %s", i, err)
 				}
-				vals = append(vals, EnumValue{
-					Name:  name,
-					Value: btfVal.Val,
-				})
+				value := uint64(btfVal.Val)
+				if signed {
+					// Sign extend values to 64 bit.
+					value = uint64(int32(btfVal.Val))
+				}
+				vals = append(vals, EnumValue{name, value})
 			}
-			typ = &Enum{name, raw.Size(), vals}
+			typ = &Enum{name, raw.Size(), signed, vals}
 
 		case kindForward:
 			if raw.KindFlag() {
@@ -1045,6 +1091,28 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 		case kindFloat:
 			typ = &Float{name, raw.Size()}
 
+		case kindDeclTag:
+			btfIndex := raw.data.(*btfDeclTag).ComponentIdx
+			if uint64(btfIndex) > math.MaxInt {
+				return nil, fmt.Errorf("type id %d: index exceeds int", id)
+			}
+
+			index := int(btfIndex)
+			if btfIndex == math.MaxUint32 {
+				index = -1
+			}
+
+			dt := &declTag{nil, name, index}
+			fixup(raw.Type(), &dt.Type)
+			typ = dt
+
+			declTags = append(declTags, dt)
+
+		case kindTypeTag:
+			tt := &typeTag{nil, name}
+			fixup(raw.Type(), &tt.Type)
+			typ = tt
+
 		default:
 			return nil, fmt.Errorf("type id %d: unknown kind: %v", id, raw.Kind())
 		}
@@ -1080,6 +1148,28 @@ func inflateRawTypes(rawTypes []rawType, baseTypes types, rawStrings *stringTabl
 	for _, assertion := range assertions {
 		if reflect.TypeOf(*assertion.typ) != assertion.want {
 			return nil, fmt.Errorf("expected %s, got %T", assertion.want, *assertion.typ)
+		}
+	}
+
+	for _, dt := range declTags {
+		switch t := dt.Type.(type) {
+		case *Var, *Typedef:
+			if dt.Index != -1 {
+				return nil, fmt.Errorf("type %s: index %d is not -1", dt, dt.Index)
+			}
+
+		case composite:
+			if dt.Index >= len(t.members()) {
+				return nil, fmt.Errorf("type %s: index %d exceeds members of %s", dt, dt.Index, t)
+			}
+
+		case *Func:
+			if dt.Index >= len(t.Type.(*FuncProto).Params) {
+				return nil, fmt.Errorf("type %s: index %d exceeds params of %s", dt, dt.Index, t)
+			}
+
+		default:
+			return nil, fmt.Errorf("type %s: decl tag for type %s is not supported", dt, t)
 		}
 	}
 
