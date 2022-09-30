@@ -670,7 +670,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		 * the CT entry for destination endpoints where we can't encode the
 		 * state in the address.
 		 */
-		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb6_svc_is_l7loadbalancer(svc)) {
@@ -1225,7 +1225,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 				return ret;
 		}
 
-		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb4_svc_is_l7loadbalancer(svc)) {
