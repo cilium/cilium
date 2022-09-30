@@ -29,6 +29,10 @@ const (
 	VPCID = "VPCID"
 
 	MaxListByTagSize = 20
+
+	// MaxResults is the number of entities on each page,
+	// it ranges from 1 to 50, the default value is 30.
+	MaxResults = 30
 )
 
 var maxAttachRetries = wait.Backoff{
@@ -138,17 +142,25 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 		req := vpc.CreateListTagResourcesRequest()
 		req.ResourceType = "VSWITCH"
 		req.ResourceId = &ids
+		req.MaxResults = requests.NewInteger(MaxResults)
 		c.limiter.Limit(ctx, "ListTagResources")
-		resp, err := c.vpcClient.ListTagResources(req)
-		if err != nil {
-			return nil, err
-		}
-		for _, tagRes := range resp.TagResources.TagResource {
-			subnet, ok := result[tagRes.ResourceId]
-			if !ok {
-				continue
+		for {
+			resp, err := c.vpcClient.ListTagResources(req)
+			if err != nil {
+				return nil, err
 			}
-			subnet.Tags[tagRes.TagKey] = tagRes.TagValue
+			for _, tagRes := range resp.TagResources.TagResource {
+				subnet, ok := result[tagRes.ResourceId]
+				if !ok {
+					continue
+				}
+				subnet.Tags[tagRes.TagKey] = tagRes.TagValue
+			}
+			if resp.NextToken == "" {
+				break
+			} else {
+				req.NextToken = resp.NextToken
+			}
 		}
 	}
 
