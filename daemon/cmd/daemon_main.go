@@ -215,10 +215,6 @@ func initializeFlags() {
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(Vp, option.DatapathMode)
 
-	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
-	option.BindEnv(Vp, option.DisableConntrack)
-	flags.MarkDeprecated(option.DisableConntrack, "This option is no-op and it will be removed in v1.13")
-
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(Vp, option.EnableEndpointRoutes)
 
@@ -276,10 +272,6 @@ func initializeFlags() {
 
 	flags.StringSlice(option.IPv6PodSubnets, []string{}, "List of IPv6 pod subnets to preconfigure for encryption")
 	option.BindEnv(Vp, option.IPv6PodSubnets)
-
-	flags.String(option.EndpointInterfaceNamePrefix, "", "Prefix of interface name shared by all endpoints")
-	option.BindEnv(Vp, option.EndpointInterfaceNamePrefix)
-	flags.MarkDeprecated(option.EndpointInterfaceNamePrefix, "This option no longer has any effect and will be removed in v1.13.")
 
 	flags.StringSlice(option.ExcludeLocalAddress, []string{}, "Exclude CIDR from being recognized as local address")
 	option.BindEnv(Vp, option.ExcludeLocalAddress)
