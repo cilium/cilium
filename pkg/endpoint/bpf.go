@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -1022,9 +1023,9 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	e.garbageCollectConntrack(&ctmap.GCFilter{
-		MatchIPs: map[string]struct{}{
-			e.GetIPv4Address(): {},
-			e.GetIPv6Address(): {},
+		MatchIPs: map[netip.Addr]struct{}{
+			e.IPv4: {},
+			e.IPv6: {},
 		},
 	})
 }
