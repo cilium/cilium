@@ -47,8 +47,11 @@ var (
 	// ciliumNodeStore contains all CiliumNodes present in k8s.
 	ciliumNodeStore cache.Store
 
-	k8sCiliumNodesCacheSynced = make(chan struct{})
+	k8sCiliumNodesCacheSynced    = make(chan struct{})
+	ciliumNodeManagerQueueSynced = make(chan struct{})
 )
+
+type ciliumNodeManagerQueueSyncedKey struct{}
 
 func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
 	var (
@@ -58,10 +61,10 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 		kvStoreSyncHandler     func(key string) error
 		connectedToKVStore     = make(chan struct{})
 
-		resourceEventHandler  = cache.ResourceEventHandlerFuncs{}
-		ciliumNodeConvertFunc = k8s.ConvertToCiliumNode
-		nodeManagerQueue      = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-		kvStoreQueue          = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
+		ciliumNodeConvertFunc  = k8s.ConvertToCiliumNode
+		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		kvStoreQueue           = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
@@ -152,7 +155,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 					return
 				}
 				if nodeManager != nil {
-					nodeManagerQueue.Add(key)
+					ciliumNodeManagerQueue.Add(key)
 				}
 				if withKVStore {
 					kvStoreQueue.Add(key)
@@ -170,7 +173,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 							return
 						}
 						if nodeManager != nil {
-							nodeManagerQueue.Add(key)
+							ciliumNodeManagerQueue.Add(key)
 						}
 						if withKVStore {
 							kvStoreQueue.Add(key)
@@ -189,7 +192,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 					return
 				}
 				if nodeManager != nil {
-					nodeManagerQueue.Add(key)
+					ciliumNodeManagerQueue.Add(key)
 				}
 				if withKVStore {
 					kvStoreQueue.Add(key)
@@ -218,13 +221,14 @@ func startSynchronizingCiliumNodes(ctx context.Context, nodeManager allocator.No
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
+		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey{})
 		log.Info("CiliumNodes caches synced with Kubernetes")
 		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
 		// then there isn't any event handler set for CiliumNodes events.
 		if nodeManagerSyncHandler != nil {
 			go func() {
 				// infinite loop. run in a go routine to unblock code execution
-				for processNextWorkItem(nodeManagerQueue, nodeManagerSyncHandler) {
+				for processNextWorkItem(ciliumNodeManagerQueue, nodeManagerSyncHandler) {
 				}
 			}()
 		}
@@ -284,6 +288,11 @@ func processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func
 		return false
 	}
 	defer queue.Done(key)
+
+	if _, ok := key.(ciliumNodeManagerQueueSyncedKey); ok {
+		close(ciliumNodeManagerQueueSynced)
+		return true
+	}
 
 	err := syncHandler(key.(string))
 	if err == nil {
