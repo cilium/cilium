@@ -8,6 +8,7 @@ import re
 import sys
 import collections
 from functools import cmp_to_key
+import argparse
 
 
 def get_stacks(f):
@@ -48,24 +49,22 @@ def get_hashable_stack_value(stack):
     return "".join(strip_stack(stack))
 
 
-def print_usage():
-    print("""usage: {} [-h | path/to/file]
-        -h:         This help.
-        path/to/file:   Read and parse file with go stacktraces
-        '-' or no params: Read and parse stdin""".format(sys.argv[0]))
-
-
 if __name__ == "__main__":
     # Handle arguments. We only support a file path, or stdin on "-" or no
     # parameter
-    infile = sys.argv[1] if len(sys.argv) > 1 else ""
-    if infile in ["-h", "help"]:
-        print_usage()
-        sys.exit(0)
-    elif infile in ["-", "", None]:
+    parser = argparse.ArgumentParser(
+        description='Consolidate stacktraces to remove duplicate stacks.')
+    parser.add_argument(
+        'infile',
+        metavar='PATH',
+        nargs='?',
+        help='Read and parse this file. Specify \'-\' or omit this option for stdin.')
+    args = parser.parse_args()
+
+    if args.infile in ["-", "", None]:
         f = sys.stdin
     else:
-        f = open(infile)
+        f = open(args.infile)
 
     # collect stacktraces into groups, each keyed by a version of the stack
     # where unwanted fields have been made into sentinels
