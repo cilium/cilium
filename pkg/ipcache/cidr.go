@@ -57,6 +57,7 @@ func AllocateCIDRs(
 		newlyAllocatedIdentities = map[string]*identity.Identity{}
 	}
 
+	idMDMU.RLock()
 	IPIdentityCache.Lock()
 	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
 	for i, p := range prefixes {
@@ -65,7 +66,7 @@ func AllocateCIDRs(
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
-		lbls.MergeLabels(GetIDMetadataByIP(p.IP.String()))
+		lbls.MergeLabels(identityMetadata[p.IP.String()])
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
@@ -73,6 +74,7 @@ func AllocateCIDRs(
 		id, isNew, err := allocate(p, lbls, oldNID)
 		if err != nil {
 			IPIdentityCache.Unlock()
+			idMDMU.RUnlock()
 			IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			return nil, err
 		}
@@ -85,6 +87,7 @@ func AllocateCIDRs(
 		}
 	}
 	IPIdentityCache.Unlock()
+	idMDMU.RUnlock()
 
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
