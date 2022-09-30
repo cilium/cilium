@@ -189,6 +189,9 @@ Vagrant.configure(2) do |config|
         # Prevent VirtualBox from interfering with host audio stack
         vb.customize ["modifyvm", :id, "--audio", "none"]
 
+        # Enable HPET, the Go scheduler heavily relies on accurate timers.
+        vb.customize ["modifyvm", :id, "--hpet", "on"]
+
         config.vm.box = $SERVER_BOX
         config.vm.box_version = $SERVER_VERSION
         vb.memory = ENV['VM_MEMORY'].to_i

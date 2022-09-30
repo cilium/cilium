@@ -117,6 +117,8 @@ Vagrant.configure("2") do |config|
             vb.default_nic_type = "virtio"
             # Prevent VirtualBox from interfering with host audio stack
             vb.customize ["modifyvm", :id, "--audio", "none"]
+            # Enable HPET, the Go scheduler heavily relies on accurate timers.
+            vb.customize ["modifyvm", :id, "--hpet", "on"]
         end
 
         server.vm.box =  "#{$SERVER_BOX}"
@@ -180,6 +182,9 @@ Vagrant.configure("2") do |config|
                 vb.default_nic_type = "virtio"
                 # Prevent VirtualBox from interfering with host audio stack
                 vb.customize ["modifyvm", :id, "--audio", "none"]
+                # Enable HPET, the Go scheduler heavily relies on accurate timers.
+                vb.customize ["modifyvm", :id, "--hpet", "on"]
+
                 if ENV['PRELOAD_VM'] == "false" then
                   # Use serial ports if the VM is no longer accessible via SSH
                   vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
