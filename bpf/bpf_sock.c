@@ -247,7 +247,7 @@ sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 	return NULL;
 wildcard_lookup:
 	key->address = 0;
-	return lb4_lookup_service(key, true);
+	return lb4_lookup_service(key, true, true);
 }
 #endif /* ENABLE_NODEPORT */
 
@@ -349,7 +349,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * service entries via wildcarded lookup for NodePort and
 	 * HostPort services.
 	 */
-	svc = lb4_lookup_service(&key, true);
+	svc = lb4_lookup_service(&key, true, true);
 	if (!svc)
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
@@ -499,7 +499,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	    !ctx_in_hostns(ctx_full, NULL))
 		return 0;
 
-	svc = lb4_lookup_service(&key, true);
+	svc = lb4_lookup_service(&key, true, true);
 	if (!svc)
 		/* Perform a wildcard lookup for the case where the caller
 		 * tries to bind to loopback or an address with host identity
@@ -592,7 +592,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 			.dport		= val->port,
 		};
 
-		svc = lb4_lookup_service(&svc_key, true);
+		svc = lb4_lookup_service(&svc_key, true, true);
 		if (!svc)
 			svc = sock4_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx_full, NULL));
@@ -768,7 +768,7 @@ sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 	return NULL;
 wildcard_lookup:
 	memset(&key->address, 0, sizeof(key->address));
-	return lb6_lookup_service(key, true);
+	return lb6_lookup_service(key, true, true);
 }
 #endif /* ENABLE_NODEPORT */
 
@@ -858,7 +858,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	ctx_get_v6_src_address(ctx, &key.address);
 
-	svc = lb6_lookup_service(&key, true);
+	svc = lb6_lookup_service(&key, true, true);
 	if (!svc) {
 		svc = sock6_wildcard_lookup(&key, false, false, true);
 		if (!svc)
@@ -985,7 +985,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	ctx_get_v6_address(ctx, &key.address);
 	memcpy(&orig_key, &key, sizeof(key));
 
-	svc = lb6_lookup_service(&key, true);
+	svc = lb6_lookup_service(&key, true, true);
 	if (!svc)
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
@@ -1147,7 +1147,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 			.dport		= val->port,
 		};
 
-		svc = lb6_lookup_service(&svc_key, true);
+		svc = lb6_lookup_service(&svc_key, true, true);
 		if (!svc)
 			svc = sock6_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx, NULL));
