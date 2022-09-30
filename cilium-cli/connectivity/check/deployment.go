@@ -817,11 +817,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	ct.Debug("Validating Deployments...")
 
 	srcDeployments, dstDeployments := ct.deploymentList()
-	if err := ct.waitForDeployments(ctx, ct.clients.src, srcDeployments); err != nil {
-		return err
+	if len(srcDeployments) > 0 {
+		if err := ct.waitForDeployments(ctx, ct.clients.src, srcDeployments); err != nil {
+			return err
+		}
 	}
-	if err := ct.waitForDeployments(ctx, ct.clients.dst, dstDeployments); err != nil {
-		return err
+	if len(dstDeployments) > 0 {
+		if err := ct.waitForDeployments(ctx, ct.clients.dst, dstDeployments); err != nil {
+			return err
+		}
 	}
 
 	if ct.params.Perf {
