@@ -6,6 +6,7 @@
 package trigger
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -135,4 +136,23 @@ func (s *TriggerTestSuite) TestShutdownFunc(c *C) {
 	case <-time.After(10 * time.Second):
 		c.Errorf("timed out while waiting for shutdown func")
 	}
+}
+
+// TestTriggerWaitGroup verifies that the counter of the wait group returned
+// by Trigger becomes zero.
+func (s *TriggerTestSuite) TestTriggerWaitGroup(c *C) {
+	t, err := NewTrigger(Parameters{
+		TriggerFunc: func(reasons []string) {},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(t, Not(IsNil))
+
+	var waitGroups []*sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		waitGroups = append(waitGroups, t.Trigger())
+	}
+	for _, wg := range waitGroups {
+		wg.Wait()
+	}
+	t.Shutdown()
 }

@@ -5,6 +5,7 @@ package trigger
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/inctimer"
@@ -95,6 +96,11 @@ type Trigger struct {
 	foldedReasons reasonStack
 
 	waitStart time.Time
+
+	// waitGroups is the list of wait groups that have been returned through
+	// Trigger / TriggerWithReason functions. Trigger calls Done() on these
+	// wait groups after TriggerFunc completes.
+	waitGroups []*sync.WaitGroup
 }
 
 // NewTrigger returns a new trigger based on the provided parameters
@@ -135,11 +141,15 @@ func (t *Trigger) needsDelay() (bool, time.Duration) {
 	return sleepTime < 0, sleepTime * -1
 }
 
-// Trigger triggers the call to TriggerFunc as specified in the parameters
+// TriggerWithReason triggers the call to TriggerFunc as specified in the parameters
 // provided to NewTrigger(). It respects MinInterval and ensures that calls to
 // TriggerFunc are serialized. This function is non-blocking and will return
 // immediately before TriggerFunc is potentially triggered and has completed.
-func (t *Trigger) TriggerWithReason(reason string) {
+// It returns a pointer to sync.WaitGroup whose counter becomes zero when TriggerFunc
+// completes.
+func (t *Trigger) TriggerWithReason(reason string) *sync.WaitGroup {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	t.mutex.Lock()
 	t.trigger = true
 	if t.numFolds == 0 {
@@ -147,6 +157,7 @@ func (t *Trigger) TriggerWithReason(reason string) {
 	}
 	t.numFolds++
 	t.foldedReasons.add(reason)
+	t.waitGroups = append(t.waitGroups, wg)
 	t.mutex.Unlock()
 
 	if t.params.MetricsObserver != nil {
@@ -157,14 +168,17 @@ func (t *Trigger) TriggerWithReason(reason string) {
 	case t.wakeupChan <- struct{}{}:
 	default:
 	}
+	return wg
 }
 
 // Trigger triggers the call to TriggerFunc as specified in the parameters
 // provided to NewTrigger(). It respects MinInterval and ensures that calls to
 // TriggerFunc are serialized. This function is non-blocking and will return
 // immediately before TriggerFunc is potentially triggered and has completed.
-func (t *Trigger) Trigger() {
-	t.TriggerWithReason("")
+// It returns a pointer to sync.WaitGroup whose counter becomes zero when TriggerFunc
+// completes.
+func (t *Trigger) Trigger() *sync.WaitGroup {
+	return t.TriggerWithReason("")
 }
 
 // Shutdown stops the trigger mechanism
@@ -195,10 +209,16 @@ func (t *Trigger) waiter() {
 			reasons := t.foldedReasons.slice()
 			t.foldedReasons = newReasonStack()
 			callLatency := time.Since(t.waitStart)
+			waitGroups := make([]*sync.WaitGroup, len(t.waitGroups))
+			copy(waitGroups, t.waitGroups)
+			t.waitGroups = nil
 			t.mutex.Unlock()
 
 			beforeTrigger := time.Now()
 			t.params.TriggerFunc(reasons)
+			for _, wg := range waitGroups {
+				wg.Done()
+			}
 
 			if t.params.MetricsObserver != nil {
 				callDuration := time.Since(beforeTrigger)
