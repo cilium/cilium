@@ -5,6 +5,7 @@ package types
 
 import (
 	"net"
+	"net/netip"
 )
 
 // IPv4 is the binary representation for encoding in binary structs.
@@ -16,6 +17,11 @@ func (v4 IPv4) IsZero() bool {
 
 func (v4 IPv4) IP() net.IP {
 	return v4[:]
+}
+
+func (v4 IPv4) Addr() netip.Addr {
+	addr, _ := netip.AddrFromSlice(v4[:])
+	return addr
 }
 
 func (v4 IPv4) String() string {
