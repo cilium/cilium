@@ -98,11 +98,8 @@ func (cfg *kprConfig) verify(c *C) {
 }
 
 func (s *KPRSuite) SetUpTest(c *C) {
-	s.orig.read()
-}
-
-func (s *KPRSuite) TearDownTest(c *C) {
-	s.orig.set()
+	option.Config.Populate(Vp)
+	option.Config.DryMode = true
 }
 
 func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
