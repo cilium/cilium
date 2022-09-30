@@ -126,7 +126,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 	}
 
 	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.Local, p.NatPolicy,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort); err != nil {
+		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -554,7 +554,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 
 func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
-	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16) error {
+	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
 	isRoutable := !fe.IsSurrogate() &&
@@ -572,6 +572,7 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 		L7LoadBalancer:   l7lbProxyPort != 0,
+		LoopbackHostport: loopbackHostport,
 	})
 	zeroValue.SetFlags(flag.UInt16())
 	if sessionAffinity {
