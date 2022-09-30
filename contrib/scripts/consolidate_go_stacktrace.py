@@ -11,6 +11,9 @@ from functools import cmp_to_key
 import argparse
 
 
+cilium_source = '/go/src/github.com/cilium/cilium'
+
+
 def get_stacks(f):
     """
     get_stacks parses file f and yields all lines in go stackrace as one array
@@ -59,6 +62,12 @@ if __name__ == "__main__":
         metavar='PATH',
         nargs='?',
         help='Read and parse this file. Specify \'-\' or omit this option for stdin.')
+    parser.add_argument(
+        '-s',
+        '--source-dir',
+        nargs=1,
+        default=cilium_source,
+        help='Rewrite Cilium source paths to refer to this directory')
     args = parser.parse_args()
 
     if args.infile in ["-", "", None]:
@@ -82,7 +91,7 @@ if __name__ == "__main__":
                 b: len(a) - len(b)),
             reverse=True):
         print("{} occurences. Sample stack trace:".format(len(stack)))
-        print("\n".join(stack[0]))
+        print("\n".join(stack[0]).replace(cilium_source, args.source_dir[0]))
 
     if f != sys.stdin:
         f.close()
