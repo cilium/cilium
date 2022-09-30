@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache/types"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -432,6 +433,41 @@ func (ipc *IPCache) DumpToListener(listener IPIdentityMappingListener) {
 	ipc.RLock()
 	ipc.DumpToListenerLocked(listener)
 	ipc.RUnlock()
+}
+
+// UpsertIdentity is currently unused. The idea is that this API will interface
+// with the IPCache.metadata to associate the identity with the prefix, causing
+// the identity determination to be overruled based on the source here, but
+// still merge all of the other metadata from the IPCache.metadata map like the
+// encrypt key.
+func (ipc *IPCache) UpsertIdentity(addr netip.Addr, hostIP netip.Addr, id Identity, src source.Source, resource types.ResourceID, aux ...IPMetadata) {
+	// We expose hostIP, id to ensure the caller provides it, but internally
+	// these are just another piece of aux data associated with the prefix.
+	// TODO: Add them into the slice.
+	//aux = append(aux, IPMetadata(hostIP))
+	//aux = append(aux, IPMetadata(id))
+
+	prefix := netip.PrefixFrom(addr, addr.BitLen())
+	ipc.metadata.Lock()
+	ipc.metadata.upsertLocked(prefix, source.Generated, resource, aux...)
+	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
+
+	// TODO: It would be nice to make this play nice with InjectLabels()
+	// to ensure proper identity allocation/release when different
+	// identities are associated with a particular prefix.
+	// Could we get away with making this asynchronous too?
+	// Also store/merge info like encrypt keys, k8sMeta in ipc.metadata?
+}
+
+func (ipc *IPCache) RemoveIdentity(addr netip.Addr, resource types.ResourceID) {
+	prefix := netip.PrefixFrom(addr, addr.BitLen())
+	ipc.metadata.Lock()
+	ipc.metadata.remove(prefix, resource)
+	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
 }
 
 // UpsertMetadata upserts a given IP and some corresponding information into
