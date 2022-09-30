@@ -89,6 +89,10 @@ func (st *stringTable) lookup(offset uint32) (string, error) {
 }
 
 func (st *stringTable) Length() int {
+	if len(st.offsets) == 0 || len(st.strings) == 0 {
+		return 0
+	}
+
 	last := len(st.offsets) - 1
 	return int(st.offsets[last]) + len(st.strings[last]) + 1
 }

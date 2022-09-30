@@ -6,33 +6,36 @@ import (
 	"io"
 )
 
-//go:generate stringer -linecomment -output=btf_types_string.go -type=FuncLinkage,VarLinkage
+//go:generate stringer -linecomment -output=btf_types_string.go -type=FuncLinkage,VarLinkage,btfKind
 
 // btfKind describes a Type.
 type btfKind uint8
 
 // Equivalents of the BTF_KIND_* constants.
 const (
-	kindUnknown btfKind = iota
-	kindInt
-	kindPointer
-	kindArray
-	kindStruct
-	kindUnion
-	kindEnum
-	kindForward
-	kindTypedef
-	kindVolatile
-	kindConst
-	kindRestrict
+	kindUnknown  btfKind = iota // Unknown
+	kindInt                     // Int
+	kindPointer                 // Pointer
+	kindArray                   // Array
+	kindStruct                  // Struct
+	kindUnion                   // Union
+	kindEnum                    // Enum
+	kindForward                 // Forward
+	kindTypedef                 // Typedef
+	kindVolatile                // Volatile
+	kindConst                   // Const
+	kindRestrict                // Restrict
 	// Added ~4.20
-	kindFunc
-	kindFuncProto
+	kindFunc      // Func
+	kindFuncProto // FuncProto
 	// Added ~5.1
-	kindVar
-	kindDatasec
+	kindVar     // Var
+	kindDatasec // Datasec
 	// Added ~5.13
-	kindFloat
+	kindFloat // Float
+	// Added 5.16
+	kindDeclTag // DeclTag
+	kindTypeTag // TypeTag
 )
 
 // FuncLinkage describes BTF function linkage metadata.
@@ -83,47 +86,6 @@ type btfType struct {
 	 * "type" is a type_id referring to another type.
 	 */
 	SizeType uint32
-}
-
-func (k btfKind) String() string {
-	switch k {
-	case kindUnknown:
-		return "Unknown"
-	case kindInt:
-		return "Integer"
-	case kindPointer:
-		return "Pointer"
-	case kindArray:
-		return "Array"
-	case kindStruct:
-		return "Struct"
-	case kindUnion:
-		return "Union"
-	case kindEnum:
-		return "Enumeration"
-	case kindForward:
-		return "Forward"
-	case kindTypedef:
-		return "Typedef"
-	case kindVolatile:
-		return "Volatile"
-	case kindConst:
-		return "Const"
-	case kindRestrict:
-		return "Restrict"
-	case kindFunc:
-		return "Function"
-	case kindFuncProto:
-		return "Function Proto"
-	case kindVar:
-		return "Variable"
-	case kindDatasec:
-		return "Section"
-	case kindFloat:
-		return "Float"
-	default:
-		return fmt.Sprintf("Unknown (%d)", k)
-	}
 }
 
 func mask(len uint32) uint32 {
@@ -209,11 +171,11 @@ func (rt *rawType) Marshal(w io.Writer, bo binary.ByteOrder) error {
 
 // btfInt encodes additional data for integers.
 //
-//    ? ? ? ? e e e e o o o o o o o o ? ? ? ? ? ? ? ? b b b b b b b b
-//    ? = undefined
-//    e = encoding
-//    o = offset (bitfields?)
-//    b = bits (bitfields)
+//	? ? ? ? e e e e o o o o o o o o ? ? ? ? ? ? ? ? b b b b b b b b
+//	? = undefined
+//	e = encoding
+//	o = offset (bitfields?)
+//	b = bits (bitfields)
 type btfInt struct {
 	Raw uint32
 }
@@ -275,12 +237,16 @@ type btfVariable struct {
 
 type btfEnum struct {
 	NameOff uint32
-	Val     int32
+	Val     uint32
 }
 
 type btfParam struct {
 	NameOff uint32
 	Type    TypeID
+}
+
+type btfDeclTag struct {
+	ComponentIdx uint32
 }
 
 func readTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32) ([]rawType, error) {
@@ -325,6 +291,9 @@ func readTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32) ([]rawType, err
 		case kindDatasec:
 			data = make([]btfVarSecinfo, header.Vlen())
 		case kindFloat:
+		case kindDeclTag:
+			data = new(btfDeclTag)
+		case kindTypeTag:
 		default:
 			return nil, fmt.Errorf("type id %v: unknown kind: %v", id, header.Kind())
 		}

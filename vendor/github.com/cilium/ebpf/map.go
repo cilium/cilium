@@ -413,7 +413,7 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions, handles *handleCa
 		KeySize:    spec.KeySize,
 		ValueSize:  spec.ValueSize,
 		MaxEntries: spec.MaxEntries,
-		MapFlags:   spec.Flags,
+		MapFlags:   sys.MapFlags(spec.Flags),
 		NumaNode:   spec.NumaNode,
 	}
 

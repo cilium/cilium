@@ -111,7 +111,7 @@ readonly branch="${BRANCH:-master}"
 fetch() {
     echo Fetching "${1}"
     pushd "${tmp_dir}" > /dev/null
-    curl -s -L -O --fail --etag-compare "${1}.etag" --etag-save "${1}.etag" "https://github.com/cilium/ci-kernels/raw/${branch}/${1}"
+    curl --no-progress-meter -L -O --fail --etag-compare "${1}.etag" --etag-save "${1}.etag" "https://github.com/cilium/ci-kernels/raw/${branch}/${1}"
     local ret=$?
     popd > /dev/null
     return $ret

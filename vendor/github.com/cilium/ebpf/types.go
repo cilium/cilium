@@ -1,6 +1,7 @@
 package ebpf
 
 import (
+	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
 
@@ -229,6 +230,7 @@ const (
 	AttachSkReuseportSelect
 	AttachSkReuseportSelectOrMigrate
 	AttachPerfEvent
+	AttachTraceKprobeMulti
 )
 
 // AttachFlags of the eBPF program used in BPF_PROG_ATTACH command
@@ -282,3 +284,20 @@ type BatchOptions struct {
 	ElemFlags uint64
 	Flags     uint64
 }
+
+// LogLevel controls the verbosity of the kernel's eBPF program verifier.
+// These constants can be used for the ProgramOptions.LogLevel field.
+type LogLevel = sys.LogLevel
+
+const (
+	// Print verifier state at branch points.
+	LogLevelBranch = sys.BPF_LOG_LEVEL1
+
+	// Print verifier state for every instruction.
+	// Available since Linux v5.2.
+	LogLevelInstruction = sys.BPF_LOG_LEVEL2
+
+	// Print verifier errors and stats at the end of the verification process.
+	// Available since Linux v5.2.
+	LogLevelStats = sys.BPF_LOG_STATS
+)

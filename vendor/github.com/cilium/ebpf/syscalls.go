@@ -143,8 +143,8 @@ func wrapMapError(err error) error {
 		return sys.Error(ErrKeyExist, unix.EEXIST)
 	}
 
-	if errors.Is(err, unix.ENOTSUPP) {
-		return sys.Error(ErrNotSupported, unix.ENOTSUPP)
+	if errors.Is(err, sys.ENOTSUPP) {
+		return sys.Error(ErrNotSupported, sys.ENOTSUPP)
 	}
 
 	if errors.Is(err, unix.E2BIG) {

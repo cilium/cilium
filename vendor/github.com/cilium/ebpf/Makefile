@@ -79,7 +79,7 @@ generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
 	go generate ./cmd/bpf2go/test
 	go generate ./internal/sys
-	cd examples/ && go generate ./...
+	go generate ./examples/...
 
 testdata/loader-%-el.elf: testdata/loader.c
 	$* $(CFLAGS) -target bpfel -c $< -o $@

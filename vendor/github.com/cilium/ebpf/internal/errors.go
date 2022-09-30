@@ -7,32 +7,25 @@ import (
 	"strings"
 )
 
-// ErrorWithLog returns an error which includes logs from the kernel verifier.
+// ErrorWithLog wraps err in a VerifierError that includes the parsed verifier
+// log buffer.
 //
 // The default error output is a summary of the full log. The latter can be
 // accessed via VerifierError.Log or by formatting the error, see Format.
-//
-// A set of heuristics is used to determine whether the log has been truncated.
-func ErrorWithLog(err error, log []byte) *VerifierError {
+func ErrorWithLog(err error, log []byte, truncated bool) *VerifierError {
 	const whitespace = "\t\r\v\n "
 
 	// Convert verifier log C string by truncating it on the first 0 byte
 	// and trimming trailing whitespace before interpreting as a Go string.
-	truncated := false
 	if i := bytes.IndexByte(log, 0); i != -1 {
-		if i == len(log)-1 && !bytes.HasSuffix(log[:i], []byte{'\n'}) {
-			// The null byte is at the end of the buffer and it's not preceded
-			// by a newline character. Most likely the buffer was too short.
-			truncated = true
-		}
-
 		log = log[:i]
-	} else if len(log) > 0 {
-		// No null byte? Dodgy!
-		truncated = true
 	}
 
 	log = bytes.Trim(log, whitespace)
+	if len(log) == 0 {
+		return &VerifierError{err, nil, truncated}
+	}
+
 	logLines := bytes.Split(log, []byte{'\n'})
 	lines := make([]string, 0, len(logLines))
 	for _, line := range logLines {
@@ -143,8 +136,8 @@ func includePreviousLine(line string) bool {
 // Understood verbs are %s and %v, which are equivalent to calling Error(). %v
 // allows outputting additional information using the following flags:
 //
-//     +   Output the first <width> lines, or all lines if no width is given.
-//     -   Output the last <width> lines, or all lines if no width is given.
+//	%+<width>v: Output the first <width> lines, or all lines if no width is given.
+//	%-<width>v: Output the last <width> lines, or all lines if no width is given.
 //
 // Use width to specify how many lines to output. Use the '-' flag to output
 // lines from the end of the log instead of the beginning.
