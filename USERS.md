@@ -151,6 +151,12 @@ Users (Alphabetically)
       U: Networking and network policy
       L: https://github.com/digitalocean/DOKS
 
+    * N: Edgeless Systems
+      D: Edgeless Systems is using Cilium as the CNI for Edgeless System's Confidential Kubernetes Distribution (Constellation)
+      U: Networking (CNI), Transparent Encryption (WG), 
+      L: https://docs.edgeless.systems/constellation/architecture/networking
+      Q: @m1ghtym0
+ 
     * N: Elastic Path
       D: Elastic Path is using Cilium in their CloudOps for Kubernetes production clusters
       U: CNI
