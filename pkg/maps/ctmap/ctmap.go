@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
+	"net/netip"
 	"os"
 	"reflect"
 	"strings"
@@ -231,11 +231,10 @@ type GCFilter struct {
 
 	// ValidIPs is the list of valid IPs to scrub all entries for which the
 	// source or destination IP is *not* matching one of the valid IPs.
-	// The key is the IP in string form: net.IP.String()
-	ValidIPs map[string]struct{}
+	ValidIPs map[netip.Addr]struct{}
 
 	// MatchIPs is the list of IPs to remove from the conntrack table
-	MatchIPs map[string]struct{}
+	MatchIPs map[netip.Addr]struct{}
 
 	// EmitCTEntry is called, when non-nil, if filtering by ValidIPs and MatchIPs
 	// passes. It has no impact on CT GC, but can be used to iterate over valid
@@ -244,7 +243,7 @@ type GCFilter struct {
 }
 
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
-type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
+type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
@@ -369,7 +368,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey6Global.DestAddr.Addr(), currentKey6Global.SourceAddr.Addr(),
 				currentKey6Global.DestPort, currentKey6Global.SourcePort,
 				uint8(currentKey6Global.NextHeader), currentKey6Global.Flags, entry)
 
@@ -389,7 +388,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey6.DestAddr.Addr(), currentKey6.SourceAddr.Addr(),
 				currentKey6.DestPort, currentKey6.SourcePort,
 				uint8(currentKey6.NextHeader), currentKey6.Flags, entry)
 
@@ -453,7 +452,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4Global.DestAddr.IP(), currentKey4Global.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey4Global.DestAddr.Addr(), currentKey4Global.SourceAddr.Addr(),
 				currentKey4Global.DestPort, currentKey4Global.SourcePort,
 				uint8(currentKey4Global.NextHeader), currentKey4Global.Flags, entry)
 
@@ -473,7 +472,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4.DestAddr.IP(), currentKey4.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey4.DestAddr.Addr(), currentKey4.SourceAddr.Addr(),
 				currentKey4.DestPort, currentKey4.SourcePort,
 				uint8(currentKey4.NextHeader), currentKey4.Flags, entry)
 
@@ -501,22 +500,21 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
+func (f *GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}
-
 	if f.ValidIPs != nil {
-		_, srcIPExists := f.ValidIPs[srcIP.String()]
-		_, dstIPExists := f.ValidIPs[dstIP.String()]
+		_, srcIPExists := f.ValidIPs[srcIP]
+		_, dstIPExists := f.ValidIPs[dstIP]
 		if !srcIPExists && !dstIPExists {
 			return deleteEntry
 		}
 	}
 
 	if f.MatchIPs != nil {
-		_, srcIPExists := f.MatchIPs[srcIP.String()]
-		_, dstIPExists := f.MatchIPs[dstIP.String()]
+		_, srcIPExists := f.MatchIPs[srcIP]
+		_, dstIPExists := f.MatchIPs[dstIP]
 		if srcIPExists || dstIPExists {
 			return deleteEntry
 		}

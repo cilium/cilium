@@ -5,7 +5,7 @@ package gc
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/inctimer"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -55,7 +56,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 
 				// epsMap contains an IP -> EP mapping. It is used by EmitCTEntryCB to
 				// avoid doing mgr.LookupIP, which is more expensive.
-				epsMap = make(map[string]*endpoint.Endpoint)
+				epsMap = make(map[netip.Addr]*endpoint.Endpoint)
 
 				// gcStart and emitEntryCB are used to populate DNSZombieMapping fields
 				// on endpoints. These hold IPs that are deletable in the DNS caches,
@@ -74,21 +75,21 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				// alive during idle periods of upto ToFQDNsIdleConnectionGracePeriod.
 				aliveTime = gcStart.Add(option.Config.ToFQDNsIdleConnectionGracePeriod)
 
-				emitEntryCB = func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
+				emitEntryCB = func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *ctmap.CtEntry) {
 					// FQDN related connections can only be outbound
 					if flags != ctmap.TUPLE_F_OUT {
 						return
 					}
-					if ep, exists := epsMap[srcIP.String()]; exists {
-						ep.MarkDNSCTEntry(dstIP, aliveTime)
+					if ep, exists := epsMap[srcIP]; exists {
+						ep.MarkDNSCTEntry(dstIP.AsSlice(), aliveTime)
 					}
 				}
 			)
 
 			eps := mgr.GetEndpoints()
 			for _, e := range eps {
-				epsMap[e.GetIPv4Address()] = e
-				epsMap[e.GetIPv6Address()] = e
+				epsMap[e.IPv4Address()] = e
+				epsMap[e.IPv6Address()] = e
 			}
 
 			if len(eps) > 0 || initialScan {
@@ -244,16 +245,16 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint,
 	// endpoints can appear yet so we can assume that any other entry not
 	// belonging to a restored endpoint has become stale.
 	if initialScan {
-		filter.ValidIPs = map[string]struct{}{}
+		filter.ValidIPs = map[netip.Addr]struct{}{}
 		for _, ep := range restoredEndpoints {
 			if ep.IsHost() {
 				continue
 			}
 			if ep.IPv6.IsValid() {
-				filter.ValidIPs[ep.IPv6.String()] = struct{}{}
+				filter.ValidIPs[ep.IPv6] = struct{}{}
 			}
 			if ep.IPv4.IsValid() {
-				filter.ValidIPs[ep.IPv4.String()] = struct{}{}
+				filter.ValidIPs[ep.IPv4] = struct{}{}
 			}
 		}
 
@@ -275,7 +276,7 @@ func createGCFilter(initialScan bool, restoredEndpoints []*endpoint.Endpoint,
 				if option.Config.IsExcludedLocalAddress(ip) {
 					continue
 				}
-				filter.ValidIPs[ip.String()] = struct{}{}
+				filter.ValidIPs[iputil.MustAddrFromIP(ip)] = struct{}{}
 			}
 		}
 	}
