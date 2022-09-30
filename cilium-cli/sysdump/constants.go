@@ -61,6 +61,7 @@ const (
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
 	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
+	kubernetesLeasesFileName                 = "k8s-leases-<ts>.yaml"
 	kubernetesNamespacesFileName             = "k8s-namespaces-<ts>.yaml"
 	kubernetesNetworkPoliciesFileName        = "k8s-networkpolicies-<ts>.yaml"
 	kubernetesNodesFileName                  = "k8s-nodes-<ts>.yaml"
@@ -94,6 +95,11 @@ var (
 		Group:    "vpcresources.k8s.aws",
 		Resource: "securitygrouppolicies",
 		Version:  "v1beta1",
+	}
+	k8sLeases = schema.GroupVersionResource{
+		Group:    "coordination.k8s.io",
+		Resource: "leases",
+		Version:  "v1",
 	}
 	ciliumBugtoolFileNameRegex = regexp.MustCompile("GZIP at (.*)\n")
 	gopsRegexp                 = regexp.MustCompile(`^(?P<pid>\d+).*\*`)
