@@ -226,20 +226,29 @@ static __always_inline struct lb4_service *
 sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
-	struct lb4_service *svc = NULL;
-
 #ifdef ENABLE_NODEPORT
+	/* Save the original address, as the sock4_wildcard_lookup zeroes it */
+	bool loopback = is_v4_loopback(key->address);
+	__u32 orig_addr = key->address;
+	struct lb4_service *svc;
+
 	svc = sock4_wildcard_lookup(key, true, false, in_hostns);
-	if (svc && !lb4_svc_is_nodeport(svc))
-		svc = NULL;
-	if (!svc) {
-		svc = sock4_wildcard_lookup(key, false, true,
-					    in_hostns);
-		if (svc && !lb4_svc_is_hostport(svc))
-			svc = NULL;
-	}
+	if (svc && lb4_svc_is_nodeport(svc))
+		return svc;
+
+	/*
+	 * We perform a wildcard hostport lookup. If the SVC_FLAG_LOOPBACK
+	 * flag is set, then this means that the wildcard entry was set up
+	 * using a loopback IP address, in which case we only want to allow
+	 * connections to loopback addresses
+	 */
+	key->address = orig_addr;
+	svc = sock4_wildcard_lookup(key, false, true, in_hostns);
+	if (svc && lb4_svc_is_hostport(svc) && (!lb4_svc_is_loopback(svc) || loopback))
+		return svc;
 #endif /* ENABLE_NODEPORT */
-	return svc;
+
+	return NULL;
 }
 
 /* Service translation logic for a local-redirect service can cause packets to
@@ -762,20 +771,25 @@ static __always_inline __maybe_unused struct lb6_service *
 sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
 			   const bool in_hostns __maybe_unused)
 {
-	struct lb6_service *svc = NULL;
-
 #ifdef ENABLE_NODEPORT
+	/* Save the original address, as the sock6_wildcard_lookup zeroes it */
+	bool loopback = is_v6_loopback(&key->address);
+	union v6addr orig_address;
+	struct lb6_service *svc;
+
+	memcpy(&orig_address, &key->address, sizeof(orig_address));
 	svc = sock6_wildcard_lookup(key, true, false, in_hostns);
-	if (svc && !lb6_svc_is_nodeport(svc))
-		svc = NULL;
-	if (!svc) {
-		svc = sock6_wildcard_lookup(key, false, true,
-					    in_hostns);
-		if (svc && !lb6_svc_is_hostport(svc))
-			svc = NULL;
-	}
+	if (svc && lb6_svc_is_nodeport(svc))
+		return svc;
+
+	/* See a corresponding commment in sock4_wildcard_lookup_full */
+	memcpy(&key->address, &orig_address, sizeof(orig_address));
+	svc = sock6_wildcard_lookup(key, false, true, in_hostns);
+	if (svc && lb6_svc_is_hostport(svc) && (!lb6_svc_is_loopback(svc) || loopback))
+		return svc;
+
 #endif /* ENABLE_NODEPORT */
-	return svc;
+	return NULL;
 }
 
 static __always_inline

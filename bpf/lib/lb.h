@@ -246,6 +246,18 @@ bool lb6_svc_is_hostport(const struct lb6_service *svc __maybe_unused)
 }
 
 static __always_inline
+bool lb4_svc_is_loopback(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOOPBACK;
+}
+
+static __always_inline
+bool lb6_svc_is_loopback(const struct lb6_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOOPBACK;
+}
+
+static __always_inline
 bool lb4_svc_has_src_range_check(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
