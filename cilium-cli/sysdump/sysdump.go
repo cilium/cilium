@@ -363,6 +363,21 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Kubernetes leases",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, k8sLeases, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes leases: %w", err)
+				}
+				if err := c.WriteYAML(kubernetesLeasesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes leases: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Cilium network policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
