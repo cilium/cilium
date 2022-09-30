@@ -52,11 +52,12 @@ func (ipc *IPCache) AllocateCIDRs(
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.IPAllocationTimeout)
 	defer cancel()
 
+	ipc.metadata.RLock()
 	ipc.Lock()
 	allocatedIdentities := make(map[netip.Prefix]*identity.Identity, len(prefixes))
 	for i, prefix := range prefixes {
 		lbls := cidr.GetCIDRLabels(prefix)
-		lbls.MergeLabels(ipc.metadata.get(prefix).ToLabels())
+		lbls.MergeLabels(ipc.metadata.getLocked(prefix).ToLabels())
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]
@@ -75,6 +76,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 	}
 	ipc.Unlock()
+	ipc.metadata.RUnlock()
 
 	// Only upsert into ipcache if identity wasn't allocated
 	// before and the caller does not care doing this
