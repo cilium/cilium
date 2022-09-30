@@ -8,6 +8,7 @@ source $DIR/../backporting/common.sh
 
 VERSION_GLOB='v[0-9]*\.[0-9]*\.[0-9]*'
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
+BRANCH_REGEX='s/\(v[0-9]*\.[0-9]*\).*/\1/'
 ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
@@ -105,7 +106,8 @@ main() {
         sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML
     fi
 
-    $DIR/../../Documentation/check-crd-compat-table.sh "$branch" --update
+    target_branch=$(echo "$version" | sed "$BRANCH_REGEX")
+    $DIR/../../Documentation/check-crd-compat-table.sh "$target_branch" --update
     if [ "${old_branch}" != "" ]; then
       $DIR/prep-changelog.sh "$old_version" "$version" "$old_branch"
     else
