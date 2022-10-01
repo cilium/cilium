@@ -313,7 +313,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 		gw = connector.IPv4Gateway(state.HostAddr)
 	}
 
-	rt := []*cniTypes.Route{}
+	rt := make([]*cniTypes.Route, 0, len(routes))
 	for _, r := range routes {
 		rt = append(rt, newCNIRoute(r))
 	}
