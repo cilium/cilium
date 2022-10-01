@@ -260,7 +260,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		}
 	}
 
-	enisListFromInstances := []string{}
+	enisListFromInstances := make([]string, 0, len(enisFromInstances))
 	for k := range enisFromInstances {
 		enisListFromInstances = append(enisListFromInstances, k)
 	}
