@@ -1064,3 +1064,31 @@ func (s *IPTestSuite) TestAddrFromIP(c *C) {
 		}
 	}
 }
+
+func (s *IPTestSuite) TestMustAddrFromIP(c *C) {
+	type args struct {
+		ip       net.IP
+		wantAddr netip.Addr
+	}
+
+	tests := []args{
+		{
+			net.ParseIP("10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
+		},
+		{
+			net.ParseIP("a::1"),
+			netip.MustParseAddr("a::1"),
+		},
+		{
+			net.ParseIP("::ffff:10.0.0.1"),
+			netip.MustParseAddr("10.0.0.1"),
+		},
+	}
+	for _, tt := range tests {
+		addr := MustAddrFromIP(tt.ip)
+		if addr != tt.wantAddr {
+			c.Errorf("MustAddrFromIP(net.IP(%v)) = %v want %v", []byte(tt.ip), addr, tt.wantAddr)
+		}
+	}
+}
