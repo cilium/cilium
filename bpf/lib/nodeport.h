@@ -1098,7 +1098,8 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
  * Callers should treat contents of "from_endpoint" and "addr" as undetermined,
  * if function returns false.
  */
-static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
+static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
+					   struct ipv4_nat_target *target,
 					   bool *from_endpoint __maybe_unused)
 {
 	void *data, *data_end;
@@ -1117,7 +1118,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	 */
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	if (ip4->saddr == IPV4_GATEWAY) {
-		*addr = IPV4_GATEWAY;
+		target->addr = IPV4_GATEWAY;
 		return true;
 	}
 #else
@@ -1127,12 +1128,12 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
      */
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
-		*addr = IPV4_DIRECT_ROUTING;
+		target->addr = IPV4_DIRECT_ROUTING;
 		return true;
 	}
 # ifdef ENABLE_MASQUERADE
 	if (ip4->saddr == IPV4_MASQUERADE) {
-		*addr = IPV4_MASQUERADE;
+		target->addr = IPV4_MASQUERADE;
 		return true;
 	}
 # endif
@@ -1193,7 +1194,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 	if (!egress_gw_policy)
 		goto skip_egress_gateway;
 
-	*addr = egress_gw_policy->egress_ip;
+	target->addr = egress_gw_policy->egress_ip;
+	target->egress_gateway = true;
 	*from_endpoint = true;
 
 	return true;
@@ -1249,7 +1251,7 @@ skip_egress_gateway:
 		 */
 		if (!is_reply && local_ep) {
 			*from_endpoint = true;
-			*addr = IPV4_MASQUERADE;
+			target->addr = IPV4_MASQUERADE;
 			return true;
 		}
 	}
@@ -1265,10 +1267,11 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = 0,
+		.egress_gateway = 0,
 	};
 	int ret = CTX_ACT_OK;
 
-	if (snat_v4_needed(ctx, &target.addr, &from_endpoint))
+	if (snat_v4_needed(ctx, &target, &from_endpoint))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
