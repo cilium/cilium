@@ -175,6 +175,8 @@ jobs:
           cmd: |
             set -eux
 
+            echo 'nameserver 1.1.1.1' > /etc/resolv.conf
+
             cd /host/
 
             ./contrib/scripts/kind.sh "" 3 "" "" "none"
