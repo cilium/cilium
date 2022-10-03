@@ -88,7 +88,7 @@ func rootCmdRun(cmd *cobra.Command, args []string) {
 			command:       "docker",
 			ifNotFound:    checkWarning,
 			versionArgs:   []string{"buildx", "version"},
-			versionRegexp: regexp.MustCompile(`github\.com/docker/buildx v(\d+\.\d+\.\d+)`),
+			versionRegexp: regexp.MustCompile(`github\.com/docker/buildx v?(\d+\.\d+\.\d+)`),
 			hint:          "see https://docs.docker.com/buildx/working-with-buildx/",
 		},
 		&binaryCheck{
