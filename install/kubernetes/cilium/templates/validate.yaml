@@ -45,3 +45,13 @@
     {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
   {{- end }}
 {{- end }}
+
+{{- if .Values.ingressController.enabled }}
+  {{- if hasKey .Values "kubeProxyReplacement" }}
+    {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
+      {{ fail "Ingress controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+    {{- end }}
+  {{- else }}
+    {{ fail "Ingress controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+  {{- end }}
+{{- end }}
