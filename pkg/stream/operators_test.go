@@ -95,27 +95,13 @@ func TestReduce(t *testing.T) {
 
 func TestThrottle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	waitMillis := 20
-	go func() {
-		time.Sleep(time.Duration(waitMillis) * time.Millisecond)
-		cancel()
-	}()
+	defer cancel()
 
-	ratePerSecond := 2000.0
-	values, err := ToSlice(ctx, Throttle(Range(0, 100000), ratePerSecond, 1))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected Canceled error, got %s", err)
-	}
+	item, err := First(ctx, Throttle(Range(42, 1000), 100.0, 1))
+	assertNil(t, "First", err)
 
-	expectedLen := int(float64(waitMillis) / 1000.0 * ratePerSecond)
-
-	lenDiff := len(values) - expectedLen
-	if lenDiff < 0 {
-		lenDiff *= -1
-	}
-	// Check that we're within 20%
-	if lenDiff > expectedLen/5 {
-		t.Fatalf("expected ~%d values, got %d, diff: %d", expectedLen, len(values), lenDiff)
+	if item != 42 {
+		t.Fatalf("expected 42, got %d", item)
 	}
 }
 
