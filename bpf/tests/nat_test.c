@@ -5,6 +5,8 @@
 
 #include <bpf/ctx/skb.h>
 
+#include "node_config.h"
+
 #define ENDPOINTS_MAP test_cilium_lxc
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define METRICS_MAP test_cilium_metrics
@@ -39,6 +41,10 @@
 #define NODEPORT_PORT_MAX 32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
 
+#define DIRECT_ROUTING_DEV_IFINDEX 0
+
+#include "lib/conntrack.h"
+
 #define ct_lookup4 mock_ct_lookup4
 #define ct_create4 mock_ct_create4
 
@@ -71,6 +77,19 @@ static __always_inline int mock_ct_create4(__maybe_unused const void *map_main,
 					   __maybe_unused bool from_l7lb)
 {
 	return mock_ct_create4_response;
+}
+
+#define __lookup_ip4_endpoint      mock__lookup_ip4_endpoint
+#define lookup_ip4_remote_endpoint mock_lookup_ip4_remote_endpoint
+
+static __always_inline struct endpoint_info *mock__lookup_ip4_endpoint(__maybe_unused __u32 ip)
+{
+	return NULL;
+}
+
+static __always_inline struct remote_endpoint_info *mock_lookup_ip4_remote_endpoint(__maybe_unused __u32 ip)
+{
+	return NULL;
 }
 
 #include "lib/nat.h"
