@@ -29,6 +29,11 @@ build:
 	$(GINKGO) build -tags=integration_tests
 	$(QUIET)$(MAKE) -C bpf/
 
+build-darwin:
+	@$(ECHO_GINKGO)$@
+	GOOS=darwin $(GINKGO) build -tags=integration_tests
+	rm test.test
+
 test: run k8s-test
 
 run:
