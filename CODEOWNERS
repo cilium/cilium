@@ -137,6 +137,9 @@
 #   overall agent architecture, ordering constraints with respect to network
 #   policies and encryption. Handle the relationship between Kubernetes state
 #   and datapath state as it pertains to remote peers.
+# - @cilium/ipsec:
+#   Maintain the kernel IPsec configuration and related eBPF logic to ensure
+#   traffic is correctly encrypted.
 # - @cilium/kvstore:
 #   Review Cilium interactions with key-value stores, particularly etcd.
 #   Understand the client libraries used by Cilium for sharing state between
@@ -232,10 +235,12 @@ Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
+/bpf/lib/encrypt.h @cilium/ipsec
 /bpf/sockops/Makefile* @cilium/build @cilium/loader
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
+/cilium/cmd/encrypt* @cilium/ipsec @cilium/cli
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
 /cilium-health/ @cilium/health
 /cilium-health/cmd/ @cilium/health @cilium/cli
@@ -313,6 +318,7 @@ Makefile* @cilium/build
 /Documentation/overview/intro.rst @cilium/docs-structure
 /Documentation/requirements.txt @cilium/docs-structure
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
+/Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
 /Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
 /Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
@@ -360,7 +366,9 @@ jenkinsfiles @cilium/ci-structure
 /pkg/counter @cilium/sig-datapath
 /pkg/datapath/ @cilium/sig-datapath
 /pkg/datapath/linux/config/ @cilium/loader
-/pkg/datapath/linux/ipsec/xfrm_collector* @cilium/metrics
+/pkg/datapath/linux/ipsec/ @cilium/ipsec
+/pkg/datapath/linux/ipsec/xfrm_collector* @cilium/ipsec @cilium/metrics
+/pkg/datapath/linux/node.go @cilium/ipsec @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
 /pkg/datapath/loader.go @cilium/loader
