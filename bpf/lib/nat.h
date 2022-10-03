@@ -108,6 +108,7 @@ struct ipv4_nat_target {
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
 	bool src_from_world;
+	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -257,11 +258,11 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
-static __always_inline int snat_v4_track_local(struct __ctx_buff *ctx,
-					       const struct ipv4_ct_tuple *tuple,
-					       const struct ipv4_nat_entry *state,
-					       enum nat_dir dir, __u32 off,
-					       const struct ipv4_nat_target *target)
+static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
+						    const struct ipv4_ct_tuple *tuple,
+						    const struct ipv4_nat_entry *state,
+						    enum nat_dir dir, __u32 off,
+						    const struct ipv4_nat_target *target)
 {
 	struct ct_state ct_state;
 	struct ipv4_ct_tuple tmp;
@@ -275,6 +276,14 @@ static __always_inline int snat_v4_track_local(struct __ctx_buff *ctx,
 	} else if (!state && dir == NAT_DIR_EGRESS) {
 		if (tuple->saddr == target->addr)
 			needs_ct = true;
+#if defined(ENABLE_EGRESS_GATEWAY)
+		/* Track egress gateway connections, but only if they are
+		 * related to a remote endpoint (if the endpoint is local then
+		 * the connection is already tracked).
+		 */
+		else if (target->egress_gateway && !__lookup_ip4_endpoint(tuple->saddr))
+			needs_ct = true;
+#endif
 	}
 	if (!needs_ct)
 		return 0;
@@ -309,7 +318,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 	int ret;
 
 	*state = snat_v4_lookup(tuple);
-	ret = snat_v4_track_local(ctx, tuple, *state, NAT_DIR_EGRESS, off, target);
+	ret = snat_v4_track_connection(ctx, tuple, *state, NAT_DIR_EGRESS, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)
@@ -328,7 +337,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 	int ret;
 
 	*state = snat_v4_lookup(tuple);
-	ret = snat_v4_track_local(ctx, tuple, *state, NAT_DIR_INGRESS, off, target);
+	ret = snat_v4_track_connection(ctx, tuple, *state, NAT_DIR_INGRESS, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)

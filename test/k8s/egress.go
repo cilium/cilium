@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/gomega"
@@ -76,8 +77,23 @@ var _ = SkipDescribeIf(func() bool {
 		res.ExpectSuccess()
 	}
 
-	BeforeAll(func() {
+	// ctEntriesOnNode returns the number of CT entries matching destination
+	// IP and port on a given node
+	ctEntriesOnNode := func(node, dstIP, dstPort string) int {
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
+		Expect(err).Should(BeNil(), "Unable to determine cilium pod on node %s", node)
 
+		cmd := fmt.Sprintf("cilium bpf ct list global | grep '\\-> %s:%s\\b' | wc -l", dstIP, dstPort)
+		res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+		res.ExpectSuccess()
+
+		n, err := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+		Expect(err).Should(BeNil(), "Cannot parse output of '%s' command", cmd)
+
+		return n
+	}
+
+	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
@@ -128,9 +144,14 @@ var _ = SkipDescribeIf(func() bool {
 
 		for _, src := range []string{srcPod, srcPod2} {
 			By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
+			ctEntriesBeforeConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
 			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
+
 			res.ExpectSuccess()
 			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
+
+			ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+			Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
 		}
 	}
 
