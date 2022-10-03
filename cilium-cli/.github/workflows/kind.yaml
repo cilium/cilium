@@ -74,7 +74,8 @@ jobs:
 
       - name: Connectivity Test
         run: |
-          cilium connectivity test --debug --all-flows
+          # Run the connectivity test in non-default namespace (i.e. not cilium-test)
+          cilium connectivity test --debug --all-flows --test-namespace test-namespace
 
       - name: Uninstall cilium
         run: |
@@ -97,7 +98,7 @@ jobs:
 
       - name: Connectivity test
         run: |
-          cilium connectivity test --debug --force-deploy --all-flows
+          cilium connectivity test --debug --force-deploy --all-flows --test-namespace another-test-namespace
 
       - name: Cleanup
         if: ${{ always() }}
