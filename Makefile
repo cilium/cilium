@@ -134,15 +134,8 @@ $(SUBDIRS): force ## Execute default make target(make all) for the provided subd
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 tests-privileged: ## Run integration tests for Cilium that require elevated privileges.
-	$(MAKE) init-coverage
-	for pkg in $(TESTPKGS); do \
-		>&2 $(ECHO_TEST) $$pkg; \
-		PATH=$(PATH):$(ROOT_DIR)/bpf \
-		PRIVILEGED_TESTS=true \
-		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
-		|| exit 1; \
-		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done | $(GOTEST_FORMATTER)
+	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
+		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
 start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd and consul containers.
@@ -184,14 +177,10 @@ endif
 generate-cov: ## Generate coverage report for Cilium integration-tests.
 	# Remove generated code from coverage
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
-		coverage-all-tmp.out > coverage-all.out
-	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
-	$(QUIET) rm coverage.out coverage-all-tmp.out
+		coverage.out > coverage.out.tmp
+	$(QUIET)$(GO) tool cover -html=coverage.out.tmp -o=coverage-all.html
+	$(QUIET) rm coverage.out.tmp
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
-
-init-coverage: ## Initialize converage report for Cilium integration-tests.
-	$(QUIET) echo "mode: count" > coverage-all-tmp.out
-	$(QUIET) echo "mode: count" > coverage.out
 
 integration-tests: GO_TAGS_FLAGS+=integration_tests
 integration-tests: start-kvstores ## Runs all integration-tests for Cilium.
@@ -199,38 +188,16 @@ integration-tests: start-kvstores ## Runs all integration-tests for Cilium.
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
-	$(MAKE) init-coverage
-	# It seems that in some env if the path is large enough for the full list
-	# of files, the full bash command in that target gets too big for bash and
-	# hence will trigger an error of too many arguments. As a workaround, we
-	# have to process these packages in different subshells.
-	for pkg in $(TESTPKGS); do \
-		>&2 $(ECHO_TEST) $$pkg; \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) -coverpkg $$pkg \
-		|| exit 1; \
-		tail -n +2 coverage.out >> coverage-all-tmp.out; \
-	done | $(GOTEST_FORMATTER)
+	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 	$(MAKE) stop-kvstores
 
 bench: start-kvstores ## Run benchmarks for Cilium integration-tests in the repository.
-	# Process the packages in different subshells. See comment in the
-	# "integration-tests" target above for an explanation.
-	$(QUIET)for pkg in $(TESTPKGS); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
-			$$pkg \
-		|| exit 1; \
-	done
+	$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 	$(MAKE) stop-kvstores
 
-bench-privileged: ## Run benchmarks for priviliged tests.
-	# Process the packages in different subshells. See comment in the
-	# "integration-tests" target above for an explanation.
-	$(QUIET)for pkg in $(TESTPKGS); do \
-		PRIVILEGED_TESTS=true \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
-		|| exit 1; \
-	done
+bench-privileged: ## Run benchmarks for privileged tests.
+	PRIVILEGED_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $(TESTPKGS)
 
 clean-tags: ## Remove all the tags files from the repository.
 	@$(ECHO_CLEAN) tags
