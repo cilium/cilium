@@ -83,8 +83,8 @@ func init() {
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
 		"pprof-port", defaults.PprofPortAgent,
 		fmt.Sprintf(
-			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d",
-			defaults.PprofPortAgent, defaults.PprofPortOperator,
+			"Pprof port to connect to. Known Cilium component ports are agent:%d, operator:%d, apiserver:%d",
+			defaults.PprofPortAgent, defaults.PprofPortOperator, defaults.PprofPortAPIServer,
 		),
 	)
 	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")

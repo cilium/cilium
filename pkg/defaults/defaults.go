@@ -23,6 +23,9 @@ const (
 	// PprofPortAgent is the default value for pprof in the operator
 	PprofPortOperator = 6061
 
+	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
+	PprofPortAPIServer = 6063
+
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 

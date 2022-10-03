@@ -52,6 +52,7 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 type configuration struct {
@@ -234,6 +235,12 @@ func runApiserver() error {
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
 	option.BindEnv(vp, option.K8sEnableEndpointSlice)
+
+	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
+	option.BindEnv(vp, option.PProf)
+
+	flags.Int(option.PProfPort, defaults.PprofPortAPIServer, "Port that the pprof listens on")
+	option.BindEnv(vp, option.PProfPort)
 
 	vp.BindPFlags(flags)
 
@@ -599,6 +606,10 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
+
+	if option.Config.PProf {
+		pprof.Enable(option.Config.PProfPort)
+	}
 
 	log.Info("Initialization complete")
 }
