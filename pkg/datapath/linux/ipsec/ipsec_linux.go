@@ -186,7 +186,7 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir netlink.Dir) error {
+func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
 	optional := int(0)
 	key := getIPSecKeys(dst.IP)
 	if key == nil {
@@ -197,18 +197,25 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir 
 	policy.Dir = dir
 	policy.Src = src
 	policy.Dst = dst
+	policy.Mark = &netlink.XfrmMark{
+		Mask: linux_defaults.IPsecMarkMaskIn,
+	}
 	if dir == netlink.XFRM_DIR_IN {
-		// We require a policy to match on packets going to the proxy which are
-		// therefore carrying the proxy mark. We however don't need a policy
-		// for the encrypted packets because there is already a state matching
-		// them.
-		policy.Mark = &netlink.XfrmMark{
-			Mask:  linux_defaults.IPsecMarkMaskIn,
-			Value: linux_defaults.RouteMarkToProxy,
+		if proxyMark {
+			// We require a policy to match on packets going to the proxy which are
+			// therefore carrying the proxy mark. We however don't need a policy
+			// for the encrypted packets because there is already a state matching
+			// them.
+			policy.Mark.Value = linux_defaults.RouteMarkToProxy
+			// We must mark the IN policy for the proxy optional simply because it
+			// is lacking a corresponding state.
+			optional = 1
+			// We set the source tmpl address to 0/0 to explicit that it
+			// doesn't matter.
+			tmplSrc = net.ParseIP("0.0.0.0")
+		} else {
+			policy.Mark.Value = linux_defaults.RouteMarkDecrypt
 		}
-		// We must mark the IN policy for the proxy optional simply because it
-		// is lacking a corresponding state.
-		optional = 1
 	}
 	// We always make forward rules optional. The only reason we have these
 	// at all is to appease the XFRM route hooks, we don't really care about
@@ -222,11 +229,14 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir 
 }
 
 func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
-	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_IN)
+	if err := _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, true, netlink.XFRM_DIR_IN); err != nil {
+		return err
+	}
+	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_IN)
 }
 
 func IpSecReplacePolicyFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
-	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, netlink.XFRM_DIR_FWD)
+	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_FWD)
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
