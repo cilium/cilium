@@ -430,13 +430,18 @@ govet: ## Run govet on Go source files in the repository.
 
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION),$(GOLANGCILINT_VERSION)))
-	@$(ECHO_CHECK) golangci-lint
-	$(QUIET) golangci-lint run
+	@$(ECHO_CHECK) golangci-lint $(GOLANGCI_LINT_ARGS)
+	$(QUIET) golangci-lint run $(GOLANGCI_LINT_ARGS)
 else
-	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run
+	$(QUIET) $(CONTAINER_ENGINE) run --rm -v `pwd`:/app -w /app docker.io/golangci/golangci-lint:v$(GOLANGCILINT_WANT_VERSION)@$(GOLANGCILINT_IMAGE_SHA) golangci-lint run $(GOLANGCI_LINT_ARGS)
 endif
 
+golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
+	$(QUIET)$(MAKE) golangci-lint GOLANGCI_LINT_ARGS="--fix"
+
 lint: golangci-lint ## Run golangci-lint and bpf-mock linters.
+
+lint-fix: golangci-lint-fix ## Run golangci-lint and bpf-mock linters.
 
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
