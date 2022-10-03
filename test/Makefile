@@ -26,6 +26,7 @@ all: build
 
 build:
 	@$(ECHO_GINKGO)$@
+	GOOS=darwin $(GINKGO) build -tags=integration_tests && rm -f test.test
 	$(GINKGO) build -tags=integration_tests
 	$(QUIET)$(MAKE) -C bpf/
 
