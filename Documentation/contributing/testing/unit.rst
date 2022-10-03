@@ -68,7 +68,7 @@ prerequisites:
 
 .. code-block:: shell-session
 
-    $ make integration-tests TESTPKGS=pkg/kvstore
+    $ make integration-tests TESTPKGS=./pkg/kvstore
 
 Some tests are marked as 'privileged' if they require the test suite to be run
 as a privileged user or with a given set of capabilities. They are skipped by
@@ -86,7 +86,7 @@ There are a few ways to run privileged tests.
 
     .. code-block:: shell-session
 
-        $ TESTPKGS="pkg/aws/eni/routing" sudo -E make tests-privileged
+        $ TESTPKGS="./pkg/datapath/linux" sudo -E make tests-privileged
 
 3. Set the ``PRIVILEGED_TESTS`` environment variable and run ``go test``
    directly. This only escalates privileges when executing the test binaries,
