@@ -17,8 +17,10 @@
 #include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
+#include "egress_policies.h"
 #include "icmp6.h"
 #include "nat_46x64.h"
+#include "stubs.h"
 
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -47,6 +49,8 @@ struct nat_entry {
 # define SNAT_COLLISION_RETRIES		32
 # define SNAT_SIGNAL_THRES		16
 #endif
+
+static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused);
 
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
 						      __u16 val)
@@ -551,6 +555,182 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 	tuple->flags = dir;
+}
+
+/* The function contains a core logic for deciding whether an egressing packet
+ * has to be SNAT-ed. Currently, the function targets the following flows:
+ *
+ *	- From pod to outside to masquerade requests
+ *	  when --enable-bpf-masquerade=true.
+ *	- From host to outside to track (and masquerade) flows which
+ *	  can conflict with NodePort BPF.
+ *
+ * The function sets "addr" to the SNAT IP addr, and "from_endpoint" to true
+ * if the packet is sent from a local endpoint.
+ *
+ * Callers should treat contents of "from_endpoint" and "addr" as undetermined,
+ * if function returns false.
+ */
+static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
+					   struct ipv4_nat_target *target,
+					   bool *from_endpoint __maybe_unused)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct endpoint_info *local_ep __maybe_unused;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
+	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
+	bool is_reply = false;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return false;
+
+	/* Basic minimum is to only NAT when there is a potential of
+	 * overlapping tuples, e.g. applications in hostns reusing
+	 * source IPs we SNAT in NodePort and BPF-masq.
+	 */
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	if (ip4->saddr == IPV4_GATEWAY) {
+		target->addr = IPV4_GATEWAY;
+		return true;
+	}
+#else
+    /* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
+     * preprocessor, as the former is known only during load time (templating).
+     * This checks whether bpf_host is running on the direct routing device.
+     */
+	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
+	    ip4->saddr == IPV4_DIRECT_ROUTING) {
+		target->addr = IPV4_DIRECT_ROUTING;
+		return true;
+	}
+# ifdef ENABLE_MASQUERADE
+	if (ip4->saddr == IPV4_MASQUERADE) {
+		target->addr = IPV4_MASQUERADE;
+		return true;
+	}
+# endif
+#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
+
+	local_ep = __lookup_ip4_endpoint(ip4->saddr);
+	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr);
+
+	/* Check if this packet belongs to reply traffic coming from a
+	 * local endpoint.
+	 *
+	 * If local_ep is NULL, it means there's no endpoint running on the
+	 * node which matches the packet source IP, which means we can
+	 * skip the CT lookup since this cannot be reply traffic.
+	 */
+	if (local_ep) {
+		struct ipv4_ct_tuple tuple = {
+			.nexthdr = ip4->protocol,
+			.daddr = ip4->daddr,
+			.saddr = ip4->saddr
+		};
+
+		ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
+			     ipv4_hdrlen(ip4), &tuple, &is_reply);
+	}
+
+#ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
+# ifdef IS_BPF_OVERLAY
+	/* Do not MASQ when this function is executed from bpf_overlay
+	 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
+	 * be SNAT'd to cilium_host IP addr.
+	 */
+	return false;
+# endif
+
+/* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
+ *
+ * This check must happen before the IPV4_SNAT_EXCLUSION_DST_CIDR check below as
+ * the destination may be in the SNAT exclusion CIDR but regardless of that we
+ * always want to SNAT a packet if it's matched by an egress NAT policy.
+ */
+#if defined(ENABLE_EGRESS_GATEWAY)
+	/* If the packet is destined to an entity inside the cluster, either EP
+	 * or node, skip SNAT since only traffic leaving the cluster is supposed
+	 * to be masqueraded with an egress IP.
+	 */
+	if (remote_ep &&
+	    identity_is_cluster(remote_ep->sec_label))
+		goto skip_egress_gateway;
+
+	/* If the packet is a reply it means that outside has initiated the
+	 * connection, so no need to SNAT the reply.
+	 */
+	if (is_reply)
+		goto skip_egress_gateway;
+
+	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	if (!egress_gw_policy)
+		goto skip_egress_gateway;
+
+	target->addr = egress_gw_policy->egress_ip;
+	target->egress_gateway = true;
+	*from_endpoint = true;
+
+	return true;
+
+skip_egress_gateway:
+#endif
+
+#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
+	/* Do not MASQ if a dst IP belongs to a pods CIDR
+	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
+	 * The check is performed before we determine that a packet is
+	 * sent from a local pod, as this check is cheaper than
+	 * the map lookup done in the latter check.
+	 */
+	if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
+			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
+		return false;
+#endif
+
+	/* if this is a localhost endpoint, no SNAT is needed */
+	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
+		return false;
+
+	if (remote_ep) {
+#ifdef ENABLE_IP_MASQ_AGENT
+		/* Do not SNAT if dst belongs to any ip-masq-agent
+		 * subnet.
+		 */
+		struct lpm_v4_key pfx;
+
+		pfx.lpm.prefixlen = 32;
+		memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
+		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
+			return false;
+#endif
+#ifndef TUNNEL_MODE
+		/* In the tunnel mode, a packet from a local ep
+		 * to a remote node is not encap'd, and is sent
+		 * via a native dev. Therefore, such packet has
+		 * to be MASQ'd. Otherwise, it might be dropped
+		 * either by underlying network (e.g. AWS drops
+		 * packets by default from unknown subnets) or
+		 * by the remote node if its native dev's
+		 * rp_filter=1.
+		 */
+		if (identity_is_remote_node(remote_ep->sec_label))
+			return false;
+#endif
+
+		/* If the packet is a reply it means that outside has
+		 * initiated the connection, so no need to SNAT the
+		 * reply.
+		 */
+		if (!is_reply && local_ep) {
+			*from_endpoint = true;
+			target->addr = IPV4_MASQUERADE;
+			return true;
+		}
+	}
+#endif /*ENABLE_MASQUERADE */
+
+	return false;
 }
 
 static __always_inline __maybe_unused int
@@ -1131,6 +1311,30 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	tuple->flags = dir;
+}
+
+static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
+					   const union v6addr *addr)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return false;
+#ifdef ENABLE_DSR_HYBRID
+	{
+		__u8 nexthdr = ip6->nexthdr;
+		int ret;
+
+		ret = ipv6_hdrlen(ctx, &nexthdr);
+		if (ret > 0) {
+			if (nodeport_uses_dsr(nexthdr))
+				return false;
+		}
+	}
+#endif /* ENABLE_DSR_HYBRID */
+	/* See snat_v4_needed(). */
+	return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
 }
 
 static __always_inline __maybe_unused int
