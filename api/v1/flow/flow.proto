@@ -447,6 +447,9 @@ message FlowFilter {
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;
+
+    // trace_id filters flows by trace ID
+    repeated string trace_id = 28;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
