@@ -589,6 +589,9 @@ func testExternalIPs(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s","%s"]}}`, svcExternalIP, nodeIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node 1 IP")
 
+		err = kubectl.WaitForServiceFrontend(ni.K8s1NodeName, nodeIP)
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s frontend entry on %s", nodeIP, ni.K8s1NodeName)
+
 		httpURL := getHTTPLink(svcExternalIP, data.Spec.Ports[0].Port)
 		tftpURL := getTFTPLink(svcExternalIP, data.Spec.Ports[1].Port)
 
