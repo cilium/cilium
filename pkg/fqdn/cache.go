@@ -753,7 +753,7 @@ func (zombie *DNSZombieMapping) DeepCopy() *DNSZombieMapping {
 // breaking connections that outlast the DNS TTL.
 type DNSZombieMappings struct {
 	lock.Mutex
-	deletes        map[string]*DNSZombieMapping // map[ip]toDelete
+	deletes        map[netip.Addr]*DNSZombieMapping
 	lastCTGCUpdate time.Time
 	max            int // max allowed zombies
 
@@ -764,7 +764,7 @@ type DNSZombieMappings struct {
 // NewDNSZombieMappings constructs a DNSZombieMappings that is read to use
 func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
 	return &DNSZombieMappings{
-		deletes:      make(map[string]*DNSZombieMapping),
+		deletes:      make(map[netip.Addr]*DNSZombieMapping),
 		max:          max,
 		perHostLimit: perHostLimit,
 	}
@@ -777,14 +777,15 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qna
 	zombies.Lock()
 	defer zombies.Unlock()
 
-	zombie, updatedExisting := zombies.deletes[ipStr]
+	addr := netip.MustParseAddr(ipStr)
+	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
 			Names:           KeepUniqueNames(qname),
 			IP:              net.ParseIP(ipStr),
 			DeletePendingAt: expiryTime,
 		}
-		zombies.deletes[ipStr] = zombie
+		zombies.deletes[addr] = zombie
 	} else {
 		zombie.Names = KeepUniqueNames(append(zombie.Names, qname...))
 		// Keep the latest expiry time
@@ -955,7 +956,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 
 	// Delete the zombies we collected above from the internal map
 	for _, zombie := range dead {
-		delete(zombies.deletes, zombie.IP.String())
+		delete(zombies.deletes, ippkg.MustAddrFromIP(zombie.IP))
 	}
 
 	return alive, dead
@@ -963,11 +964,11 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 
 // MarkAlive makes an zombie alive and not dead. When now is later than the
 // time set with SetCTGCTime the zombie remains alive.
-func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip net.IP) {
+func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip netip.Addr) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
-	if zombie, exists := zombies.deletes[ip.String()]; exists {
+	if zombie, exists := zombies.deletes[ip]; exists {
 		zombie.AliveAt = now
 	}
 }
@@ -1044,7 +1045,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 
 	// Delete the zombies that are now empty
 	for _, zombie := range toDelete {
-		delete(zombies.deletes, zombie.IP.String())
+		delete(zombies.deletes, ippkg.MustAddrFromIP(zombie.IP))
 	}
 
 	return namesAffected
@@ -1106,7 +1107,7 @@ func (zombies *DNSZombieMappings) MarshalJSON() ([]byte, error) {
 	// The JSON package cannot serialize private fields so we have to make a
 	// proxy type here.
 	aux := struct {
-		Deletes map[string]*DNSZombieMapping `json:"deletes,omitempty"`
+		Deletes map[netip.Addr]*DNSZombieMapping `json:"deletes,omitempty"`
 	}{
 		Deletes: zombies.deletes,
 	}
@@ -1126,7 +1127,7 @@ func (zombies *DNSZombieMappings) UnmarshalJSON(raw []byte) error {
 	// The JSON package cannot deserialize private fields so we have to make a
 	// proxy type here.
 	aux := struct {
-		Deletes map[string]*DNSZombieMapping `json:"deletes,omitempty"`
+		Deletes map[netip.Addr]*DNSZombieMapping `json:"deletes,omitempty"`
 	}{
 		Deletes: zombies.deletes,
 	}

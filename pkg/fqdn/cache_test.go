@@ -667,7 +667,7 @@ func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 	// Mark 1.1.1.2 alive which should also keep 1.1.1.1 alive since they
 	// have the same name
 	now = now.Add(time.Second)
-	zombies.MarkAlive(now, net.ParseIP("1.1.1.2"))
+	zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.2"))
 	zombies.SetCTGCTime(now)
 
 	alive, dead := zombies.GC()
@@ -706,10 +706,10 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	})
 
 	// Cause 1.1.1.1 to die by not marking it alive before the second GC
-	//zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
+	//zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
 	now = now.Add(time.Second)
 	// Mark 2.2.2.2 alive with 1 second grace period
-	zombies.MarkAlive(now.Add(time.Second), net.ParseIP("2.2.2.2"))
+	zombies.MarkAlive(now.Add(time.Second), netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(now)
 
 	// alive should contain 2.2.2.2 -> somethingelse.com
@@ -829,8 +829,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	// latest insert time.
 	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
 	gcTime := now.Add(4 * time.Second)
-	zombies.MarkAlive(gcTime, net.ParseIP("1.1.1.1"))
-	zombies.MarkAlive(gcTime, net.ParseIP("2.2.2.2"))
+	zombies.MarkAlive(gcTime, netip.MustParseAddr("1.1.1.1"))
+	zombies.MarkAlive(gcTime, netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(gcTime)
 
 	alive, dead = zombies.GC()
@@ -981,8 +981,8 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	})
 
 	now = now.Add(time.Second)
-	zombies.MarkAlive(now, net.ParseIP("1.1.1.1"))
-	zombies.MarkAlive(now, net.ParseIP("2.2.2.2"))
+	zombies.MarkAlive(now, netip.MustParseAddr("1.1.1.1"))
+	zombies.MarkAlive(now, netip.MustParseAddr("2.2.2.2"))
 	zombies.SetCTGCTime(now)
 
 	alive = zombies.DumpAlive(nil)
