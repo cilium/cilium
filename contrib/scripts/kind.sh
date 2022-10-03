@@ -49,6 +49,17 @@ reg_name="kind-registry"
 reg_port="5000"
 running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
 if [[ "${running}" != "true" ]]; then
+  retry_count=0
+  while ! docker pull registry:2
+  do
+    retry_count=$((retry_count+1))
+    if [[ "$retry_count" -ge 10 ]]; then
+      echo "ERROR: 'docker pull registry:2' failed $retry_count times. Please make sure docker is running"
+      exit 1
+    fi
+    echo "docker pull registry:2 failed. Sleeping for 1 second and trying again..."
+    sleep 1
+  done
   docker run \
     -d --restart=always -p "${reg_port}:5000" --name "${reg_name}" \
     registry:2
