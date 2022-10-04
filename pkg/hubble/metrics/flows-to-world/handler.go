@@ -23,6 +23,7 @@ type flowsToWorldHandler struct {
 	worldLabel   string
 	anyDrop      bool
 	port         bool
+	synOnly      bool
 }
 
 func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Options) error {
@@ -37,6 +38,8 @@ func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Op
 			h.anyDrop = true
 		case "port":
 			h.port = true
+		case "syn-only":
+			h.synOnly = true
 		}
 	}
 	labels := []string{"protocol", "verdict"}
@@ -85,6 +88,12 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
 		return nil
 	}
+
+	// if "syn-only" option is set, only count non-reply SYN packets for TCP.
+	if h.synOnly && (!l4.GetTCP().GetFlags().GetSYN() || isReply) {
+		return nil
+	}
+
 	labelValues, err := h.context.GetLabelValues(flow)
 	if err != nil {
 		return err
