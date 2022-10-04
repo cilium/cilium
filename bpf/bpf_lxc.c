@@ -1011,7 +1011,6 @@ ct_recreate4:
 	{
 		struct egress_gw_policy_entry *egress_gw_policy;
 		struct endpoint_info *gateway_node_ep;
-		struct endpoint_key key = {};
 
 		/* If the packet is destined to an entity inside the cluster,
 		 * either EP or node, it should not be forwarded to an egress
@@ -1044,8 +1043,8 @@ ct_recreate4:
 		/* Otherwise encap and redirect the packet to egress gateway
 		 * node through a tunnel.
 		 */
-		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
-					     &key, SECLABEL, *dst_id, &trace);
+		ret = __encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
+					       SECLABEL, *dst_id, &trace);
 		if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
 		else
