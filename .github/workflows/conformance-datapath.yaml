@@ -116,7 +116,7 @@ jobs:
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - name: Set up job variables
         id: vars
