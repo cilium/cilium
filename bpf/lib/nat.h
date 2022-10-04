@@ -589,6 +589,8 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
                        .saddr = ip4->saddr
                };
 
+	       *from_endpoint = true;
+
                ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
                             ipv4_hdrlen(ip4), &tuple, &is_reply);
        }
@@ -629,7 +631,6 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
 
        target->addr = egress_gw_policy->egress_ip;
        target->egress_gateway = true;
-       *from_endpoint = true;
 
        return true;
 
@@ -683,7 +684,6 @@ skip_egress_gateway:
                 * reply.
                 */
                if (!is_reply && local_ep) {
-                       *from_endpoint = true;
                        target->addr = IPV4_MASQUERADE;
                        return true;
                }
