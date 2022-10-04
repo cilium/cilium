@@ -649,6 +649,7 @@ Option Key     Option Value  Description
 ============== ============= ======================================================
 ``any-drop``   N/A           Count any dropped flows regardless of the drop reason.
 ``port``       N/A           Include the destination port as label ``port``.
+``syn-only``   N/A           Only count non-reply SYNs for TCP flows.
 ============== ============= ======================================================
 
 
