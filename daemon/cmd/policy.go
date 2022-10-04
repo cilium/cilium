@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	stdlog "log"
@@ -73,6 +74,16 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	d.policyUpdater.TriggerPolicyUpdates(force, reason)
 }
 
+// TriggerPolicyUpdatesAndWait triggers policy updates by deferring to the
+// policy.Updater to handle them and waits for policy revision to increase.
+func (d *Daemon) TriggerPolicyUpdatesAndWait(force bool, reason string) {
+	currentRevision := d.GetPolicyRepository().GetRevision()
+	d.policyUpdater.TriggerPolicyUpdates(force, reason)
+	ctx, cancel := context.WithTimeout(context.Background(), option.Config.PolicyTriggerInterval)
+	defer cancel()
+	d.endpointManager.WaitForEndpointsAtPolicyRev(ctx, currentRevision+1)
+}
+
 // UpdateIdentities informs the policy package of all identity changes
 // and also triggers policy updates.
 //
@@ -83,7 +94,7 @@ func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
 	d.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()
-	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+	d.TriggerPolicyUpdatesAndWait(false, "one or more identities created or deleted")
 }
 
 type getPolicyResolve struct {
