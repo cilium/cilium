@@ -217,7 +217,6 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathLRPTests", func() {
 			type lrpTestCase struct {
 				selector string
 				cmd      string
-				pod      string
 			}
 
 			_ = kubectl.Delete(lrpSvcYAML)

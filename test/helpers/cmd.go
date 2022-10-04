@@ -127,7 +127,6 @@ func (b *CmdStreamBuffer) FilterLines(filter string) ([]FilterBuffer, error) {
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
 	cmd      string          // Command to run
-	params   []string        // Parameters to provide to command
 	stdout   *Buffer         // Stdout from running cmd
 	stderr   *Buffer         // Stderr from running cmd
 	success  bool            // Whether command successfully executed

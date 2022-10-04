@@ -75,18 +75,6 @@ func diffStrings(file string, expected, actual string) (string, bool) {
 	return "", true
 }
 
-func l3n4AddrLess(a, b *lb.L3n4Addr) bool {
-	if a.Protocol < b.Protocol {
-		return true
-	} else if a.Protocol > b.Protocol {
-		return false
-	}
-	if a.AddrCluster.Less(b.AddrCluster) {
-		return true
-	}
-	return a.Port < b.Port
-}
-
 func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	lbmap.Lock()
 	defer lbmap.Unlock()
