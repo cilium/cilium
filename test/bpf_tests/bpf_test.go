@@ -456,17 +456,6 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 	}
 }
 
-type suiteTestResult struct {
-	name string
-	logs []testLog
-	code byte
-}
-
-type testLog struct {
-	fmt  string
-	args []uint64
-}
-
 // A simplified version of fmt.Printf logic, the meaning of % specifiers changed to match the kernels printk specifiers.
 // In the eBPF code a user can for example call `test_log("expected 123, got %llu", some_val)` the %llu meaning
 // long-long-unsigned translates into a uint64, the rendered out would for example be -> 'expected 123, got 234'.

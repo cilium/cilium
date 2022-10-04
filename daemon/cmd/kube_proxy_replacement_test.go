@@ -11,9 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type KPRSuite struct {
-	orig kprConfig
-}
+type KPRSuite struct{}
 
 var _ = Suite(&KPRSuite{})
 
@@ -52,23 +50,6 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.EnableSocketLBTracing = true
-}
-
-func (cfg *kprConfig) read() {
-	cfg.kubeProxyReplacement = option.Config.KubeProxyReplacement
-	cfg.enableSocketLB = option.Config.EnableSocketLB
-	cfg.enableNodePort = option.Config.EnableNodePort
-	cfg.enableHostPort = option.Config.EnableHostPort
-	cfg.enableExternalIPs = option.Config.EnableExternalIPs
-	cfg.enableHostServicesTCP = option.Config.EnableHostServicesTCP
-	cfg.enableHostServicesUDP = option.Config.EnableHostServicesUDP
-	cfg.enableSessionAffinity = option.Config.EnableSessionAffinity
-	cfg.enableIPSec = option.Config.EnableIPSec
-	cfg.enableHostLegacyRouting = option.Config.EnableHostLegacyRouting
-	cfg.installNoConntrackIptRules = option.Config.InstallNoConntrackIptRules
-	cfg.enableBPFMasquerade = option.Config.EnableBPFMasquerade
-	cfg.enableIPv4Masquerade = option.Config.EnableIPv4Masquerade
-	cfg.enableSocketLBTracing = option.Config.EnableSocketLBTracing
 }
 
 func (cfg *kprConfig) verify(c *C) {

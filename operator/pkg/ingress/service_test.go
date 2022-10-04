@@ -125,10 +125,6 @@ func Test_handleEvent(t *testing.T) {
 	})
 }
 
-func stringp(in string) *string {
-	return &in
-}
-
 func newQueue() workqueue.RateLimitingInterface {
 	return workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
 		workqueue.DefaultControllerRateLimiter(),

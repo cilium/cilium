@@ -373,9 +373,7 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 		id uint16
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
+		ep *endpoint.Endpoint
 	}
 	tests := []struct {
 		name        string
@@ -442,9 +440,7 @@ func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
 		id string
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
+		ep *endpoint.Endpoint
 	}
 	tests := []struct {
 		name        string
@@ -509,9 +505,7 @@ func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
 		ip string
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
+		ep *endpoint.Endpoint
 	}
 	tests := []struct {
 		name        string
@@ -576,9 +570,7 @@ func (s *EndpointManagerSuite) TestLookupPodName(c *C) {
 		podName string
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
+		ep *endpoint.Endpoint
 	}
 	tests := []struct {
 		name        string
@@ -644,9 +636,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		ep *endpoint.Endpoint
 	}
 	type want struct {
-		ep       *endpoint.Endpoint
-		err      error
-		errCheck Checker
+		ep *endpoint.Endpoint
 	}
 	tests := []struct {
 		name        string
@@ -756,15 +746,11 @@ func (s *EndpointManagerSuite) TestRemove(c *C) {
 func (s *EndpointManagerSuite) TestHasGlobalCT(c *C) {
 	mgr := NewEndpointManager(&dummyEpSyncher{})
 	ep := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), 1, endpoint.StateReady)
-	type args struct {
-		ep *endpoint.Endpoint
-	}
 	type want struct {
 		result bool
 	}
 	tests := []struct {
 		name        string
-		setupArgs   func() args
 		setupWant   func() want
 		preTestRun  func()
 		postTestRun func()

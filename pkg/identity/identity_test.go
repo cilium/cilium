@@ -95,8 +95,6 @@ func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {
-	type args struct {
-	}
 	type want struct {
 		id     NumericIdentity
 		labels labels.Labels
