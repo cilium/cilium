@@ -235,3 +235,19 @@ hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a
 `)
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, expected))
 }
+
+func Test_flowsToWorldHandler_Status(t *testing.T) {
+	h := &flowsToWorldHandler{
+		context: &api.ContextOptions{
+			Destination: api.ContextIdentifierList{api.ContextNamespace},
+			Source:      api.ContextIdentifierList{api.ContextReservedIdentity},
+		},
+		anyDrop: true,
+		port:    true,
+		synOnly: true,
+	}
+	assert.Equal(t, "any-drop,port,syn-only,destination=namespace,source=reserved-identity", h.Status())
+	h.anyDrop = false
+	h.port = false
+	assert.Equal(t, "syn-only,destination=namespace,source=reserved-identity", h.Status())
+}
