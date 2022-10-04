@@ -162,9 +162,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -203,6 +204,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
 	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
@@ -251,9 +253,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, false, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(0)) // invalid listener port number
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -271,6 +274,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
 	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
@@ -282,7 +286,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	// Same with validation fails
 	//
-	resources, err = ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, Not(IsNil))
 }
 
@@ -322,9 +326,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
@@ -345,6 +350,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
 	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
@@ -434,9 +440,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -453,6 +460,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
 	checkCiliumXDS(c, rds.GetConfigSource())
 	//
 	// Check that HTTP filters are parsed
@@ -465,7 +473,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration")
 	c.Assert(resources.Routes, HasLen, 1)
-	c.Assert(resources.Routes[0].Name, Equals, "local_route")
+	c.Assert(resources.Routes[0].Name, Equals, "namespace/name/local_route")
 	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
 	vh := resources.Routes[0].VirtualHosts[0]
 	c.Assert(vh.Name, Equals, "local_service")
@@ -555,4 +563,29 @@ func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
 	eg := acs.GrpcServices[0].GetEnvoyGrpc()
 	c.Assert(eg, Not(IsNil))
 	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+}
+
+func (s *JSONSuite) TestResourceQualifiedName(c *C) {
+	var fullName, namespace, name, resource string
+
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-resource")
+
+	name = "test-name"
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-name/test-resource")
+
+	namespace = "test-namespace"
+	name = ""
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-resource")
+
+	namespace = "test-namespace"
+	name = "test-name"
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-name/test-resource")
 }
