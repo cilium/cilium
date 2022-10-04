@@ -1028,11 +1028,9 @@ ct_recreate4:
 			goto skip_egress_gateway;
 
 		if (egress_gw_request_needs_redirect(ip4, &tunnel_endpoint)) {
-			struct endpoint_key key = {};
-
 			/* Send the packet to egress gateway node through a tunnel. */
-			ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-						     &key, SECLABEL, *dst_id, &trace);
+			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+						       SECLABEL, *dst_id, &trace);
 			if (ret == CTX_ACT_OK)
 				goto encrypt_to_stack;
 
