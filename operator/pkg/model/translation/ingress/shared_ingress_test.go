@@ -222,15 +222,15 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 	err = proto.Unmarshal(listener.FilterChains[0].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, insecureConnectionManager)
 	require.NoError(t, err)
 
-	require.Equal(t, "kube-system-cilium-ingress-listener-insecure", insecureConnectionManager.StatPrefix)
-	require.Equal(t, "kube-system-cilium-ingress-listener-insecure", insecureConnectionManager.GetRds().RouteConfigName)
+	require.Equal(t, "listener-insecure", insecureConnectionManager.StatPrefix)
+	require.Equal(t, "listener-insecure", insecureConnectionManager.GetRds().RouteConfigName)
 
 	secureConnectionManager := &envoy_http_connection_manager_v3.HttpConnectionManager{}
 	err = proto.Unmarshal(listener.FilterChains[1].Filters[0].ConfigType.(*envoy_config_listener.Filter_TypedConfig).TypedConfig.Value, secureConnectionManager)
 	require.NoError(t, err)
 
-	require.Equal(t, "kube-system-cilium-ingress-listener-secure", secureConnectionManager.StatPrefix)
-	require.Equal(t, "kube-system-cilium-ingress-listener-secure", secureConnectionManager.GetRds().RouteConfigName)
+	require.Equal(t, "listener-secure", secureConnectionManager.StatPrefix)
+	require.Equal(t, "listener-secure", secureConnectionManager.GetRds().RouteConfigName)
 
 	// check TLS configuration
 	require.Equal(t, "envoy.transport_sockets.tls", listener.FilterChains[1].TransportSocket.Name)
@@ -334,7 +334,7 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 				m: defaultBackendModel,
 			},
 			expectedRouteVHMap: map[string][]string{
-				"kube-system-cilium-ingress-listener-insecure": {
+				"listener-insecure": {
 					"*",
 				},
 			},
@@ -345,11 +345,11 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 				m: hostRulesModel,
 			},
 			expectedRouteVHMap: map[string][]string{
-				"kube-system-cilium-ingress-listener-insecure": {
+				"listener-insecure": {
 					"*.foo.com",
 					"foo.bar.com",
 				},
-				"kube-system-cilium-ingress-listener-secure": {
+				"listener-secure": {
 					"foo.bar.com",
 				},
 			},
@@ -360,7 +360,7 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 				m: pathRulesModel,
 			},
 			expectedRouteVHMap: map[string][]string{
-				"kube-system-cilium-ingress-listener-insecure": {
+				"listener-insecure": {
 					"exact-path-rules",
 					"mixed-path-rules",
 					"prefix-path-rules",
@@ -374,10 +374,10 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 				m: complexIngressModel,
 			},
 			expectedRouteVHMap: map[string][]string{
-				"kube-system-cilium-ingress-listener-insecure": {
+				"listener-insecure": {
 					"*",
 				},
-				"kube-system-cilium-ingress-listener-secure": {
+				"listener-secure": {
 					"very-secure.server.com",
 					"another-very-secure.server.com",
 				},
