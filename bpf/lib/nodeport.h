@@ -1059,7 +1059,6 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 {
-	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
@@ -1067,10 +1066,11 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 		.egress_gateway = 0,
 	};
 	int ret = CTX_ACT_OK;
+	bool snat_needed;
 
-	if (snat_v4_needed(ctx, &target, &from_endpoint))
-		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
-				      from_endpoint);
+	snat_needed = snat_v4_prepare_state(ctx, &target);
+	if (snat_needed)
+		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -1493,7 +1493,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	/* Handles SNAT on NAT_DIR_EGRESS and reverse SNAT for reply packets
 	 * from remote backends on NAT_DIR_INGRESS.
 	 */
-	ret = snat_v4_process(ctx, dir, &target, false);
+	ret = snat_v4_process(ctx, dir, &target);
 	if (IS_ERR(ret)) {
 		/* In case of no mapping, recircle back to main path. SNAT is very
 		 * expensive in terms of instructions (since we don't have BPF to
