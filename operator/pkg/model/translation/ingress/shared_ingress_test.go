@@ -172,7 +172,6 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 				{
 					Name:      "cilium-ingress",
 					Namespace: "kube-system",
-					Listener:  "kube-system-cilium-ingress-listener",
 				},
 			},
 		},

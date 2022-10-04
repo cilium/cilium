@@ -93,7 +93,6 @@ func (i *SharedIngressTranslator) getBackendServices(m *model.Model) []*ciliumv2
 func (i *SharedIngressTranslator) getServices(_ *model.Model) []*ciliumv2.ServiceListener {
 	return []*ciliumv2.ServiceListener{
 		{
-			Listener:  fmt.Sprintf("%s-%s-listener", i.namespace, i.name),
 			Name:      i.name,
 			Namespace: i.namespace,
 		},
