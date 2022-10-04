@@ -18,7 +18,7 @@ func TestFuncSerializer(t *testing.T) {
 	fs := NewFunctionQueue()
 	fs.Enqueue(f)
 
-	if err := fs.Wait(); err != terr {
+	if err := fs.Wait(); !errors.Is(err, terr) {
 		t.Errorf("Expected error %s, got: %s", terr, err)
 	}
 }

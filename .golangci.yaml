@@ -75,7 +75,6 @@ issues:
     # Skip 1.13 errors check and unused for test files
     - path: _test\.go
       linters:
-        - goerr113
         - unused
     # Skip unused check for /test directory
     - path: test/

@@ -146,7 +146,7 @@ func TestRetry(t *testing.T) {
 		t.Fatalf("expected items channel to be closed, got item %d", item)
 	}
 
-	if err := <-errs; err != err2 {
+	if err := <-errs; !errors.Is(err, err2) {
 		t.Fatalf("expected error %s, got %s", err2, err)
 	}
 }

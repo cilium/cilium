@@ -4,6 +4,7 @@
 package ethtool
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/vishvananda/netlink"
@@ -19,7 +20,7 @@ func TestIsVirtualDriver(t *testing.T) {
 	for _, link := range links {
 		name := link.Attrs().Name
 		isVirtual, err := IsVirtualDriver(name)
-		if err == unix.EOPNOTSUPP {
+		if errors.Is(err, unix.EOPNOTSUPP) {
 			continue
 		} else if err != nil {
 			t.Fatalf("failed to check for veth driver for %q: %v", name, err)
