@@ -119,7 +119,7 @@ func (i *SharedIngressTranslator) getListener(m *model.Model) []ciliumv2.XDSReso
 		}
 	}
 
-	l, _ := translation.NewListenerWithDefaults(fmt.Sprintf("%s-%s-listener", i.namespace, i.name), i.secretsNamespace, tls)
+	l, _ := translation.NewListenerWithDefaults("listener", i.secretsNamespace, tls)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -158,7 +158,7 @@ func (i *SharedIngressTranslator) getRouteConfiguration(m *model.Model) []cilium
 
 		// the route name should match the value in http connection manager
 		// otherwise the request will be dropped by envoy
-		routeName := fmt.Sprintf("%s-%s-listener-%s", i.namespace, i.name, port)
+		routeName := fmt.Sprintf("listener-%s", port)
 		rc, _ := translation.NewRouteConfiguration(routeName, virtualhosts)
 		res = append(res, rc)
 	}
