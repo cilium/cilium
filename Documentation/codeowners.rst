@@ -140,6 +140,9 @@ external software and protocols:
   overall agent architecture, ordering constraints with respect to network
   policies and encryption. Handle the relationship between Kubernetes state
   and datapath state as it pertains to remote peers.
+- `@cilium/ipsec <https://github.com/orgs/cilium/teams/ipsec>`__:
+  Maintain the kernel IPsec configuration and related eBPF logic to ensure
+  traffic is correctly encrypted.
 - `@cilium/kvstore <https://github.com/orgs/cilium/teams/kvstore>`__:
   Review Cilium interactions with key-value stores, particularly etcd.
   Understand the client libraries used by Cilium for sharing state between
