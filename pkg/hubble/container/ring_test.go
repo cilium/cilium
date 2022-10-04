@@ -7,6 +7,7 @@ import (
 	"container/list"
 	"container/ring"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -400,7 +401,7 @@ func TestRing_Read(t *testing.T) {
 					t.Errorf("Ring.read() got = %v, want %v", got, tt.want)
 				}
 			}
-			if got1 != tt.wantErr {
+			if !errors.Is(got1, tt.wantErr) {
 				t.Errorf("Ring.read() got1 = %v, want %v", got1, tt.wantErr)
 			}
 		})

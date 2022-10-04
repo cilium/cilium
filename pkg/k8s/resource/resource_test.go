@@ -297,7 +297,7 @@ func TestResourceSyncEventRetry(t *testing.T) {
 		}
 
 		err := <-errs
-		if err != expectedErr {
+		if !errors.Is(err, expectedErr) {
 			t.Fatalf("expected %q error, got %q", expectedErr, err)
 		}
 	})
@@ -404,7 +404,7 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 		}
 
 		err := <-errs
-		if err != expectedErr {
+		if !errors.Is(err, expectedErr) {
 			t.Fatalf("expected %q error, got %q", expectedErr, err)
 		}
 	})

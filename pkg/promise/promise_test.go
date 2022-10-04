@@ -44,7 +44,7 @@ func TestPromiseReject(t *testing.T) {
 	go resolver.Reject(expectedError)
 
 	i, err := promise.Await(context.TODO())
-	if err != expectedError {
+	if !errors.Is(err, expectedError) {
 		t.Fatalf("expected %s error, got %s", expectedError, err)
 	}
 	if i != 0 {

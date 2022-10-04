@@ -5,6 +5,7 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -118,7 +119,7 @@ func (s *StatusTestSuite) TestCollectorFailureTimeout(c *C) {
 }
 
 func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
-	var ok, errors uint64
+	var ok, errs uint64
 	err := fmt.Errorf("error")
 
 	p := []Probe{
@@ -130,8 +131,8 @@ func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
 				return "testData", nil
 			},
 			OnStatusUpdate: func(status Status) {
-				if status.Err == err {
-					atomic.AddUint64(&errors, 1)
+				if !errors.Is(status.Err, err) {
+					atomic.AddUint64(&errs, 1)
 				}
 				if !status.StaleWarning && status.Data != nil && status.Err == nil {
 					if s, isString := status.Data.(string); isString && s == "testData" {
@@ -147,7 +148,7 @@ func (s *StatusTestSuite) TestCollectorSuccess(c *C) {
 
 	// wait for the probe to succeed 3 times and to return the error 3 times
 	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadUint64(&ok) >= 3 && atomic.LoadUint64(&errors) >= 3
+		return atomic.LoadUint64(&ok) >= 3 && atomic.LoadUint64(&errs) >= 3
 	}, 1*time.Second), IsNil)
 	c.Assert(collector.GetStaleProbes(), HasLen, 0)
 }
