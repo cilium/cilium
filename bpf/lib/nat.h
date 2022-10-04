@@ -112,6 +112,7 @@ struct ipv4_nat_target {
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
 	bool src_from_world;
+	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 };
 
@@ -450,12 +451,13 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 static __always_inline bool
 snat_v4_can_skip(const struct ipv4_nat_target *target,
 		 const struct ipv4_ct_tuple *tuple, enum nat_dir dir,
-		 bool from_endpoint, bool icmp_echoreply)
+		 bool icmp_echoreply)
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
 	if (dir == NAT_DIR_EGRESS &&
-	    ((!from_endpoint && !target->src_from_world && sport < NAT_MIN_EGRESS) ||
+	    ((!target->from_local_endpoint && !target->src_from_world &&
+	      sport < NAT_MIN_EGRESS) ||
 	     icmp_echoreply))
 		return true;
 	if (dir == NAT_DIR_INGRESS && (dport < target->min_port || dport > target->max_port))
@@ -518,22 +520,20 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 }
 
 /* The function contains a core logic for deciding whether an egressing packet
- * has to be SNAT-ed. Currently, the function targets the following flows:
+ * has to be SNAT-ed, filling the relevant state in the target parameter if
+ * that's the case.
  *
- *	- From pod to outside to masquerade requests
- *	  when --enable-bpf-masquerade=true.
- *	- From host to outside to track (and masquerade) flows which
- *	  can conflict with NodePort BPF.
+ * The function will set:
+ * - target->addr to the SNAT IP address
+ * - target->from_local_endpoint to true if the packet is sent from a local endpoint
+ * - target->egress_gateway to true if the packet should be SNAT-ed because of
+ *   an egress gateway policy
  *
- * The function sets "addr" to the SNAT IP addr, and "from_endpoint" to true
- * if the packet is sent from a local endpoint.
- *
- * Callers should treat contents of "from_endpoint" and "addr" as undetermined,
- * if function returns false.
+ * The function will return true if the packet should be SNAT-ed, false
+ * otherwise.
  */
-static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
-                                          struct ipv4_nat_target *target,
-                                          bool *from_endpoint __maybe_unused)
+static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
+						  struct ipv4_nat_target *target)
 {
        void *data, *data_end;
        struct iphdr *ip4;
@@ -589,7 +589,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx,
                        .saddr = ip4->saddr
                };
 
-	       *from_endpoint = true;
+	       target->from_local_endpoint = true;
 
                ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
                             ipv4_hdrlen(ip4), &tuple, &is_reply);
@@ -695,7 +695,7 @@ skip_egress_gateway:
 
 static __always_inline __maybe_unused int
 snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
-		const struct ipv4_nat_target *target, bool from_endpoint)
+		const struct ipv4_nat_target *target)
 {
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state, tmp;
@@ -747,7 +747,7 @@ snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_can_skip(target, &tuple, dir, from_endpoint, icmp_echoreply))
+	if (snat_v4_can_skip(target, &tuple, dir, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 	ret = snat_v4_handle_mapping(ctx, &tuple, &state, &tmp, dir, off, target);
 	if (ret > 0)
@@ -763,8 +763,7 @@ snat_v4_process(struct __ctx_buff *ctx, enum nat_dir dir,
 static __always_inline __maybe_unused
 int snat_v4_process(struct __ctx_buff *ctx __maybe_unused,
 		    enum nat_dir dir __maybe_unused,
-		    const struct ipv4_nat_target *target __maybe_unused,
-		    bool from_endpoint __maybe_unused)
+		    const struct ipv4_nat_target *target __maybe_unused)
 {
 	return CTX_ACT_OK;
 }
@@ -1185,7 +1184,7 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
                }
        }
 #endif /* ENABLE_DSR_HYBRID */
-       /* See snat_v4_needed(). */
+       /* See snat_v4_prepare_state(). */
        return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
 }
 
