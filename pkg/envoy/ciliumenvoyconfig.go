@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -63,7 +64,8 @@ type PortAllocator interface {
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
+// cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource names.
+func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
@@ -137,6 +139,12 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 							rds.ConfigSource = ciliumXDS
 							updated = true
 						}
+						// Since we are prepending CEC namespace and name to Routes name,
+						// we must do the same here to point to the correct Route resource.
+						if rds.RouteConfigName != "" {
+							rds.RouteConfigName = resourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
+							updated = true
+						}
 					}
 					// Only inject Cilium policy enforcement filters for
 					// listeners for which Cilium agent allocates address
@@ -173,8 +181,9 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 					break // Done with this filter chain
 				}
 			}
+
 			name := listener.Name
-			// listener.Name = namePrefix + "/" + listener.Name // Prepend listener name with k8s resource name
+			listener.Name = resourceQualifiedName(cecNamespace, cecName, listener.Name)
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
@@ -198,8 +207,9 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 					return Resources{}, fmt.Errorf("ParseResources: Could not validate RouteConfiguration (%s): %s", err, route.String())
 				}
 			}
+
 			name := route.Name
-			// route.Name = namePrefix + "/" + route.Name // Prepend route name with k8s resource name
+			route.Name = resourceQualifiedName(cecNamespace, cecName, route.Name)
 			resources.Routes = append(resources.Routes, route)
 
 			log.Debugf("ParseResources: Parsed route %q: %v", name, route)
@@ -237,11 +247,9 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 				}
 			}
 
-			name := cluster.Name
-			// cluster.Name = namePrefix + "/" + cluster.Name // Prepend cluster name with k8s resource name
 			resources.Clusters = append(resources.Clusters, cluster)
 
-			log.Debugf("ParseResources: Parsed cluster %q: %v", name, cluster)
+			log.Debugf("ParseResources: Parsed cluster %q: %v", cluster.Name, cluster)
 
 		case EndpointTypeURL:
 			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
@@ -759,4 +767,26 @@ func fillInTransportSocketXDS(ts *envoy_config_core.TransportSocket) {
 			}
 		}
 	}
+}
+
+// resourceQualifiedName returns the qualified name of an Envoy resource,
+// prepending CEC namespace and CEC name to the resource name and using
+// '/' as a separator.
+//
+// In case of an empty CEC namespace or an empty CEC name, leading separators
+// are stripped away.
+func resourceQualifiedName(namespace, name, resource string) string {
+	var sb strings.Builder
+
+	if namespace != "" {
+		sb.WriteString(namespace)
+		sb.WriteRune('/')
+	}
+	if name != "" {
+		sb.WriteString(name)
+		sb.WriteRune('/')
+	}
+	sb.WriteString(resource)
+
+	return sb.String()
 }
