@@ -59,7 +59,17 @@ func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Op
 }
 
 func (h *flowsToWorldHandler) Status() string {
-	return h.context.Status()
+	var status []string
+	if h.anyDrop {
+		status = append(status, "any-drop")
+	}
+	if h.port {
+		status = append(status, "port")
+	}
+	if h.synOnly {
+		status = append(status, "syn-only")
+	}
+	return strings.Join(append(status, h.context.Status()), ",")
 }
 
 func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
