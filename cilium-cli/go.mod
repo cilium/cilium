@@ -18,7 +18,7 @@ require (
 	github.com/cilium/hubble v0.10.0
 	github.com/cilium/proxy v0.0.0-20220803100640-5739e4be8ae7
 	github.com/cilium/workerpool v1.1.3
-	github.com/cloudflare/cfssl v1.6.2
+	github.com/cloudflare/cfssl v1.6.3
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/google/gops v0.3.25
 	github.com/mholt/archiver/v3 v3.5.1
