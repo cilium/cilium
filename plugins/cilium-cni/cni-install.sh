@@ -110,7 +110,18 @@ find "${CNI_CONF_DIR}" -maxdepth 1 -type f \
 # the host.
 case "$CILIUM_CNI_CHAINING_MODE" in
 "aws-cni")
-  if [ $(find "${CNI_CONF_DIR}" -maxdepth 1 -type f -name '*.conf' -or -name '*.conflist' -or -name '*.cilium_bak' | wc -l) -eq 0 ]; then
+  tries=30
+  while [[ $tries -gt 0 ]]; do
+  if test -n "$(find "${CNI_CONF_DIR}" -maxdepth 1 -type f -name '*.conf' -or -name '*.conflist' -or -name '*.cilium_bak' )"; then
+      echo "Found existing CNI config for chaining"
+      break
+    else
+      echo "Could not find existing AWS VPC CNI config for chaining, will retry..."
+      tries=$((tries-1))
+      sleep 5
+    fi
+  done
+  if [[ $tries -eq 0 ]]; then
     echo "Existing CNI config is required for chaining but does not exist yet, exiting..."
     exit 1
   fi
