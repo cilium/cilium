@@ -76,6 +76,7 @@ type Accessor interface {
 	GetCertificate(serial, aki string) ([]CertificateRecord, error)
 	GetUnexpiredCertificates() ([]CertificateRecord, error)
 	GetRevokedAndUnexpiredCertificates() ([]CertificateRecord, error)
+	GetUnexpiredCertificatesByLabel(labels []string) (crs []CertificateRecord, err error)
 	GetRevokedAndUnexpiredCertificatesByLabel(label string) ([]CertificateRecord, error)
 	GetRevokedAndUnexpiredCertificatesByLabelSelectColumns(label string) ([]CertificateRecord, error)
 	RevokeCertificate(serial, aki string, reasonCode int) error
