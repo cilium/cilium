@@ -753,7 +753,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
-static __always_inline int snat_v6_track_local(struct __ctx_buff *ctx,
+static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *tuple,
 					       const struct ipv6_nat_entry *state,
 					       enum nat_dir dir, __u32 off,
@@ -803,7 +803,7 @@ static __always_inline int snat_v6_handle_mapping(struct __ctx_buff *ctx,
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
-	ret = snat_v6_track_local(ctx, tuple, *state, dir, off, target);
+	ret = snat_v6_track_connection(ctx, tuple, *state, dir, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)
