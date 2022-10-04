@@ -773,11 +773,11 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
-static __always_inline int snat_v6_track_local(struct __ctx_buff *ctx,
-					       struct ipv6_ct_tuple *tuple,
-					       const struct ipv6_nat_entry *state,
-					       enum nat_dir dir, __u32 off,
-					       const struct ipv6_nat_target *target)
+static __always_inline int snat_v6_track_connection(struct __ctx_buff *ctx,
+						    struct ipv6_ct_tuple *tuple,
+						    const struct ipv6_nat_entry *state,
+						    enum nat_dir dir, __u32 off,
+						    const struct ipv6_nat_target *target)
 {
 	struct ct_state ct_state;
 	struct ipv6_ct_tuple tmp;
@@ -813,17 +813,37 @@ static __always_inline int snat_v6_track_local(struct __ctx_buff *ctx,
 	return 0;
 }
 
-static __always_inline int snat_v6_handle_mapping(struct __ctx_buff *ctx,
-						  struct ipv6_ct_tuple *tuple,
-						  struct ipv6_nat_entry **state,
-						  struct ipv6_nat_entry *tmp,
-						  enum nat_dir dir, __u32 off,
-						  const struct ipv6_nat_target *target)
+static __always_inline int
+snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
+			   struct ipv6_ct_tuple *tuple,
+			   struct ipv6_nat_entry **state,
+			   struct ipv6_nat_entry *tmp,
+			   __u32 off,
+			   const struct ipv6_nat_target *target)
 {
 	int ret;
 
 	*state = snat_v6_lookup(tuple);
-	ret = snat_v6_track_local(ctx, tuple, *state, dir, off, target);
+	ret = snat_v6_track_connection(ctx, tuple, *state, NAT_DIR_EGRESS, off, target);
+	if (ret < 0)
+		return ret;
+	else if (*state)
+		return NAT_CONTINUE_XLATE;
+	else
+		return snat_v6_new_mapping(ctx, tuple, (*state = tmp), target);
+}
+
+static __always_inline int
+snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
+			       struct ipv6_ct_tuple *tuple,
+			       struct ipv6_nat_entry **state,
+			       __u32 off,
+			       const struct ipv6_nat_target *target)
+{
+	int ret;
+
+	*state = snat_v6_lookup(tuple);
+	ret = snat_v6_track_connection(ctx, tuple, *state, NAT_DIR_INGRESS, off, target);
 	if (ret < 0)
 		return ret;
 	else if (*state)
