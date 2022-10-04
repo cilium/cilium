@@ -36,12 +36,6 @@ func (s *R2d2Suite) SetUpSuite(c *C) {
 	c.Assert(s.ins, Not(IsNil))
 }
 
-func (s *R2d2Suite) checkAccessLogs(c *C, expPasses, expDrops int) {
-	passes, drops := s.logServer.Clear()
-	c.Check(passes, Equals, expPasses, Commentf("Unxpected number of passed access log messages"))
-	c.Check(drops, Equals, expDrops, Commentf("Unxpected number of passed access log messages"))
-}
-
 func (s *R2d2Suite) TearDownTest(c *C) {
 	s.logServer.Clear()
 }

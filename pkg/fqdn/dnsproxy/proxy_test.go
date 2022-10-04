@@ -129,10 +129,6 @@ func setupServer(c *C) (dnsServer *dns.Server) {
 	return nil
 }
 
-func teardown(dnsServer *dns.Server) {
-	dnsServer.Listener.Close()
-}
-
 func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -1179,12 +1175,14 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 }
 
+//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func getMemStats() runtime.MemStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	return m
 }
 
+//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }

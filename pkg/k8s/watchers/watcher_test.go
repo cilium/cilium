@@ -4,17 +4,14 @@
 package watchers
 
 import (
-	"context"
 	"sort"
 	"testing"
-	"time"
 
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -22,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -45,62 +41,6 @@ func (f *fakeWatcherConfiguration) K8sServiceProxyNameValue() string {
 
 func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
 	return false
-}
-
-type fakeEndpointManager struct {
-	OnGetEndpoints                func() []*endpoint.Endpoint
-	OnLookupPodName               func(string) *endpoint.Endpoint
-	OnWaitForEndpointsAtPolicyRev func(ctx context.Context, rev uint64) error
-}
-
-func (f *fakeEndpointManager) GetEndpoints() []*endpoint.Endpoint {
-	if f.OnGetEndpoints != nil {
-		return f.OnGetEndpoints()
-	}
-	panic("OnGetEndpoints was called and is not set!")
-}
-
-func (f *fakeEndpointManager) LookupPodName(podName string) *endpoint.Endpoint {
-	if f.OnLookupPodName != nil {
-		return f.OnLookupPodName(podName)
-	}
-	panic("OnLookupPodName(string) was called and is not set!")
-}
-
-func (f *fakeEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
-	if f.OnWaitForEndpointsAtPolicyRev != nil {
-		return f.OnWaitForEndpointsAtPolicyRev(ctx, rev)
-	}
-	panic("OnWaitForEndpointsAtPolicyRev(context.Context, uint64) was called and is not set!")
-}
-
-type fakeNodeDiscoverManager struct {
-	OnNodeDeleted                  func(n nodeTypes.Node)
-	OnNodeUpdated                  func(n nodeTypes.Node)
-	OnClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
-}
-
-func (f *fakeNodeDiscoverManager) NodeDeleted(n nodeTypes.Node) {
-	if f.OnNodeDeleted != nil {
-		f.OnNodeDeleted(n)
-		return
-	}
-	panic("OnNodeDeleted(node) was called and is not set!")
-}
-
-func (f *fakeNodeDiscoverManager) NodeUpdated(n nodeTypes.Node) {
-	if f.OnNodeUpdated != nil {
-		f.OnNodeUpdated(n)
-		return
-	}
-	panic("OnNodeUpdated(node) was called and is not set!")
-}
-
-func (f *fakeNodeDiscoverManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
-	if f.OnClusterSizeDependantInterval != nil {
-		return f.OnClusterSizeDependantInterval(baseInterval)
-	}
-	panic("OnClusterSizeDependantInterval(time.Duration) was called and is not set!")
 }
 
 type fakePolicyManager struct {

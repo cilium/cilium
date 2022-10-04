@@ -11,27 +11,27 @@ import (
 
 func TestAlignChecker(t *testing.T) {
 	type foo struct {
-		ipv6 [4]uint32 `align:"$union0"`
-		misc uint32    `align:"$union1"`
-		f    uint8     `align:"family"`
-		pad4 uint8     `align:"pad4"`
-		pad5 uint16    `align:"pad5"`
+		_ [4]uint32 `align:"$union0"`
+		_ uint32    `align:"$union1"`
+		_ uint8     `align:"family"`
+		_ uint8     `align:"pad4"`
+		_ uint16    `align:"pad5"`
 	}
 
 	type foo2 struct {
-		foo
+		_ foo
 	}
 
 	type fooInvalidSize struct {
-		ipv6 uint32
+		_ uint32
 	}
 
 	type fooInvalidOffset struct {
-		ipv6 [4]uint32 `align:"$union0"`
-		misc uint32    `align:"$union1"`
-		f    uint16    `align:"family"`
-		pad4 uint8     `align:"pad4"`
-		pad5 uint8     `align:"pad5"`
+		_ [4]uint32 `align:"$union0"`
+		_ uint32    `align:"$union1"`
+		_ uint16    `align:"family"`
+		_ uint8     `align:"pad4"`
+		_ uint8     `align:"pad5"`
 	}
 
 	type toCheck map[string][]reflect.Type

@@ -36,10 +36,6 @@ type mockIptables struct {
 	index        int
 }
 
-func (ipt *mockIptables) addExpectation(args string, out []byte, err error) {
-	ipt.expectations = append(ipt.expectations, expectation{args: args, out: out, err: err})
-}
-
 func (ipt *mockIptables) getProg() string {
 	return ipt.prog
 }

@@ -24,9 +24,8 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 type ManagerSuite struct {
-	rpm      *Manager
-	svcCache k8s.ServiceCache
-	svc      svcManager
+	rpm *Manager
+	svc svcManager
 }
 
 var _ = Suite(&ManagerSuite{})
@@ -241,7 +240,6 @@ var (
 func (m *ManagerSuite) SetUpTest(c *C) {
 	m.svc = &fakeSvcManager{}
 	m.rpm = NewRedirectPolicyManager(m.svc)
-	// m.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",

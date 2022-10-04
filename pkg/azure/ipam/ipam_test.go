@@ -62,12 +62,6 @@ func newK8sMock() *k8sMock {
 	}
 }
 
-func (k *k8sMock) specRevision() int {
-	k.mutex.RLock()
-	defer k.mutex.RUnlock()
-	return k.specRev
-}
-
 func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
 	k.mutex.Lock()
 	k.specRev++

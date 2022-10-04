@@ -798,10 +798,6 @@ func allowEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...
 	return testEntryD(proxyPort, false, derivedFrom, owners...)
 }
 
-func denyEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
-	return testEntryD(proxyPort, true, derivedFrom, owners...)
-}
-
 func testEntryD(proxyPort uint16, deny bool, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
 	entry := testEntry(proxyPort, deny, owners...)
 	entry.DerivedFromRules = derivedFrom
