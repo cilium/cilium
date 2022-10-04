@@ -286,7 +286,7 @@ static __always_inline int snat_v4_track_connection(struct __ctx_buff *ctx,
 		 * related to a remote endpoint (if the endpoint is local then
 		 * the connection is already tracked).
 		 */
-		else if (target->egress_gateway && !__lookup_ip4_endpoint(tuple->saddr))
+		else if (target->egress_gateway && !target->from_local_endpoint)
 			needs_ct = true;
 #endif
 	}
