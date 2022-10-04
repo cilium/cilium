@@ -35,7 +35,17 @@ if ! git branch -a | grep -q "${UPSTREAM_REMOTE}/v${BRANCH}$" || [ ! -e "$SUMMAR
     echo "(branch version: ${BRANCH}, pr-summary: ${SUMMARY}, upstream remote: ${UPSTREAM_REMOTE})" 1>&2
     exit 1
 fi
-AUTHORS="$(grep -ho "@[^)]*" "$SUMMARY" | grep -v "$(get_user)" | sort -u | tr '\n' ',' | sed -e 's/@//g' -e 's/,$//')"
+
+AUTHORS="$(grep -ho "@[^)]*" "$SUMMARY" | grep -v "$(get_user)" | sort -u | tr '\n' ' ' | sed -e 's/@//g' -e 's/ $//')"
+
+# Github complains if we request a review by someone who is not a collaborator, thus filter the authors.
+REVIEWERS=""
+for author in $AUTHORS; do
+    if [ $(is_collaborator "$author") == "yes" ]; then
+        REVIEWERS="$REVIEWERS,$author"
+    fi
+done
+REVIEWERS=${REVIEWERS:1} # Lop off the initial comma.
 
 echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
 cat $SUMMARY 1>&2
@@ -43,10 +53,10 @@ echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git config --local "branch.${PR_BRANCH}.remote" "$USER_REMOTE"
 git push -q "$USER_REMOTE" "$PR_BRANCH"
-if [ -z "$AUTHORS" ]; then
+if [ -z "$REVIEWERS" ]; then
   hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 else
-  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $AUTHORS
+  hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $REVIEWERS
 fi
 
 prs=$(grep "contrib/backporting/set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
