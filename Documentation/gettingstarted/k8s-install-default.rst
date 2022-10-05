@@ -214,10 +214,6 @@ Install the Cilium CLI
 
   To learn more about the Cilium CLI, check out `eCHO episode 8: Exploring the Cilium CLI <https://www.youtube.com/watch?v=ndjmaM1i0WQ&t=1136s>`__.
 
-.. admonition:: Video
-  :class: attention
-
-  To learn more about the Cilium CLI, check out `eCHO episode 8: Exploring the Cilium CLI <https://www.youtube.com/watch?v=ndjmaM1i0WQ&t=1136s>`__.
 
 Install Cilium
 ==============
