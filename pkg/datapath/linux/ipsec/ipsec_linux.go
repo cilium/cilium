@@ -163,7 +163,7 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
+func ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
 	key := getIPSecKeys(localIP)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -395,7 +395,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(outerRemote, outerLocal); err != nil {
+			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace remote state: %s", err)
 				}
