@@ -1022,7 +1022,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
 
 				/* Insert wildcard policy rules for traffic skipping back through host */
-				if err = ipsec.IpSecReplacePolicyFwd(wildcardCIDR, remoteCIDR, wildcardIP, remoteIP); err != nil {
+				if err = ipsec.IpSecReplacePolicyFwd(remoteCIDR, remoteIP); err != nil {
 					log.WithError(err).Warning("egress unable to replace policy fwd:")
 				}
 			}
