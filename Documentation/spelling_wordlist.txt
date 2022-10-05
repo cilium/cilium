@@ -376,6 +376,7 @@ enableIPv
 enableIdentityMark
 enableIngressController
 enableK
+enableOpenMetrics
 enableRuntimeDeviceDetection
 enableXTSocketFallback
 enablement

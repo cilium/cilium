@@ -106,7 +106,7 @@ func (d *Daemon) launchHubble() {
 		}).Info("Starting Hubble Metrics server")
 		grpcMetrics := grpc_prometheus.NewServerMetrics()
 
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics, grpcMetrics); err != nil {
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics, grpcMetrics, option.Config.EnableHubbleOpenMetrics); err != nil {
 			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
 			return
 		}

@@ -149,6 +149,25 @@ have it scrape all Hubble metrics from the endpoints automatically:
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
 
+OpenMetrics
+-----------
+
+Additionally, you can opt-in to `OpenMetrics <https://openmetrics.io>`_ by
+setting ``hubble.metrics.enableOpenMetrics=true``.
+Enabling OpenMetrics configures the Hubble metrics endpoint to support exporting
+metrics in OpenMetrics format when explicitly requested by clients.
+
+Using OpenMetrics supports additional functionality such as Exemplars, which
+enables associating metrics with traces by embedding trace IDs into the
+exported metrics.
+
+Prometheus needs to be configured to take advantage of OpenMetrics. and will
+only use OpenMetrics format when the `exemplars storage feature is enabled
+<https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage>`_.
+
+OpenMetrics imposes a few additional requirements on metrics names and labels,
+so this functionality is currently opt-in, though we believe all of the Hubble
+metrics conform to the OpenMetrics requirements.
 
 Example Prometheus & Grafana Deployment
 =======================================
