@@ -50,6 +50,10 @@ const (
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
+	// ConflictingIdentity is the identifier of a security identity that conflicts
+	// with 'Identity'
+	ConflictingIdentity = "conflictingIdentity"
+
 	// Ingress is the identifier of an ingress object
 	Ingress = "ingress"
 
@@ -383,6 +387,9 @@ const (
 
 	// Resource is a resource
 	Resource = "resource"
+
+	// ConflictingResource is a resource that conflicts with 'Resource'
+	ConflictingResource = "conflictingResource"
 
 	// Route is a L2 or L3 Linux route
 	Route = "route"
