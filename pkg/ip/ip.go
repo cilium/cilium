@@ -966,9 +966,9 @@ func AddrFromIP(ip net.IP) (netip.Addr, bool) {
 // MustAddrFromIP is the same as AddrFromIP except that it assumes the input is
 // a valid IP address and always returns a valid netip.Addr.
 func MustAddrFromIP(ip net.IP) netip.Addr {
-	addr, ok := netip.AddrFromSlice(ip)
+	addr, ok := AddrFromIP(ip)
 	if !ok {
 		panic("addr is not a valid IP address")
 	}
-	return addr.Unmap()
+	return addr
 }
