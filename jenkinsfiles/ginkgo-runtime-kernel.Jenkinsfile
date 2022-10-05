@@ -34,7 +34,7 @@ pipeline {
             )}"""
         BASE_IMAGE="""${sh(
                 returnStdout: true,
-                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:bfcaa2a6a264b600ba0215236110924a30a84ace@sha256:b5c44e0a67f885b54fe79533ddc7e0625b25993d9c910615a6572df8cdec6b62"; fi'
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:54829a1129ffd8808bd27b412fba20759cb7f994@sha256:05d7b8e50d861a2970ca8cedf69aab1bfc624ba07dd1174465685271640e9726"; fi'
             )}"""
     }
 
