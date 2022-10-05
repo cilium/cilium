@@ -169,7 +169,7 @@ jobs:
         with:
           test-name: datapath-conformance
           image: kind
-          image-version: '5.4'
+          image-version: '5.10'
           lvh-version: 'v0.0.1'
           host-mount: ./
           serial-port: 6666
@@ -200,6 +200,8 @@ jobs:
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath
             ./cilium-cli connectivity test -t -d
+
+            sleep 3600
 
       - name: Fetch artifacts
         if: ${{ !success() }}
