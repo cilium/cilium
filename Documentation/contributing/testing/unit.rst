@@ -80,13 +80,14 @@ There are a few ways to run privileged tests.
 
     .. code-block:: shell-session
 
-        $ sudo -E make tests-privileged
+        $ sudo make tests-privileged
 
-2. To narrow down the packages under test, specify ``TESTPKGS``.
+2. To narrow down the packages under test, specify ``TESTPKGS``. Note that this
+   takes the Go package pattern syntax, including ``...`` wildcard specifier.
 
     .. code-block:: shell-session
 
-        $ TESTPKGS="./pkg/datapath/linux" sudo -E make tests-privileged
+        $ sudo make tests-privileged TESTPKGS="./pkg/datapath/linux ./pkg/maps/..." 
 
 3. Set the ``PRIVILEGED_TESTS`` environment variable and run ``go test``
    directly. This only escalates privileges when executing the test binaries,
