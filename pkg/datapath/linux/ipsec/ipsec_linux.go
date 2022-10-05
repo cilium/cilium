@@ -366,7 +366,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -390,7 +390,7 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, outerLocal, outerRemote 
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
-			if err = IpSecReplacePolicyFwd(fwd, outerLocal); err != nil {
+			if err = IpSecReplacePolicyFwd(local, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
 				}
