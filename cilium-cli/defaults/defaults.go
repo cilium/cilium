@@ -11,6 +11,7 @@ const (
 	AgentClusterRoleName    = "cilium"
 	AgentSecretsRoleName    = "cilium-secrets"
 	AgentDaemonSetName      = "cilium"
+	AgentPodSelector        = "k8s-app=cilium"
 	AgentResourceQuota      = "cilium-resource-quota"
 	AgentImage              = "quay.io/cilium/cilium"
 
