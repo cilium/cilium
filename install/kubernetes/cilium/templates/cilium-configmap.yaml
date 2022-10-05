@@ -748,6 +748,7 @@ data:
   hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
     {{.}}
 {{- end }}
+  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").

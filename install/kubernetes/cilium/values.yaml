@@ -721,6 +721,8 @@ hubble:
     #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
     #
     enabled: ~
+    # -- Enables exporting hubble metrics in OpenMetrics format.
+    enableOpenMetrics: false
     # -- Configure the port the hubble metric server listens on.
     port: 9965
     # -- Annotations to be added to hubble-metrics service.

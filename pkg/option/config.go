@@ -949,6 +949,9 @@ const (
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
 
+	// EnableHubbleOpenMetrics enables exporting hubble metrics in OpenMetrics format.
+	EnableHubbleOpenMetrics = "enable-hubble-open-metrics"
+
 	// HubbleRecorderStoragePath specifies the directory in which pcap files
 	// created via the Hubble Recorder API are stored
 	HubbleRecorderStoragePath = "hubble-recorder-storage-path"
@@ -2061,6 +2064,9 @@ type DaemonConfig struct {
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI bool
 
+	// EnableHubbleOpenMetrics enables exporting hubble metrics in OpenMetrics format.
+	EnableHubbleOpenMetrics bool
+
 	// HubbleRecorderStoragePath specifies the directory in which pcap files
 	// created via the Hubble Recorder API are stored
 	HubbleRecorderStoragePath string
@@ -3159,6 +3165,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// Hubble options.
 	c.EnableHubble = vp.GetBool(EnableHubble)
+	c.EnableHubbleOpenMetrics = vp.GetBool(EnableHubbleOpenMetrics)
 	c.HubbleSocketPath = vp.GetString(HubbleSocketPath)
 	c.HubbleListenAddress = vp.GetString(HubbleListenAddress)
 	c.HubbleTLSDisabled = vp.GetBool(HubbleTLSDisabled)
