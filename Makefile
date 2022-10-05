@@ -133,12 +133,12 @@ build-container: check-sources ## Builds components required for cilium-agent co
 $(SUBDIRS): force ## Execute default make target(make all) for the provided subdirectory.
 	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
-tests-privileged: ## Run integration tests for Cilium that require elevated privileges.
+tests-privileged: ## Run Go tests including ones that require elevated privileges.
 	PRIVILEGED_TESTS=true PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) \
 		$(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
 
-start-kvstores: ## Start running kvstores required for running Cilium integration-tests. More specifically this will run etcd and consul containers.
+start-kvstores: ## Start running kvstores (etcd and consul containers) for integration tests.
 ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
 	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
@@ -167,14 +167,14 @@ ifeq ($(SKIP_KVSTORES),"false")
 		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 endif
 
-stop-kvstores: ## Forcefully removes running kvstore components for Cilium unit-testing(etcd and consul containers).
+stop-kvstores: ## Forcefully removes running kvstore components (etcd and consul containers) for integration tests.
 ifeq ($(SKIP_KVSTORES),"false")
 	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
 	$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container"
 	$(QUIET)rm -rf /tmp/cilium-consul-certs
 endif
 
-generate-cov: ## Generate coverage report for Cilium integration-tests.
+generate-cov: ## Generate HTML coverage report at coverage-all.html.
 	# Remove generated code from coverage
 	$(QUIET) grep -Ev '(^github.com/cilium/cilium/api/v1)|(generated.deepcopy.go)|(^github.com/cilium/cilium/pkg/k8s/client/)' \
 		coverage.out > coverage.out.tmp
@@ -183,7 +183,7 @@ generate-cov: ## Generate coverage report for Cilium integration-tests.
 	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 integration-tests: GO_TAGS_FLAGS+=integration_tests
-integration-tests: start-kvstores ## Runs all integration-tests for Cilium.
+integration-tests: start-kvstores ## Runs all integration tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
