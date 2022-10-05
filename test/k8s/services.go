@@ -149,7 +149,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				testFailBind(kubectl, ni)
 			})
 
-			Context("with L7 policy", func() {
+			SkipContextIf(helpers.RunsOnAKS, "with L7 policy", func() {
 				AfterAll(func() {
 					kubectl.Delete(demoPolicyL7)
 					// Remove CT entries to avoid packet drops which could happen
@@ -219,7 +219,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 			})
 		})
 
-		SkipContextIf(helpers.RunsWithKubeProxyReplacement, "TFTP with DNS Proxy port collision", func() {
+		SkipContextIf(func() bool { return helpers.RunsWithKubeProxyReplacement() || helpers.RunsOnAKS() }, "TFTP with DNS Proxy port collision", func() {
 			var (
 				demoPolicy    string
 				ciliumPodK8s1 string
@@ -313,7 +313,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 		})
 
 		SkipContextIf(func() bool {
-			return helpers.RunsWithKubeProxyReplacement()
+			return helpers.RunsWithKubeProxyReplacement() || helpers.RunsOnAKS()
 		}, "with L7 policy", func() {
 			var demoPolicyL7 string
 

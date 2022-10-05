@@ -171,7 +171,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		SkipItIf(func() bool {
 			// IPsec + encapsulation requires Linux 4.19.
 			// We also can't disable KPR on GKE at the moment (cf. #16597).
-			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE()
+			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE() || helpers.RunsOnAKS()
 		}, "Check connectivity with transparent encryption and VXLAN encapsulation", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
 			options := map[string]string{
@@ -276,6 +276,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	Context("AutoDirectNodeRoutes", func() {
 		BeforeEach(func() {
 			SkipIfIntegration(helpers.CIIntegrationGKE)
+			SkipIfIntegration(helpers.CIIntegrationAKS)
 		})
 
 		It("Check connectivity with automatic direct nodes routes", func() {
@@ -588,7 +589,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(func() bool {
-		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy()
+		return helpers.RunsOnGKE() || helpers.RunsWithoutKubeProxy() || helpers.RunsOnAKS()
 	}, "Transparent encryption DirectRouting", func() {
 		var privateIface string
 		BeforeAll(func() {
@@ -691,7 +692,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		It("With VXLAN", func() {
+		SkipItIf(helpers.RunsOnAKS, "With VXLAN", func() {
 			options := map[string]string{
 				"hostFirewall.enabled": "true",
 			}
@@ -703,7 +704,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testHostFirewall(kubectl)
 		})
 
-		It("With VXLAN and endpoint routes", func() {
+		SkipItIf(func() bool {
+			return helpers.RunsOnAKS()
+		}, "With VXLAN and endpoint routes", func() {
 			options := map[string]string{
 				"hostFirewall.enabled":   "true",
 				"endpointRoutes.enabled": "true",

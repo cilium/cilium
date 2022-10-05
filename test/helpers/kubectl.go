@@ -56,6 +56,9 @@ const (
 	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
 	CIIntegrationGKE = "gke"
 
+	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
+	CIIntegrationAKS = "aks"
+
 	// CIIntegrationKind contains the constant to be used when running tests on kind.
 	CIIntegrationKind = "kind"
 
@@ -153,6 +156,26 @@ var (
 		"devices":                     "", // Override "eth0 eth0\neth0"
 	}
 
+	aksHelmOverrides = map[string]string{
+		"ipam.mode":                           "delegated-plugin",
+		"tunnel":                              "disabled",
+		"endpointRoutes.enabled":              "true",
+		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
+		"k8s.requireIPv4PodCIDR":              "false",
+		"ipv6.enabled":                        "false",
+		"ipv4NativeRoutingCIDR":               AKSNativeRoutingCIDR(),
+		"enableIPv4Masquerade":                "false",
+		"install-no-conntrack-iptables-rules": "false",
+		"installIptablesRules":                "true",
+		"l7Proxy":                             "false",
+		"hubble.enabled":                      "false",
+		"kubeProxyReplacement":                "strict",
+		"endpointHealthChecking.enabled":      "false",
+		"cni.install":                         "true",
+		"cni.customConf":                      "true",
+		"cni.configMap":                       "cni-configuration",
+	}
+
 	microk8sHelmOverrides = map[string]string{
 		"cni.confPath":      "/var/snap/microk8s/current/args/cni-network",
 		"cni.binPath":       "/var/snap/microk8s/current/opt/cni/bin",
@@ -179,6 +202,7 @@ var (
 		CIIntegrationEKSChaining: eksChainingHelmOverrides,
 		CIIntegrationEKS:         eksHelmOverrides,
 		CIIntegrationGKE:         gkeHelmOverrides,
+		CIIntegrationAKS:         aksHelmOverrides,
 		CIIntegrationKind:        kindHelmOverrides,
 		CIIntegrationMicrok8s:    microk8sHelmOverrides,
 		CIIntegrationMinikube:    minikubeHelmOverrides,

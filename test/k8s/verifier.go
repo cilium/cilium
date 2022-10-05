@@ -111,6 +111,7 @@ var _ = Describe("K8sDatapathVerifier", func() {
 
 	BeforeAll(func() {
 		SkipIfIntegration(helpers.CIIntegrationGKE)
+		SkipIfIntegration(helpers.CIIntegrationAKS)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		// We don't check the returned error because Cilium could

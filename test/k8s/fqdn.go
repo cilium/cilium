@@ -244,7 +244,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		connectivityTest()
 	})
 
-	It("Validate that multiple specs are working correctly", func() {
+	SkipItIf(helpers.RunsOnAKS, "Validate that multiple specs are working correctly", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
 		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
@@ -280,7 +280,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentFQDNTest", func() {
 		res.ExpectFail("Can connect to a valid target when it should NOT work")
 	})
 
-	It("Validate that FQDN policy continues to work after being updated", func() {
+	SkipItIf(helpers.RunsOnAKS, "Validate that FQDN policy continues to work after being updated", func() {
 		// To make sure that UUID in multiple specs are plumbed correctly to
 		// Cilium Policy
 		fqdnPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-multiple-specs.yaml")
