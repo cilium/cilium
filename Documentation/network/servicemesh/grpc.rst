@@ -33,7 +33,7 @@ services in order to make gRPC requests. Download this for the demo app:
 Deploy GRPC Ingress
 *******************
 
-You'll find the example Ingress definition in ``example/kubernetes/servicemesh/grpc-ingress.yaml``.
+You'll find the example Ingress definition in ``examples/kubernetes/servicemesh/grpc-ingress.yaml``.
 
 .. parsed-literal::
 
