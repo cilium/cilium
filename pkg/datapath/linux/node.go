@@ -1020,11 +1020,6 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 				n.replaceNodeIPSecOutRoute(new4Net)
 				spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localCIDR, localIP, remoteIP, ipsec.IPSecDirOut, false)
 				upsertIPsecLog(err, "IPv4", localCIDR, remoteCIDR, spi)
-
-				/* Insert wildcard policy rules for traffic skipping back through host */
-				if err = ipsec.IpSecReplacePolicyFwd(remoteCIDR, remoteIP); err != nil {
-					log.WithError(err).Warning("egress unable to replace policy fwd:")
-				}
 			}
 		}
 	}
