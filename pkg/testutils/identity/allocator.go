@@ -108,6 +108,11 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 	if realID.ReferenceCount == 1 {
 		delete(f.idToIdentity, int(id.ID))
 		delete(f.IdentityCache, id.ID)
+		for key, lblID := range f.labelsToIdentity {
+			if lblID == int(id.ID) {
+				delete(f.labelsToIdentity, key)
+			}
+		}
 	} else {
 		realID.ReferenceCount--
 		return false, nil
