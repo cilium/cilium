@@ -195,12 +195,12 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
-	policy.Src = src
 	policy.Dst = dst
 	policy.Mark = &netlink.XfrmMark{
 		Mask: linux_defaults.IPsecMarkMaskIn,
 	}
 	if dir == netlink.XFRM_DIR_IN {
+		policy.Src = src
 		if proxyMark {
 			// We require a policy to match on packets going to the proxy which are
 			// therefore carrying the proxy mark. We however don't need a policy
@@ -223,6 +223,10 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 	if dir == netlink.XFRM_DIR_FWD {
 		optional = 1
 		policy.Priority = linux_defaults.IPsecFwdPriority
+		// In case of fwd policies, we should tell the kernel the tmpl src
+		// doesn't matter; we want all fwd packets to go through.
+		tmplSrc = net.ParseIP("0.0.0.0")
+		policy.Src = &net.IPNet{IP: tmplSrc, Mask: net.IPv4Mask(0, 0, 0, 0)}
 	}
 	ipSecAttachPolicyTempl(policy, key, tmplSrc, tmplDst, false, optional)
 	return netlink.XfrmPolicyUpdate(policy)
@@ -235,8 +239,9 @@ func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
 	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_IN)
 }
 
-func IpSecReplacePolicyFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
-	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_FWD)
+func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
+	// The source CIDR and IP aren't used in the case of FWD policies.
+	return _ipSecReplacePolicyInFwd(nil, dst, net.IP{}, tmplDst, false, netlink.XFRM_DIR_FWD)
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
@@ -385,7 +390,7 @@ func UpsertIPsecEndpoint(local, remote, fwd *net.IPNet, outerLocal, outerRemote 
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
-			if err = IpSecReplacePolicyFwd(remote, fwd, outerRemote, outerLocal); err != nil {
+			if err = IpSecReplacePolicyFwd(fwd, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
 				}
