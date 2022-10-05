@@ -506,6 +506,24 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 	ipc.RemoveMetadata(cidr, resource, lbls)
 }
 
+// OverrideIdentity overrides the identity for a given prefix in the IPCache metadata
+// map. This is used when a resource indicates that this prefix already has a
+// defined identity, and where any additional labels associated with the prefix
+// are to be ignored.
+// If multiple resources override the identity, a warning is emitted and only
+// one of the override identities is used.
+// This will trigger asynchronous calculation of any local identity changes
+// that must occur to associate the specified labels with the prefix, and push
+// any datapath updates necessary to implement the logic associated with the
+// metadata currently associated with the 'prefix'.
+func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
+}
+
+func (ipc *IPCache) RemoveIdentityOverride(cidr netip.Prefix, identityLabels labels.Labels, resource ipcacheTypes.ResourceID) {
+	ipc.RemoveMetadata(cidr, resource, overrideIdentity(true), identityLabels)
+}
+
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 // The caller *MUST* grab the IPCache.Lock for reading before calling this

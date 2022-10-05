@@ -120,6 +120,8 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 	for _, i := range info {
 		m.m[prefix][resource].merge(i, src)
 	}
+
+	m.m[prefix].logConflicts(log.WithField(logfields.CIDR, prefix))
 }
 
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
@@ -365,6 +367,11 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 //     already has the same IP -> identity entry in the map), immediately release
 //     the reference.
 func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, info prefixInfo, restoredIdentity identity.NumericIdentity) (*identity.Identity, bool, error) {
+	// Override identities always take precedence
+	if identityOverrideLabels, ok := info.identityOverride(); ok {
+		return ipc.IdentityAllocator.AllocateIdentity(ctx, identityOverrideLabels, false, identity.InvalidIdentity)
+	}
+
 	lbls := info.ToLabels()
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
