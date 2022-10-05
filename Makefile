@@ -20,10 +20,6 @@ ifdef LIBNETWORK_PLUGIN
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-docker
 endif
 
-GOPKGS_EVAL := $(subst github.com/cilium/cilium,.,$(shell $(GO_LIST) -find -e ./...))
-GOPKGS ?= $(GOPKGS_EVAL)
-
-GOLANG_SRCFILES := $(shell for pkg in $(GOPKGS); do find $$pkg -name *.go -print; done | sort | uniq)
 # Space-separated list of Go packages to test, equivalent to 'go test' package patterns.
 # Because is treated as a Go package pattern, the special '...' sequence is supported,
 # meaning 'all subpackages of the given package'.
@@ -192,11 +188,19 @@ clean-tags: ## Remove all the tags files from the repository.
 	@$(ECHO_CLEAN) tags
 	@-rm -f cscope.out cscope.in.out cscope.po.out cscope.files tags
 
-cscope.files: $(GOLANG_SRCFILES) $(BPF_SRCFILES) ## Generate cscope.files with the list of all files to generate ctags for.
-	@echo $(GOLANG_SRCFILES) $(BPF_SRCFILES) | sed 's/ /\n/g' | sort > cscope.files
+.PHONY: cscope.files
+cscope.files: ## Generate cscope.files with the list of all files to generate ctags for.
+	@# Argument to -f must be double-quoted since shell removes backslashes that appear
+	@# before newlines. Otherwise, backslashes will appear in the output file.
+	@go list -f "{{ \$$p := .ImportPath }} \
+		{{- range .GoFiles }}{{ printf \"%s/%s\n\" \$$p . }}{{ end }} \
+		{{- range .TestGoFiles }}{{ printf \"%s/%s\n\" \$$p . }}{{ end }}" ./... \
+		| sed 's#github.com/cilium/cilium/##g' | sort | uniq > cscope.files
 
-tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files ## Generate tags for Go and BPF source files.
-	@ctags $(GOLANG_SRCFILES) $(BPF_SRCFILES)
+	@echo "$(BPF_SRCFILES)" | sed 's/ /\n/g' | sort >> cscope.files
+
+tags: cscope.files ## Generate tags for Go and BPF source files.
+	@ctags -L cscope.files
 	cscope -R -b -q
 
 clean-container: ## Perform `make clean` for each component required in cilium-agent container.
@@ -410,11 +414,11 @@ release: ## Perform a Git release for Cilium.
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
 
 gofmt: ## Run gofmt on Go source files in the repository.
-	$(QUIET)$(GO) fmt $(GOPKGS)
+	$(QUIET)$(GO) fmt ./...
 
 govet: ## Run govet on Go source files in the repository.
-	@$(ECHO_CHECK) vetting all GOPKGS...
-	$(QUIET) $(GO_VET) $(GOPKGS)
+	@$(ECHO_CHECK) vetting all packages...
+	$(QUIET) $(GO_VET) ./...
 
 golangci-lint: ## Run golangci-lint
 ifneq (,$(findstring $(GOLANGCILINT_WANT_VERSION),$(GOLANGCILINT_VERSION)))
