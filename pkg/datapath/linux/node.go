@@ -551,8 +551,8 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 			if err != nil {
 				upsertIPsecLog(err, "getV4LinkLocalIP failed", ipsecIPv4Wildcard, cidr, spi)
 			}
-			spi, err := ipsec.UpsertIPsecEndpoint(linkAddr, ipsecIPv4Wildcard, cidr, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
-			upsertIPsecLog(err, "CNI In IPv4", linkAddr, ipsecIPv4Wildcard, spi)
+			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv4Wildcard, cidr, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
+			upsertIPsecLog(err, "CNI In IPv4", cidr, ipsecIPv4Wildcard, spi)
 		}
 	}
 
@@ -573,8 +573,8 @@ func (n *linuxNodeHandler) enableSubnetIPsec(v4CIDR, v6CIDR []*net.IPNet) {
 			if err != nil {
 				upsertIPsecLog(err, "getV6LinkLocalIP failed", ipsecIPv6Wildcard, cidr, spi)
 			}
-			spi, err := ipsec.UpsertIPsecEndpoint(linkAddr, ipsecIPv6Wildcard, cidr, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
-			upsertIPsecLog(err, "CNI In IPv6", linkAddr, ipsecIPv6Wildcard, spi)
+			spi, err := ipsec.UpsertIPsecEndpoint(cidr, ipsecIPv6Wildcard, cidr, linkAddr.IP, wildcardIP, ipsec.IPSecDirIn, zeroMark)
+			upsertIPsecLog(err, "CNI In IPv6", cidr, ipsecIPv6Wildcard, spi)
 		}
 	}
 }
