@@ -22,7 +22,7 @@ func Test_httpHandler_Status(t *testing.T) {
 	assert.Equal(t, handler.Status(), "")
 	options := map[string]string{"sourceContext": "namespace", "destinationContext": "identity"}
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), options))
-	assert.Equal(t, handler.Status(), "destination=identity,source=namespace")
+	assert.Equal(t, handler.Status(), "destination=identity,source=namespace,exemplars=false")
 }
 
 func Test_httpHandler_ProcessFlow(t *testing.T) {
@@ -69,7 +69,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	responsesExpected := `
        # HELP hubble_http_responses_total Count of HTTP responses
        # TYPE hubble_http_responses_total counter
-       hubble_http_responses_total{method="GET",reporter="server",status="200"} 1
+       hubble_http_responses_total{method="GET",protocol="",reporter="server",status="200"} 1
 	`
 	require.NoError(t, testutil.CollectAndCompare(handler.(*httpHandler).responses, strings.NewReader(responsesExpected)))
 

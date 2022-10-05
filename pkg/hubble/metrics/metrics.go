@@ -54,7 +54,9 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+			EnableOpenMetrics: true,
+		}))
 		srv := http.Server{
 			Addr:    address,
 			Handler: mux,
