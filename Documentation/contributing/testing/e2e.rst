@@ -525,6 +525,24 @@ cluster.
           versions between 1.16 and 1.23. Version should match the server
           version reported by ``kubectl version``.
 
+AKS (experimental)
+^^^^^^^^^^^^^^^^^^
+
+.. note:: The tests require the ``NATIVE_CIDR`` environment variable to be set to
+          the value of the cluster IPv4 CIDR.
+
+1. Setup a cluster as in :ref:`k8s_install_quick` or utilize an existing
+   cluster. You do not need to deploy Cilium in this step, as the End-To-End
+   Testing Framework handles the deployment of Cilium.
+
+2. Invoke the tests from ``cilium/test`` with options set as explained in
+`Running End-To-End Tests In Other Environments via kubeconfig`_
+
+.. code-block:: shell-session
+
+    export NATIVE_CIDR="10.241.0.0/16"
+    CNI_INTEGRATION=aks K8S_VERSION=1.17 ginkgo --focus="K8s" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.passCLIEnvironment=true -cilium.image="mcr.microsoft.com/oss/cilium/cilium" -cilium.tag="1.12.1" -cilium.operator-image="mcr.microsoft.com/oss/cilium/operator" -cilium.operator-suffix=""  -cilium.operator-tag="1.12.1"
+
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
 

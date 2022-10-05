@@ -26,7 +26,9 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 	// We want to run Hubble tests both with and without our kube-proxy
 	// replacement, as the trace events depend on it. We thus run the tests
 	// on GKE and our 4.9 pipeline.
-	SkipContextIf(helpers.RunsOn419OrLaterKernel, "Hubble Observe", func() {
+	SkipContextIf(func() bool {
+		return helpers.RunsOn419OrLaterKernel() || helpers.RunsOnAKS()
+	}, "Hubble Observe", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string

@@ -296,7 +296,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentIstioTest", func() {
 			return true
 		}
 
-		It("Tests bookinfo inter-service connectivity", func() {
+		SkipItIf(helpers.RunsOnAKS, "Tests bookinfo inter-service connectivity", func() {
 			var err error
 			version := "version"
 			v1 := "v1"
