@@ -48,6 +48,7 @@ type Parameters struct {
 	AgentDaemonSetName    string
 	DNSTestServerImage    string
 	Datapath              bool
+	AgentPodSelector      string
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
