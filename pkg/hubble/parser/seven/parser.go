@@ -26,12 +26,13 @@ import (
 
 // Parser is a parser for L7 payloads
 type Parser struct {
-	log            logrus.FieldLogger
-	cache          *lru.Cache
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	endpointGetter getters.EndpointGetter
+	log               logrus.FieldLogger
+	timestampCache    *lru.Cache
+	traceContextCache *lru.Cache
+	dnsGetter         getters.DNSGetter
+	ipGetter          getters.IPGetter
+	serviceGetter     getters.ServiceGetter
+	endpointGetter    getters.EndpointGetter
 }
 
 // New returns a new L7 parser
@@ -51,18 +52,24 @@ func New(
 		opt(args)
 	}
 
-	cache, err := lru.New(args.CacheSize)
+	timestampCache, err := lru.New(args.CacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize cache: %v", err)
+	}
+
+	traceIDCache, err := lru.New(args.CacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %v", err)
 	}
 
 	return &Parser{
-		log:            log,
-		cache:          cache,
-		dnsGetter:      dnsGetter,
-		ipGetter:       ipGetter,
-		serviceGetter:  serviceGetter,
-		endpointGetter: endpointGetter,
+		log:               log,
+		timestampCache:    timestampCache,
+		traceContextCache: traceIDCache,
+		dnsGetter:         dnsGetter,
+		ipGetter:          ipGetter,
+		serviceGetter:     serviceGetter,
+		endpointGetter:    endpointGetter,
 	}, nil
 }
 
@@ -133,31 +140,66 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.DestinationService = destinationService
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
 	decoded.PolicyMatchType = 0
-	decoded.TraceContext = extractTraceContext(r)
+	decoded.TraceContext = p.getTraceContext(r)
 	decoded.Summary = p.getSummary(r, decoded)
 
 	return nil
 }
 
-func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time) uint64 {
+func extractRequestID(r *accesslog.LogRecord) string {
 	var requestID string
 	if r.HTTP != nil {
 		requestID = r.HTTP.Headers.Get("X-Request-Id")
 	}
+	return requestID
+}
 
+func (p *Parser) getTraceContext(r *accesslog.LogRecord) *flowpb.TraceContext {
+	requestID := extractRequestID(r)
+	switch r.Type {
+	case accesslog.TypeRequest:
+		traceContext := extractTraceContext(r)
+		if traceContext == nil {
+			break
+		}
+		// Envoy should add a requestID to all requests it's managing, but  if it's
+		// missing for some reason, don't add to the cache without a requestID.
+		if requestID != "" {
+			p.traceContextCache.Add(requestID, traceContext)
+		}
+		return traceContext
+	case accesslog.TypeResponse:
+		if requestID == "" {
+			return nil
+		}
+		value, ok := p.traceContextCache.Get(requestID)
+		if !ok {
+			break
+		}
+		p.traceContextCache.Remove(requestID)
+		traceContext, ok := value.(*flowpb.TraceContext)
+		if !ok {
+			break
+		}
+		return traceContext
+	}
+	return nil
+}
+
+func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time) uint64 {
+	requestID := extractRequestID(r)
 	if requestID == "" {
 		return 0
 	}
-
 	switch r.Type {
 	case accesslog.TypeRequest:
-		p.cache.Add(requestID, timestamp)
+		p.timestampCache.Add(requestID, timestamp)
 	case accesslog.TypeResponse:
-		value, ok := p.cache.Get(requestID)
+		value, ok := p.timestampCache.Get(requestID)
 		if !ok {
 			return 0
 		}
-		p.cache.Remove(requestID)
+		p.timestampCache.Remove(requestID)
 		requestTimestamp, ok := value.(time.Time)
 		if !ok {
 			return 0
