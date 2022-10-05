@@ -160,10 +160,6 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 			Method:   "POST",
 			URL:      requestPath,
 			Protocol: "HTTP/1.1",
-			Headers: http.Header{
-				"Host":        {"myhost"},
-				"Traceparent": {"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
-			},
 		},
 	}
 	lr.SourceEndpoint.Port = 80
@@ -251,12 +247,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		Method:   "POST",
 		Url:      "http://myhost/some/path",
 		Protocol: "HTTP/1.1",
-		Headers: []*flowpb.HTTPHeader{
-			{Key: "Host", Value: "myhost"},
-			{Key: "Traceparent", Value: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
-		},
 	}, f.GetL7().GetHttp())
-	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
 }
 
 func TestDecodeL7HTTPResponseTime(t *testing.T) {
@@ -295,14 +286,14 @@ func TestDecodeL7HTTPResponseTime(t *testing.T) {
 	f := &flowpb.Flow{}
 	err = parser.Decode(request, f)
 	require.NoError(t, err)
-	_, ok := parser.cache.Get(requestID)
+	_, ok := parser.timestampCache.Get(requestID)
 	assert.True(t, ok, "request id should be in the cache")
 
 	f.Reset()
 	err = parser.Decode(response, f)
 	require.NoError(t, err)
 	assert.Equal(t, 1*time.Second, time.Duration(f.GetL7().GetLatencyNs()))
-	_, ok = parser.cache.Get(requestID)
+	_, ok = parser.timestampCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 
 	// it should handle the case where the request id is not in the cache for response type.
@@ -310,6 +301,76 @@ func TestDecodeL7HTTPResponseTime(t *testing.T) {
 	err = parser.Decode(response, f)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), f.GetL7().GetLatencyNs())
-	_, ok = parser.cache.Get(requestID)
+	_, ok = parser.timestampCache.Get(requestID)
+	assert.False(t, ok, "request id should not be in the cache")
+}
+
+func TestGetL7HTTPResponseTraceID(t *testing.T) {
+	requestID := "req-id"
+	requestRecord := &accesslog.LogRecordHTTP{
+		Method:   "GET",
+		Protocol: "HTTP/1.1",
+		URL: &url.URL{
+			Scheme: "http",
+			Host:   "example.com",
+			Path:   "/",
+		},
+		Headers: http.Header{
+			"X-Request-Id": {requestID},
+			"Host":         {"myhost"},
+			"Traceparent":  {"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"},
+		},
+	}
+	responseRecord := &accesslog.LogRecordHTTP{
+		Code:     200,
+		Method:   "GET",
+		Protocol: "HTTP/1.1",
+		URL: &url.URL{
+			Scheme: "http",
+			Host:   "example.com",
+			Path:   "/",
+		},
+		Headers: http.Header{
+			"X-Request-Id": {requestID},
+		},
+	}
+	requestTimestamp := time.Unix(0, 0).Format(time.RFC3339Nano)
+	responseTimestamp := time.Unix(1, 0).Format(time.RFC3339Nano)
+
+	parser, err := New(log, nil, nil, nil, nil)
+	require.NoError(t, err)
+
+	request := &accesslog.LogRecord{
+		Type:      accesslog.TypeRequest,
+		Timestamp: requestTimestamp,
+		HTTP:      requestRecord,
+	}
+
+	response := &accesslog.LogRecord{
+		Type:      accesslog.TypeResponse,
+		Timestamp: responseTimestamp,
+		HTTP:      responseRecord,
+	}
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(request, f)
+	require.NoError(t, err)
+	_, ok := parser.traceContextCache.Get(requestID)
+	assert.True(t, ok, "request id should be in the cache")
+
+	f.Reset()
+	err = parser.Decode(response, f)
+	require.NoError(t, err)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", f.GetTraceContext().GetParent().GetTraceId())
+	_, ok = parser.traceContextCache.Get(requestID)
+	assert.False(t, ok, "request id should not be in the cache")
+
+	// it should handle the case where the request id is not in the cache for response type.
+	f = &flowpb.Flow{}
+	err = parser.Decode(response, f)
+	require.NoError(t, err)
+	// no requestID means no traceID for response
+	assert.Empty(t, f.GetTraceContext().GetParent().GetTraceId())
+	_, ok = parser.traceContextCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
 }
