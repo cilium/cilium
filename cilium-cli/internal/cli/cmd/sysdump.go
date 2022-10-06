@@ -47,10 +47,10 @@ func newCmdSysdump() *cobra.Command {
 		"cilium-label-selector", sysdump.DefaultCiliumLabelSelector,
 		"The labels used to target Cilium pods")
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumNamespace,
-		"cilium-namespace", sysdump.DefaultCiliumNamespace,
+		"cilium-namespace", "",
 		"The namespace Cilium is running in")
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorNamespace,
-		"cilium-operator-namespace", sysdump.DefaultCiliumNamespace,
+		"cilium-operator-namespace", "",
 		"The namespace Cilium operator is running in")
 	cmd.Flags().StringVar(&sysdumpOptions.CiliumDaemonSetSelector,
 		"cilium-daemon-set-label-selector", sysdump.DefaultCiliumLabelSelector,

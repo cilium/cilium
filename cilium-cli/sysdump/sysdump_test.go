@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -259,7 +261,7 @@ func (c *fakeClient) GetConfigMap(ctx context.Context, namespace, name string, o
 }
 
 func (c *fakeClient) GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (c *fakeClient) GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error) {
@@ -348,4 +350,19 @@ func (c *fakeClient) ListUnstructured(ctx context.Context, gvr schema.GroupVersi
 
 func (c *fakeClient) CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, container *corev1.EphemeralContainer) (*corev1.Pod, error) {
 	panic("implement me")
+}
+
+func (c *fakeClient) GetNamespace(_ context.Context, ns string, _ metav1.GetOptions) (*corev1.Namespace, error) {
+	if ns == "kube-system" {
+		return &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+			},
+		}, nil
+	}
+	return nil, &errors.StatusError{
+		ErrStatus: metav1.Status{
+			Code: http.StatusNotFound,
+		},
+	}
 }
