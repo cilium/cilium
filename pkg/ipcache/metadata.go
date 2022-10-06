@@ -83,17 +83,13 @@ func (m *metadata) upsert(prefix string, lbls labels.Labels) {
 // not modifying the returned object as it's a live reference to the underlying
 // map.
 func (ipc *IPCache) GetIDMetadataByIP(prefix string) labels.Labels {
-	return ipc.metadata.get(prefix)
+	ipc.metadata.RLock()
+	defer ipc.metadata.RUnlock()
+	return ipc.metadata.getLocked(prefix)
 }
 
 func (m *metadata) getLocked(prefix string) labels.Labels {
 	return m.m[prefix]
-}
-
-func (m *metadata) get(prefix string) labels.Labels {
-	m.RLock()
-	defer m.RUnlock()
-	return m.getLocked(prefix)
 }
 
 // InjectLabels injects labels from the ipcache metadata (IDMD) map into the
