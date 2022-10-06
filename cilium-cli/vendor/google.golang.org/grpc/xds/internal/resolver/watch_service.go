@@ -143,7 +143,7 @@ func (w *serviceUpdateWatcher) handleLDSResp(update xdsresource.ListenerUpdate, 
 		// update before reporting this LDS config.
 		if w.lastUpdate.virtualHost != nil {
 			// We want to send an update with the new fields from the new LDS
-			// (e.g. max stream duration), and old fields from the the previous
+			// (e.g. max stream duration), and old fields from the previous
 			// RDS.
 			//
 			// But note that this should only happen when virtual host is set,
