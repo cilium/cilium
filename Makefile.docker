@@ -27,9 +27,11 @@ ifdef ARCH
   endif
   DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
 else
-  ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
-    # ARCH and --push are not specified, build for the host platform without pushing, mimicking regular docker build
-    DOCKER_FLAGS += --load
+  ifeq ($(findstring --output,$(DOCKER_FLAGS)),)
+    ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+      # ARCH, --output, and --push are not specified, build for the host platform without pushing, mimicking regular docker build
+      DOCKER_FLAGS += --load
+    endif
   endif
 endif
 DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
