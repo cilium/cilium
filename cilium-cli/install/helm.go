@@ -257,9 +257,9 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	// Set affinity to prevent Cilium from being scheduled on nodes labeled with
 	// "cilium.io/no-schedule=true"
 	if len(k.params.NodesWithoutCilium) != 0 {
-		helmMapOpts["affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key"] = "cilium.io/no-schedule"
-		helmMapOpts["affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator"] = "NotIn"
-		helmMapOpts["affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]"] = "true"
+		for k, v := range defaults.CiliumScheduleAffinity {
+			helmMapOpts[k] = v
+		}
 	}
 
 	// Store all the options passed by --config into helm extraConfig

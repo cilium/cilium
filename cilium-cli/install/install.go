@@ -694,10 +694,9 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 	}
 
 	for _, nodeName := range k.params.NodesWithoutCilium {
-		k.Log("🚀 Setting \"cilium.io/no-schedule=true\" label for %q node to prevent from scheduling Cilium on it...",
-			nodeName)
-		// "~1" is the json patch escape symbol for "/"
-		labelPatch := `[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]`
+		k.Log("🚀 Setting label %q on node %q to prevent Cilium from being scheduled on it...", defaults.CiliumNoScheduleLabel, nodeName)
+		label := utils.EscapeJSONPatchString(defaults.CiliumNoScheduleLabel)
+		labelPatch := fmt.Sprintf(`[{"op":"add","path":"/metadata/labels/%s","value":"true"}]`, label)
 		_, err = k.client.PatchNode(ctx, nodeName, types.JSONPatchType, []byte(labelPatch))
 		if err != nil {
 			return err
