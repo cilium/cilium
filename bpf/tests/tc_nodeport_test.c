@@ -52,11 +52,7 @@ struct {
  *            \---------------------------/
  */
 
-/* Test that sending a packet from a pod to its own service gets source nat-ed
- * and that it is forwarded to the correct veth.
- */
-SETUP("tc", "hairpin_flow_1_forward_v4")
-int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
+int build_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	__u8 src[ETH_ALEN] = mac_one;
@@ -65,15 +61,6 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
-	__u16 revnat_id = 1;
-	struct lb4_key lb_svc_key = {};
-	struct lb4_service lb_svc_value = {};
-	struct lb4_reverse_nat revnat_value = {};
-	struct lb4_backend backend = {};
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-	struct endpoint_key ep_key = {};
-	struct endpoint_info ep_value = {};
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
@@ -109,6 +96,30 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
+
+	return 0;
+}
+
+/* Test that sending a packet from a pod to its own service gets source nat-ed
+ * and that it is forwarded to the correct veth.
+ */
+SETUP("tc", "hairpin_flow_1_forward_v4")
+int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 1;
+	struct lb4_key lb_svc_key = {};
+	struct lb4_service lb_svc_value = {};
+	struct lb4_reverse_nat revnat_value = {};
+	struct lb4_backend backend = {};
+	struct ipcache_key cache_key = {};
+	struct remote_endpoint_info cache_value = {};
+	struct endpoint_key ep_key = {};
+	struct endpoint_info ep_value = {};
+	int ret;
+
+	ret = build_packet(ctx);
+	if (ret)
+		return ret;
 
 	/* Register a fake LB backend with endpoint ID 124 for our service */
 	lb_svc_key.address = v4_svc_one;
@@ -304,6 +315,71 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (l4->dest != tcp_src_one)
 		test_fatal("dst TCP port incorrect");
+
+	test_finish();
+}
+
+/* Test that a packet for a SVC without any backend gets dropped. */
+SETUP("tc", "tc_drop_no_backend")
+int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
+{
+	/* Fake Service matching our packet. */
+	struct lb4_key lb_svc_key = {
+		.address = v4_svc_one,
+		.dport = tcp_svc_one,
+		.scope = LB_LOOKUP_SCOPE_EXT
+	};
+	/* Service with no backends */
+	struct lb4_service lb_svc_value = {
+		.count = 0,
+		.flags = SVC_FLAG_ROUTABLE,
+	};
+	struct policy_key policy_key = {
+		.egress = 1,
+	};
+	struct policy_entry policy_value = {
+		.deny = 0,
+	};
+
+	int ret;
+
+	ret = build_packet(ctx);
+	if (ret)
+		return ret;
+
+	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+
+	/* avoid policy drop */
+	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_drop_no_backend")
+int tc_drop_no_backend_check(struct __ctx_buff *ctx)
+{
+	__u32 expected_status = TC_ACT_SHOT;
+	__u32 *status_code;
+	void *data_end;
+	void *data;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	if (*status_code != expected_status)
+		test_fatal("status code is %lu, expected %lu", *status_code, expected_status);
 
 	test_finish();
 }
