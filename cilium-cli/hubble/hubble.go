@@ -472,7 +472,7 @@ func (k *K8sHubble) updateConfigMap(ctx context.Context) error {
 		return fmt.Errorf("unable to patch ConfigMap %s with %s: %w", defaults.ConfigMapName, cm, err)
 	}
 
-	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.CiliumPodSelector}); err != nil {
+	if err := k.client.DeletePodCollection(ctx, k.params.Namespace, metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector}); err != nil {
 		k.Log("⚠️  Unable to restart Cilium pods: %s", err)
 	} else {
 		k.Log("♻️  Restarted Cilium pods")
