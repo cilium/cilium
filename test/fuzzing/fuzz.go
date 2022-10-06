@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build gofuzz
-// +build gofuzz
 
 package fuzz
 
