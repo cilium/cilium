@@ -68,6 +68,7 @@ type subConn struct {
 	addr   string
 	weight uint32
 	sc     balancer.SubConn
+	logger *grpclog.PrefixLogger
 
 	mu sync.RWMutex
 	// This is the actual state of this SubConn (as updated by the ClientConn).
@@ -117,6 +118,7 @@ func (sc *subConn) setState(s connectivity.State) {
 		// Trigger Connect() if new state is Idle, and there is a queued connect.
 		if sc.connectQueued {
 			sc.connectQueued = false
+			sc.logger.Infof("Executing a queued connect for subConn moving to state: %v", sc.state)
 			sc.sc.Connect()
 		} else {
 			sc.attemptingToConnect = false
@@ -161,11 +163,13 @@ func (sc *subConn) queueConnect() {
 	defer sc.mu.Unlock()
 	sc.attemptingToConnect = true
 	if sc.state == connectivity.Idle {
+		sc.logger.Infof("Executing a queued connect for subConn in state: %v", sc.state)
 		sc.sc.Connect()
 		return
 	}
 	// Queue this connect, and when this SubConn switches back to Idle (happens
 	// after backoff in TransientFailure), it will Connect().
+	sc.logger.Infof("Queueing a connect for subConn in state: %v", sc.state)
 	sc.connectQueued = true
 }
 
@@ -216,10 +220,11 @@ func (b *ringhashBalancer) updateAddresses(addrs []resolver.Address) bool {
 		if val, ok := b.subConns.Get(addr); !ok {
 			sc, err := b.cc.NewSubConn([]resolver.Address{addr}, balancer.NewSubConnOptions{HealthCheckEnabled: true})
 			if err != nil {
-				logger.Warningf("base.baseBalancer: failed to create new SubConn: %v", err)
+				b.logger.Warningf("Failed to create new SubConn: %v", err)
 				continue
 			}
 			scs := &subConn{addr: addr.Addr, weight: newWeight, sc: sc}
+			scs.logger = subConnPrefixLogger(b, scs)
 			scs.setState(connectivity.Idle)
 			b.state = b.csEvltr.recordTransition(connectivity.Shutdown, connectivity.Idle)
 			b.subConns.Set(addr, scs)
@@ -328,15 +333,18 @@ func (b *ringhashBalancer) ResolverError(err error) {
 //   for some RPCs.
 func (b *ringhashBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
 	s := state.ConnectivityState
-	b.logger.Infof("handle SubConn state change: %p, %v", sc, s)
+	if logger.V(2) {
+		b.logger.Infof("Handle SubConn state change: %p, %v", sc, s)
+	}
 	scs, ok := b.scStates[sc]
 	if !ok {
-		b.logger.Infof("got state changes for an unknown SubConn: %p, %v", sc, s)
+		b.logger.Infof("Received state change for an unknown SubConn: %p, %v", sc, s)
 		return
 	}
 	oldSCState := scs.effectiveState()
 	scs.setState(s)
 	newSCState := scs.effectiveState()
+	b.logger.Infof("SubConn's effective old state was: %v, new state is %v", oldSCState, newSCState)
 
 	var sendUpdate bool
 	oldBalancerState := b.state
@@ -353,15 +361,15 @@ func (b *ringhashBalancer) UpdateSubConnState(sc balancer.SubConn, state balance
 		// No need to send an update. No queued RPC can be unblocked. If the
 		// overall state changed because of this, sendUpdate is already true.
 	case connectivity.Ready:
-		// Resend the picker, there's no need to regenerate the picker because
-		// the ring didn't change.
+		// We need to regenerate the picker even if the ring has not changed
+		// because we could be moving from TRANSIENT_FAILURE to READY, in which
+		// case, we need to update the error picker returned earlier.
+		b.regeneratePicker()
 		sendUpdate = true
 	case connectivity.TransientFailure:
 		// Save error to be reported via picker.
 		b.connErr = state.ConnectionError
-		// Regenerate picker to update error message.
 		b.regeneratePicker()
-		sendUpdate = true
 	case connectivity.Shutdown:
 		// When an address was removed by resolver, b called RemoveSubConn but
 		// kept the sc's state in scStates. Remove state for this sc here.
@@ -369,6 +377,7 @@ func (b *ringhashBalancer) UpdateSubConnState(sc balancer.SubConn, state balance
 	}
 
 	if sendUpdate {
+		b.logger.Infof("Pushing new state %v and picker %p", b.state, b.picker)
 		b.cc.UpdateState(balancer.State{ConnectivityState: b.state, Picker: b.picker})
 	}
 
@@ -399,7 +408,14 @@ func (b *ringhashBalancer) UpdateSubConnState(sc balancer.SubConn, state balance
 		sc := nextSkippingDuplicatesSubConn(b.ring, scs)
 		if sc != nil {
 			sc.queueConnect()
+			return
 		}
+		// This handles the edge case where we have a single subConn in the
+		// ring. nextSkippingDuplicatesSubCon() would have returned nil. We
+		// still need to ensure that some subConn is attempting to connect, in
+		// order to give the LB policy a chance to move out of
+		// TRANSIENT_FAILURE. Hence, we try connecting on the current subConn.
+		scs.queueConnect()
 	}
 }
 
@@ -426,6 +442,11 @@ func (b *ringhashBalancer) regeneratePicker() {
 }
 
 func (b *ringhashBalancer) Close() {}
+
+func (b *ringhashBalancer) ExitIdle() {
+	// ExitIdle implementation is a no-op because connections are either
+	// triggers from picks or from subConn state changes.
+}
 
 // connectivityStateEvaluator takes the connectivity states of multiple SubConns
 // and returns one aggregated connectivity state.

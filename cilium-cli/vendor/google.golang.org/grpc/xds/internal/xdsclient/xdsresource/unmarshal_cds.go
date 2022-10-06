@@ -155,7 +155,14 @@ func validateClusterAndConstructClusterUpdate(cluster *v3clusterpb.Cluster) (Clu
 	// xdsclient bootstrap information now (can be added if necessary). The
 	// ServerConfig will be read and populated by the CDS balancer when
 	// processing this field.
-	if cluster.GetLrsServer().GetSelf() != nil {
+	// According to A27:
+	// If the `lrs_server` field is set, it must have its `self` field set, in
+	// which case the client should use LRS for load reporting. Otherwise
+	// (the `lrs_server` field is not set), LRS load reporting will be disabled.
+	if lrs := cluster.GetLrsServer(); lrs != nil {
+		if lrs.GetSelf() == nil {
+			return ClusterUpdate{}, fmt.Errorf("unsupported config_source_specifier %T in lrs_server field", lrs.ConfigSourceSpecifier)
+		}
 		ret.LRSServerConfig = ClusterLRSServerSelf
 	}
 

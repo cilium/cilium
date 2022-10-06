@@ -77,6 +77,9 @@ var (
 	// ClearExtraDialOptions clears the array of extra DialOption. This
 	// method is useful in testing and benchmarking.
 	ClearExtraDialOptions func()
+	// JoinServerOptions combines the server options passed as arguments into a
+	// single server option.
+	JoinServerOptions interface{} // func(...grpc.ServerOption) grpc.ServerOption
 
 	// NewXDSResolverWithConfigForTesting creates a new xds resolver builder using
 	// the provided xds bootstrap config instead of the global configuration from
@@ -117,22 +120,6 @@ var (
 	//
 	// TODO: Remove this function once the RBAC env var is removed.
 	UnregisterRBACHTTPFilterForTesting func()
-
-	// RegisterOutlierDetectionBalancerForTesting registers the Outlier
-	// Detection Balancer for testing purposes, regardless of the Outlier
-	// Detection environment variable.
-	//
-	// TODO: Remove this function once the Outlier Detection env var is removed.
-	RegisterOutlierDetectionBalancerForTesting func()
-
-	// UnregisterOutlierDetectionBalancerForTesting unregisters the Outlier
-	// Detection Balancer for testing purposes. This is needed because there is
-	// no way to unregister the Outlier Detection Balancer after registering it
-	// solely for testing purposes using
-	// RegisterOutlierDetectionBalancerForTesting().
-	//
-	// TODO: Remove this function once the Outlier Detection env var is removed.
-	UnregisterOutlierDetectionBalancerForTesting func()
 )
 
 // HealthChecker defines the signature of the client-side LB channel health checking function.
