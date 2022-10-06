@@ -25,7 +25,6 @@ const (
 
 const (
 	DefaultCiliumLabelSelector               = labelPrefix + "cilium"
-	DefaultCiliumNamespace                   = "kube-system"
 	DefaultCiliumOperatorLabelSelector       = "io.cilium/app=operator"
 	DefaultClustermeshApiserverLabelSelector = labelPrefix + "clustermesh-apiserver"
 	DefaultDebug                             = false
@@ -51,4 +50,8 @@ const (
 var (
 	// DefaultWorkerCount is initialized to the machine's available CPUs.
 	DefaultWorkerCount = runtime.NumCPU()
+
+	// DefaultCiliumNamespaces will be used to attempt to autodetect what namespace Cilium is installed in
+	// unless otherwise specified.
+	DefaultCiliumNamespaces = []string{"kube-system", "cilium"}
 )
