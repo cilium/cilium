@@ -118,7 +118,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
@@ -263,6 +263,8 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          # Temporary workaround for https://github.com/cilium/cilium-cli/issues/255
+          kubectl delete ns cilium-test
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with tunnel datapath
@@ -292,6 +294,8 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          # Temporary workaround for https://github.com/cilium/cilium-cli/issues/255
+          kubectl delete ns cilium-test
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
@@ -326,6 +330,8 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          # Temporary workaround for https://github.com/cilium/cilium-cli/issues/255
+          kubectl delete ns cilium-test
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Install Cilium with encryption and tunnel datapath
