@@ -151,6 +151,15 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
 	c.logTask("Collecting sysdump with cilium-cli version: %s, args: %s", cliVersion, os.Args[1:])
 
+	if o.CiliumNamespace == "" {
+		ns, err := detectCiliumNamespace(k)
+		if err != nil {
+			return nil, err
+		}
+		c.logDebug("Detected Cilium installation in namespace %q", ns)
+		o.CiliumNamespace = ns
+	}
+
 	// Grab the Kubernetes nodes for the target cluster.
 	c.logTask("Collecting Kubernetes nodes")
 	c.allNodes, err = c.Client.ListNodes(context.Background(), metav1.ListOptions{})
@@ -1516,4 +1525,27 @@ func isNodeInWhitelist(node corev1.Node, w []string) bool {
 // AddTasks adds extra tasks for the collector to execute. Must be called before Run().
 func (c *Collector) AddTasks(tasks []Task) {
 	c.additionalTasks = append(c.additionalTasks, tasks...)
+}
+
+func detectCiliumNamespace(k KubernetesClient) (string, error) {
+	for _, ns := range DefaultCiliumNamespaces {
+		ctx := context.Background()
+		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to detect Cilium namespace: %w", err)
+		}
+
+		_, err = k.GetDaemonSet(ctx, ns.Name, "cilium", metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to check for Cilium DaemonSet: %w", err)
+		}
+		return ns.Name, nil
+	}
+	return "", fmt.Errorf("failed to detect Cilium namespace, could not find Cilium installation in namespaces: %v", DefaultCiliumNamespaces)
 }
