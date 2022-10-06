@@ -630,7 +630,6 @@ update-go-version: ## Update Go version for all the components (images, CI, dev-
 	$(QUIET) for fl in $(shell find .  -name main.go -not -path "./vendor/*" -print); do \
 		sed -i \
 			-e 's|^//go:build go.*|//go:build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
-			-e 's|^// +build go.*|// +build go$(GO_MAJOR_AND_MINOR_VERSION)|g' \
 			$$fl ; \
 	done
 	# Update Go version in Travis CI config.

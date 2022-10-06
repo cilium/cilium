@@ -2,7 +2,6 @@
 // Copyright Authors of Cilium
 
 //go:build tools
-// +build tools
 
 package tools
 
