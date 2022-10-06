@@ -361,8 +361,22 @@ func routesProtoToSlice(routes []*v3routepb.Route, csps map[string]clusterspecif
 					return nil, nil, fmt.Errorf("route %+v, action %+v, has no valid cluster in WeightedCluster action", r, a)
 				}
 			case *v3routepb.RouteAction_ClusterSpecifierPlugin:
+				// gRFC A28 was updated to say the following:
+				//
+				// The route’s action field must be route, and its
+				// cluster_specifier:
+				// - Can be Cluster
+				// - Can be Weighted_clusters
+				//   - The sum of weights must add up to the total_weight.
+				// - Can be unset or an unsupported field. The route containing
+				//   this action will be ignored.
+				//
+				// This means that if this env var is not set, we should treat
+				// it as if it we didn't know about the cluster_specifier_plugin
+				// at all.
 				if !envconfig.XDSRLS {
-					return nil, nil, fmt.Errorf("route %+v, has an unknown ClusterSpecifier: %+v", r, a)
+					logger.Infof("route %+v contains route_action with unsupported field: cluster_specifier_plugin, the route will be ignored", r)
+					continue
 				}
 				if _, ok := csps[a.ClusterSpecifierPlugin]; !ok {
 					// "When processing RouteActions, if any action includes a

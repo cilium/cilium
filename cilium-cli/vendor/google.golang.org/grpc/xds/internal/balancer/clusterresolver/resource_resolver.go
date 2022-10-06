@@ -192,13 +192,21 @@ func (rr *resourceResolver) resolveNow() {
 
 func (rr *resourceResolver) stop() {
 	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	for dm, r := range rr.childrenMap {
-		delete(rr.childrenMap, dm)
-		r.r.stop()
-	}
+	// Save the previous childrenMap to stop the children outside the mutex,
+	// and reinitialize the map.  We only need to reinitialize to allow for the
+	// policy to be reused if the resource comes back.  In practice, this does
+	// not happen as the parent LB policy will also be closed, causing this to
+	// be removed entirely, but a future use case might want to reuse the
+	// policy instead.
+	cm := rr.childrenMap
+	rr.childrenMap = make(map[discoveryMechanismKey]resolverMechanismTuple)
 	rr.mechanisms = nil
 	rr.children = nil
+	rr.mu.Unlock()
+
+	for _, r := range cm {
+		r.r.stop()
+	}
 }
 
 // generate collects all the updates from all the resolvers, and push the
