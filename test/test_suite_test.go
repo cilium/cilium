@@ -24,6 +24,11 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/logger"
+
+	// These packages are where Ginkgo test specs live. They are declared as blank
+	// (_) global variables and are pulled in using package import side effects.
+	_ "github.com/cilium/cilium/test/k8s"
+	_ "github.com/cilium/cilium/test/runtime"
 )
 
 var (
@@ -60,7 +65,7 @@ func configLogsOutput() {
 	GinkgoWriter = NewWriter(log.Out)
 }
 
-func ShowCommands() {
+func showCommands() {
 	if !config.CiliumTestConfig.ShowCommands {
 		return
 	}
@@ -68,11 +73,19 @@ func ShowCommands() {
 	helpers.SSHMetaLogs = NewWriter(os.Stdout)
 }
 
-func TestTest(t *testing.T) {
+func Test(t *testing.T) {
 	if config.CiliumTestConfig.TestScope != "" {
 		helpers.UserDefinedScope = config.CiliumTestConfig.TestScope
 		fmt.Printf("User specified the scope:  %q\n", config.CiliumTestConfig.TestScope)
 	}
+
+	// Skip the ginkgo test suite if 'go test ./...' is run on the repository.
+	// Require passing a scope or focus to pull in the ginkgo suite.
+	if _, err := helpers.GetScope(); err != nil {
+		fmt.Println("No Ginkgo test scope defined, skipping test suite of package test/")
+		t.Skip("Run this package through Ginkgo with the --focus or -cilium.testScope options")
+	}
+
 	if integration := helpers.GetCurrentIntegration(); integration != "" {
 		fmt.Printf("Using CNI_INTEGRATION=%q\n", integration)
 
@@ -87,7 +100,7 @@ func TestTest(t *testing.T) {
 	}
 
 	configLogsOutput()
-	ShowCommands()
+	showCommands()
 
 	if config.CiliumTestConfig.HoldEnvironment {
 		RegisterFailHandler(helpers.Fail)
