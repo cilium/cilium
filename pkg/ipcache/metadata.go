@@ -124,16 +124,12 @@ func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource
 // map.
 func (ipc *IPCache) GetIDMetadataByIP(addr netip.Addr) labels.Labels {
 	prefix := netip.PrefixFrom(addr, addr.BitLen())
-	if info := ipc.metadata.get(prefix); info != nil {
+	ipc.metadata.RLock()
+	defer ipc.metadata.RUnlock()
+	if info := ipc.metadata.getLocked(prefix); info != nil {
 		return info.ToLabels()
 	}
 	return nil
-}
-
-func (m *metadata) get(prefix netip.Prefix) prefixInfo {
-	m.RLock()
-	defer m.RUnlock()
-	return m.getLocked(prefix)
 }
 
 func (m *metadata) getLocked(prefix netip.Prefix) prefixInfo {
