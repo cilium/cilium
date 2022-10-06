@@ -1212,7 +1212,7 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 		Clusters:       map[string]*ClusterStats{},
 	}
 
-	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list cilium pods: %w", err)
 	}

@@ -799,7 +799,7 @@ func getCiliumVersionFromImage(image string) (string, error) {
 }
 
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
-	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 	if err != nil {
 		return "", fmt.Errorf("unable to list cilium pods: %w", err)
 	}
