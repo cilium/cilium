@@ -22,7 +22,9 @@ on:
     types:
      - completed
 
-permissions: read-all
+permissions:
+  contents: read
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
@@ -196,7 +198,7 @@ jobs:
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr
         with:
@@ -211,7 +213,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr_detect_race_condition
         with:
@@ -229,7 +231,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@c84f38281176d4c9cdb1626ffafcd6b3911b5d94
         id: docker_build_ci_pr_unstripped
         with:
@@ -245,13 +247,32 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@ced07f21fb1da67979f539bbc6304c16c0677e76
+
+      - name: Sign CI Images
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
+
+      - name: Verify Signatures of CI images
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign verify quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }} | jq
+          cosign verify quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race | jq
+          cosign verify quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped | jq
 
       # Upload artifact digests
       - name: Upload artifact digests
