@@ -115,7 +115,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		k.Log("⌛ Waiting for Cilium to be uninstalled...")
 
 	retry:
-		pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: "k8s-app=cilium"})
+		pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 		if err != nil {
 			return err
 		}
