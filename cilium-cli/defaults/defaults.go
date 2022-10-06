@@ -91,6 +91,8 @@ const (
 	HelmValuesSecretName          = "cilium-cli-helm-values"
 	HelmValuesSecretKeyName       = "io.cilium.cilium-cli"
 	HelmChartVersionSecretKeyName = "io.cilium.chart-version"
+
+	CiliumNoScheduleLabel = "cilium.io/no-schedule"
 )
 
 var (
@@ -116,5 +118,13 @@ var (
 		"hubble-tls-cert-file",
 		"hubble-tls-client-ca-files",
 		"hubble-tls-key-file",
+	}
+
+	// CiliumScheduleAffinity is the node affinity to prevent Cilium from being schedule on
+	// nodes labeled with CiliumNoScheduleLabel.
+	CiliumScheduleAffinity = map[string]string{
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       CiliumNoScheduleLabel,
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": "true",
 	}
 )
