@@ -264,7 +264,7 @@ jobs:
       - name: Run connectivity test
         run: |
           ps aux | grep "port-forward"
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} || true
           ps aux | grep "port-forward"
 
       - name: Clean up Cilium
@@ -295,19 +295,18 @@ jobs:
       - name: Run connectivity test
         run: |
           ps aux | grep "port-forward"
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy || true
           ps aux | grep "port-forward"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
-          cat port.stdout
-          cat port.stderr
-          cat port2.stdout
-          cat port2.stderr
-          ps aux
-          curl localhost:80
+          ps aux | grep hubble
+          ps aux | grep port-forward
+          sudo dmesg -T | grep killed
+          curl localhost:80 || true
+          
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
