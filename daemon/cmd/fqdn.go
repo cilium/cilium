@@ -234,7 +234,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				for _, zombie := range alive {
 					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
 					for _, name := range zombie.Names {
-						activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, activeConnectionsTTL)
+						activeConnections.Update(lookupTime, name, []net.IP{zombie.IP.AsSlice()}, activeConnectionsTTL)
 					}
 				}
 
@@ -317,7 +317,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			alive, _ := possibleEP.DNSZombies.GC()
 			for _, zombie := range alive {
 				for _, name := range zombie.Names {
-					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
+					globalCache.Update(lookupTime, name, []net.IP{zombie.IP.AsSlice()}, int(2*dnsGCJobInterval.Seconds()))
 				}
 			}
 		}
@@ -824,7 +824,7 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint
 		for _, zombie := range zombies {
 			namesToRegen = append(namesToRegen, zombie.Names...)
 			for _, name := range zombie.Names {
-				activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, 0)
+				activeConnections.Update(lookupTime, name, []net.IP{zombie.IP.AsSlice()}, 0)
 			}
 		}
 		globalCache.UpdateFromCache(activeConnections, nil)
