@@ -189,7 +189,7 @@ func (ipc *IPCache) allocate(prefix *net.IPNet, lbls labels.Labels, oldNID ident
 	return id, isNew, err
 }
 
-func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[string]*identity.Identity) {
+func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, prefixes []string) {
 	// Create a critical section for identity release + removal from ipcache.
 	// Otherwise, it's possible to trigger the following race condition:
 	//
@@ -205,7 +205,24 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[st
 	// is that the identity is allocated but the ipcache entry is missing.
 	ipc.Lock()
 	defer ipc.Unlock()
-	for prefix, id := range identities {
+
+	toDelete := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		_, c, err := net.ParseCIDR(prefix)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.CIDR: c,
+			}).WithError(err).Error("Unable to parse CIDR during ipcache release")
+			continue
+		}
+		lbls := cidr.GetCIDRLabels(c)
+		id := ipc.IdentityAllocator.LookupIdentity(ctx, lbls)
+		if id == nil {
+			log.WithFields(logrus.Fields{
+				logfields.CIDR: prefix,
+			}).Errorf("Unable to find identity of previously used CIDR")
+			continue
+		}
 		released, err := ipc.IdentityAllocator.Release(ctx, id, false)
 		if err != nil {
 			log.WithFields(logrus.Fields{
@@ -213,43 +230,33 @@ func (ipc *IPCache) releaseCIDRIdentities(ctx context.Context, identities map[st
 				logfields.CIDR:     prefix,
 			}).WithError(err).Warning("Unable to release CIDR identity. Ignoring error. Identity may be leaked")
 		}
-
 		if released {
-			ipc.deleteLocked(prefix, source.Generated)
+			toDelete = append(toDelete, prefix)
 		}
+	}
+
+	for _, prefix := range toDelete {
+		ipc.deleteLocked(prefix, source.Generated)
 	}
 }
 
 // ReleaseCIDRIdentitiesByCIDR releases the identities of a list of CIDRs.
 // When the last use of the identity is released, the ipcache entry is deleted.
-func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(prefixes []*net.IPNet) {
-	// TODO: Structure the code to pass context down from the Daemon.
-	releaseCtx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-
-	identities := make(map[string]*identity.Identity, len(prefixes))
-	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
-		}
-
-		if id := ipc.IdentityAllocator.LookupIdentity(releaseCtx, cidr.GetCIDRLabels(prefix)); id != nil {
-			identities[prefix.String()] = id
-		} else {
-			log.Errorf("Unable to find identity of previously used CIDR %s", prefix.String())
-		}
+func (ipc *IPCache) ReleaseCIDRIdentitiesByCIDR(nets []*net.IPNet) {
+	prefixes := make([]string, 0, len(nets))
+	for _, n := range nets {
+		prefixes = append(prefixes, n.String())
 	}
-
-	ipc.releaseCIDRIdentities(releaseCtx, identities)
+	ipc.deferredPrefixRelease.enqueue(prefixes, "cidr-prefix-release")
 }
 
 // ReleaseCIDRIdentitiesByID releases the specified identities.
 // When the last use of the identity is released, the ipcache entry is deleted.
 func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
-	fullIdentities := make(map[string]*identity.Identity, len(identities))
+	prefixes := make([]string, 0, len(identities))
 	for _, nid := range identities {
 		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
-			cidr, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+			prefix, ok := cidrLabelToPrefix(id.CIDRLabel.String())
 			if !ok {
 				log.WithFields(logrus.Fields{
 					logfields.Identity: nid,
@@ -257,7 +264,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
 				continue
 			}
-			fullIdentities[cidr] = id
+			prefixes = append(prefixes, prefix)
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: nid,
@@ -265,5 +272,5 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 		}
 	}
 
-	ipc.releaseCIDRIdentities(ctx, fullIdentities)
+	ipc.deferredPrefixRelease.enqueue(prefixes, "selector-prefix-release")
 }
