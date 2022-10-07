@@ -11,14 +11,14 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CiliumBGPLoadBalancerIPPools returns a CiliumBGPLoadBalancerIPPoolInformer.
-	CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInformer
 	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
 	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
 	// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
 	CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
+	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
+	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
 }
 
 type version struct {
@@ -30,11 +30,6 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
-}
-
-// CiliumBGPLoadBalancerIPPools returns a CiliumBGPLoadBalancerIPPoolInformer.
-func (v *version) CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInformer {
-	return &ciliumBGPLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
@@ -50,4 +45,9 @@ func (v *version) CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer {
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
+func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
+	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
