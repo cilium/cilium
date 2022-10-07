@@ -719,7 +719,7 @@ type DNSZombieMapping struct {
 
 	// IP is an address that is pending for delete but may be in-use by a
 	// connection.
-	IP net.IP `json:"ip,omitempty"`
+	IP netip.Addr `json:"ip,omitempty"`
 
 	// AliveAt is the last time this IP was marked alive via
 	// DNSZombieMappings.MarkAlive.
@@ -782,7 +782,7 @@ func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qna
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
 			Names:           KeepUniqueNames(qname),
-			IP:              net.ParseIP(ipStr),
+			IP:              netip.MustParseAddr(ipStr),
 			DeletePendingAt: expiryTime,
 		}
 		zombies.deletes[addr] = zombie
@@ -956,7 +956,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 
 	// Delete the zombies we collected above from the internal map
 	for _, zombie := range dead {
-		delete(zombies.deletes, ippkg.MustAddrFromIP(zombie.IP))
+		delete(zombies.deletes, zombie.IP)
 	}
 
 	return alive, dead
@@ -1021,7 +1021,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 		}
 
 		// If cidr is provided, skip zombies with IPs outside the range
-		if cidr != nil && !cidr.Contains(zombie.IP) {
+		if cidr != nil && !cidr.Contains(zombie.IP.AsSlice()) {
 			continue
 		}
 
@@ -1045,7 +1045,7 @@ func (zombies *DNSZombieMappings) forceExpireLocked(expireLookupsBefore time.Tim
 
 	// Delete the zombies that are now empty
 	for _, zombie := range toDelete {
-		delete(zombies.deletes, ippkg.MustAddrFromIP(zombie.IP))
+		delete(zombies.deletes, zombie.IP)
 	}
 
 	return namesAffected
@@ -1087,7 +1087,7 @@ func (zombies *DNSZombieMappings) DumpAlive(cidrMatcher CIDRMatcherFunc) (alive 
 			continue
 		}
 		// only proceed if zombie is alive and the IP matches the CIDR selector
-		if cidrMatcher != nil && !cidrMatcher(zombie.IP) {
+		if cidrMatcher != nil && !cidrMatcher(zombie.IP.AsSlice()) {
 			continue
 		}
 
