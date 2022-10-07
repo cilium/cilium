@@ -184,7 +184,7 @@ type portToSelectorAllow map[uint16]CachedSelectorREEntry
 type CachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
 
 // structure for restored rules that can be used while Cilium agent is restoring endpoints
-type perEPRestored map[uint64]restore.DNSRules
+type perEPRestored map[uint64]map[uint16][]restoredIPRule
 
 // restoredIPRule is the dnsproxy internal way of representing a restored IPRule
 // where we also store the actual compiled regular expression as a, as well
@@ -199,7 +199,11 @@ type restoredEPs map[string]*endpoint.Endpoint
 
 // asIPRule returns a new restore.IPRule representing the rules, including the provided IP map.
 func asIPRule(r *regexp.Regexp, IPs map[string]struct{}) restore.IPRule {
-	return restore.IPRule{IPs: IPs, Re: restore.RuleRegex{Regexp: r}}
+	pattern := "^-$"
+	if r != nil {
+		pattern = r.String()
+	}
+	return restore.IPRule{IPs: IPs, Re: restore.RuleRegex{Pattern: &pattern}}
 }
 
 // CheckRestored checks endpointID, destPort, destIP, and name against the restored rules,
@@ -211,8 +215,11 @@ func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP stri
 	}
 
 	for i := range ipRules {
-		if _, exists := ipRules[i].IPs[destIP]; (exists || ipRules[i].IPs == nil) && ipRules[i].Re.MatchString(name) {
-			return true
+		ipRule := ipRules[i]
+		if _, exists := ipRule.IPs[destIP]; exists || ipRule.IPs == nil {
+			if ipRule.regex != nil && ipRule.regex.MatchString(name) {
+				return true
+			}
 		}
 	}
 	return false
@@ -278,7 +285,30 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	if ep.IPv6.IsValid() {
 		p.restoredEPs[ep.IPv6.String()] = ep
 	}
-	p.restored[uint64(ep.ID)] = ep.DNSRules
+	restoredRules := make(map[uint16][]restoredIPRule, len(ep.DNSRules))
+	for port, dnsRule := range ep.DNSRules {
+		ipRules := make([]restoredIPRule, 0, len(dnsRule))
+		for _, ipRule := range dnsRule {
+			if ipRule.Re.Pattern == nil {
+				continue
+			}
+			regex, err := p.cache.lookupOrCompileRegex(*ipRule.Re.Pattern)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.EndpointID: ep.ID,
+					logfields.Rule:       *ipRule.Re.Pattern,
+				}).Info("Disregarding restored DNS rule due to failure in compiling regex. Traffic to the FQDN may be disrupted.")
+				continue
+			}
+			rule := restoredIPRule{
+				IPRule: ipRule,
+				regex:  regex,
+			}
+			ipRules = append(ipRules, rule)
+		}
+		restoredRules[port] = ipRules
+	}
+	p.restored[uint64(ep.ID)] = restoredRules
 
 	log.Debugf("Restored rules for endpoint %d: %v", ep.ID, ep.DNSRules)
 }
@@ -290,6 +320,11 @@ func (p *DNSProxy) removeRestoredRulesLocked(endpointID uint64) {
 		for ip, ep := range p.restoredEPs {
 			if ep.ID == uint16(endpointID) {
 				delete(p.restoredEPs, ip)
+			}
+		}
+		for _, rule := range p.restored[endpointID] {
+			for _, r := range rule {
+				p.cache.releaseRegex(r.regex)
 			}
 		}
 		delete(p.restored, endpointID)
