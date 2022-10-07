@@ -46,6 +46,9 @@ type CiliumEgressNATPolicyList struct {
 // +kubebuilder:validation:Pattern=`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$`
 type IPv4CIDR string
 
+// +kubebuilder:validation:Format=cidr
+type IPv4orIPv6CIDR string
+
 type CiliumEgressNATPolicySpec struct {
 	// Egress represents a list of rules by which egress traffic is
 	// filtered from the source pods.
