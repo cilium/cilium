@@ -6,6 +6,7 @@ package fqdn
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -25,11 +26,11 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 
 	// Map each FQDNSelector to set of CIDRs
 	for ToFQDN := range fqdnSelectors {
-		ipsSelected := make(map[string]net.IP)
+		ipsSelected := make(map[netip.Addr]any)
 		// lookup matching DNS names
 		if len(ToFQDN.MatchName) > 0 {
 			dnsName := prepareMatchName(ToFQDN.MatchName)
-			lookupIPs := n.cache.Lookup(dnsName)
+			lookupIPs := n.cache.LookupUnsorted(dnsName)
 
 			// Mark this FQDNSelector as having no IPs corresponding to it.
 			// FQDNSelectors are guaranteed to have only their MatchName OR
@@ -45,7 +46,7 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 				"matchName": ToFQDN.MatchName,
 			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")*/
 			for _, ip := range lookupIPs {
-				ipsSelected[string(ip)] = ip
+				ipsSelected[ip] = struct{}{}
 			}
 		}
 
@@ -71,7 +72,7 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 					delete(missing, ToFQDN)
 
 					for _, ip := range ips {
-						ipsSelected[string(ip)] = ip
+						ipsSelected[ip] = ip
 					}
 				}
 			}
@@ -80,13 +81,14 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 		//ips := ip.KeepUniqueIPs(ipsSelected)
 		if len(ipsSelected) > 0 {
 			ips := make([]net.IP, 0, len(ipsSelected))
-			for _, ip := range ipsSelected {
-				ips = append(ips, ip)
+			for ip := range ipsSelected {
+				ips = append(ips, ip.Unmap().AsSlice())
 			}
 			selectorIPMapping[ToFQDN] = ips
 		}
 	}
 
+	selectorsMissingIPs = make([]api.FQDNSelector, 0, len(missing))
 	for dnsName := range missing {
 		selectorsMissingIPs = append(selectorsMissingIPs, dnsName)
 	}

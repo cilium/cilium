@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -80,7 +81,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 						return
 					}
 					if ep, exists := epsMap[srcIP.String()]; exists {
-						ep.MarkDNSCTEntry(dstIP, aliveTime)
+						ep.MarkDNSCTEntry(ip.MustAddrFromIP(dstIP), aliveTime)
 					}
 				}
 			)

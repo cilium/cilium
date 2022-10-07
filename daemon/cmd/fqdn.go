@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"regexp"
 	"strconv"
@@ -31,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -236,7 +238,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				for _, zombie := range alive {
 					namesToClean = fqdn.KeepUniqueNames(append(namesToClean, zombie.Names...))
 					for _, name := range zombie.Names {
-						activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, activeConnectionsTTL)
+						activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, activeConnectionsTTL)
 					}
 				}
 
@@ -319,7 +321,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			alive, _ := possibleEP.DNSZombies.GC()
 			for _, zombie := range alive {
 				for _, name := range zombie.Names {
-					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
+					globalCache.Update(lookupTime, name, []netip.Addr{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
 				}
 			}
 		}
@@ -543,7 +545,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// doesn't happen in the case, we play it safe and don't purge the zombie
 		// in case of races.
 		log.WithField(logfields.EndpointID, ep.ID).Debug("Recording DNS lookup in endpoint specific cache")
-		if updated := ep.DNSHistory.Update(lookupTime, qname, responseIPs, int(TTL)); updated {
+		if updated := ep.DNSHistory.Update(lookupTime, qname, ip.MustAddrsFromIPs(responseIPs), int(TTL)); updated {
 			ep.DNSZombies.ForceExpireByNameIP(lookupTime, qname, responseIPs...)
 			ep.SyncEndpointHeaderFile()
 		}
@@ -761,7 +763,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr,
 			// only proceed if any IP matches the cidr selector
 			anIPMatches := false
 			for _, ip := range lookup.IPs {
-				anIPMatches = anIPMatches || cidrMatcher(ip)
+				anIPMatches = anIPMatches || cidrMatcher(ip.AsSlice())
 				IPStrings = append(IPStrings, ip.String())
 			}
 			if !anIPMatches {
@@ -829,14 +831,14 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
 
-		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher, nil)...)
+		namesToRegen = append(namesToRegen, ep.DNSZombies.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		activeConnections := fqdn.NewDNSCache(0)
 		zombies, _ := ep.DNSZombies.GC()
 		lookupTime := time.Now()
 		for _, zombie := range zombies {
 			namesToRegen = append(namesToRegen, zombie.Names...)
 			for _, name := range zombie.Names {
-				activeConnections.Update(lookupTime, name, []net.IP{zombie.IP}, 0)
+				activeConnections.Update(lookupTime, name, []netip.Addr{zombie.IP}, 0)
 			}
 		}
 		globalCache.UpdateFromCache(activeConnections, nil)

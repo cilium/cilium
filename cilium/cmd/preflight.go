@@ -6,7 +6,7 @@ package cmd
 import (
 	"encoding/json"
 	"io"
-	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -118,7 +118,7 @@ func preflightPoller() {
 // matchName. In cases where different sets of matchNames are used, each with a
 // different combination of names, the IPs set per name will reflects IPs that
 // actuall belong to other names also seen in the toFQDNs section of that rule.
-func getDNSMappings() (DNSData map[string][]net.IP, err error) {
+func getDNSMappings() (DNSData map[string][]netip.Addr, err error) {
 	policy, err := client.PolicyGet(nil)
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func getDNSMappings() (DNSData map[string][]net.IP, err error) {
 	// inserted into that rule as IPs for that DNS name (this may be shared by many
 	// DNS names). We ensure that we only read /32 CIDRs, since we only ever insert
 	// those.
-	DNSData = make(map[string][]net.IP)
+	DNSData = make(map[string][]netip.Addr)
 	for _, rule := range rules {
 		for _, egressRule := range rule.Egress {
 			for _, ToFQDN := range egressRule.ToFQDNs {
@@ -143,12 +143,12 @@ func getDNSMappings() (DNSData map[string][]net.IP, err error) {
 					continue
 				}
 				for _, cidr := range egressRule.ToCIDRSet {
-					ip, _, err := net.ParseCIDR(string(cidr.Cidr))
+					prefix, err := netip.ParsePrefix(string(cidr.Cidr))
 					if err != nil {
 						return nil, err
 					}
 					name := matchpattern.Sanitize(ToFQDN.MatchName)
-					DNSData[name] = append(DNSData[name], ip)
+					DNSData[name] = append(DNSData[name], prefix.Addr())
 				}
 			}
 		}

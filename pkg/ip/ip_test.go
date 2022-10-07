@@ -951,3 +951,35 @@ func (s *IPTestSuite) TestAddrFromIP(c *C) {
 		}
 	}
 }
+
+func (s *IPTestSuite) TestMustAddrsFromIPs(c *C) {
+	type args struct {
+		ips   []net.IP
+		addrs []netip.Addr
+	}
+	for _, tt := range []args{
+		{
+			ips:   []net.IP{},
+			addrs: []netip.Addr{},
+		},
+		{
+			ips:   []net.IP{net.ParseIP("1.1.1.1")},
+			addrs: []netip.Addr{netip.MustParseAddr("1.1.1.1")},
+		},
+		{
+			ips:   []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2"), net.ParseIP("0.0.0.0")},
+			addrs: []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("2.2.2.2"), netip.MustParseAddr("0.0.0.0")},
+		},
+	} {
+		addrs := MustAddrsFromIPs(tt.ips)
+		c.Assert(addrs, checker.DeepEquals, tt.addrs)
+	}
+
+	nilIPs := []net.IP{nil}
+	defer func() {
+		if r := recover(); r == nil {
+			c.Errorf("MustAddrsFromIPs(%v) should panic", nilIPs)
+		}
+	}()
+	_ = MustAddrsFromIPs(nilIPs)
+}
