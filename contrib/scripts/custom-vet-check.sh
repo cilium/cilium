@@ -6,6 +6,4 @@
 # https://github.com/cilium/customvet
 # It performs custom static analysis checks checks for the
 # cilium repository.
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-TOOLS=${SCRIPTPATH}/../../tools
-${TOOLS}/customvet -timeafter.ignore inctimer ./...
+go run github.com/cilium/customvet -timeafter.ignore inctimer ./...
