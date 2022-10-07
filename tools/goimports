@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-
-go run ${SCRIPTPATH}/../vendor/golang.org/x/tools/cmd/goimports/... $@
