@@ -972,3 +972,14 @@ func MustAddrFromIP(ip net.IP) netip.Addr {
 	}
 	return addr
 }
+
+// MustAddrsFromIPs converts a slice of net.IP to a slice of netip.Addr. It assumes
+// the input slice contains only valid IP addresses and always returns a slice
+// containing valid netip.Addr.
+func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
+	addrs := make([]netip.Addr, 0, len(ips))
+	for _, ip := range ips {
+		addrs = append(addrs, MustAddrFromIP(ip))
+	}
+	return addrs
+}
