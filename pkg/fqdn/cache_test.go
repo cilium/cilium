@@ -322,7 +322,6 @@ var (
 	now         = time.Now()
 	size        = uint32(1000) // size of array to operate on
 	entriesOrig = makeEntries(now, 1+size/3, 1+size/3, 1+size/3)
-	ipsOrig     = makeIPs(size)
 )
 
 // makeIPs generates count sequential IPv4 IPs
@@ -406,35 +405,6 @@ func (ds *DNSCacheTestSuite) BenchmarkUpdateIPs(c *C) {
 		for _, entry := range entriesOrig {
 			cache.updateWithEntryIPs(entries, entry)
 			cache.removeExpired(entries, now, time.Time{})
-		}
-	}
-}
-
-func (ds *DNSCacheTestSuite) BenchmarkIPString(c *C) {
-	for i := 0; i < c.N; i++ {
-		_ = net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)).String()
-	}
-}
-
-func (ds *DNSCacheTestSuite) BenchmarkParseIPSimple(c *C) {
-	ip := ipsOrig[0].String()
-	for i := 0; i < c.N; i++ {
-		_ = net.ParseIP(ip)
-	}
-}
-
-// Note: each "op" works on size things
-func (ds *DNSCacheTestSuite) BenchmarkParseIP(c *C) {
-	c.StopTimer()
-	ips := make([]string, 0, len(ipsOrig))
-	for _, ip := range ipsOrig {
-		ips = append(ips, ip.String())
-	}
-	c.StartTimer()
-
-	for i := 0; i < c.N; i++ {
-		for _, ipStr := range ips {
-			_ = net.ParseIP(ipStr)
 		}
 	}
 }
