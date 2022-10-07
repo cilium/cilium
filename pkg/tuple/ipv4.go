@@ -99,6 +99,13 @@ func (k TupleKey4) Dump(sb *strings.Builder, reverse bool) bool {
 	return true
 }
 
+// SwapAddresses swaps the tuple source and destination addresses.
+func (t *TupleKey4) SwapAddresses() {
+	tmp := t.SourceAddr
+	t.SourceAddr = t.DestAddr
+	t.DestAddr = tmp
+}
+
 // TupleKey4Global represents the key for IPv4 entries in the global BPF
 // conntrack map.
 // +k8s:deepcopy-gen=true
