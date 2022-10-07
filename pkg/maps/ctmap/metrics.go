@@ -122,8 +122,7 @@ type NatGCStats struct {
 	IngressAlive   uint32
 	IngressDeleted uint32
 	EgressDeleted  uint32
-	// It's not possible with the current PurgeOrphanNATEntries implementation
-	// to correctly count EgressAlive, so skip it
+	EgressAlive    uint32
 }
 
 func newNatGCStats(m *nat.Map, family gcFamily) NatGCStats {
@@ -137,5 +136,6 @@ func (s *NatGCStats) finish() {
 	family := s.Family.String()
 	metrics.NatGCSize.WithLabelValues(family, metricsIngress, metricsAlive).Set(float64(s.IngressAlive))
 	metrics.NatGCSize.WithLabelValues(family, metricsIngress, metricsDeleted).Set(float64(s.IngressDeleted))
+	metrics.NatGCSize.WithLabelValues(family, metricsEgress, metricsAlive).Set(float64(s.EgressAlive))
 	metrics.NatGCSize.WithLabelValues(family, metricsEgress, metricsDeleted).Set(float64(s.EgressDeleted))
 }

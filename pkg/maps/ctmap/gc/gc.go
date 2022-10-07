@@ -224,6 +224,7 @@ func runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, filter *ctm
 					"ingressDeleted": stats.IngressDeleted,
 					"egressDeleted":  stats.EgressDeleted,
 					"ingressAlive":   stats.IngressAlive,
+					"egressAlive":    stats.EgressAlive,
 					"ctMapIPVersion": vsn,
 				}).Info("Deleted orphan SNAT entries from map")
 			}
