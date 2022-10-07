@@ -65,8 +65,7 @@ define generate_k8s_api
 endef
 
 define generate_deepequal
-	cd "./vendor/github.com/cilium/deepequal-gen" && \
-	GO111MODULE=off go run main.go \
+	go run github.com/cilium/deepequal-gen \
 	--input-dirs $(1) \
 	-O zz_generated.deepequal \
 	--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
@@ -95,7 +94,10 @@ define generate_k8s_api_deepcopy_deepequal_client
 endef
 
 define generate_k8s_protobuf
-	PATH="$(PWD)/tools:$(PATH)" ./tools/go-to-protobuf \
+	go install k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo
+	go install golang.org/x/tools/cmd/goimports
+
+	go run k8s.io/code-generator/cmd/go-to-protobuf \
 		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
                                 -k8s.io/apimachinery/pkg/api/resource,$\
                                 -k8s.io/apimachinery/pkg/runtime/schema,$\
@@ -107,7 +109,7 @@ define generate_k8s_protobuf
 		--proto-import="$(PWD)/vendor" \
 		--proto-import="$(PWD)/tools/protobuf" \
 		--packages=$(1) \
-	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
+		--go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
 build: check-sources $(SUBDIRS) ## Builds all the components for Cilium by executing make in the respective sub directories.
@@ -253,8 +255,7 @@ build-rpm: ## Build rpm package of cilium.
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	$(eval TMPDIR := $(shell mktemp -d))
-	cd "./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen" && \
-	$(QUIET)$(GO) run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2;$(PWD)/pkg/k8s/apis/cilium.io/v2alpha1" output:crd:artifacts:config="$(TMPDIR)";
+	$(QUIET)$(GO) run sigs.k8s.io/controller-tools/cmd/controller-gen $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2;$(PWD)/pkg/k8s/apis/cilium.io/v2alpha1" output:crd:artifacts:config="$(TMPDIR)"
 	$(QUIET)$(GO) run ./tools/crdcheck "$(TMPDIR)"
 	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumnetworkpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwidenetworkpolicies.yaml
