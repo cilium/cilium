@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"math"
 	"net"
 	"os"
@@ -104,9 +105,9 @@ const (
 	// ConfigFile is the Configuration file (default "$HOME/ciliumd.yaml")
 	ConfigFile = "config"
 
-	// ConfigDir is the directory that contains a file for each option where
-	// the filename represents the option name and the content of that file
-	// represents the value of that option.
+	// ConfigDir is a directory of directories, where each contains a file
+	// for each option where the filename represents the option name and
+	// the content of that file represents the value of that option.
 	ConfigDir = "config-dir"
 
 	// ConntrackGCInterval is the name of the ConntrackGCInterval option
@@ -2634,6 +2635,18 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	return nil
 }
 
+// stat stats a direntry, following symlinks
+func statFollow(dirName string, f fs.DirEntry) (fs.FileMode, error) {
+	if f.Type()&os.ModeSymlink == 0 {
+		return f.Type(), nil
+	}
+	fp, err := os.Stat(filepath.Join(dirName, f.Name()))
+	if err != nil {
+		return 0, err
+	}
+	return fp.Mode(), nil
+}
+
 // ReadDirConfig reads the given directory and returns a map that maps the
 // filename to the contents of that file.
 func ReadDirConfig(dirName string) (map[string]interface{}, error) {
@@ -2643,29 +2656,14 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("unable to read configuration directory: %s", err)
 	}
 	for _, f := range files {
-		if f.IsDir() {
+		mode, err := statFollow(dirName, f)
+		if err != nil {
+			return nil, fmt.Errorf("could not stat file %s: %w", f.Name(), err)
+		}
+		if mode.IsDir() {
 			continue
 		}
 		fName := filepath.Join(dirName, f.Name())
-
-		// the file can still be a symlink to a directory
-		if f.Type()&os.ModeSymlink == 0 {
-			absFileName, err := filepath.EvalSymlinks(fName)
-			if err != nil {
-				log.WithError(err).Warnf("Unable to read configuration file %q", absFileName)
-				continue
-			}
-			fName = absFileName
-		}
-
-		fi, err := os.Stat(fName)
-		if err != nil {
-			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
-			continue
-		}
-		if fi.Mode().IsDir() {
-			continue
-		}
 
 		b, err := os.ReadFile(fName)
 		if err != nil {
@@ -3817,24 +3815,33 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 		Config.ConfigDir = vp.GetString(ConfigDir)
 		vp.SetEnvPrefix("cilium")
 
+		// ConfiDir is a directory of configuration directories
+		// (It used to be a single directory, so also handle that case)
 		if Config.ConfigDir != "" {
-			if _, err := os.Stat(Config.ConfigDir); os.IsNotExist(err) {
-				log.Fatalf("Non-existent configuration directory %s", Config.ConfigDir)
-			}
-
-			if m, err := ReadDirConfig(Config.ConfigDir); err != nil {
+			files, err := os.ReadDir(Config.ConfigDir)
+			if err != nil {
 				log.WithError(err).Fatalf("Unable to read configuration directory %s", Config.ConfigDir)
 			} else {
-				// replace deprecated fields with new fields
-				ReplaceDeprecatedFields(m)
+				// ConfigDir is a directory of configuration directories
+				// However, it is possible that we were pointed to a configuration directory instead
+				// in which case, *also* read the "top" directory.
+				hasConfigFiles := false
+				for _, f := range files {
+					mode, err := statFollow(Config.ConfigDir, f)
+					if err != nil {
+						log.WithError(err).Fatalf("Unable to read configuration directory %s/%s", Config.ConfigDir, f.Name())
+					}
+					if mode.IsRegular() {
+						hasConfigFiles = true
+					} else if mode.IsDir() {
+						path := filepath.Join(Config.ConfigDir, f.Name())
 
-				// validate the config-map
-				if err := validateConfigMap(cmd, m); err != nil {
-					log.WithError(err).Fatal("Incorrect config-map flag value")
+						readConfigDir(cmd, vp, path)
+					}
 				}
-
-				if err := MergeConfig(vp, m); err != nil {
-					log.WithError(err).Fatal("Unable to merge configuration")
+				if hasConfigFiles {
+					log.Warnf("Top-level configuration directory %s also has keyfles, this is deprecated", Config.ConfigDir)
+					readConfigDir(cmd, vp, Config.ConfigDir)
 				}
 			}
 		}
@@ -3868,6 +3875,30 @@ func InitConfig(cmd *cobra.Command, programName, configName string, vp *viper.Vi
 		// been loaded, as it might have changed.
 		if vp.GetBool("debug") {
 			logging.SetLogLevelToDebug()
+		}
+	}
+}
+
+func readConfigDir(cmd *cobra.Command, vp *viper.Viper, dirpath string) {
+	log.Infof("Reading configuration directory %s", dirpath)
+	if _, err := os.Stat(dirpath); os.IsNotExist(err) {
+		log.Fatalf("Non-existent configuration directory %s", dirpath)
+	}
+
+	if m, err := ReadDirConfig(dirpath); err != nil {
+		log.WithError(err).Fatalf("Unable to read configuration directory %s", dirpath)
+	} else {
+		log.Debugf("Read in %d options from configuration directory %s", len(m), dirpath)
+		// replace deprecated fields with new fields
+		ReplaceDeprecatedFields(m)
+
+		// validate the config-map
+		if err := validateConfigMap(cmd, m); err != nil {
+			log.WithError(err).Fatal("Incorrect config-map flag value")
+		}
+
+		if err := MergeConfig(vp, m); err != nil {
+			log.WithError(err).Fatal("Unable to merge configuration")
 		}
 	}
 }

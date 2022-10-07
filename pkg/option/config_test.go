@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -101,6 +103,47 @@ func TestGetEnvName(t *testing.T) {
 				t.Errorf("getEnvName() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestStatFollow(t *testing.T) {
+	dir := t.TempDir()
+
+	assert.NoError(t, os.Mkdir(path.Join(dir, "a"), 0755))
+	assert.NoError(t, os.WriteFile(path.Join(dir, "b"), nil, 0644))
+	assert.NoError(t, os.Symlink(path.Join(dir, "a"), path.Join(dir, "c")))
+	assert.NoError(t, os.Symlink(path.Join(dir, "b"), path.Join(dir, "d")))
+	assert.NoError(t, os.Symlink(path.Join(dir, "missing"), path.Join(dir, "e")))
+
+	expected := map[string]struct {
+		dir  bool
+		file bool
+		err  bool
+	}{
+		"a": {dir: true},
+		"b": {file: true},
+		"c": {dir: true},
+		"d": {file: true},
+		"e": {err: true},
+	}
+
+	files, err := os.ReadDir(dir)
+	assert.NoError(t, err)
+	for _, f := range files {
+		exp, ok := expected[f.Name()]
+		if !ok {
+			t.Fatalf("Found unexpected file %s", f.Name())
+		}
+		mode, err := statFollow(dir, f)
+		if exp.err {
+			assert.Error(t, err, f.Name())
+			continue
+		} else {
+			assert.NoError(t, err, f.Name())
+		}
+
+		assert.Equal(t, mode.IsDir(), exp.dir, f.Name())
+		assert.Equal(t, mode.IsRegular(), exp.file, f.Name())
 	}
 }
 

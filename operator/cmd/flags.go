@@ -58,7 +58,7 @@ func init() {
 	flags.String(option.ConfigFile, "", `Configuration file (default "$HOME/ciliumd.yaml")`)
 	option.BindEnv(Vp, option.ConfigFile)
 
-	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
+	flags.String(option.ConfigDir, "", `Configuration directory of directories that contain a file for each option`)
 	option.BindEnv(Vp, option.ConfigDir)
 
 	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
