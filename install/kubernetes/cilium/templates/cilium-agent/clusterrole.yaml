@@ -66,7 +66,7 @@ rules:
 - apiGroups:
   - cilium.io
   resources:
-  - ciliumbgploadbalancerippools
+  - ciliumloadbalancerippools
   - ciliumbgppeeringpolicies
   - ciliumclusterwideenvoyconfigs
   - ciliumclusterwidenetworkpolicies
