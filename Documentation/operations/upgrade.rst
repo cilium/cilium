@@ -348,6 +348,11 @@ Helm Options
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
   ``securityContext.capabilities.cilium_agent``.
 
+CRD Changes
+~~~~~~~~~~~
+
+* ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
+
 .. _1.12_upgrade_notes:
 
 1.12 Upgrade Notes

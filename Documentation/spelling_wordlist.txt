@@ -333,6 +333,7 @@ decrypted
 deepcopy
 deletetopic
 demux
+dependant
 dereference
 deserialization
 destinationContext
@@ -601,6 +602,7 @@ kvstore
 labelsContext
 latencies
 lbExternalClusterIP
+lbIPAM
 lbMapMax
 leia
 libbpf
@@ -625,6 +627,7 @@ livenessProbe
 llc
 llvm
 loadBalancer
+loadBalancerClass
 loadbalancer
 loadbalancerIP
 loadbalancerMode
@@ -745,6 +748,7 @@ orchestrator
 org
 originatingTLS
 pahole
+parsable
 parserfactory
 parsers
 passthrough
