@@ -798,6 +798,12 @@ data:
   limit-ipam-api-qps: {{ .Values.ipam.operator.externalAPILimitQPS | quote }}
 {{- end }}
 
+{{- if .Values.ipam.operator.lbIPAM }}
+  lb-ipam: "true"
+{{- else }}
+  lb-ipam: "false"
+{{- end}}
+
 {{- if .Values.enableCnpStatusUpdates }}
   disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
 {{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
@@ -867,6 +873,12 @@ data:
   enable-bgp-control-plane: "true"
 {{- else }}
   enable-bgp-control-plane: "false"
+{{- end }}
+
+{{- if and .Values.bgpControlPlane.enabled .Values.bgp.announce.loadbalancerIP }}
+  lb-ipam: "true"
+{{- else }}
+  lb-ipam: "false"
 {{- end }}
 
 {{- if not .Values.securityContext.privileged }}

@@ -82,9 +82,11 @@ rules:
   - get
   - list
   - watch
+{{- if or .Values.ingressController.enabled .Values.ipam.operator.lbIPAM }}
+  - update
+{{- end}}
 {{- if .Values.ingressController.enabled }}
   - create
-  - update
   - delete
 {{- end }}
 - apiGroups:
