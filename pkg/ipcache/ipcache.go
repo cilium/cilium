@@ -5,6 +5,7 @@ package ipcache
 
 import (
 	"net"
+	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
@@ -56,9 +57,9 @@ type K8sMetadata struct {
 }
 
 // IPCache is a collection of mappings:
-// - mapping of endpoint IP or CIDR to security identities of all endpoints
-//   which are part of the same cluster, and vice-versa
-// - mapping of endpoint IP or CIDR to host IP (maybe nil)
+//   - mapping of endpoint IP or CIDR to security identities of all endpoints
+//     which are part of the same cluster, and vice-versa
+//   - mapping of endpoint IP or CIDR to host IP (maybe nil)
 type IPCache struct {
 	mutex             lock.SemaphoredMutex
 	ipToIdentityCache map[string]Identity
@@ -87,12 +88,17 @@ type IPCache struct {
 	// k8sSyncedChecker knows how to check for whether the K8s watcher cache
 	// has been fully synced.
 	k8sSyncedChecker k8sSyncedChecker
+
+	// deferredPrefixRelease is a queue for garbage collecting old
+	// references to identities and removing the corresponding IPCache
+	// entries if unused.
+	deferredPrefixRelease *asyncPrefixReleaser
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
 func NewIPCache() *IPCache {
-	return &IPCache{
+	ipc := &IPCache{
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
@@ -101,6 +107,8 @@ func NewIPCache() *IPCache {
 		controllers:       controller.NewManager(),
 		namedPorts:        nil,
 	}
+	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(ipc, 1*time.Millisecond)
+	return ipc
 }
 
 // Lock locks the IPCache's mutex.
