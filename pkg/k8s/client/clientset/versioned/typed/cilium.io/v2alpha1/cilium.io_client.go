@@ -15,19 +15,15 @@ import (
 
 type CiliumV2alpha1Interface interface {
 	RESTClient() rest.Interface
-	CiliumBGPLoadBalancerIPPoolsGetter
 	CiliumBGPPeeringPoliciesGetter
 	CiliumEgressNATPoliciesGetter
 	CiliumEndpointSlicesGetter
+	CiliumLoadBalancerIPPoolsGetter
 }
 
 // CiliumV2alpha1Client is used to interact with features provided by the cilium.io group.
 type CiliumV2alpha1Client struct {
 	restClient rest.Interface
-}
-
-func (c *CiliumV2alpha1Client) CiliumBGPLoadBalancerIPPools() CiliumBGPLoadBalancerIPPoolInterface {
-	return newCiliumBGPLoadBalancerIPPools(c)
 }
 
 func (c *CiliumV2alpha1Client) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInterface {
@@ -40,6 +36,10 @@ func (c *CiliumV2alpha1Client) CiliumEgressNATPolicies() CiliumEgressNATPolicyIn
 
 func (c *CiliumV2alpha1Client) CiliumEndpointSlices() CiliumEndpointSliceInterface {
 	return newCiliumEndpointSlices(c)
+}
+
+func (c *CiliumV2alpha1Client) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInterface {
+	return newCiliumLoadBalancerIPPools(c)
 }
 
 // NewForConfig creates a new CiliumV2alpha1Client for the given config.
