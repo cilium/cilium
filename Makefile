@@ -325,6 +325,13 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C api/v1
 
 generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go sources.
+	@if [ -z "$(GOPATH)" ] || [ ! -d "$(GOPATH)/src/github.com/cilium/cilium" ] || \
+		[ "$(PWD)" != "$(GOPATH)/src/github.com/cilium/cilium" ]; then \
+		echo "Set \$$GOPATH to a directory containing the Cilium repository at \$$GOPATH/src/github.com/cilium/cilium."; \
+		echo "The current working directory must be the repository root for code generation to work correctly."; \
+		exit 1; \
+	fi
+
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
