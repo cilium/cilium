@@ -272,23 +272,27 @@ bpf:
   # memory usage but can reduce latency.
   preallocateMaps: false
 
-  # -- Configure the maximum number of entries in the TCP connection tracking
+  # -- (int) Configure the maximum number of entries in the TCP connection tracking
   # table.
-  # ctTcpMax: '524288'
+  # @default -- `524288`
+  ctTcpMax: ~
 
-  # -- Configure the maximum number of entries for the non-TCP connection
+  # -- (int) Configure the maximum number of entries for the non-TCP connection
   # tracking table.
-  # ctAnyMax: '262144'
+  # @default -- `262144`
+  ctAnyMax: ~
 
   # -- Configure the maximum number of service entries in the
   # load balancer maps.
   lbMapMax: 65536
 
-  # -- Configure the maximum number of entries for the NAT table.
-  # natMax: 524288
+  # -- (int) Configure the maximum number of entries for the NAT table.
+  # @default -- `524288`
+  natMax: ~
 
-  # -- Configure the maximum number of entries for the neighbor table.
-  # neighMax: 524288
+  # -- (int) Configure the maximum number of entries for the neighbor table.
+  # @default -- `524288`
+  neighMax: ~
 
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
   policyMapMax: 16384
