@@ -4343,6 +4343,24 @@ func (kub *Kubectl) WaitForLBSourceRangeEntry(node, cidr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+func (kub *Kubectl) WaitForNoIpMasqEntry(node, cidr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`! (cilium bpf ipmasq list | grep -q %s)`, cidr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("IpMasq entry for %s was still found in time", cidr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // RepeatCommandInBackground runs command on repeat in goroutine until quit channel
 // is closed and closes run channel when command is first run
 func (kub *Kubectl) RepeatCommandInBackground(cmd string) (quit, run chan struct{}) {

@@ -422,7 +422,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// remove nonMasqueradeCIDRs from the ConfigMap
 			kubectl.Patch(helpers.CiliumNamespace, "configMap", "ip-masq-agent", `{"data":{"config":"{\"nonMasqueradeCIDRs\":[]}"}}`)
 			// Wait until the ip-masq-agent config update is handled by the agent
-			time.Sleep(90 * time.Second)
+			// TODO: need to test this for *all* nodes, as we don't know where the client pod lives ...
+			k8s1Name, _ := kubectl.GetNodeInfo(helpers.K8s1)
+			err := kubectl.WaitForNoIpMasqEntry(k8s1Name, nodeIP)
+			Expect(err).Should(BeNil(), "Still found IPMasq entry for %s", nodeIP)
 
 			// Check that requests to the echoserver from client pods are masqueraded.
 			Expect(testPodHTTPToOutside(kubectl,
