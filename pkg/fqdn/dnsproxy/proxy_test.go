@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+	"golang.org/x/exp/maps"
 	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
 
@@ -1028,6 +1029,40 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
 		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 	}
+	// cleanup
+	s.proxy.RemoveRestoredRules(uint16(epID1))
+	_, exists = s.proxy.restored[epID1]
+	c.Assert(exists, Equals, false)
+
+	invalidRePattern := "invalid-re-pattern((*"
+	validRePattern := "^this[.]domain[.]com[.]$"
+
+	// extract the port the DNS-server is listening on by looking at the restored rules. The port is non-deterministic
+	// since it's listening on :0
+	c.Assert(len(restored), Equals, 1, Commentf("GetRules is expected to return rules for one port but returned for %d", len(restored)))
+	port := maps.Keys(restored)[0]
+
+	// Insert one valid and one invalid pattern and ensure that the valid one works
+	// and that the invalid one doesn't interfere with the other rules.
+	restored[port] = append(restored[port],
+		restore.IPRule{Re: restore.RuleRegex{Pattern: &invalidRePattern}},
+		restore.IPRule{Re: restore.RuleRegex{Pattern: &validRePattern}},
+	)
+	ep1.DNSRules = restored
+	s.proxy.RestoreRules(ep1)
+	_, exists = s.proxy.restored[epID1]
+	c.Assert(exists, Equals, true)
+
+	// 4nd request, answered due to restored Endpoint and rules being found, including domain matched by new regex
+	for _, query := range append(queries, "this.domain.com.") {
+		request := new(dns.Msg)
+		request.SetQuestion(query, dns.TypeA)
+		response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+		c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v) (query: %q)", rtt, query))
+		c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s (query: %q)", response, query))
+		c.Assert(response.Answer[0].String(), Equals, query+"\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
+	}
+
 	// cleanup
 	s.proxy.RemoveRestoredRules(uint16(epID1))
 	_, exists = s.proxy.restored[epID1]
