@@ -99,6 +99,13 @@ func (k TupleKey6) Dump(sb *strings.Builder, reverse bool) bool {
 	return true
 }
 
+// SwapAddresses swaps the tuple source and destination addresses.
+func (t *TupleKey6) SwapAddresses() {
+	tmp := t.SourceAddr
+	t.SourceAddr = t.DestAddr
+	t.DestAddr = tmp
+}
+
 // TupleKey6Global represents the key for IPv6 entries in the global BPF conntrack map.
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
