@@ -6,6 +6,7 @@ package ipcache
 import (
 	"net"
 	"net/netip"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -100,12 +101,17 @@ type IPCache struct {
 
 	// metadata is the ipcache identity metadata map, which maps IPs to labels.
 	metadata *metadata
+
+	// deferredPrefixRelease is a queue for garbage collecting old
+	// references to identities and removing the corresponding IPCache
+	// entries if unused.
+	deferredPrefixRelease *asyncPrefixReleaser
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
 func NewIPCache(c *Configuration) *IPCache {
-	return &IPCache{
+	ipc := &IPCache{
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},
 		identityToIPCache: map[identity.NumericIdentity]map[string]struct{}{},
@@ -116,6 +122,8 @@ func NewIPCache(c *Configuration) *IPCache {
 		metadata:          newMetadata(),
 		Configuration:     c,
 	}
+	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(ipc, 1*time.Millisecond)
+	return ipc
 }
 
 // Lock locks the IPCache's mutex.
