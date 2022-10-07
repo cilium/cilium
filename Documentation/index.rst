@@ -82,6 +82,7 @@ get started and experiment with Cilium.
    network/servicemesh/index
    network/istio
    network/vtep
+   network/lb-ipam
 
 .. toctree::
    :maxdepth: 2
