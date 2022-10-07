@@ -439,9 +439,9 @@ endif
 golangci-lint-fix: ## Run golangci-lint to automatically fix warnings
 	$(QUIET)$(MAKE) golangci-lint GOLANGCI_LINT_ARGS="--fix"
 
-lint: golangci-lint ## Run golangci-lint and bpf-mock linters.
+lint: golangci-lint
 
-lint-fix: golangci-lint-fix ## Run golangci-lint and bpf-mock linters.
+lint-fix: golangci-lint-fix
 
 logging-subsys-field: ## Validate logrus subsystem field for logs in Go source code.
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
