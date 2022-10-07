@@ -258,14 +258,15 @@ jobs:
       - name: Port forward Relay
         run: |
           (cilium hubble port-forward > port.stdout 2> port.stderr) &
-          ps aux
           sleep 10s
-          ps aux
+          ps aux | grep "port-forward"
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
+          ps aux | grep "port-forward"
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          ps aux | grep "port-forward"
 
       - name: Clean up Cilium
         run: |
@@ -287,13 +288,16 @@ jobs:
 
       - name: Port forward Relay
         run: |
-          cilium hubble port-forward&
+          (cilium hubble port-forward > port2.stdout 2> port2.stderr) &
           sleep 10s
+          ps aux | grep "port-forward"
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
+          ps aux | grep "port-forward"
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+          ps aux | grep "port-forward"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -301,8 +305,10 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           cat port.stdout
           cat port.stderr
+          cat port2.stdout
+          cat port2.stderr
           ps aux
-          curl localhost:8080
+          curl localhost:80
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
