@@ -85,6 +85,14 @@
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
      - ``false``
+   * - bpf.ctAnyMax
+     - Configure the maximum number of entries for the non-TCP connection tracking table.
+     - int
+     - ``262144``
+   * - bpf.ctTcpMax
+     - Configure the maximum number of entries in the TCP connection tracking table.
+     - int
+     - ``524288``
    * - bpf.hostBoot
      - Configure the path to the host boot directory
      - string
@@ -113,6 +121,14 @@
      - Enable host boot directory mount for BPF clock source probing
      - bool
      - ``true``
+   * - bpf.natMax
+     - Configure the maximum number of entries for the NAT table.
+     - int
+     - ``524288``
+   * - bpf.neighMax
+     - Configure the maximum number of entries for the neighbor table.
+     - int
+     - ``524288``
    * - bpf.policyMapMax
      - Configure the maximum number of entries in endpoint policy map (per endpoint).
      - int
