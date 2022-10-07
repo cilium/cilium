@@ -206,7 +206,8 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 	affectedSelectors = make(map[api.FQDNSelector]struct{}, len(updatedDNSIPs))
 
 	for dnsName, lookupIPs := range updatedDNSIPs {
-		updated := n.updateIPsForName(lookupTime, dnsName, lookupIPs.IPs, lookupIPs.TTL)
+		addrs := ip.MustAddrsFromIPs(lookupIPs.IPs)
+		updated := n.updateIPsForName(lookupTime, dnsName, addrs, lookupIPs.TTL)
 
 		// The IPs didn't change. No more to be done for this dnsName
 		if !updated && n.bootstrapCompleted {
@@ -241,7 +242,7 @@ func (n *NameManager) updateDNSIPs(lookupTime time.Time, updatedDNSIPs map[strin
 // updateIPsName will update the IPs for dnsName. It always retains a copy of
 // newIPs.
 // updated is true when the new IPs differ from the old IPs
-func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []net.IP, ttl int) (updated bool) {
+func (n *NameManager) updateIPsForName(lookupTime time.Time, dnsName string, newIPs []netip.Addr, ttl int) (updated bool) {
 	cacheIPs := n.cache.Lookup(dnsName)
 
 	if n.config.MinTTL > ttl {

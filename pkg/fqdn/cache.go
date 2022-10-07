@@ -44,7 +44,7 @@ type cacheEntry struct {
 	TTL int `json:"ttl,omitempty"`
 
 	// IPs are the IPs associated with Name for this cacheEntry.
-	IPs []net.IP `json:"ips,omitempty"`
+	IPs []netip.Addr `json:"ips,omitempty"`
 }
 
 // isExpiredBy returns true if entry is no longer valid at pointInTime
@@ -175,7 +175,7 @@ func (c *DNSCache) DisableCleanupTrack() {
 // name is used as is and may be an unqualified name (e.g. myservice.namespace).
 // ips may be an IPv4 or IPv6 IP. Duplicates will be removed.
 // ttl is the DNS TTL for ips and is a seconds value.
-func (c *DNSCache) Update(lookupTime time.Time, name string, ips []net.IP, ttl int) bool {
+func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, ttl int) bool {
 	if c.minTTL > ttl {
 		ttl = c.minTTL
 	}
@@ -475,11 +475,10 @@ func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string)
 func (c *DNSCache) updateWithEntryIPs(entries ipEntries, entry *cacheEntry) bool {
 	added := false
 	for _, ip := range entry.IPs {
-		addr := ippkg.MustAddrFromIP(ip)
-		old, exists := entries[addr]
+		old, exists := entries[ip]
 		if old == nil || !exists || old.isExpiredBy(entry.ExpirationTime) {
-			entries[addr] = entry
-			c.upsertReverse(addr, entry)
+			entries[ip] = entry
+			c.upsertReverse(ip, entry)
 			c.addNameToCleanup(entry)
 			added = true
 		}
