@@ -43,6 +43,36 @@ func oNatKeyFromReverse(k nat.NatKey, v nat.NatEntry) nat.NatKey {
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
+func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+	natKey, ok := k.(*nat.NatKey4)
+	if ok { // ipv4
+		return &tuple.TupleKey4Global{TupleKey4: tuple.TupleKey4{
+			// Workaround #5848
+			SourceAddr: natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
+			DestAddr:   natKey.DestAddr,
+			SourcePort: natKey.DestPort,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_IN,
+		}}
+	}
+
+	{ // ipv6
+		natKey := k.(*nat.NatKey6)
+		return &tuple.TupleKey6Global{TupleKey6: tuple.TupleKey6{
+			// Workaround #5848
+			SourceAddr: natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
+			DestAddr:   natKey.DestAddr,
+			SourcePort: natKey.DestPort,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_IN,
+		}}
+	}
+}
+
+// NOTE: the function does NOT copy addr fields, so it's not safe to
+// reuse the returned ctKey.
 func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
@@ -67,6 +97,36 @@ func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey
 			DestPort:   natKey.SourcePort,
 			DestAddr:   natVal.Addr,
 			SourcePort: natVal.Port,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_OUT,
+		}}
+	}
+}
+
+// NOTE: the function does NOT copy addr fields, so it's not safe to
+// reuse the returned ctKey.
+func egressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+	natKey, ok := k.(*nat.NatKey4)
+	if ok { // ipv4
+		return &tuple.TupleKey4Global{TupleKey4: tuple.TupleKey4{
+			// Workaround #5848
+			SourceAddr: natKey.DestAddr,
+			DestPort:   natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			SourcePort: natKey.SourcePort,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_OUT,
+		}}
+	}
+
+	{ // ipv6
+		natKey := k.(*nat.NatKey6)
+		return &tuple.TupleKey6Global{TupleKey6: tuple.TupleKey6{
+			// Workaround #5848
+			SourceAddr: natKey.DestAddr,
+			DestPort:   natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			SourcePort: natKey.SourcePort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_OUT,
 		}}

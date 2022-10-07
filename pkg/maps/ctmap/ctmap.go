@@ -577,14 +577,7 @@ func GC(m *Map, filter *GCFilter) int {
 // In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries. In the case of 4, will create
 // CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
-//
-// The function only handles 1-3 cases, the 4. case is TODO(brb).
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
-	if option.Config.NodePortMode == option.NodePortModeDSR ||
-		option.Config.NodePortMode == option.NodePortModeHybrid {
-		return nil
-	}
-
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
 	ctMap := mapInfo[ctMapTCP.mapType]
@@ -613,7 +606,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			ctMap = ctMapTCP
 		}
 
-		if natKey.GetFlags()&tuple.TUPLE_F_IN == 1 { // natKey is r(everse)tuple
+		if natKey.GetFlags()&tuple.TUPLE_F_IN == tuple.TUPLE_F_IN { // natKey is r(everse)tuple
 			ctKey := egressCTKeyFromIngressNatKeyAndVal(natKey, natVal)
 			if _, err := ctMap.Lookup(ctKey); errors.Is(err, unix.ENOENT) {
 				// No CT entry is found, so delete SNAT for both original and
@@ -627,6 +620,21 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				}
 			} else {
 				stats.IngressAlive += 1
+			}
+		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
+			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
+			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
+			if _, err := ctMap.Lookup(ingressCTKey); errors.Is(err, unix.ENOENT) {
+				if _, err := ctMap.Lookup(egressCTKey); errors.Is(err, unix.ENOENT) {
+					// No ingress and egress CT entries were found, delete the egress NAT entry
+					if deleted, _ := natMap.Delete(natKey); deleted {
+						stats.EgressDeleted += 1
+					}
+				} else {
+					stats.EgressAlive += 1
+				}
+			} else {
+				stats.EgressAlive += 1
 			}
 		}
 	}
