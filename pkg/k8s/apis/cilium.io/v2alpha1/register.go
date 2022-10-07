@@ -23,7 +23,7 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.26.0"
+	CustomResourceDefinitionSchemaVersion = "1.27.0"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -70,19 +70,19 @@ const (
 	// BGPPName is the full name of Cilium BGP Peering Policy
 	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
 
-	// Cilium BGP Load Balancer IP Pool (BGPPool)
+	// Cilium Load Balancer IP Pool (IPPool)
 
-	// BGPPoolSingularName is the singular name of Cilium BGP Load Balancer IP Pool
-	BGPPoolSingularName = "ciliumbgploadbalancerippool"
+	// PoolSingularName is the singular name of Cilium Load Balancer IP Pool
+	PoolSingularName = "ciliumloadbalancerippool"
 
-	// BGPPoolPluralName is the plural name of Cilium BGP Load Balancer IP Pool
-	BGPPoolPluralName = "ciliumbgploadbalancerippools"
+	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
+	PoolPluralName = "ciliumloadbalancerippools"
 
-	// BGPPoolKindDefinition is the kind name of Cilium BGP Peering Policy
-	BGPPoolKindDefinition = "CiliumBGPLoadBalancerIPPool"
+	// PoolKindDefinition is the kind name of Cilium Peering Policy
+	PoolKindDefinition = "CiliumLoadBalancerIPPool"
 
-	// BGPPoolName is the full name of Cilium BGP Load Balancer IP Pool
-	BGPPoolName = BGPPoolPluralName + "." + CustomResourceDefinitionGroup
+	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
+	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -132,8 +132,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEndpointSliceList{},
 		&CiliumBGPPeeringPolicy{},
 		&CiliumBGPPeeringPolicyList{},
-		&CiliumBGPLoadBalancerIPPool{},
-		&CiliumBGPLoadBalancerIPPoolList{},
+		&CiliumLoadBalancerIPPool{},
+		&CiliumLoadBalancerIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
