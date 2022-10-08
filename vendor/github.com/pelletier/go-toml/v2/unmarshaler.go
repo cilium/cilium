@@ -79,22 +79,22 @@ func (d *Decoder) DisallowUnknownFields() *Decoder {
 // strict mode and a field is missing, a `toml.StrictMissingError` is
 // returned. In any other case, this function returns a standard Go error.
 //
-// Type mapping
+// # Type mapping
 //
 // List of supported TOML types and their associated accepted Go types:
 //
-//   String           -> string
-//   Integer          -> uint*, int*, depending on size
-//   Float            -> float*, depending on size
-//   Boolean          -> bool
-//   Offset Date-Time -> time.Time
-//   Local Date-time  -> LocalDateTime, time.Time
-//   Local Date       -> LocalDate, time.Time
-//   Local Time       -> LocalTime, time.Time
-//   Array            -> slice and array, depending on elements types
-//   Table            -> map and struct
-//   Inline Table     -> same as Table
-//   Array of Tables  -> same as Array and Table
+//	String           -> string
+//	Integer          -> uint*, int*, depending on size
+//	Float            -> float*, depending on size
+//	Boolean          -> bool
+//	Offset Date-Time -> time.Time
+//	Local Date-time  -> LocalDateTime, time.Time
+//	Local Date       -> LocalDate, time.Time
+//	Local Time       -> LocalTime, time.Time
+//	Array            -> slice and array, depending on elements types
+//	Table            -> map and struct
+//	Inline Table     -> same as Table
+//	Array of Tables  -> same as Array and Table
 func (d *Decoder) Decode(v interface{}) error {
 	b, err := ioutil.ReadAll(d.r)
 	if err != nil {
@@ -123,7 +123,7 @@ type decoder struct {
 	stashedExpr bool
 
 	// Skip expressions until a table is found. This is set to true when a
-	// table could not be create (missing field in map), so all KV expressions
+	// table could not be created (missing field in map), so all KV expressions
 	// need to be skipped.
 	skipUntilTable bool
 
@@ -344,9 +344,9 @@ func (d *decoder) handleArrayTableCollectionLast(key ast.Iterator, v reflect.Val
 		elem := v.Index(idx)
 		_, err := d.handleArrayTable(key, elem)
 		return v, err
+	default:
+		return reflect.Value{}, fmt.Errorf("toml: cannot decode array table into a %s", v.Type())
 	}
-
-	return d.handleArrayTable(key, v)
 }
 
 // When parsing an array table expression, each part of the key needs to be
@@ -483,7 +483,7 @@ func (d *decoder) handleKeyPart(key ast.Iterator, v reflect.Value, nextFn handle
 		d.errorContext.Struct = t
 		d.errorContext.Field = path
 
-		f := v.FieldByIndex(path)
+		f := fieldByIndex(v, path)
 		x, err := nextFn(key, f)
 		if err != nil || d.skipUntilTable {
 			return reflect.Value{}, err
@@ -1071,7 +1071,7 @@ func (d *decoder) handleKeyValuePart(key ast.Iterator, value *ast.Node, v reflec
 		d.errorContext.Struct = t
 		d.errorContext.Field = path
 
-		f := v.FieldByIndex(path)
+		f := fieldByIndex(v, path)
 		x, err := d.handleKeyValueInner(key, value, f)
 		if err != nil {
 			return reflect.Value{}, err
@@ -1135,6 +1135,21 @@ func initAndDereferencePointer(v reflect.Value) reflect.Value {
 	return elem
 }
 
+// Same as reflect.Value.FieldByIndex, but creates pointers if needed.
+func fieldByIndex(v reflect.Value, path []int) reflect.Value {
+	for i, x := range path {
+		v = v.Field(x)
+
+		if i < len(path)-1 && v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				v.Set(reflect.New(v.Type().Elem()))
+			}
+			v = v.Elem()
+		}
+	}
+	return v
+}
+
 type fieldPathsMap = map[string][]int
 
 var globalFieldPathsCache atomic.Value // map[danger.TypeID]fieldPathsMap
@@ -1192,7 +1207,14 @@ func forEachField(t reflect.Type, path []int, do func(name string, path []int)) 
 		}
 
 		if f.Anonymous && name == "" {
-			forEachField(f.Type, fieldPath, do)
+			t2 := f.Type
+			if t2.Kind() == reflect.Ptr {
+				t2 = t2.Elem()
+			}
+
+			if t2.Kind() == reflect.Struct {
+				forEachField(t2, fieldPath, do)
+			}
 			continue
 		}
 

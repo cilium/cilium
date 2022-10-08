@@ -28,7 +28,7 @@ Once loaded you can use `os.Getenv()` to get the value of the variable.
 
 Let's say you have `.env` file:
 
-```
+```sh
 APP_ID=1234567
 APP_SECRET=abcdef
 ```
@@ -77,7 +77,6 @@ Besides above functions, `gotenv` also provides another functions that overrides
 
 - `gotenv.OverLoad`
 - `gotenv.OverApply`
-
 
 Here's the example of this overrides behavior:
 

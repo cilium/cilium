@@ -119,7 +119,7 @@ viper.AddConfigPath("$HOME/.appname")  // call multiple times to add many search
 viper.AddConfigPath(".")               // optionally look for config in the working directory
 err := viper.ReadInConfig() // Find and read the config file
 if err != nil { // Handle errors reading the config file
-	panic(fmt.Errorf("Fatal error config file: %w \n", err))
+	panic(fmt.Errorf("fatal error config file: %w", err))
 }
 ```
 
@@ -447,6 +447,13 @@ viper.SetConfigType("json") // because there is no file extension in a stream of
 err := viper.ReadRemoteConfig()
 ```
 
+#### etcd3
+```go
+viper.AddRemoteProvider("etcd3", "http://127.0.0.1:4001","/config/hugo.json")
+viper.SetConfigType("json") // because there is no file extension in a stream of bytes, supported extensions are "json", "toml", "yaml", "yml", "properties", "props", "prop", "env", "dotenv"
+err := viper.ReadRemoteConfig()
+```
+
 #### Consul
 You need to set a key to Consul key/value storage with JSON value containing your desired config.
 For example, create a Consul key/value store key `MY_CONSUL_KEY` with value:
@@ -594,7 +601,7 @@ configuration level.
 
 Viper can access array indices by using numbers in the path. For example:
 
-```json
+```jsonc
 {
     "host": {
         "address": "localhost",
@@ -622,7 +629,7 @@ GetInt("host.ports.1") // returns 6029
 Lastly, if there exists a key that matches the delimited key path, its value
 will be returned instead. E.g.
 
-```json
+```jsonc
 {
     "datastore.metric.host": "0.0.0.0",
     "host": {
