@@ -305,7 +305,7 @@ jobs:
           ps aux | grep hubble
           ps aux | grep port-forward
           sudo dmesg -T | grep killed
-          curl localhost:80 || true
+          curl localhost:4245 || true
           
           cilium status
           cilium sysdump --output-filename cilium-sysdump-out
