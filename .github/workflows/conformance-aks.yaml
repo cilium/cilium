@@ -263,7 +263,7 @@ jobs:
       - name: Run connectivity test
         run: |
           ps aux | grep "port-forward"
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} || true
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
           ps aux | grep "port-forward"
 
       - name: Clean up Cilium
@@ -293,7 +293,7 @@ jobs:
       - name: Run connectivity test
         run: |
           ps aux | grep "port-forward"
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy || true
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
           ps aux | grep "port-forward"
 
       - name: Post-test information gathering
