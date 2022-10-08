@@ -259,7 +259,6 @@ jobs:
           #(cilium hubble port-forward > port.stdout 2> port.stderr) &
           sleep 10s
           ps aux | grep "port-forward"
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
@@ -290,7 +289,6 @@ jobs:
           #(cilium hubble port-forward > port2.stdout 2> port2.stderr) &
           sleep 10s
           ps aux | grep "port-forward"
-          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
         run: |
