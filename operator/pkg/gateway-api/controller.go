@@ -53,9 +53,10 @@ func NewController() (*Controller, error) {
 	m := new(internalModel)
 
 	gwcReconciler := &gatewayClassReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Model:  m,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Model:          m,
+		controllerName: controllerName,
 	}
 	if err = gwcReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
