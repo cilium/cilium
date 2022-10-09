@@ -645,7 +645,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	}
 
 	if operatorOption.Config.EnableGatewayAPI {
-		gatewayController, err := gatewayapi.NewController()
+		gatewayController, err := gatewayapi.NewController(operatorOption.Config.IngressSecretsNamespace)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, gatewayapi.Subsys).Fatal(
 				"Failed to create gateway controller")

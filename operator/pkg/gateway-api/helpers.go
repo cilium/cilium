@@ -17,6 +17,9 @@ import (
 const (
 	kindGateway   = "Gateway"
 	kindHTTPRoute = "HTTPRoute"
+	kindTLSRoute  = "TLSRoute"
+	kindUDPRoute  = "UDPRoute"
+	kindTCPRoute  = "TCPRoute"
 	kindService   = "Service"
 	kindSecret    = "Secret"
 )
@@ -122,4 +125,21 @@ func toStringSlice(s []gatewayv1beta1.Hostname) []string {
 		res = append(res, string(h))
 	}
 	return res
+}
+
+func getSupportedKind(protocol gatewayv1beta1.ProtocolType) gatewayv1beta1.Kind {
+	switch protocol {
+	case gatewayv1beta1.TLSProtocolType:
+		return kindTLSRoute
+	case gatewayv1beta1.HTTPSProtocolType:
+		return kindHTTPRoute
+	case gatewayv1beta1.HTTPProtocolType:
+		return kindHTTPRoute
+	case gatewayv1beta1.TCPProtocolType:
+		return kindTCPRoute
+	case gatewayv1beta1.UDPProtocolType:
+		return kindUDPRoute
+	default:
+		return "Unknown"
+	}
 }
