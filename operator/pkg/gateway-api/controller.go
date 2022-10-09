@@ -63,9 +63,10 @@ func NewController() (*Controller, error) {
 	}
 
 	gwReconciler := &gatewayReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Model:  m,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Model:          m,
+		controllerName: controllerName,
 	}
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err

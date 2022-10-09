@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
-	"github.com/cilium/cilium/operator/pkg/model/translation/ingress"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -43,11 +42,7 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 	name := ciliumGatewayPrefix + m.HTTP[0].Sources[0].Name
 	namespace := m.HTTP[0].Sources[0].Namespace
 
-	// The logic is same as what we have with shared Ingress translator, but with a different model
-	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	// TODO(tam): Refactor the below Ingress translator to be more generic and reusable.
-	translator := ingress.NewSharedIngressTranslator(name, namespace, t.secretsNamespace, false)
-	cec, _, _, err := translator.Translate(m)
+	cec, _, _, err := translation.NewTranslator(name, namespace, t.secretsNamespace, false).Translate(m)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -61,10 +56,21 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 			UID:        types.UID(m.HTTP[0].Sources[0].UID),
 		},
 	}
-	return cec, getService(m.HTTP[0].Sources[0]), getEndpoints(m.HTTP[0].Sources[0]), err
+	return cec, getService(m), getEndpoints(m.HTTP[0].Sources[0]), err
 }
 
-func getService(resource model.FullyQualifiedResource) *corev1.Service {
+func getService(m *model.Model) *corev1.Service {
+	resource := m.HTTP[0].Sources[0]
+
+	ports := make([]corev1.ServicePort, 0, len(m.HTTP))
+	for _, l := range m.HTTP {
+		ports = append(ports, corev1.ServicePort{
+			Name:     l.Name,
+			Port:     int32(l.Port),
+			Protocol: "TCP", // TODO: support other protocols
+		})
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ciliumGatewayPrefix + resource.Name,
@@ -80,19 +86,8 @@ func getService(resource model.FullyQualifiedResource) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-			Ports: []corev1.ServicePort{
-				{
-					Name:     "http",
-					Protocol: "TCP",
-					Port:     80,
-				},
-				{
-					Name:     "https",
-					Protocol: "TCP",
-					Port:     443,
-				},
-			},
+			Type:  corev1.ServiceTypeLoadBalancer,
+			Ports: ports,
 		},
 	}
 }

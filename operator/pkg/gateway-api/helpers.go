@@ -22,6 +22,15 @@ const (
 	kindService   = "Service"
 )
 
+func GatewayAddressTypePtr(addr gatewayv1beta1.AddressType) *gatewayv1beta1.AddressType {
+	return &addr
+}
+
+func GroupPtr(name string) *gatewayv1beta1.Group {
+	group := gatewayv1beta1.Group(name)
+	return &group
+}
+
 func namespaceDerefOr(namespace *gatewayv1beta1.Namespace, defaultNamespace string) string {
 	if namespace != nil && *namespace != "" {
 		return string(*namespace)
