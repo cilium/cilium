@@ -59,8 +59,8 @@ var basicHTTP = Input{
 						Matches: []gatewayv1beta1.HTTPRouteMatch{
 							{
 								Path: &gatewayv1beta1.HTTPPathMatch{
-									Type:  model.PathMatchTypePtr("PathPrefix"),
-									Value: addressOf("/bar"),
+									Type:  model.AddressOf[gatewayv1beta1.PathMatchType]("PathPrefix"),
+									Value: model.AddressOf("/bar"),
 								},
 							},
 						},
@@ -69,7 +69,7 @@ var basicHTTP = Input{
 								BackendRef: gatewayv1beta1.BackendRef{
 									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
 										Name: "my-service",
-										Port: addressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
 									},
 								},
 							},
@@ -927,8 +927,4 @@ func TestGatewayAPI(t *testing.T) {
 			assert.Equal(t, tc.want, listeners, "Listeners did not match")
 		})
 	}
-}
-
-func addressOf[T any](v T) *T {
-	return &v
 }
