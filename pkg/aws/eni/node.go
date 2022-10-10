@@ -408,14 +408,8 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
 	n.mutex.RUnlock()
 
-	var bestSubnet *ipamTypes.Subnet
-	if len(resource.Spec.ENI.SubnetIDs) > 0 {
-		bestSubnet = n.manager.FindSubnetByIDs(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetIDs)
-	} else {
-		bestSubnet = n.manager.FindSubnetByTags(resource.Spec.ENI.VpcID, resource.Spec.ENI.AvailabilityZone, resource.Spec.ENI.SubnetTags)
-	}
-
-	if bestSubnet == nil {
+	subnet := n.findSuitableSubnet(resource.Spec.ENI, limits)
+	if subnet == nil {
 		return 0,
 			unableToFindSubnet,
 			fmt.Errorf(
@@ -426,7 +420,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 				resource.Spec.ENI.SubnetTags,
 			)
 	}
-	allocation.PoolID = ipamTypes.PoolID(bestSubnet.ID)
+	allocation.PoolID = ipamTypes.PoolID(subnet.ID)
 
 	securityGroupIDs, err := n.getSecurityGroupIDs(ctx, resource.Spec.ENI)
 	if err != nil {
@@ -448,19 +442,19 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 
 	scopedLog = scopedLog.WithFields(logrus.Fields{
 		"securityGroupIDs":  securityGroupIDs,
-		"subnetID":          bestSubnet.ID,
+		"subnetID":          subnet.ID,
 		"addresses":         toAllocate,
 		"isPrefixDelegated": isPrefixDelegated,
 	})
 	scopedLog.Info("No more IPs available, creating new ENI")
 
-	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), bestSubnet.ID, desc, securityGroupIDs, isPrefixDelegated)
+	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, isPrefixDelegated)
 	if err != nil {
 		if isPrefixDelegated && isSubnetAtCapacity(err) {
 			// Subnet might be out of available /28 prefixes, but /32 IP addresses might be available.
 			// We should attempt to allocate /32 IPs.
 			scopedLog.WithField(logfields.Node, n.k8sObj.Name).Warning("Subnet might be out of prefixes, Cilium will not allocate prefixes on this node anymore")
-			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), bestSubnet.ID, desc, securityGroupIDs, false)
+			eniID, eni, err = n.manager.api.CreateNetworkInterface(ctx, int32(toAllocate), subnet.ID, desc, securityGroupIDs, false)
 		}
 		if err != nil {
 			return 0, unableToCreateENI, fmt.Errorf("%s %s", errUnableToCreateENI, err)
@@ -799,4 +793,30 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (effectiveLim
 		effectiveLimits += len(eni.Prefixes) * (option.ENIPDBlockSizeIPv4 - 1)
 	}
 	return effectiveLimits
+}
+
+// findSuitableSubnet attempts to find a subnet to allocate an ENI in according to the following heuristic.
+//  0. In general, the subnet has to be in the same VPC and match the availability zone of the
+//     node. If there are multiple candidates, we choose the subnet with the most addresses
+//     available.
+//  1. If we have explicit ID or tag constraints, chose a matching subnet. ID constraints take
+//     precedence.
+//  2. If we have no explicit constraints, try to use the subnet the first ENI of the node was
+//     created in, to avoid putting the ENI in a surprising subnet if possible.
+//  3. If none of these work, fall back to just choosing the subnet with the most addresses
+//     available.
+func (n *Node) findSuitableSubnet(spec eniTypes.ENISpec, limits ipamTypes.Limits) *ipamTypes.Subnet {
+	var subnet *ipamTypes.Subnet
+	if len(spec.SubnetIDs) > 0 {
+		return n.manager.FindSubnetByIDs(spec.VpcID, spec.AvailabilityZone, spec.SubnetIDs)
+	} else if len(spec.SubnetTags) > 0 {
+		return n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, spec.SubnetTags)
+	}
+
+	subnet = n.manager.GetSubnet(spec.NodeSubnetID)
+	if subnet != nil && subnet.AvailableAddresses >= limits.IPv4 {
+		return subnet
+	}
+
+	return n.manager.FindSubnetByTags(spec.VpcID, spec.AvailabilityZone, nil)
 }
