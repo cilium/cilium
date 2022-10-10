@@ -111,6 +111,12 @@ func Capabilities() ServerCapabilities {
 	return c
 }
 
+func DisableLeasesResourceLock() {
+	cached.mutex.Lock()
+	defer cached.mutex.Unlock()
+	cached.capabilities.LeasesResourceLock = false
+}
+
 func updateVersion(version semver.Version) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
