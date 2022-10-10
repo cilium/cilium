@@ -305,7 +305,7 @@ func (k *K8sHubble) disableHubble(ctx context.Context) error {
 	return k.updateConfigMap(ctx)
 }
 
-func (k *K8sHubble) Disable(ctx context.Context) error {
+func (k *K8sHubble) Disable(ctx context.Context, uninstall bool) error {
 	// Generate the manifests has if hubble was being enabled so that we can
 	// retrieve all UI and Relay's resource names.
 	k.params.UI = true
@@ -331,6 +331,12 @@ func (k *K8sHubble) Disable(ctx context.Context) error {
 	if metricsSvc := k.generateMetricsService(); metricsSvc != nil {
 		k.Log("🔥 Deleting Metrics Service...")
 		k.client.DeleteService(ctx, metricsSvc.GetNamespace(), metricsSvc.GetName(), metav1.DeleteOptions{})
+	}
+
+	// If Disable() was called as a part of "cilium uninstall" command, we don't need to
+	// update configmap and restart Cilium.
+	if uninstall {
+		return nil
 	}
 
 	// Now that we have delete all UI and Relay's resource names then we can
