@@ -66,6 +66,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		if err != nil {
 			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
 			ipc.Unlock()
+			ipc.metadata.RUnlock()
 			return nil, err
 		}
 
