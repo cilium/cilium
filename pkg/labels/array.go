@@ -171,7 +171,7 @@ func (ls LabelArray) DeepCopy() LabelArray {
 // GetModel returns the LabelArray as a string array with fully-qualified labels.
 // The output is parseable by ParseLabelArrayFromArray
 func (ls LabelArray) GetModel() []string {
-	res := []string{}
+	res := make([]string, 0, len(ls))
 	for l := range ls {
 		res = append(res, ls[l].String())
 	}
