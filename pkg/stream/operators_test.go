@@ -192,9 +192,13 @@ func TestDebounce(t *testing.T) {
 	defer cancel()
 
 	in := make(chan int, 16)
+
+	defer close(in)
 	src := FromChannel(in)
 	src = Debounce(src, 5*time.Millisecond)
+
 	errs := make(chan error)
+	defer close(errs)
 	out := ToChannel(ctx, errs, src)
 
 	in <- -1
