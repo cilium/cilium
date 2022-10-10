@@ -231,7 +231,7 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 			}
 			switch entry := entry.(type) {
 			case *syncEntry:
-				next(&SyncEvent[T]{baseEvent, store})
+				next(&SyncEvent[T]{baseEvent})
 			case *deleteEntry:
 				next(&DeleteEvent[T]{baseEvent, entry.key, entry.obj.(T)})
 			case *updateEntry:
