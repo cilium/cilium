@@ -98,6 +98,12 @@ type ENISpec struct {
 	// +kubebuilder:validation:Optional
 	SubnetTags map[string]string `json:"subnet-tags,omitempty"`
 
+	// NodeSubnetID is the subnet of the primary ENI the instance was brought up
+	// with. It is used as a sensible default subnet to create ENIs in.
+	//
+	// +kubebuilder:validation:Optional
+	NodeSubnetID string `json:"node-subnet-id,omitempty"`
+
 	// VpcID is the VPC ID to use when allocating ENIs.
 	//
 	// +kubebuilder:validation:Optional

@@ -315,6 +315,12 @@ Annotations:
 * The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
   In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
 
+* In the ENI IPAM mode, the default subnet in which ENIs are created has changed
+  from the subnet (in the same VPC and AZ) with the most addresses available to
+  the subnet in which the primary ENI of the node is attached. Note that this
+  default only matters if no explicit selection of the subnet occurs, i.e.
+  specifying subnet IDs or tags still takes precedence.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
