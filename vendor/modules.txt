@@ -1759,6 +1759,7 @@ sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
 # sigs.k8s.io/gateway-api v0.5.1
 ## explicit; go 1.18
+sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1beta1
 # sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2
 ## explicit; go 1.18
