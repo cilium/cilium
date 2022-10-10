@@ -147,7 +147,7 @@ func newCmdUninstall() *cobra.Command {
 				})
 			if err != nil {
 				fmt.Printf("⚠ ️ Failed to initialize Hubble uninstaller: %s", err)
-			} else if h.Disable(ctx) != nil {
+			} else if h.Disable(ctx, true) != nil {
 				fmt.Printf("ℹ️  Failed to disable Hubble. This is expected if Hubble is not enabled: %s", err)
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
