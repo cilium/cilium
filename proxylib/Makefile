@@ -26,6 +26,10 @@ install:
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET).$(VERSION_MAJOR) $(DESTDIR)$(LIBDIR)
 	ln -sf $(TARGET).$(VERSION_MAJOR) $(DESTDIR)$(LIBDIR)/$(TARGET)
 
+header: libcilium.h
+libcilium.h: proxylib.go
+	$(GO) tool cgo -exportheader libcilium.h proxylib.go
+
 install-binary: install
 
 install-bash-completion:
