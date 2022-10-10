@@ -27,6 +27,8 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	agentOption "github.com/cilium/cilium/pkg/option"
 
@@ -124,6 +126,7 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.Debug = true
 
 	operatorOption.Config.Populate(operatorCmd.Vp)
+	operatorOption.Config.SkipCRDCreation = true
 
 	// Apply the test specific configuration
 	modConfig(agentOption.Config, operatorOption.Config)
@@ -162,11 +165,26 @@ func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
 	watchers.PodStoreSynced = make(chan struct{})
 	watchers.UnmanagedPodStoreSynced = make(chan struct{})
 
-	context, cancel := context.WithCancel(context.Background())
 	cpt.operatorHandle = &operatorHandle{
-		cancel: cancel,
+		t: cpt.t,
+		hive: hive.New(
+			cell.Provide(func() k8sClient.Clientset {
+				return cpt.clients
+			}),
+			operatorCmd.OperatorCell,
+		),
 	}
-	operatorCmd.OnOperatorStartLeading(context, cpt.clients)
+
+	// Disable support for operator HA. This should be cleaned up
+	// by injecting the capabilities, or by supporting the leader
+	// election machinery in the controlplane tests.
+	version.DisableLeasesResourceLock()
+
+	err := cpt.operatorHandle.hive.Start(context.Background())
+	if err != nil {
+		cpt.t.Fatalf("Failed to start operator: %s", err)
+	}
+
 	return cpt
 }
 

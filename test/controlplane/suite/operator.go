@@ -5,12 +5,18 @@ package suite
 
 import (
 	"context"
+	"testing"
+
+	"github.com/cilium/cilium/pkg/hive"
 )
 
 type operatorHandle struct {
-	cancel context.CancelFunc
+	t    *testing.T
+	hive *hive.Hive
 }
 
 func (h *operatorHandle) tearDown() {
-	h.cancel()
+	if err := h.hive.Stop(context.Background()); err != nil {
+		h.t.Fatalf("Operator hive failed to stop: %s", err)
+	}
 }

@@ -86,6 +86,21 @@ var (
 	// elected leader. Otherwise, it is false.
 	IsLeader atomic.Value
 
+	// OperatorCell are the operator specific cells without infrastructure cells.
+	// Used also in tests.
+	OperatorCell = cell.Module(
+		"operator",
+
+		cell.Invoke(
+			registerOperatorHooks,
+		),
+
+		// These cells are started only after the operator is elected leader.
+		WithLeaderLifecycle(
+			legacyCell,
+		),
+	)
+
 	operatorHive *hive.Hive = newOperatorHive()
 
 	Vp *viper.Viper = operatorHive.Viper()
@@ -98,15 +113,18 @@ func Execute() {
 	}
 }
 
-func registerOperatorHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 
 	lc.Append(hive.Hook{
 		OnStart: func(context.Context) error {
-			go runOperator(clientset, shutdowner)
+			go runOperator(llc, clientset, shutdowner)
 			return nil
 		},
-		OnStop: func(context.Context) error {
+		OnStop: func(ctx context.Context) error {
+			if err := llc.Stop(ctx); err != nil {
+				return err
+			}
 			doCleanup()
 			return nil
 		},
@@ -117,8 +135,7 @@ func newOperatorHive() *hive.Hive {
 	h := hive.New(
 		gops.Cell(defaults.GopsPortOperator),
 		k8sClient.Cell,
-
-		cell.Invoke(registerOperatorHooks),
+		OperatorCell,
 	)
 	h.RegisterFlags(rootCmd.Flags())
 
@@ -209,7 +226,7 @@ func checkStatus(clientset k8sClient.Clientset) error {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	log.Infof("Cilium Operator %s", version.Version)
 
 	allSystemsGo := make(chan struct{})
@@ -258,7 +275,10 @@ func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	// See docs on capabilities.LeasesResourceLock for more context.
 	if !capabilities.LeasesResourceLock {
 		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
-		onOperatorStart(leaderElectionCtx, clientset)
+
+		if err := lc.Start(leaderElectionCtx); err != nil {
+			log.WithError(err).Fatal("Failed to start leading")
+		}
 		return
 	}
 
@@ -290,6 +310,7 @@ func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	}
 
 	// Start the leader election for running cilium-operators
+	log.Info("Waiting for leader election")
 	leaderelection.RunOrDie(leaderElectionCtx, leaderelection.LeaderElectionConfig{
 		Name: leaderElectionResourceLockName,
 
@@ -302,7 +323,10 @@ func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
-				onOperatorStart(ctx, clientset)
+				if err := lc.Start(ctx); err != nil {
+					log.WithError(err).Error("Failed to start when elected leader, shutting down")
+					shutdowner.Shutdown(hive.ShutdownWithError(err))
+				}
 			},
 			OnStoppedLeading: func() {
 				log.WithField("operator-id", operatorID).Info("Leader election lost")
@@ -323,14 +347,6 @@ func runOperator(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	})
 }
 
-func onOperatorStart(ctx context.Context, clientset k8sClient.Clientset) {
-	OnOperatorStartLeading(ctx, clientset)
-
-	<-shutdownSignal
-	// graceful exit
-	log.Info("Received termination signal. Shutting down")
-}
-
 func kvstoreEnabled() bool {
 	if option.Config.KVStore == "" {
 		return false
@@ -341,23 +357,49 @@ func kvstoreEnabled() bool {
 		operatorOption.Config.SyncK8sNodes
 }
 
+var legacyCell = cell.Invoke(registerLegacyOnLeader)
+
+func registerLegacyOnLeader(lc hive.Lifecycle, clientSet k8sClient.Clientset) {
+	ctx, cancel := context.WithCancel(context.Background())
+	legacy := &legacyOnLeader{
+		ctx:       ctx,
+		cancel:    cancel,
+		clientset: clientSet,
+	}
+	lc.Append(hive.Hook{
+		OnStart: legacy.onStart,
+		OnStop:  legacy.onStop,
+	})
+}
+
+type legacyOnLeader struct {
+	ctx       context.Context
+	cancel    context.CancelFunc
+	clientset k8sClient.Clientset
+}
+
+func (legacy *legacyOnLeader) onStop(_ context.Context) error {
+	legacy.cancel()
+	return nil
+}
+
 // OnOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
-func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) {
+func (legacy *legacyOnLeader) onStart(_ context.Context) error {
 	IsLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
 	if !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
 		log.Info("Create and run CES controller, start CEP watcher")
 		// Initialize  the CES controller
-		cesController := ces.NewCESController(clientset,
+		cesController := ces.NewCESController(legacy.clientset,
 			operatorOption.Config.CESMaxCEPsInCES,
 			operatorOption.Config.CESSlicingMode,
-			float64(clientset.Config().K8sClientQPS),
-			clientset.Config().K8sClientBurst)
+			float64(legacy.clientset.Config().K8sClientQPS),
+			legacy.clientset.Config().K8sClientBurst)
 		stopCh := make(chan struct{})
 		// Start CEP watcher
-		operatorWatchers.CiliumEndpointsSliceInit(clientset, cesController)
+		operatorWatchers.CiliumEndpointsSliceInit(legacy.clientset, cesController)
 		// Start the CES controller, after current CEPs are synced locally in cache.
 		go cesController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
 	}
@@ -370,7 +412,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 	if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		go enableUnmanagedKubeDNSController(clientset)
+		go enableUnmanagedKubeDNSController(legacy.clientset)
 	}
 
 	var (
@@ -388,11 +430,11 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			log.Fatalf("%s allocator is not supported by this version of %s", ipamMode, binaryName)
 		}
 
-		if err := alloc.Init(ctx); err != nil {
+		if err := alloc.Init(legacy.ctx); err != nil {
 			log.WithError(err).Fatalf("Unable to init %s allocator", ipamMode)
 		}
 
-		nm, err := alloc.Start(ctx, &ciliumNodeUpdateImplementation{clientset})
+		nm, err := alloc.Start(legacy.ctx, &ciliumNodeUpdateImplementation{legacy.clientset})
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
 		}
@@ -402,12 +444,12 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartLBIPAllocator(ctx, option.Config, clientset)
+		operatorWatchers.StartLBIPAllocator(legacy.ctx, option.Config, legacy.clientset)
 	}
 
 	if kvstoreEnabled() {
 		if operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(clientset, true, option.Config)
+			operatorWatchers.StartSynchronizingServices(legacy.clientset, true, option.Config)
 		}
 
 		var goopts *kvstore.ExtraOptions
@@ -441,7 +483,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 							logfields.ServiceName:      name,
 							logfields.ServiceNamespace: namespace,
 						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := clientset.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{})
+						k8sSvc, err := legacy.clientset.CoreV1().Services(namespace).Get(legacy.ctx, name, metav1.GetOptions{})
 						switch {
 						case err == nil:
 							// Create another service cache that contains the
@@ -475,7 +517,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			scopedLog.Infof("%s running without service synchronization: automatic etcd service translation disabled", binaryName)
 		}
 		scopedLog.Info("Connecting to kvstore")
-		if err := kvstore.Setup(ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
+		if err := kvstore.Setup(legacy.ctx, option.Config.KVStore, option.Config.KVStoreOpt, goopts); err != nil {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
@@ -497,19 +539,19 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
 		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
-		operatorWatchers.HandleNodeTolerationAndTaints(clientset, stopCh)
+		operatorWatchers.HandleNodeTolerationAndTaints(legacy.clientset, stopCh)
 	}
 
-	if err := startSynchronizingCiliumNodes(ctx, clientset, nodeManager, withKVStore); err != nil {
+	if err := startSynchronizingCiliumNodes(legacy.ctx, legacy.clientset, nodeManager, withKVStore); err != nil {
 		log.WithError(err).Fatal("Unable to setup node watcher")
 	}
 
 	if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-		RunCNPNodeStatusGC(clientset, ciliumNodeStore)
+		RunCNPNodeStatusGC(legacy.clientset, ciliumNodeStore)
 	}
 
 	if operatorOption.Config.NodesGCInterval != 0 {
-		operatorWatchers.RunCiliumNodeGC(ctx, clientset, ciliumNodeStore, operatorOption.Config.NodesGCInterval)
+		operatorWatchers.RunCiliumNodeGC(legacy.ctx, legacy.clientset, ciliumNodeStore, operatorOption.Config.NodesGCInterval)
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
@@ -526,7 +568,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 		// knows all podCIDRs that are currently set in the cluster, that
 		// it can allocate podCIDRs for the nodes that don't have a podCIDR
 		// set.
-		nodeManager.Resync(ctx, time.Time{})
+		nodeManager.Resync(legacy.ctx, time.Time{})
 	}
 
 	if operatorOption.Config.IdentityGCInterval != 0 {
@@ -542,10 +584,10 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
 
-		startManagingK8sIdentities(clientset)
+		startManagingK8sIdentities(legacy.clientset)
 
 		if operatorOption.Config.IdentityGCInterval != 0 {
-			go startCRDIdentityGC(clientset)
+			go startCRDIdentityGC(legacy.clientset)
 		}
 	case option.IdentityAllocationModeKVstore:
 		if operatorOption.Config.IdentityGCInterval != 0 {
@@ -554,21 +596,21 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 	}
 
 	if operatorOption.Config.EndpointGCInterval != 0 {
-		enableCiliumEndpointSyncGC(clientset, false)
+		enableCiliumEndpointSyncGC(legacy.clientset, false)
 	} else {
 		// Even if the EndpointGC is disabled we still want it to run at least
 		// once. This is to prevent leftover CEPs from populating ipcache with
 		// stale entries.
-		enableCiliumEndpointSyncGC(clientset, true)
+		enableCiliumEndpointSyncGC(legacy.clientset, true)
 	}
 
-	err = enableCNPWatcher(clientset)
+	err = enableCNPWatcher(legacy.clientset)
 	if err != nil {
 		log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
 	}
 
-	err = enableCCNPWatcher(clientset)
+	err = enableCCNPWatcher(legacy.clientset)
 	if err != nil {
 		log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")
@@ -576,7 +618,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 
 	if operatorOption.Config.EnableIngressController {
 		ingressController, err := ingress.NewController(
-			clientset,
+			legacy.clientset,
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
 			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace),
@@ -593,6 +635,7 @@ func OnOperatorStartLeading(ctx context.Context, clientset k8sClient.Clientset) 
 	}
 
 	log.Info("Initialization complete")
+	return nil
 }
 
 // ResetCiliumNodesCacheSyncedStatus resets the current status of
