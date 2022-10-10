@@ -319,32 +319,26 @@ bpf:
   # -- Allow cluster external access to ClusterIP services.
   lbExternalClusterIP: false
 
-  # -- Enable native IP masquerade support in eBPF
-  #masquerade: false
+  # -- (bool) Enable native IP masquerade support in eBPF
+  # @default -- `false`
+  masquerade: ~
 
-  # -- Deprecated in favor of bpf.hostLegacyRouting. To be removed in 1.13.
-  # Configure whether direct routing mode should route traffic via
-  # host stack (true) or directly and more efficiently out of BPF (false) if
-  # the kernel supports it.
-  #hostRouting: true
-
-  # -- Configure whether direct routing mode should route traffic via
+  # -- (bool) Configure whether direct routing mode should route traffic via
   # host stack (true) or directly and more efficiently out of BPF (false) if
   # the kernel supports it. The latter has the implication that it will also
   # bypass netfilter in the host namespace.
-  #hostLegacyRouting: false
+  # @default -- `false`
+  hostLegacyRouting: ~
 
-  # -- Configure the eBPF-based TPROXY to reduce reliance on iptables rules
+  # -- (bool) Configure the eBPF-based TPROXY to reduce reliance on iptables rules
   # for implementing Layer 7 policy.
-  # tproxy: true
+  # @default -- `false`
+  tproxy: ~
 
-  # -- Configure the FIB lookup bypass optimization for nodeport reverse
-  # NAT handling.
-  # lbBypassFIBLookup: true
-
-  # -- Configure explicitly allowed VLAN id's for bpf logic bypass.
+  # -- (list) Configure explicitly allowed VLAN id's for bpf logic bypass.
   # [0] will allow all VLAN id's without any filtering.
-  # vlanBypass: []
+  # @default -- `[]`
+  vlanBypass: ~
 
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.

@@ -97,6 +97,10 @@
      - Configure the path to the host boot directory
      - string
      - ``"/boot"``
+   * - bpf.hostLegacyRouting
+     - Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace.
+     - bool
+     - ``false``
    * - bpf.lbExternalClusterIP
      - Allow cluster external access to ClusterIP services.
      - bool
@@ -105,6 +109,10 @@
      - Configure the maximum number of service entries in the load balancer maps.
      - int
      - ``65536``
+   * - bpf.masquerade
+     - Enable native IP masquerade support in eBPF
+     - bool
+     - ``false``
    * - bpf.monitorAggregation
      - Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum.
      - string
@@ -141,6 +149,14 @@
      - Configure the mount point for the BPF filesystem
      - string
      - ``"/sys/fs/bpf"``
+   * - bpf.tproxy
+     - Configure the eBPF-based TPROXY to reduce reliance on iptables rules for implementing Layer 7 policy.
+     - bool
+     - ``false``
+   * - bpf.vlanBypass
+     - Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering.
+     - list
+     - ``[]``
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object

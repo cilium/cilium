@@ -479,6 +479,7 @@ hostAliases
 hostBoot
 hostConfDirMountPath
 hostFirewall
+hostLegacyRouting
 hostNetwork
 hostPath
 hostPort
@@ -720,6 +721,7 @@ nodeSelector
 nodeX
 nodegroup
 nodeinit
+nodeport
 nonMasqueradeCIDRs
 numReplicas
 observability
@@ -1022,6 +1024,7 @@ virtio
 virtualbox
 virtualization
 vlan
+vlanBypass
 vmlinux
 volumeMounts
 vrf
