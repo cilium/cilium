@@ -179,10 +179,11 @@ func Throttle[T any](src Observable[T], ratePerSecond float64, burst int) Observ
 func Debounce[T any](src Observable[T], duration time.Duration) Observable[T] {
 	return FuncObservable[T](
 		func(ctx context.Context, next func(T), complete func(error)) {
-			errs := make(chan error)
+			errs := make(chan error, 1)
 			items := ToChannel(ctx, errs, src)
 			go func() {
-				done := ctx.Done()
+				defer close(errs)
+
 				timer := time.NewTimer(duration)
 				defer timer.Stop()
 
@@ -191,10 +192,6 @@ func Debounce[T any](src Observable[T], duration time.Duration) Observable[T] {
 
 				for {
 					select {
-					case <-done:
-						complete(ctx.Err())
-						return
-
 					case err := <-errs:
 						complete(err)
 						return

@@ -8,8 +8,14 @@ import (
 	"errors"
 	"testing"
 
+	"go.uber.org/goleak"
+
 	. "github.com/cilium/cilium/pkg/stream"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func assertSlice[T comparable](t *testing.T, what string, expected []T, actual []T) {
 	t.Helper()
