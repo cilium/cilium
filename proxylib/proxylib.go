@@ -18,7 +18,7 @@ import (
 	_ "github.com/cilium/cilium/proxylib/kafka"
 	_ "github.com/cilium/cilium/proxylib/memcached"
 	"github.com/cilium/cilium/proxylib/npds"
-	. "github.com/cilium/cilium/proxylib/proxylib"
+	"github.com/cilium/cilium/proxylib/proxylib"
 	_ "github.com/cilium/cilium/proxylib/r2d2"
 	_ "github.com/cilium/cilium/proxylib/testparsers"
 )
@@ -27,7 +27,7 @@ var (
 	// mutex protects connections
 	mutex lock.RWMutex
 	// Key uint64 is a connection ID allocated by Envoy, practically a monotonically increasing number
-	connections map[uint64]*Connection = make(map[uint64]*Connection)
+	connections map[uint64]*proxylib.Connection = make(map[uint64]*proxylib.Connection)
 )
 
 func init() {
@@ -47,19 +47,19 @@ func strcpy(str string) string {
 //
 //export OnNewConnection
 func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
-	instance := FindInstance(instanceId)
+	instance := proxylib.FindInstance(instanceId)
 	if instance == nil {
 		return C.FILTER_INVALID_INSTANCE
 	}
 
-	err, conn := NewConnection(instance, strcpy(proto), connectionId, ingress, srcId, dstId, strcpy(srcAddr), strcpy(dstAddr), strcpy(policyName), origBuf, replyBuf)
+	err, conn := proxylib.NewConnection(instance, strcpy(proto), connectionId, ingress, srcId, dstId, strcpy(srcAddr), strcpy(dstAddr), strcpy(policyName), origBuf, replyBuf)
 	if err == nil {
 		mutex.Lock()
 		connections[connectionId] = conn
 		mutex.Unlock()
 		return C.FILTER_OK
 	}
-	if res, ok := err.(FilterResult); ok {
+	if res, ok := err.(proxylib.FilterResult); ok {
 		return C.FilterResult(res)
 	}
 	return C.FILTER_UNKNOWN_ERROR
@@ -141,12 +141,12 @@ func OpenModule(params [][2]string, debug bool) uint64 {
 	}
 	// Copy strings from C-memory to Go-memory so that the string remains valid
 	// also after this function returns
-	return OpenInstance(nodeID, xdsPath, npds.NewClient, accessLogPath, accesslog.NewClient)
+	return proxylib.OpenInstance(nodeID, xdsPath, npds.NewClient, accessLogPath, accesslog.NewClient)
 }
 
 //export CloseModule
 func CloseModule(id uint64) {
-	CloseInstance(id)
+	proxylib.CloseInstance(id)
 }
 
 // Must have empty main
