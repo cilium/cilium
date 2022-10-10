@@ -7,6 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	conditionStatusAccepted = "Accepted"
+	conditionReasonAccepted = "Accepted"
+)
+
 // merge combines the provided conditions with the existing conditions.
 func merge(existingConditions []metav1.Condition, updates ...metav1.Condition) []metav1.Condition {
 	var additions []metav1.Condition
