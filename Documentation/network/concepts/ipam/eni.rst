@@ -165,6 +165,12 @@ allocation:
 
   *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
 
+``spec.eni.node-subnet-id``
+  The subnet ID of the first ENI of a node. Used as a fallback for subnet
+  selection in the case where no subnet IDs or tags are configured.
+
+  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
+
 ``spec.ipam.min-allocate``
   The minimum number of IPs that must be allocated when the node is first
   bootstrapped. It defines the minimum base socket of addresses that must be
@@ -394,12 +400,21 @@ matches the following criteria:
  * The VPC ID of the subnet matches ``spec.eni.vpc-id``
  * The Availability Zone of the subnet matches
    ``spec.eni.availability-zone``
- * The subnet contains all tags as specified by
-   ``spec.eni.subnet-tags``
 
-If multiple subnets match, the subnet with the most available addresses is selected.
+If set, ``spec.eni.subnet-ids`` or ``spec.eni.subnet-tags`` are used to further
+narrow down the set of candidate subnets. Any subnet with an ID in
+``subnet-ids`` is a candidate, whereas a subnet must match all ``subnet-tags``
+to be candidate. Note that when ``subnet-ids`` is set, ``subnet-tags`` are
+ignored. If multiple subnets match, the subnet with the most available addresses
+is selected.
 
-After selecting the ENI, the interface index is determined. For this purpose,
+If neither ``subnet-ids`` nor ``subnet-tags`` are set, the operator consults
+``spec.eni.node-subnet-id``, attempting to create the ENI in the same subnet as
+the primary ENI of the instance. If this is not possible (e.g. if there are not
+enough IPs in said subnet), the operator falls back to allocating the IP in the
+largest subnet matching VPC and Availability Zone.
+
+After selecting the subnet, the interface index is determined. For this purpose,
 all existing ENIs are scanned and the first unused index greater than
 ``spec.eni.first-interface-index`` is selected.
 
