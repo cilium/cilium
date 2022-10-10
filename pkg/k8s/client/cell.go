@@ -447,10 +447,10 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 }
 
 type standaloneLifecycle struct {
-	hooks []hive.Hook
+	hooks []hive.HookInterface
 }
 
-func (s *standaloneLifecycle) Append(hook hive.Hook) {
+func (s *standaloneLifecycle) Append(hook hive.HookInterface) {
 	s.hooks = append(s.hooks, hook)
 }
 
@@ -466,7 +466,7 @@ func NewStandaloneClientset(cfg Config) (Clientset, error) {
 	}
 
 	for _, hook := range lc.hooks {
-		if err := hook.OnStart(context.Background()); err != nil {
+		if err := hook.Start(context.Background()); err != nil {
 			return nil, err
 		}
 	}

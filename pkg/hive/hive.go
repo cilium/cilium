@@ -18,7 +18,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/hive/internal"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -285,23 +284,7 @@ func (h *Hive) PrintObjects() {
 	if err := h.populate(); err != nil {
 		log.WithError(err).Fatal("Failed to populate object graph")
 	}
-
-	fmt.Printf("Start hooks:\n\n")
-	for _, hook := range h.lifecycle.hooks {
-		if hook.OnStart == nil {
-			continue
-		}
-		fmt.Printf("  • %s\n", internal.FuncNameAndLocation(hook.OnStart))
-	}
-
-	fmt.Printf("\nStop hooks:\n\n")
-	for i := len(h.lifecycle.hooks) - 1; i >= 0; i-- {
-		hook := h.lifecycle.hooks[i]
-		if hook.OnStop == nil {
-			continue
-		}
-		fmt.Printf("  • %s\n", internal.FuncNameAndLocation(hook.OnStop))
-	}
+	h.lifecycle.PrintHooks()
 }
 
 func (h *Hive) PrintDotGraph() {
