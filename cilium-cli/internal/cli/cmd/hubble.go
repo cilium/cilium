@@ -113,7 +113,7 @@ func newCmdHubbleDisable() *cobra.Command {
 			if err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
 			}
-			if err := h.Disable(ctx); err != nil {
+			if err := h.Disable(ctx, false); err != nil {
 				fatalf("Unable to disable Hubble:  %s", err)
 			}
 			return nil
