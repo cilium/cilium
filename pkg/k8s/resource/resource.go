@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/stream"
@@ -46,19 +45,18 @@ type Resource[T k8sRuntime.Object] interface {
 	Store(context.Context) (Store[T], error)
 }
 
-// NewResourceConstructor provides a constructor for Resource when given a function
-// that maps from a Clientset into a ListerWatcher:
+// New creates a new Resource[T]. Use with hive.Provide:
 //
-//	var exampleCell = cell.Module(
+//	var exampleCell = hive.Module(
 //		"example",
 //	 	cell.Provide(
 //		 	// Provide `Resource[*slim_corev1.Pod]` to the hive:
-//	 		resource.NewResourceConstructor(
-//	 			func(c k8sClient.Clientset) cache.ListerWatcher {
-//					return utils.ListerWatcherFromTyped[*slim_corev1.PodList](
-//						c.Slim().CoreV1().Pods(""),
-//					)
-//				}),
+//		 	func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_corev1.Pod] {
+//				lw := utils.ListerWatcherFromTyped[*slim_corev1.PodList](
+//					c.Slim().CoreV1().Pods(""),
+//				)
+//		 		return resource.New(lc, lw)
+//		 	}
 //			// Use the resource:
 //			newExample,
 //		}),
@@ -76,27 +74,22 @@ type Resource[T k8sRuntime.Object] interface {
 //		// Handle error ...
 //	}
 //
-// See also pkg/k8s/resource/example/main.go.
-func NewResourceConstructor[T k8sRuntime.Object](lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
-	return NewResourceConstructorWithRateLimiter[T](workqueue.DefaultControllerRateLimiter(), lw)
-}
 
-// NewResourceConstructorWithRateLimiter is the same as NewResourceConstructor, but with a custom rate limiter.
-func NewResourceConstructorWithRateLimiter[T k8sRuntime.Object](rateLimiter workqueue.RateLimiter, lw func(c k8sClient.Clientset) cache.ListerWatcher) func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
-	return func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[T] {
-		if !c.IsEnabled() {
-			return nil
-		}
-		newLW := func() cache.ListerWatcher { return lw(c) }
-		res := newResource[T](newLW, rateLimiter)
-		lc.Append(hive.Hook{OnStart: res.start, OnStop: res.stop})
-		return res
+// See also pkg/k8s/resource/example/main.go for a runnable example.
+func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...Option) Resource[T] {
+	r := &resource[T]{
+		queues: make(map[uint64]*keyQueue),
+		opts:   defaultOptions(),
+		lw:     lw,
 	}
+	for _, applyOpt := range opts {
+		applyOpt(&r.opts)
+	}
+	r.ctx, r.cancel = context.WithCancel(context.Background())
+	r.storeResolver, r.storePromise = promise.New[Store[T]]()
+	lc.Append(hive.Hook{OnStart: r.start, OnStop: r.stop})
+	return r
 }
-
-// defaultMaxRetries is the default number of retries for processing an event that was marked
-// failed by a non-nil error to Done().
-const defaultMaxRetries = 5
 
 type resource[T k8sRuntime.Object] struct {
 	mu     lock.RWMutex
@@ -107,30 +100,14 @@ type resource[T k8sRuntime.Object] struct {
 	queues map[uint64]*keyQueue
 	subId  uint64
 
-	rateLimiter     workqueue.RateLimiter
-	maxEventRetries int
+	lw   cache.ListerWatcher
+	opts options
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
-
-	// newLW is the constructor for the ListerWatcher. It's invoked only when starting as the
-	// Clientset is not usable before it has been started.
-	newLW func() cache.ListerWatcher
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
-
-func newResource[T k8sRuntime.Object](newLW func() cache.ListerWatcher, rateLimiter workqueue.RateLimiter) *resource[T] {
-	r := &resource[T]{
-		newLW:           newLW,
-		queues:          make(map[uint64]*keyQueue),
-		maxEventRetries: defaultMaxRetries,
-		rateLimiter:     rateLimiter,
-	}
-	r.ctx, r.cancel = context.WithCancel(context.Background())
-	r.storeResolver, r.storePromise = promise.New[Store[T]]()
-	return r
-}
 
 func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 	return r.storePromise.Await(ctx)
@@ -169,7 +146,7 @@ func (r *resource[T]) start(startCtx context.Context) error {
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
-	store, informer := cache.NewInformer(r.newLW(), objType, 0, handlerFuncs)
+	store, informer := cache.NewInformer(r.lw, objType, 0, handlerFuncs)
 
 	r.wg.Add(2)
 	go func() {
@@ -203,15 +180,23 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 	subCtx, subCancel := context.WithCancel(subCtx)
 
 	queue := &keyQueue{
-		RateLimitingInterface: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		maxRetries:            r.maxEventRetries,
+		RateLimitingInterface: workqueue.NewRateLimitingQueue(r.opts.rateLimiter()),
+		errorHandler:          r.opts.errorHandler,
 	}
+	r.mu.Lock()
+	subId := r.subId
+	r.subId++
+	r.mu.Unlock()
 
 	// Fork a goroutine to pop elements from the queue and pass them to the subscriber.
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-		defer subCancel()
+
+		// Make sure to call ShutDown() in the end. Calling ShutDownWithDrain is not
+		// enough as DelayingQueue does not implement it, so without ShutDown() we'd
+		// leak the (*delayingType).waitingLoop.
+		defer queue.ShutDown()
 
 		// Wait for the store so we can emit the initial items and the sync event.
 		store, err := r.storePromise.Await(subCtx)
@@ -221,8 +206,7 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 		}
 
 		r.mu.Lock()
-		r.subId++
-		r.queues[r.subId] = queue
+		r.queues[subId] = queue
 
 		// Append the initial set of keys to the queue + sentinel for the sync event.
 		// We go through the queue instead of directly emitting to avoid a race between
@@ -264,7 +248,7 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 			}
 		}
 		r.mu.Lock()
-		delete(r.queues, r.subId)
+		delete(r.queues, subId)
 		r.mu.Unlock()
 		complete(queue.getError())
 	}()
@@ -276,9 +260,9 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 		defer r.wg.Done()
 		select {
 		case <-r.ctx.Done():
-			subCancel()
 		case <-subCtx.Done():
 		}
+		subCancel()
 		queue.ShutDownWithDrain()
 	}()
 }
@@ -289,8 +273,9 @@ type keyQueue struct {
 	lock.Mutex
 	workqueue.RateLimitingInterface
 
-	maxRetries int
-	err        error
+	errorHandler ErrorHandler
+
+	err error
 }
 
 func (kq *keyQueue) getError() error {
@@ -315,16 +300,27 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 	defer kq.Done(entry)
 
 	if err != nil {
-		// Processing of this item failed. Check if retry limit has been reached.
-		if kq.NumRequeues(entry) >= kq.maxRetries-1 {
-			kq.setError(err)
-			kq.ShutDown()
-			return
+		numRequeues := kq.NumRequeues(entry)
+
+		var action ErrorAction
+		switch entry := entry.(type) {
+		case *syncEntry:
+			action = ErrorActionStop
+		case *updateEntry:
+			action = kq.errorHandler(entry.key, numRequeues, err)
+		case *deleteEntry:
+			action = kq.errorHandler(entry.key, numRequeues, err)
 		}
 
-		// Can still retry processing it. Add it back to the queue
-		// after a delay.
-		go kq.AddRateLimited(entry)
+		switch action {
+		case ErrorActionRetry:
+			go kq.AddRateLimited(entry)
+		case ErrorActionStop:
+			kq.setError(err)
+			kq.ShutDown()
+		case ErrorActionIgnore:
+			kq.Forget(entry)
+		}
 	} else {
 		// As the object was processed successfully we can "forget" it.
 		// This clears any rate limiter state associated with this object, so

@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -57,16 +56,20 @@ func main() {
 var resourcesCell = cell.Module(
 	"resources",
 	cell.Provide(
-		resource.NewResourceConstructor[*corev1.Pod](
-			func(c client.Clientset) cache.ListerWatcher {
-				return utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
-			},
-		),
-		resource.NewResourceConstructor[*corev1.Service](
-			func(c client.Clientset) cache.ListerWatcher {
-				return utils.ListerWatcherFromTyped[*corev1.ServiceList](c.CoreV1().Services(""))
-			},
-		),
+		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Pod] {
+			if !c.IsEnabled() {
+				return nil
+			}
+			lw := utils.ListerWatcherFromTyped[*corev1.PodList](c.CoreV1().Pods(""))
+			return resource.New[*corev1.Pod](lc, lw)
+		},
+		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Service] {
+			if !c.IsEnabled() {
+				return nil
+			}
+			lw := utils.ListerWatcherFromTyped[*corev1.ServiceList](c.CoreV1().Services(""))
+			return resource.New[*corev1.Service](lc, lw)
+		},
 	),
 )
 
@@ -197,8 +200,8 @@ func (ps *PrintServices) processLoop() {
 
 			// Event can be handled synchronously with 'Handle()':
 			ev.Handle(
-				func(store resource.Store[*corev1.Pod]) error {
-					log.Infof("Pods synced (%d pods)", len(store.List()))
+				func() error {
+					log.Info("Pods synced")
 					return nil
 				},
 				func(k resource.Key, pod *corev1.Pod) error {
@@ -231,7 +234,7 @@ func (ps *PrintServices) processLoop() {
 			// (which allows parallel processing of events):
 			switch ev := ev.(type) {
 			case *resource.SyncEvent[*corev1.Service]:
-				log.Infof("Services synced (%d services)", len(ev.Store.List()))
+				log.Info("Services synced")
 			case *resource.UpdateEvent[*corev1.Service]:
 				log.Infof("Service %s updated", ev.Key)
 				if len(ev.Object.Spec.Selector) > 0 {

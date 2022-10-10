@@ -10,20 +10,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/stream"
 )
 
 const testTimeout = time.Minute
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func testStore(t *testing.T, node *corev1.Node, store Store[*corev1.Node]) {
 	var (
@@ -285,203 +289,166 @@ func TestResourceCompletionOnStop(t *testing.T) {
 	}
 }
 
-func TestResourceSyncEventRetry(t *testing.T) {
-	var nodes Resource[*corev1.Node]
-
-	hive := hive.New(
-		k8sClient.FakeClientCell,
-		nodesResource,
-		cell.Invoke(func(r Resource[*corev1.Node]) {
-			nodes = r
-		}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := hive.Start(ctx); err != nil {
-		t.Fatalf("hive.Start failed: %s", err)
+var RetryFiveTimes ErrorHandler = func(key Key, numRetries int, err error) ErrorAction {
+	if numRetries >= 4 {
+		return ErrorActionStop
 	}
-
-	errs := make(chan error, 1)
-	xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
-
-	expectedErr := errors.New("sync")
-	numRetries := counter{}
-
-	for ev := range xs {
-		ev.Handle(
-			func(s Store[*corev1.Node]) error {
-				numRetries.Inc()
-				return expectedErr
-			},
-			func(key Key, node *corev1.Node) error {
-				return nil
-			},
-			func(key Key, node *corev1.Node) error {
-				t.Fatalf("unexpected delete of %s", key)
-				return nil
-			},
-		)
-	}
-
-	if err := hive.Stop(ctx); err != nil {
-		t.Fatalf("hive.Stop failed: %s", err)
-	}
-
-	if numRetries.Get() != defaultMaxRetries {
-		t.Fatalf("expected to see %d retry attempts, saw %d", defaultMaxRetries, numRetries)
-	}
-
-	err := <-errs
-	if !errors.Is(err, expectedErr) {
-		t.Fatalf("expected %q error, got %q", expectedErr, err)
-	}
+	return ErrorActionRetry
 }
 
-func TestResourceSyncEventRetryOnce(t *testing.T) {
-	var nodes Resource[*corev1.Node]
-
-	hive := hive.New(
-		k8sClient.FakeClientCell,
-		nodesResource,
-		cell.Invoke(func(r Resource[*corev1.Node]) {
-			nodes = r
-		}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := hive.Start(ctx); err != nil {
-		t.Fatalf("hive.Start failed: %s", err)
-	}
-
-	errs := make(chan error, 1)
-	xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
-
-	expectedErr := errors.New("update")
-	numRetries := counter{}
-
-	for ev := range xs {
-		ev.Handle(
-			func(s Store[*corev1.Node]) error {
-				if numRetries.Get() == 1 {
-					cancel()
-					return nil
-				}
-				numRetries.Inc()
-				return expectedErr
-			},
-			func(key Key, node *corev1.Node) error {
-				t.Fatalf("unexpected update of %s", key)
-				return nil
-			},
-			func(key Key, node *corev1.Node) error {
-				t.Fatalf("unexpected delete of %s", key)
-				return nil
-			},
-		)
-	}
-
-	if err := hive.Stop(context.TODO()); err != nil {
-		t.Fatalf("hive.Stop failed: %s", err)
-	}
-
-	if numRetries.Get() != 1 {
-		t.Fatalf("expected to see 1 retry attempt, saw %d", numRetries)
-	}
-
-	err := <-errs
-	if err != nil {
-		t.Fatalf("expected nil error, got %q", err)
-	}
-}
-
-func TestResourceUpdateEventRetry(t *testing.T) {
+func TestResourceRetries(t *testing.T) {
 	var (
-		node = &corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            "some-node",
-				ResourceVersion: "0",
-			},
-			Status: corev1.NodeStatus{
-				Phase: "init",
-			},
-		}
-
-		nodes Resource[*corev1.Node]
-
+		nodes          Resource[*corev1.Node]
 		fakeClient, cs = k8sClient.NewFakeClientset()
 	)
 
-	// Create the initial version of the node. Do this before anything
-	// starts watching the resources to avoid a race.
+	rateLimiterUsed := counter{}
+	rateLimiter := func() workqueue.RateLimiter {
+		rateLimiterUsed.Inc()
+		return workqueue.DefaultControllerRateLimiter()
+	}
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[*corev1.Node] {
+			nodesLW := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
+			return New[*corev1.Node](lc, nodesLW,
+				WithRateLimiter(rateLimiter),
+				WithErrorHandler(RetryFiveTimes))
+		}),
+		cell.Invoke(func(r Resource[*corev1.Node]) {
+			nodes = r
+		}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := hive.Start(ctx)
+	assert.NoError(t, err)
+
+	// Check that the WithRateLimiter option works.
+	ev, err := stream.First[Event[*corev1.Node]](ctx, nodes)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), rateLimiterUsed.Get())
+	ev.Done(nil)
+
+	// Test that stream completes on a single sync error.
+	{
+		errs := make(chan error, 1)
+		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
+
+		expectedErr := errors.New("sync")
+		numRetries := counter{}
+
+		for ev := range xs {
+			ev.Handle(
+				func(s Store[*corev1.Node]) error {
+					numRetries.Inc()
+					return expectedErr
+				},
+				func(key Key, node *corev1.Node) error {
+					return nil
+				},
+				func(key Key, node *corev1.Node) error {
+					t.Fatalf("unexpected delete of %s", key)
+					return nil
+				},
+			)
+		}
+
+		assert.Equal(t, int64(1), numRetries.Get(), "expected to see 1 attempt for sync")
+		err = <-errs
+		assert.ErrorIs(t, err, expectedErr)
+	}
+
+	var node = &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "some-node",
+			ResourceVersion: "0",
+		},
+		Status: corev1.NodeStatus{
+			Phase: "init",
+		},
+	}
+
+	// Create the initial version of the node.
 	fakeClient.KubernetesFakeClientset.Tracker().Create(
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		node, "")
 
-	hive := hive.New(
-		cell.Provide(func() k8sClient.Clientset { return cs }),
-		nodesResource,
-		cell.Invoke(func(r Resource[*corev1.Node]) {
-			nodes = r
-		}))
+	// Test that update events are retried
+	{
+		errs := make(chan error, 1)
+		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+		expectedErr := errors.New("update")
+		numRetries := counter{}
 
-	if err := hive.Start(ctx); err != nil {
-		t.Fatalf("hive.Start failed: %s", err)
+		for ev := range xs {
+			ev.Handle(
+				func(s Store[*corev1.Node]) error {
+					return nil
+				},
+				func(key Key, node *corev1.Node) error {
+					numRetries.Inc()
+					return expectedErr
+				},
+				func(key Key, node *corev1.Node) error {
+					t.Fatalf("unexpected delete of %s", key)
+					return nil
+				},
+			)
+		}
+
+		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for update")
+		err = <-errs
+		assert.ErrorIs(t, err, expectedErr)
 	}
 
-	errs := make(chan error, 1)
-	xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
+	// Test that delete events are retried
+	{
+		errs := make(chan error, 1)
+		xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
 
-	expectedErr := errors.New("sync")
-	numRetries := counter{}
+		expectedErr := errors.New("delete")
+		numRetries := counter{}
 
-	// Since no objects were created, we'll only see a sync event.
-	// Always return an error to force reprocessing until we hit the
-	// retry limit.
-	for ev := range xs {
-		ev.Handle(
-			func(s Store[*corev1.Node]) error {
-				return nil
-			},
-			func(key Key, node *corev1.Node) error {
-				numRetries.Inc()
-				return expectedErr
-			},
-			func(key Key, node *corev1.Node) error {
-				t.Fatalf("unexpected delete of %s", key)
-				return nil
-			},
-		)
+		for ev := range xs {
+			ev.Handle(
+				func(s Store[*corev1.Node]) error {
+					return nil
+				},
+				func(key Key, node *corev1.Node) error {
+					fakeClient.KubernetesFakeClientset.Tracker().Delete(
+						corev1.SchemeGroupVersion.WithResource("nodes"),
+						"", node.Name)
+					return nil
+				},
+				func(key Key, node *corev1.Node) error {
+					numRetries.Inc()
+					return expectedErr
+				},
+			)
+		}
+
+		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for delete")
+		err = <-errs
+		assert.ErrorIs(t, err, expectedErr)
 	}
 
-	if err := hive.Stop(ctx); err != nil {
-		t.Fatalf("hive.Stop failed: %s", err)
-	}
-
-	if numRetries.Get() != defaultMaxRetries {
-		t.Fatalf("expected to see %d retry attempts, saw %d", defaultMaxRetries, numRetries)
-	}
-
-	err := <-errs
-	if !errors.Is(err, expectedErr) {
-		t.Fatalf("expected %q error, got %q", expectedErr, err)
-	}
+	err = hive.Stop(ctx)
+	assert.NoError(t, err)
 }
 
 //
 // Helpers
 //
 
-func nodesLW(c k8sClient.Clientset) cache.ListerWatcher {
-	return utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
-}
-
 var nodesResource = cell.Provide(
-	NewResourceConstructorWithRateLimiter[*corev1.Node](testRateLimiter(), nodesLW),
+	func(lc hive.Lifecycle, c k8sClient.Clientset) Resource[*corev1.Node] {
+		lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
+		return New[*corev1.Node](lc, lw)
+	},
 )
 
 type counter struct{ int64 }
@@ -492,32 +459,4 @@ func (c *counter) Inc() {
 
 func (c *counter) Get() int64 {
 	return atomic.LoadInt64(&c.int64)
-}
-
-type nopLimiter struct {
-	lock.Mutex
-	requeues map[any]int
-}
-
-func (n *nopLimiter) When(item any) time.Duration {
-	n.Lock()
-	n.requeues[item] = 0
-	n.Unlock()
-	return time.Duration(1)
-}
-func (n *nopLimiter) Forget(item any) {
-	n.Lock()
-	delete(n.requeues, item)
-	n.Unlock()
-}
-func (n *nopLimiter) NumRequeues(item any) int {
-	n.Lock()
-	defer n.Unlock()
-	return n.requeues[item]
-}
-
-// testRateLimiter is a custom rate limiter for the tests to allow testing retrying
-// without making the tests slow.
-func testRateLimiter() workqueue.RateLimiter {
-	return &nopLimiter{requeues: make(map[any]int)}
 }
