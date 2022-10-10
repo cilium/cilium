@@ -181,7 +181,9 @@ The process to grant commit access to a candidate is simple:
    to the repos. The new committer is invited to the #committers Slack channel,
    *after* the nomination poll and related discussions have been deleted. The
    name of the new committer is also added to the list in the MAINTAINERS.md_
-   file.
+   file. The new committer is also added to the CNCF's list of Cilium
+   maintainers as documented `here
+   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__. 
 
 Revoking Commit Access
 ----------------------
@@ -223,7 +225,9 @@ process in this case is:
 
 -  In any case, where access is removed, this fact is published through
    a Slack message to all existing committers (including the candidate for
-   removal).
+   removal). The candidate is also removed from the CNCF's list of Cilium
+   maintainers as documented `here
+   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__. 
 
 The more difficult situation is a committer who is behaving in a manner
 that is viewed as detrimental to the future of the project by other
