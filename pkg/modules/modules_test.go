@@ -45,11 +45,8 @@ type ModulesTestSuite struct{}
 var _ = Suite(&ModulesTestSuite{})
 
 func (s *ModulesTestSuite) TestInit(c *C) {
-	manager := &ModulesManager{}
-	c.Assert(manager.modulesList, IsNil)
-	err := manager.Init()
-	c.Assert(err, IsNil)
-	c.Assert(manager.modulesList, NotNil)
+	var manager ModulesManager
+	c.Assert(manager.Init(), IsNil)
 }
 
 func (s *ModulesTestSuite) TestFindModules(c *C) {
