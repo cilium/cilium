@@ -119,6 +119,53 @@ func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 		config:     cfg,
 	}
 
+	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create k8s client rest configuration: %w", err)
+	}
+	client.restConfig = restConfig
+	defaultCloseAllConns := setDialer(cfg, restConfig)
+
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create k8s REST client: %w", err)
+	}
+
+	// We are implementing the same logic as Kubelet, see
+	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
+	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
+		client.closeAllConns = defaultCloseAllConns
+	} else {
+		client.closeAllConns = func() {
+			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
+		}
+	}
+
+	// Slim and K8s clients use protobuf marshalling.
+	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+
+	client.slim, err = slim_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create slim k8s client: %w", err)
+	}
+
+	client.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create apiext k8s client: %w", err)
+	}
+
+	client.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create k8s client: %w", err)
+	}
+
+	// The cilium client uses JSON marshalling.
+	restConfig.ContentConfig.ContentType = `application/json`
+	client.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create cilium k8s client: %w", err)
+	}
+
 	lc.Append(hive.Hook{
 		OnStart: client.onStart,
 		OnStop:  client.onStop,
@@ -155,62 +202,13 @@ func (c *compositeClientset) onStart(startCtx context.Context) error {
 		return nil
 	}
 
-	cfg := c.config
-
-	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst)
-	if err != nil {
-		return fmt.Errorf("unable to create k8s client rest configuration: %w", err)
-	}
-	c.restConfig = restConfig
-	defaultCloseAllConns := setDialer(cfg, restConfig)
-
-	httpClient, err := rest.HTTPClientFor(restConfig)
-	if err != nil {
-		return fmt.Errorf("unable to create k8s REST client: %w", err)
-	}
-
-	// We are implementing the same logic as Kubelet, see
-	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
-	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
-		c.closeAllConns = defaultCloseAllConns
-	} else {
-		c.closeAllConns = func() {
-			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
-		}
-	}
-
-	// Slim and K8s clients use protobuf marshalling.
-	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
-
-	c.slim, err = slim_clientset.NewForConfigAndClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create slim k8s client: %w", err)
-	}
-
-	c.APIExtClientset, err = slim_apiext_clientset.NewForConfigAndClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create apiext k8s client: %w", err)
-	}
-
-	c.KubernetesClientset, err = kubernetes.NewForConfigAndClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create k8s client: %w", err)
-	}
-
-	// The cilium client uses JSON marshalling.
-	restConfig.ContentConfig.ContentType = `application/json`
-	c.CiliumClientset, err = cilium_clientset.NewForConfigAndClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create cilium k8s client: %w", err)
-	}
-
 	if err := c.waitForConn(startCtx); err != nil {
 		return err
 	}
 	c.startHeartbeat()
 
 	// Update the global K8s clients, K8s version and the capabilities.
-	if err := k8sversion.Update(c, cfg.EnableK8sAPIDiscovery); err != nil {
+	if err := k8sversion.Update(c, c.config.EnableK8sAPIDiscovery); err != nil {
 		return err
 	}
 
@@ -228,13 +226,6 @@ func (c *compositeClientset) onStop(ctx context.Context) error {
 	if c.IsEnabled() {
 		c.controller.RemoveAllAndWait()
 		c.closeAllConns()
-
-		// Drop references created in onStart
-		c.closeAllConns = nil
-		c.slim = nil
-		c.APIExtClientset = nil
-		c.CiliumClientset = nil
-		c.KubernetesClientset = nil
 	}
 	c.started = false
 	return nil
