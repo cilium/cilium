@@ -158,6 +158,14 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		return nil
 	}
 
+	var emf endpointMetadataFetcher
+	if option.Config.EnableHighScaleIPcache {
+		emf = &uncachedEndpointMetadataFetcher{slimcli: d.clientset.Slim()}
+	} else {
+		emf = &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
+	}
+	d.endpointMetadataFetcher = emf
+
 	log.Info("Restoring endpoints...")
 
 	var (
