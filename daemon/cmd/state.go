@@ -65,14 +65,8 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && d.clientset.IsEnabled() {
-		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
-		pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
-		if err != nil && k8serrors.IsNotFound(err) {
-			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
-		} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
-			// if flag `option.Config.K8sEventHandover` is false and CiliumEndpointCRD is disabled,
-			// `GetCachedPod` may return endpoint has moved to another node.
-			return false, fmt.Errorf("Kubernetes pod %s/%s is not owned by this agent", ep.K8sNamespace, ep.K8sPodName)
+		if err := d.getPodForEndpoint(ep); err != nil {
+			return false, err
 		}
 
 		// Initialize the endpoint's event queue because the following call to
@@ -95,6 +89,19 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	return true, nil
+}
+
+func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
+	d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
+	pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
+	} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
+		// if flag `option.Config.K8sEventHandover` is false and CiliumEndpointCRD is disabled,
+		// `GetCachedPod` may return endpoint has moved to another node.
+		return fmt.Errorf("Kubernetes pod %s/%s is not owned by this agent", ep.K8sNamespace, ep.K8sPodName)
+	}
+	return nil
 }
 
 // fetchOldEndpoints reads the list of existing endpoints previously managed by Cilium when it was
