@@ -149,6 +149,9 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 			if StringsContains(contents, "kvm") {
 				system = "kvm"
 				role = "host"
+			} else if StringsContains(contents, "hv_util") {
+				system = "hyperv"
+				role = "guest"
 			} else if StringsContains(contents, "vboxdrv") {
 				system = "vbox"
 				role = "host"
