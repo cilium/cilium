@@ -18,7 +18,7 @@ type Event[T k8sRuntime.Object] interface {
 	// then do a type-switch on Event[T] and call Done() after the
 	// event has been processed.
 	Handle(
-		onSync func(Store[T]) error,
+		onSync func() error,
 		onUpdate func(Key, T) error,
 		onDelete func(Key, T) error,
 	)
@@ -45,13 +45,12 @@ func (b *baseEvent) Done(err error) {
 // perform e.g. garbage collection operations.
 type SyncEvent[T k8sRuntime.Object] struct {
 	baseEvent
-	Store Store[T]
 }
 
 var _ Event[*corev1.Node] = &SyncEvent[*corev1.Node]{}
 
-func (ev *SyncEvent[T]) Handle(onSync func(store Store[T]) error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
-	ev.Done(onSync(ev.Store))
+func (ev *SyncEvent[T]) Handle(onSync func() error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
+	ev.Done(onSync())
 }
 
 // UpdateEvent is emitted when an object has been added or updated
@@ -63,7 +62,7 @@ type UpdateEvent[T k8sRuntime.Object] struct {
 
 var _ Event[*corev1.Node] = &UpdateEvent[*corev1.Node]{}
 
-func (ev *UpdateEvent[T]) Handle(onSync func(Store[T]) error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
+func (ev *UpdateEvent[T]) Handle(onSync func() error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
 	ev.Done(onUpdate(ev.Key, ev.Object))
 }
 
@@ -76,6 +75,6 @@ type DeleteEvent[T k8sRuntime.Object] struct {
 
 var _ Event[*corev1.Node] = &DeleteEvent[*corev1.Node]{}
 
-func (ev *DeleteEvent[T]) Handle(onSync func(Store[T]) error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
+func (ev *DeleteEvent[T]) Handle(onSync func() error, onUpdate func(Key, T) error, onDelete func(Key, T) error) {
 	ev.Done(onDelete(ev.Key, ev.Object))
 }

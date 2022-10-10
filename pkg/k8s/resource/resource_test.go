@@ -110,7 +110,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 
 	// First event should be the node (initial set)
 	(<-xs).Handle(
-		func(_ Store[*corev1.Node]) error {
+		func() error {
 			t.Fatal("unexpected sync")
 			return nil
 		},
@@ -134,8 +134,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 
 	// Second should be a sync.
 	(<-xs).Handle(
-		func(s Store[*corev1.Node]) error {
-			testStore(t, node, s)
+		func() error {
 			return nil
 		},
 		func(key Key, node *corev1.Node) error {
@@ -162,7 +161,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		node, "")
 	(<-xs).Handle(
-		func(_ Store[*corev1.Node]) error {
+		func() error {
 			t.Fatalf("unexpected sync")
 			return nil
 		},
@@ -186,7 +185,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		"", "some-node")
 	(<-xs).Handle(
-		func(_ Store[*corev1.Node]) error {
+		func() error {
 			t.Fatalf("unexpected sync")
 			return nil
 		},
@@ -249,7 +248,7 @@ func TestResourceCompletionOnStop(t *testing.T) {
 
 	// We should only see a sync event
 	(<-xs).Handle(
-		func(s Store[*corev1.Node]) error {
+		func() error {
 			return nil
 		},
 		func(key Key, node *corev1.Node) error {
@@ -342,7 +341,7 @@ func TestResourceRetries(t *testing.T) {
 
 		for ev := range xs {
 			ev.Handle(
-				func(s Store[*corev1.Node]) error {
+				func() error {
 					numRetries.Inc()
 					return expectedErr
 				},
@@ -386,7 +385,7 @@ func TestResourceRetries(t *testing.T) {
 
 		for ev := range xs {
 			ev.Handle(
-				func(s Store[*corev1.Node]) error {
+				func() error {
 					return nil
 				},
 				func(key Key, node *corev1.Node) error {
@@ -415,7 +414,7 @@ func TestResourceRetries(t *testing.T) {
 
 		for ev := range xs {
 			ev.Handle(
-				func(s Store[*corev1.Node]) error {
+				func() error {
 					return nil
 				},
 				func(key Key, node *corev1.Node) error {
