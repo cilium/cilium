@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -92,8 +93,16 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 }
 
 func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
-	d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
-	pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+	var (
+		pod *slim_corev1.Pod
+		err error
+	)
+	if option.Config.EnableHighScaleIPcache {
+		pod, _, _, _, _, err = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+	} else {
+		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
+		pod, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+	}
 	if err != nil && k8serrors.IsNotFound(err) {
 		return fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 	} else if err == nil && pod.Spec.NodeName != nodeTypes.GetName() {
