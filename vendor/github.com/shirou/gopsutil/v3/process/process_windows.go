@@ -408,7 +408,7 @@ func (p *Process) CwdWithContext(_ context.Context) (string, error) {
 		}
 		if userProcParams.CurrentDirectoryPathNameLength > 0 {
 			cwd := readProcessMemory(syscall.Handle(h), procIs32Bits, uint64(userProcParams.CurrentDirectoryPathAddress), uint(userProcParams.CurrentDirectoryPathNameLength))
-			if len(cwd) != int(userProcParams.CurrentDirectoryPathAddress) {
+			if len(cwd) != int(userProcParams.CurrentDirectoryPathNameLength) {
 				return "", errors.New("cannot read current working directory")
 			}
 
