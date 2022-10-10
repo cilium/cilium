@@ -249,7 +249,7 @@ data:
   enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "tproxy" }}
+{{- if (not (kindIs "invalid" .Values.bpf.tproxy)) }}
   enable-bpf-tproxy: {{ .Values.bpf.tproxy | quote }}
 {{- else if eq $defaultBpfTProxy "true" }}
   enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
@@ -284,11 +284,8 @@ data:
   bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "hostLegacyRouting" }}
+{{- if (not (kindIs "invalid" .Values.bpf.hostLegacyRouting)) }}
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
-{{- else if hasKey .Values.bpf "hostRouting" }}
-  # DEPRECATED: this block should be removed in 1.13
-  enable-host-legacy-routing: {{ .Values.bpf.hostRouting | quote }}
 {{- end }}
 
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
@@ -330,11 +327,6 @@ data:
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
   bpf-lb-map-max: "{{ .Values.bpf.lbMapMax }}"
-{{- end }}
-  # bpf-lb-bypass-fib-lookup instructs Cilium to enable the FIB lookup bypass
-  # optimization for nodeport reverse NAT handling.
-{{- if hasKey .Values.bpf "lbBypassFIBLookup" }}
-  bpf-lb-bypass-fib-lookup: {{ .Values.bpf.lbBypassFIBLookup | quote }}
 {{- end }}
 {{- if hasKey .Values.bpf "lbExternalClusterIP" }}
   bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
@@ -472,7 +464,7 @@ data:
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
 
-{{- if hasKey .Values.bpf "masquerade" }}
+{{- if (not (kindIs "invalid" .Values.bpf.masquerade)) }}
   enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
 {{- else if eq $defaultBpfMasquerade "true" }}
   enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
@@ -882,7 +874,7 @@ data:
   cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "vlanBypass" }}
+{{- if .Values.bpf.vlanBypass }}
   # A space separated list of explicitly allowed vlan id's
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
