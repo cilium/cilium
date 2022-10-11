@@ -379,6 +379,7 @@ enableK
 enableRuntimeDeviceDetection
 enableXTSocketFallback
 enablement
+endPort
 endian
 endianness
 endpointGCInterval
