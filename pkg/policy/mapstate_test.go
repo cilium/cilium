@@ -11,6 +11,8 @@ import (
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -726,7 +728,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 		},
 	}
 	for _, tt := range tests {
-		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry)
+		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry, nil)
 		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
 	}
 }
@@ -1139,7 +1141,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1376,7 +1378,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
@@ -1934,7 +1936,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
 		}
-		adds, deletes = policyMaps.consumeMapChanges(policyMapState)
+		adds, deletes = policyMaps.consumeMapChanges(policyMapState, nil)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
@@ -1946,5 +1948,133 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
 		c.Assert(deletes, checker.DeepEquals, tt.deletes, check.Commentf(tt.name+" (deletes)"))
+	}
+}
+
+func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.C) {
+	identityCache := cache.IdentityCache{
+		identity.ReservedIdentityWorld: labels.LabelWorld.LabelArray(),
+		worldIPIdentity:                lblWorldIP,                  // "192.0.2.3/32"
+		worldSubnetIdentity:            lblWorldSubnet.LabelArray(), // "192.0.2.0/24"
+	}
+
+	reservedWorldID := identity.ReservedIdentityWorld.Uint32()
+	worldIPID := worldIPIdentity.Uint32()
+	worldSubnetID := worldSubnetIdentity.Uint32()
+	selectorCache := testNewSelectorCache(identityCache)
+	type action uint16
+	const (
+		noAction = action(iota)
+		insertA  = action(1 << iota)
+		insertB
+		insertAWithBProto
+		insertBWithAProto
+
+		insertBoth            = insertA | insertB
+		canDeleteAInsertsBoth = insertBoth
+		canDeleteBInsertsBoth = insertBoth
+	)
+	// these tests are based on the sheet https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536
+	tests := []struct {
+		name                 string
+		aIdentity, bIdentity uint32
+		aIsDeny, bIsDeny     bool
+		aPort                uint16
+		aProto               uint8
+		bPort                uint16
+		bProto               uint8
+		outcome              action
+	}{
+		// deny-allow insertions
+		{"deny-allow: a superset a|b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 0, insertA},
+		{"deny-allow: b superset a|b L3-only", worldIPID, worldSubnetID, true, false, 0, 0, 0, 0, insertBoth},
+		{"deny-allow: a superset a L3-only, b L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 0, 6, insertA},
+		{"deny-allow: b superset a L3-only, b L4", worldIPID, worldSubnetID, true, false, 0, 0, 0, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: a superset a L3-only, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 0, 80, 6, insertA},
+		{"deny-allow: b superset a L3-only, b L3L4", worldIPID, worldSubnetID, true, false, 0, 0, 80, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: a superset a L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
+		{"deny-allow: b superset a L4, b L3-only", worldIPID, worldSubnetID, true, false, 0, 6, 0, 0, insertBoth},
+		{"deny-allow: a superset a L4, b L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 0, 6, insertA},
+		{"deny-allow: b superset a L4, b L4", worldIPID, worldSubnetID, true, false, 0, 6, 0, 6, insertBoth},
+		{"deny-allow: a superset a L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 0, 6, 80, 6, insertA},
+		{"deny-allow: b superset a L4, b L3L4", worldIPID, worldSubnetID, true, false, 0, 6, 80, 6, insertBoth | insertAWithBProto},
+		{"deny-allow: a superset a L3L4, b L3-only", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
+		{"deny-allow: b superset a L3L4, b L3-only", worldIPID, worldSubnetID, true, false, 80, 6, 0, 0, insertBoth},
+		{"deny-allow: a superset a L3L4, b L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
+		{"deny-allow: b superset a L3L4, b L4", worldIPID, worldSubnetID, true, false, 80, 6, 0, 6, insertBoth},
+		{"deny-allow: a superset a L3L4, b L3L4", reservedWorldID, worldSubnetID, true, false, 80, 6, 80, 6, insertA},
+		{"deny-allow: b superset a L3L4, b L3L4", worldIPID, worldSubnetID, true, false, 80, 6, 80, 6, insertBoth},
+
+		// deny-deny insertions: Note: We do not delete all redundant deny-deny insertions that we could.
+		// We only delete entries redundant to L3-only port protocols, all other port-protocol supersets
+		// *do not* have this effect.
+		{"deny-deny: a superset a|b L3-only", worldSubnetID, worldIPID, true, true, 0, 0, 0, 0, insertA},
+		{"deny-deny: b superset a|b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 0, insertB},
+		{"deny-deny: a superset a L3-only, b L4", worldSubnetID, worldIPID, true, true, 0, 0, 0, 6, insertA},
+		{"deny-deny: b superset a L3-only, b L4", worldSubnetID, reservedWorldID, true, true, 0, 0, 0, 6, insertBoth},
+		{"deny-deny: a superset a L3-only, b L3L4", worldSubnetID, worldIPID, true, true, 0, 0, 80, 6, insertA},
+		{"deny-deny: b superset a L3-only, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 0, 80, 6, insertBoth},
+		{"deny-deny: a superset a L4, b L3-only", worldSubnetID, worldIPID, true, true, 0, 6, 0, 0, insertBoth},
+		{"deny-deny: b superset a L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 0, insertB},
+		{"deny-deny: a superset a L4, b L4", worldSubnetID, worldIPID, true, true, 0, 6, 0, 6, canDeleteBInsertsBoth},
+		{"deny-deny: b superset a L4, b L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 0, 6, canDeleteAInsertsBoth},
+		{"deny-deny: a superset a L4, b L3L4", worldSubnetID, worldIPID, true, true, 0, 6, 80, 6, canDeleteBInsertsBoth},
+		{"deny-deny: b superset a L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 0, 6, 80, 6, insertBoth},
+		{"deny-deny: a superset a L3L4, b L3-only", worldSubnetID, worldIPID, true, true, 80, 6, 0, 0, insertBoth},
+		{"deny-deny: b superset a L3L4, b L3-only", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 0, insertB},
+		{"deny-deny: a superset a L3L4, b L4", worldSubnetID, worldIPID, true, true, 80, 6, 0, 6, insertBoth},
+		{"deny-deny: b superset a L3L4, b L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 0, 6, canDeleteAInsertsBoth},
+		{"deny-deny: a superset a L3L4, b L3L4", worldSubnetID, worldIPID, true, true, 80, 6, 80, 6, canDeleteBInsertsBoth},
+		{"deny-deny: b superset a L3L4, b L3L4", worldSubnetID, reservedWorldID, true, true, 80, 6, 80, 6, canDeleteAInsertsBoth},
+		// allow-allow insertions do not need to be tests as they will all be inserted
+	}
+	for _, tt := range tests {
+		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
+		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
+		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
+		expectedKeys := MapState{}
+		if tt.outcome&insertA > 0 {
+			expectedKeys[aKey] = aEntry
+		}
+		if tt.outcome&insertB > 0 {
+			expectedKeys[bKey] = bEntry
+		}
+		if tt.outcome&insertAWithBProto > 0 {
+			aKeyWithBProto := Key{Identity: tt.aIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto}
+			aEntryCpy := MapStateEntry{IsDeny: tt.aIsDeny}
+			aEntryCpy.owners = map[MapStateOwner]struct{}{aKey: {}}
+			aEntry.AddDependent(aKeyWithBProto)
+			expectedKeys[aKey] = aEntry
+			expectedKeys[aKeyWithBProto] = aEntryCpy
+		}
+		if tt.outcome&insertBWithAProto > 0 {
+			bKeyWithBProto := Key{Identity: tt.bIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+			bEntryCpy := MapStateEntry{IsDeny: tt.bIsDeny}
+			bEntryCpy.owners = map[MapStateOwner]struct{}{bKey: {}}
+			bEntry.AddDependent(bKeyWithBProto)
+			expectedKeys[bKey] = bEntry
+			expectedKeys[bKeyWithBProto] = bEntryCpy
+		}
+		outcomeKeys := MapState{}
+		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
+		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
+	}
+	// Now test all cases with different traffic directions.
+	// This should result in both entries being inserted with
+	// no changes, as they do not affect one another anymore.
+	for _, tt := range tests {
+		aKey := Key{Identity: tt.aIdentity, DestPort: tt.aPort, Nexthdr: tt.aProto}
+		aEntry := MapStateEntry{IsDeny: tt.aIsDeny}
+		bKey := Key{Identity: tt.bIdentity, DestPort: tt.bPort, Nexthdr: tt.bProto, TrafficDirection: 1}
+		bEntry := MapStateEntry{IsDeny: tt.bIsDeny}
+		expectedKeys := MapState{}
+		expectedKeys[aKey] = aEntry
+		expectedKeys[bKey] = bEntry
+		outcomeKeys := MapState{}
+		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
+		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
 }
