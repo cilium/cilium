@@ -425,7 +425,14 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc, concurrencyLimit int) (*DNSProxy, error) {
+func StartDNSProxy(
+	address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int,
+	lookupEPFunc LookupEndpointIDByIPFunc,
+	lookupSecIDFunc LookupSecIDByIPFunc,
+	lookupIPsFunc LookupIPsBySecIDFunc,
+	notifyFunc NotifyOnDNSMsgFunc,
+	concurrencyLimit int, concurrencyGracePeriod time.Duration,
+) (*DNSProxy, error) {
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return nil, fmt.Errorf("failed to start DNS proxy: %w", err)
 	}
@@ -454,7 +461,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 	}
 	if concurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
-		p.ConcurrencyGracePeriod = option.Config.DNSProxyConcurrencyProcessingGracePeriod
+		p.ConcurrencyGracePeriod = concurrencyGracePeriod
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
