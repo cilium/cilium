@@ -1,5 +1,51 @@
 # Changelog
 
+## v1.11.10
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bugtool: Fix pprof default ports (Backport PR #21633, Upstream PR #21497, @pippolo84)
+* daemon: avoid nil pointer dereference on invalid endpoint state (Backport PR #21468, Upstream PR #21449, @tklauser)
+* daemon: Fix a nil dereference on cleanup when DNS proxy is not enabled (Backport PR #21468, Upstream PR #21365, @joamaki)
+* Fix agent deadlock caused by frequent kube-apiserver IP recycling (Backport PR #21564, Upstream PR #21629, @joestringer)
+* Fix bug that can cause some traffic covered by an L7 policy to be dropped when IPsec is enabled on EKS. (Backport PR #21642, Upstream PR #21595, @pchaigno)
+* Fix bug where traffic sent outside the cluster via ToFQDNs policy would be denied despite a policy that allows it (Backport PR #21564, Upstream PR #20721, @joestringer)
+* ipcache: Fix metadata access from CIDR allocation (Backport PR #21564, Upstream PR #21565, @joestringer)
+
+**CI Changes:**
+* Remove Slack notifications (Backport PR #21468, Upstream PR #21239, @michi-covalent)
+
+**Misc Changes:**
+* bugtool: Dump envoy config for troubleshooting (Backport PR #21468, Upstream PR #21348, @sayboras)
+* build(deps): bump 8398a7/action-slack from 3.13.2 to 3.14.0 (#21442, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.8 to 3.0.10 (#21557, @dependabot[bot])
+* build(deps): bump actions/checkout from 3.0.2 to 3.1.0 (#21573, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.22 to 2.1.24 (#21341, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.24 to 2.1.25 (#21396, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.25 to 2.1.26 (#21513, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.26 to 2.1.27 (#21624, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.3.0 to 1.4.0 (#21426, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.4 to 1.5.5 (#21408, @dependabot[bot])
+* cmd/bpf: Log if no policy maps found (Backport PR #21468, Upstream PR #21429, @aditighag)
+* contrib: avoid reviews from non-collaborators (Backport PR #21633, Upstream PR #21577, @bimmlerd)
+* Fix a typo in the comment example (Backport PR #21468, Upstream PR #21402, @farcaller)
+* helm: Fix post-start and pre-stop hooks for cilium-nodeinit on Ubuntu EKS images (Backport PR #21468, Upstream PR #20979, @dctrwatson)
+* images: update cilium-{runtime,builder} (#21660, @qmonnet)
+* ipcache: Fix lock leak (Backport PR #21564, Upstream PR #20833, @joestringer)
+* ipcache: Release metadata mutex in loop error condition (Backport PR #21564, Upstream PR #21653, @joestringer)
+* ipsec: Fix slightly incorrect assumption in XFRM IN policies (Backport PR #21642, Upstream PR #21621, @pchaigno)
+* ipsec: Refactoring around `UpsertIPsecEndpoint` (Backport PR #21633, Upstream PR #21461, @pchaigno)
+* ipsec: Simplify XFRM FWD policies (Backport PR #21642, Upstream PR #21602, @pchaigno)
+* ipsec: Simplify XFRM IN policies (Backport PR #21468, Upstream PR #21370, @pchaigno)
+* makefile: use versioned Go container when formatting after api generate. (Backport PR #21468, Upstream PR #21254, @tommyp1ckles)
+
+**Other Changes:**
+* Aspsk/backports to v1.11 (#21476, @aspsk)
+* install: Update image digests for v1.11.9 (#21309, @nebril)
+* test: node: use Eventually() to check CiliumNode labels (#21399, @jibi)
+
 ## v1.11.9
 
 Summary of Changes
