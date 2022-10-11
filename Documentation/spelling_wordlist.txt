@@ -351,6 +351,7 @@ enableIdentityMark
 enableK
 enableXTSocketFallback
 enablement
+endPort
 endian
 endianness
 endpointGCInterval
