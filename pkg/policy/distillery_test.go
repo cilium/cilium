@@ -1127,3 +1127,72 @@ func Test_AllowAll(t *testing.T) {
 		})
 	}
 }
+
+var (
+	ruleL3L4__DenyWorld = api.NewRule().
+				WithIngressDenyRules([]api.IngressDenyRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEntities: api.EntitySlice{api.EntityWorld},
+			},
+		}}).
+		WithEndpointSelector(api.WildcardEndpointSelector)
+	mapKeyL3L4__DenyWorld   = Key{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress.Uint8()}
+	mapEntryL3L4__DenyWorld = MapStateEntry{
+		ProxyPort:        0,
+		DerivedFromRules: labels.LabelArrayList{nil},
+		IsDeny:           true,
+		owners:           map[MapStateOwner]struct{}{},
+	}
+
+	worldIPIdentity        = identity.NumericIdentity(16324)
+	worldCIDR              = api.CIDR("192.0.2.3/32")
+	lblWorldIP             = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+	ruleL3L4__AllowWorldIP = api.NewRule().
+				WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromCIDR: api.CIDRSlice{worldCIDR},
+			},
+		}}).
+		WithEndpointSelector(api.WildcardEndpointSelector)
+)
+
+func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
+	identityCache := cache.IdentityCache{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
+		worldIPIdentity:                       lblWorldIP,
+	}
+	selectorCache := testNewSelectorCache(identityCache)
+
+	tests := []struct {
+		test   int
+		rules  api.Rules
+		result MapState
+	}{
+
+		{0, api.Rules{ruleL3L4__DenyWorld, ruleL3L4__AllowWorldIP}, MapState{mapKeyL3L4__DenyWorld: mapEntryL3L4__DenyWorld}},
+	}
+	for _, tt := range tests {
+		repo := newPolicyDistillery(selectorCache)
+		for _, rule := range tt.rules {
+			if rule != nil {
+				_, _ = repo.AddList(api.Rules{rule})
+			}
+		}
+		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
+			logBuffer := new(bytes.Buffer)
+			repo = repo.WithLogBuffer(logBuffer)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo)
+			if err != nil {
+				t.Errorf("Policy resolution failure: %s", err)
+			}
+			t.Logf("mapstate obtained: %+v", mapstate)
+			t.Logf("mapstate expected: %+v", tt.result)
+			if equal, err := checker.DeepEqual(mapstate, tt.result); !equal {
+				t.Logf("Rules:\n%s\n\n", tt.rules.String())
+				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+			}
+		})
+	}
+}
