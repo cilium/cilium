@@ -300,7 +300,7 @@ jobs:
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
-          
+          kubectl logs daemonset/konnectivity-agent -n kube-system
           ps aux | grep hubble
           ps aux | grep port-forward
           sudo dmesg -T | grep killed
