@@ -1,6 +1,6 @@
 name: ConformanceAKS (ci-aks)
 
-# Any change in triggers needs to be reflected in the concurrency group...
+# Any change in triggers needs to be reflected in the concurrency group....
 on:
   issue_comment:
     types:
