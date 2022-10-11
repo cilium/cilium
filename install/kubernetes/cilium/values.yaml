@@ -83,11 +83,11 @@ rollOutCiliumPods: false
 image:
   override: ~
   repository: quay.io/cilium/cilium
-  tag: v1.10.15
+  tag: v1.10.16
   pullPolicy: IfNotPresent
   # cilium-digest
-  digest: "sha256:adbb60f9d19d641a5496fcfc4769ebb55c1d4cd7699fef752f7c94754194cf83"
-  useDigest: true
+  digest: ""
+  useDigest: false
 
 # -- Pod affinity for cilium-agent.
 affinity:
@@ -688,10 +688,10 @@ hubble:
     image:
       override: ~
       repository: quay.io/cilium/hubble-relay
-      tag: v1.10.15
+      tag: v1.10.16
        # hubble-relay-digest
-      digest: "sha256:67a9183fd1febd9e51f4d02bd35092b81c8612a1716015988f69fffba79d999a"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: IfNotPresent
 
     # -- Specifies the resources for the hubble-relay pods
@@ -1258,16 +1258,16 @@ operator:
   image:
     override: ~
     repository: quay.io/cilium/operator
-    tag: v1.10.15
+    tag: v1.10.16
     # operator-generic-digest
-    genericDigest: "sha256:7f2f7b59b541e4f660d65ed0a21d25ab69e49022172529771dd1134315e95c82"
+    genericDigest: ""
     # operator-azure-digest
-    azureDigest: "sha256:5f5254a32d71aa0741e872b83b917d0c395546c321f72d236d7e6a60dd7ce037"
+    azureDigest: ""
     # operator-aws-digest
-    awsDigest: "sha256:9645a16ba214d9fa46a2f7ab564685396e61114160a86a80e5a4a7db0d78f629"
+    awsDigest: ""
     # operator-alibabacloud-digest
-    alibabacloudDigest: "sha256:888daf35c8ffee8453ebfcb70a2727c6bd8842f8c4ce03bf9d0552fce9660cf1"
-    useDigest: true
+    alibabacloudDigest: ""
+    useDigest: false
     pullPolicy: IfNotPresent
     suffix: ""
 
@@ -1504,10 +1504,10 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.10.15
+    tag: v1.10.16
     # cilium-digest
-    digest: "sha256:adbb60f9d19d641a5496fcfc4769ebb55c1d4cd7699fef752f7c94754194cf83"
-    useDigest: true
+    digest: ""
+    useDigest: false
     pullPolicy: IfNotPresent
 
   # -- The priority class to use for the preflight pod.
@@ -1643,10 +1643,10 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       repository: quay.io/cilium/clustermesh-apiserver
-      tag: v1.10.15
+      tag: v1.10.16
       # clustermesh-apiserver-digest
-      digest: "sha256:e73151c3295589de00dccae75819aabdff8fd907260817020f9e8fe3738e78b2"
-      useDigest: true
+      digest: ""
+      useDigest: false
       pullPolicy: IfNotPresent
 
     etcd:
