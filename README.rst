@@ -16,7 +16,7 @@ is integrated into common orchestration frameworks such as Kubernetes.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
-integration points such as: network IO, application sockets, and tracepoints to
+integration points such as: network IO, application sockets, and trace points to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
