@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package libcilium
 
 // These helpers must be defined in the main package so that the exported shared library functions
 // can be called, as the C types used in the prototypes are only available from within the main

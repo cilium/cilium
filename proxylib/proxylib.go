@@ -11,34 +11,11 @@ import "C"
 import (
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/proxylib/accesslog"
-	_ "github.com/cilium/cilium/proxylib/cassandra"
-	_ "github.com/cilium/cilium/proxylib/kafka"
-	_ "github.com/cilium/cilium/proxylib/memcached"
-	"github.com/cilium/cilium/proxylib/npds"
-	"github.com/cilium/cilium/proxylib/proxylib"
-	_ "github.com/cilium/cilium/proxylib/r2d2"
-	_ "github.com/cilium/cilium/proxylib/testparsers"
-)
-
-var (
-	// mutex protects connections
-	mutex lock.RWMutex
-	// Key uint64 is a connection ID allocated by Envoy, practically a monotonically increasing number
-	connections map[uint64]*proxylib.Connection = make(map[uint64]*proxylib.Connection)
+	"github.com/cilium/cilium/proxylib/libcilium"
 )
 
 func init() {
 	logrus.Info("proxylib: Initializing library")
-}
-
-// Copy value string from C-memory to Go-memory.
-// Go strings are immutable, but byte slices are not. Converting to a byte slice will thus
-// copy the memory.
-func strcpy(str string) string {
-	return string(([]byte(str))[0:])
 }
 
 // OnNewConnection is used to register a new connection of protocol 'proto'.
@@ -47,22 +24,7 @@ func strcpy(str string) string {
 //
 //export OnNewConnection
 func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
-	instance := proxylib.FindInstance(instanceId)
-	if instance == nil {
-		return C.FILTER_INVALID_INSTANCE
-	}
-
-	err, conn := proxylib.NewConnection(instance, strcpy(proto), connectionId, ingress, srcId, dstId, strcpy(srcAddr), strcpy(dstAddr), strcpy(policyName), origBuf, replyBuf)
-	if err == nil {
-		mutex.Lock()
-		connections[connectionId] = conn
-		mutex.Unlock()
-		return C.FILTER_OK
-	}
-	if res, ok := err.(proxylib.FilterResult); ok {
-		return C.FilterResult(res)
-	}
-	return C.FILTER_UNKNOWN_ERROR
+	return C.FilterResult(libcilium.OnNewConnection(instanceId, proto, connectionId, ingress, srcId, dstId, srcAddr, dstAddr, policyName, origBuf, replyBuf))
 }
 
 // Each connection is assumed to be called from a single thread, so accessing connection metadata
@@ -88,24 +50,14 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 //
 //export OnData
 func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOps *[][2]int64) C.FilterResult {
-	// Find the connection
-	mutex.RLock()
-	connection, ok := connections[connectionId]
-	mutex.RUnlock()
-	if !ok {
-		return C.FILTER_UNKNOWN_CONNECTION
-	}
-
-	return C.FilterResult(connection.OnData(reply, endStream, data, filterOps))
+	return C.FilterResult(libcilium.OnData(connectionId, reply, endStream, data, filterOps))
 }
 
 // Make this more general connection event callback
 //
 //export Close
 func Close(connectionId uint64) {
-	mutex.Lock()
-	delete(connections, connectionId)
-	mutex.Unlock()
+	libcilium.Close(connectionId)
 }
 
 // OpenModule is called before any other APIs.
@@ -116,37 +68,12 @@ func Close(connectionId uint64) {
 //
 //export OpenModule
 func OpenModule(params [][2]string, debug bool) uint64 {
-	var accessLogPath, xdsPath, nodeID string
-	for i := range params {
-		key := params[i][0]
-		value := strcpy(params[i][1])
-
-		switch key {
-		case "access-log-path":
-			accessLogPath = value
-		case "xds-path":
-			xdsPath = value
-		case "node-id":
-			nodeID = value
-		default:
-			return 0
-		}
-	}
-
-	if debug {
-		mutex.Lock()
-		logrus.SetLevel(logrus.DebugLevel)
-		flowdebug.Enable()
-		mutex.Unlock()
-	}
-	// Copy strings from C-memory to Go-memory so that the string remains valid
-	// also after this function returns
-	return proxylib.OpenInstance(nodeID, xdsPath, npds.NewClient, accessLogPath, accesslog.NewClient)
+	return libcilium.OpenModule(params, debug)
 }
 
 //export CloseModule
 func CloseModule(id uint64) {
-	proxylib.CloseInstance(id)
+	libcilium.CloseModule(id)
 }
 
 // Must have empty main
