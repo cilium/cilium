@@ -213,7 +213,7 @@ jobs:
           az group create \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
-            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
+            --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=tom.hadlaw@isovalent.com
 
           # Create AKS cluster
           az aks create \
