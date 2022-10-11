@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # consolidate_go_stacktrace.py collapses a go stacktrace by uniqueing each
 # stack. Addresses, goroutine ID and goroutine ages are ignored when determining
@@ -11,7 +11,7 @@ from functools import cmp_to_key
 import argparse
 
 
-cilium_source = '/go/src/github.com/cilium/cilium'
+cilium_source = '/go/src/github.com/cilium/cilium/'
 
 
 def get_stacks(f):
@@ -65,8 +65,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '-s',
         '--source-dir',
-        nargs=1,
-        default=cilium_source,
+        default="",
         help='Rewrite Cilium source paths to refer to this directory')
     args = parser.parse_args()
 
@@ -82,6 +81,14 @@ if __name__ == "__main__":
         h = get_hashable_stack_value(stack)
         consolidated[h].append(stack)
 
+    # If --source-dir flag is not specified, strip cilium_source prefix
+    # so that Cilium file paths becomes relative.
+    # If --source-dir flag is specified, make sure it ends with / and
+    # use it to overwrite cilium_source prefix.
+    source_dir = args.source_dir
+    if source_dir != "" and source_dir[-1] != '/':
+        source_dir += "/"
+
     # print count of each unique stack, and a sample, sorted by frequency
     print("{} unique stack traces".format(len(consolidated)))
     for stack in sorted(
@@ -91,7 +98,7 @@ if __name__ == "__main__":
                 b: len(a) - len(b)),
             reverse=True):
         print("{} occurences. Sample stack trace:".format(len(stack)))
-        print("\n".join(stack[0]).replace(cilium_source, args.source_dir[0]))
+        print("\n".join(stack[0]).replace(cilium_source, source_dir))
 
     if f != sys.stdin:
         f.close()
