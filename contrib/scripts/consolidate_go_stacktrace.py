@@ -12,6 +12,7 @@ import argparse
 
 
 cilium_source = '/go/src/github.com/cilium/cilium/'
+filters = {'lock': ["lock", "Lock(", "RLock(", "Semacquire("]}
 
 
 def get_stacks(f):
@@ -52,6 +53,50 @@ def get_hashable_stack_value(stack):
     return "".join(strip_stack(stack))
 
 
+# When upgrading to Python 3.9 or later, add type hints:
+# stack : list[str]
+# keywords : list[str]
+def filter_keywords(stack, keywords):
+    for s in stack:
+        for k in keywords:
+            if k in s:
+                return True
+    return False
+
+
+def skip_paths(line, must_exist, must_not_exist):
+    for s in must_exist:
+        if s not in line:
+            return True
+    for s in must_not_exist:
+        if s in line:
+            return True
+    return False
+
+# For stack : list[str], find the first line matching the source
+# repository and return the go pkg path for that stack.
+
+
+def first_target_pkg(stack):
+    for s in stack:
+        if skip_paths(s, [cilium_source], ['vendor', 'lock']):
+            continue
+
+        # Convert the following:
+        #         /go/src/github.com/cilium/cilium/daemon/cmd/daemon_main.go:1886 +0x28ee
+        # =>
+        # daemon/cm
+        result = re.sub(
+            r'.*{}(.*)/[^.]*\.go.*'.format(cilium_source),
+            r'\1',
+            s)
+        # print('  > found {}'.format(result))
+        return result
+    fallback = stack[-2].lstrip()
+    # print('  > found {}'.format(fallback))
+    return 'goroutine initiated from {}'.format(fallback)
+
+
 if __name__ == "__main__":
     # Handle arguments. We only support a file path, or stdin on "-" or no
     # parameter
@@ -67,6 +112,12 @@ if __name__ == "__main__":
         '--source-dir',
         default="",
         help='Rewrite Cilium source paths to refer to this directory')
+    parser.add_argument(
+        '-f',
+        '--filter',
+        nargs='?',
+        help='Filter by known categories ({})'.format(
+            ','.join(filters.keys())))
     args = parser.parse_args()
 
     if args.infile in ["-", "", None]:
@@ -92,15 +143,53 @@ if __name__ == "__main__":
         source_dir += "/"
 
     # print count of each unique stack, and a sample, sorted by frequency
-    print("{} unique stack traces".format(len(consolidated)))
+    print('{} unique stack traces'.format(len(consolidated)))
+    skipped = dict()
+    blocked = dict()
+    keywords = None
+    if args.filter in filters:
+        keywords = filters[args.filter]
     for stack in sorted(
             consolidated.values(),
             key=cmp_to_key(
                 lambda a,
                 b: len(a) - len(b)),
             reverse=True):
+        if keywords is not None:
+            if len(stack[0]) == 0:
+                continue
+            if filter_keywords(stack[0], keywords):
+                pkg = first_target_pkg(stack[0])
+                if pkg in blocked:
+                    blocked[pkg] = blocked[pkg] + 1
+                else:
+                    blocked[pkg] = 1
+            else:
+                pkg = first_target_pkg(stack[0])
+                if pkg in skipped:
+                    skipped[pkg] = skipped[pkg] + 1
+                else:
+                    skipped[pkg] = 1
+                continue
         print("{} occurences. Sample stack trace:".format(len(stack)))
         print("\n".join(stack[0]).replace(cilium_source, source_dir))
+
+    if len(skipped) > 0:
+        print('Stacktraces from the following packages were skipped as they do not match {}:'.format(
+            keywords), file=sys.stderr)
+        for s in sorted(skipped.keys()):
+            print(
+                '{} ({} goroutines)'.format(
+                    s.replace(
+                        cilium_source,
+                        args.source_dir[0]),
+                    skipped[s]),
+                file=sys.stderr)
+        print(file=sys.stderr)
+    if len(blocked) > 0:
+        print('The following packages are blocked:')
+        for s in blocked:
+            print(s.replace(cilium_source, args.source_dir[0]))
 
     if f != sys.stdin:
         f.close()
