@@ -3,28 +3,29 @@
 
 package proxylib
 
-/*
-#include "types.h"
-*/
-import "C"
+import "fmt"
 
-// Mirror C types to be able to use them in other Go files and tests.
-
+// OpType mirrors enum FilterOpType in types.h.
 type OpType int64
+
+const (
+	MORE OpType = iota
+	PASS
+	DROP
+	INJECT
+	ERROR
+
+	// Internal types not exposed to Caller
+	NOP OpType = 256
+)
+
+// OpError mirrors enum FilterOpError in types.h.
 type OpError int64
 
 const (
-	MORE   OpType = C.FILTEROP_MORE
-	PASS   OpType = C.FILTEROP_PASS
-	DROP   OpType = C.FILTEROP_DROP
-	INJECT OpType = C.FILTEROP_INJECT
-	ERROR  OpType = C.FILTEROP_ERROR
-	// Internal types not exposed to Caller
-	NOP OpType = 256
-
-	ERROR_INVALID_OP_LENGTH    OpError = C.FILTEROP_ERROR_INVALID_OP_LENGTH
-	ERROR_INVALID_FRAME_TYPE   OpError = C.FILTEROP_ERROR_INVALID_FRAME_TYPE
-	ERROR_INVALID_FRAME_LENGTH OpError = C.FILTEROP_ERROR_INVALID_FRAME_LENGTH
+	ERROR_INVALID_OP_LENGTH OpError = iota + 1
+	ERROR_INVALID_FRAME_TYPE
+	ERROR_INVALID_FRAME_LENGTH
 )
 
 func (op OpType) String() string {
@@ -57,16 +58,18 @@ func (opErr OpError) String() string {
 	return "UNKNOWN_OP_ERROR"
 }
 
+// FilterResult mirrors enum FilterResult in types.h.
 type FilterResult int
 
 const (
-	OK                 FilterResult = C.FILTER_OK
-	POLICY_DROP        FilterResult = C.FILTER_POLICY_DROP
-	PARSER_ERROR       FilterResult = C.FILTER_PARSER_ERROR
-	UNKNOWN_PARSER     FilterResult = C.FILTER_UNKNOWN_PARSER
-	UNKNOWN_CONNECTION FilterResult = C.FILTER_UNKNOWN_CONNECTION
-	INVALID_ADDRESS    FilterResult = C.FILTER_INVALID_ADDRESS
-	INVALID_INSTANCE   FilterResult = C.FILTER_INVALID_INSTANCE
+	OK FilterResult = iota
+	POLICY_DROP
+	PARSER_ERROR
+	UNKNOWN_PARSER
+	UNKNOWN_CONNECTION
+	INVALID_ADDRESS
+	INVALID_INSTANCE
+	UNKNOWN_ERROR
 )
 
 // Error() implements the error interface for FilterResult
@@ -86,6 +89,9 @@ func (r FilterResult) Error() string {
 		return "INVALID_ADDRESS"
 	case INVALID_INSTANCE:
 		return "INVALID_INSTANCE"
+	case UNKNOWN_ERROR:
+		return "UNKNOWN_ERROR"
 	}
-	return "UNKNOWN_ERROR"
+
+	return fmt.Sprintf("%d", r)
 }

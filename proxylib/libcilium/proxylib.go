@@ -3,11 +3,6 @@
 
 package libcilium
 
-/*
-#include "../proxylib/types.h"
-*/
-import "C"
-
 import (
 	"github.com/sirupsen/logrus"
 
@@ -38,10 +33,10 @@ func strcpy(str string) string {
 	return string(([]byte(str))[0:])
 }
 
-func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) C.FilterResult {
+func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingress bool, srcId, dstId uint32, srcAddr, dstAddr, policyName string, origBuf, replyBuf *[]byte) proxylib.FilterResult {
 	instance := proxylib.FindInstance(instanceId)
 	if instance == nil {
-		return C.FILTER_INVALID_INSTANCE
+		return proxylib.INVALID_INSTANCE
 	}
 
 	err, conn := proxylib.NewConnection(instance, strcpy(proto), connectionId, ingress, srcId, dstId, strcpy(srcAddr), strcpy(dstAddr), strcpy(policyName), origBuf, replyBuf)
@@ -49,24 +44,24 @@ func OnNewConnection(instanceId uint64, proto string, connectionId uint64, ingre
 		mutex.Lock()
 		connections[connectionId] = conn
 		mutex.Unlock()
-		return C.FILTER_OK
+		return proxylib.OK
 	}
 	if res, ok := err.(proxylib.FilterResult); ok {
-		return C.FilterResult(res)
+		return res
 	}
-	return C.FILTER_UNKNOWN_ERROR
+	return proxylib.UNKNOWN_ERROR
 }
 
-func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOps *[][2]int64) C.FilterResult {
+func OnData(connectionId uint64, reply, endStream bool, data *[][]byte, filterOps *[][2]int64) proxylib.FilterResult {
 	// Find the connection
 	mutex.RLock()
 	connection, ok := connections[connectionId]
 	mutex.RUnlock()
 	if !ok {
-		return C.FILTER_UNKNOWN_CONNECTION
+		return proxylib.UNKNOWN_CONNECTION
 	}
 
-	return C.FilterResult(connection.OnData(reply, endStream, data, filterOps))
+	return connection.OnData(reply, endStream, data, filterOps)
 }
 
 func Close(connectionId uint64) {
