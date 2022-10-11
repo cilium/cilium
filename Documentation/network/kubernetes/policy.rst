@@ -16,9 +16,8 @@ distributing the policies across all nodes and Cilium will automatically apply
 the policies. Three formats are available to configure network policies natively
 with Kubernetes:
 
-- The standard `NetworkPolicy` resource which at the time of this writing,
-  supports to specify L3/L4 ingress policies with limited egress support marked
-  as beta.
+- The standard `NetworkPolicy` resource which supports L3 and L4 policies
+  at ingress or egress of the Pod.
 
 - The extended `CiliumNetworkPolicy` format which is available as a
   :term:`CustomResourceDefinition` which supports specification of policies
@@ -46,13 +45,15 @@ For more information, see the official `NetworkPolicy documentation
 
 Known missing features for Kubernetes Network Policy:
 
-+-------------------------------+------------------+
-| Feature                       | Tracking Issue   |
-+===============================+==================+
-| ``ipBlock`` set with a pod IP | :gh-issue:`9209` |
-+-------------------------------+------------------+
-| SCTP                          | :gh-issue:`5719` |
-+-------------------------------+------------------+
++-------------------------------+-------------------+
+| Feature                       | Tracking Issue    |
++===============================+===================+
+| ``ipBlock`` set with a pod IP | :gh-issue:`9209`  |
++-------------------------------+-------------------+
+| SCTP                          | :gh-issue:`5719`  |
++-------------------------------+-------------------+
+| Port ranges (endPort)         | :gh-issue:`16622` |
++-------------------------------+-------------------+
 
 .. _CiliumNetworkPolicy:
 
