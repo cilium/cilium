@@ -4,6 +4,8 @@
 package ipcache
 
 import (
+	"net/netip"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -18,6 +20,16 @@ import (
 // to generate ipcache output based on a range of inputs.
 type prefixInfo map[types.ResourceID]*resourceInfo
 
+// hostAddr wraps netip.Addr with the semantics that the value being stored is
+// a host where a peer with this prefix resides. Technically we could just
+// store the netip.Addr directly in the resourceInfo and just assume it is the
+// host of the peer prefix, but if we ever want to associate any other
+// addresses with the prefix then we'd have to factor that out anyway. This
+// makes the type more explicit at the expense of some extra verbosity / casts.
+type hostAddr struct {
+	netip.Addr
+}
+
 // resourceInfo is all of the information that has been collected from a given
 // resource (types.ResourceID) about this IP. Each field must have a 'zero'
 // value that indicates that it should be ignored for purposes of merging
@@ -27,6 +39,7 @@ type resourceInfo struct {
 	identity *identity.Identity
 	labels   labels.Labels
 	source   source.Source
+	host     hostAddr
 }
 
 // IPMetadata is an empty interface intended to inform developers using the
@@ -57,6 +70,15 @@ func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
 			}).Errorf("BUG: Prefix maps to multiple identities. Please report this issue.")
 		}
 		m.identity = info
+	case hostAddr:
+		if m.host.IsValid() {
+			log.WithFields(logrus.Fields{
+				logfields.IPAddr:   m.host,
+				logfields.Identity: info,
+				logfields.URL:      "https://github.com/cilium/cilium/issues",
+			}).Errorf("BUG: Prefix maps to peer on multiple hosts. Please report this issue.")
+		}
+		m.host = info
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
 		return
@@ -71,6 +93,8 @@ func (m *resourceInfo) unmerge(info IPMetadata) {
 		m.labels = nil
 	case *identity.Identity:
 		m.identity = nil
+	case hostAddr:
+		m.host = hostAddr{netip.Addr{}}
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.unmerge(): %+v", info)
 		return
@@ -128,4 +152,13 @@ func (s prefixInfo) Source() source.Source {
 		}
 	}
 	return src
+}
+
+func (s prefixInfo) Host() netip.Addr {
+	for _, v := range s {
+		if v.host.IsValid() {
+			return v.host.Addr
+		}
+	}
+	return netip.Addr{}
 }
