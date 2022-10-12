@@ -77,15 +77,21 @@ func TestResourceWithFakeClient(t *testing.T) {
 			},
 		}
 
-		nodes Resource[*corev1.Node]
-		cs    *k8sClient.FakeClientset
+		nodes          Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
 	)
+
+	// Create the initial version of the node. Do this before anything
+	// starts watching the resources to avoid a race.
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node, "")
+
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		cell.Provide(func() k8sClient.Clientset { return cs }),
 		nodesResource,
-		cell.Invoke(func(r Resource[*corev1.Node], c *k8sClient.FakeClientset) {
+		cell.Invoke(func(r Resource[*corev1.Node]) {
 			nodes = r
-			cs = c
 		}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -94,11 +100,6 @@ func TestResourceWithFakeClient(t *testing.T) {
 	if err := hive.Start(ctx); err != nil {
 		t.Fatalf("hive.Start failed: %s", err)
 	}
-
-	// Create the initial version of the node.
-	cs.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node, "")
 
 	errs := make(chan error, 1)
 	xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
@@ -153,7 +154,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 	// Update the node and check the update event
 	node.Status.Phase = "update1"
 	node.ObjectMeta.ResourceVersion = "1"
-	cs.KubernetesFakeClientset.Tracker().Update(
+	fakeClient.KubernetesFakeClientset.Tracker().Update(
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		node, "")
 	(<-xs).Handle(
@@ -177,7 +178,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 	)
 
 	// Finally delete the node
-	cs.KubernetesFakeClientset.Tracker().Delete(
+	fakeClient.KubernetesFakeClientset.Tracker().Delete(
 		corev1.SchemeGroupVersion.WithResource("nodes"),
 		"", "some-node")
 	(<-xs).Handle(
@@ -408,15 +409,21 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 		}
 
 		nodes Resource[*corev1.Node]
-		cs    *k8sClient.FakeClientset
+
+		fakeClient, cs = k8sClient.NewFakeClientset()
 	)
 
+	// Create the initial version of the node. Do this before anything
+	// starts watching the resources to avoid a race.
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node, "")
+
 	hive := hive.New(
-		k8sClient.FakeClientCell,
+		cell.Provide(func() k8sClient.Clientset { return cs }),
 		nodesResource,
-		cell.Invoke(func(r Resource[*corev1.Node], c *k8sClient.FakeClientset) {
+		cell.Invoke(func(r Resource[*corev1.Node]) {
 			nodes = r
-			cs = c
 		}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -425,11 +432,6 @@ func TestResourceUpdateEventRetry(t *testing.T) {
 	if err := hive.Start(ctx); err != nil {
 		t.Fatalf("hive.Start failed: %s", err)
 	}
-
-	// Create the initial version of the node.
-	cs.KubernetesFakeClientset.Tracker().Create(
-		corev1.SchemeGroupVersion.WithResource("nodes"),
-		node, "")
 
 	errs := make(chan error, 1)
 	xs := stream.ToChannel[Event[*corev1.Node]](ctx, errs, nodes)
