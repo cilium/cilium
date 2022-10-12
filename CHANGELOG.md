@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.12.3
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bpf: Add missing identity to `TRACE_TO_STACK` packet traces (Backport PR #21466, Upstream PR #21403, @pchaigno)
+
+**Bugfixes:**
+* bugtool: Fix pprof default ports (Backport PR #21631, Upstream PR #21497, @pippolo84)
+* daemon: avoid nil pointer dereference on invalid endpoint state (Backport PR #21466, Upstream PR #21449, @tklauser)
+* daemon: Fix a nil dereference on cleanup when DNS proxy is not enabled (Backport PR #21466, Upstream PR #21365, @joamaki)
+* Fix agent deadlock caused by frequent kube-apiserver IP recycling (Backport PR #21637, Upstream PR #21629, @joestringer)
+* Fix bug that can cause some traffic covered by an L7 policy to be dropped when IPsec is enabled on EKS. (Backport PR #21646, Upstream PR #21595, @pchaigno)
+* Fixes cilium startup on certain AWS-VPC clusters. (Backport PR #21631, Upstream PR #21444, @squeed)
+* ipcache: Fix metadata access from CIDR allocation (Backport PR #21637, Upstream PR #21565, @joestringer)
+* Remove no more available dockershim flags in kubelet wrapper (Backport PR #21466, Upstream PR #21311, @pippolo84)
+
+**CI Changes:**
+* Remove Slack notifications (Backport PR #21466, Upstream PR #21239, @michi-covalent)
+* test: fix up the number of pods in DemoDaemonSet (Backport PR #21631, Upstream PR #21588, @julianwiedmann)
+
+**Misc Changes:**
+* alibabacloud: fix incorrect instance-type reported by cilium-agent (Backport PR #21631, Upstream PR #21495, @ArthurChiao)
+* bugtool: Dump envoy config for troubleshooting (Backport PR #21466, Upstream PR #21348, @sayboras)
+* build(deps): bump 8398a7/action-slack from 3.13.2 to 3.14.0 (#21443, @dependabot[bot])
+* build(deps): bump actions/cache from 3.0.8 to 3.0.10 (#21558, @dependabot[bot])
+* build(deps): bump actions/checkout from 3.0.2 to 3.1.0 (#21574, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.22 to 2.1.24 (#21342, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.24 to 2.1.25 (#21398, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.25 to 2.1.26 (#21514, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.26 to 2.1.27 (#21625, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.3.0 to 1.4.0 (#21428, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.4 to 1.5.5 (#21427, @dependabot[bot])
+* cmd/bpf: Log if no policy maps found (Backport PR #21466, Upstream PR #21429, @aditighag)
+* contrib: avoid reviews from non-collaborators (Backport PR #21631, Upstream PR #21577, @bimmlerd)
+* docs: Clarify KPR requirements for Kind (Backport PR #21466, Upstream PR #20749, @brb)
+* Fix a typo in the comment example (Backport PR #21466, Upstream PR #21402, @farcaller)
+* Fix grpc-ingress.yaml path in Service Mesh docs (Backport PR #21646, Upstream PR #21601, @pippolo84)
+* helm: Fix post-start and pre-stop hooks for cilium-nodeinit on Ubuntu EKS images (Backport PR #21466, Upstream PR #20979, @dctrwatson)
+* helm: Quote all the image fields. (Backport PR #21631, Upstream PR #21463, @michi-covalent)
+* images: update cilium-{runtime,builder} (#21666, @qmonnet)
+* ipcache: Release metadata mutex in loop error condition (Backport PR #21637, Upstream PR #21653, @joestringer)
+* ipcache: Remove unsafe ipc.metadata.get (Backport PR #21646, Upstream PR #21608, @gandro)
+* ipsec: Fix slightly incorrect assumption in XFRM IN policies (Backport PR #21646, Upstream PR #21621, @pchaigno)
+* ipsec: Refactoring around `UpsertIPsecEndpoint` (Backport PR #21631, Upstream PR #21461, @pchaigno)
+* ipsec: Simplify XFRM FWD policies (Backport PR #21646, Upstream PR #21602, @pchaigno)
+* ipsec: Simplify XFRM IN policies (Backport PR #21466, Upstream PR #21370, @pchaigno)
+* makefile: use versioned Go container when formatting after api generate. (Backport PR #21466, Upstream PR #21254, @tommyp1ckles)
+* Reference datapath metrics in feature and troubleshooting guides (Backport PR #21631, Upstream PR #20520, @aditighag)
+* Remove references to node encryption (Backport PR #21466, Upstream PR #21333, @pchaigno)
+
+**Other Changes:**
+* Aspsk/backports to v1.12 (#21474, @aspsk)
+* install: Update image digests for v1.12.2 (#21310, @nebril)
+* remove duplication of eCHO episodes (#21587, @kranurag7)
+* test: node: use Eventually() to check CiliumNode labels (#21353, @jibi)
+
 ## v1.12.2
 
 Summary of Changes
