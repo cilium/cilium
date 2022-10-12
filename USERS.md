@@ -212,6 +212,12 @@ Users (Alphabetically)
       U: Networking, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, kube-proxy replacement, Hubble, Direct routing, egress gateway, hubble-otel, Multi Nic XDP, BGP advertisements, Bandwidth Manager, Service Load Balancing, Cluster Mesh
       L: https://www.ingka.com/
 
+    * N: Immerok
+      D: Immerok uses Cilium for cross-cluster communication and network isolation; Immerok Cloud is a serverless platform for the full power of [Apache Flink](https://flink.apache.org) at any scale.
+      U: Networking, network policy, observability, cluster mesh, kube-proxy replacement, security, CNI
+      L: https://immerok.io
+      Q: @austince, @dmvk
+
     * N: Infomaniak
       D: Infomaniak is using Cilium in their production clusters (self-hosted, bare-metal and openstack)
       U: Networking, CiliumNetworkPolicy, BPF NodePort, Direct routing, kube-proxy replacement
@@ -222,7 +228,7 @@ Users (Alphabetically)
       D: As a consulting company we added Cilium to a couple of our customers infrastructure
       U: Networking, CiliumNetworkPolicy at L7, kube-proxy replacement, encryption
       L: https://www.cloud-migration.ch/
-      Q: @fakod
+      Q: @fakod 
       
      * N: Isovalent
        D: Cilium is the platform that powers Isovalent’s enterprise networking, observability, and security solutions
