@@ -10,6 +10,7 @@ import (
 	"net"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -48,6 +50,8 @@ const (
 	customResourceUpdateRate = 15 * time.Second
 
 	fieldName = "name"
+
+	CiliumIPAMPodAnnotation = "io.cilium.cni/IPAM.crd"
 )
 
 // nodeStore represents a CiliumNode custom resource and binds the CR to a list
@@ -76,6 +80,8 @@ type nodeStore struct {
 
 	conf      Configuration
 	mtuConfig MtuConfiguration
+
+	k8sWatcher *watchers.K8sWatcher
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
@@ -101,6 +107,12 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		log.WithError(err).Fatal("Unable to initialize CiliumNode synchronization trigger")
 	}
 	store.refreshTrigger = t
+
+	var ok bool
+	store.k8sWatcher, ok = k8sEventReg.(*watchers.K8sWatcher)
+	if !ok {
+		log.WithField(fieldName, nodeName).Warn("Get K8sWatcher failed, pod annotation check will disabled. ")
+	}
 
 	// Create the CiliumNode custom resource. This call will block until
 	// the custom resource has been created
@@ -557,6 +569,20 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 		return nil, nil, fmt.Errorf("CiliumNode for own node is not available")
 	}
 
+	podIPAMCrdFlag := false // default no need set ip owner
+	if n.k8sWatcher != nil {
+		info := strings.Split(owner, "/")
+		if len(info) == 2 {
+			pod, err := n.k8sWatcher.GetCachedPod(info[0], info[1])
+			if err != nil {
+				return nil, nil, fmt.Errorf("get cached pod info %s failed %v. ", owner, err)
+			}
+			if pod.Annotations != nil && pod.Annotations[CiliumIPAMPodAnnotation] != "" {
+				podIPAMCrdFlag = true
+			}
+		}
+	}
+
 	// Check if IP has a custom owner (only supported in manual CRD mode)
 	if n.conf.IPAMMode() == ipamOption.IPAMCRD && len(owner) != 0 {
 		for ip, ipInfo := range n.ownNode.Spec.IPAM.Pool {
@@ -575,6 +601,11 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 				return parsedIP, &ipInfo, nil
 			}
 		}
+	}
+
+	if podIPAMCrdFlag {
+		return nil, nil, fmt.Errorf("Pod %s with annotation %s set, can't find ip with owner set. ",
+			owner, CiliumIPAMPodAnnotation)
 	}
 
 	// FIXME: This is currently using a brute-force method that can be
