@@ -150,7 +150,7 @@ var (
 		"cni.binPath":                 "/home/kubernetes/bin",
 		"gke.enabled":                 "true",
 		"loadBalancer.mode":           "snat",
-		"ipv4NativeRoutingCIDR":       GKENativeRoutingCIDR(),
+		"ipv4NativeRoutingCIDR":       NativeRoutingCIDR(),
 		"hostFirewall.enabled":        "false",
 		"ipam.mode":                   "kubernetes",
 		"devices":                     "", // Override "eth0 eth0\neth0"
@@ -163,7 +163,7 @@ var (
 		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
 		"k8s.requireIPv4PodCIDR":              "false",
 		"ipv6.enabled":                        "false",
-		"ipv4NativeRoutingCIDR":               AKSNativeRoutingCIDR(),
+		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
 		"enableIPv4Masquerade":                "false",
 		"install-no-conntrack-iptables-rules": "false",
 		"installIptablesRules":                "true",

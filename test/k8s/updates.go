@@ -48,7 +48,6 @@ var _ = Describe("K8sUpdates", func() {
 	)
 
 	BeforeAll(func() {
-
 		SkipIfIntegration(helpers.CIIntegrationAKS)
 		canRun, err := helpers.CanRunK8sVersion(helpers.CiliumStableVersion, helpers.GetCurrentK8SEnv())
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", helpers.CiliumStableVersion)

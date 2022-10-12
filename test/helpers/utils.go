@@ -514,11 +514,7 @@ func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
 }
 
-func GKENativeRoutingCIDR() string {
-	return os.Getenv("NATIVE_CIDR")
-}
-
-func AKSNativeRoutingCIDR() string {
+func NativeRoutingCIDR() string {
 	return os.Getenv("NATIVE_CIDR")
 }
 
