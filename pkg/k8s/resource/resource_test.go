@@ -69,7 +69,7 @@ func testStore(t *testing.T, node *corev1.Node, store Store[*corev1.Node]) {
 	}
 }
 
-func TestResourceWithFakeClient(t *testing.T) {
+func TestResource_WithFakeClient(t *testing.T) {
 	var (
 		node = &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
@@ -226,7 +226,7 @@ func TestResourceWithFakeClient(t *testing.T) {
 	}
 }
 
-func TestResourceCompletionOnStop(t *testing.T) {
+func TestResource_CompletionOnStop(t *testing.T) {
 	var nodes Resource[*corev1.Node]
 
 	hive := hive.New(
@@ -295,7 +295,7 @@ var RetryFiveTimes ErrorHandler = func(key Key, numRetries int, err error) Error
 	return ErrorActionRetry
 }
 
-func TestResourceRetries(t *testing.T) {
+func TestResource_Retries(t *testing.T) {
 	var (
 		nodes          Resource[*corev1.Node]
 		fakeClient, cs = k8sClient.NewFakeClientset()
@@ -385,9 +385,7 @@ func TestResourceRetries(t *testing.T) {
 
 		for ev := range xs {
 			ev.Handle(
-				func() error {
-					return nil
-				},
+				nil, // nil handlers are allowed.
 				func(key Key, node *corev1.Node) error {
 					numRetries.Inc()
 					return expectedErr
@@ -414,9 +412,7 @@ func TestResourceRetries(t *testing.T) {
 
 		for ev := range xs {
 			ev.Handle(
-				func() error {
-					return nil
-				},
+				nil, // nil handlers are allowed.
 				func(key Key, node *corev1.Node) error {
 					fakeClient.KubernetesFakeClientset.Tracker().Delete(
 						corev1.SchemeGroupVersion.WithResource("nodes"),
