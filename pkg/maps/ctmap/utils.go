@@ -46,28 +46,37 @@ func oNatKeyFromReverse(k nat.NatKey, v nat.NatEntry) nat.NatKey {
 func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
-		return &tuple.TupleKey4Global{TupleKey4: tuple.TupleKey4{
-			// Workaround #5848
-			SourceAddr: natKey.SourceAddr,
-			DestPort:   natKey.SourcePort,
-			DestAddr:   natKey.DestAddr,
+		t := tuple.TupleKey4{
+			SourceAddr: natKey.DestAddr,
 			SourcePort: natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_IN,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey4Global{TupleKey4: t}
 	}
 
 	{ // ipv6
 		natKey := k.(*nat.NatKey6)
-		return &tuple.TupleKey6Global{TupleKey6: tuple.TupleKey6{
-			// Workaround #5848
-			SourceAddr: natKey.SourceAddr,
-			DestPort:   natKey.SourcePort,
-			DestAddr:   natKey.DestAddr,
+
+		t := tuple.TupleKey6{
+			SourceAddr: natKey.DestAddr,
 			SourcePort: natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_IN,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey6Global{TupleKey6: t}
 	}
 }
 
@@ -77,29 +86,39 @@ func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
 		natVal := v.(*nat.NatEntry4)
-		return &tuple.TupleKey4Global{TupleKey4: tuple.TupleKey4{
-			// Workaround #5848
-			SourceAddr: natKey.SourceAddr,
-			DestPort:   natKey.SourcePort,
-			DestAddr:   natVal.Addr,
+
+		t := tuple.TupleKey4{
+			SourceAddr: natVal.Addr,
 			SourcePort: natVal.Port,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_OUT,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey4Global{TupleKey4: t}
 	}
 
 	{ // ipv6
 		natKey := k.(*nat.NatKey6)
 		natVal := v.(*nat.NatEntry6)
-		return &tuple.TupleKey6Global{TupleKey6: tuple.TupleKey6{
-			// Workaround #5848
-			SourceAddr: natKey.SourceAddr,
-			DestPort:   natKey.SourcePort,
-			DestAddr:   natVal.Addr,
+
+		t := tuple.TupleKey6{
+			SourceAddr: natVal.Addr,
 			SourcePort: natVal.Port,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_OUT,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey6Global{TupleKey6: t}
 	}
 }
 
@@ -108,27 +127,36 @@ func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey
 func egressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
-		return &tuple.TupleKey4Global{TupleKey4: tuple.TupleKey4{
-			// Workaround #5848
-			SourceAddr: natKey.DestAddr,
-			DestPort:   natKey.DestPort,
-			DestAddr:   natKey.SourceAddr,
+		t := tuple.TupleKey4{
+			SourceAddr: natKey.SourceAddr,
 			SourcePort: natKey.SourcePort,
+			DestAddr:   natKey.DestAddr,
+			DestPort:   natKey.DestPort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_OUT,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey4Global{TupleKey4: t}
 	}
 
 	{ // ipv6
 		natKey := k.(*nat.NatKey6)
-		return &tuple.TupleKey6Global{TupleKey6: tuple.TupleKey6{
-			// Workaround #5848
-			SourceAddr: natKey.DestAddr,
-			DestPort:   natKey.DestPort,
-			DestAddr:   natKey.SourceAddr,
+
+		t := tuple.TupleKey6{
+			SourceAddr: natKey.SourceAddr,
 			SourcePort: natKey.SourcePort,
+			DestAddr:   natKey.DestAddr,
+			DestPort:   natKey.DestPort,
 			NextHeader: natKey.NextHeader,
 			Flags:      tuple.TUPLE_F_OUT,
-		}}
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey6Global{TupleKey6: t}
 	}
 }
