@@ -132,6 +132,12 @@ func NewIPCache(c *Configuration) *IPCache {
 	return ipc
 }
 
+// Shutdown cleans up asynchronous routines associated with the IPCache.
+func (ipc *IPCache) Shutdown() error {
+	ipc.deferredPrefixRelease.Shutdown()
+	return ipc.ShutdownLabelInjection()
+}
+
 // Lock locks the IPCache's mutex.
 func (ipc *IPCache) Lock() {
 	ipc.mutex.Lock()
