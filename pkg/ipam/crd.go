@@ -585,6 +585,9 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 			if n.isIPInReleaseHandshake(ip) {
 				continue // IP not available
 			}
+			if ipInfo.Owner != "" {
+				continue // IP is used by another
+			}
 			parsedIP := net.ParseIP(ip)
 			if parsedIP == nil {
 				log.WithFields(logrus.Fields{
