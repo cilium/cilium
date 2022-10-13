@@ -61,7 +61,7 @@ jobs:
           git rebase --exec "make build -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check bpf code changes
-        uses: dorny/paths-filter@737cb1986a0ab3e9b76e4306075223d1a2b2467b
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         id: bpf-tree
         with:
           filters: |
@@ -81,7 +81,7 @@ jobs:
           git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check test code changes
-        uses: dorny/paths-filter@737cb1986a0ab3e9b76e4306075223d1a2b2467b
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         id: test-tree
         with:
           filters: |

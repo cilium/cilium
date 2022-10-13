@@ -23,7 +23,7 @@ jobs:
       go-changes: ${{ steps.go-changes.outputs.src }}
     steps:
       - name: Check code changes
-        uses: dorny/paths-filter@737cb1986a0ab3e9b76e4306075223d1a2b2467b
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         id: go-changes
         with:
           filters: |
