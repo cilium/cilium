@@ -31,7 +31,7 @@ func (p *provider) Info() Info {
 		if !p.export {
 			privateSymbol = "🔒️"
 		}
-		n.AddLeaf("🚧%s %s: %T", privateSymbol, internal.FuncNameAndLocation(ctor), ctor)
+		n.AddLeaf("🚧%s %s: %s", privateSymbol, internal.FuncNameAndLocation(ctor), internal.PrettyType(ctor))
 	}
 	return n
 }

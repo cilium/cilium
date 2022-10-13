@@ -55,7 +55,7 @@ func (i *invoker) Apply(c container) error {
 func (i *invoker) Info() Info {
 	n := NewInfoNode("")
 	for _, namedFunc := range i.funcs {
-		n.AddLeaf("🛠️ %s: %T", namedFunc.name, namedFunc.fn)
+		n.AddLeaf("🛠️ %s: %s", namedFunc.name, internal.PrettyType(namedFunc.fn))
 	}
 	return n
 }

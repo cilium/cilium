@@ -74,7 +74,7 @@ func (m *module) Info() Info {
 	n := NewInfoNode("Ⓜ️ " + m.id + " (" + m.title + ")")
 	for _, cell := range m.cells {
 		n.Add(cell.Info())
-		n.AddBreak()
 	}
+	n.AddBreak()
 	return n
 }
