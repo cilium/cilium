@@ -7,17 +7,25 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"regexp"
 	"runtime"
-	"strings"
 )
 
-func TrimFuncName(name string) string {
-	return strings.TrimPrefix(name, "github.com/cilium/cilium/")
+var (
+	baseNameRegex = regexp.MustCompile(`github.com/cilium/cilium/[\w\/]+/`)
+)
+
+func TrimName(name string) string {
+	return string(baseNameRegex.ReplaceAll([]byte(name), []byte{}))
+}
+
+func PrettyType(x any) string {
+	return TrimName(fmt.Sprintf("%T", x))
 }
 
 func FuncNameAndLocation(fn any) string {
 	f := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
 	file, line := f.FileLine(f.Entry())
-	name := TrimFuncName(f.Name())
+	name := TrimName(f.Name())
 	return fmt.Sprintf("%s (%s:%d)", name, path.Base(file), line)
 }
