@@ -106,31 +106,35 @@ func newPrintServices(p printServicesParams) (*PrintServices, error) {
 		pods:     p.Pods,
 		services: p.Services,
 	}
-	p.Lifecycle.Append(hive.Hook{OnStart: ps.start, OnStop: ps.stop})
+	p.Lifecycle.Append(ps)
 	return ps, nil
 }
 
-func (ps *PrintServices) start(context.Context) error {
+func (ps *PrintServices) Start(startCtx hive.HookContext) error {
 	ps.wg.Add(1)
 
-	ps.printServices()
+	// Using the start context, do a blocking dump of all
+	// services. Using the start context here makes sure that
+	// this operation is aborted if it blocks too long.
+	ps.printServices(startCtx)
+
 	go ps.run()
 
 	return nil
 }
 
-func (ps *PrintServices) stop(context.Context) error {
+func (ps *PrintServices) Stop(hive.HookContext) error {
 	ps.cancel()
 	ps.wg.Wait()
 	return nil
 }
 
 // printServices prints services at start to show how Store() can be used.
-func (ps *PrintServices) printServices() {
+func (ps *PrintServices) printServices(ctx context.Context) {
 
 	// Retrieve a handle to the store. Blocks until the store has synced.
 	// Can fail if the context is cancelled (e.g. PrintServices is being stopped).
-	store, err := ps.services.Store(ps.ctx)
+	store, err := ps.services.Store(ctx)
 	if err != nil {
 		log.Errorf("Failed to retrieve store: %s, aborting", err)
 		return

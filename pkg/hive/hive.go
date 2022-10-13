@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
+	"go.uber.org/multierr"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -161,20 +162,27 @@ func (h *Hive) Run() error {
 	startCtx, cancel := context.WithTimeout(context.Background(), h.startTimeout)
 	defer cancel()
 
+	var errors []error
+
 	if err := h.Start(startCtx); err != nil {
-		return fmt.Errorf("failed to start: %w", err)
+		errors = append(errors, fmt.Errorf("failed to start: %w", err))
 	}
 
-	shutdownErr := h.waitForSignalOrShutdown()
+	// If start was successful, wait for Shutdown() or interrupt.
+	if len(errors) == 0 {
+		shutdownErr := h.waitForSignalOrShutdown()
+		if shutdownErr != nil {
+			errors = append(errors, shutdownErr)
+		}
+	}
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), h.stopTimeout)
 	defer cancel()
 
 	if err := h.Stop(stopCtx); err != nil {
-		return fmt.Errorf("failed to stop: %w", err)
+		errors = append(errors, fmt.Errorf("failed to stop: %w", err))
 	}
-
-	return shutdownErr
+	return multierr.Combine(errors...)
 }
 
 func (h *Hive) waitForSignalOrShutdown() error {

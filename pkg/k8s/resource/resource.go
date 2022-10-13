@@ -87,7 +87,7 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.storeResolver, r.storePromise = promise.New[Store[T]]()
-	lc.Append(hive.Hook{OnStart: r.start, OnStop: r.stop})
+	lc.Append(r)
 	return r
 }
 
@@ -134,7 +134,7 @@ func (r *resource[T]) pushDelete(lastState any) {
 	r.mu.RUnlock()
 }
 
-func (r *resource[T]) start(startCtx context.Context) error {
+func (r *resource[T]) Start(startCtx hive.HookContext) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -170,7 +170,7 @@ func (r *resource[T]) start(startCtx context.Context) error {
 	return nil
 }
 
-func (r *resource[T]) stop(stopCtx context.Context) error {
+func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
 	r.cancel()
 	r.wg.Wait()
 	return nil

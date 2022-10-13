@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -126,7 +125,11 @@ type ExampleObject struct {
 // onStart is a lifecycle hook that is executed when the hive is started.
 // If onStart fails, then hive will rewind by calling stop hooks for
 // already started components and then return the error.
-func (o *ExampleObject) onStart(context.Context) error {
+//
+// The HookContext is provided to allow aborting the start in case of
+// a timeout. It should always be used to abort any long running operation
+// performed directly from the start hook.
+func (o *ExampleObject) onStart(hive.HookContext) error {
 	o.log.Infof("onStart: Config: %#v", o.cfg)
 	return nil
 }
@@ -134,7 +137,7 @@ func (o *ExampleObject) onStart(context.Context) error {
 // onStop is a lifecycle hook that is executed when the hive is stopped,
 // either by a signal (SIGINT (ctrl-c), SIGTERM) or a call to Shutdowner.Shutdown().
 // All stop hooks are executed regardless if one fails.
-func (o *ExampleObject) onStop(context.Context) error {
+func (o *ExampleObject) onStop(hive.HookContext) error {
 	o.log.Info("onStop")
 	return nil
 }

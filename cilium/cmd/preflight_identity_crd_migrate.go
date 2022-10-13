@@ -53,8 +53,8 @@ func migrateIdentityCmd() *cobra.Command {
 		k8sClient.Cell,
 		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 			lc.Append(hive.Hook{
-				OnStart: func(context.Context) error {
-					return migrateIdentities(clientset, shutdowner)
+				OnStart: func(ctx hive.HookContext) error {
+					return migrateIdentities(ctx, clientset, shutdowner)
 				},
 			})
 		}),
@@ -94,7 +94,7 @@ func migrateIdentityCmd() *cobra.Command {
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+func migrateIdentities(ctx hive.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown(nil)
 
 	// Setup global configuration
@@ -106,14 +106,14 @@ func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD // force CRD mode to make ciliumid
 
 	// Init Identity backends
-	initCtx, initCancel := context.WithTimeout(context.Background(), opTimeout)
+	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreBackend := initKVStore(initCtx)
 
 	crdBackend, crdAllocator := initK8s(initCtx, clientset)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
-	listCtx, listCancel := context.WithTimeout(context.Background(), opTimeout)
+	listCtx, listCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreIDs, err := getKVStoreIdentities(listCtx, kvstoreBackend)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
@@ -129,7 +129,7 @@ func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+		ctx, cancel := context.WithTimeout(ctx, opTimeout)
 		err := crdBackend.AllocateID(ctx, id, key)
 		switch {
 		case err != nil && k8serrors.IsAlreadyExists(err):
@@ -154,7 +154,7 @@ func migrateIdentities(clientset k8sClient.Clientset, shutdowner hive.Shutdowner
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		getCtx, getCancel := context.WithTimeout(context.TODO(), opTimeout)
+		getCtx, getCancel := context.WithTimeout(ctx, opTimeout)
 		upstreamKey, err := crdBackend.GetByID(getCtx, id)
 		getCancel()
 		scopedLog.Debugf("Looking at upstream key with this ID: %+v", upstreamKey)

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -176,7 +177,7 @@ func TestShutdown(t *testing.T) {
 	h := hive.New(
 		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
 			lc.Append(hive.Hook{
-				OnStart: func(context.Context) error {
+				OnStart: func(hive.HookContext) error {
 					shutdowner.Shutdown()
 					return nil
 				}})
@@ -188,7 +189,7 @@ func TestShutdown(t *testing.T) {
 	h = hive.New(
 		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
 			lc.Append(hive.Hook{
-				OnStart: func(context.Context) error {
+				OnStart: func(hive.HookContext) error {
 					go shutdowner.Shutdown()
 					return nil
 				}})
@@ -214,19 +215,57 @@ func TestShutdown(t *testing.T) {
 	h = hive.New(
 		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
 			lc.Append(hive.Hook{
-				OnStart: func(context.Context) error {
+				OnStart: func(hive.HookContext) error {
 					shutdowner.Shutdown(hive.ShutdownWithError(shutdownErr))
 					return nil
 				}})
 		}),
 	)
 	assert.ErrorIs(t, h.Run(), shutdownErr, "expected Run() to fail with shutdownErr")
+}
 
+func TestRunRollback(t *testing.T) {
+	var started, stopped int
+	h := hive.New(
+		cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(ctx hive.HookContext) error {
+					started++
+					return nil
+				},
+				OnStop: func(ctx hive.HookContext) error {
+					stopped++
+					return nil
+				},
+			})
+			lc.Append(hive.Hook{
+				OnStart: func(ctx hive.HookContext) error {
+					started++
+					<-ctx.Done()
+					return ctx.Err()
+				},
+				OnStop: func(hive.HookContext) error {
+					// Should not be called.
+					t.Fatal("unexpected call to second OnStop")
+					return nil
+				},
+			})
+		}),
+	)
+	h.SetTimeouts(time.Millisecond, time.Millisecond)
+
+	err := h.Run()
+	assert.ErrorIs(t, err, context.DeadlineExceeded, "expected Run() to fail with timeout")
+
+	// We should see 2 start hooks invoked, and then 1 stop hook as first
+	// one is rolled back.
+	assert.Equal(t, started, 2)
+	assert.Equal(t, stopped, 1)
 }
 
 var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Shutdowner) {
 	lc.Append(hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			shutdowner.Shutdown()
 			return nil
 		}})

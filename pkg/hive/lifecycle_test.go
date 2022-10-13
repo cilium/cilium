@@ -19,28 +19,28 @@ var (
 	lifecycleErr = errors.New("nope")
 
 	goodHook = hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			started++
 			return nil
 		},
-		OnStop: func(context.Context) error {
+		OnStop: func(hive.HookContext) error {
 			stopped++
 			return nil
 		},
 	}
 
 	badStartHook = hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			return lifecycleErr
 		},
 	}
 
 	badStopHook = hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			started++
 			return nil
 		},
-		OnStop: func(context.Context) error {
+		OnStop: func(hive.HookContext) error {
 			return lifecycleErr
 		},
 	}
@@ -86,7 +86,6 @@ func TestLifecycle(t *testing.T) {
 	assert.ErrorIs(t, err, lifecycleErr, "expected Start to fail")
 
 	assert.Equal(t, 2, started)
-	assert.Equal(t, 2, stopped)
 	started = 0
 	stopped = 0
 
@@ -110,7 +109,7 @@ func TestLifecycle(t *testing.T) {
 	// Test that one can have hook with a stop and no start.
 	lc = hive.DefaultLifecycle{}
 	lc.Append(hive.Hook{
-		OnStop: func(context.Context) error { stopped++; return nil },
+		OnStop: func(hive.HookContext) error { stopped++; return nil },
 	})
 	err = lc.Start(context.TODO())
 	assert.NoError(t, err, "expected Start to succeed")
@@ -129,7 +128,7 @@ func TestLifecycleCancel(t *testing.T) {
 	// Test cancellation in start hook
 	lc := hive.DefaultLifecycle{}
 	lc.Append(hive.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(ctx hive.HookContext) error {
 			<-ctx.Done()
 			return ctx.Err()
 		},
@@ -143,7 +142,7 @@ func TestLifecycleCancel(t *testing.T) {
 	inStop := make(chan struct{})
 	lc = hive.DefaultLifecycle{}
 	lc.Append(hive.Hook{
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(ctx hive.HookContext) error {
 			close(inStop)
 			<-ctx.Done()
 			assert.ErrorIs(t, ctx.Err(), context.Canceled)

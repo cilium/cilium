@@ -77,7 +77,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 	s.cond = sync.NewCond(&s.mu)
 
 	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if params.Init != nil {
@@ -92,7 +92,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 			emit(s.value)
 			return nil
 		},
-		OnStop: func(context.Context) error {
+		OnStop: func(hive.HookContext) error {
 			s.mu.Lock()
 			s.complete(nil)
 			s.complete = nil
