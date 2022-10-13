@@ -422,6 +422,14 @@ func BenchmarkLabel_String(b *testing.B) {
 	}
 }
 
+func BenchmarkGenerateLabelString(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		generateLabelString("foo", "key", "value")
+	}
+}
+
 func TestLabel_String(t *testing.T) {
 	// with value
 	l := NewLabel("io.kubernetes.pod.namespace", "kube-system", "k8s")
