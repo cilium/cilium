@@ -41,37 +41,35 @@ func (d *dnsHandler) Init(registry *prometheus.Registry, options api.Options) er
 		}
 	}
 
-	labels := []string{"rcode", "qtypes", "ips_returned"}
-	if d.includeQuery {
-		labels = append(labels, "query")
-	}
+	contextLabels := d.context.GetLabelNames()
+	commonLabels := append(contextLabels, "rcode", "qtypes")
+	queryAndResponseLabels := append(commonLabels, "ips_returned")
+	responseTypeLabels := append(contextLabels, "type", "qtypes")
 
-	labels = append(labels, d.context.GetLabelNames()...)
+	if d.includeQuery {
+		queryAndResponseLabels = append(queryAndResponseLabels, "query")
+		responseTypeLabels = append(responseTypeLabels, "query")
+	}
 
 	d.queries = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_queries_total",
 		Help:      "Number of DNS queries observed",
-	}, labels)
+	}, queryAndResponseLabels)
 	registry.MustRegister(d.queries)
 
 	d.responses = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_responses_total",
 		Help:      "Number of DNS queries observed",
-	}, labels)
+	}, queryAndResponseLabels)
 	registry.MustRegister(d.responses)
 
-	labels = []string{"type", "qtypes"}
-	if d.includeQuery {
-		labels = append(labels, "query")
-	}
-	labels = append(labels, d.context.GetLabelNames()...)
 	d.responseTypes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "dns_response_types_total",
 		Help:      "Number of DNS queries observed",
-	}, labels)
+	}, responseTypeLabels)
 	registry.MustRegister(d.responseTypes)
 
 	return nil
@@ -103,39 +101,43 @@ func (d *dnsHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 		return nil
 	}
 
-	labelValues, err := d.context.GetLabelValues(flow)
+	contextLabels, err := d.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
-	labels := []string{"", strings.Join(dns.Qtypes, ","), fmt.Sprintf("%d", len(dns.Ips))}
-	if d.includeQuery {
-		labels = append(labels, dns.Query)
-	}
-	labels = append(labels, labelValues...)
 
-	if flow.GetVerdict() == flowpb.Verdict_DROPPED {
+	rcode := ""
+	qtypes := strings.Join(dns.Qtypes, ",")
+	ipsReturned := fmt.Sprintf("%d", len(dns.Ips))
+
+	switch {
+	case flow.GetVerdict() == flowpb.Verdict_DROPPED:
+		rcode = "Policy denied"
+		labels := append(contextLabels, rcode, qtypes, ipsReturned)
+		if d.includeQuery {
+			labels = append(labels, dns.Query)
+		}
 		d.queries.WithLabelValues(labels...).Inc()
-		labels[0] = "Policy denied"
+	case !flow.GetIsReply().GetValue(): // dns request
+		labels := append(contextLabels, rcode, qtypes, ipsReturned)
+		if d.includeQuery {
+			labels = append(labels, dns.Query)
+		}
+		d.queries.WithLabelValues(labels...).Inc()
+	case flow.GetIsReply().GetValue(): // dns response
+		rcode = rcodeNames[dns.Rcode]
+		labels := append(contextLabels, rcode, qtypes, ipsReturned)
+		if d.includeQuery {
+			labels = append(labels, dns.Query)
+		}
 		d.responses.WithLabelValues(labels...).Inc()
-	} else {
-		if flow.GetIsReply().GetValue() {
-			labels[0] = rcodeNames[dns.Rcode]
-			d.responses.WithLabelValues(labels...).Inc()
 
-			if len(dns.Rrtypes) > 0 {
-				newLabels := []string{"", strings.Join(dns.Qtypes, ",")}
-				if d.includeQuery {
-					newLabels = append(newLabels, dns.Query)
-				}
-				newLabels = append(newLabels, labelValues...)
-
-				for _, t := range dns.Rrtypes {
-					newLabels[0] = t
-					d.responseTypes.WithLabelValues(newLabels...).Inc()
-				}
+		for _, responseType := range dns.Rrtypes {
+			newLabels := append(contextLabels, responseType, qtypes)
+			if d.includeQuery {
+				newLabels = append(newLabels, dns.Query)
 			}
-		} else {
-			d.queries.WithLabelValues(labels...).Inc()
+			d.responseTypes.WithLabelValues(newLabels...).Inc()
 		}
 	}
 
