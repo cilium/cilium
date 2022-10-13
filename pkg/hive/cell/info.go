@@ -10,7 +10,7 @@ import (
 )
 
 // indentBy is the number of spaces nested elements should be indented by
-const indentBy = 2
+const indentBy = 4
 
 // Info provides a simple way of printing cells hierarchically in
 // textual form.

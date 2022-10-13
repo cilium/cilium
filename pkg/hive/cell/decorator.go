@@ -39,7 +39,7 @@ type decorator struct {
 }
 
 func (d *decorator) Apply(c container) error {
-	scope := c.Scope(fmt.Sprintf("(decorate %T)", d.decorator))
+	scope := c.Scope(fmt.Sprintf("(decorate %s)", internal.PrettyType(d.decorator)))
 	if err := scope.Decorate(d.decorator); err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (d *decorator) Apply(c container) error {
 }
 
 func (d *decorator) Info() Info {
-	n := NewInfoNode(fmt.Sprintf("🔀 %s: %T", internal.FuncNameAndLocation(d.decorator), d.decorator))
+	n := NewInfoNode(fmt.Sprintf("🔀 %s: %s", internal.FuncNameAndLocation(d.decorator), internal.PrettyType(d.decorator)))
 	for _, cell := range d.cells {
 		n.Add(cell.Info())
 		n.AddBreak()
