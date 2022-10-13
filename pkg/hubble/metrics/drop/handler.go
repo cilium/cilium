@@ -26,8 +26,8 @@ func (d *dropHandler) Init(registry *prometheus.Registry, options api.Options) e
 	}
 	d.context = c
 
-	labels := []string{"reason", "protocol"}
-	labels = append(labels, d.context.GetLabelNames()...)
+	contextLabels := d.context.GetLabelNames()
+	labels := append(contextLabels, "reason", "protocol")
 
 	d.drops = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
@@ -48,12 +48,12 @@ func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return nil
 	}
 
-	labels, err := d.context.GetLabelValues(flow)
+	contextLabels, err := d.context.GetLabelValues(flow)
 	if err != nil {
 		return err
 	}
 
-	labels = append(labels, monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow))
+	labels := append(contextLabels, monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow))
 
 	d.drops.WithLabelValues(labels...).Inc()
 	return nil
