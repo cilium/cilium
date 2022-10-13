@@ -19,3 +19,11 @@ Core Agent
    sctp
    vlan-802.1q
    argocd-issues
+
+Security
+--------
+.. toctree::
+   :maxdepth: 1
+   :glob:
+
+   verify-image-signatures
