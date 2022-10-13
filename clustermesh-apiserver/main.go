@@ -118,8 +118,8 @@ func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
 
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 	lc.Append(hive.Hook{
-		OnStart: func(context.Context) error {
-			startServer(clientset)
+		OnStart: func(ctx hive.HookContext) error {
+			startServer(ctx, clientset)
 			return nil
 		},
 	})
@@ -541,14 +541,14 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
-func startServer(clientset k8sClient.Clientset) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   clusterID,
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(context.TODO(), synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	mgr := NewVMManager(clientset)

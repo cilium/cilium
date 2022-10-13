@@ -38,7 +38,7 @@ has an exit code 1 is returned.`,
 
 		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 			lc.Append(hive.Hook{
-				OnStart: func(context.Context) error { return validateCNPs(clientset, shutdowner) },
+				OnStart: func(hive.HookContext) error { return validateCNPs(clientset, shutdowner) },
 			})
 		}),
 	)

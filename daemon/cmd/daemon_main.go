@@ -1564,7 +1564,8 @@ func registerDaemonHooks(params daemonParams) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// daemonCtx is the daemon-wide context cancelled when stopping.
+	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
 
 	if Vp.GetString(option.DatapathMode) == datapathOption.DatapathModeLBOnly {
@@ -1580,7 +1581,7 @@ func registerDaemonHooks(params daemonParams) error {
 	node.SetLocalNodeStore(params.LocalNodeStore)
 
 	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
 			// by later commits.
 			if params.Clientset.IsEnabled() {
@@ -1593,11 +1594,11 @@ func registerDaemonHooks(params daemonParams) error {
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
-			go runDaemon(ctx, cleaner, params.Shutdowner, params.Clientset)
+			go runDaemon(daemonCtx, cleaner, params.Shutdowner, params.Clientset)
 			return nil
 		},
-		OnStop: func(context.Context) error {
-			cancel()
+		OnStop: func(hive.HookContext) error {
+			cancelDaemonCtx()
 			cleaner.Clean()
 			return nil
 		},

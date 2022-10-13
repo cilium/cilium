@@ -197,7 +197,7 @@ func (c *compositeClientset) Config() Config {
 	return c.config
 }
 
-func (c *compositeClientset) onStart(startCtx context.Context) error {
+func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
 	if !c.IsEnabled() {
 		return nil
 	}
@@ -222,7 +222,7 @@ func (c *compositeClientset) onStart(startCtx context.Context) error {
 	return nil
 }
 
-func (c *compositeClientset) onStop(ctx context.Context) error {
+func (c *compositeClientset) onStop(stopCtx hive.HookContext) error {
 	if c.IsEnabled() {
 		c.controller.RemoveAllAndWait()
 		c.closeAllConns()

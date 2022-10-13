@@ -117,11 +117,11 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 
 	lc.Append(hive.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(hive.HookContext) error {
 			go runOperator(llc, clientset, shutdowner)
 			return nil
 		},
-		OnStop: func(ctx context.Context) error {
+		OnStop: func(ctx hive.HookContext) error {
 			if err := llc.Stop(ctx); err != nil {
 				return err
 			}
@@ -378,14 +378,14 @@ type legacyOnLeader struct {
 	clientset k8sClient.Clientset
 }
 
-func (legacy *legacyOnLeader) onStop(_ context.Context) error {
+func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 	legacy.cancel()
 	return nil
 }
 
 // OnOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
-func (legacy *legacyOnLeader) onStart(_ context.Context) error {
+func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	IsLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
