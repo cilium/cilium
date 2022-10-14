@@ -29,7 +29,7 @@ type prefixReleaser interface {
 	releaseCIDRIdentities(ctx context.Context, identities []netip.Prefix)
 }
 
-func newAsyncPrefixReleaser(parent prefixReleaser, interval time.Duration) *asyncPrefixReleaser {
+func newAsyncPrefixReleaser(parentCtx context.Context, parent prefixReleaser, interval time.Duration) *asyncPrefixReleaser {
 	result := &asyncPrefixReleaser{
 		queue:          make([]netip.Prefix, 0),
 		prefixReleaser: parent,
@@ -41,10 +41,8 @@ func newAsyncPrefixReleaser(parent prefixReleaser, interval time.Duration) *asyn
 		Name:        "ipcache-identity-gc",
 		MinInterval: interval,
 		TriggerFunc: func(reasons []string) {
-			// TODO: Structure the code to pass context down
-			//       from the Daemon.
 			ctx, cancel := context.WithTimeout(
-				context.TODO(),
+				parentCtx,
 				option.Config.KVstoreConnectivityTimeout)
 			defer cancel()
 			result.run(ctx, reasons...)
