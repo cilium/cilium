@@ -574,6 +574,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
 		IdentityAllocator: d.identityAllocator,
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   epMgr,

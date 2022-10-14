@@ -29,14 +29,15 @@ func (d *dummyReleaser) releaseCIDRIdentities(ctx context.Context, prefixes []ne
 }
 
 func TestDeferRelease(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	prefix := netip.MustParsePrefix("192.0.2.3/32")
 	parent := newDummyReleaser()
 	// set a high interval so we can manually test the internals without
 	// racing against the trigger that's set up in the constructor.
-	releaser := newAsyncPrefixReleaser(parent, 5*time.Minute)
+	releaser := newAsyncPrefixReleaser(ctx, parent, 5*time.Minute)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	releaser.enqueue([]netip.Prefix{prefix, prefix}, "test enqueue basics")
 	releaser.run(ctx)
 	remaining := releaser.dequeue()
@@ -46,7 +47,7 @@ func TestDeferRelease(t *testing.T) {
 	assert.Len(t, remaining, 0)
 
 	parent = newDummyReleaser()
-	releaser = newAsyncPrefixReleaser(parent, 5*time.Minute)
+	releaser = newAsyncPrefixReleaser(ctx, parent, 5*time.Minute)
 	newPrefix := netip.MustParsePrefix("0.0.0.0/0")
 	releaser.enqueue([]netip.Prefix{prefix, newPrefix}, "multiple inputs")
 	releaser.run(ctx)
