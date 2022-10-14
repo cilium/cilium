@@ -104,7 +104,7 @@ const (
 	// configuration updates to the daemon
 	ConfigModifyQueueSize = 10
 
-	syncEndpointsAndHostIPsController = "sync-endpoints-and-host-ips"
+	syncHostIPsController = "sync-host-ips"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -1253,10 +1253,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// reinserted to the bpf maps if they are ever removed from them.
 	syncErrs := make(chan error, 1)
 	d.controllers.UpdateController(
-		syncEndpointsAndHostIPsController,
+		syncHostIPsController,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := d.syncEndpointsAndHostIPs()
+				err := d.syncHostIPs()
 				select {
 				case syncErrs <- err:
 				default:
@@ -1371,7 +1371,7 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		} else {
 			// Synchronize services and endpoints to reflect new addresses onto lbmap.
 			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-			d.controllers.TriggerController(syncEndpointsAndHostIPsController)
+			d.controllers.TriggerController(syncHostIPsController)
 		}
 	}
 
