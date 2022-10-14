@@ -226,8 +226,8 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	}).Info("Endpoints restored")
 
 	if existingEndpoints != nil {
-		for hostIP, info := range existingEndpoints {
-			if ip := net.ParseIP(hostIP); !info.IsHost() && ip != nil {
+		for epIP, info := range existingEndpoints {
+			if ip := net.ParseIP(epIP); !info.IsHost() && ip != nil {
 				if err := lxcmap.DeleteEntry(ip); err != nil {
 					log.WithError(err).Warn("Unable to delete obsolete endpoint from BPF map")
 				} else {
