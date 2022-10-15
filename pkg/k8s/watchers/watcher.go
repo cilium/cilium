@@ -260,8 +260,6 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
-	nodeStore cache.Store
-
 	// nodesInitOnce is used to guarantee that only one function call of NodesInit is executed.
 	nodesInitOnce sync.Once
 
@@ -281,6 +279,8 @@ type K8sWatcher struct {
 	networkpolicyStore cache.Store
 
 	cfg WatcherConfiguration
+
+	sharedResources k8s.SharedResources
 }
 
 func NewK8sWatcher(
@@ -298,6 +298,7 @@ func NewK8sWatcher(
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
+	sharedResources k8s.SharedResources,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
@@ -320,6 +321,7 @@ func NewK8sWatcher(
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
 		cfg:                   cfg,
+		sharedResources:       sharedResources,
 	}
 }
 
@@ -555,8 +557,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			swgKNP := lock.NewStoppableWaitGroup()
 			k.networkPoliciesInit(k.clientset.Slim(), swgKNP)
 		case resources.K8sAPIGroupServiceV1Core:
-			swgSvcs := lock.NewStoppableWaitGroup()
-			k.servicesInit(k.clientset.Slim(), swgSvcs, serviceOptModifier)
+			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceV1Beta1Discovery:
 			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
 		case resources.K8sAPIGroupEndpointSliceV1Discovery:
