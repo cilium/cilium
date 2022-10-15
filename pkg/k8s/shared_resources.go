@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package k8s
+
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+var (
+	// SharedResourceCell provides a set of shared handles to Kubernetes resources used throughout the
+	// Cilium agent. Each of the resources share a client-go informer and backing store so we only
+	// have one watch API call for each resource kind and that we maintain only one copy of each object.
+	//
+	// See pkg/k8s/resource/resource.go for documentation on the Resource[T] type.
+	SharedResourcesCell = cell.Module(
+		"k8s-shared-resources",
+		"Shared Kubernetes resources",
+
+		cell.Provide(
+			serviceResource,
+			localNodeResource,
+		),
+	)
+)
+
+type SharedResources struct {
+	cell.In
+	Services  resource.Resource[*slim_corev1.Service]
+	LocalNode resource.Resource[*corev1.Node]
+}
+
+func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	optsModifier, err := utils.GetServiceListOptionsModifier(option.Config)
+	if err != nil {
+		return nil, err
+	}
+	lw := utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services(""))
+	lw = utils.ListerWatcherWithModifier(lw, optsModifier)
+	return resource.New[*slim_corev1.Service](lc, lw), nil
+}
+
+func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*corev1.Node], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
+	return resource.New[*corev1.Node](lc, lw), nil
+}
