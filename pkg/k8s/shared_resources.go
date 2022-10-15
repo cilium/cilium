@@ -30,14 +30,16 @@ var (
 		cell.Provide(
 			serviceResource,
 			localNodeResource,
+			namespaceResource,
 		),
 	)
 )
 
 type SharedResources struct {
 	cell.In
-	Services  resource.Resource[*slim_corev1.Service]
-	LocalNode resource.Resource[*corev1.Node]
+	LocalNode  resource.Resource[*corev1.Node]
+	Services   resource.Resource[*slim_corev1.Service]
+	Namespaces resource.Resource[*slim_corev1.Namespace]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -60,4 +62,12 @@ func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 	lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
 	lw = utils.ListerWatcherWithFields(lw, fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName()))
 	return resource.New[*corev1.Node](lc, lw), nil
+}
+
+func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Namespace], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces())
+	return resource.New[*slim_corev1.Namespace](lc, lw), nil
 }
