@@ -1638,13 +1638,14 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
-	Clientset      k8sClient.Clientset
-	Datapath       datapath.Datapath
-	WGAgent        *wg.Agent `optional:"true"`
-	LocalNodeStore node.LocalNodeStore
-	BGPController  *bgpv1.Controller
-	Shutdowner     hive.Shutdowner
+	Lifecycle       hive.Lifecycle
+	Clientset       k8sClient.Clientset
+	Datapath        datapath.Datapath
+	WGAgent         *wg.Agent `optional:"true"`
+	LocalNodeStore  node.LocalNodeStore
+	BGPController   *bgpv1.Controller
+	Shutdowner      hive.Shutdowner
+	SharedResources k8s.SharedResources
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1671,7 +1672,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				WithDefaultEndpointManager(daemonCtx, params.Clientset, endpoint.CheckHealth),
 				params.Datapath,
 				params.WGAgent,
-				params.Clientset)
+				params.Clientset,
+				params.SharedResources)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

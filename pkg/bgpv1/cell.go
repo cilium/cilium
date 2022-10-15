@@ -10,11 +10,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	k8sutils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,8 +32,6 @@ var Cell = cell.Module(
 		// goBGP is currently the only supported RouterManager, if more are
 		// implemented, provide the manager via a Cell that pics implementation based on configuration.
 		gobgp.NewBGPRouterManager,
-		// Create a slim service resource
-		newSlimServiceResource,
 		// Create a slim service DiffStore
 		gobgp.NewDiffStore[*slim_core_v1.Service],
 	),
@@ -58,27 +54,3 @@ func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *opti
 			c.CiliumV2alpha1().CiliumBGPPeeringPolicies(),
 		))
 }
-
-// Constructs a slim service resource with perpetual retries at a exponential backoff
-func newSlimServiceResource(lc hive.Lifecycle, c k8sClient.Clientset, dc *option.DaemonConfig) (resource.Resource[*slim_core_v1.Service], error) {
-	// Do not create this resource if the BGP Control Plane is disabled
-	if !dc.BGPControlPlaneEnabled() {
-		return nil, nil
-	}
-
-	if !c.IsEnabled() {
-		return nil, nil
-	}
-
-	optsModifier, err := k8sutils.GetServiceListOptionsModifier(option.Config)
-	if err != nil {
-		return nil, err
-	}
-	return resource.New[*slim_core_v1.Service](
-		lc,
-		k8sutils.ListerWatcherWithModifier(
-			k8sutils.ListerWatcherFromTyped[*slim_core_v1.ServiceList](c.Slim().CoreV1().Services("")),
-			optsModifier),
-	), nil
-}
-

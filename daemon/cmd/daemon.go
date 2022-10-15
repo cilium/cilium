@@ -404,6 +404,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
+	sharedResources k8s.SharedResources,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -701,6 +702,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
+		sharedResources,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 
