@@ -8,17 +8,11 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
@@ -48,63 +42,66 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
-	apiGroup := k8sAPIGroupNodeV1Core
 	k.nodesInitOnce.Do(func() {
+		synced := false
 		swg := lock.NewStoppableWaitGroup()
-
-		nodeStore, nodeController := informer.NewInformer(
-			utils.ListerWatcherWithFields(
-				utils.ListerWatcherFromTyped[*v1.NodeList](k8sClient.CoreV1().Nodes()),
-				fields.ParseSelectorOrDie("metadata.name="+nodeTypes.GetName())),
-			&v1.Node{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					var valid bool
-					if node := k8s.ObjToV1Node(obj); node != nil {
-						valid = true
-						errs := k.NodeChain.OnAddNode(node, swg)
-						k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
-					}
-					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					var valid, equal bool
-					if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
-						valid = true
-						if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
-							equal = nodeEventsAreEqual(oldNode, newNode)
-							if !equal {
-								errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
-								k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
-							}
-						}
-					}
-					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, valid, false)
-				},
-				DeleteFunc: func(obj interface{}) {
-				},
-			},
-			nil,
+		k.blockWaitGroupToSyncResources(
+			k.stop,
+			swg,
+			func() bool { return synced },
+			k8sAPIGroupNodeV1Core,
 		)
-
-		k.nodeStore = nodeStore
-
-		k.blockWaitGroupToSyncResources(wait.NeverStop, swg, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
-		go nodeController.Run(k.stop)
-		k.k8sAPIGroups.AddAPI(apiGroup)
+		go k.nodeEventLoop(&synced, swg)
 	})
 }
 
-// GetK8sNode returns the *local Node* from the local store.
-func (k *K8sWatcher) GetK8sNode(_ context.Context, nodeName string) (*v1.Node, error) {
-	k.WaitForCacheSync(k8sAPIGroupNodeV1Core)
-	pName := &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: nodeName,
-		},
+func (k *K8sWatcher) nodeEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
+	apiGroup := k8sAPIGroupNodeV1Core
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	events := k.sharedResources.LocalNode.Events(ctx)
+	var oldNode *v1.Node
+	for {
+		select {
+		case <-k.stop:
+			cancel()
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+			switch event.Kind {
+			case resource.Sync:
+				*synced = true
+			case resource.Upsert:
+				newNode := event.Object
+				if oldNode == nil {
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, true, false)
+					errs := k.NodeChain.OnAddNode(newNode, swg)
+					k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
+				} else {
+					equal := nodeEventsAreEqual(oldNode, newNode)
+					k.K8sEventReceived(apiGroup, metricNode, resources.MetricUpdate, true, equal)
+					if !equal {
+						errs := k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
+						k.K8sEventProcessed(metricNode, resources.MetricUpdate, errs == nil)
+					}
+				}
+				oldNode = newNode
+			}
+			event.Done(nil)
+		}
 	}
-	nodeInterface, exists, err := k.nodeStore.Get(pName)
+}
+
+// GetK8sNode returns the *local Node* from the local store.
+func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*v1.Node, error) {
+	// Retrieve the store. Blocks until synced (or ctx cancelled).
+	store, err := k.sharedResources.LocalNode.Store(ctx)
+	if err != nil {
+		return nil, err
+	}
+	node, exists, err := store.GetByKey(resource.Key{Name: nodeName})
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +111,7 @@ func (k *K8sWatcher) GetK8sNode(_ context.Context, nodeName string) (*v1.Node, e
 			Resource: "Node",
 		}, nodeName)
 	}
-	return nodeInterface.(*v1.Node).DeepCopy(), nil
+	return node.DeepCopy(), nil
 }
 
 // ciliumNodeUpdater implements the subscriber.Node interface and is used
