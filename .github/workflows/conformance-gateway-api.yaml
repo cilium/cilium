@@ -1,0 +1,166 @@
+name: ConformanceGatewayAPI
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+  push:
+    branches:
+      - master
+      - ft/master/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  cilium_cli_version: v0.12.4
+  timeout: 5m
+  gateway_api_version: v0.5.1
+
+jobs:
+  gateway-api-conformance-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Install Cilium CLI
+        run: |
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request }} ]; then
+            SHA=${{ github.event.pull_request.head.sha }}
+          else
+            SHA=${{ github.sha }}
+          fi
+          echo ::set-output name=sha::${SHA}
+
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Create minikube cluster with multiple nodes
+        run: |
+          # Use at least 3 nodes, so that at least 2 worker nodes are available for scheduling
+          minikube start --network-plugin=cni --cni=false \
+            --docker-opt="default-ulimit=nofile=102400:102400" \
+            --nodes 3
+
+      # Start minikube tunnel
+      - name: Setup minikube
+        run: |
+          minikube tunnel &
+
+      - name: Install Go
+        uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
+        with:
+          go-version: 1.19.2
+
+      - name: Checkout gateway-api
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          repository: kubernetes-sigs/gateway-api
+          path: gateway-api
+          ref: ${{ env.gateway_api_version }}
+          persist-credentials: false
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        run: |
+          helm upgrade -i cilium ./install/kubernetes/cilium \
+            --wait \
+            --namespace kube-system \
+            --set kubeProxyReplacement=strict \
+            --set nodeinit.enabled=true \
+            --set ipam.mode=kubernetes \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set image.tag=${{ steps.vars.outputs.sha }} \
+            --set image.pullPolicy=IfNotPresent \
+            --set image.useDigest=false \
+            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set operator.image.suffix=-ci \
+            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
+            --set operator.image.pullPolicy=IfNotPresent \
+            --set operator.image.useDigest=false \
+            --set securityContext.privileged=true \
+            --set gatewayAPI.enabled=true
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+          # To make sure that cilium envoy CRs are available
+          kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+          
+          # Install Gateway API webhook and CRDs
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${{ env.gateway_api_version }}/standard-install.yaml
+          
+          # To make sure that Gateway API CRs are available
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          
+          # To make sure that the Gateway API webhook is available
+          kubectl wait -n gateway-system --for=condition=Ready pod -l name=gateway-api-admission-server --timeout=${{ env.timeout }}
+
+      # Run the quick sanity check
+      - name: Run Sanity check
+        timeout-minutes: 5
+        run: |
+          kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl apply -n default -f examples/kubernetes/gateway/basic-http.yaml
+          kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+          lb=$(kubectl get service cilium-gateway-my-gateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
+
+      - name: Run Gateway API conformance test
+        timeout-minutes: 30
+        run: |
+          cd gateway-api
+          go test ./conformance --gateway-class cilium --debug
+
+      - name: Post-test information gathering
+        if: ${{ !success() }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5

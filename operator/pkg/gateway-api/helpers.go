@@ -154,3 +154,20 @@ func hostnameMatchesWildcardHostname(hostname, wildcardHostname string) bool {
 	wildcardMatch := strings.TrimSuffix(hostname, strings.TrimPrefix(wildcardHostname, allHosts))
 	return len(wildcardMatch) > 0
 }
+
+func getSupportedKind(protocol gatewayv1beta1.ProtocolType) gatewayv1beta1.Kind {
+	switch protocol {
+	case gatewayv1beta1.TLSProtocolType:
+		return "TLSRoute"
+	case gatewayv1beta1.HTTPSProtocolType:
+		return "HTTPRoute"
+	case gatewayv1beta1.HTTPProtocolType:
+		return "HTTPRoute"
+	case gatewayv1beta1.TCPProtocolType:
+		return "TCPRoute"
+	case gatewayv1beta1.UDPProtocolType:
+		return "UDPRoute"
+	default:
+		return "Unknown"
+	}
+}

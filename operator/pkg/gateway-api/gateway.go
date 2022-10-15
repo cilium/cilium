@@ -480,20 +480,3 @@ func (r *gatewayReconciler) setListenerStatus(_ context.Context, gw *gatewayv1be
 	}
 	return nil
 }
-
-func getSupportedKind(protocol gatewayv1beta1.ProtocolType) gatewayv1beta1.Kind {
-	switch protocol {
-	case gatewayv1beta1.TLSProtocolType:
-		return "TLSRoute"
-	case gatewayv1beta1.HTTPSProtocolType:
-		return "HTTPRoute"
-	case gatewayv1beta1.HTTPProtocolType:
-		return "HTTPRoute"
-	case gatewayv1beta1.TCPProtocolType:
-		return "TCPRoute"
-	case gatewayv1beta1.UDPProtocolType:
-		return "UDPRoute"
-	default:
-		return "Unknown"
-	}
-}
