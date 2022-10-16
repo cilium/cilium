@@ -181,8 +181,9 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 		return ErrShutDown
 	}
 	var (
-		svcID = k8s.ParseEndpointsID(eps)
-		l     = log.WithFields(logrus.Fields{
+		epSliceID = k8s.ParseEndpointsID(eps)
+		svcID     = epSliceID.ServiceID
+		l         = log.WithFields(logrus.Fields{
 			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
 			"service-id": svcID,
 		})
