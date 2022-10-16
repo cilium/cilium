@@ -95,11 +95,14 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher) Resource[T] {
+func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
 		queues: make(map[uint64]*keyQueue),
 		needed: make(chan struct{}, 1),
 		lw:     lw,
+	}
+	for _, o := range opts {
+		o(&r.opts)
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.storeResolver, r.storePromise = promise.New[Store[T]]()
@@ -107,11 +110,26 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher) Resourc
 	return r
 }
 
+type options struct {
+	transform cache.TransformFunc
+}
+
+type ResourceOption func(o *options)
+
+// WithTransform sets the function to transform the object before storing it.
+// The returned object must implement k8sRuntime.Object.
+func WithTransform(transform cache.TransformFunc) ResourceOption {
+	return func(o *options) {
+		o.transform = transform
+	}
+}
+
 type resource[T k8sRuntime.Object] struct {
 	mu     lock.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	opts   options
 
 	needed chan struct{}
 
@@ -202,7 +220,7 @@ func (r *resource[T]) startWhenNeeded() {
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
-	store, informer := cache.NewInformer(r.lw, objType, 0, handlerFuncs)
+	store, informer := cache.NewTransformingInformer(r.lw, objType, 0, handlerFuncs, r.opts.transform)
 	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)

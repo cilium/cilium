@@ -20,6 +20,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -276,6 +277,72 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	if ok {
 		t.Fatalf("unexpected event still in channel: %v", ev)
 	}
+}
+
+func TestResource_WithTransform(t *testing.T) {
+	type StrippedNode = metav1.PartialObjectMetadata
+	var strippedNodes resource.Resource[*StrippedNode]
+	var fakeClient, cs = k8sClient.NewFakeClientset()
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "node",
+			ResourceVersion: "0",
+		},
+		Status: corev1.NodeStatus{
+			Phase: "init",
+		},
+	}
+
+	var strip cache.TransformFunc = func(obj any) (any, error) {
+		node := obj.(*corev1.Node)
+		return &StrippedNode{TypeMeta: node.TypeMeta, ObjectMeta: node.ObjectMeta}, nil
+	}
+
+	hive := hive.New(
+		cell.Provide(
+			func() k8sClient.Clientset { return cs },
+			func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*StrippedNode] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
+				return resource.New[*StrippedNode](lc, lw, resource.WithTransform(strip))
+			}),
+
+		cell.Invoke(func(r resource.Resource[*StrippedNode]) {
+			strippedNodes = r
+		}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	events := strippedNodes.Events(ctx)
+
+	event := <-events
+	assert.Equal(t, resource.Upsert, event.Kind)
+	event.Done(nil)
+
+	event = <-events
+	assert.Equal(t, resource.Sync, event.Kind)
+	event.Done(nil)
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	event, ok := <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", event)
+	}
+
 }
 
 var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int, err error) resource.ErrorAction {
