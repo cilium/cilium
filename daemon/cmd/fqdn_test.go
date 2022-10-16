@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/fqdn/re"
@@ -119,7 +120,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 		Cache:           fqdn.NewDNSCache(0),
 		UpdateSelectors: d.updateSelectors,
 	})
-	d.endpointManager = WithCustomEndpointManager(&dummyEpSyncher{})
+	d.endpointManager = endpointmanager.New(&dummyEpSyncher{})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
 	ds.d = d
 }

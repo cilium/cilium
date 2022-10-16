@@ -55,7 +55,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
@@ -159,7 +158,7 @@ type Daemon struct {
 
 	netConf *cnitypes.NetConf
 
-	endpointManager *endpointmanager.EndpointManager
+	endpointManager endpointmanager.EndpointManager
 
 	identityAllocator CachingIdentityAllocator
 
@@ -375,7 +374,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup,
-	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	epMgr endpointmanager.EndpointManager, dp datapath.Datapath,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
@@ -624,7 +623,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = epMgr
-	d.endpointManager.InitMetrics()
 
 	// Start the proxy before we start K8s watcher or restore endpoints so that we can inject
 	// the daemon's proxy into the k8s watcher and each endpoint.
@@ -1292,23 +1290,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 
 	return &d, restoredEndpoints, nil
-}
-
-// WithDefaultEndpointManager creates the default endpoint manager with a
-// functional endpoint synchronizer.
-func WithDefaultEndpointManager(ctx context.Context, clientset client.Clientset, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
-	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{Clientset: clientset})
-	if option.Config.EndpointGCInterval > 0 {
-		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
-	}
-	return mgr
-}
-
-// WithCustomEndpointManager creates the custom endpoint manager with the
-// provided endpoint synchronizer. This is useful for tests which want to mock
-// out the real endpoint synchronizer.
-func WithCustomEndpointManager(s endpointmanager.EndpointResourceSynchronizer) *endpointmanager.EndpointManager {
-	return endpointmanager.NewEndpointManager(s)
 }
 
 func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {

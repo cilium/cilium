@@ -142,7 +142,7 @@ func (d *Daemon) SetPrefilter(preFilter datapath.PreFilter) {
 // EndpointMapManager is a wrapper around an endpointmanager as well as the
 // filesystem for removing maps related to endpoints from the filesystem.
 type EndpointMapManager struct {
-	*endpointmanager.EndpointManager
+	endpointmanager.EndpointManager
 }
 
 // RemoveDatapathMapping unlinks the endpointID from the global policy map, preventing
