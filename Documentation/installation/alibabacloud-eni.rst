@@ -1,34 +1,8 @@
-.. only:: not (epub or latex or html)
-
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    https://docs.cilium.io
-
 .. _k8s_alibabacloud_eni:
 
-*************************************************
-Setting Up Cilium in AlibabaCloud ENI Mode (beta)
-*************************************************
+To install Cilium on `ACK (Alibaba Cloud Container Service for Kubernetes) <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_, perform the following steps:
 
-.. include:: ../beta.rst
-
-.. note::
-
-   The AlibabaCloud ENI integration is still subject to some limitations. See
-   :ref:`alibabacloud_eni_limitations` for details.
-
-Create a Cluster on AlibabaCloud
-================================
-
-Setup a Kubernetes on AlibabaCloud. You can use any method you prefer.
-The quickest way is to create an ACK (Alibaba Cloud Container Service for
-Kubernetes) cluster and to replace the CNI plugin with Cilium.
-For more details on how to set up an ACK cluster please follow
-the `official documentation <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_.
-
-
-Disable ACK CNI (ACK Only)
-==========================
+**Disable ACK CNI (ACK Only):**
 
 If you are running an ACK cluster, you should delete the ACK CNI.
 
@@ -77,15 +51,13 @@ The next step is to remove CRD below created by ``terway*`` CNI
         networkpolicies.crd.projectcalico.org
 
 
-Create AlibabaCloud Secrets
-===========================
+**Create AlibabaCloud Secrets:**
 
 Before installing Cilium, a new Kubernetes Secret with the AlibabaCloud Tokens needs to
 be added to your Kubernetes cluster. This Secret will allow Cilium to gather
 information from the AlibabaCloud API which is needed to implement ToGroups policies.
 
-AlibabaCloud Access Keys
-------------------------
+**AlibabaCloud Access Keys:**
 
 To create a new access token the `following guide can be used
 <https://www.alibabacloud.com/help/doc-detail/93691.htm>`_.
@@ -162,12 +134,11 @@ connect to the AlibabaCloud API.
     $ kubectl create -f cilium-secret.yaml
 
 
-Deploy Cilium
-=============
+**Install Cilium:**
 
-.. include:: k8s-install-download-release.rst
+.. include:: /installation/k8s-install-download-release.rst
 
-Deploy Cilium release via Helm:
+Install Cilium release via Helm:
 
 .. parsed-literal::
 
@@ -185,15 +156,4 @@ Deploy Cilium release via Helm:
    the security groups for pod ENIs are derived from the primary ENI
    (``eth0``).
 
-.. include:: k8s-install-validate.rst
 
-.. include:: next-steps.rst
-
-.. _alibabacloud_eni_limitations:
-
-Limitations
-===========
-
-* The Alibaba ENI integration of Cilium is currently only enabled for IPv4.
-* Only work with instance support ENI, refer to `Instance families
-  <https://www.alibabacloud.com/help/doc-detail/25378.htm>`_.

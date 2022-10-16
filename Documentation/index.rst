@@ -67,7 +67,6 @@ get started and experiment with Cilium.
    installation/k8s-install-helm
    installation/k8s-toc
    installation/external-toc
-   installation/provider-toc
 
 .. toctree::
    :maxdepth: 2
