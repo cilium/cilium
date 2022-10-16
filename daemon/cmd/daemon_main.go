@@ -42,7 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
@@ -1646,6 +1646,7 @@ type daemonParams struct {
 	BGPController   *bgpv1.Controller
 	Shutdowner      hive.Shutdowner
 	SharedResources k8s.SharedResources
+	EndpointManager endpointmanager.EndpointManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1669,7 +1670,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		OnStart: func(hive.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(
 				daemonCtx, cleaner,
-				WithDefaultEndpointManager(daemonCtx, params.Clientset, endpoint.CheckHealth),
+				params.EndpointManager,
 				params.Datapath,
 				params.WGAgent,
 				params.Clientset,
