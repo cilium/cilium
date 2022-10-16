@@ -24,7 +24,7 @@ type EndpointCheckerFunc func(*endpoint.Endpoint) error
 // This way, if there is a temporary condition that will be resolved by other
 // components in the system, then we will not flag warnings about the system
 // getting out-of-sync.
-func (mgr *EndpointManager) markAndSweep(ctx context.Context) error {
+func (mgr *endpointManager) markAndSweep(ctx context.Context) error {
 	marked := mgr.markEndpoints()
 
 	mgr.mutex.Lock()
@@ -41,7 +41,7 @@ func (mgr *EndpointManager) markAndSweep(ctx context.Context) error {
 // markEndpoints runs all endpoints in the manager against the configured
 // EndpointChecker and returns a slice of endpoint ids that require garbage
 // collection.
-func (mgr *EndpointManager) markEndpoints() []uint16 {
+func (mgr *endpointManager) markEndpoints() []uint16 {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -56,7 +56,7 @@ func (mgr *EndpointManager) markEndpoints() []uint16 {
 
 // sweepEndpoints iterates through the specified list of endpoints marked for
 // deletion and attempts to garbage-collect them if they still exist.
-func (mgr *EndpointManager) sweepEndpoints(markedEndpoints []uint16) {
+func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
 	toSweep := make([]*endpoint.Endpoint, 0, len(markedEndpoints))
 
 	// 'markedEndpoints' were marked during the previous mark round, so

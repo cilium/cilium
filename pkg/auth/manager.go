@@ -15,10 +15,10 @@ import (
 )
 
 type AuthManager struct {
-	endpointManager *endpointmanager.EndpointManager
+	endpointManager endpointmanager.EndpointsLookup
 }
 
-func NewAuthManager(epMgr *endpointmanager.EndpointManager) *AuthManager {
+func NewAuthManager(epMgr endpointmanager.EndpointsLookup) *AuthManager {
 	return &AuthManager{
 		endpointManager: epMgr,
 	}

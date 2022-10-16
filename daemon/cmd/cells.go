@@ -6,6 +6,7 @@ package cmd
 import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -56,6 +57,9 @@ var (
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
 		k8s.SharedResourcesCell,
+
+		// EndpointManager maintains a collection of the locally running endpoints.
+		endpointmanager.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,

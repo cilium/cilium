@@ -41,7 +41,7 @@ import (
 )
 
 // initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {
+func (d *Daemon) initPolicy(epMgr endpointmanager.EndpointManager) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
 	// should be counted in pol.TriggerMetrics.

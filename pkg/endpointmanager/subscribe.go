@@ -18,14 +18,14 @@ type Subscriber interface {
 	EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig)
 }
 
-func (mgr *EndpointManager) Subscribe(s Subscriber) {
+func (mgr *endpointManager) Subscribe(s Subscriber) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
 	mgr.subscribers[s] = struct{}{}
 }
 
-func (mgr *EndpointManager) Unsubscribe(s Subscriber) {
+func (mgr *endpointManager) Unsubscribe(s Subscriber) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 	delete(mgr.subscribers, s)
