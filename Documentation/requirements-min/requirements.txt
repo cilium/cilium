@@ -14,7 +14,7 @@ myst-parser==0.18.0
 git+https://github.com/cilium/openapi.git@mdinclude#egg=sphinxcontrib-openapi
 sphinx-tabs==3.4.0
 sphinx-version-warning==1.1.2
-sphinxcontrib-spelling==7.6.0
+sphinxcontrib-spelling==7.6.2
 sphinxcontrib-websupport==1.2.4
 
 # Linters
