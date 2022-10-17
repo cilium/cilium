@@ -5,5 +5,6 @@ package serviceoption
 
 // Default serves only as reference point for default values.
 var Default = Options{
-	MaxSendBufferSize: 65_536,
+	MaxSendBufferSize:       65_536,
+	AddressFamilyPreference: AddressPreferIPv4,
 }

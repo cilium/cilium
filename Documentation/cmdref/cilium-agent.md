@@ -164,6 +164,7 @@ cilium-agent [flags]
       --hubble-listen-address string                            An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                  List of Hubble metrics to enable.
       --hubble-metrics-server string                            Address to serve Hubble metrics on.
+      --hubble-prefer-ipv6                                      Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                     Queue size of each Hubble recorder sink (default 1024)
       --hubble-recorder-storage-path string                     Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
       --hubble-socket-path string                               Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")

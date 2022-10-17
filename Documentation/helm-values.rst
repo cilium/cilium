@@ -817,6 +817,10 @@
      - Target Port for the Peer service.
      - int
      - ``4244``
+   * - hubble.preferIpv6
+     - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
+     - bool
+     - ``false``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
