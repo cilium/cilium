@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ingress
+package translation
 
 import "github.com/cilium/cilium/operator/pkg/model"
 
