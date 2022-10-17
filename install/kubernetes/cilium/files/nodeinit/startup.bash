@@ -29,15 +29,6 @@ KUBELET_DEFAULTS_FILE="/etc/default/kubelet"
 if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && [[ $(grep -cF -- '--container-runtime-endpoint' "${KUBELET_DEFAULTS_FILE}") == "1" ]]; then
   echo "GKE *_containerd flavor detected..."
 
-  # kubelet version string format is "Kubernetes v1.24-gke.900"
-  K8S_VERSION=$(kubelet --version)
-
-  # Helper to check if a version string, passed as first parameter, is greater than or
-  # equal the one passed as second parameter.
-  function version_gte() {
-    [[ "$(printf '%s\n' "${2}" "${1}" | sort -V | head -n1)" = "${2}" ]] && return
-  }
-
   # (GKE *_containerd) Upon node restarts, GKE's containerd images seem to reset
   # the /etc directory and our changes to the kubelet and Cilium's CNI
   # configuration are removed. This leaves room for containerd and its CNI to
@@ -128,6 +119,15 @@ EOF
     echo "Kubelet wrapper already exists, skipping..."
   fi
 else
+  # kubelet version string format is "Kubernetes v1.24-gke.900"
+  K8S_VERSION=$(kubelet --version)
+
+  # Helper to check if a version string, passed as first parameter, is greater than or
+  # equal the one passed as second parameter.
+  function version_gte() {
+    [[ "$(printf '%s\n' "${2}" "${1}" | sort -V | head -n1)" = "${2}" ]] && return
+  }
+
   # Dockershim flags have been removed since k8s 1.24.
   if ! version_gte "${K8S_VERSION#"Kubernetes "}" "v1.24"; then
     # (Generic) Alter the kubelet configuration to run in CNI mode
