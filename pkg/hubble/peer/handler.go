@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -22,16 +23,18 @@ import (
 // handler to the node manager.
 // Once not used anymore, Close must be called to free resources.
 type handler struct {
-	stop chan struct{}
-	C    chan *peerpb.ChangeNotification
-	tls  bool
+	stop        chan struct{}
+	C           chan *peerpb.ChangeNotification
+	tls         bool
+	addressPref serviceoption.AddressFamilyPreference
 }
 
-func newHandler(withoutTLSInfo bool) *handler {
+func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPreference) *handler {
 	return &handler{
-		stop: make(chan struct{}),
-		C:    make(chan *peerpb.ChangeNotification),
-		tls:  !withoutTLSInfo,
+		stop:        make(chan struct{}),
+		C:           make(chan *peerpb.ChangeNotification),
+		tls:         !withoutTLSInfo,
+		addressPref: addressPref,
 	}
 }
 
@@ -41,7 +44,7 @@ var _ datapath.NodeHandler = (*handler)(nil)
 
 // NodeAdd implements datapath.NodeHandler.NodeAdd.
 func (h *handler) NodeAdd(n types.Node) error {
-	cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED, h.tls)
+	cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED)
 	select {
 	case h.C <- cn:
 	case <-h.stop:
@@ -51,14 +54,14 @@ func (h *handler) NodeAdd(n types.Node) error {
 
 // NodeUpdate implements datapath.NodeHandler.NodeUpdate.
 func (h *handler) NodeUpdate(o, n types.Node) error {
-	oAddr, nAddr := nodeAddress(o), nodeAddress(n)
+	oAddr, nAddr := nodeAddress(o, h.addressPref), nodeAddress(n, h.addressPref)
 	if o.Fullname() == n.Fullname() {
 		if oAddr == nAddr {
 			// this corresponds to the same peer
 			// => no need to send a notification
 			return nil
 		}
-		cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_UPDATED, h.tls)
+		cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_UPDATED)
 		select {
 		case h.C <- cn:
 		case <-h.stop:
@@ -67,13 +70,13 @@ func (h *handler) NodeUpdate(o, n types.Node) error {
 	}
 	// the name has changed; from a service consumer perspective, this is the
 	// same as if the peer with the old name was removed and a new one added
-	ocn := newChangeNotification(o, peerpb.ChangeNotificationType_PEER_DELETED, h.tls)
+	ocn := h.newChangeNotification(o, peerpb.ChangeNotificationType_PEER_DELETED)
 	select {
 	case h.C <- ocn:
 	case <-h.stop:
 		return nil
 	}
-	ncn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED, h.tls)
+	ncn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED)
 	select {
 	case h.C <- ncn:
 	case <-h.stop:
@@ -83,7 +86,7 @@ func (h *handler) NodeUpdate(o, n types.Node) error {
 
 // NodeDelete implements datapath.NodeHandler.NodeDelete.
 func (h *handler) NodeDelete(n types.Node) error {
-	cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_DELETED, h.tls)
+	cn := h.newChangeNotification(n, peerpb.ChangeNotificationType_PEER_DELETED)
 	select {
 	case h.C <- cn:
 	case <-h.stop:
@@ -132,33 +135,37 @@ func (h *handler) Close() {
 // newChangeNotification creates a new change notification with the provided
 // information. If withTLS is true, the TLS field is populated with the server
 // name derived from the node and cluster names.
-func newChangeNotification(n types.Node, t peerpb.ChangeNotificationType, withTLS bool) *peerpb.ChangeNotification {
+func (h *handler) newChangeNotification(n types.Node, t peerpb.ChangeNotificationType) *peerpb.ChangeNotification {
 	var tls *peerpb.TLS
-	if withTLS {
+	if h.tls {
 		tls = &peerpb.TLS{
 			ServerName: TLSServerName(n.Name, n.Cluster),
 		}
 	}
 	return &peerpb.ChangeNotification{
 		Name:    n.Fullname(),
-		Address: nodeAddress(n),
+		Address: nodeAddress(n, h.addressPref),
 		Type:    t,
 		Tls:     tls,
 	}
 }
 
 // nodeAddress returns the node's address. If the node has both IPv4 and IPv6
-// addresses, IPv4 takes priority.
-func nodeAddress(n types.Node) string {
-	addr := n.GetNodeIP(false)
-	if addr.To4() != nil {
-		return addr.String()
+// addresses, pref controls which address type is returned.
+func nodeAddress(n types.Node, pref serviceoption.AddressFamilyPreference) string {
+	for _, family := range pref {
+		switch family {
+		case serviceoption.AddressFamilyIPv4:
+			if addr := n.GetNodeIP(false); addr.To4() != nil {
+				return addr.String()
+			}
+		case serviceoption.AddressFamilyIPv6:
+			if addr := n.GetNodeIP(true); addr.To4() == nil {
+				return addr.String()
+			}
+		}
 	}
-	addr = n.GetNodeIP(true)
-	if addr == nil {
-		return ""
-	}
-	return addr.String()
+	return ""
 }
 
 // TLSServerName constructs a server name to be used as the TLS server name.

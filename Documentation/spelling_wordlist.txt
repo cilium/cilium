@@ -779,6 +779,7 @@ preCache
 preallocateMaps
 prebuild
 preconfigured
+preferIpv
 prefilter
 preflight
 preload

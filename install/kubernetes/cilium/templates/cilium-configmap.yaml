@@ -766,6 +766,9 @@ data:
   hubble-disable-tls: "true"
 {{- end }}
 {{- end }}
+{{- if .Values.hubble.preferIpv6 }}
+  hubble-prefer-ipv6: "true"
+{{- end }}
 {{- end }}
 {{- if hasKey .Values "disableIptablesFeederRules" }}
   # A space separated list of iptables chains to disable when installing feeder rules.

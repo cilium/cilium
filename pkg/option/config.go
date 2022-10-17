@@ -906,6 +906,10 @@ const (
 	// HubbleListenAddress specifies address for Hubble server to listen to.
 	HubbleListenAddress = "hubble-listen-address"
 
+	// HubblePreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred for
+	// communication to agents, if both are available.
+	HubblePreferIpv6 = "hubble-prefer-ipv6"
+
 	// HubbleTLSDisabled allows the Hubble server to run on the given listen
 	// address without TLS.
 	HubbleTLSDisabled = "hubble-disable-tls"
@@ -2037,6 +2041,10 @@ type DaemonConfig struct {
 
 	// HubbleListenAddress specifies address for Hubble to listen to.
 	HubbleListenAddress string
+
+	// HubblePreferIpv6 controls whether IPv6 or IPv4 addresses should be preferred for
+	// communication to agents, if both are available.
+	HubblePreferIpv6 bool
 
 	// HubbleTLSDisabled allows the Hubble server to run on the given listen
 	// address without TLS.
@@ -3193,6 +3201,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHubbleOpenMetrics = vp.GetBool(EnableHubbleOpenMetrics)
 	c.HubbleSocketPath = vp.GetString(HubbleSocketPath)
 	c.HubbleListenAddress = vp.GetString(HubbleListenAddress)
+	c.HubblePreferIpv6 = vp.GetBool(HubblePreferIpv6)
 	c.HubbleTLSDisabled = vp.GetBool(HubbleTLSDisabled)
 	c.HubbleTLSCertFile = vp.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = vp.GetString(HubbleTLSKeyFile)
