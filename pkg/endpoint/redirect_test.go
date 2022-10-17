@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -163,7 +163,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(nil), rsp, mgr, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
