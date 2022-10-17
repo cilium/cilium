@@ -43,9 +43,9 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	name := fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name)
 	namespace := m.HTTP[0].Sources[0].Namespace
 
-	// The logic is same as what we have with shared Ingress translator, but with a different model
+	// The logic is same as what we have with default translator, but with a different model
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	translator := NewSharedIngressTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs)
+	translator := translation.NewTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs)
 	cec, _, _, err := translator.Translate(m)
 	if err != nil {
 		return nil, nil, nil, err

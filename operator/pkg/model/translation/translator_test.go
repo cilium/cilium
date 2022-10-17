@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package ingress
+package translation
 
 import (
 	"testing"
@@ -141,7 +141,7 @@ func TestSharedIngressTranslator_getBackendServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &SharedIngressTranslator{}
+			i := &defaultTranslator{}
 			res := i.getBackendServices(tt.args.m)
 			require.Equal(t, tt.want, res)
 		})
@@ -178,7 +178,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &SharedIngressTranslator{
+			i := &defaultTranslator{
 				name:      tt.fields.name,
 				namespace: tt.fields.namespace,
 			}
@@ -189,7 +189,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 }
 
 func TestSharedIngressTranslator_getListener(t *testing.T) {
-	i := &SharedIngressTranslator{
+	i := &defaultTranslator{
 		name:             "cilium-ingress",
 		namespace:        "kube-system",
 		secretsNamespace: "cilium-secrets",
@@ -301,7 +301,7 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		i := &SharedIngressTranslator{}
+		i := &defaultTranslator{}
 
 		t.Run(tt.name, func(t *testing.T) {
 			res := i.getClusters(tt.args.m)
@@ -385,7 +385,7 @@ func TestSharedIngressTranslator_getRouteConfiguration(t *testing.T) {
 		},
 	}
 
-	i := &SharedIngressTranslator{
+	i := &defaultTranslator{
 		name:      "cilium-ingress",
 		namespace: "kube-system",
 	}
@@ -451,7 +451,7 @@ func TestSharedIngressTranslator_getResources(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &SharedIngressTranslator{
+			i := &defaultTranslator{
 				name: "cilium-ingress",
 			}
 			got := i.getResources(tt.args.m)
