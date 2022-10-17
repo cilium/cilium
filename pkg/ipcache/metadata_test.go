@@ -25,7 +25,9 @@ var (
 )
 
 func TestInjectLabels(t *testing.T) {
-	setupTest(t)
+	cancel := setupTest(t)
+	defer cancel()
+
 	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
@@ -57,7 +59,8 @@ func TestInjectLabels(t *testing.T) {
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
-	setupTest(t)
+	cancel := setupTest(t)
+	defer cancel()
 
 	IPIdentityCache.metadata.upsertLocked(netip.MustParsePrefix("2.1.1.1/32"), source.Generated, "gen-uid", labels.LabelWorld)
 	IPIdentityCache.metadata.upsertLocked(netip.MustParsePrefix("3.1.1.1/32"), source.Generated, "gen-uid-2", labels.LabelWorld)
@@ -67,7 +70,8 @@ func TestFilterMetadataByLabels(t *testing.T) {
 }
 
 func TestRemoveLabelsFromIPs(t *testing.T) {
-	setupTest(t)
+	cancel := setupTest(t)
+	defer cancel()
 	ctx := context.Background()
 
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
@@ -115,11 +119,13 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
 
-func setupTest(t *testing.T) {
+func setupTest(t *testing.T) (cleanup func()) {
 	t.Helper()
 
+	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
 	IPIdentityCache = NewIPCache(&Configuration{
+		Context:           ctx,
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
@@ -128,6 +134,11 @@ func setupTest(t *testing.T) {
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
+
+	return func() {
+		cancel()
+		IPIdentityCache.Shutdown()
+	}
 }
 
 type mockK8sSyncedChecker struct{}
