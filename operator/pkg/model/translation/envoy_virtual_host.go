@@ -64,6 +64,9 @@ func (s SortableRoute) Less(i, j int) bool {
 	// Make sure Exact Match always comes first
 	isExactMatch1 := len(s[i].Match.GetPath()) != 0
 	isExactMatch2 := len(s[j].Match.GetPath()) != 0
+	if isExactMatch1 && isExactMatch2 {
+		return len(s[i].Match.GetPath()) > len(s[j].Match.GetPath())
+	}
 	if isExactMatch1 {
 		return true
 	}
@@ -74,7 +77,23 @@ func (s SortableRoute) Less(i, j int) bool {
 	// Make sure longest Prefix match always comes first
 	regexMatch1 := len(s[i].Match.GetSafeRegex().String())
 	regexMatch2 := len(s[j].Match.GetSafeRegex().String())
-	return regexMatch1 > regexMatch2
+	if regexMatch1 > regexMatch2 {
+		return true
+	} else if regexMatch1 < regexMatch2 {
+		return false
+	}
+
+	// Make sure the longest query match always comes first
+	queryMatch1 := len(s[i].Match.GetQueryParameters())
+	queryMatch2 := len(s[j].Match.GetQueryParameters())
+	if queryMatch1 > queryMatch2 {
+		return true
+	}
+
+	// Make sure the longest header match always comes first
+	headerMatch1 := len(s[i].Match.GetHeaders())
+	headerMatch2 := len(s[j].Match.GetHeaders())
+	return headerMatch1 > headerMatch2
 }
 
 func (s SortableRoute) Swap(i, j int) {
@@ -95,16 +114,14 @@ func NewVirtualHostWithDefaults(host string, httpsRedirect bool, httpRoutes []mo
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
 func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	routes := make(SortableRoute, 0, len(httpRoutes))
-	matchBackendMap := make(map[model.StringMatch][]model.Backend)
+	matchBackendMap := make(map[string][]model.HTTPRoute)
 
 	for _, r := range httpRoutes {
-		for _, be := range r.Backends {
-			matchBackendMap[r.PathMatch] = append(matchBackendMap[r.PathMatch], be)
-		}
+		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
 	}
 
 	if httpsRedirect {
-		for match := range matchBackendMap {
+		for _, hRoutes := range matchBackendMap {
 			if httpsRedirect {
 				rRedirect := &envoy_config_route_v3.Route_Redirect{
 					Redirect: &envoy_config_route_v3.RedirectAction{
@@ -115,14 +132,22 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 				}
 
 				route := envoy_config_route_v3.Route{
-					Match:  getRouteMatch(host, match),
+					Match: getRouteMatch(host,
+						hRoutes[0].PathMatch,
+						hRoutes[0].QueryParamsMatch,
+						hRoutes[0].HeadersMatch,
+						hRoutes[0].Method),
 					Action: rRedirect,
 				}
 				routes = append(routes, &route)
 			}
 		}
 	} else {
-		for match, backends := range matchBackendMap {
+		for _, hRoutes := range matchBackendMap {
+			var backends []model.Backend
+			for _, r := range hRoutes {
+				backends = append(backends, r.Backends...)
+			}
 			var routeAction *envoy_config_route_v3.Route_Route
 			if len(backends) == 1 {
 				routeAction = &envoy_config_route_v3.Route_Route{
@@ -133,11 +158,17 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 					},
 				}
 			} else {
-				weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(backends))
+				weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(routes))
+				totalWeight := int32(0)
 				for _, be := range backends {
+					var weight int32 = 1
+					if be.Weight != nil {
+						weight = *be.Weight
+					}
+					totalWeight += weight
 					weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
 						Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
-						Weight: wrapperspb.UInt32(10),
+						Weight: wrapperspb.UInt32(uint32(weight)),
 					})
 				}
 				routeAction = &envoy_config_route_v3.Route_Route{
@@ -145,14 +176,18 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 						ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
 							WeightedClusters: &envoy_config_route_v3.WeightedCluster{
 								Clusters:    weightedClusters,
-								TotalWeight: wrapperspb.UInt32(uint32(10 * len(backends))),
+								TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
 							},
 						},
 					},
 				}
 			}
 			route := envoy_config_route_v3.Route{
-				Match:  getRouteMatch(host, match),
+				Match: getRouteMatch(host,
+					hRoutes[0].PathMatch,
+					hRoutes[0].HeadersMatch,
+					hRoutes[0].QueryParamsMatch,
+					hRoutes[0].Method),
 				Action: routeAction,
 			}
 			routes = append(routes, &route)
@@ -187,54 +222,71 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 	return res, nil
 }
 
-func getRouteMatch(host string, match model.StringMatch) *envoy_config_route_v3.RouteMatch {
-	headerMatchers := getHeaderMatchers(host)
-	if match.Exact != "" {
+func getRouteMatch(host string, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
+	headerMatchers := getHeaderMatchers(host, headers, method)
+	queryMatchers := getQueryMatchers(query)
+	if pathMatch.Exact != "" {
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
-				Path: match.Exact,
+				Path: pathMatch.Exact,
 			},
-			Headers: headerMatchers,
+			Headers:         headerMatchers,
+			QueryParameters: queryMatchers,
 		}
 	}
-	if match.Prefix != "" {
+	if pathMatch.Prefix != "" {
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
 					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      getMatchingPrefixRegex(match.Prefix),
+					Regex:      getMatchingPrefixRegex(pathMatch.Prefix),
 				},
 			},
-			Headers: headerMatchers,
+			Headers:         headerMatchers,
+			QueryParameters: queryMatchers,
 		}
 	}
-	if match.Regex != "" {
+	if pathMatch.Regex != "" {
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
 					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      match.Regex,
+					Regex:      pathMatch.Regex,
 				},
 			},
-			Headers: headerMatchers,
+			Headers:         headerMatchers,
+			QueryParameters: queryMatchers,
 		}
 	}
 	return &envoy_config_route_v3.RouteMatch{
 		PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
 			Prefix: "/",
 		},
-		Headers: headerMatchers,
+		Headers:         headerMatchers,
+		QueryParameters: queryMatchers,
 	}
 }
 
-func getHeaderMatchers(host string) []*envoy_config_route_v3.HeaderMatcher {
-	if len(host) == 0 || host == wildCard || !strings.Contains(host, wildCard) {
-		return nil
+func getQueryMatchers(query []model.KeyValueMatch) []*envoy_config_route_v3.QueryParameterMatcher {
+	res := make([]*envoy_config_route_v3.QueryParameterMatcher, 0, len(query))
+	for _, q := range query {
+		res = append(res, &envoy_config_route_v3.QueryParameterMatcher{
+			Name: q.Key,
+			QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+				StringMatch: getEnvoyStringMatcher(q.Match),
+			},
+		})
 	}
-	// Make sure that wildcard character only match one single dns domain.
-	// For example, if host is *.foo.com, baz.bar.foo.com should not match
-	return []*envoy_config_route_v3.HeaderMatcher{
-		{
+	return res
+}
+
+func getHeaderMatchers(host string, headers []model.KeyValueMatch, method *string) []*envoy_config_route_v3.HeaderMatcher {
+	var result []*envoy_config_route_v3.HeaderMatcher
+
+	if len(host) != 0 && host != wildCard && strings.Contains(host, wildCard) {
+		// Make sure that wildcard character only match one single dns domain.
+		// For example, if host is *.foo.com, baz.bar.foo.com should not match
+		result = append(result, &envoy_config_route_v3.HeaderMatcher{
 			Name: envoyAuthority,
 			HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
 				StringMatch: &envoy_type_matcher_v3.StringMatcher{
@@ -246,8 +298,32 @@ func getHeaderMatchers(host string) []*envoy_config_route_v3.HeaderMatcher {
 					},
 				},
 			},
-		},
+		})
 	}
+
+	for _, h := range headers {
+		result = append(result, &envoy_config_route_v3.HeaderMatcher{
+			Name: h.Key,
+			HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+				StringMatch: getEnvoyStringMatcher(h.Match),
+			},
+		})
+	}
+
+	if method != nil {
+		result = append(result, &envoy_config_route_v3.HeaderMatcher{
+			Name: ":method",
+			HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher_v3.StringMatcher{
+					MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+						Exact: strings.ToUpper(*method),
+					},
+				},
+			},
+		})
+	}
+
+	return result
 }
 
 // getMatchingPrefixRegex returns safe regex used by envoy to match the
@@ -275,4 +351,32 @@ func getMatchingHeaderRegex(host string) string {
 		return fmt.Sprintf("^%s+%s%s$", notDotRegex, dotRegex, strings.ReplaceAll(host[2:], dot, dotRegex))
 	}
 	return fmt.Sprintf("^%s$", strings.ReplaceAll(host, dot, dotRegex))
+}
+
+func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMatcher {
+	if s.Exact != "" {
+		return &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+				Exact: s.Exact,
+			},
+		}
+	}
+	if s.Prefix != "" {
+		return &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_Prefix{
+				Prefix: s.Prefix,
+			},
+		}
+	}
+	if s.Regex != "" {
+		return &envoy_type_matcher_v3.StringMatcher{
+			MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+					Regex:      s.Regex,
+				},
+			},
+		}
+	}
+	return nil
 }
