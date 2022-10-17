@@ -145,14 +145,59 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		filter, err := createL4IngressFilter(testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
+		for _, r := range filter.PerSelectorPolicies {
+			c.Assert(r.GetAuthType(), Equals, AuthTypeNone)
+		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
-		filter, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)
+		filter, err = createL4EgressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
+		for _, r := range filter.PerSelectorPolicies {
+			c.Assert(r.GetAuthType(), Equals, AuthTypeNone)
+		}
+		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
+	}
+}
+
+func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
+	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
+	portrule := &api.PortRule{
+		Ports: []api.PortProtocol{tuple},
+		Rules: &api.L7Rules{
+			HTTP: []api.PortRuleHTTP{
+				{Path: "/public", Method: "GET"},
+			},
+		},
+	}
+	selectors := []api.EndpointSelector{
+		api.NewESFromLabels(),
+		api.NewESFromLabels(labels.ParseSelectLabel("bar")),
+	}
+
+	auth := &api.Auth{Type: api.AuthTypeNull}
+	for _, selector := range selectors {
+		eps := []api.EndpointSelector{selector}
+		// Regardless of ingress/egress, we should end up with
+		// a single L7 rule whether the selector is wildcarded
+		// or if it is based on specific labels.
+		filter, err := createL4IngressFilter(testPolicyContext, eps, auth, nil, portrule, tuple, tuple.Protocol, nil)
+		c.Assert(err, IsNil)
+		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
+		for _, r := range filter.PerSelectorPolicies {
+			c.Assert(r.GetAuthType(), Equals, AuthTypeNull)
+		}
+		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
+
+		filter, err = createL4EgressFilter(testPolicyContext, eps, auth, portrule, tuple, tuple.Protocol, nil, nil)
+		c.Assert(err, IsNil)
+		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
+		for _, r := range filter.PerSelectorPolicies {
+			c.Assert(r.GetAuthType(), Equals, AuthTypeNull)
+		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
 }
@@ -182,10 +227,10 @@ func (s *PolicyTestSuite) TestCreateL4FilterMissingSecret(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		_, err := createL4IngressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
+		_, err := createL4IngressFilter(testPolicyContext, eps, nil, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(err, Not(IsNil))
 
-		_, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)
+		_, err = createL4EgressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil, nil)
 		c.Assert(err, Not(IsNil))
 	}
 }
