@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -31,10 +30,10 @@ type EndpointLookup interface {
 // endpointInfoRegistry provides a default implementation of the
 // logger.EndpointInfoRegistry interface.
 type endpointInfoRegistry struct {
-	ipcache *ipcache.IPCache
+	ipcache IPCacheManager
 }
 
-func newEndpointInfoRegistry(ipc *ipcache.IPCache) *endpointInfoRegistry {
+func newEndpointInfoRegistry(ipc IPCacheManager) *endpointInfoRegistry {
 	return &endpointInfoRegistry{
 		ipcache: ipc,
 	}

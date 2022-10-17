@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/ipcache"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
 	. "gopkg.in/check.v1"
 )
@@ -33,7 +33,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 
 	stateDir := c.MkDir()
 	p := StartProxySupport(10000, 20000, stateDir, nil, nil, mockDatapathUpdater, nil,
-		ipcache.NewIPCache(nil))
+		testipcache.NewMockIPCache())
 
 	port, err := p.AllocateProxyPort("listener1", true)
 	c.Assert(err, IsNil)
