@@ -140,7 +140,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap[macroName] = fmt.Sprintf("%d", id)
 	}
 
-	cDefinesMap["TUNNEL_PROTOCOL"] = fmt.Sprintf("%d", tunnelProtocols[option.Config.TunnelProtocol])
+	encapProto := option.Config.TunnelProtocol
+	if !option.Config.TunnelingEnabled() &&
+		option.Config.EnableNodePort &&
+		option.Config.NodePortMode == option.NodePortModeDSR &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+		encapProto = option.TunnelGeneve
+	}
+
+	cDefinesMap["TUNNEL_PROTOCOL"] = fmt.Sprintf("%d", tunnelProtocols[encapProto])
 	cDefinesMap["TUNNEL_PORT"] = fmt.Sprintf("%d", option.Config.TunnelPort)
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
