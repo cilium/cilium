@@ -113,7 +113,7 @@ const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 type PolicyEntry struct {
 	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
 	Flags     uint8  `align:"deny"`
-	Pad0      uint8  `align:"pad0"`
+	AuthType  uint8  `align:"auth_type"`
 	Pad1      uint16 `align:"pad1"`
 	Pad2      uint16 `align:"pad2"`
 	Packets   uint64 `align:"packets"`
@@ -282,26 +282,27 @@ func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection tra
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
+func newEntry(authType uint8, proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
 	return PolicyEntry{
 		ProxyPort: byteorder.HostToNetwork16(proxyPort),
 		Flags:     flags.UInt8(),
+		AuthType:  authType,
 	}
 }
 
 // AllowKey pushes an entry into the PolicyMap for the given PolicyKey k.
 // Returns an error if the update of the PolicyMap fails.
-func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort uint16) error {
-	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), proxyPort)
+func (pm *PolicyMap) AllowKey(k PolicyKey, authType uint8, proxyPort uint16) error {
+	return pm.Allow(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection), authType, proxyPort)
 }
 
 // Allow pushes an entry into the PolicyMap to allow traffic in the given
 // `trafficDirection` for identity `id` with destination port `dport` over
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
-func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, proxyPort uint16) error {
+func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, authType uint8, proxyPort uint16) error {
 	key := newKey(id, dport, proto, trafficDirection)
 	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
-	entry := newEntry(proxyPort, pef)
+	entry := newEntry(authType, proxyPort, pef)
 	return pm.Update(&key, &entry)
 }
 
@@ -317,7 +318,7 @@ func (pm *PolicyMap) DenyKey(k PolicyKey) error {
 func (pm *PolicyMap) Deny(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) error {
 	key := newKey(id, dport, proto, trafficDirection)
 	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true})
-	entry := newEntry(0, pef)
+	entry := newEntry(0, 0, pef)
 	return pm.Update(&key, &entry)
 }
 

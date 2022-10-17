@@ -195,6 +195,10 @@ type PerSelectorPolicy struct {
 
 	api.L7Rules
 
+	// Auth is the kind of cryptographic authentication required for the traffic to be allowed
+	// at L3, if any.
+	Auth *api.Auth `json:"auth,omitempty"`
+
 	// IsDeny is set if this L4Filter contains should be denied
 	IsDeny bool `json:",omitempty"`
 }
@@ -206,8 +210,47 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
 		a.isRedirect == b.isRedirect &&
+		a.Auth.DeepEqual(b.Auth) &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
+}
+
+// AuthType enumerates the supported authentication types in api.
+type AuthType uint8
+
+const (
+	// AuthTypeNone means no authentication required
+	AuthTypeNone AuthType = iota
+	// AuthTypeNull is a simple auth type that always succeeds
+	AuthTypeNull
+)
+
+// GetAuthType returns the AuthType of the L4Filter.
+func (a *PerSelectorPolicy) GetAuthType() AuthType {
+	if a == nil || a.Auth == nil {
+		return AuthTypeNone
+	}
+	switch a.Auth.Type {
+	case "null":
+		return AuthTypeNull
+	}
+	return AuthTypeNone
+}
+
+// Uint8 returns AuthType as a uint8
+func (a AuthType) Uint8() uint8 {
+	return uint8(a)
+}
+
+// String returns AuthType as a string
+func (a AuthType) String() string {
+	switch a {
+	case AuthTypeNone:
+		return "none"
+	case AuthTypeNull:
+		return "null"
+	}
+	return fmt.Sprintf("Unknown-auth-type-%d", a.Uint8())
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
@@ -485,7 +528,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule)
+		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry)
@@ -555,8 +598,9 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 		}
 		perSelectorPolicy := l4.PerSelectorPolicies[selector]
 		isRedirect := perSelectorPolicy.IsRedirect()
+		authType := perSelectorPolicy.GetAuthType()
 		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
-		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny)
+		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, authType)
 	}
 }
 
@@ -589,11 +633,11 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-
-func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, deny bool, sni []string, forceRedirect bool) {
+func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Auth, deny bool, sni []string, forceRedirect bool) {
 	l7policy := &PerSelectorPolicy{
 		TerminatingTLS: terminatingTLS,
 		OriginatingTLS: originatingTLS,
+		Auth:           auth,
 		IsDeny:         deny,
 		ServerNames:    NewStringSet(sni),
 		isRedirect:     !deny && (forceRedirect || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty()),
@@ -647,7 +691,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
+func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, auth *api.Auth, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
@@ -751,8 +795,8 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		}
 	}
 
-	if l4.L7Parser != ParserTypeNone || policyCtx.IsDeny() {
-		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, policyCtx.IsDeny(), sni, forceRedirect)
+	if l4.L7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
+		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, forceRedirect)
 	}
 	return l4, nil
 }
@@ -784,7 +828,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 	// Compute Envoy policies when a policy is ready to be used
 	if ctx != nil {
 		for _, l7policy := range l4.PerSelectorPolicies {
-			if l7policy != nil {
+			if l7policy != nil && len(l7policy.L7Rules.HTTP) > 0 {
 				l7policy.EnvoyHTTPRules, l7policy.CanShortCircuit = ctx.GetEnvoyHTTPRules(&l7policy.L7Rules)
 			}
 		}
@@ -800,10 +844,10 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 //
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, auth *api.Auth, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
 
-	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
+	filter, err := createL4Filter(policyCtx, fromEndpoints, auth, rule, port, protocol, ruleLabels, true, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -828,10 +872,10 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // specified endpoints and port/protocol for egress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
+func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, auth *api.Auth, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 
-	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns)
+	return createL4Filter(policyCtx, toEndpoints, auth, rule, port, protocol, ruleLabels, false, fqdns)
 }
 
 // redirectType returns the redirectType for this filter
@@ -1100,7 +1144,7 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
-	direction trafficdirection.TrafficDirection, redirect, isDeny bool) {
+	direction trafficdirection.TrafficDirection, redirect, isDeny bool, authType AuthType) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.DerivedFromRules
@@ -1122,7 +1166,7 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, authType, derivedFrom)
 	}
 }
 

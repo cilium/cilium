@@ -298,7 +298,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -425,7 +425,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	res, err := identicalHTTPRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -506,7 +506,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	res, err := identicalKafkaRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -805,7 +805,7 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -897,7 +897,7 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1006,7 +1006,7 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1139,7 +1139,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1218,7 +1218,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter = res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1298,7 +1298,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 
 	l4Filter = res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1507,7 +1507,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1583,7 +1583,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1677,7 +1677,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	res, err := case8Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1764,7 +1764,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1968,7 +1968,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -2122,7 +2122,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)

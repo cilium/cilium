@@ -168,6 +168,11 @@ type EgressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Auth is the required authentication type for the allowed traffic, if any.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // EgressDenyRule contains all rule types which can be applied at egress, i.e.
