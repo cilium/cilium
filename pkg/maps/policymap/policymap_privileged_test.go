@@ -70,7 +70,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
 	fooEntry := newKey(1, 1, 1, 1)
-	err := testMap.AllowKey(fooEntry, 0)
+	err := testMap.AllowKey(fooEntry, 0, 0)
 	c.Assert(err, IsNil)
 
 	dump, err := testMap.DumpToSlice()
@@ -84,7 +84,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestPolicyMapDumpToSlice(c *C) {
 
 	// Special case: allow-all entry
 	barEntry := newKey(0, 0, 0, 0)
-	err = testMap.AllowKey(barEntry, 0)
+	err = testMap.AllowKey(barEntry, 0, 0)
 	c.Assert(err, IsNil)
 
 	dump, err = testMap.DumpToSlice()
@@ -105,7 +105,7 @@ func (pm *PolicyMapPrivilegedTestSuite) TestDenyPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
 	fooEntry := newKey(1, 1, 1, 1)
-	fooValue := newEntry(0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
+	fooValue := newEntry(0, 0, NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true}))
 	err := testMap.DenyKey(fooEntry)
 	c.Assert(err, IsNil)
 

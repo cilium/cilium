@@ -116,6 +116,11 @@ type IngressRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	ICMPs ICMPRules `json:"icmps,omitempty"`
+
+	// Auth is the required authentication type for the allowed traffic, if any.
+	//
+	// +kubebuilder:validation:Optional
+	Auth *Auth `json:"auth,omitempty"`
 }
 
 // IngressDenyRule contains all rule types which can be applied at ingress,
