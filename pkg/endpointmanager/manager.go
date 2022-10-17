@@ -364,8 +364,8 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 		if err = mgr.ReleaseID(ep); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"state":               previousState,
-				logfields.ContainerID: ep.GetShortContainerID(),
-				logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+				logfields.ContainerID: identifiers[endpointid.ContainerIdPrefix],
+				logfields.K8sPodName:  identifiers[endpointid.PodNamePrefix],
 			}).Warning("Unable to release endpoint ID")
 		}
 	}
