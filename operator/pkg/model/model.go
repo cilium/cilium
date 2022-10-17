@@ -3,7 +3,11 @@
 
 package model
 
-import "strconv"
+import (
+	"sort"
+	"strconv"
+	"strings"
+)
 
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
@@ -62,8 +66,48 @@ type TLSSecret struct {
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
-	PathMatch StringMatch `json:"path_match"`
-	Backends  []Backend   `json:"backends,omitempty"`
+	PathMatch StringMatch `json:"path_match,omitempty"`
+	// HeadersMatch specifies that the HTTPRoute should match a set of headers.
+	HeadersMatch []KeyValueMatch `json:"headers_match,omitempty"`
+	// QueryParamsMatch specifies that the HTTPRoute should match a set of query parameters.
+	QueryParamsMatch []KeyValueMatch `json:"query_params_match,omitempty"`
+	Method           *string         `json:"method,omitempty"`
+	Backends         []Backend       `json:"backends,omitempty"`
+}
+
+// GetMatchKey returns the key to be used for matching the backend.
+func (r *HTTPRoute) GetMatchKey() string {
+	sb := strings.Builder{}
+
+	if r.Method != nil {
+		sb.WriteString("method:")
+		sb.WriteString(*r.Method)
+		sb.WriteString("|")
+	}
+
+	sb.WriteString("path:")
+	sb.WriteString(r.PathMatch.String())
+	sb.WriteString("|")
+
+	sort.Slice(r.HeadersMatch, func(i, j int) bool {
+		return r.HeadersMatch[i].String() < r.HeadersMatch[j].String()
+	})
+	for _, hm := range r.HeadersMatch {
+		sb.WriteString("header:")
+		sb.WriteString(hm.String())
+		sb.WriteString("|")
+	}
+
+	sort.Slice(r.QueryParamsMatch, func(i, j int) bool {
+		return r.QueryParamsMatch[i].String() < r.QueryParamsMatch[j].String()
+	})
+	for _, qm := range r.QueryParamsMatch {
+		sb.WriteString("query:")
+		sb.WriteString(qm.String())
+		sb.WriteString("|")
+	}
+
+	return sb.String()
 }
 
 // StringMatch describes various types of string matching.
@@ -76,6 +120,35 @@ type StringMatch struct {
 	Regex  string `json:"regex,omitempty"`
 }
 
+func (sm StringMatch) String() string {
+	sb := strings.Builder{}
+	if sm.Prefix != "" {
+		sb.WriteString("prefix:")
+		sb.WriteString(sm.Prefix)
+	} else if sm.Exact != "" {
+		sb.WriteString("exact:")
+		sb.WriteString(sm.Exact)
+	} else if sm.Regex != "" {
+		sb.WriteString("regex:")
+		sb.WriteString(sm.Regex)
+	}
+	return sb.String()
+}
+
+type KeyValueMatch struct {
+	Key   string      `json:"key,omitempty"`
+	Match StringMatch `json:"match,omitempty"`
+}
+
+func (kv KeyValueMatch) String() string {
+	sb := strings.Builder{}
+	sb.WriteString("kv:")
+	sb.WriteString(kv.Key)
+	sb.WriteString(":")
+	sb.WriteString(kv.Match.String())
+	return sb.String()
+}
+
 // Backend holds a Kubernetes Service that points to a backend for traffic.
 type Backend struct {
 	// Name of the Service.
@@ -85,6 +158,10 @@ type Backend struct {
 	// Port contains the details of the port on the Service to connect to
 	// If unset, the same port as the top-level Listener will be used.
 	Port *BackendPort `json:"port,omitempty"`
+
+	// Weight specifies the percentage of traffic to send to this backend.
+	// This is computed as weight/(sum of all weights in backends) * 100.
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // BackendPort holds the details of what port on the Service to connect to.
