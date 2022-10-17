@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -164,11 +163,9 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 // deleteToCidrFromEndpoint takes an egress rule and removes ToCIDR rules
 // matching endpoint. Returns an error if any of the backends are malformed.
 //
-// If all backends are valid, attempts to remove any ipcache CIDR mappings (and
-// CIDR Identities) from the kvstore for backends in 'endpoint' that are being
-// removed from the policy. On failure to release such kvstore mappings, errors
-// will be logged but this function will return nil to allow subsequent
-// processing to proceed.
+// If all backends are valid, returns any CIDR mappings that are being removed
+// from the policy. The caller must attempt to release this via the IPCache
+// identity release functions.
 func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
@@ -235,7 +232,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 }
 
 // PreprocessRules translates rules that apply to headless services
-func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache) error {
+func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
@@ -250,7 +247,7 @@ func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache)
 			if ok && svc.IsExternal() {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ipcache, ns, *eps, false, svc.Labels, false)
+					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
 					// We don't need to check the translation result here because the k8s
 					// RuleTranslator above sets allocatePrefixes to be false.
 					err := t.Translate(rule, &policy.TranslationResult{})
@@ -268,7 +265,6 @@ func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache)
 // If allocatePrefixes is set to true, then translation calls will return
 // prefixes that need to be allocated or deallocated.
 func NewK8sTranslator(
-	ipcache *ipcache.IPCache,
 	serviceInfo ServiceID,
 	endpoint Endpoints,
 	revert bool,
