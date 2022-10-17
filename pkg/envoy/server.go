@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -162,7 +161,7 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache *ipcache.IPCache, stateDir string) *XDSServer {
+func StartXDSServer(ipcache IPCacheEventSource, stateDir string) *XDSServer {
 	xdsPath := getXDSPath(stateDir)
 
 	os.Remove(xdsPath)
