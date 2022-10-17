@@ -6,6 +6,7 @@
 package clustermesh
 
 import (
+	"context"
 	"os"
 	"path"
 	"time"
@@ -69,12 +70,18 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	<-mgr.InitIdentityAllocator(nil, nil)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context: ctx,
+	})
+	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test1",
 		ConfigDirectory:       dir,
 		NodeKeyCreator:        testNodeCreator,
 		RemoteIdentityWatcher: mgr,
-		IPCache:               ipcache.NewIPCache(nil),
+		IPCache:               ipc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

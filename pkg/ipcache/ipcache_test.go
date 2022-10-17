@@ -4,6 +4,7 @@
 package ipcache
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -16,19 +17,42 @@ import (
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Hook up gocheck into the "go test" runner.
-type IPCacheTestSuite struct{}
+type IPCacheTestSuite struct {
+	cleanup func()
+}
 
 var (
 	_               = Suite(&IPCacheTestSuite{})
-	IPIdentityCache = NewIPCache(nil)
+	IPIdentityCache *IPCache
 )
 
 func Test(t *testing.T) {
 	TestingT(t)
+}
+
+func (s *IPCacheTestSuite) SetUpTest(c *C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	IPIdentityCache = NewIPCache(&Configuration{
+		Context:           ctx,
+		IdentityAllocator: allocator,
+		PolicyHandler:     &mockUpdater{},
+		DatapathHandler:   &mockTriggerer{},
+	})
+
+	s.cleanup = func() {
+		cancel()
+		IPIdentityCache.Shutdown()
+	}
+}
+
+func (s *IPCacheTestSuite) TearDownTest(c *C) {
+	s.cleanup()
 }
 
 func (s *IPCacheTestSuite) TestIPCache(c *C) {
@@ -572,7 +596,7 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 	cidrOverlap := "10.0.0.15/32"
 	epIdentity := (identityPkg.NumericIdentity(68))
 	cidrIdentity := (identityPkg.NumericIdentity(202))
-	ipc := NewIPCache(nil)
+	ipc := IPIdentityCache
 
 	// Assure sane state at start.
 	c.Assert(ipc.ipToIdentityCache, checker.DeepEquals, map[string]Identity{})
