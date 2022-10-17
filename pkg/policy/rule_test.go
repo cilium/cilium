@@ -118,7 +118,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -244,7 +244,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(res.Egress, Not(IsNil))
 
 	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -464,7 +464,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -537,7 +537,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -631,7 +631,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	res, err = rule3.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -715,7 +715,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -797,7 +797,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -882,7 +882,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	res, err = rule3.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(res, checker.DeepEquals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -2165,7 +2165,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
 	c.Assert(filter.PerSelectorPolicies[cachedSelectorC], Not(IsNil))
 	c.Assert(filter.PerSelectorPolicies[wildcardCachedSelector], IsNil)
-	c.Assert(filter, checker.Equals, expected)
+	c.Assert(filter, checker.DeepEquals, expected)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 
 	expectedL7 := &L4Filter{
@@ -2192,7 +2192,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(len(filterL7.PerSelectorPolicies), Equals, 1)
 	c.Assert(filterL7.PerSelectorPolicies[cachedSelectorC], Not(IsNil))
 	c.Assert(filterL7.PerSelectorPolicies[wildcardCachedSelector], IsNil)
-	c.Assert(filterL7, checker.Equals, expectedL7)
+	c.Assert(filterL7, checker.DeepEquals, expectedL7)
 	c.Assert(filterL7.L7Parser, Equals, L7ParserType("testparser"))
 
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
@@ -2272,7 +2272,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
 	c.Assert(filter.PerSelectorPolicies[wildcardCachedSelector], IsNil)
 	c.Assert(filter.PerSelectorPolicies[cachedSelectorC], Not(IsNil))
-	c.Assert(filter, checker.Equals, expected)
+	c.Assert(filter, checker.DeepEquals, expected)
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 
 	filterL7, ok = l4IngressPolicy["7000/TCP"]
@@ -2283,7 +2283,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 	c.Assert(len(filterL7.PerSelectorPolicies), Equals, 1)
 	c.Assert(filterL7.PerSelectorPolicies[cachedSelectorC], Not(IsNil))
 	c.Assert(filterL7.PerSelectorPolicies[wildcardCachedSelector], IsNil)
-	c.Assert(filterL7, checker.Equals, expectedL7)
+	c.Assert(filterL7, checker.DeepEquals, expectedL7)
 	c.Assert(filterL7.L7Parser, Equals, L7ParserType("testparser"))
 
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
@@ -2336,7 +2336,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
-	c.Assert(filter, checker.Equals, expected)
+	c.Assert(filter, checker.DeepEquals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Test the reverse order as well; ensure that we check both conditions
@@ -2390,7 +2390,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
-	c.Assert(filter, checker.Equals, expected)
+	c.Assert(filter, checker.DeepEquals, expected)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -2453,7 +2453,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
-	c.Assert(filter, checker.Equals, &L4Filter{
+	c.Assert(filter, checker.DeepEquals, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
@@ -2517,7 +2517,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
 	c.Assert(filter.PerSelectorPolicies[wildcardCachedSelector], Not(IsNil))
 	c.Assert(filter.PerSelectorPolicies[cachedSelectorC], IsNil)
-	c.Assert(filter, checker.Equals, &L4Filter{
+	c.Assert(filter, checker.DeepEquals, &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http",

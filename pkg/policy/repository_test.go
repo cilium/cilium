@@ -796,7 +796,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL7},
 		},
 	}
-	c.Assert(policy, checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.DeepEquals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -948,7 +948,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka, labelsL7Kafka},
 		},
 	}
-	c.Assert(policy, checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.DeepEquals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1308,7 +1308,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4},
 		},
 	}
-	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
+	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1466,7 +1466,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3DNS, labelsL7DNS},
 		},
 	}
-	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
+	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1583,7 +1583,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
+	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1726,7 +1726,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 		},
 	}
 
-	c.Assert(policy, checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.DeepEquals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1866,7 +1866,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 		},
 	}
 
-	c.Assert(policy, checker.Equals, expectedPolicy)
+	c.Assert(policy, checker.DeepEquals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1989,7 +1989,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 		DerivedFromRules: []labels.LabelArray{nil},
 	}
 
-	if equal, err := checker.Equal(l4IngressPolicy, expected.Ingress); !equal {
+	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}

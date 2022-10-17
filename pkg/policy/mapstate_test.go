@@ -24,6 +24,12 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 	return e
 }
 
+// WithAuthType sets auth type field as indicated.
+func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
+	e.AuthType = authType
+	return e
+}
+
 // WithoutOwners empties the 'owners' of 'e'.
 // Note: This is used only in unit tests and helps test readability.
 func (e MapStateEntry) WithoutOwners() MapStateEntry {
@@ -775,16 +781,21 @@ func HttpEgressKey(id int) Key {
 }
 
 func allowEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
-	return testEntry(proxyPort, false, owners...)
+	return testEntry(proxyPort, false, AuthTypeNone, owners...)
+}
+
+func allowAuthEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
+	return testEntry(proxyPort, false, AuthTypeNull, owners...)
 }
 
 func denyEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
-	return testEntry(proxyPort, true, owners...)
+	return testEntry(proxyPort, true, AuthTypeNone, owners...)
 }
 
-func testEntry(proxyPort uint16, deny bool, owners ...MapStateOwner) MapStateEntry {
+func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStateOwner) MapStateEntry {
 	entry := MapStateEntry{
 		ProxyPort: proxyPort,
+		AuthType:  authType,
 		IsDeny:    deny,
 	}
 	entry.owners = make(map[MapStateOwner]struct{}, len(owners))
@@ -795,11 +806,11 @@ func testEntry(proxyPort uint16, deny bool, owners ...MapStateOwner) MapStateEnt
 }
 
 func allowEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
-	return testEntryD(proxyPort, false, derivedFrom, owners...)
+	return testEntryD(proxyPort, false, AuthTypeNone, derivedFrom, owners...)
 }
 
-func testEntryD(proxyPort uint16, deny bool, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
-	entry := testEntry(proxyPort, deny, owners...)
+func testEntryD(proxyPort uint16, deny bool, authType AuthType, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
+	entry := testEntry(proxyPort, deny, authType, owners...)
 	entry.DerivedFromRules = derivedFrom
 	return entry
 }
@@ -1131,7 +1142,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeNone, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
@@ -1153,6 +1164,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		ingress  bool
 		redirect bool
 		deny     bool
+		authType AuthType
 	}
 	tests := []struct {
 		continued bool // Start from the end state of the previous test
@@ -1164,10 +1176,10 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 	}{{
 		name: "test-1a - Adding identity to an empty state",
 		args: []args{
-			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csFoo, adds: []int{42}, deletes: []int{}, port: 80, proto: 6, ingress: true, redirect: false, deny: false, authType: AuthTypeNull},
 		},
 		state: MapState{
-			HttpIngressKey(42): allowEntry(0, csFoo),
+			HttpIngressKey(42): allowAuthEntry(0, csFoo),
 		},
 		adds: Keys{
 			HttpIngressKey(42): {},
@@ -1177,7 +1189,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		continued: true,
 		name:      "test-1b - Removing the sole key",
 		args: []args{
-			{cs: csFoo, adds: nil, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false},
+			{cs: csFoo, adds: nil, deletes: []int{42}, port: 80, proto: 6, ingress: true, redirect: false, deny: false, authType: AuthTypeNull},
 		},
 		state: MapState{},
 		adds:  Keys{},
@@ -1368,7 +1380,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.authType, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
@@ -1926,7 +1938,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeNone, nil)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()

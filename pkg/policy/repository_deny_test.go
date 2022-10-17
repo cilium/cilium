@@ -565,7 +565,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDeny(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -653,7 +653,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -722,7 +722,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressDenyFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -811,7 +811,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressDenyFromRequires(c *C) {
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	if !c.Check(policyDeny, checker.Equals, expectedDenyPolicy) {
+	if !c.Check(policyDeny, checker.DeepEquals, expectedDenyPolicy) {
 		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policyDeny.Detach(repo.GetSelectorCache())
@@ -937,7 +937,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy, Commentf("Resolved policy did not match expected:\n%s", logBuffer.String()))
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy, Commentf("Resolved policy did not match expected:\n%s", logBuffer.String()))
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1028,7 +1028,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3DNS},
 		},
 	}
-	if equal, err := checker.Equal(policyDeny, expectedDenyPolicy); !equal {
+	if equal, err := checker.DeepEqual(policyDeny, expectedDenyPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1126,7 +1126,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	if equal, err := checker.Equal(policyDeny, expectedDenyPolicy); !equal {
+	if equal, err := checker.DeepEqual(policyDeny, expectedDenyPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1184,7 +1184,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 		},
 	}
 
-	c.Assert(policyDeny, checker.Equals, expectedPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1241,7 +1241,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 		},
 	}
 
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1332,7 +1332,7 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStartedDeny(c *C) {
 		DerivedFromRules: []labels.LabelArray{nil},
 	}
 
-	if equal, err := checker.Equal(l4IngressDenyPolicy, expectedDeny.Ingress); !equal {
+	if equal, err := checker.DeepEqual(l4IngressDenyPolicy, expectedDeny.Ingress); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
