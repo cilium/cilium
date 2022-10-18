@@ -153,7 +153,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
@@ -236,7 +236,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
@@ -318,7 +318,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{CanShortCircuit: true, IsDeny: true},
 						},
 						DerivedFromRules: labels.LabelArrayList{ruleLabel},
@@ -455,7 +455,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 						U8Proto:  0x6,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:  &PerSelectorPolicy{IsDeny: true},
 						},

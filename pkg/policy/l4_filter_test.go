@@ -181,7 +181,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
 	// Case1B: implicitly wildcard all endpoints.
@@ -228,7 +228,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -286,7 +286,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http",
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
@@ -354,7 +354,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -404,7 +404,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -490,7 +490,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeKafka,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
@@ -785,7 +785,7 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeTLS,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
@@ -875,7 +875,7 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
@@ -983,7 +983,7 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				TerminatingTLS: &TLSContext{
@@ -1126,7 +1126,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
@@ -1205,7 +1205,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
@@ -1285,7 +1285,7 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeCRD,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
@@ -1349,7 +1349,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA:        nil,
 			wildcardCachedSelector: nil,
 		},
@@ -1413,7 +1413,7 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA:        nil,
 		},
@@ -1490,7 +1490,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
@@ -1566,7 +1566,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
@@ -1605,7 +1605,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
-	// L7RulesPerSelector contains entries for both endpoints selected in each rule
+	// PerSelectorPolicies contains entries for both endpoints selected in each rule
 	// on L7 restriction.
 	case8Rule := &rule{
 		Rule: api.Rule{
@@ -1655,7 +1655,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -1692,7 +1692,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 
 	// Case 8B: first insert rule which selects all endpoints and restricts on
 	// the same resource on L7. Then, insert rule which  selects specific endpoint
-	// with L7 restrictions rule. L7RulesPerSelector contains entries for both
+	// with L7 restrictions rule. PerSelectorPolicies contains entries for both
 	// endpoints selected in each rule on L7 restriction.
 	case8Rule = &rule{
 		Rule: api.Rule{
@@ -1741,7 +1741,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -1946,7 +1946,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -2028,7 +2028,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil,
 			cachedSelectorC: nil,
 		},
@@ -2104,7 +2104,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -2167,7 +2167,7 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		U8Proto:  0,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
 		Ingress:          false,

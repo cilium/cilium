@@ -1505,7 +1505,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			}
 		}
 
-		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector))
+		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
 		allowAll := false
 
 		// Assume none of the rules have side-effects so that rule evaluation can
@@ -1517,7 +1517,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
+			rule := getWildcardNetworkPolicyRule(l4.PerSelectorPolicies)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
@@ -1527,8 +1527,8 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 				rules = append(rules, rule)
 			}
 		} else {
-			nSelectors := len(l4.L7RulesPerSelector)
-			for sel, l7 := range l4.L7RulesPerSelector {
+			nSelectors := len(l4.PerSelectorPolicies)
+			for sel, l7 := range l4.PerSelectorPolicies {
 				// A single selector is effectively a wildcard, as bpf passes through
 				// only allowed l3. If there are multiple selectors for this l4-filter
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
