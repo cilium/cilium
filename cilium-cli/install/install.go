@@ -317,6 +317,8 @@ type Parameters struct {
 	// APIVersions defines extra kubernetes api resources that can be passed to helm for capabilities validation,
 	// specifically for CRDs.
 	APIVersions []string
+	// UserSetKubeProxyReplacement will be set as true if user passes helm opt or commadline flag for the Kube-Proxy replacement.
+	UserSetKubeProxyReplacement bool
 }
 
 type rollbackStep func(context.Context)
