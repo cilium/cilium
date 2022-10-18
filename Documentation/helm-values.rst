@@ -1769,6 +1769,14 @@
      - interval between checks of the startup probe
      - int
      - ``2``
+   * - statelessNat46x64
+     - Configure Stateless NAT46/NAT64 translation
+     - object
+     - ``{"enabled":false}``
+   * - statelessNat46x64.enabled
+     - Enable RFC8215-prefixed translation
+     - bool
+     - ``false``
    * - svcSourceRangeCheck
      - Enable check of service source ranges (currently, only for LoadBalancer).
      - bool

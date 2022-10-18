@@ -550,6 +550,10 @@ data:
   enable-ipv4-fragment-tracking: "false"
 {{- end }}
 
+{{- if .Values.statelessNat46x64.enabled }}
+  enable-stateless-nat46x64: {{ .Values.statelessNat46x64.enabled | quote }}
+{{- end }}
+
 {{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
   enable-host-firewall: {{ .Values.hostFirewall.enabled | quote }}
 {{- end}}
