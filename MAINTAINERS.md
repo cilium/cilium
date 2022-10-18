@@ -27,6 +27,7 @@ by the "janitor role" which is rotated between all committers.
  * [Alexandre Perrin] (Isovalent)
  * [Beatriz Martínez] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
+ * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
  * [Dan Wendlandt] (Isovalent)
@@ -77,6 +78,7 @@ project.
 [André Martins]: https://github.com/aanm
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bruno M. Custódio]: https://github.com/bmcustodio
+[Chance Zibolski]: https://github.com/chancez
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
 [Dan Wendlandt]: https://github.com/danwent
