@@ -7,9 +7,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
@@ -34,6 +36,14 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
+
+			cmd.Flags().Visit(func(f *pflag.Flag) {
+				if f.Name == "kube-proxy-replacement" {
+					params.UserSetKubeProxyReplacement = true
+				} else if f.Name == "helm-set" && strings.Contains(f.Value.String(), "kubeProxyReplacement") {
+					params.UserSetKubeProxyReplacement = true
+				}
+			})
 
 			installer, err := install.NewK8sInstaller(k8sClient, params)
 			if err != nil {
