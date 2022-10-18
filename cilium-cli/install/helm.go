@@ -227,7 +227,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 
 		// TODO: remove when removing "kube-proxy-replacement" flag (marked as
 		// deprecated), kept for backwards compatibility
-		if k.params.KubeProxyReplacement != "" {
+		if k.params.KubeProxyReplacement != "" && k.params.UserSetKubeProxyReplacement {
 			helmMapOpts["kubeProxyReplacement"] = k.params.KubeProxyReplacement
 		}
 

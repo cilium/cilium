@@ -174,10 +174,17 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 }
 
 func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
+	if k.params.UserSetKubeProxyReplacement {
+		return nil
+	} else if k.flavor.Kind == k8s.KindK3s {
+		return nil
+	}
+
 	kubeSysNameSpace := "kube-system"
+
 	dsList, err := k.client.ListDaemonSet(ctx, kubeSysNameSpace, metav1.ListOptions{})
 	if err != nil {
-		k.Log("⏭️ Skipping auto kube-proxy detction")
+		k.Log("⏭️ Skipping auto kube-proxy detection")
 		return nil
 	}
 
