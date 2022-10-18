@@ -82,7 +82,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "",
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
@@ -100,7 +100,7 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 
 	// Case1B: implicitly deny all endpoints.
@@ -146,10 +146,10 @@ func (ds *PolicyTestSuite) TestMergeDenyAllL3(c *C) {
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 	c.Assert(filter.wildcard, Not(IsNil))
-	c.Assert(filter.L7RulesPerSelector[filter.wildcard].IsDeny, Equals, true)
+	c.Assert(filter.PerSelectorPolicies[filter.wildcard].IsDeny, Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
-	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressDenyPolicy.Detach(repo.GetSelectorCache())
 }
 
@@ -196,7 +196,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 		},
@@ -262,7 +262,7 @@ func (ds *PolicyTestSuite) TestL3DenyRuleShadowedByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 		},
@@ -331,7 +331,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedDenyAllL7(c *
 		U8Proto:  6,
 		wildcard: nil,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			cachedSelectorC: &PerSelectorPolicy{IsDeny: true},
 		},
@@ -409,7 +409,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: nil,
 		},
@@ -477,7 +477,7 @@ func (ds *PolicyTestSuite) TestL3AllowRuleShadowedByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA:        &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: nil,
 		},
@@ -555,7 +555,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
@@ -633,7 +633,7 @@ func (ds *PolicyTestSuite) TestL3L4AllowRuleWithByL3DenyAll(c *C) {
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: ParserTypeHTTP,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: &PerSelectorPolicy{IsDeny: true},
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
