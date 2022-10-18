@@ -238,6 +238,11 @@ bandwidthManager:
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
 
+# -- Configure Stateless NAT46/NAT64 translation
+statelessNat46x64:
+  # -- Enable RFC8215-prefixed translation
+  enabled: false
+
 # -- Configure BGP
 bgp:
   # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside

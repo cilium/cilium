@@ -305,6 +305,34 @@ CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 
+# Install Cilium as standalone L4LB & NAT46/64 GW: tc
+helm upgrade cilium ${HELM_CHART_DIR} \
+    --wait \
+    --namespace kube-system \
+    --reuse-values \
+    --set statelessNat46x64.enabled=true
+kubectl -n kube-system delete pod -l k8s-app=cilium
+kubectl -n kube-system rollout status ds/cilium --timeout=5m
+
+# Install Cilium as standalone L4LB & NAT46/64 GW: XDP
+helm upgrade cilium ${HELM_CHART_DIR} \
+    --wait \
+    --namespace kube-system \
+    --reuse-values \
+    --set loadBalancer.acceleration=native
+kubectl -n kube-system delete pod -l k8s-app=cilium
+kubectl -n kube-system rollout status ds/cilium --timeout=5m
+
+# Install Cilium as standalone L4LB & NAT46/64 GW: restore
+helm upgrade cilium ${HELM_CHART_DIR} \
+    --wait \
+    --namespace kube-system \
+    --reuse-values \
+    --set statelessNat46x64.enabled=false \
+    --set loadBalancer.acceleration=disabled
+kubectl -n kube-system delete pod -l k8s-app=cilium
+kubectl -n kube-system rollout status ds/cilium --timeout=5m
+
 # NAT test suite & PCAP recorder
 ################################
 
