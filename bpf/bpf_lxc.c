@@ -207,7 +207,8 @@ struct {
  *
  * Kernel 4.9 verifier is very finicky about the order of this code, modify with caution.
  */
-static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
+static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id,
+						__s8 *ext_err)
 {
 	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple tuple_on_stack __maybe_unused, *tuple;
@@ -328,7 +329,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, ext_err);
 
 	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
@@ -588,11 +589,12 @@ declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV6_FROM_LXC_
 int tail_handle_ipv6_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_id = 0;
-	int ret = handle_ipv6_from_lxc(ctx, &dst_id);
+	__s8 ext_err = 0;
+	int ret = handle_ipv6_from_lxc(ctx, &dst_id, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_ext(ctx, SECLABEL, dst_id, 0, ret, ext_err,
+					    CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_id)) {
@@ -728,7 +730,8 @@ struct {
  * In the case of the caller doing the service translation it passes in state via CB,
  * which we take in with lb4_ctx_restore_state().
  */
-static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id)
+static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *dst_id,
+						__s8 *ext_err)
 {
 	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
 	struct ipv4_ct_tuple tuple_on_stack __maybe_unused, *tuple;
@@ -849,7 +852,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_id,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, ext_err);
 
 	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
@@ -1156,11 +1159,13 @@ declare_tailcall_if(is_defined(ENABLE_PER_PACKET_LB), CILIUM_CALL_IPV4_FROM_LXC_
 int tail_handle_ipv4_cont(struct __ctx_buff *ctx)
 {
 	__u32 dst_id = 0;
-	int ret = handle_ipv4_from_lxc(ctx, &dst_id);
+	__s8 ext_err = 0;
+
+	int ret = handle_ipv4_from_lxc(ctx, &dst_id, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, dst_id, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_ext(ctx, SECLABEL, dst_id, 0, ret, ext_err,
+					    CTX_ACT_DROP, METRIC_EGRESS);
 
 #ifdef ENABLE_CUSTOM_CALLS
 	if (!encode_custom_prog_meta(ctx, ret, dst_id)) {
