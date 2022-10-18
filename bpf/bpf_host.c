@@ -466,7 +466,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	};
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remote_id = 0;
-	struct ipv4_ct_tuple tuple = {};
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	void *data, *data_end;
@@ -545,8 +544,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 
 	if (skip_redirect)
 		return CTX_ACT_OK;
-
-	tuple.nexthdr = ip4->protocol;
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
