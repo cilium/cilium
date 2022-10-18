@@ -28,12 +28,38 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
 }
 
+static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
+{
+	/* Check for 64:ff9b::<IPv4 address>. */
+	union v6addr dprobe  = {
+		.addr[1] = 0x64,
+		.addr[2] = 0xff,
+		.addr[3] = 0x9b,
+	};
+	union v6addr dmasked = {
+		.d1 = daddr->d1,
+	};
+
+	dmasked.p3 = daddr->p3;
+	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
+}
+
 static __always_inline __maybe_unused
 void build_v4_in_v6(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
 	daddr->addr[10] = 0xff;
 	daddr->addr[11] = 0xff;
+	daddr->p4 = v4;
+}
+
+static __always_inline __maybe_unused
+void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
+{
+	memset(daddr, 0, sizeof(*daddr));
+	daddr->addr[1] = 0x64;
+	daddr->addr[2] = 0xff;
+	daddr->addr[3] = 0x9b;
 	daddr->p4 = v4;
 }
 
@@ -342,6 +368,31 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
+}
+
+static __always_inline int
+nat46_rfc8215(struct __ctx_buff *ctx __maybe_unused,
+	      const struct iphdr *ip4 __maybe_unused,
+	      int l3_off __maybe_unused)
+{
+	union v6addr src6, dst6;
+
+	build_v4_in_v6_rfc8215(&src6, ip4->saddr);
+	build_v4_in_v6_rfc8215(&dst6, ip4->daddr);
+
+	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
+}
+
+static __always_inline int
+nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
+	      const struct ipv6hdr *ip6 __maybe_unused)
+{
+	__be32 src4, dst4;
+
+	build_v4_from_v6((const union v6addr *)&ip6->saddr, &src4);
+	build_v4_from_v6((const union v6addr *)&ip6->daddr, &dst4);
+
+	return ipv6_to_ipv4(ctx, src4, dst4);
 }
 
 #endif /* __LIB_NAT_46X64__ */
