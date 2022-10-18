@@ -248,7 +248,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 		if availableOnENI <= 0 {
 			continue
 		} else {
-			a.AvailableInterfaces++
+			a.InterfaceCandidates++
 		}
 
 		scopedLog.WithFields(logrus.Fields{
@@ -269,7 +269,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 			}
 		}
 	}
-	a.AvailableInterfaces = l.Adapters - len(n.enis) + a.AvailableInterfaces
+	a.EmptyInterfaceSlots = l.Adapters - len(n.enis)
 	return a, nil
 }
 

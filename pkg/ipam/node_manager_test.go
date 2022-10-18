@@ -94,7 +94,6 @@ func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*Allo
 	return &AllocationAction{
 		PoolID:                 testPoolID,
 		AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs,
-		AvailableInterfaces:    0,
 	}, nil
 }
 

@@ -51,7 +51,7 @@ type NodeOperations interface {
 	// done if PrepareIPAllocation indicates that no more IPs are available
 	// (AllocationAction.AvailableForAllocation == 0) for allocation but
 	// interfaces are available for creation
-	// (AllocationAction.AvailableInterfaces > 0). This function must
+	// (AllocationAction.EmptyInterfaceSlots > 0). This function must
 	// create the interface *and* allocate up to
 	// AllocationAction.MaxIPsToAllocate.
 	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
@@ -412,6 +412,8 @@ type resyncStats struct {
 	totalAvailable      int
 	totalNeeded         int
 	remainingInterfaces int
+	interfaceCandidates int
+	emptyInterfaceSlots int
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
@@ -435,6 +437,8 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	stats.totalAvailable += availableOnNode
 	stats.totalNeeded += nodeStats.NeededIPs
 	stats.remainingInterfaces += nodeStats.RemainingInterfaces
+	stats.interfaceCandidates += nodeStats.InterfaceCandidates
+	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
 	stats.nodes++
 
 	if allocationNeeded {
