@@ -305,7 +305,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
@@ -401,7 +401,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeHTTP,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
@@ -493,7 +493,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						wildcard: wildcardCachedSelector,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: nil,
 						},
 						DerivedFromRules: labels.LabelArrayList{ruleLabel},
@@ -631,7 +631,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						U8Proto:  0x6,
 						L7Parser: ParserTypeNone,
 						Ingress:  true,
-						L7RulesPerSelector: L7DataMap{
+						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld: nil,
 							cachedSelectorTest:  nil,
 						},

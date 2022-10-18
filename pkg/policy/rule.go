@@ -115,12 +115,12 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v)", filterToMerge.Listener, existingFilter.Listener)
 	}
 
-	for cs, newL7Rules := range filterToMerge.L7RulesPerSelector {
+	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
-		delete(filterToMerge.L7RulesPerSelector, cs)
+		delete(filterToMerge.PerSelectorPolicies, cs)
 
-		if l7Rules, ok := existingFilter.L7RulesPerSelector[cs]; ok {
+		if l7Rules, ok := existingFilter.PerSelectorPolicies[cs]; ok {
 			// existing filter already has 'cs', release and merge L7 rules
 			selectorCache.RemoveSelector(cs, filterToMerge)
 
@@ -145,7 +145,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			} else if newL7Rules != nil && newL7Rules.IsDeny {
 				// Overwrite existing filter if the new rule is a deny case
 				// Denies takes priority over any rule.
-				existingFilter.L7RulesPerSelector[cs] = newL7Rules
+				existingFilter.PerSelectorPolicies[cs] = newL7Rules
 				continue
 			}
 
@@ -213,12 +213,12 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			// specific L7
 			if !l7Rules.HasL7Rules() && newL7Rules.HasL7Rules() {
 				l7Rules.L7Rules = newL7Rules.appendL7WildcardRule(ctx)
-				existingFilter.L7RulesPerSelector[cs] = l7Rules
+				existingFilter.PerSelectorPolicies[cs] = l7Rules
 				continue
 			}
 			if l7Rules.HasL7Rules() && !newL7Rules.HasL7Rules() {
 				l7Rules.appendL7WildcardRule(ctx)
-				existingFilter.L7RulesPerSelector[cs] = l7Rules
+				existingFilter.PerSelectorPolicies[cs] = l7Rules
 				continue
 			}
 
@@ -249,13 +249,13 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 			}
 			// Update the pointer in the map in case it was newly allocated
-			existingFilter.L7RulesPerSelector[cs] = l7Rules
+			existingFilter.PerSelectorPolicies[cs] = l7Rules
 		} else { // 'cs' is not in the existing filter yet
 			// Update selector owner to the existing filter
 			selectorCache.ChangeUser(cs, filterToMerge, existingFilter)
 
 			// Move L7 rules over.
-			existingFilter.L7RulesPerSelector[cs] = newL7Rules
+			existingFilter.PerSelectorPolicies[cs] = newL7Rules
 
 			if cs.IsWildcard() {
 				existingFilter.wildcard = cs

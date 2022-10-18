@@ -147,12 +147,12 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// or if it is based on specific labels.
 		filter, err := createL4IngressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(err, IsNil)
-		c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
 		filter, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)
 		c.Assert(err, IsNil)
-		c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
 }
@@ -213,7 +213,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
 				L7Parser: "http",
-				L7RulesPerSelector: L7DataMap{
+				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
@@ -225,7 +225,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			"9090/TCP": {
 				Port: 9090, Protocol: api.ProtoTCP,
 				L7Parser: "tester",
-				L7RulesPerSelector: L7DataMap{
+				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
@@ -245,7 +245,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
 				L7Parser: "http",
-				L7RulesPerSelector: L7DataMap{
+				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{

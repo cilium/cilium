@@ -390,7 +390,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	// Handle L4 ingress from each identity in the cache to the endpoint.
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range l4IngressPolicy {
-		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
+		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.PerSelectorPolicies))
 		for key, entry := range l4.ToMapState(owner, 0) {
 			var policyStr string
 			if entry.IsDeny {
