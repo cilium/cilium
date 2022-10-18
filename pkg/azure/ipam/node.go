@@ -77,7 +77,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 			return nil
 		}
 
-		a.AvailableInterfaces++
+		a.InterfaceCandidates++
 
 		if a.InterfaceID == "" {
 			scopedLog.WithFields(logrus.Fields{

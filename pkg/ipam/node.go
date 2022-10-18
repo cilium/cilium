@@ -141,6 +141,14 @@ type Statistics struct {
 	// allocated or have not yet exhausted the instance specific quota of
 	// addresses
 	RemainingInterfaces int
+
+	// InterfaceCandidates is the number of attached interfaces with IPs
+	// available for allocation.
+	InterfaceCandidates int
+
+	// EmptyInterfaceSlots is the number of empty interface slots available
+	// for interfaces to be attached
+	EmptyInterfaceSlots int
 }
 
 // IsRunning returns true if the node is considered to be running
@@ -488,7 +496,7 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
 func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (created bool, err error) {
-	if a.AvailableInterfaces == 0 {
+	if a.EmptyInterfaceSlots == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as interface allocation failure. There is a
 		// separate metric to track nodes running at capacity.
@@ -549,8 +557,13 @@ type AllocationAction struct {
 	// getMaxAboveWatermark() }.
 	MaxIPsToAllocate int
 
-	// AvailableInterfaces is the number of interfaces available to be created
-	AvailableInterfaces int
+	// InterfaceCandidates is the number of attached interfaces with IPs
+	// available for allocation.
+	InterfaceCandidates int
+
+	// EmptyInterfaceSlots is the number of empty interface slots available
+	// for interfaces to be attached
+	EmptyInterfaceSlots int
 }
 
 // ReleaseAction is the action to be taken to resolve allocation excess for a
@@ -625,7 +638,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 
 	if a.allocation != nil {
 		n.mutex.Lock()
-		n.stats.RemainingInterfaces = a.allocation.AvailableInterfaces
+		n.stats.RemainingInterfaces = a.allocation.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
 		stats = n.stats
 		n.mutex.Unlock()
 		scopedLog = scopedLog.WithFields(logrus.Fields{
@@ -633,7 +646,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 			"selectedPoolID":         a.allocation.PoolID,
 			"maxIPsToAllocate":       a.allocation.MaxIPsToAllocate,
 			"availableForAllocation": a.allocation.AvailableForAllocation,
-			"availableInterfaces":    a.allocation.AvailableInterfaces,
+			"emptyInterfaceSlots":    a.allocation.EmptyInterfaceSlots,
 		})
 	}
 
