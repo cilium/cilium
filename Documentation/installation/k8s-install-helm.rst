@@ -261,6 +261,10 @@ Install Cilium
              --set operator.replicas=1 \\
              --set cni.binPath=/usr/libexec/cni
 
+    .. group-tab:: Alibaba ACK
+
+        .. include:: ../installation/alibabacloud-eni.rst
+
 .. include:: k8s-install-restart-pods.rst
 
 .. include:: k8s-install-validate.rst
