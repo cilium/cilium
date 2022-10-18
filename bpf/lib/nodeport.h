@@ -566,6 +566,129 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
+#ifdef ENABLE_NAT_46X64_STATELESS
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
+int tail_nat_ipv46(struct __ctx_buff *ctx)
+{
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET6,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
+	bool l2_hdr_required = true;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct iphdr *ip4;
+	int ret, ext_err = 0;
+	int l3_off = ETH_HLEN;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+	if (nat46_rfc8215(ctx, ip4, l3_off)) {
+		ret = DROP_NAT46;
+		goto drop_err;
+	}
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+		       (union v6addr *)&ip6->saddr);
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+		       (union v6addr *)&ip6->daddr);
+
+	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
+	if (ret != 0) {
+		ext_err = ret;
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
+
+	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+
+	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+out_send:
+	cilium_capture_out(ctx);
+	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+drop_err:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
+int tail_nat_ipv64(struct __ctx_buff *ctx)
+{
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
+	bool l2_hdr_required = true;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	struct iphdr *ip4;
+	int ret, ext_err = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+	if (nat64_rfc8215(ctx, ip6)) {
+		ret = DROP_NAT64;
+		goto drop_err;
+	}
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	fib_params.l.ipv4_src = ip4->saddr;
+	fib_params.l.ipv4_dst = ip4->daddr;
+
+	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
+	if (ret != 0) {
+		ext_err = ret;
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
+
+	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
+	if (ret != 0)
+		goto drop_err;
+	if (!l2_hdr_required)
+		goto out_send;
+
+	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
+		ret = DROP_WRITE_ERROR;
+		goto drop_err;
+	}
+out_send:
+	cilium_capture_out(ctx);
+	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+drop_err:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+}
+#endif /* ENABLE_NAT_46X64_STATELESS */
+
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
@@ -795,7 +918,12 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (!svc || !lb6_svc_is_routable(svc)) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
-
+#ifdef ENABLE_NAT_46X64_STATELESS
+		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
+			return DROP_MISSED_TAIL_CALL;
+		}
+#endif
 skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
@@ -1729,7 +1857,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (!svc || !lb4_svc_is_routable(svc)) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
-
+#ifdef ENABLE_NAT_46X64_STATELESS
+		if (ip4->daddr != IPV4_DIRECT_ROUTING) {
+			ep_tail_call(ctx, CILIUM_CALL_IPV46_RFC8215);
+			return DROP_MISSED_TAIL_CALL;
+		}
+#endif
 		/* The packet is not destined to a service but it can be a reply
 		 * packet from a remote backend, in which case we need to perform
 		 * the reverse NAT.
