@@ -340,7 +340,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: Alibaba ACK
 
-       .. include:: ../installation/alibabacloud-eni.rst
+       You can install Cilium using Helm on Alibaba ACK, refer to `k8s_install_helm` for details.
 
 
 If the installation fails for some reason, run ``cilium status`` to retrieve

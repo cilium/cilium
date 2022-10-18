@@ -136,8 +136,6 @@ connect to the AlibabaCloud API.
 
 **Install Cilium:**
 
-.. include:: /installation/k8s-install-download-release.rst
-
 Install Cilium release via Helm:
 
 .. parsed-literal::
