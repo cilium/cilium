@@ -16,7 +16,7 @@
 # ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
-			struct trace_ctx *trace)
+			struct trace_ctx *trace, __s8 *ext_err)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
@@ -61,7 +61,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress6(ctx, &tuple, src_id, dst_id,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, ext_err);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
@@ -252,7 +252,7 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			__u32 ipcache_srcid __maybe_unused,
-			struct trace_ctx *trace)
+			struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -298,7 +298,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress4(ctx, &tuple, src_id, dst_id,
-				     &policy_match_type, &audited);
+				     &policy_match_type, &audited, ext_err);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {

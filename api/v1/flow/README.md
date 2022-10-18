@@ -951,6 +951,7 @@ here.
 | MISSING_SRV6_STATE | 186 |  |
 | NAT46 | 187 |  |
 | NAT64 | 188 |  |
+| AUTH_REQUIRED | 189 |  |
 
 
 
