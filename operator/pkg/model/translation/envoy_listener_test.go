@@ -31,7 +31,7 @@ func TestNewListener(t *testing.T) {
 	})
 
 	t.Run("TLS", func(t *testing.T) {
-		res, err := NewListener("dummy-name", "dummy-secret-namespace", []*model.TLSSecret{
+		res, err := NewListener("dummy-name", "dummy-secret-namespace", []model.TLSSecret{
 			{
 				Name:      "dummy-secret-1",
 				Namespace: "dummy-namespace",

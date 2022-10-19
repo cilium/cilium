@@ -38,7 +38,7 @@ type HTTPListener struct {
 	// An empty list means that the Listener should match all hostnames.
 	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
-	TLS *TLSSecret `json:"tls,omitempty"`
+	TLS []TLSSecret `json:"tls,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`

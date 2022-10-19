@@ -139,10 +139,12 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 			}
 
 			if tlsConfig.SecretName != "" {
-				l.TLS = &model.TLSSecret{
-					Name: tlsConfig.SecretName,
-					// Secret has to be in the same namespace as the Ingress.
-					Namespace: ing.Namespace,
+				l.TLS = []model.TLSSecret{
+					{
+						Name: tlsConfig.SecretName,
+						// Secret has to be in the same namespace as the Ingress.
+						Namespace: ing.Namespace,
+					},
 				}
 
 			}
@@ -155,10 +157,12 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 				// A default listener already exists, each Host in TLSConfig.Hosts
 				// needs to have a Listener configured that's a copy of it.
 				if tlsConfig.SecretName != "" {
-					defaultListener.TLS = &model.TLSSecret{
-						Name: tlsConfig.SecretName,
-						// Secret has to be in the same namespace as the Ingress.
-						Namespace: ing.Namespace,
+					defaultListener.TLS = []model.TLSSecret{
+						{
+							Name: tlsConfig.SecretName,
+							// Secret has to be in the same namespace as the Ingress.
+							Namespace: ing.Namespace,
+						},
 					}
 				}
 				defaultListener.Hostname = host

@@ -198,9 +198,11 @@ func TestSharedIngressTranslator_getListener(t *testing.T) {
 	res := i.getListener(&model.Model{
 		HTTP: []model.HTTPListener{
 			{
-				TLS: &model.TLSSecret{
-					Name:      "dummy-secret",
-					Namespace: "dummy-namespace",
+				TLS: []model.TLSSecret{
+					{
+						Name:      "dummy-secret",
+						Namespace: "dummy-namespace",
+					},
 				},
 			},
 		},
