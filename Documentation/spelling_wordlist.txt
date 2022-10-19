@@ -344,6 +344,7 @@ disassembly
 discoverable
 distro
 distros
+dmesg
 dns
 dnsPolicy
 dnsProxy
