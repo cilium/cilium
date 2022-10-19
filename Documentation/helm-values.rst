@@ -737,6 +737,22 @@
      - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
      - bool
      - ``false``
+   * - gatewayAPI.secretsNamespace
+     - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-secrets","sync":true}``
+   * - gatewayAPI.secretsNamespace.create
+     - Create secrets namespace for Gateway API.
+     - bool
+     - ``true``
+   * - gatewayAPI.secretsNamespace.name
+     - Name of Gateway API secret namespace.
+     - string
+     - ``"cilium-secrets"``
+   * - gatewayAPI.secretsNamespace.sync
+     - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
+     - bool
+     - ``true``
    * - gke.enabled
      - Enable Google Kubernetes Engine integration
      - bool

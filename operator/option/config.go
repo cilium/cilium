@@ -244,8 +244,15 @@ const (
 	// by ingress-secrets-namespace flag
 	EnableIngressSecretsSync = "enable-ingress-secrets-sync"
 
+	// EnableGatewayAPISecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified
+	// by gateway-api-secrets-namespace flag
+	EnableGatewayAPISecretsSync = "enable-gateway-api-secrets-sync"
+
 	// IngressSecretsNamespace is the namespace having tls secrets used by Ingress and CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
+
+	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
+	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
 
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
@@ -489,11 +496,17 @@ type OperatorConfig struct {
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
 
-	// EnableIngressSecretsSync enables background TLS secret sync
+	// EnableIngressSecretsSync enables background TLS secret sync for Ingress
 	EnableIngressSecretsSync bool
 
-	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
+	// EnableGatewayAPISecretsSync enables background TLS secret sync for Gateway API
+	EnableGatewayAPISecretsSync bool
+
+	// IngressSecretsNamespace is the namespace having tls secrets used by CEC for Ingress.
 	IngressSecretsNamespace string
+
+	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
+	GatewayAPISecretsNamespace string
 
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
@@ -559,7 +572,9 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
+	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
+	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
