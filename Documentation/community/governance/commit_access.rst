@@ -37,6 +37,13 @@ the community at large for the benefit of the project. It can not be
 granted lightly and, in the worst case, must be revocable if the trust
 placed in an individual was inappropriate.
 
+Becoming a Cilium committer also grants the status of Cilium `"maintainer" in
+CNCF parlance
+<https://contribute.cncf.io/about/maintainers-circle/#who-is-a-maintainer>`__. 
+This means that Cilium committers can use the `CNCF Service
+Desk <https://github.com/cncf/servicedesk>`__ to request services on behalf of the
+project, and will also receive a vote on certain CNCF matters. 
+
 This document suggests guidelines for granting and revoking commit
 access. It is intended to provide a framework for evaluation of such
 decisions without specifying deterministic rules that wouldn't be
