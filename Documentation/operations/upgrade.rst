@@ -330,16 +330,19 @@ Added Metrics
 * ``cilium_operator_allocation_duration_seconds``
 * ``cilium_operator_release_duration_seconds``
 * ``httpV2``, an updated version of the existing ``http`` metrics.
+* ``cilium_operator_ipam_interface_candidates``
+* ``cilium_operator_ipam_empty_interface_slots``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
 * ``http`` is deprecated. Please use ``httpV2`` instead.
+* ``cilium_operator_ipam_available_interfaces`` is deprecated. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
 
 Removed Metrics/Labels
 ~~~~~~~~~~~~~~~~~~~~~~
 
-* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_available_interfaces`` instead.
+* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
 * ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
 * ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
 * The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.

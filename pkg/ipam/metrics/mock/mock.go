@@ -19,6 +19,8 @@ type mockMetrics struct {
 	interfaceAllocations  map[string]int64
 	allocatedIPs          map[string]int
 	availableInterfaces   int
+	interfaceCandidates   int
+	emptyInterfaceSlots   int
 	availableIPsPerSubnet map[string]int
 	nodes                 map[string]int
 	resyncCount           int64
@@ -114,6 +116,30 @@ func (m *mockMetrics) AvailableInterfaces() int {
 func (m *mockMetrics) SetAvailableInterfaces(available int) {
 	m.mutex.Lock()
 	m.availableInterfaces = available
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) InterfaceCandidates() int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.interfaceCandidates
+}
+
+func (m *mockMetrics) SetInterfaceCandidates(interfaceCandidates int) {
+	m.mutex.Lock()
+	m.interfaceCandidates = interfaceCandidates
+	m.mutex.Unlock()
+}
+
+func (m *mockMetrics) EmptyInterfaceSlots() int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.emptyInterfaceSlots
+}
+
+func (m *mockMetrics) SetEmptyInterfaceSlots(emptyInterfaceSlots int) {
+	m.mutex.Lock()
+	m.emptyInterfaceSlots = emptyInterfaceSlots
 	m.mutex.Unlock()
 }
 
