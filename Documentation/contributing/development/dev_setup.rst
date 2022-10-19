@@ -316,6 +316,15 @@ to enable NFS.
       # vers3=y
       ...
 
+.. note::
+
+   Linux 5.18 on newer Intel CPUs which support Intel CET (11th and
+   12th gen) has a bug that prevents the VMs from starting. If you see
+   a stacktrace with ``kernel BUG at arch/x86/kernel/traps.c`` and
+   ``traps: Missing ENDBR`` messages in dmesg, that means you are
+   affected. A workaround for now is to pass ``ibt=off`` to the kernel
+   command line.
+
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
 .. code-block:: shell-session
