@@ -209,9 +209,11 @@ var hostRulesListeners = []model.HTTPListener{
 		},
 		Port:     443,
 		Hostname: "foo.bar.com",
-		TLS: &model.TLSSecret{
-			Name:      "conformance-tls",
-			Namespace: "random-namespace",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "conformance-tls",
+				Namespace: "random-namespace",
+			},
 		},
 		Routes: []model.HTTPRoute{
 			{
@@ -690,9 +692,11 @@ var complexIngressListeners = []model.HTTPListener{
 		},
 		Port:     443,
 		Hostname: "another-very-secure.server.com",
-		TLS: &model.TLSSecret{
-			Name:      "tls-another-very-secure-server-com",
-			Namespace: "dummy-namespace",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-another-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
 		},
 		Routes: []model.HTTPRoute{
 			{
@@ -748,9 +752,11 @@ var complexIngressListeners = []model.HTTPListener{
 		},
 		Port:     443,
 		Hostname: "not-in-use.another-very-secure.server.com",
-		TLS: &model.TLSSecret{
-			Name:      "tls-another-very-secure-server-com",
-			Namespace: "dummy-namespace",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-another-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
 		},
 		Routes: []model.HTTPRoute{
 			{
@@ -806,9 +812,11 @@ var complexIngressListeners = []model.HTTPListener{
 		},
 		Port:     443,
 		Hostname: "very-secure.server.com",
-		TLS: &model.TLSSecret{
-			Name:      "tls-very-secure-server-com",
-			Namespace: "dummy-namespace",
+		TLS: []model.TLSSecret{
+			{
+				Name:      "tls-very-secure-server-com",
+				Namespace: "dummy-namespace",
+			},
 		},
 		Routes: []model.HTTPRoute{
 			{
