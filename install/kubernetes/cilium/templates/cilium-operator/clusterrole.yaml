@@ -65,7 +65,7 @@ rules:
   resources:
   # to check apiserver connectivity
   - namespaces
-{{- if .Values.ingressController.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled  }}
   - secrets
 {{- end }}
   verbs:

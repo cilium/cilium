@@ -1,4 +1,5 @@
 {{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.sync .Values.ingressController.secretsNamespace.name }}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -12,4 +13,24 @@ subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.operator.name | quote }}
     namespace: {{ .Release.Namespace }}
+{{- end }}
+
+# Only create if namespace is different from Ingress secret namespace or Ingress is not enabled.
+{{- if and .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.create .Values.gatewayAPI.secretsNamespace.name
+  (or (not (and .Values.ingressController.enabled .Values.ingressController.secretsNamespace.create .Values.ingressController.secretsNamespace.name))
+      (ne .Values.gatewayAPI.secretsNamespace.name .Values.ingressController.secretsNamespace.name)) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-operator-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-operator-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.operator.name | quote }}
+  namespace: {{ .Release.Namespace }}
 {{- end }}

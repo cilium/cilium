@@ -212,6 +212,8 @@ data:
 {{- if .Values.gatewayAPI.enabled }}
   enable-gateway-api: "true"
   enable-envoy-config: "true"
+  enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
+  gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
 
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
