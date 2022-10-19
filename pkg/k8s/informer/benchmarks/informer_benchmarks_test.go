@@ -49,10 +49,10 @@ var nodeSampleJSON = `{
         },
         "creationTimestamp": "2019-03-07T13:35:02Z",
         "labels": {
-            "beta.kubernetes.io/arch": "amd64",
+            "kubernetes.io/arch": "amd64",
             "beta.kubernetes.io/fluentd-ds-ready": "true",
             "beta.kubernetes.io/instance-type": "foo",
-            "beta.kubernetes.io/os": "linux",
+            "kubernetes.io/os": "linux",
             "cloud.google.com/gke-nodepool": "default-pool",
             "cloud.google.com/gke-os-distribution": "cos",
             "disktype": "ssd",

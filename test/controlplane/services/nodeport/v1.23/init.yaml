@@ -9,8 +9,6 @@ items:
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
     creationTimestamp: "2022-09-13T10:57:09Z"
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-control-plane
       kubernetes.io/os: linux
@@ -148,8 +146,6 @@ items:
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
     creationTimestamp: "2022-09-13T10:57:46Z"
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       cilium.io/ci-node: k8s1
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-worker
@@ -278,8 +274,6 @@ items:
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
     creationTimestamp: "2022-09-13T10:57:46Z"
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       cilium.io/ci-node: k8s2
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-worker2
@@ -405,8 +399,6 @@ items:
     creationTimestamp: "2022-09-13T10:58:19Z"
     generation: 1
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-control-plane
       kubernetes.io/os: linux
@@ -445,8 +437,6 @@ items:
     creationTimestamp: "2022-09-13T10:58:19Z"
     generation: 1
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       cilium.io/ci-node: k8s1
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-worker
@@ -483,8 +473,6 @@ items:
     creationTimestamp: "2022-09-13T10:58:19Z"
     generation: 1
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       cilium.io/ci-node: k8s2
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: nodeport-worker2

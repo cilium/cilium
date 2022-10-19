@@ -9,8 +9,6 @@ items:
       volumes.kubernetes.io/controller-managed-attach-detach: "true"
     creationTimestamp: "2022-09-12T22:12:39Z"
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: graceful-term-control-plane
       kubernetes.io/os: linux
@@ -139,8 +137,6 @@ items:
     creationTimestamp: "2022-09-12T22:13:18Z"
     generation: 1
     labels:
-      beta.kubernetes.io/arch: amd64
-      beta.kubernetes.io/os: linux
       kubernetes.io/arch: amd64
       kubernetes.io/hostname: graceful-term-control-plane
       kubernetes.io/os: linux
