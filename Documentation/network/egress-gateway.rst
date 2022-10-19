@@ -235,7 +235,7 @@ There are 3 different ways this can be achieved:
        nodeSelector:
          matchLabels:
            testLabel: testVal
-         interface: ethX
+       interface: ethX
 
    In this case the first IPv4 address assigned to the ``ethX`` interface will be used.
 
