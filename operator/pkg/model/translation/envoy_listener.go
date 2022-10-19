@@ -81,7 +81,7 @@ func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeInter
 }
 
 // NewListenerWithDefaults same as NewListener but with default mutators applied.
-func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls []*model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls []model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutatorFunc,
 		WithSocketOption(
 			defaultTCPKeepAlive,
@@ -95,7 +95,7 @@ func NewListenerWithDefaults(name string, ciliumSecretNamespace string, tls []*m
 // NewListener creates a new Envoy listener with the given name.
 // The listener will have both secure and insecure filters.
 // Secret Discovery Service (SDS) is used to fetch the TLS certificates.
-func NewListener(name string, ciliumSecretNamespace string, tls []*model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
+func NewListener(name string, ciliumSecretNamespace string, tls []model.TLSSecret, mutatorFunc ...ListenerMutator) (ciliumv2.XDSResource, error) {
 	var filterChains []*envoy_config_listener.FilterChain
 
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
@@ -164,7 +164,7 @@ func NewListener(name string, ciliumSecretNamespace string, tls []*model.TLSSecr
 	}, nil
 }
 
-func newTransportSocket(ciliumSecretNamespace string, tls []*model.TLSSecret) (*envoy_config_core_v3.TransportSocket, error) {
+func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*envoy_config_core_v3.TransportSocket, error) {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
