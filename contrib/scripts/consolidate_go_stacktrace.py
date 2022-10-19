@@ -86,7 +86,9 @@ if __name__ == "__main__":
     # If --source-dir flag is specified, make sure it ends with / and
     # use it to overwrite cilium_source prefix.
     source_dir = args.source_dir
-    if source_dir != "" and source_dir[-1] != '/':
+    if source_dir == "":
+        source_dir = "./"
+    elif source_dir != "" and source_dir[-1] != '/':
         source_dir += "/"
 
     # print count of each unique stack, and a sample, sorted by frequency
