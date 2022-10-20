@@ -9,5 +9,5 @@ import (
 
 // NewSharedIngressTranslator returns a new translator for shared ingress mode.
 func NewSharedIngressTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool) translation.Translator {
-	return translation.NewTranslator(name, namespace, secretsNamespace, enforceHTTPs)
+	return translation.NewTranslator(name, namespace, secretsNamespace, enforceHTTPs, false)
 }

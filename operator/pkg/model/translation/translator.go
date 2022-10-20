@@ -33,15 +33,22 @@ type defaultTranslator struct {
 	namespace        string
 	secretsNamespace string
 	enforceHTTPs     bool
+
+	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
+	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+	// as a suffix match. That means that a match for `*.example.com` would match
+	// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
+	hostNameSuffixMatch bool
 }
 
 // NewTranslator returns a new translator
-func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool) Translator {
+func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool) Translator {
 	return &defaultTranslator{
-		name:             name,
-		namespace:        namespace,
-		secretsNamespace: secretsNamespace,
-		enforceHTTPs:     enforceHTTPs,
+		name:                name,
+		namespace:           namespace,
+		secretsNamespace:    secretsNamespace,
+		enforceHTTPs:        enforceHTTPs,
+		hostNameSuffixMatch: hostNameSuffixMatch,
 	}
 }
 
@@ -137,7 +144,14 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 			if _, ok := portHostNameRouteMap[port]; !ok {
 				portHostNameRouteMap[port] = map[string][]model.HTTPRoute{}
 			}
-			portHostNameRouteMap[port][l.Hostname] = append(portHostNameRouteMap[port][l.Hostname], r)
+
+			if len(r.Hostnames) == 0 {
+				portHostNameRouteMap[port][l.Hostname] = append(portHostNameRouteMap[port][l.Hostname], r)
+				continue
+			}
+			for _, h := range r.Hostnames {
+				portHostNameRouteMap[port][h] = append(portHostNameRouteMap[port][h], r)
+			}
 		}
 	}
 
@@ -148,13 +162,13 @@ func (i *defaultTranslator) getRouteConfiguration(m *model.Model) []ciliumv2.XDS
 		// Add HTTPs redirect virtual host for secure host
 		if port == insecureHost && i.enforceHTTPs {
 			for h, r := range portHostNameRouteMap[secureHost] {
-				vhs, _ := NewVirtualHostWithDefaults(h, true, r)
+				vhs, _ := NewVirtualHostWithDefaults([]string{h}, true, i.hostNameSuffixMatch, r)
 				virtualhosts = append(virtualhosts, vhs)
 			}
 		}
 
 		for h, r := range hostNameRouteMap {
-			vhs, _ := NewVirtualHostWithDefaults(h, false, r)
+			vhs, _ := NewVirtualHostWithDefaults([]string{h}, false, i.hostNameSuffixMatch, r)
 			virtualhosts = append(virtualhosts, vhs)
 		}
 

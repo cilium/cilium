@@ -65,6 +65,8 @@ type TLSSecret struct {
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
+	// Hostnames that the route should match
+	Hostnames []string `json:"hostnames,omitempty"`
 	// PathMatch specifies that the HTTPRoute should match a path.
 	PathMatch StringMatch `json:"path_match,omitempty"`
 	// HeadersMatch specifies that the HTTPRoute should match a set of headers.
