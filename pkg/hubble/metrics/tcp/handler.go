@@ -23,8 +23,8 @@ func (h *tcpHandler) Init(registry *prometheus.Registry, options api.Options) er
 		return err
 	}
 	h.context = c
-	contextLabels := h.context.GetLabelNames()
-	labels := append(contextLabels, "flag", "family")
+	labels := []string{"flag", "family"}
+	labels = append(labels, h.context.GetLabelNames()...)
 
 	h.tcpFlags = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
@@ -56,7 +56,7 @@ func (h *tcpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if err != nil {
 		return err
 	}
-	labels := append(contextLabels, "", ip.IpVersion.String())
+	labels := append([]string{"", ip.IpVersion.String()}, contextLabels...)
 
 	if tcp.Flags.FIN {
 		labels[0] = "FIN"
