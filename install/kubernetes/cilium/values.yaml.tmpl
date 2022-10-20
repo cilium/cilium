@@ -321,6 +321,11 @@ bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
 
+pmtuDiscovery:
+  # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
+  # the client.
+  enabled: false
+
 bpf:
   # -- Configure the mount point for the BPF filesystem
   root: /sys/fs/bpf

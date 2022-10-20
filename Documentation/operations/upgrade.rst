@@ -422,6 +422,8 @@ New Options
 * ``nodes-gc-interval``: This option was marked as deprecated and has no effect
   in 1.11. Cilium Node Garbage collector is added back in 1.12 (but for k8s GC instead
   of kvstore), so this flag is moved out of deprecated list.
+* ``enable-pmtu-discovery``: This option enables path MTU discovery to send ICMP
+  fragmentation-needed replies to the client. Use ``pmtuDiscovery`` in Helm chart.
 
 Removed Options
 ~~~~~~~~~~~~~~~
