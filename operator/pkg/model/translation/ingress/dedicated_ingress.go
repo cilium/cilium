@@ -45,7 +45,7 @@ func (d *DedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 
 	// The logic is same as what we have with default translator, but with a different model
 	// (i.e. the HTTP listeners are just belonged to one Ingress resource).
-	translator := translation.NewTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs)
+	translator := translation.NewTranslator(name, namespace, d.secretsNamespace, d.enforceHTTPs, false)
 	cec, _, _, err := translator.Translate(m)
 	if err != nil {
 		return nil, nil, nil, err

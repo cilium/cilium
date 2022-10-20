@@ -104,15 +104,15 @@ func (s SortableRoute) Swap(i, j int) {
 // default mutator function. If there are multiple http routes having
 // the same path matching (e.g. exact, prefix or regex), the incoming
 // request will be load-balanced to multiple backends equally.
-func NewVirtualHostWithDefaults(host string, httpsRedirect bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
+func NewVirtualHostWithDefaults(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	fns := append(mutators,
 		WithMaxStreamDuration(0),
 	)
-	return NewVirtualHost(host, httpsRedirect, httpRoutes, fns...)
+	return NewVirtualHost(hostnames, httpsRedirect, hostNameSuffixMatch, httpRoutes, fns...)
 }
 
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
-func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
+func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	routes := make(SortableRoute, 0, len(httpRoutes))
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 
@@ -132,7 +132,8 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 				}
 
 				route := envoy_config_route_v3.Route{
-					Match: getRouteMatch(host,
+					Match: getRouteMatch(hostnames,
+						hostNameSuffixMatch,
 						hRoutes[0].PathMatch,
 						hRoutes[0].QueryParamsMatch,
 						hRoutes[0].HeadersMatch,
@@ -183,7 +184,8 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 				}
 			}
 			route := envoy_config_route_v3.Route{
-				Match: getRouteMatch(host,
+				Match: getRouteMatch(hostnames,
+					hostNameSuffixMatch,
 					hRoutes[0].PathMatch,
 					hRoutes[0].HeadersMatch,
 					hRoutes[0].QueryParamsMatch,
@@ -200,13 +202,17 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 	// Related docs https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_conn_man/route_matching
 	sort.Sort(routes)
 
-	var domains = []string{host}
-	if host != wildCard {
-		domains = []string{
+	var domains []string
+	for _, host := range hostnames {
+		if host == wildCard {
+			domains = []string{wildCard}
+			break
+		}
+		domains = append(domains,
 			host,
 			// match authority header with port (e.g. "example.com:80")
 			net.JoinHostPort(host, wildCard),
-		}
+		)
 	}
 
 	res := &envoy_config_route_v3.VirtualHost{
@@ -222,8 +228,8 @@ func NewVirtualHost(host string, httpsRedirect bool, httpRoutes []model.HTTPRout
 	return res, nil
 }
 
-func getRouteMatch(host string, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
-	headerMatchers := getHeaderMatchers(host, headers, method)
+func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
+	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, headers, method)
 	queryMatchers := getQueryMatchers(query)
 	if pathMatch.Exact != "" {
 		return &envoy_config_route_v3.RouteMatch{
@@ -280,25 +286,29 @@ func getQueryMatchers(query []model.KeyValueMatch) []*envoy_config_route_v3.Quer
 	return res
 }
 
-func getHeaderMatchers(host string, headers []model.KeyValueMatch, method *string) []*envoy_config_route_v3.HeaderMatcher {
+func getHeaderMatchers(hostnames []string, hostNameSuffixMatch bool, headers []model.KeyValueMatch, method *string) []*envoy_config_route_v3.HeaderMatcher {
 	var result []*envoy_config_route_v3.HeaderMatcher
 
-	if len(host) != 0 && host != wildCard && strings.Contains(host, wildCard) {
-		// Make sure that wildcard character only match one single dns domain.
-		// For example, if host is *.foo.com, baz.bar.foo.com should not match
-		result = append(result, &envoy_config_route_v3.HeaderMatcher{
-			Name: envoyAuthority,
-			HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
-				StringMatch: &envoy_type_matcher_v3.StringMatcher{
-					MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
-						SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-							EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-							Regex:      getMatchingHeaderRegex(host),
+	if !hostNameSuffixMatch {
+		for _, host := range hostnames {
+			if len(host) != 0 && host != wildCard && strings.Contains(host, wildCard) {
+				// Make sure that wildcard character only match one single dns domain.
+				// For example, if host is *.foo.com, baz.bar.foo.com should not match
+				result = append(result, &envoy_config_route_v3.HeaderMatcher{
+					Name: envoyAuthority,
+					HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+						StringMatch: &envoy_type_matcher_v3.StringMatcher{
+							MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
+								SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+									EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+									Regex:      getMatchingHeaderRegex(host),
+								},
+							},
 						},
 					},
-				},
-			},
-		})
+				})
+			}
+		}
 	}
 
 	for _, h := range headers {
