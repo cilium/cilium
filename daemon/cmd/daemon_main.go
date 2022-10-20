@@ -1056,6 +1056,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableBGPControlPlane, false, "Enable the BGP control plane.")
 	option.BindEnv(Vp, option.EnableBGPControlPlane)
 
+	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
+	option.BindEnv(Vp, option.EnablePMTUDiscovery)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1291,8 +1294,9 @@ func initEnv() {
 		}
 	case datapathOption.DatapathModeLBOnly:
 		log.Info("Running in LB-only mode")
-		option.Config.LoadBalancerPMTUDiscovery =
-			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+			option.Config.EnablePMTUDiscovery = true
+		}
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
 		option.Config.EnableSocketLB = true
 		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.

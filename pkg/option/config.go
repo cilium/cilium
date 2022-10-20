@@ -1101,6 +1101,10 @@ const (
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
+
+	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
+	// fragmentation-needed replies to the client (when needed).
+	EnablePMTUDiscovery = "enable-pmtu-discovery"
 )
 
 // Default string arguments
@@ -1882,9 +1886,9 @@ type DaemonConfig struct {
 	LoadBalancerRSSv6CIDR string
 	LoadBalancerRSSv6     net.IPNet
 
-	// LoadBalancerPMTUDiscovery indicates whether LB should reply with ICMP
-	// frag needed messages to client (when needed)
-	LoadBalancerPMTUDiscovery bool
+	// EnablePMTUDiscovery indicates whether to send ICMP fragmentation-needed
+	// replies to the client (when needed).
+	EnablePMTUDiscovery bool
 
 	// Maglev backend table size (M) per service. Must be prime number.
 	MaglevTableSize int
@@ -2943,6 +2947,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
+	c.EnablePMTUDiscovery = viper.GetBool(EnablePMTUDiscovery)
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)

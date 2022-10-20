@@ -877,6 +877,10 @@ data:
   enable-bgp-control-plane: "false"
 {{- end }}
 
+{{- if .Values.pmtuDiscovery.enabled }}
+  enable-pmtu-discovery: "true"
+{{- end }}
+
 {{- if not .Values.securityContext.privileged }}
   procfs: "/host/proc"
 {{- end }}
