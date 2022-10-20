@@ -53,6 +53,11 @@ type promise[T any] struct {
 	err   error
 }
 
+// Resolve informs all other codepaths who are Await()ing on the received
+// promise that T is now successfully initialized and available for usage.
+//
+// Initialization logic for T should either call Resolve() or Reject(), and
+// must not call these functions more than once.
 func (p *promise[T]) Resolve(value T) {
 	p.Lock()
 	defer p.Unlock()
@@ -64,6 +69,12 @@ func (p *promise[T]) Resolve(value T) {
 	p.cond.Broadcast()
 }
 
+// Reject informs all other codepaths who are Await()ing on the received
+// promise that T could not be initialized and cannot be used to due the
+// specified error reason.
+//
+// Initialization logic for T should either call Resolve() or Reject(), and
+// must not call these functions more than once.
 func (p *promise[T]) Reject(err error) {
 	p.Lock()
 	defer p.Unlock()
