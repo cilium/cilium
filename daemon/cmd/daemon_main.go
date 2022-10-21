@@ -1107,7 +1107,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv(clientset k8sClient.Clientset) {
+func initEnv() {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(
@@ -1184,13 +1184,6 @@ func initEnv(clientset k8sClient.Clientset) {
 			log.Fatalf("Envoy version %s does not match with required version %s ,aborting.",
 				envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA)
 		}
-	}
-
-	// This check is here instead of in DaemonConfig.Populate (invoked at the
-	// start of this function as option.Config.Populate) to avoid an import loop.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
-		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 	}
 
 	if option.Config.PProf {
@@ -1653,7 +1646,7 @@ func registerDaemonHooks(params daemonParams) error {
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
 			bootstrapStats.earlyInit.Start()
-			initEnv(params.Clientset)
+			initEnv()
 			bootstrapStats.earlyInit.End(true)
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
