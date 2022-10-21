@@ -1,7 +1,7 @@
-// This file is safe to edit. Once it exists it will not be overwritten
-
-// Copyright Authors of Cilium
 // SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+// This file is safe to edit. Once it exists it will not be overwritten
 
 package server
 

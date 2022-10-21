@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
+
 // Copyright Authors of Cilium
 
 package testutils
