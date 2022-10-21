@@ -895,11 +895,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
-	}
 
-	if (!svc || !lb6_svc_is_routable(svc)) {
-		if (svc)
+		if (!lb6_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
+	} else {
 #ifdef ENABLE_NAT_46X64_STATELESS
 		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
@@ -1834,11 +1833,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		}
 		if (IS_ERR(ret))
 			return ret;
-	}
 
-	if (!svc || !lb4_svc_is_routable(svc)) {
-		if (svc)
+		if (!lb4_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
+	} else {
 #ifdef ENABLE_NAT_46X64_STATELESS
 		if (ip4->daddr != IPV4_DIRECT_ROUTING) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV46_RFC8215);
