@@ -277,7 +277,10 @@ func (c *Client) DescribeNetworkInterface(ctx context.Context, eniID string) (*e
 // CreateNetworkInterface creates an ENI with the given parameters
 func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *eniTypes.ENI, error) {
 	req := ecs.CreateCreateNetworkInterfaceRequest()
-	req.SecondaryPrivateIpAddressCount = requests.NewInteger(secondaryPrivateIPCount)
+	// SecondaryPrivateIpAddressCount is optional but must not be zero
+	if secondaryPrivateIPCount > 0 {
+		req.SecondaryPrivateIpAddressCount = requests.NewInteger(secondaryPrivateIPCount)
+	}
 	req.VSwitchId = vSwitchID
 	req.SecurityGroupIds = &groups
 	reqTag := make([]ecs.CreateNetworkInterfaceTag, 0, len(tags))
