@@ -11,11 +11,7 @@ on:
         required: true
         default: "beta"
 
-permissions:
-  # To be able to access the repository with `actions/checkout`
-  contents: read
-  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
-  id-token: write
+permissions: read-all
 
 jobs:
   build-and-push:
@@ -102,15 +98,6 @@ jobs:
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@ced07f21fb1da67979f539bbc6304c16c0677e76
-
-      - name: Sign CI Images
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}@${{ steps.docker_build_release.outputs.digest }}
 
       - name: Image Release Digest
         shell: bash
