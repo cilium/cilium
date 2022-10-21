@@ -53,6 +53,13 @@ linters-settings:
     go: "1.19"
   unused:
     go: "1.19"
+  goheader:
+    values:
+      regexp:
+        PROJECT: 'Cilium|Hubble'
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of {{ PROJECT }}
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -81,6 +88,7 @@ linters:
     - staticcheck
     - unused
     - varcheck
+    - goheader
 
 # To enable later if makes sense
 #    - deadcode
