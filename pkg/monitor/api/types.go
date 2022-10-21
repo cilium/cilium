@@ -442,8 +442,10 @@ type ServiceUpsertNotification struct {
 	Frontend ServiceUpsertNotificationAddr   `json:"frontend-address"`
 	Backends []ServiceUpsertNotificationAddr `json:"backend-addresses"`
 
-	Type          string `json:"type,omitempty"`
-	TrafficPolicy string `json:"traffic-policy,omitempty"`
+	Type string `json:"type,omitempty"`
+	// Deprecated: superseded by ExtTrafficPolicy.
+	TrafficPolicy    string `json:"traffic-policy,omitempty"`
+	ExtTrafficPolicy string `json:"ext-traffic-policy,omitempty"`
 
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,,omitempty"`
@@ -454,16 +456,17 @@ func ServiceUpsertMessage(
 	id uint32,
 	frontend ServiceUpsertNotificationAddr,
 	backends []ServiceUpsertNotificationAddr,
-	svcType, svcTrafficPolicy, svcName, svcNamespace string,
+	svcType, svcExtTrafficPolicy, svcName, svcNamespace string,
 ) AgentNotifyMessage {
 	notification := ServiceUpsertNotification{
-		ID:            id,
-		Frontend:      frontend,
-		Backends:      backends,
-		Type:          svcType,
-		TrafficPolicy: svcTrafficPolicy,
-		Name:          svcName,
-		Namespace:     svcNamespace,
+		ID:               id,
+		Frontend:         frontend,
+		Backends:         backends,
+		Type:             svcType,
+		TrafficPolicy:    svcExtTrafficPolicy,
+		ExtTrafficPolicy: svcExtTrafficPolicy,
+		Name:             svcName,
+		Namespace:        svcNamespace,
 	}
 
 	return AgentNotifyMessage{
