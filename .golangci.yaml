@@ -49,13 +49,6 @@ linters-settings:
       - nilness
   goimports:
     local-prefixes: github.com/cilium/cilium
-  misspell:
-    # Correct spellings using locale preferences for US or UK.
-    # Default is to use a neutral variety of English.
-    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-    # locale: US
-    ignore-words:
-      - rela # This is for elf.SHT_RELA
   staticcheck:
     go: "1.19"
   unused:
