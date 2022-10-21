@@ -255,7 +255,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcLocal:    true,
 				svcRoutable: true,
 			},
-			want: serviceFlagNone | serviceFlagLocalScope | serviceFlagRoutable,
+			want: serviceFlagNone | serviceFlagExtLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -263,7 +263,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcLocal:    true,
 				svcRoutable: true,
 			},
-			want: serviceFlagNodePort | serviceFlagLocalScope | serviceFlagRoutable,
+			want: serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -271,7 +271,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcLocal:    true,
 				svcRoutable: true,
 			},
-			want: serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
+			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -279,7 +279,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcLocal:    true,
 				svcRoutable: false,
 			},
-			want: serviceFlagExternalIPs | serviceFlagLocalScope,
+			want: serviceFlagExternalIPs | serviceFlagExtLocalScope,
 		},
 		{
 			args: args{
@@ -300,7 +300,7 @@ func TestNewSvcFlag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &SvcFlagParam{
-				SvcLocal:        tt.args.svcLocal,
+				SvcExtLocal:     tt.args.svcLocal,
 				SessionAffinity: false,
 				IsRoutable:      tt.args.svcRoutable,
 				SvcType:         tt.args.svcType,
@@ -331,12 +331,12 @@ func TestServiceFlags_String(t *testing.T) {
 		},
 		{
 			name: "Test-3",
-			s:    serviceFlagNodePort | serviceFlagLocalScope | serviceFlagRoutable,
+			s:    serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagRoutable,
 			want: "NodePort, Local",
 		},
 		{
 			name: "Test-4",
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
+			s:    serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagRoutable,
 			want: "ExternalIPs, Local",
 		},
 		{

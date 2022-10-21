@@ -2635,7 +2635,13 @@ definitions:
             - LoadBalancer
             - LocalRedirect
           trafficPolicy:
-            description: Service traffic policy
+            description: Service external traffic policy (deprecated in favor of extTrafficPolicy)
+            type: string
+            enum:
+            - Cluster
+            - Local
+          extTrafficPolicy:
+            description: Service external traffic policy
             type: string
             enum:
             - Cluster
