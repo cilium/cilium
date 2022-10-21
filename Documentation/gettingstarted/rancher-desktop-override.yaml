@@ -1,6 +1,6 @@
 env:
   # needed for cilium
-  K3S_EXEC: '--flannel-backend=none --disable-network-policy'
+  INSTALL_K3S_EXEC: '--flannel-backend=none --disable-network-policy'
 provision:
   # needs root to mount
   - mode: system
