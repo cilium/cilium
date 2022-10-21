@@ -57,7 +57,15 @@ var (
 		},
 	}
 
-	agentHive *hive.Hive
+	agentHive = hive.New(
+		gops.Cell(defaults.GopsPortAgent),
+		k8sClient.Cell,
+
+		cell.Config(DaemonCellConfig{}),
+		cell.Invoke(registerDaemonHooks),
+
+		node.LocalNodeStoreCell,
+	)
 )
 
 type DaemonCellConfig struct {
@@ -73,19 +81,17 @@ func init() {
 	setupSleepBeforeFatal()
 	registerBootstrapMetrics()
 
-	agentHive = hive.New(
-		gops.Cell(defaults.GopsPortAgent),
-		k8sClient.Cell,
-
-		cell.Config(DaemonCellConfig{}),
-		cell.Invoke(registerDaemonHooks),
-
-		node.LocalNodeStoreCell,
-	)
 	Vp = agentHive.Viper()
 	agentHive.RegisterFlags(RootCmd.PersistentFlags())
 
-	cobra.OnInitialize(option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp))
+	cobra.OnInitialize(
+		option.InitConfig(RootCmd, "cilium-agent", "cilium", Vp),
+
+		// Populate the config and initialize the logger early as these
+		// are shared by all commands.
+		initDaemonConfig,
+		initLogging,
+	)
 	initializeFlags()
 }
 
@@ -96,6 +102,9 @@ func runApp(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s %s\n", cmd.Name(), version.Version)
 		os.Exit(0)
 	}
+
+	// Initialize working directories and validate the configuration.
+	initEnv()
 
 	if err := agentHive.Run(); err != nil {
 		log.Fatal(err)

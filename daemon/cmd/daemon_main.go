@@ -1107,9 +1107,17 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv() {
-	var debugDatapath bool
+func initLogging() {
+	// add hooks after setting up metrics in the option.Config
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
+	// Logging should always be bootstrapped first. Do not add any code above this!
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func initDaemonConfig() {
 	option.Config.SetMapElementSizes(
 		// for the conntrack and NAT element size we assume the largest possible
 		// key size, i.e. IPv6 keys
@@ -1118,16 +1126,17 @@ func initEnv() {
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
-	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(Vp)
+}
 
-	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
+func initEnv() {
+	bootstrapStats.earlyInit.Start()
+	defer bootstrapStats.earlyInit.End(true)
 
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
+	var debugDatapath bool
+
+	// Not running tests -> enable the monitor agent.
+	option.Config.RunMonitorAgent = true
 
 	option.LogRegisteredOptions(Vp, log)
 
@@ -1645,10 +1654,6 @@ func registerDaemonHooks(params daemonParams) error {
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			bootstrapStats.earlyInit.Start()
-			initEnv()
-			bootstrapStats.earlyInit.End(true)
-
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
 			// of the start hooks to run.
 			go runDaemon(daemonCtx, cleaner, params.Shutdowner, params.Clientset)
@@ -1666,8 +1671,6 @@ func registerDaemonHooks(params daemonParams) error {
 // runDaemon runs the old unmodular part of the cilium-agent.
 func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shutdowner, clientset k8sClient.Clientset) {
 	log.Info("Initializing daemon")
-
-	option.Config.RunMonitorAgent = true
 
 	dp := newDatapath(cleaner)
 
