@@ -12,13 +12,11 @@ BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
-TARGET=cilium-probe-kernel-hz
 KERNEL ?= "netnext"
 
 include ./Makefile.bpf
 
-ifeq ("$(PKG_BUILD)","")
-all: $(TARGET) bpf_all
+all: bpf_all
 
 bpf_all: $(BPF) subdirs
 
@@ -312,19 +310,7 @@ subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
 		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) &&) true
 
-else
-all: $(TARGET)
-endif
-
-$(TARGET): %: %.c
-	@$(ECHO_CC)
-	$(QUIET) ${HOST_CC} -Wall -O2 -Wno-format-truncation -I include/ $@.c -o $@
-	$(QUIET) ${HOST_STRIP} $@
-
-install:
-	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
-
-install-binary: install
+install-binary:
 
 install-bash-completion:
 
