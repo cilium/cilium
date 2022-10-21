@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -1394,6 +1395,7 @@ func initEnv(clientset k8sClient.Clientset) {
 	// allocation prefixes
 	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
+	// Initialize node IP addresses from configuration.
 	if option.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
@@ -1401,11 +1403,9 @@ func initEnv(clientset k8sClient.Clientset) {
 			if !ip.IsGlobalUnicast() {
 				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
 			}
-
 			node.SetIPv6(ip)
 		}
 	}
-
 	if option.Config.IPv4NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
@@ -1567,6 +1567,48 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
+func newDatapath(cleaner *daemonCleanup) datapath.Datapath {
+	datapathConfig := linuxdatapath.DatapathConfiguration{
+		HostDevice: defaults.HostDevice,
+		ProcFs:     option.Config.ProcFs,
+	}
+
+	iptablesManager := &iptables.IptablesManager{}
+
+	if err := enableIPForwarding(); err != nil {
+		log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
+	}
+
+	iptablesManager.Init()
+
+	var wgAgent *wireguard.Agent
+	if option.Config.EnableWireguard {
+		switch {
+		case option.Config.EnableIPSec:
+			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
+				option.EnableWireguard, option.EnableIPSecName)
+		case option.Config.EnableL7Proxy:
+			log.Fatalf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
+				option.EnableWireguard, option.EnableL7Proxy)
+		}
+
+		var err error
+		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
+		wgAgent, err = wireguard.NewAgent(privateKeyPath)
+		if err != nil {
+			log.Fatalf("failed to initialize wireguard: %s", err)
+		}
+
+		cleaner.cleanupFuncs.Add(func() {
+			_ = wgAgent.Close()
+		})
+	} else {
+		// Delete wireguard device from previous run (if such exists)
+		link.DeleteByName(wireguardTypes.IfaceName)
+	}
+	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+}
+
 type daemonParams struct {
 	cell.In
 
@@ -1630,52 +1672,15 @@ func registerDaemonHooks(params daemonParams) error {
 
 // runDaemon runs the old unmodular part of the cilium-agent.
 func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shutdowner, clientset k8sClient.Clientset) {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
-	}
-
 	log.Info("Initializing daemon")
 
 	option.Config.RunMonitorAgent = true
 
-	if err := enableIPForwarding(); err != nil {
-		log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-	}
-
-	iptablesManager := &iptables.IptablesManager{}
-	iptablesManager.Init()
-
-	var wgAgent *wireguard.Agent
-	if option.Config.EnableWireguard {
-		switch {
-		case option.Config.EnableIPSec:
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
-		case option.Config.EnableL7Proxy:
-			log.Fatalf("Wireguard (--%s) is not compatible with L7 proxy (--%s)",
-				option.EnableWireguard, option.EnableL7Proxy)
-		}
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
-		wgAgent, err = wireguard.NewAgent(privateKeyPath)
-		if err != nil {
-			log.Fatalf("failed to initialize wireguard: %s", err)
-		}
-
-		cleaner.cleanupFuncs.Add(func() {
-			_ = wgAgent.Close()
-		})
-	} else {
-		// Delete wireguard device from previous run (if such exists)
-		link.DeleteByName(wireguardTypes.IfaceName)
-	}
+	dp := newDatapath(cleaner)
 
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
 		WithDefaultEndpointManager(ctx, clientset, endpoint.CheckHealth),
-		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
-		clientset)
+		dp, clientset)
 	if err != nil {
 		log.Fatalf("daemon creation failed: %s", err)
 	}
@@ -1702,7 +1707,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
-	if wgAgent != nil {
+	if wgAgent, ok := d.datapath.WireguardAgent().(*wireguard.Agent); ok && wgAgent != nil {
 		if err := wgAgent.RestoreFinished(); err != nil {
 			log.WithError(err).Error("Failed to set up wireguard peers")
 		}
