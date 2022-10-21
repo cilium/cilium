@@ -210,7 +210,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -271,7 +271,7 @@ jobs:
 
       # Upload artifact digests
       - name: Upload artifact digests
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb
         with:
           name: image-digest ${{ matrix.name }}
           path: image-digest
@@ -290,7 +290,7 @@ jobs:
           mkdir -p image-digest/
 
       - name: Download digests of all images built
-        uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741
+        uses: actions/download-artifact@9782bd6a9848b53b110e712e20e42d89988822b7
         with:
           path: image-digest/
 
