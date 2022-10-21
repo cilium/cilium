@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -142,16 +141,6 @@ type ControllerParams struct {
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	DaemonConfig   *option.DaemonConfig
 	NodeSpec       nodeSpecer
-}
-
-// ControllerParams contains all parameters needed to construct a Controller
-type ControllerParams struct {
-	cell.In
-
-	Lifecycle    hive.Lifecycle
-	Clientset    client.Clientset
-	RouterMgr    BGPRouterManager
-	DaemonConfig *option.DaemonConfig
 }
 
 // NewController constructs a new BGP Control Plane Controller.
