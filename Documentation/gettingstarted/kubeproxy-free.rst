@@ -459,7 +459,6 @@ enabled would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=disabled \\
-        --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
@@ -488,7 +487,6 @@ mode would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=disabled \\
-        --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
@@ -515,7 +513,6 @@ looks as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=disabled \\
-        --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set hostServices.hostNamespaceOnly=true
 
@@ -552,7 +549,6 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=disabled \\
-        --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=hybrid \\
@@ -739,7 +735,6 @@ Finally, the deployment can be upgraded and later rolled-out with the
   helm upgrade cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --reuse-values \\
-        --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=snat \\
