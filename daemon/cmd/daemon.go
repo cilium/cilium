@@ -392,6 +392,12 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
 	}
 
+	// Validate configuration options that depend on other cells.
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
+		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
+	}
+
 	if option.Config.ReadCNIConfiguration != "" {
 		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
 		if err != nil {
