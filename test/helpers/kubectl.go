@@ -4174,7 +4174,7 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
 	switch trafficPolicy {
 	case "Cluster", "Local":
-		opts = append(opts, "--k8s-traffic-policy "+trafficPolicy)
+		opts = append(opts, "--k8s-ext-traffic-policy "+trafficPolicy)
 	default:
 		return fmt.Errorf("invalid traffic policy: %q", svcType)
 	}
