@@ -24,7 +24,7 @@ jobs:
         go-version: 1.19.1
 
     - name: Run static checks
-      uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc
+      uses: golangci/golangci-lint-action@07db5389c99593f11ad7b44463c2d4233066a9b1
       with:
         version: v1.49.0
         args: --config=.golangci.yml --verbose
