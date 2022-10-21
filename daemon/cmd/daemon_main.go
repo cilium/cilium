@@ -2015,13 +2015,12 @@ func initClockSourceOption() {
 	option.Config.ClockSource = option.ClockSourceKtime
 	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
 	if !option.Config.DryMode {
-		hz, err := probes.NewProbeManager().SystemKernelHz()
+		hz, err := probes.KernelHZ()
 		if err != nil {
-			log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
-				option.EnableBPFClockProbe)
+			log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined", option.EnableBPFClockProbe)
 			option.Config.EnableBPFClockProbe = false
 		} else {
-			option.Config.KernelHz = hz
+			option.Config.KernelHz = int(hz)
 		}
 
 		if option.Config.EnableBPFClockProbe {
