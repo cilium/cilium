@@ -3966,6 +3966,14 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "extTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
@@ -3989,7 +3997,7 @@ func init() {
               ]
             },
             "trafficPolicy": {
-              "description": "Service traffic policy",
+              "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
               "type": "string",
               "enum": [
                 "Cluster",
@@ -9025,6 +9033,14 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "extTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
@@ -9048,7 +9064,7 @@ func init() {
               ]
             },
             "trafficPolicy": {
-              "description": "Service traffic policy",
+              "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
               "type": "string",
               "enum": [
                 "Cluster",
@@ -9087,6 +9103,14 @@ func init() {
       "description": "Optional service configuration flags",
       "type": "object",
       "properties": {
+        "extTrafficPolicy": {
+          "description": "Service external traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
+        },
         "healthCheckNodePort": {
           "description": "Service health check node port",
           "type": "integer",
@@ -9110,7 +9134,7 @@ func init() {
           ]
         },
         "trafficPolicy": {
-          "description": "Service traffic policy",
+          "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
           "type": "string",
           "enum": [
             "Cluster",
