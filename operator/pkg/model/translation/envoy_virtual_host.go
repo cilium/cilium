@@ -12,6 +12,7 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -217,7 +218,9 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 					hRoutes[0].HeadersMatch,
 					hRoutes[0].QueryParamsMatch,
 					hRoutes[0].Method),
-				Action: routeAction,
+				Action:                 routeAction,
+				RequestHeadersToAdd:    getRequestHeadersToAdd(hRoutes[0]),
+				RequestHeadersToRemove: getRequestHeadersToRemove(hRoutes[0]),
 			}
 			routes = append(routes, &route)
 		}
@@ -416,4 +419,42 @@ func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMat
 		}
 	}
 	return nil
+}
+
+func getRequestHeadersToAdd(route model.HTTPRoute) []*envoy_config_core_v3.HeaderValueOption {
+	if route.RequestHeaderFilter == nil {
+		return nil
+	}
+	result := make(
+		[]*envoy_config_core_v3.HeaderValueOption,
+		0,
+		len(route.RequestHeaderFilter.HeadersToAdd)+len(route.RequestHeaderFilter.HeadersToSet),
+	)
+	for _, h := range route.RequestHeaderFilter.HeadersToAdd {
+		result = append(result, &envoy_config_core_v3.HeaderValueOption{
+			Header: &envoy_config_core_v3.HeaderValue{
+				Key:   h.Name,
+				Value: h.Value,
+			},
+			Append: &wrappers.BoolValue{Value: true},
+		})
+	}
+
+	for _, h := range route.RequestHeaderFilter.HeadersToSet {
+		result = append(result, &envoy_config_core_v3.HeaderValueOption{
+			Header: &envoy_config_core_v3.HeaderValue{
+				Key:   h.Name,
+				Value: h.Value,
+			},
+			Append: &wrappers.BoolValue{Value: false},
+		})
+	}
+	return result
+}
+
+func getRequestHeadersToRemove(route model.HTTPRoute) []string {
+	if route.RequestHeaderFilter == nil {
+		return nil
+	}
+	return route.RequestHeaderFilter.HeadersToRemove
 }
