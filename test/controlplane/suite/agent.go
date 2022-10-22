@@ -7,59 +7,65 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 
 	"github.com/cilium/cilium/daemon/cmd"
+	"github.com/cilium/cilium/pkg/datapath"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 type agentHandle struct {
+	t       *testing.T
 	d       *cmd.Daemon
-	cancel  context.CancelFunc
-	clean   func()
 	tempDir string
+
+	hive *hive.Hive
 }
 
 func (h *agentHandle) tearDown() {
+	if err := h.hive.Stop(context.TODO()); err != nil {
+		h.t.Fatalf("Failed to stop the agent: %s", err)
+	}
 	h.d.Close()
-	h.cancel()
-	h.clean()
 	os.RemoveAll(h.tempDir)
 }
 
-func startCiliumAgent(nodeName string, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {
-	var handle agentHandle
+func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {
+	var (
+		err           error
+		handle        agentHandle
+		daemonPromise promise.Promise[*cmd.Daemon]
+	)
 
+	handle.t = t
 	handle.tempDir = setupTestDirectories()
-
 	fdp := fakeDatapath.NewDatapath()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	handle.cancel = cancel
+	handle.hive = hive.New(
+		// Provide the mocked infrastructure and datapath components
+		cell.Provide(
+			func() k8sClient.Clientset { return clientset },
+			func() datapath.Datapath { return fdp },
+		),
 
-	cleaner := cmd.NewDaemonCleanup()
-	handle.clean = cleaner.Clean
+		cmd.ControlPlane,
 
-	var err error
-	handle.d, _, err = cmd.NewDaemon(ctx,
-		cleaner,
-		cmd.WithCustomEndpointManager(&dummyEpSyncher{}),
-		fdp,
-		clientset)
-	if err != nil {
+		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
+			daemonPromise = p
+		}),
+	)
+
+	if err := handle.hive.Start(context.TODO()); err != nil {
 		return nil, agentHandle{}, err
 	}
-	return fdp, handle, nil
-}
 
-type dummyEpSyncher struct{}
-
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
-}
-
-func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+	handle.d, err = daemonPromise.Await(context.TODO())
+	return fdp, handle, err
 }
 
 func setupTestDirectories() string {
