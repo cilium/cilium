@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -150,6 +151,31 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 				backends = append(backends, r.Backends...)
 			}
 			var routeAction *envoy_config_route_v3.Route_Route
+			if len(backends) == 0 {
+				if hRoutes[0].DirectResponse != nil {
+					route := envoy_config_route_v3.Route{
+						Match: getRouteMatch(hostnames,
+							hostNameSuffixMatch,
+							hRoutes[0].PathMatch,
+							hRoutes[0].HeadersMatch,
+							hRoutes[0].QueryParamsMatch,
+							hRoutes[0].Method),
+						Action: &envoy_config_route_v3.Route_DirectResponse{
+							DirectResponse: &envoy_config_route_v3.DirectResponseAction{
+								Status: uint32(hRoutes[0].DirectResponse.StatusCode),
+								Body: &envoy_config_core_v3.DataSource{
+									Specifier: &envoy_config_core_v3.DataSource_InlineString{
+										InlineString: hRoutes[0].DirectResponse.Body,
+									},
+								},
+							},
+						},
+					}
+					routes = append(routes, &route)
+				}
+				continue
+			}
+
 			if len(backends) == 1 {
 				routeAction = &envoy_config_route_v3.Route_Route{
 					Route: &envoy_config_route_v3.RouteAction{
@@ -183,6 +209,7 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 					},
 				}
 			}
+
 			route := envoy_config_route_v3.Route{
 				Match: getRouteMatch(hostnames,
 					hostNameSuffixMatch,

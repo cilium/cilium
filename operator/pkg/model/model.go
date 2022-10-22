@@ -62,6 +62,12 @@ type TLSSecret struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// DirectResponse holds configuration for a direct response.
+type DirectResponse struct {
+	StatusCode int    `json:"status_code,omitempty"`
+	Body       string `json:"payload,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -74,7 +80,10 @@ type HTTPRoute struct {
 	// QueryParamsMatch specifies that the HTTPRoute should match a set of query parameters.
 	QueryParamsMatch []KeyValueMatch `json:"query_params_match,omitempty"`
 	Method           *string         `json:"method,omitempty"`
-	Backends         []Backend       `json:"backends,omitempty"`
+	// Backend is the backend handling the requests
+	Backends []Backend `json:"backends,omitempty"`
+	// DirectResponse instructs the proxy to respond directly to the client.
+	DirectResponse *DirectResponse `json:"direct_response,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.
