@@ -139,7 +139,7 @@ func (cpt *ControlPlaneTest) StartAgent() *ControlPlaneTest {
 	if cpt.agentHandle != nil {
 		cpt.t.Fatal("StartAgent() already called")
 	}
-	datapath, agentHandle, err := startCiliumAgent(cpt.nodeName, cpt.clients)
+	datapath, agentHandle, err := startCiliumAgent(cpt.t, cpt.nodeName, cpt.clients)
 	if err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}

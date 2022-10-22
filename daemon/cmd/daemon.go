@@ -373,9 +373,10 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	return nil
 }
 
-// NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
+// newDaemon creates and returns a new Daemon with the parameters set in c.
+func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 ) (*Daemon, *endpointRestoreState, error) {
 
@@ -911,8 +912,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
+	if wgAgent != nil && option.Config.EnableWireguard {
+		if err := wgAgent.Init(d.ipcache, d.mtuConfig); err != nil {
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
