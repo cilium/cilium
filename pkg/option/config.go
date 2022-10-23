@@ -1086,6 +1086,18 @@ const (
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
+
+	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
+	// fragmentation-needed replies to the client (when needed).
+	EnablePMTUDiscovery = "enable-pmtu-discovery"
+
+	// BPFMapEventBuffers specifies what maps should have event buffers enabled,
+	// and the max size and TTL of events in the buffers should be.
+	BPFMapEventBuffers = "bpf-map-event-buffers"
+
+	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
+	// stale CiliumEndpoints during init.
+	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
 )
 
 // Default string arguments
@@ -2235,6 +2247,11 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+
+	// EnableStaleCiliumEndpointCleanup enables cleanup routine during Cilium init.
+	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
+	// following Endpoint restoration.
+	EnableStaleCiliumEndpointCleanup bool
 }
 
 var (
@@ -3225,6 +3242,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableICMPRules = viper.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = viper.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = viper.GetBool(EnableK8sTerminatingEndpoint)
+	c.EnableStaleCiliumEndpointCleanup = viper.GetBool(EnableStaleCiliumEndpointCleanup)
 
 	// Disable Envoy version check if L7 proxy is disabled.
 	c.DisableEnvoyVersionCheck = viper.GetBool(DisableEnvoyVersionCheck)
