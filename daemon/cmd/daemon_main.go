@@ -1727,7 +1727,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 			defer close(cleanupStaleCEPComplete)
 			waitForRestore()
 
-			if clientset.IsEnabled() {
+			if clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
 				// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 				// This will clear out any CiliumEndpoints that may be stale.
 				// Likely causes for this are Pods having their init container restarted or the node being restarted.
