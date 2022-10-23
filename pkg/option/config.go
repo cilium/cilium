@@ -1105,6 +1105,9 @@ const (
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
 	// fragmentation-needed replies to the client (when needed).
 	EnablePMTUDiscovery = "enable-pmtu-discovery"
+	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
+	// stale CiliumEndpoints during init.
+	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
 )
 
 // Default string arguments
@@ -2257,6 +2260,11 @@ type DaemonConfig struct {
 
 	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
 	EnvoySecretNamespace string
+
+	// EnableStaleCiliumEndpointCleanup enables cleanup routine during Cilium init.
+	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
+	// following Endpoint restoration.
+	EnableStaleCiliumEndpointCleanup bool
 }
 
 var (
@@ -3242,6 +3250,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
+	c.EnableStaleCiliumEndpointCleanup = vp.GetBool(EnableStaleCiliumEndpointCleanup)
 
 	// Disable Envoy version check if L7 proxy is disabled.
 	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)
