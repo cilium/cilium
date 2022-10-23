@@ -19,7 +19,7 @@ cilium-agent-push () {
             false
         fi
         printf "%0.s\e[34m=" {1..$COLUMNS}
-        echo "\e[34mBuiling and pushing Cilium agent to localhost:5000/cilium"
+        echo "\e[34mBuilding and pushing Cilium agent to localhost:5000/cilium"
         echo "\e[34mUsing $SRC for Cilium's repository"
         echo "\e[34mIf incorrect, set CILIUM_SRC env var to Cilium's source code"
         printf "%0.s\e[34m=" {1..$COLUMNS}
@@ -38,7 +38,7 @@ function cilium-operator-push {
             false
         fi
         printf "%0.s\e[34m=" {1..$COLUMNS}
-        echo "\e[34mBuiling and pushing Cilium operator (generic) to localhost:5000/cilium"
+        echo "\e[34mBuilding and pushing Cilium operator (generic) to localhost:5000/cilium"
         echo "\e[34mUsing $SRC for Cilium's repository"
         echo "\e[34mIf incorrect, set CILIUM_SRC env var to Cilium's source code"
         printf "%0.s\e[34m=" {1..$COLUMNS}
@@ -77,7 +77,7 @@ cilium-helm-install(){
     )
 }
 
-# cilium buid and deploy will build the agent and operator, push to a kind repo
+# cilium build and deploy will build the agent and operator, push to a kind repo
 # and install cilium via helm.
 cilium-build-and-deploy() {
     (
