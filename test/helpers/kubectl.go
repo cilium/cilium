@@ -36,8 +36,9 @@ import (
 
 const (
 	// KubectlCmd Kubernetes controller command
-	KubectlCmd   = "kubectl"
-	kubeDNSLabel = "k8s-app=kube-dns"
+	KubectlCmd    = "kubectl"
+	kubeDNSLabel  = "k8s-app=kube-dns"
+	operatorLabel = "io.cilium/app=operator"
 
 	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
 	// must be larger than 5 minutes because kubedns has a hardcoded resync
@@ -2166,6 +2167,19 @@ func (kub *Kubectl) ScaleUpDNS() *CmdRes {
 	return res
 }
 
+// SetCiliumOperatorReplicas sets the number of replicas for the cilium-operator.
+func (kub *Kubectl) SetCiliumOperatorReplicas(nReplicas int) *CmdRes {
+	res := kub.ExecShort(fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].metadata.name}'", KubectlCmd, CiliumNamespace, operatorLabel))
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	// kubectl -n kube-system patch deploy cilium-operator --patch '{"spec": { "replicas":1}}'
+	name := res.Stdout()
+	spec := fmt.Sprintf("{\"spec\": { \"replicas\":%d}}", nReplicas)
+	return kub.ExecShort(fmt.Sprintf("%s patch deploy -n %s %s --patch '%s'", KubectlCmd, CiliumNamespace, name, spec))
+}
+
 // redeployDNS deletes the kube-dns pods and does not wait for the deletion
 // to complete.
 func (kub *Kubectl) redeployDNS() *CmdRes {
@@ -2933,6 +2947,26 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 	for _, pod := range pods {
 		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
+	}
+}
+
+// ExecUntilMatch executes the specified command repeatedly for the
+// specified pod until the given substring is present in stdout.
+// If the timeout is reached it will return an error.
+func (kub *Kubectl) ExecUntilMatch(namespace, pod, cmd, substr string) (*CmdRes, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	var res *CmdRes
+	for {
+		select {
+		case <-ctx.Done():
+			return res, fmt.Errorf("timeout waiting for %q to be present in stdout", substr)
+		default:
+			res = kub.ExecPodCmd(namespace, pod, cmd)
+			if strings.Contains(res.Stdout(), substr) {
+				return res, nil
+			}
+		}
 	}
 }
 

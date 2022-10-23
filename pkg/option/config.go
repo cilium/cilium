@@ -771,6 +771,17 @@ const (
 	// L2AnnouncerRetryPeriod, on renew failure, retry after X amount of time.
 	L2AnnouncerRetryPeriod = "l2-announcements-retry-period"
 
+	// EnableEncryptionStrictMode is the name of the option to enable strict encryption mode.
+	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
+
+	// EncryptionStrictModeCIDR is the CIDR in which the strict ecryption mode should be enforced.
+	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
+
+	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
+	// This is required when tunneling is used
+	// or direct routing is used and the node CIDR and pod CIDR overlap.
+	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
+
 	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
 	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
 
@@ -1700,6 +1711,17 @@ type DaemonConfig struct {
 
 	// EnableWireguard enables Wireguard encryption
 	EnableWireguard bool
+
+	// EnableEncryptionStrictMode enables strict mode for encryption
+	EnableEncryptionStrictMode bool
+
+	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
+	EncryptionStrictModeCIDR netip.Prefix
+
+	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of node identities.
+	// This is required when tunneling is used
+	// or direct routing is used and the node CIDR and pod CIDR overlap.
+	EncryptionStrictModeAllowRemoteNodeIdentities bool
 
 	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
 	EnableWireguardUserspaceFallback bool
@@ -3211,6 +3233,26 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			log.Fatalf("--%s requires both --%s and --%s enabled",
 				EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name)
 		}
+	}
+
+	encryptionStrictModeEnabled := vp.GetBool(EnableEncryptionStrictMode)
+	if encryptionStrictModeEnabled {
+		if c.EnableIPv6 {
+			log.Warnf("WireGuard encryption strict mode only support IPv4. IPv6 traffic is not protected and can be leaked.")
+		}
+
+		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
+		c.EncryptionStrictModeCIDR, err = netip.ParsePrefix(strictCIDR)
+		if err != nil {
+			log.WithError(err).Fatalf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR)
+		}
+
+		if !c.EncryptionStrictModeCIDR.Addr().Is4() {
+			log.Fatalf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR)
+		}
+
+		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)
+		c.EnableEncryptionStrictMode = encryptionStrictModeEnabled
 	}
 
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)

@@ -107,6 +107,9 @@ include:
     cliFocus: "K8sDatapathConfig Encapsulation|K8sDatapathConfig Etcd|K8sDatapathConfig Etcd|K8sDatapathConfig MonitorAggregation"
 
   ###
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in tunneling mode with per-endpoint routes
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes and overlapping node and pod CIDRs
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting, IPv4 only
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
@@ -117,7 +120,7 @@ include:
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
   # K8sDatapathConfig Transparent encryption DirectRouting Check connectivity with transparent encryption and direct routing with bpf_host
   - focus: "f09-datapath-misc-2"
-    cliFocus: "K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
