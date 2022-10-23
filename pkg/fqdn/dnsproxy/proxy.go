@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -403,6 +404,7 @@ type ProxyRequestContext struct {
 	DataplaneTime        spanstat.SpanStat
 	Success              bool
 	Err                  error
+	DataSource           accesslog.DNSDataSource
 }
 
 // IsTimeout return true if the ProxyRequest timeout
@@ -637,7 +639,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.DNSRequestID: requestID,
 	})
 
-	var stat ProxyRequestContext
+	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
 	if p.ConcurrencyLimit != nil {
 		// TODO: Consider plumbing the daemon context here.
 		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)

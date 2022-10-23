@@ -516,7 +516,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			IPs:               responseIPs,
 			TTL:               TTL,
 			CNAMEs:            CNAMEs,
-			ObservationSource: accesslog.DNSSourceProxy,
+			ObservationSource: stat.DataSource,
 			RCode:             rcode,
 			QTypes:            qTypes,
 			AnswerTypes:       recordTypes,
