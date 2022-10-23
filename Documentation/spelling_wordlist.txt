@@ -177,6 +177,7 @@ aksbyocni
 alibabacloud
 allocator
 allocators
+allowRemoteNodeIdentities
 allowedConfigOverrides
 amd
 analytics
@@ -1026,6 +1027,7 @@ statelessNat
 statsd
 stdout
 storageClass
+strictMode
 structs
 subclasses
 subcommand

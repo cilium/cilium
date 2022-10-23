@@ -96,6 +96,7 @@ cilium-agent [flags]
       --enable-cilium-endpoint-slice                            Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)
       --enable-cilium-health-api-server-access strings          List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-custom-calls                                     Enable tail call hooks for custom eBPF programs
+      --enable-encryption-strict-mode                           Enable encryption strict mode
       --enable-endpoint-health-checking                         Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                                  Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                     Enable Envoy Config CRDs
@@ -154,6 +155,8 @@ cilium-agent [flags]
       --enable-xt-socket-fallback                               Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                                Transparent encryption interface
       --encrypt-node                                            Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
+      --encryption-strict-mode-allow-remote-node-identities     Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+      --encryption-strict-mode-cidr string                      In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped
       --endpoint-queue-size int                                 Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                 Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                           Timeout duration for Envoy Config acknowledgements (default 2m0s)

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -293,6 +294,30 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
 		// If the agent is down for longer than the lease duration, stop responding
 		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
+	}
+
+	if option.Config.EnableEncryptionStrictMode {
+		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
+
+		// when parsing the user input we only accept ipv4 addresses
+		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
+		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
+
+		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(node.GetIPv4()))
+
+		ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
+		if !ok {
+			return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
+		}
+
+		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
+			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
+				This will cause the node to drop all traffic.
+				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
+			}
+			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
+		}
 	}
 
 	if option.Config.EnableBPFTProxy {

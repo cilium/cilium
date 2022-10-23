@@ -383,6 +383,15 @@ func initializeFlags() {
 	flags.String(option.NodeEncryptionOptOutLabels, defaults.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
 	option.BindEnv(Vp, option.NodeEncryptionOptOutLabels)
 
+	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
+	option.BindEnv(Vp, option.EnableEncryptionStrictMode)
+
+	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped")
+	option.BindEnv(Vp, option.EncryptionStrictModeCIDR)
+
+	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
+	option.BindEnv(Vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)
+
 	flags.Bool(option.HTTPNormalizePath, true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
 	option.BindEnv(Vp, option.HTTPNormalizePath)
 

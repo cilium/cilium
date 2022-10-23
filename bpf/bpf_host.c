@@ -1378,7 +1378,8 @@ int cil_from_host(struct __ctx_buff *ctx)
  * to-netdev is attached as a tc egress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
  * - the host firewall is enabled, or
- * - BPF NodePort is enabled
+ * - BPF NodePort is enabled, or
+ * - WireGuard encryption is enabled
  */
 __section_entry
 int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
@@ -1484,6 +1485,18 @@ out:
 	else if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
+
+	/* We disable the WireGuard strict mode if the tunnel mode is enabled,
+	 * since we have a check earlier in the datapath before encapsulation.
+	 * We chose this approach so that we don't have to decapsulate the
+	 * packet to check if the packet's original destination is allowed to
+	 * be sent unencrypted.
+	 */
+#if !defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
+	if (!strict_allow(ctx))
+		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+#endif /* !TUNNEL_MODE && ENCRYPTION_STRICT_MODE */
 #endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_SRV6

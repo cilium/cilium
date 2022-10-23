@@ -765,6 +765,18 @@ encryption:
   # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
 
+  # -- Configure the WireGuard Pod2Pod strict mode.
+  strictMode:
+    # -- Enable WireGuard Pod2Pod strict mode.
+    enabled: false
+    
+    # -- CIDR for the WireGuard Pod2Pod strict mode.
+    cidr: ""
+
+    # -- Allow dynamic lookup of remote node identities.
+    # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+    allowRemoteNodeIdentities: false
+
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
     keyFile: ""

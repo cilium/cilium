@@ -892,6 +892,22 @@
      - Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"cilium-ipsec-keys"``
+   * - encryption.strictMode
+     - Configure the WireGuard Pod2Pod strict mode.
+     - object
+     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
+   * - encryption.strictMode.allowRemoteNodeIdentities
+     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - bool
+     - ``false``
+   * - encryption.strictMode.cidr
+     - CIDR for the WireGuard Pod2Pod strict mode.
+     - string
+     - ``""``
+   * - encryption.strictMode.enabled
+     - Enable WireGuard Pod2Pod strict mode.
+     - bool
+     - ``false``
    * - encryption.type
      - Encryption method. Can be either ipsec or wireguard.
      - string
