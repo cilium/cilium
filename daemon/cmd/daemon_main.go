@@ -1072,6 +1072,10 @@ func initializeFlags() {
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(Vp, option.EnablePMTUDiscovery)
 
+	flags.Bool(option.EnableStaleCiliumEndpointCleanup, true, "Enable running cleanup init procedure of local CiliumEndpoints which are not being managed.")
+	flags.MarkHidden(option.EnableStaleCiliumEndpointCleanup)
+	option.BindEnv(Vp, option.EnableStaleCiliumEndpointCleanup)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
