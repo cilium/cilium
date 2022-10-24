@@ -34,7 +34,8 @@ import (
 // for later processing. Once maximum number of retries is reached the subscriber's
 // event stream will be completed with the error from the last retry attempt.
 //
-// Resource is provided to the hive via NewResourceConstructor.
+// The resource is lazy, e.g. it will not start the informer until a call
+// has been made to Observe() or Store().
 type Resource[T k8sRuntime.Object] interface {
 	stream.Observable[Event[T]]
 
@@ -74,11 +75,11 @@ type Resource[T k8sRuntime.Object] interface {
 //		// Handle error ...
 //	}
 //
-
 // See also pkg/k8s/resource/example/main.go for a runnable example.
 func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...Option) Resource[T] {
 	r := &resource[T]{
 		queues: make(map[uint64]*keyQueue),
+		needed: make(chan struct{}, 1),
 		opts:   defaultOptions(),
 		lw:     lw,
 	}
@@ -97,6 +98,8 @@ type resource[T k8sRuntime.Object] struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
+	needed chan struct{}
+
 	queues map[uint64]*keyQueue
 	subId  uint64
 
@@ -110,6 +113,7 @@ type resource[T k8sRuntime.Object] struct {
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
 
 func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
+	r.markNeeded()
 	return r.storePromise.Await(ctx)
 }
 
@@ -135,9 +139,34 @@ func (r *resource[T]) pushDelete(lastState any) {
 }
 
 func (r *resource[T]) Start(startCtx hive.HookContext) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.wg.Add(1)
+	go r.startWhenNeeded()
+	return nil
+}
 
+func (r *resource[T]) markNeeded() {
+	select {
+	case r.needed <- struct{}{}:
+	default:
+	}
+}
+
+func (r *resource[T]) startWhenNeeded() {
+	defer r.wg.Done()
+
+	// Wait until we're needed before starting the informer.
+	select {
+	case <-r.ctx.Done():
+		return
+	case <-r.needed:
+	}
+
+	// Short-circuit if we're being stopped.
+	if r.ctx.Err() != nil {
+		return
+	}
+
+	// Construct the informer and run it.
 	var objType T
 	handlerFuncs :=
 		cache.ResourceEventHandlerFuncs{
@@ -148,26 +177,21 @@ func (r *resource[T]) Start(startCtx hive.HookContext) error {
 
 	store, informer := cache.NewInformer(r.lw, objType, 0, handlerFuncs)
 
-	r.wg.Add(2)
+	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
 		informer.Run(r.ctx.Done())
 	}()
-	go func() {
-		defer r.wg.Done()
 
-		// Wait for cache to be synced before resolving the store
-		if !cache.WaitForCacheSync(r.ctx.Done(), informer.HasSynced) {
-			// The context is cancelled when stopping and all dependees of Resource[T] are
-			// stopped before it, but to be safe, resolve the store with nil to catch
-			// misbehaving dependees.
-			r.storeResolver.Reject(r.ctx.Err())
-			return
-		}
+	// Wait for cache to be synced before resolving the store
+	if !cache.WaitForCacheSync(r.ctx.Done(), informer.HasSynced) {
+		// The context is cancelled when stopping and all dependees of Resource[T] are
+		// stopped before it, but to be safe, resolve the store with nil to catch
+		// misbehaving dependees.
+		r.storeResolver.Reject(r.ctx.Err())
+	} else {
 		r.storeResolver.Resolve(&typedStore[T]{store})
-	}()
-
-	return nil
+	}
 }
 
 func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
@@ -177,6 +201,8 @@ func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
 }
 
 func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), complete func(error)) {
+	r.markNeeded()
+
 	subCtx, subCancel := context.WithCancel(subCtx)
 
 	queue := &keyQueue{
