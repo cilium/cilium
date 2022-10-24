@@ -1514,7 +1514,7 @@ var _ = SkipDescribeIf(func() bool {
 				// K8s Services, for the sake of simplicity. Making the backend
 				// pod IP directly routable on the "outside" node is sufficient
 				// to validate the policy under test.
-				res := kubectl.AddIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod, true)
+				res := kubectl.AddIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod, false)
 				Expect(res).To(getMatcher(true))
 
 				policyVerdictAllowRegex = regexp.MustCompile(
@@ -1811,7 +1811,7 @@ var _ = SkipDescribeIf(func() bool {
 						defer wg.Done()
 						By("Checking ingress connectivity from world to k8s1 pod")
 						By("Adding a static route to %s via %s on the %s node (outside)", k8s1PodIP, k8s1IP, outsideNodeName)
-						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, false)
 						Expect(res).To(getMatcher(true))
 						defer func() {
 							kubectl.DelIPRoute(outsideNodeName, k8s1PodIP, k8s1IP).ExpectSuccess("Failed to del ip route")
@@ -2782,7 +2782,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
 						defer wg.Done()
 						By("Checking ingress connectivity from world to k8s1 pod")
 						By("Adding a static route to %s via %s on the %s node (outside)", k8s1PodIP, k8s1IP, outsideNodeName)
-						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, true)
+						res := kubectl.AddIPRoute(outsideNodeName, k8s1PodIP, k8s1IP, false)
 						Expect(res).To(getMatcher(true))
 						defer func() {
 							kubectl.DelIPRoute(outsideNodeName, k8s1PodIP, k8s1IP).ExpectSuccess("Failed to del ip route")
