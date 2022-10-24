@@ -548,6 +548,7 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		Frontend:         frontendAddr,
 		Backends:         backendAddrs,
 		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
 	}
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {

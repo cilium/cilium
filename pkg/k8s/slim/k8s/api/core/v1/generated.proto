@@ -809,6 +809,11 @@ message ServiceSpec {
   // +optional
   optional string externalTrafficPolicy = 11;
 
+  // internalTrafficPolicy denotes if this Service desires to route internal
+  // traffic to node-local or cluster-wide endpoints.
+  // +optional
+  optional string internalTrafficPolicy = 22;
+
   // healthCheckNodePort specifies the healthcheck nodePort for the service.
   // This only applies when type is set to LoadBalancer and
   // externalTrafficPolicy is set to Local. If a value is specified, is
