@@ -169,6 +169,7 @@ func registerMetrics() []prometheus.Collector {
 		Namespace: Namespace,
 		Name:      "number_of_ceps_per_ces",
 		Help:      "The number of CEPs batched in a CES",
+		Buckets:   prometheus.LinearBuckets(0, 10, operatorOption.Config.CESMaxCEPsInCES/10),
 	})
 	collectors = append(collectors, CiliumEndpointSliceDensity)
 
