@@ -287,6 +287,10 @@ srv6_decapsulation(struct __ctx_buff *ctx)
 		if ((void *)srh + sizeof(struct srv6_srh) + sizeof(struct in6_addr) > data_end)
 			return DROP_INVALID;
 
+		/* We only support the SRH extension header for now. */
+		if (srh->rthdr.type != IPV6_SRCRT_TYPE_4)
+			return DROP_INVALID;
+
 		shrink = sizeof(struct srv6_srh) + sizeof(struct in6_addr);
 
 		switch (srh->rthdr.nexthdr) {
