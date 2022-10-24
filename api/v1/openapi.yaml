@@ -2646,6 +2646,12 @@ definitions:
             enum:
             - Cluster
             - Local
+          intTrafficPolicy:
+            description: Service internal traffic policy
+            type: string
+            enum:
+            - Cluster
+            - Local
           natPolicy:
             description: Service protocol NAT policy
             type: string

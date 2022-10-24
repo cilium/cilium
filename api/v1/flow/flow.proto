@@ -668,6 +668,7 @@ message ServiceUpsertNotification {
     string name = 6;
     string namespace = 7;
     string ext_traffic_policy = 8;
+    string int_traffic_policy = 9;
 }
 
 message ServiceDeleteNotification {
