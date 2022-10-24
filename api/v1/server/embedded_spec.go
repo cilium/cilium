@@ -3979,6 +3979,14 @@ func init() {
               "type": "integer",
               "format": "uint16"
             },
+            "intTrafficPolicy": {
+              "description": "Service internal traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
@@ -9046,6 +9054,14 @@ func init() {
               "type": "integer",
               "format": "uint16"
             },
+            "intTrafficPolicy": {
+              "description": "Service internal traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
               "type": "string"
@@ -9115,6 +9131,14 @@ func init() {
           "description": "Service health check node port",
           "type": "integer",
           "format": "uint16"
+        },
+        "intTrafficPolicy": {
+          "description": "Service internal traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
         },
         "name": {
           "description": "Service name  (e.g. Kubernetes service name)",
