@@ -23,7 +23,9 @@ on:
      - completed
 
 permissions:
+  # To be able to access the repository with `actions/checkout`
   contents: read
+  # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
   id-token: write
 
 concurrency:
@@ -256,15 +258,16 @@ jobs:
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@ced07f21fb1da67979f539bbc6304c16c0677e76
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
 
-      - name: Sign CI Images
+      - name: Sign Container Images
+        if: ${{ github.event_name != 'pull_request_target' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_pr_unstripped.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_master.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:@${{ steps.docker_build_ci_master_detect_race_condition.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:@${{ steps.docker_build_ci_master_unstripped.outputs.digest }}
 
       # Upload artifact digests
       - name: Upload artifact digests
