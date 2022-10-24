@@ -14,8 +14,8 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumloadbalancerippool",path="ciliumloadbalancerippools",scope="Cluster",shortName={ippools,ippool,lbippool,lbippools}
 // +kubebuilder:printcolumn:JSONPath=".spec.disabled",name="Disabled",type=boolean
-// +kubebuilder:printcolumn:JSONPath=".status.conflicting",name="Conflicting",type=boolean
-// +kubebuilder:printcolumn:JSONPath=".status.totalCounts.available",name="IPs Available",type=integer
+// +kubebuilder:printcolumn:name="Conflicting",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/conflict")].status`
+// +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/ips-available")].message`
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -93,23 +93,11 @@ type CiliumLoadBalancerIPPoolCIDRBlock struct {
 
 // CiliumLoadBalancerIPPoolStatus contains the status of a CiliumLoadBalancerIPPool.
 type CiliumLoadBalancerIPPoolStatus struct {
-	// Conflicting indicates that the CIDRs in the pool conflict with another pool or themselves. Conflicting pools
-	// are not considered for allocation.
-	Conflicting bool `json:"conflicting"`
-	// ConflictReason contains the reason for the conflict
-	ConflictReason string `json:"conflictReason"`
-	// TotalCounts contains the total counts of all CIDRs
-	TotalCounts CiliumLoadBalancerIPCounts `json:"totalCounts"`
-	// CIDRCounts has counts per CIDR
-	CIDRCounts map[string]CiliumLoadBalancerIPCounts `json:"cidrCounts"`
-}
-
-// CiliumLoadBalancerIPCounts contains information about how many IPs have been allocated and are available
-type CiliumLoadBalancerIPCounts struct {
-	// Total is the total amount of allocatable IPs
-	Total int `json:"total"`
-	// Available is the amount of IPs which can still be allocated
-	Available int `json:"available"`
-	// Used is the amount of IPs that are currently allocated
-	Used int `json:"used"`
+	// Current service state
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }

@@ -34,7 +34,7 @@ const (
 )
 
 const (
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP = "bgp-announce-lb-ip"
 
 	// BGPConfigPath is the file path to the BGP configuration. It is
@@ -347,7 +347,7 @@ type OperatorConfig struct {
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP bool
 
 	// BGPConfigPath is the file path to the BGP configuration. It is

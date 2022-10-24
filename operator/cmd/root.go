@@ -26,6 +26,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/lbipam"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 
 	"github.com/cilium/cilium/pkg/components"
@@ -94,6 +95,14 @@ var (
 		cell.Invoke(
 			registerOperatorHooks,
 		),
+
+		resourcesCell,
+
+		cell.Provide(func() *operatorOption.OperatorConfig {
+			return operatorOption.Config
+		}),
+
+		lbipam.Cell,
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
@@ -451,7 +460,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartLBIPAllocator(legacy.ctx, option.Config, legacy.clientset)
+		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, option.Config, legacy.clientset)
 	}
 
 	if kvstoreEnabled() {
