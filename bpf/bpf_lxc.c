@@ -149,15 +149,6 @@ int NAME(struct __ctx_buff *ctx)						\
 	return ret;								\
 }
 
-#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
-static __always_inline bool
-redirect_to_proxy(int proxy_port, enum ct_status status)
-{
-	return proxy_port > 0 &&
-	       (status == CT_NEW || status == CT_ESTABLISHED ||  status == CT_REOPENED);
-}
-#endif
-
 #ifdef ENABLE_CUSTOM_CALLS
 /* Encode return value and identity into cb buffer. This is used before
  * executing tail calls to custom programs. "ret" is the return value supposed
@@ -232,7 +223,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
-	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -304,11 +294,15 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	}
 #endif /* ENABLE_L7_LB */
 
-	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
-	    ct_state->proxy_redirect) {
-		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* Check if this is return traffic to an ingress proxy. */
+		if (ct_state->proxy_redirect) {
+			/* Stack will do a socket match and deliver locally. */
+			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
+		}
+		/* proxy_port remains 0 in this case */
+		goto skip_policy_enforcement;
 	}
 
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -317,24 +311,24 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * want to execute the conntrack logic so that replies can be correctly
 	 * matched.
 	 */
-	if (hairpin_flow) {
+	if (hairpin_flow)
 		goto skip_policy_enforcement;
-	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	emit_policy_verdict = true;
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
-	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict < 0 || ct_status != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
+
+	if (verdict < 0)
 		return verdict;
-	}
 
 skip_policy_enforcement:
 #if defined(ENABLE_L7_LB)
@@ -342,10 +336,6 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
-		if (emit_policy_verdict)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, proxy_port, policy_match_type, audited);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -361,10 +351,6 @@ ct_recreate6:
 		break;
 
 	case CT_REOPENED:
-		if (emit_policy_verdict)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 1,
-						   verdict, proxy_port, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
@@ -426,7 +412,7 @@ ct_recreate6:
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
-	if (!from_l7lb && redirect_to_proxy(proxy_port, ct_status)) {
+	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(proxy_port), 0,
@@ -753,7 +739,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
-	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -826,10 +811,15 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	}
 #endif /* ENABLE_L7_LB */
 
-	/* Check it this is return traffic to an ingress proxy. */
-	if ((ct_status == CT_REPLY || ct_status == CT_RELATED) && ct_state->proxy_redirect) {
-		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
+	/* Skip policy enforcement for return traffic. */
+	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
+		/* Check if this is return traffic to an ingress proxy. */
+		if (ct_state->proxy_redirect) {
+			/* Stack will do a socket match and deliver locally. */
+			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
+		}
+		/* proxy_port remains 0 in this case */
+		goto skip_policy_enforcement;
 	}
 
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -838,24 +828,24 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * want to execute the conntrack logic so that replies can be correctly
 	 * matched.
 	 */
-	if (hairpin_flow) {
+	if (hairpin_flow)
 		goto skip_policy_enforcement;
-	}
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
-	emit_policy_verdict = true;
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
-	if (ct_status != CT_REPLY && ct_status != CT_RELATED && verdict < 0) {
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict < 0 || ct_status != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
+
+	if (verdict < 0)
 		return verdict;
-	}
 
 skip_policy_enforcement:
 #if defined(ENABLE_L7_LB)
@@ -863,10 +853,6 @@ skip_policy_enforcement:
 #endif
 	switch (ct_status) {
 	case CT_NEW:
-		if (emit_policy_verdict)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 0,
-						   verdict, proxy_port, policy_match_type, audited);
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -884,10 +870,6 @@ ct_recreate4:
 		break;
 
 	case CT_REOPENED:
-		if (emit_policy_verdict)
-			send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
-						   tuple->nexthdr, POLICY_EGRESS, 0,
-						   verdict, proxy_port, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state->rev_nat_index != ct_state_new.rev_nat_index))
@@ -941,7 +923,7 @@ ct_recreate4:
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
-	if (!from_l7lb && redirect_to_proxy(proxy_port, ct_status)) {
+	if (!from_l7lb && proxy_port > 0) {
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  bpf_ntohs(proxy_port), 0,
@@ -1370,7 +1352,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1404,67 +1385,64 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	ret = ct_buffer->ret;
 	*ct_status = (enum ct_status)ret;
 
-	/* Check it this is return traffic to an egress proxy.
-	 * Do not redirect again if the packet is coming from the egress proxy.
-	 * Always redirect connections that originated from L7 LB.
-	 */
-	if ((ret == CT_REPLY || ret == CT_RELATED) &&
-	    (ct_state_is_from_l7lb(ct_state) ||
-	     (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx)))) {
-		/* This is a reply, the proxy port does not need to be embedded
-		 * into ctx->mark and *proxy_port can be left unset.
+	/* Skip policy enforcement for return traffic. */
+	if (ret == CT_REPLY || ret == CT_RELATED) {
+		/* Check it this is return traffic to an egress proxy.
+		 * Do not redirect again if the packet is coming from the egress proxy.
+		 * Always redirect connections that originated from L7 LB.
 		 */
-		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				   0, ifindex, (enum trace_reason)ret, monitor);
-		if (tuple_out)
-			memcpy(tuple_out, tuple, sizeof(*tuple));
-		return POLICY_ACT_PROXY_REDIRECT;
+		if (ct_state_is_from_l7lb(ct_state) ||
+		    (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx))) {
+			/* This is a reply, the proxy port does not need to be embedded
+			 * into ctx->mark and *proxy_port can be left unset.
+			 */
+			send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
+					   0, ifindex, (enum trace_reason)ret, monitor);
+			if (tuple_out)
+				memcpy(tuple_out, tuple, sizeof(*tuple));
+			return POLICY_ACT_PROXY_REDIRECT;
+		}
+
+		/* Reverse NAT applies to return traffic only. */
+		if (unlikely(ct_state->rev_nat_index)) {
+			struct csum_offset csum_off = {};
+			int ret2, l4_off;
+
+			hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+			if (hdrlen < 0)
+				return hdrlen;
+
+			l4_off = ETH_HLEN + hdrlen;
+
+			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+			ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
+					   ct_state->rev_nat_index, tuple, 0);
+			if (IS_ERR(ret2))
+				return ret2;
+		}
+
+		/* proxy_port remains 0 in this case */
+		goto skip_policy_enforcement;
 	}
 
-	if (unlikely(ct_state->rev_nat_index)) {
-		struct csum_offset csum_off = {};
-		int ret2, l4_off;
+	if (skip_ingress_proxy)
+		goto skip_policy_enforcement;
 
-		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
-		l4_off = ETH_HLEN + hdrlen;
-
-		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
-				   ct_state->rev_nat_index, tuple, 0);
-		if (IS_ERR(ret2))
-			return ret2;
-	}
-
-	emit_policy_verdict = true;
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr, false,
 					    &policy_match_type, &audited, proxy_port);
 
-	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy.
-	 */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict < 0 || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, *proxy_port, policy_match_type, audited);
+
+	if (verdict < 0)
 		return verdict;
-	}
 
-	if (skip_ingress_proxy) {
-		verdict = 0;
-		emit_policy_verdict = false;
-	}
-
-	if (emit_policy_verdict && (ret == CT_NEW || ret == CT_REOPENED)) {
-		send_policy_verdict_notify(ctx, src_label, tuple->dport,
-					   tuple->nexthdr, POLICY_INGRESS, 1,
-					   verdict, *proxy_port, policy_match_type, audited);
-	}
-
+skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
@@ -1507,7 +1485,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		return DROP_INVALID;
 
 	reason = (enum trace_reason)*ct_status;
-	if (redirect_to_proxy(*proxy_port, *ct_status)) {
+	if (*proxy_port > 0) {
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
 		if (tuple_out)
@@ -1681,7 +1659,6 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1727,37 +1704,45 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	 * Always redirect connections that originated from L7 LB.
 	 */
 	relax_verifier();
-	if ((ret == CT_REPLY || ret == CT_RELATED) &&
-	    (ct_state_is_from_l7lb(ct_state) ||
-	     (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx)))) {
-		/* This is a reply, the proxy port does not need to be embedded
-		 * into ctx->mark and *proxy_port can be left unset.
-		 */
-		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				   0, ifindex, (enum trace_reason)ret, monitor);
-		if (tuple_out)
-			*tuple_out = *tuple;
-		return POLICY_ACT_PROXY_REDIRECT;
+	/* Skip policy enforcement for return traffic. */
+	if (ret == CT_REPLY || ret == CT_RELATED) {
+		if (ct_state_is_from_l7lb(ct_state) ||
+		    (ct_state->proxy_redirect && !tc_index_skip_egress_proxy(ctx))) {
+			/* This is a reply, the proxy port does not need to be embedded
+			 * into ctx->mark and *proxy_port can be left unset.
+			 */
+			send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
+					   0, ifindex, (enum trace_reason)ret, monitor);
+			if (tuple_out)
+				*tuple_out = *tuple;
+			return POLICY_ACT_PROXY_REDIRECT;
+		}
+
+		/* Reverse NAT applies to return traffic only. */
+		if (unlikely(ct_state->rev_nat_index && !ct_state->loopback)) {
+			struct csum_offset csum_off = {};
+			bool has_l4_header = false;
+			int ret2, l4_off;
+
+			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+			has_l4_header = ipv4_has_l4_header(ip4);
+			if (has_l4_header)
+				csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
+					   ct_state, tuple,
+					   REV_NAT_F_TUPLE_SADDR, has_l4_header);
+			if (IS_ERR(ret2))
+				return ret2;
+		}
+
+		/* proxy_port remains 0 in this case */
+		goto skip_policy_enforcement;
 	}
 
-	if (unlikely(ret == CT_REPLY && ct_state->rev_nat_index &&
-		     !ct_state->loopback)) {
-		struct csum_offset csum_off = {};
-		bool has_l4_header = false;
-		int ret2, l4_off;
-
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-		has_l4_header = ipv4_has_l4_header(ip4);
-		if (has_l4_header)
-			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-		ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
-				   ct_state, tuple,
-				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
-		if (IS_ERR(ret2))
-			return ret2;
-	}
+	if (skip_ingress_proxy)
+		goto skip_policy_enforcement;
 
 #if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
 	/* When an endpoint connects to itself via service clusterIP, we need
@@ -1770,37 +1755,21 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		goto skip_policy_enforcement;
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
-	emit_policy_verdict = true;
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, proxy_port);
 
-	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy.
-	 */
-	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict < 0 || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, *proxy_port, policy_match_type, audited);
+
+	if (verdict < 0)
 		return verdict;
-	}
 
-	if (skip_ingress_proxy) {
-		verdict = 0;
-		emit_policy_verdict = false;
-	}
-
-	if (emit_policy_verdict && (ret == CT_NEW || ret == CT_REOPENED)) {
-		send_policy_verdict_notify(ctx, src_label, tuple->dport,
-					   tuple->nexthdr, POLICY_INGRESS, 0,
-					   verdict, *proxy_port, policy_match_type, audited);
-	}
-
-#if defined(ENABLE_PER_PACKET_LB) && !defined(DISABLE_LOOPBACK_LB)
 skip_policy_enforcement:
-#endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
-
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
@@ -1843,7 +1812,7 @@ skip_policy_enforcement:
 		return DROP_INVALID;
 
 	reason = (enum trace_reason)*ct_status;
-	if (redirect_to_proxy(*proxy_port, *ct_status)) {
+	if (*proxy_port > 0) {
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
 		if (tuple_out)
