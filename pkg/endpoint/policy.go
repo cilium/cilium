@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -69,7 +70,7 @@ func (e *Endpoint) GetNamedPortLocked(ingress bool, name string, proto uint8) ui
 	return e.getNamedPortEgress(e.namedPortsGetter.GetNamedPorts(), name, proto)
 }
 
-func (e *Endpoint) getNamedPortIngress(npMap policy.NamedPortMap, name string, proto uint8) uint16 {
+func (e *Endpoint) getNamedPortIngress(npMap types.NamedPortMap, name string, proto uint8) uint16 {
 	port, err := npMap.GetNamedPort(name, proto)
 	if err != nil && e.logLimiter.Allow() {
 		e.getLogger().WithFields(logrus.Fields{
@@ -81,11 +82,11 @@ func (e *Endpoint) getNamedPortIngress(npMap policy.NamedPortMap, name string, p
 	return port
 }
 
-func (e *Endpoint) getNamedPortEgress(npMap policy.NamedPortMultiMap, name string, proto uint8) uint16 {
+func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string, proto uint8) uint16 {
 	port, err := npMap.GetNamedPort(name, proto)
 	// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the port name
 	// is likely not scheduled yet.
-	if err != nil && !errors.Is(err, policy.ErrUnknownNamedPort) && e.logLimiter.Allow() {
+	if err != nil && !errors.Is(err, types.ErrUnknownNamedPort) && e.logLimiter.Allow() {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PortName:         name,
 			logfields.Protocol:         u8proto.U8proto(proto).String(),

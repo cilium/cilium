@@ -20,7 +20,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"k8s.io/apimachinery/pkg/types"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/trigger"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -231,7 +232,7 @@ type Endpoint struct {
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
-	k8sPorts policy.NamedPortMap
+	k8sPorts types.NamedPortMap
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
@@ -337,11 +338,11 @@ type Endpoint struct {
 
 	noTrackPort uint16
 
-	ciliumEndpointUID types.UID
+	ciliumEndpointUID k8sTypes.UID
 }
 
 type namedPortsGetter interface {
-	GetNamedPorts() (npm policy.NamedPortMultiMap)
+	GetNamedPorts() (npm types.NamedPortMultiMap)
 }
 
 type policyRepoGetter interface {
@@ -1206,7 +1207,7 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
 // Can't really error out as that might break backwards compatibility.
 func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) error {
-	k8sPorts := make(policy.NamedPortMap, len(containerPorts))
+	k8sPorts := make(types.NamedPortMap, len(containerPorts))
 	for _, cp := range containerPorts {
 		if cp.Name == "" {
 			continue // silently skip unnamed ports
@@ -1228,7 +1229,7 @@ func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) er
 }
 
 // GetK8sPorts returns the k8sPorts, which must not be modified by the caller
-func (e *Endpoint) GetK8sPorts() (k8sPorts policy.NamedPortMap, err error) {
+func (e *Endpoint) GetK8sPorts() (k8sPorts types.NamedPortMap, err error) {
 	err = e.rlockAlive()
 	if err != nil {
 		return nil, err

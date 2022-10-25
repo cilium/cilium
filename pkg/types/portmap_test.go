@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package policy
+package types
 
 import (
 	. "gopkg.in/check.v1"
@@ -9,7 +9,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (ds *PolicyTestSuite) TestPolicyValidateName(c *C) {
+type PortsTestSuite struct{}
+
+var _ = Suite(&PortsTestSuite{})
+
+func (ds *PortsTestSuite) TestPolicyValidateName(c *C) {
 	name, err := ValidatePortName("Http")
 	c.Assert(err, IsNil)
 	c.Assert(name, Equals, "http")
@@ -32,7 +36,7 @@ func (ds *PolicyTestSuite) TestPolicyValidateName(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
-func (ds *PolicyTestSuite) TestPolicyNewPortProto(c *C) {
+func (ds *PortsTestSuite) TestPolicyNewPortProto(c *C) {
 	np, err := newPortProto(80, "tcp")
 	c.Assert(err, IsNil)
 	c.Assert(np, Equals, PortProto{Port: uint16(80), Proto: uint8(6)})
@@ -50,7 +54,7 @@ func (ds *PolicyTestSuite) TestPolicyNewPortProto(c *C) {
 	c.Assert(np, Equals, PortProto{Port: uint16(88), Proto: uint8(6)})
 }
 
-func (ds *PolicyTestSuite) TestPolicyNamedPortMap(c *C) {
+func (ds *PortsTestSuite) TestPolicyNamedPortMap(c *C) {
 	npm := make(NamedPortMap)
 
 	err := npm.AddPort("http", 80, "tcp")
@@ -82,7 +86,7 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMap(c *C) {
 	c.Assert(port, Equals, uint16(0))
 }
 
-func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
+func (ds *PortsTestSuite) TestPolicyPortProtoSet(c *C) {
 	a := PortProtoSet{
 		PortProto{Port: 80, Proto: 6}:  struct{}{},
 		PortProto{Port: 443, Proto: 6}: struct{}{},
@@ -98,7 +102,7 @@ func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
 	c.Assert(b.Equal(b), Equals, true)
 }
 
-func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
+func (ds *PortsTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 	a := NamedPortMultiMap{
 		"http": PortProtoSet{
 			PortProto{Port: 80, Proto: 6}:   struct{}{},
