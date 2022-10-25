@@ -588,6 +588,7 @@ kprobe
 kprobes
 kretprobes
 kube
+kubeConfigPath
 kubeProxyReplacement
 kubeProxyReplacementHealthzBindAddr
 kubeadm

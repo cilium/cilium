@@ -828,7 +828,7 @@ func initializeFlags() {
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
 	option.BindEnv(Vp, option.SockRevNatEntriesName)
 
-	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0, "Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)")
+	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0025, "Ratio (0.0-1.0] of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps")
 	option.BindEnv(Vp, option.MapEntriesGlobalDynamicSizeRatioName)
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")

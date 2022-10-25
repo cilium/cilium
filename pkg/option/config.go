@@ -3571,7 +3571,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 		c.calculateDynamicBPFMapSizes(vp, vms.Total, dynamicSizeRatio)
 		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
 	} else if dynamicSizeRatio < 0.0 {
-		return fmt.Errorf("specified dynamic map size ratio %f must be ≥ 0.0", dynamicSizeRatio)
+		return fmt.Errorf("specified dynamic map size ratio %f must be > 0.0", dynamicSizeRatio)
 	} else if dynamicSizeRatio > 1.0 {
 		return fmt.Errorf("specified dynamic map size ratio %f must be ≤ 1.0", dynamicSizeRatio)
 	}
