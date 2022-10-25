@@ -1088,7 +1088,7 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv() {
+func initEnv(clientset k8sClient.Clientset) {
 	var debugDatapath bool
 
 	option.Config.SetMapElementSizes(
@@ -1169,7 +1169,7 @@ func initEnv() {
 
 	// This check is here instead of in DaemonConfig.Populate (invoked at the
 	// start of this function as option.Config.Populate) to avoid an import loop.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !k8s.IsEnabled() &&
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 	}
@@ -1521,7 +1521,7 @@ func (d *Daemon) initKVStore() {
 	// looking at services from k8s and retrieve the service IP from that.
 	// This makes cilium to not depend on kube dns to interact with etcd
 	_, isETCDOperator := kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace)
-	if k8s.IsEnabled() && isETCDOperator {
+	if d.clientset.IsEnabled() && isETCDOperator {
 		// Wait services and endpoints cache are synced with k8s before setting
 		// up etcd so we can perform the name resolution for etcd-operator
 		// to the service IP as well perform the service -> backend IPs for
@@ -1592,14 +1592,8 @@ func registerDaemonHooks(params daemonParams) error {
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			// Set the k8s clients provided by the K8s client cell. The global clients will be refactored out
-			// by later commits.
-			if params.Clientset.IsEnabled() {
-				k8s.SetClients(params.Clientset, params.Clientset.Slim(), params.Clientset, params.Clientset)
-			}
-
 			bootstrapStats.earlyInit.Start()
-			initEnv()
+			initEnv(params.Clientset)
 			bootstrapStats.earlyInit.End(true)
 
 			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
@@ -1661,7 +1655,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	}
 
 	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
-		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
+		WithDefaultEndpointManager(ctx, clientset, endpoint.CheckHealth),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
 		clientset)
 	if err != nil {
@@ -1683,7 +1677,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		<-d.k8sCachesSynced
@@ -1762,7 +1756,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		migrated, failed := linuxrouting.NewMigrator(
-			&eni.InterfaceDB{},
+			&eni.InterfaceDB{Clientset: clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
 		case failed == -1:
@@ -1876,7 +1870,7 @@ func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {
 	// goBGP is currently the only supported RouterManager, if more are
 	// implemented replace this hard-coding with a construction switch.
 	rm := gobgp.NewBGPRouterManager()
-	ctrl, err := bgpv1.NewController(d.ctx, rm)
+	ctrl, err := bgpv1.NewController(d.ctx, d.clientset, rm)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate BGP Control Plane: %v", err)
 	}

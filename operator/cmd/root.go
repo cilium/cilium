@@ -240,8 +240,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	close(allSystemsGo)
 
 	if operatorOption.Config.EnableK8s {
-		k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
-
 		go func() {
 			err = srv.WithStatusCheckFunc(func() error { return checkStatus(clientset) }).StartServer()
 			if err != nil {
@@ -258,7 +256,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		pprof.Enable(operatorOption.Config.PProfPort)
 	}
 
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()
 		if !capabilities.MinimalVersionMet {
 			log.Fatalf("Minimal kubernetes version not met: %s < %s",
@@ -268,8 +266,8 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 	// Register the CRDs after validating that we are running on a supported
 	// version of K8s.
-	if k8s.IsEnabled() && !operatorOption.Config.SkipCRDCreation {
-		if err := client.RegisterCRDs(); err != nil {
+	if clientset.IsEnabled() && !operatorOption.Config.SkipCRDCreation {
+		if err := client.RegisterCRDs(clientset); err != nil {
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
 	} else {
@@ -395,7 +393,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	IsLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
-	if k8s.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
+	if legacy.clientset.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
 		log.Info("Create and run CES controller, start CEP watcher")
 		// Initialize  the CES controller
 		cesController := ces.NewCESController(legacy.clientset,
@@ -415,7 +413,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	// etcd from reaching out kube-dns in EKS.
 	// If this logic is modified, make sure the operator's clusterrole logic for
 	// pods/delete is also up-to-date.
-	if !k8s.IsEnabled() {
+	if !legacy.clientset.IsEnabled() {
 		log.Infof("KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
 	} else if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
@@ -462,12 +460,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			"address": option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
 		})
 
-		if k8s.IsEnabled() && operatorOption.Config.SyncK8sServices {
+		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
 			operatorWatchers.StartSynchronizingServices(legacy.clientset, true, option.Config)
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
-			if k8s.IsEnabled() {
+			if legacy.clientset.IsEnabled() {
 				svcURL, isETCDOperator := kvstore.IsEtcdOperator(option.Config.KVStore, option.Config.KVStoreOpt, option.Config.K8sNamespace)
 				if isETCDOperator {
 					scopedLog.Infof("%s running with service synchronization: automatic etcd service translation enabled", binaryName)
@@ -527,14 +525,14 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
-		if k8s.IsEnabled() && operatorOption.Config.SyncK8sNodes {
+		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sNodes {
 			withKVStore = true
 		}
 
 		startKvstoreWatchdog()
 	}
 
-	if k8s.IsEnabled() &&
+	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
 		stopCh := make(chan struct{})
 
@@ -548,7 +546,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		operatorWatchers.HandleNodeTolerationAndTaints(legacy.clientset, stopCh)
 	}
 
-	if k8s.IsEnabled() {
+	if legacy.clientset.IsEnabled() {
 		if err := startSynchronizingCiliumNodes(legacy.ctx, legacy.clientset, nodeManager, withKVStore); err != nil {
 			log.WithError(err).Fatal("Unable to setup node watcher")
 		}
@@ -588,7 +586,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	switch option.Config.IdentityAllocationMode {
 	case option.IdentityAllocationModeCRD:
-		if !k8s.IsEnabled() {
+		if !legacy.clientset.IsEnabled() {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
 
@@ -603,7 +601,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		}
 	}
 
-	if k8s.IsEnabled() {
+	if legacy.clientset.IsEnabled() {
 		if operatorOption.Config.EndpointGCInterval != 0 {
 			enableCiliumEndpointSyncGC(legacy.clientset, false)
 		} else {

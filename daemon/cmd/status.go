@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -90,13 +89,13 @@ func (k *k8sVersion) update(version *versionapi.Info) string {
 var k8sVersionCache k8sVersion
 
 func (d *Daemon) getK8sStatus() *models.K8sStatus {
-	if !k8s.IsEnabled() {
+	if !d.clientset.IsEnabled() {
 		return &models.K8sStatus{State: models.StatusStateDisabled}
 	}
 
 	version, valid := k8sVersionCache.cachedVersion()
 	if !valid {
-		k8sVersion, err := k8s.Client().Discovery().ServerVersion()
+		k8sVersion, err := d.clientset.Discovery().ServerVersion()
 		if err != nil {
 			return &models.K8sStatus{State: models.StatusStateFailure, Msg: err.Error()}
 		}
@@ -681,7 +680,7 @@ func (d *Daemon) getStatus(brief bool) models.StatusResponse {
 			State: d.statusResponse.ContainerRuntime.State,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
-	case k8s.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
+	case d.clientset.IsEnabled() && d.statusResponse.Kubernetes != nil && d.statusResponse.Kubernetes.State != models.StatusStateOk:
 		msg := "Kubernetes service is not ready"
 		sr.Cilium = &models.Status{
 			State: d.statusResponse.Kubernetes.State,
@@ -1012,7 +1011,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 		{
 			Name: "kube-proxy-replacement",
 			Probe: func(ctx context.Context) (interface{}, error) {
-				if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+				if d.clientset.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
 					return d.getKubeProxyReplacementStatus(), nil
 				} else {
 					return nil, nil

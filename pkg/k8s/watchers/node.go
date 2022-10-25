@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -46,7 +47,7 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 	return true
 }
 
-func (k *K8sWatcher) NodesInit(k8sClient *k8s.K8sClient) {
+func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
 	apiGroup := k8sAPIGroupNodeV1Core
 	k.nodesInitOnce.Do(func() {
 		swg := lock.NewStoppableWaitGroup()

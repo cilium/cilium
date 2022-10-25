@@ -11,13 +11,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
-func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumLocalRedirectPolicyV2
 	_, lrpController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumLRPClient.CiliumV2().RESTClient(),

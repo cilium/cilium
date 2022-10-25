@@ -101,7 +101,7 @@ func (s *IPAMSuite) TestMarkForReleaseNoAllocate(c *C) {
 		sharedNodeStore = newFakeNodeStore(conf, c)
 		sharedNodeStore.ownNode = cn
 	})
-	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, conf, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 	sharedNodeStore.updateLocalNodeResource(cn)
 
 	// Allocate the first 3 IPs

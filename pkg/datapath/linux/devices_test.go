@@ -79,7 +79,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.DirectRoutingDevice = ""
 
 		// 1. No devices, nothing to detect.
-		devices, err := dm.Detect()
+		devices, err := dm.Detect(false)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{})
 
@@ -88,7 +88,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		node.SetIPv4(nil)
 
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -100,7 +100,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -116,7 +116,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.Tunnel = option.TunnelDisabled
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -131,7 +131,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("cilium_foo", "2001:db8::face/64", true), IsNil)
 		node.SetIPv4(nil)
 		node.SetIPv6(net.ParseIP("2001:db8::face"))
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -142,14 +142,14 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// 6. Only consider veth devices if they have a default route.
 		c.Assert(createVeth("veth0", "192.168.4.1/24", false), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
 
 		c.Assert(addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -157,7 +157,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// 7. Detect devices that only have routes in non-main tables
 		c.Assert(addRoute(addRouteParams{iface: "dummy3", dst: "192.168.3.1/24", scope: unix.RT_SCOPE_LINK, table: 11}), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -165,14 +165,14 @@ func (s *DevicesSuite) TestDetect(c *C) {
 
 		// 8. Skip bridge devices, and devices added to the bridge
 		c.Assert(createBridge("br0", "192.168.5.1/24", false), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
 
 		c.Assert(setMaster("dummy3", "br0"), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
@@ -181,7 +181,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		// 9. Don't skip bond devices, but do skip bond slaves.
 		c.Assert(createBond("bond0", "192.168.6.1/24", false), IsNil)
 		c.Assert(setBondMaster("dummy2", "bond0"), IsNil)
-		devices, err = dm.Detect()
+		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "cilium_foo", "dummy0", "dummy1", "veth0"})
 		option.Config.SetDevices([]string{})
@@ -339,7 +339,7 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 		c.Assert(createDummy("dummy1", "2001:db8::face/64", true), IsNil)
 
 		// Detect the devices
-		devices, err := dm.Detect()
+		devices, err := dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1"})
 

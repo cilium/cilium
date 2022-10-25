@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -102,7 +103,7 @@ type MtuConfiguration interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *IPAM {
+func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
@@ -131,19 +132,19 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		log.Info("Initializing ClusterPool v2 IPAM")
 
 		if c.IPv6Enabled() {
-			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg)
+			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg, clientset)
 		}
 		if c.IPv4Enabled() {
-			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, c, owner, k8sEventReg)
+			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, c, owner, k8sEventReg, clientset)
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {
-			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, k8sEventReg, mtuConfig)
+			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, clientset, k8sEventReg, mtuConfig)
 		}
 
 		if c.IPv4Enabled() {
-			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, k8sEventReg, mtuConfig)
+			ipam.IPv4Allocator = newCRDAllocator(IPv4, c, owner, clientset, k8sEventReg, mtuConfig)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		log.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")

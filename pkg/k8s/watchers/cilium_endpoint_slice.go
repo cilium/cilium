@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -22,7 +23,7 @@ var (
 	cepMap = newCEPToCESMap()
 )
 
-func (k *K8sWatcher) ciliumEndpointSliceInit(client *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumEndpointSliceInit(client client.Clientset, asyncControllers *sync.WaitGroup) {
 	log.Info("Initializing CES controller")
 	var once sync.Once
 

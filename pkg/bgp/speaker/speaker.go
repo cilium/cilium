@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
@@ -36,8 +37,8 @@ var _ subscriber.Node = (*MetalLBSpeaker)(nil)
 
 // New creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
-func New(ctx context.Context, opts Opts) (*MetalLBSpeaker, error) {
-	ctrl, err := newMetalLBSpeaker(ctx)
+func New(ctx context.Context, clientset client.Clientset, opts Opts) (*MetalLBSpeaker, error) {
+	ctrl, err := newMetalLBSpeaker(ctx, clientset)
 	if err != nil {
 		return nil, err
 	}

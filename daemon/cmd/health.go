@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/health/defaults"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -36,7 +35,7 @@ func (d *Daemon) initHealth(cleaner *daemonCleanup) {
 
 	// Launch the cilium-health-responder as an endpoint, managed by cilium.
 	log.Info("Launching Cilium health endpoint")
-	if k8s.IsEnabled() {
+	if d.clientset.IsEnabled() {
 		// When Cilium starts up in k8s mode, it is guaranteed to be
 		// running inside a new PID namespace which means that existing
 		// PIDfiles are referring to PIDs that may be reused. Clean up.

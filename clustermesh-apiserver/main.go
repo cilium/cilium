@@ -117,7 +117,6 @@ func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
 		return errors.New("Kubernetes client not configured, cannot continue.")
 	}
 
-	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
 			startServer(ctx, clientset)
@@ -555,7 +554,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(startCtx, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, clientset, synced.AllCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	mgr := NewVMManager(clientset)

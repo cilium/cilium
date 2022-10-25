@@ -25,7 +25,7 @@ func StartLBIPAllocator(ctx context.Context, cfg ServiceSyncConfiguration, clien
 	swgEps := lock.NewStoppableWaitGroup()
 	InitServiceWatcher(cfg, clientset, swgSvcs, swgEps, optsModifier)
 
-	m, err := manager.New(ctx, serviceIndexer)
+	m, err := manager.New(ctx, clientset, serviceIndexer)
 	if err != nil {
 		log.WithError(err).Fatal("Error creating BGP manager")
 	}

@@ -29,7 +29,7 @@ var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	allocv4, allocv6, status := ipam.Dump()
 	c.Assert(status, Not(Equals), "")
@@ -48,7 +48,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	err := ipam.AllocateIP(ip, "foo")
 	c.Assert(err, IsNil)
@@ -114,7 +114,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", timeout)
 	c.Assert(err, IsNil)

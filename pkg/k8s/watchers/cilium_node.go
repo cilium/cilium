@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -32,7 +33,7 @@ func (k *K8sWatcher) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode) {
 	k.CiliumNodeChain.Register(s)
 }
 
-func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncControllers *sync.WaitGroup) {
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
 	var once sync.Once
@@ -169,7 +170,7 @@ func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*ciliu
 
 	if getFromAPIServer {
 		// fallback to using the kube-apiserver
-		return k8s.CiliumClient().CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
+		return k.clientset.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
 	}
 
 	if err != nil {
