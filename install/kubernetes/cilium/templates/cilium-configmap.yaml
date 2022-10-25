@@ -281,12 +281,12 @@ data:
 
 
 
-{{- if hasKey .Values.bpf "mapDynamicSizeRatio" }}
-  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+{{- if .Values.bpf.mapDynamicSizeRatio }}
+  # Specifies the ratio (0.0-1.0] of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
   bpf-map-dynamic-size-ratio: {{ .Values.bpf.mapDynamicSizeRatio | quote }}
 {{- else if ne $defaultBpfMapDynamicSizeRatio 0.0 }}
-  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # Specifies the ratio (0.0-1.0] of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
   bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
 {{- end }}
