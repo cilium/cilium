@@ -68,6 +68,7 @@ type Clientset interface {
 	kubernetes.Interface
 	apiext_clientset.Interface
 	cilium_clientset.Interface
+	Getters
 
 	// Slim returns the slim client, which contains some of the same APIs as the
 	// normal kubernetes client, but with slimmed down messages to reduce memory
@@ -94,6 +95,7 @@ type compositeClientset struct {
 	*KubernetesClientset
 	*APIExtClientset
 	*CiliumClientset
+	clientsetGetters
 
 	controller    *controller.Manager
 	slim          *SlimClientset
@@ -158,6 +160,8 @@ func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 	if err != nil {
 		return nil, fmt.Errorf("unable to create k8s client: %w", err)
 	}
+
+	client.clientsetGetters = clientsetGetters{&client}
 
 	// The cilium client uses JSON marshalling.
 	restConfig.ContentConfig.ContentType = `application/json`
@@ -410,6 +414,7 @@ type FakeClientset struct {
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
+	clientsetGetters
 
 	SlimFakeClientset *SlimFakeClientset
 }
@@ -443,6 +448,7 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
 	}
+	client.clientsetGetters = clientsetGetters{&client}
 	return &client, &client
 }
 
