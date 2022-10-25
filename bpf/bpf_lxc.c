@@ -232,7 +232,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	bool __maybe_unused dst_remote_ep = false;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
-	bool emit_policy_verdict = true;
+	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -300,7 +300,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
 			    bpf_ntohs(proxy_port));
-		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 #endif /* ENABLE_L7_LB */
@@ -319,7 +318,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * matched.
 	 */
 	if (hairpin_flow) {
-		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 
@@ -327,6 +325,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
+	emit_policy_verdict = true;
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
@@ -754,7 +753,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
-	bool emit_policy_verdict = true;
+	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -823,7 +822,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr, bpf_ntohs(proxy_port));
 		verdict = proxy_port;
-		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 #endif /* ENABLE_L7_LB */
@@ -841,7 +839,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * matched.
 	 */
 	if (hairpin_flow) {
-		emit_policy_verdict = false;
 		goto skip_policy_enforcement;
 	}
 
@@ -849,6 +846,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check.
 	 */
+	emit_policy_verdict = true;
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
@@ -1372,7 +1370,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	bool emit_policy_verdict = true;
+	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1441,6 +1439,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 			return ret2;
 	}
 
+	emit_policy_verdict = true;
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr, false,
 					    &policy_match_type, &audited, proxy_port);
@@ -1682,7 +1681,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	bool emit_policy_verdict = true;
+	bool emit_policy_verdict = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1771,6 +1770,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 		goto skip_policy_enforcement;
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
+	emit_policy_verdict = true;
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr,
 					    is_untracked_fragment,
