@@ -1766,9 +1766,10 @@ drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
-/* Main node-port entry point for host-external ingressing node-port traffic
- * which handles the case of: i) backend is local EP, ii) backend is remote EP,
- * iii) reply from remote backend EP.
+/* Main node-port entry point for host-external ingressing node-port
+ * traffic which handles the case of: i) node is backend to EP, ii)
+ * node is remote backend to EP, iii) node is receiving reply from
+ * remote backend to EP.
  */
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					__u32 src_identity)
