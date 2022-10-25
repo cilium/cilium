@@ -13,7 +13,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 // DNSGetter ...
@@ -30,11 +29,6 @@ type EndpointGetter interface {
 	GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
 	// GetEndpointInfo looks up endpoint by id
 	GetEndpointInfoByID(id uint16) (endpoint v1.EndpointInfo, ok bool)
-}
-
-type EndpointsGetter interface {
-	// GetEndpoints returns a map of the current policy.Endpoint(s).
-	GetEndpoints() map[policy.Endpoint]struct{}
 }
 
 // IdentityGetter ...
