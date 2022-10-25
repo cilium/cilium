@@ -89,16 +89,10 @@ func (l *LogRecordNotify) DumpInfo() {
 
 		switch {
 		case l.Type == accesslog.TypeRequest:
-			fmt.Printf(" DNS Query: %s %s", l.DNS.Query, qTypeStr)
+			fmt.Printf(" DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
 
 		case l.Type == accesslog.TypeResponse:
-			sourceType := "Query"
-			switch l.DNS.ObservationSource {
-			case accesslog.DNSSourceProxy:
-				sourceType = "Proxy"
-			}
-
-			fmt.Printf(" DNS %s: %s %s", sourceType, l.DNS.Query, qTypeStr)
+			fmt.Printf(" DNS %s: %s %s", l.DNS.ObservationSource, l.DNS.Query, qTypeStr)
 
 			ips := make([]string, 0, len(l.DNS.IPs))
 			for _, ip := range l.DNS.IPs {

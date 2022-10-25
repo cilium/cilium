@@ -393,8 +393,8 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		expectFQDNSareApplied("cilium.test", 0)
 
-		allowVerdict := "verdict Forwarded DNS Query: world1.cilium.test"
-		deniedVerdict := "verdict Denied DNS Query: world2.cilium.test"
+		allowVerdict := "verdict Forwarded DNS proxy: world1.cilium.test"
+		deniedVerdict := "verdict Denied DNS proxy: world2.cilium.test"
 
 		By("Testing connectivity to Cilium.test domain")
 		res := vm.ContainerExec(helpers.App1, helpers.CurlFail(world1Target))
