@@ -30,6 +30,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -72,6 +73,7 @@ type NodeDiscovery struct {
 	k8sGetters            k8sGetters
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
+	clientset             client.Clientset
 }
 
 func enableLocalNodeRoute() bool {
@@ -82,7 +84,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager *nodemanager.Manager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -125,6 +127,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
+		clientset:             clientset,
 	}
 }
 
@@ -305,7 +308,7 @@ func (n *NodeDiscovery) updateLocalNode() {
 		}()
 	}
 
-	if k8s.IsEnabled() {
+	if n.clientset.IsEnabled() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
 		n.UpdateCiliumNodeResource()
@@ -347,8 +350,6 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	log.WithField(logfields.Node, nodeTypes.GetName()).Info("Creating or updating CiliumNode resource")
 
-	ciliumClient := k8s.CiliumClient()
-
 	performGet := true
 	var nodeResource *ciliumv2.CiliumNode
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
@@ -379,7 +380,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		// updating.
 		performGet = true
 		if performUpdate {
-			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
 					continue
@@ -389,7 +390,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				return
 			}
 		} else {
-			if _, err := ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
 					// Backoff before retrying

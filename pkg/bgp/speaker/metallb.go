@@ -15,6 +15,7 @@ import (
 	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
 	bgplog "github.com/cilium/cilium/pkg/bgp/log"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -58,9 +59,9 @@ type metalLBSpeaker struct {
 //
 // The MetalLB speaker will use the value of nodetypes.GetName() as
 // its node identity.
-func newMetalLBSpeaker(ctx context.Context) (Speaker, error) {
+func newMetalLBSpeaker(ctx context.Context, clientset client.Clientset) (Speaker, error) {
 	logger := &bgplog.Logger{Entry: log}
-	client := bgpk8s.New(logger.Logger)
+	client := bgpk8s.New(logger.Logger, clientset)
 
 	c, err := metallbspr.NewController(metallbspr.ControllerConfig{
 		MyNode:        nodetypes.GetName(),

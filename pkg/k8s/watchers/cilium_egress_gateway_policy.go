@@ -13,12 +13,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumEgressGatewayPolicyV2
 	_, egpController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
@@ -95,7 +96,7 @@ func (k *K8sWatcher) deleteCiliumEgressGatewayPolicy(cegp *cilium_v2.CiliumEgres
 	k.egressGatewayManager.OnDeleteEgressPolicy(epID)
 }
 
-func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumEgressNATPolicyV2
 	_, egpController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),

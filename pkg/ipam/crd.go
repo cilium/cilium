@@ -26,8 +26,8 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
@@ -74,13 +74,15 @@ type nodeStore struct {
 	restoreFinished  chan struct{}
 	restoreCloseOnce sync.Once
 
+	clientset client.Clientset
+
 	conf      Configuration
 	mtuConfig MtuConfiguration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
+func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -88,9 +90,9 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
 		mtuConfig:          mtuConfig,
+		clientset:          clientset,
 	}
 	store.restoreFinished = make(chan struct{})
-	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "crd-allocator-node-refresher",
@@ -110,7 +112,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
 		utils.ListerWatcherWithFields(
-			utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](ciliumClient.CiliumV2().CiliumNodes()),
+			utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](clientset.CiliumV2().CiliumNodes()),
 			ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
@@ -497,8 +499,7 @@ func (n *nodeStore) refreshNode() error {
 	}
 
 	var err error
-	ciliumClient := k8s.CiliumClient()
-	_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
+	_, err = n.clientset.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 
 	return err
 }
@@ -627,9 +628,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
+func newCRDAllocator(family Family, c Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg, mtuConfig)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, clientset, k8sEventReg, mtuConfig)
 	})
 
 	allocator := &crdAllocator{

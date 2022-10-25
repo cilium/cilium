@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -80,13 +81,13 @@ func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata,
 	return policyImportMeta, ok
 }
 
-func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumNetworkPoliciesInit(cs client.Clientset) {
 	cnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	apiGroup := k8sAPIGroupCiliumNetworkPolicyV2
 	ciliumV2Controller := informer.NewInformerWithStore(
 		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNetworkPolicyList](
-			ciliumNPClient.CiliumV2().CiliumNetworkPolicies("")),
+			cs.CiliumV2().CiliumNetworkPolicies("")),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -104,7 +105,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpCpy)
+					err := k.addCiliumNetworkPolicyV2(cs, cnpCpy)
 					k.K8sEventProcessed(resources.MetricCNP, resources.MetricCreate, err == nil)
 				}
 			},
@@ -129,7 +130,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 						oldCNPCpy := oldCNP.DeepCopy()
 						newCNPCpy := newCNP.DeepCopy()
 
-						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, oldCNPCpy, newCNPCpy)
+						err := k.updateCiliumNetworkPolicyV2(cs, oldCNPCpy, newCNPCpy)
 						k.K8sEventProcessed(resources.MetricCNP, resources.MetricUpdate, err == nil)
 					}
 				}

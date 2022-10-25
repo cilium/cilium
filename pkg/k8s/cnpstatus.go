@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -28,6 +29,7 @@ import (
 // receiving events from the key-value store, it will send the update for the
 // CNP corresponding to the status update to the controller for that CNP.
 type CNPStatusEventHandler struct {
+	clientset      client.Clientset
 	eventMap       *cnpEventMap
 	cnpStore       *store.SharedStore
 	k8sStore       cache.Store
@@ -87,8 +89,9 @@ func (c *cnpEventMap) delete(cnpKey string) {
 }
 
 // NewCNPStatusEventHandler returns a new CNPStatusEventHandler.
-func NewCNPStatusEventHandler(k8sStore cache.Store, updateInterval time.Duration) *CNPStatusEventHandler {
+func NewCNPStatusEventHandler(clientset client.Clientset, k8sStore cache.Store, updateInterval time.Duration) *CNPStatusEventHandler {
 	return &CNPStatusEventHandler{
+		clientset:      clientset,
 		eventMap:       newCNPEventMap(),
 		k8sStore:       k8sStore,
 		updateInterval: updateInterval,
@@ -264,7 +267,7 @@ func (c *CNPStatusEventHandler) runStatusHandler(cnpKey string, cnp *types.SlimC
 		// Now that we have collected all events for
 		// the given CNP, update the status for all nodes
 		// which have sent us updates.
-		if err := updateStatusesByCapabilities(CiliumClient(), namespace, name, nodeStatusMap); err != nil {
+		if err := updateStatusesByCapabilities(c.clientset, namespace, name, nodeStatusMap); err != nil {
 			scopedLog.WithError(err).Error("error updating status for CNP")
 		}
 	}

@@ -45,7 +45,7 @@ func (t *testConfiguration) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return n
 
 func (s *IPAMSuite) TestLock(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	// Since the IPs we have allocated to the endpoints might or might not
 	// be in the allocrange specified in cilium, we need to specify them
@@ -72,7 +72,7 @@ func (s *IPAMSuite) TestLock(c *C) {
 
 func (s *IPAMSuite) TestBlackList(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
@@ -98,7 +98,7 @@ func (s *IPAMSuite) TestDeriveFamily(c *C) {
 
 func (s *IPAMSuite) TestOwnerRelease(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()

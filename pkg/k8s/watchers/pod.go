@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -341,7 +342,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		}
 
 		// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
-		updateCiliumEndpointLabels(podEP, newPodLabels)
+		updateCiliumEndpointLabels(k.clientset, podEP, newPodLabels)
 	}
 
 	if annotationsChanged {
@@ -393,7 +394,7 @@ func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
 
 // updateCiliumEndpointLabels runs a controller associated with the endpoint that updates
 // the Labels in CiliumEndpoint object by mirroring those of the associated Pod.
-func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string) {
+func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoint, labels map[string]string) {
 	var (
 		controllerName = fmt.Sprintf("sync-pod-labels-with-cilium-endpoint (%v)", ep.GetID())
 		scopedLog      = log.WithField("controller", controllerName)
@@ -413,7 +414,7 @@ func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string)
 					}).Debug(err)
 					return err
 				}
-				ciliumClient := k8s.CiliumClient().CiliumV2()
+				ciliumClient := clientset.CiliumV2()
 
 				replaceLabels := []k8s.JSONPatch{
 					{

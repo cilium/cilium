@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -65,7 +64,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		return false, nil
 	}
 
-	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
+	if ep.K8sPodName != "" && ep.K8sNamespace != "" && d.clientset.IsEnabled() {
 		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 		pod, err := d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil && k8serrors.IsNotFound(err) {
@@ -175,7 +174,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 
 	for _, ep := range state.possible {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-		if k8s.IsEnabled() {
+		if d.clientset.IsEnabled() {
 			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
 		}
 
@@ -397,7 +396,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		}()
 
 		go func() {
-			if k8s.IsEnabled() {
+			if d.clientset.IsEnabled() {
 				// Also wait for all cluster mesh to be synchronized with the
 				// datapath before proceeding.
 				if d.clustermesh != nil {

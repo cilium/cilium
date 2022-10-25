@@ -11,8 +11,6 @@ import (
 	"strconv"
 
 	"github.com/sirupsen/logrus"
-	core_v1 "k8s.io/api/core/v1"
-	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -20,33 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
-
-// K8sClient is a wrapper around kubernetes.Interface.
-type K8sClient struct {
-	// kubernetes.Interface is the object through which interactions with
-	// Kubernetes are performed.
-	kubernetes.Interface
-}
-
-// K8sSlimClient is a wrapper around slimclientset.Clientset.
-type K8sSlimClient struct {
-	slimclientset.Interface
-}
-
-// K8sCiliumClient is a wrapper around clientset.Interface.
-type K8sCiliumClient struct {
-	clientset.Interface
-}
-
-// K8sAPIExtensionsClient is a wrapper around clientset.Interface.
-type K8sAPIExtensionsClient struct {
-	apiextclientset.Interface
-}
 
 func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4IngressIP, v6IngressIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
 	annotations := map[string]string{}
@@ -102,7 +75,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey ui
 // AnnotateNode writes v4 and v6 CIDRs and health IPs in the given k8s node name.
 // In case of failure while updating the node, this function while spawn a go
 // routine to retry the node update indefinitely.
-func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4IngressIP, v6IngressIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
+func AnnotateNode(cs kubernetes.Interface, nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4IngressIP, v6IngressIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:       nodeName,
 		logfields.V4Prefix:       v4CIDR,
@@ -120,7 +93,7 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, 
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
 			DoFunc: func(_ context.Context) error {
-				err := updateNodeAnnotation(k8sCli, nodeName, encryptKey, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4IngressIP, v6IngressIP, v4CiliumHostIP, v6CiliumHostIP)
+				err := updateNodeAnnotation(cs, nodeName, encryptKey, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4IngressIP, v6IngressIP, v4CiliumHostIP, v6CiliumHostIP)
 				if err != nil {
 					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to patch node resource with annotation")
 				}
@@ -129,35 +102,4 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, 
 		})
 
 	return nil
-}
-
-// GetSecrets returns the secrets found in the given namespace and name.
-func (k8sCli K8sClient) GetSecrets(ctx context.Context, ns, name string) (map[string][]byte, error) {
-	if k8sCli.Interface == nil {
-		return nil, fmt.Errorf("GetSecrets: No k8s, cannot access k8s secrets")
-	}
-
-	result, err := k8sCli.CoreV1().Secrets(ns).Get(ctx, name, v1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return result.Data, nil
-}
-
-// GetK8sNode returns the node with the given nodeName.
-func (k8sCli K8sClient) GetK8sNode(ctx context.Context, nodeName string) (*core_v1.Node, error) {
-	if k8sCli.Interface == nil {
-		return nil, fmt.Errorf("GetK8sNode: No k8s, cannot access k8s nodes")
-	}
-
-	return k8sCli.CoreV1().Nodes().Get(ctx, nodeName, v1.GetOptions{})
-}
-
-// GetCiliumNode returns the CiliumNode with the given nodeName.
-func (k8sCiliumCli K8sCiliumClient) GetCiliumNode(ctx context.Context, nodeName string) (*cilium_v2.CiliumNode, error) {
-	if k8sCiliumCli.Interface == nil {
-		return nil, fmt.Errorf("GetK8sNode: No k8s, cannot access k8s nodes")
-	}
-
-	return k8sCiliumCli.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
 }

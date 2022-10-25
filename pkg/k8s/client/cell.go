@@ -187,7 +187,7 @@ func (c *compositeClientset) Discovery() discovery.DiscoveryInterface {
 }
 
 func (c *compositeClientset) IsEnabled() bool {
-	return c.config.isEnabled() && !c.disabled
+	return c != nil && c.config.isEnabled() && !c.disabled
 }
 
 func (c *compositeClientset) Disable() {

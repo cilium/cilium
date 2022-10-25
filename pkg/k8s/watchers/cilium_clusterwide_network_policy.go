@@ -8,12 +8,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 )
 
-func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient client.Clientset) {
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	apiGroup := k8sAPIGroupCiliumClusterwideNetworkPolicyV2
 	ciliumV2ClusterwidePolicyController := informer.NewInformerWithStore(

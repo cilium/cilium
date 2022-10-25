@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -57,7 +56,7 @@ func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {
 
 	d.policy = policy.NewPolicyRepository(d.identityAllocator,
 		d.identityAllocator.GetIdentityCache(),
-		certificatemanager.NewManager(option.Config.CertDirectory, k8s.Client()))
+		certificatemanager.NewManager(option.Config.CertDirectory, d.clientset))
 	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 	d.policyUpdater, err = policy.NewUpdater(d.policy, epMgr)
 	if err != nil {

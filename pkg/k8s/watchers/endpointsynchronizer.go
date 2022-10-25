@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
@@ -35,7 +36,9 @@ const (
 
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
-type EndpointSynchronizer struct{}
+type EndpointSynchronizer struct {
+	Clientset client.Clientset
+}
 
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
@@ -54,12 +57,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		return
 	}
 
-	if !k8s.IsEnabled() {
+	if !epSync.Clientset.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
 
-	ciliumClient := k8s.CiliumClient().CiliumV2()
+	ciliumClient := epSync.Clientset.CiliumV2()
 
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.
@@ -317,11 +320,11 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 
 	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 
-	if !k8s.IsEnabled() {
+	if !epSync.Clientset.IsEnabled() {
 		scopedLog.Debug("Not starting controller because k8s is disabled")
 		return
 	}
-	ciliumClient := k8s.CiliumClient().CiliumV2()
+	ciliumClient := epSync.Clientset.CiliumV2()
 
 	// The health endpoint doesn't really exist in k8s and updates to it caused
 	// arbitrary errors. Disable the controller for these endpoints.

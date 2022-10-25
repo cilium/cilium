@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -679,9 +680,9 @@ type clusterPoolAllocator struct {
 	pool *podCIDRPool
 }
 
-func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, clientset client.Clientset) Allocator {
 	crdWatcherInit.Do(func() {
-		nodeClient := k8s.CiliumClient().CiliumV2().CiliumNodes()
+		nodeClient := clientset.CiliumV2().CiliumNodes()
 		sharedCRDWatcher = newCRDWatcher(conf, k8sEventReg, owner, nodeClient)
 	})
 

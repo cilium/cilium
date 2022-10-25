@@ -45,7 +45,7 @@ func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 	ccnpStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	if enableCNPStatusUpdates {
-		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
+		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(clientset, ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
 		ccnpSharedStore, err := store.JoinSharedStore(store.Configuration{
 			Prefix: k8s.CCNPStatusesPath,
 			KeyCreator: func() store.Key {
@@ -76,7 +76,7 @@ func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
 					cnpCpy := cnp.DeepCopy()
 
-					groups.AddDerivativeCCNPIfNeeded(cnpCpy.CiliumNetworkPolicy)
+					groups.AddDerivativeCCNPIfNeeded(clientset, cnpCpy.CiliumNetworkPolicy)
 					if enableCNPStatusUpdates {
 						ccnpStatusMgr.StartStatusHandler(cnpCpy)
 					}
@@ -96,7 +96,7 @@ func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 						newCNPCpy := newCNP.DeepCopy()
 						oldCNPCpy := oldCNP.DeepCopy()
 
-						groups.UpdateDerivativeCCNPIfNeeded(newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
+						groups.UpdateDerivativeCCNPIfNeeded(clientset, newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
 					}
 				}
 			},
@@ -122,7 +122,7 @@ func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 	controller.NewManager().UpdateController("ccnp-to-groups",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				groups.UpdateCNPInformation()
+				groups.UpdateCNPInformation(clientset)
 				return nil
 			},
 			RunInterval: 5 * time.Minute,

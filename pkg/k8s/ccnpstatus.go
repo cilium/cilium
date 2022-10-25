@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 )
 
@@ -27,8 +28,8 @@ type CCNPStatusEventHandler struct {
 
 // NewCCNPStatusEventHandler returns a new CCNPStatusEventHandler.
 // which is more or less a wrapper around the CNPStatusEventHandler itself.
-func NewCCNPStatusEventHandler(k8sStore cache.Store, updateInterval time.Duration) *CCNPStatusEventHandler {
+func NewCCNPStatusEventHandler(clientset client.Clientset, k8sStore cache.Store, updateInterval time.Duration) *CCNPStatusEventHandler {
 	return &CCNPStatusEventHandler{
-		CNPStatusEventHandler: NewCNPStatusEventHandler(k8sStore, updateInterval),
+		CNPStatusEventHandler: NewCNPStatusEventHandler(clientset, k8sStore, updateInterval),
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -23,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) {
+func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
 	cecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	apiGroup := k8sAPIGroupCiliumEnvoyConfigV2
 	cecController := informer.NewInformerWithStore(

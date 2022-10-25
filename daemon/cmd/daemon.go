@@ -56,6 +56,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
@@ -496,7 +497,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+	nd := nodediscovery.NewNodeDiscovery(nodeMngr, clientset, mtuConfig, netConf)
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -514,7 +515,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		datapath:          dp,
 		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
-		endpointCreations: newEndpointCreationManager(),
+		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
 	}
@@ -641,7 +642,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
-		d.bgpSpeaker, err = speaker.New(ctx, speaker.Opts{
+		d.bgpSpeaker, err = speaker.New(ctx, clientset, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
 		})
@@ -658,6 +659,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
+		clientset,
 		d.endpointManager,
 		d.nodeDiscovery,
 		&d,
@@ -862,7 +864,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	bootstrapStats.fqdn.End(true)
 
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
@@ -878,7 +880,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		// from performing Gets directly into kube-apiserver to get the most up
 		// to date version of the k8s node. This allows for better scalability
 		// in large clusters.
-		d.k8sWatcher.NodesInit(k8s.Client())
+		d.k8sWatcher.NodesInit(d.clientset)
 
 		if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
 			// Create the CiliumNode custom resource. This call will block until
@@ -920,7 +922,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if _, err := d.deviceManager.Detect(); err != nil {
+	if _, err := d.deviceManager.Detect(clientset.IsEnabled()); err != nil {
 		if d.deviceManager.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
@@ -1033,7 +1035,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 
 		// Initialize d.k8sCachesSynced before any k8s watchers are alive, as they may
@@ -1074,7 +1076,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	d.configureIPAM()
 
 	if option.Config.JoinCluster {
-		if k8s.IsEnabled() {
+		if clientset.IsEnabled() {
 			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
@@ -1131,7 +1133,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
+	if clientset.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix:       node.GetIPv4AllocRange(),
@@ -1144,7 +1146,9 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
-		err := k8s.Client().AnnotateNode(nodeTypes.GetName(),
+		err := k8s.AnnotateNode(
+			clientset,
+			nodeTypes.GetName(),
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
@@ -1177,7 +1181,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		// Ignore the channel returned by this function, as we want the global
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+		realIdentityAllocator.InitIdentityAllocator(clientset, nil)
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}
@@ -1279,8 +1283,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 // WithDefaultEndpointManager creates the default endpoint manager with a
 // functional endpoint synchronizer.
-func WithDefaultEndpointManager(ctx context.Context, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
-	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+func WithDefaultEndpointManager(ctx context.Context, clientset client.Clientset, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
+	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{Clientset: clientset})
 	if option.Config.EndpointGCInterval > 0 {
 		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
 	}
@@ -1473,7 +1477,7 @@ func (d *Daemon) GetNodeSuffix() string {
 // K8sCacheIsSynced returns true if the agent has fully synced its k8s cache
 // with the API server
 func (d *Daemon) K8sCacheIsSynced() bool {
-	if !k8s.IsEnabled() {
+	if !d.clientset.IsEnabled() {
 		return true
 	}
 	select {

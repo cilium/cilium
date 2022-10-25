@@ -17,8 +17,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	"github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -176,14 +176,14 @@ func configureForClusterPoolIPAM(factory externalversions.SharedInformerFactory,
 // NOTE: only GoBGP currently implemented.
 //
 // Cancel the provided CTX to stop the Controller.
-func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...ControllerOpt) (*Controller, error) {
+func NewController(ctx context.Context, clientset client.Clientset, rtMgr BGPRouterManager, opts ...ControllerOpt) (*Controller, error) {
 	var (
 		// signaler used to trigger Controller reconciliation.
 		sig = NewSignaler()
 		// stop channel used to cancel informers.
 		stop = make(chan struct{}, 1)
 		// we'll use to list and watch BGPPeeringPolicies
-		factory = externalversions.NewSharedInformerFactory(k8s.CiliumClient(), 0)
+		factory = externalversions.NewSharedInformerFactory(clientset, 0)
 		// an abtraction over obtaining Node Spec information depending on
 		// IPAM configuration.
 		nodeSpecer nodeSpecer
@@ -201,7 +201,7 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 		selfTweakList := externalversions.WithTweakListOptions(func(lo *metav1.ListOptions) {
 			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
 		})
-		factory := externalversions.NewSharedInformerFactoryWithOptions(k8s.CiliumClient(), 0, selfTweakList)
+		factory := externalversions.NewSharedInformerFactoryWithOptions(clientset, 0, selfTweakList)
 		nodeSpecer, err = configureForClusterPoolIPAM(factory, sig, stop)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure listers and informers for ClusterPool IPAM: %w", err)
@@ -211,7 +211,7 @@ func NewController(ctx context.Context, rtMgr BGPRouterManager, opts ...Controll
 		selfTweakList := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
 			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
 		})
-		k8sfactory := informers.NewSharedInformerFactoryWithOptions(k8s.Client(), 0, selfTweakList)
+		k8sfactory := informers.NewSharedInformerFactoryWithOptions(clientset, 0, selfTweakList)
 		nodeSpecer, err = configureForK8sIPAM(k8sfactory, sig, stop)
 		if err != nil {
 			return nil, fmt.Errorf("failed to configure listers and informers for Kubernetes IPAM: %w", err)
