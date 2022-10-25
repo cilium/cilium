@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 type DaemonSuite struct {
@@ -51,7 +52,7 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
-	OnGetNamedPorts        func() (npm policy.NamedPortMultiMap)
+	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
@@ -253,7 +254,7 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 	if ds.OnGetNamedPorts != nil {
 		return ds.OnGetNamedPorts()
 	}

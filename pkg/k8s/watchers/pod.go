@@ -52,9 +52,9 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -813,9 +813,9 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 				return fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
 			}
 			if k8sMeta.NamedPorts == nil {
-				k8sMeta.NamedPorts = make(policy.NamedPortMap)
+				k8sMeta.NamedPorts = make(ciliumTypes.NamedPortMap)
 			}
-			k8sMeta.NamedPorts[port.Name] = policy.PortProto{
+			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
 				Port:  uint16(port.ContainerPort),
 				Proto: uint8(p),
 			}

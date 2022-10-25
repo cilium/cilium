@@ -21,8 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -97,7 +97,7 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
 func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string, npm policy.NamedPortMap) error {
+	metadata, k8sNamespace, k8sPodName string, npm types.NamedPortMap) error {
 	// Sort named ports into a slice
 	namedPorts := make([]identity.NamedPort, 0, len(npm))
 	for name, value := range npm {
@@ -287,7 +287,7 @@ restart:
 					k8sMeta = &K8sMetadata{
 						Namespace:  ipIDPair.K8sNamespace,
 						PodName:    ipIDPair.K8sPodName,
-						NamedPorts: make(policy.NamedPortMap, len(ipIDPair.NamedPorts)),
+						NamedPorts: make(types.NamedPortMap, len(ipIDPair.NamedPorts)),
 					}
 					for _, np := range ipIDPair.NamedPorts {
 						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)

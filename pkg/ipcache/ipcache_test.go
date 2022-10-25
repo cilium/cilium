@@ -15,9 +15,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -316,9 +316,9 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	meta := K8sMetadata{
 		Namespace: "default",
 		PodName:   "app1",
-		NamedPorts: policy.NamedPortMap{
-			"http": policy.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
-			"dns":  policy.PortProto{Port: 53},
+		NamedPorts: types.NamedPortMap{
+			"http": types.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
+			"dns":  types.PortProto{Port: 53},
 		},
 	}
 
@@ -344,8 +344,8 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	npm := IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm["http"], checker.HasKey, types.PortProto{Port: uint16(80), Proto: uint8(6)})
+	c.Assert(npm["dns"], checker.HasKey, types.PortProto{Port: uint16(53), Proto: uint8(0)})
 
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -365,9 +365,9 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	meta2 := K8sMetadata{
 		Namespace: "testing",
 		PodName:   "app2",
-		NamedPorts: policy.NamedPortMap{
-			"https": policy.PortProto{Port: 443, Proto: uint8(u8proto.TCP)},
-			"dns":   policy.PortProto{Port: 53},
+		NamedPorts: types.NamedPortMap{
+			"https": types.PortProto{Port: 443, Proto: uint8(u8proto.TCP)},
+			"dns":   types.PortProto{Port: 53},
 		},
 	}
 
@@ -393,17 +393,17 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 3)
-	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
-	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
+	c.Assert(npm["http"], checker.HasKey, types.PortProto{Port: uint16(80), Proto: uint8(6)})
+	c.Assert(npm["dns"], checker.HasKey, types.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm["https"], checker.HasKey, types.PortProto{Port: uint16(443), Proto: uint8(6)})
 
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
-	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
+	c.Assert(npm["dns"], checker.HasKey, types.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm["https"], checker.HasKey, types.PortProto{Port: uint16(443), Proto: uint8(6)})
 
 	// Assure deletion occurs across all mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -476,8 +476,8 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	// Test mapping of multiple IPs to same identity.
 	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1"}
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
-	k8sMeta.NamedPorts = policy.NamedPortMap{
-		"http2": policy.PortProto{Port: 8080, Proto: uint8(u8proto.TCP)},
+	k8sMeta.NamedPorts = types.NamedPortMap{
+		"http2": types.PortProto{Port: 8080, Proto: uint8(u8proto.TCP)},
 	}
 
 	for index := range endpointIPs {
@@ -489,7 +489,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		c.Assert(err, IsNil)
 		npm = IPIdentityCache.GetNamedPorts()
 		c.Assert(npm, NotNil)
-		c.Assert(npm["http2"], checker.HasKey, policy.PortProto{Port: uint16(8080), Proto: uint8(6)})
+		c.Assert(npm["http2"], checker.HasKey, types.PortProto{Port: uint16(8080), Proto: uint8(6)})
 		// only the first changes named ports, as they are all the same
 		c.Assert(namedPortsChanged, Equals, index == 0)
 		cachedIdentity, _ := IPIdentityCache.LookupByIP(endpointIPs[index])

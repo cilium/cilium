@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -52,7 +53,7 @@ type EndpointSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository     func() *policy.Repository
-	OnGetNamedPorts           func() (npm policy.NamedPortMultiMap)
+	OnGetNamedPorts           func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
@@ -91,7 +92,7 @@ func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
 	return s.repo
 }
 
-func (s *EndpointSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+func (s *EndpointSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 	if s.OnGetNamedPorts != nil {
 		return s.OnGetNamedPorts()
 	}
