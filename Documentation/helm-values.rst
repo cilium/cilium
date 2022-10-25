@@ -409,10 +409,6 @@
      - Configure where Cilium runtime state should be stored.
      - string
      - ``"/var/run/cilium"``
-   * - datapathMode
-     - Configure which datapath mode should be used for configuring container connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed in v1.12.
-     - string
-     - ``"veth"``
    * - debug.enabled
      - Enable debug logging
      - bool
