@@ -4,6 +4,7 @@
 package redirectpolicy
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -549,7 +551,11 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 	}
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
-		log.WithError(err).Error("Error while inserting service in LB map")
+		if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
+			log.WithError(err).Debug("Error while inserting service in LB map")
+		} else {
+			log.WithError(err).Error("Error while inserting service in LB map")
+		}
 	}
 }
 
