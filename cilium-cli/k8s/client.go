@@ -221,6 +221,10 @@ func (c *Client) GetService(ctx context.Context, namespace, name string, opts me
 	return c.Clientset.CoreV1().Services(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error) {
+	return c.Clientset.CoreV1().Endpoints(namespace).Get(ctx, name, opts)
+}
+
 func (c *Client) CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
 	return c.Clientset.AppsV1().Deployments(namespace).Create(ctx, deployment, opts)
 }

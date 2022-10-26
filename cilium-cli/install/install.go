@@ -171,6 +171,7 @@ type k8sInstallerImplementation interface {
 	DeleteDaemonSet(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
+	GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error)
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
