@@ -39,6 +39,34 @@ var (
 	addMetric    = metrics.ServicesCount.WithLabelValues("add")
 )
 
+// ErrLocalRedirectServiceExists represents an error when a Local redirect
+// service exists with the same Frontend.
+type ErrLocalRedirectServiceExists struct {
+	frontend lb.L3n4AddrID
+	name     lb.ServiceName
+}
+
+// NewErrLocalRedirectServiceExists returns a new ErrLocalRedirectServiceExists
+func NewErrLocalRedirectServiceExists(frontend lb.L3n4AddrID, name lb.ServiceName) error {
+	return &ErrLocalRedirectServiceExists{
+		frontend: frontend,
+		name:     name,
+	}
+}
+
+func (e ErrLocalRedirectServiceExists) Error() string {
+	return fmt.Sprintf("local-redirect service exists for "+
+		"frontend %v, skip update for svc %v", e.frontend, e.name)
+}
+
+func (e *ErrLocalRedirectServiceExists) Is(target error) bool {
+	t, ok := target.(*ErrLocalRedirectServiceExists)
+	if !ok {
+		return false
+	}
+	return e.frontend.DeepEqual(&t.frontend) && e.name == t.name
+}
+
 // healthServer is used to manage HealtCheckNodePort listeners
 type healthServer interface {
 	UpsertService(svcID lb.ID, svcNS, svcName string, localEndpoints int, port uint16)
@@ -1049,10 +1077,8 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		// as the service clusterIP type. In such cases, if a Local redirect service
 		// exists, we shouldn't override it with clusterIP type (e.g., k8s event/sync, etc).
 		if svc.svcType == lb.SVCTypeLocalRedirect && p.Type == lb.SVCTypeClusterIP {
-			err := fmt.Errorf("local-redirect service exists for "+
-				"frontend %v, skip update for svc %v", p.Frontend, p.Name)
+			err := NewErrLocalRedirectServiceExists(p.Frontend, p.Name)
 			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
-
 		}
 		// Local-redirect service can only override clusterIP service type or itself.
 		if p.Type == lb.SVCTypeLocalRedirect &&
