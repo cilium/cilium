@@ -18,10 +18,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
-	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	client_typed_v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/util/workqueue"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -33,7 +31,9 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/stream"
 )
@@ -75,7 +75,7 @@ type LBIPAMParams struct {
 
 	ClientSet    k8sClient.Clientset
 	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	SvcResource  resource.Resource[*core_v1.Service]
+	SvcResource  resource.Resource[*slim_core_v1.Service]
 
 	OperatorConfig *operatorOption.OperatorConfig
 }
@@ -96,7 +96,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		poolResource: params.PoolResource,
 		svcResource:  params.SvcResource,
 		poolClient:   params.ClientSet.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
-		svcClient:    params.ClientSet.CoreV1(),
+		svcClient:    params.ClientSet.Slim().CoreV1(),
 		shutdowner:   params.Shutdowner,
 		poolStore:    NewPoolStore(),
 		rangesStore:  newRangesStore(),
@@ -124,7 +124,7 @@ type LBIPAM struct {
 	svcClient  client_typed_v1.ServicesGetter
 
 	poolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	svcResource  resource.Resource[*core_v1.Service]
+	svcResource  resource.Resource[*slim_core_v1.Service]
 
 	shutdowner hive.Shutdowner
 
@@ -195,7 +195,7 @@ func (ipam *LBIPAM) restart() {
 }
 
 type ipPoolEvent = resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-type svcEvent = resource.Event[*core_v1.Service]
+type svcEvent = resource.Event[*slim_core_v1.Service]
 
 func (ipam *LBIPAM) Run() {
 	// PreInit blocks and waits until there is at least 1 pool, which is the trigger to activate the controller.
@@ -407,7 +407,7 @@ func (ipam *LBIPAM) init(
 
 					return nil
 				},
-				func(k resource.Key, svc *core_v1.Service) error {
+				func(k resource.Key, svc *slim_core_v1.Service) error {
 					err := ipam.handleUpsertService(svc)
 					if err != nil {
 						// Let the resource retry after the initialization
@@ -416,7 +416,7 @@ func (ipam *LBIPAM) init(
 
 					return nil
 				},
-				func(k resource.Key, svc *core_v1.Service) error {
+				func(k resource.Key, svc *slim_core_v1.Service) error {
 					ipam.logger.Error("Got a Service deleted event while syncing")
 					return nil
 				},
@@ -486,7 +486,7 @@ func (ipam *LBIPAM) poolOnDelete(k resource.Key, pool *cilium_api_v2alpha1.Ciliu
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnUpsert(k resource.Key, svc *core_v1.Service) error {
+func (ipam *LBIPAM) svcOnUpsert(k resource.Key, svc *slim_core_v1.Service) error {
 	// Deep copy so we get a version we are allowed to update
 	svc = svc.DeepCopy()
 
@@ -507,7 +507,7 @@ func (ipam *LBIPAM) svcOnUpsert(k resource.Key, svc *core_v1.Service) error {
 	return nil
 }
 
-func (ipam *LBIPAM) svcOnDelete(k resource.Key, svc *core_v1.Service) error {
+func (ipam *LBIPAM) svcOnDelete(k resource.Key, svc *slim_core_v1.Service) error {
 	// Deep copy so we get a version we are allowed to update
 	svc = svc.DeepCopy()
 
@@ -545,7 +545,7 @@ func (ipam *LBIPAM) satisfyAndUpdateCounts() error {
 // handleUpsertService updates the service view in the service store, it removes any allocation and ingress that
 // do not belong on the service and will move the service to the satisfied or unsatisfied service view store depending
 // on if the service requests are satisfied or not.
-func (ipam *LBIPAM) handleUpsertService(svc *core_v1.Service) error {
+func (ipam *LBIPAM) handleUpsertService(svc *slim_core_v1.Service) error {
 	key := resource.NewKey(svc)
 	sv, found, _ := ipam.serviceStore.GetService(key)
 	if !found {
@@ -727,7 +727,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 }
 
 func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool, err error) {
-	var newIngresses []core_v1.LoadBalancerIngress
+	var newIngresses []slim_core_v1.LoadBalancerIngress
 
 	// Only keep valid ingresses.
 	for _, ingress := range sv.Status.LoadBalancer.Ingress {
@@ -812,7 +812,7 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 	}
 
 	// Deduplicate ingress IPs (condition can be created externally before we adopted the service)
-	newIngresses = slices.CompactFunc(newIngresses, func(a, b core_v1.LoadBalancerIngress) bool {
+	newIngresses = slices.CompactFunc(newIngresses, func(a, b slim_core_v1.LoadBalancerIngress) bool {
 		return a.IP == b.IP
 	})
 
@@ -826,7 +826,7 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 	return statusModified, nil
 }
 
-func getSVCRequestedIPs(svc *core_v1.Service) []net.IP {
+func getSVCRequestedIPs(svc *slim_core_v1.Service) []net.IP {
 	var ips []net.IP
 	if svc.Spec.LoadBalancerIP != "" {
 		ip := net.ParseIP(svc.Spec.LoadBalancerIP)
@@ -849,7 +849,7 @@ func getSVCRequestedIPs(svc *core_v1.Service) []net.IP {
 	})
 }
 
-func (ipam *LBIPAM) handleDeletedService(svc *core_v1.Service) error {
+func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) error {
 	key := resource.NewKey(svc)
 	sv, found, _ := ipam.serviceStore.GetService(key)
 	if !found {
@@ -1010,10 +1010,10 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 	// Sync allocated IPs back to the service
 	for _, alloc := range sv.AllocatedIPs {
 		// If the allocated IP isn't found in the assigned list, assign it
-		if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in core_v1.LoadBalancerIngress) bool {
+		if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in slim_core_v1.LoadBalancerIngress) bool {
 			return net.ParseIP(in.IP).Equal(alloc.IP)
 		}) == -1 {
-			sv.Status.LoadBalancer.Ingress = append(sv.Status.LoadBalancer.Ingress, core_v1.LoadBalancerIngress{
+			sv.Status.LoadBalancer.Ingress = append(sv.Status.LoadBalancer.Ingress, slim_core_v1.LoadBalancerIngress{
 				IP: alloc.IP.String(),
 			})
 			statusModified = true
@@ -1036,9 +1036,9 @@ func (ipam *LBIPAM) setSVCSatisfiedCondition(
 	satisfied bool,
 	reason, message string,
 ) (statusModified bool) {
-	status := meta_v1.ConditionFalse
+	status := slim_meta_v1.ConditionFalse
 	if satisfied {
-		status = meta_v1.ConditionTrue
+		status = slim_meta_v1.ConditionTrue
 	}
 
 	for _, cond := range sv.Status.Conditions {
@@ -1051,11 +1051,11 @@ func (ipam *LBIPAM) setSVCSatisfiedCondition(
 		}
 	}
 
-	sv.Status.Conditions = append(sv.Status.Conditions, meta_v1.Condition{
+	sv.Status.Conditions = append(sv.Status.Conditions, slim_meta_v1.Condition{
 		Type:               ciliumSvcRequestSatisfiedCondition,
 		Status:             status,
 		ObservedGeneration: sv.Generation,
-		LastTransitionTime: meta_v1.Now(),
+		LastTransitionTime: slim_meta_v1.Now(),
 		Reason:             reason,
 		Message:            message,
 	})
@@ -1098,9 +1098,9 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip net.IP) (lbRange *LBRange,
 }
 
 // isResponsibleForSVC checks if LB IPAM should allocate and assign IPs or some other controller
-func (ipam *LBIPAM) isResponsibleForSVC(svc *core_v1.Service) bool {
+func (ipam *LBIPAM) isResponsibleForSVC(svc *slim_core_v1.Service) bool {
 	// Ignore non-lb services
-	if svc.Spec.Type != core_v1.ServiceTypeLoadBalancer {
+	if svc.Spec.Type != slim_core_v1.ServiceTypeLoadBalancer {
 		return false
 	}
 
@@ -1193,12 +1193,12 @@ func (ipam *LBIPAM) allocateIPAddress(
 }
 
 // serviceIPFamilyRequest checks which families of IP addresses are requested
-func (ipam *LBIPAM) serviceIPFamilyRequest(svc *core_v1.Service) (IPv4Requested, IPv6Requested bool) {
+func (ipam *LBIPAM) serviceIPFamilyRequest(svc *slim_core_v1.Service) (IPv4Requested, IPv6Requested bool) {
 	if svc.Spec.IPFamilyPolicy != nil {
 		switch *svc.Spec.IPFamilyPolicy {
-		case core_v1.IPFamilyPolicySingleStack:
+		case slim_core_v1.IPFamilyPolicySingleStack:
 			if len(svc.Spec.IPFamilies) > 0 {
-				if svc.Spec.IPFamilies[0] == core_v1.IPFamily(IPv4Family) {
+				if svc.Spec.IPFamilies[0] == slim_core_v1.IPFamily(IPv4Family) {
 					IPv4Requested = true
 				} else {
 					IPv6Requested = true
@@ -1211,13 +1211,13 @@ func (ipam *LBIPAM) serviceIPFamilyRequest(svc *core_v1.Service) (IPv4Requested,
 				}
 			}
 
-		case core_v1.IPFamilyPolicyPreferDualStack:
+		case slim_core_v1.IPFamilyPolicyPreferDualStack:
 			if len(svc.Spec.IPFamilies) > 0 {
 				for _, family := range svc.Spec.IPFamilies {
-					if family == core_v1.IPFamily(IPv4Family) {
+					if family == slim_core_v1.IPFamily(IPv4Family) {
 						IPv4Requested = ipam.ipv4Enabled
 					}
-					if family == core_v1.IPFamily(IPv6Family) {
+					if family == slim_core_v1.IPFamily(IPv6Family) {
 						IPv6Requested = ipam.ipv6Enabled
 					}
 				}
@@ -1228,13 +1228,13 @@ func (ipam *LBIPAM) serviceIPFamilyRequest(svc *core_v1.Service) (IPv4Requested,
 				IPv6Requested = ipam.ipv6Enabled
 			}
 
-		case core_v1.IPFamilyPolicyRequireDualStack:
+		case slim_core_v1.IPFamilyPolicyRequireDualStack:
 			IPv4Requested = ipam.ipv4Enabled
 			IPv6Requested = ipam.ipv6Enabled
 		}
 	} else {
 		if len(svc.Spec.IPFamilies) > 0 {
-			if svc.Spec.IPFamilies[0] == core_v1.IPFamily(IPv4Family) {
+			if svc.Spec.IPFamilies[0] == slim_core_v1.IPFamily(IPv4Family) {
 				IPv4Requested = true
 			} else {
 				IPv6Requested = true

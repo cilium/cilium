@@ -14,8 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/fake"
-	client_core_v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	k8s_testing "k8s.io/client-go/testing"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -26,6 +24,8 @@ import (
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
+	client_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -53,7 +53,7 @@ var (
 // writes back to the API server.
 type LBIPAMTestFixture struct {
 	ciliumCS *cilium_fake.Clientset
-	coreCS   *fake.Clientset
+	coreCS   *slim_fake.Clientset
 
 	poolClient v2alpha1.CiliumLoadBalancerIPPoolInterface
 	svcClient  client_core_v1.ServicesGetter
@@ -91,7 +91,7 @@ func mkTestFixture(pools []*cilium_api_v2alpha1.CiliumLoadBalancerIPPool, ipv4, 
 	fixture.ciliumCS.ReactionChain = append([]k8s_testing.Reactor{poolReactor}, fixture.ciliumCS.ReactionChain...)
 
 	// Create a new mocked core client set
-	fixture.coreCS = fake.NewSimpleClientset()
+	fixture.coreCS = slim_fake.NewSimpleClientset()
 	// / Create a new reactor, any API call related to services made to the mocked client will trigger
 	// our `fixture.svcReactor` callback if set.
 	svcReactor := &k8s_testing.SimpleReactor{
@@ -131,8 +131,8 @@ func mkTestFixture(pools []*cilium_api_v2alpha1.CiliumLoadBalancerIPPool, ipv4, 
 		// Provide the mocked client cells directly
 		cell.Provide(func() k8sClient.Clientset {
 			return &k8sClient.FakeClientset{
-				KubernetesFakeClientset: fixture.coreCS,
-				CiliumFakeClientset:     fixture.ciliumCS,
+				SlimFakeClientset:   fixture.coreCS,
+				CiliumFakeClientset: fixture.ciliumCS,
 			}
 		}),
 

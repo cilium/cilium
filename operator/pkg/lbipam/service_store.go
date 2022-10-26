@@ -8,9 +8,9 @@ import (
 
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
-	core_v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_labels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 )
 
@@ -63,7 +63,7 @@ type ServiceView struct {
 	Labels slim_labels.Set
 
 	Generation int64
-	Status     *core_v1.ServiceStatus
+	Status     *slim_core_v1.ServiceStatus
 
 	// The specific IPs requested by the service
 	RequestedIPs []net.IP
@@ -81,7 +81,7 @@ func (sv *ServiceView) isSatisfied() bool {
 	if len(sv.RequestedIPs) > 0 {
 		for _, reqIP := range sv.RequestedIPs {
 			// If reqIP doesn't exist in the list of assigned IPs
-			if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in core_v1.LoadBalancerIngress) bool {
+			if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in slim_core_v1.LoadBalancerIngress) bool {
 				return net.ParseIP(in.IP).Equal(reqIP)
 			}) == -1 {
 				return false
@@ -115,7 +115,7 @@ type ServiceViewIP struct {
 
 // svcLabels clones the services labels and adds a number of internal labels which can be used to select
 // specific services and/or namespaces using the label selectors.
-func svcLabels(svc *core_v1.Service) slim_labels.Set {
+func svcLabels(svc *slim_core_v1.Service) slim_labels.Set {
 	clone := maps.Clone(svc.Labels)
 	clone[serviceNameLabel] = svc.Name
 	clone[serviceNamespaceLabel] = svc.Namespace

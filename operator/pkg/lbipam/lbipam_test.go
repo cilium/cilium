@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_testing "k8s.io/client-go/testing"
 
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
@@ -175,19 +175,19 @@ func TestAllocHappyPath(t *testing.T) {
 	}, true, true, nil)
 
 	// Initially request only an IPv4
-	policy := core_v1.IPFamilyPolicySingleStack
+	policy := slim_core_v1.IPFamilyPolicySingleStack
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				IPFamilyPolicy: &policy,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv4Protocol,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
 				},
 			},
 		},
@@ -235,8 +235,8 @@ func TestAllocHappyPath(t *testing.T) {
 	}
 
 	// Switch to requesting an IPv6 address
-	svc.Spec.IPFamilies = []core_v1.IPFamily{
-		core_v1.IPv6Protocol,
+	svc.Spec.IPFamilies = []slim_core_v1.IPFamily{
+		slim_core_v1.IPv6Protocol,
 	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
@@ -276,8 +276,8 @@ func TestAllocHappyPath(t *testing.T) {
 	}
 
 	// Switch back to requesting an IPv4 address
-	svc.Spec.IPFamilies = []core_v1.IPFamily{
-		core_v1.IPv4Protocol,
+	svc.Spec.IPFamilies = []slim_core_v1.IPFamily{
+		slim_core_v1.IPv4Protocol,
 	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
@@ -317,16 +317,16 @@ func TestServiceDelete(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeLoadBalancer,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv4Protocol,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
 				},
 			},
 		},
@@ -385,24 +385,24 @@ func TestReallocOnInit(t *testing.T) {
 	}, true, true, nil)
 
 	// Initially request only an IPv4
-	policy := core_v1.IPFamilyPolicySingleStack
+	policy := slim_core_v1.IPFamilyPolicySingleStack
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				IPFamilyPolicy: &policy,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv4Protocol,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
 				},
 			},
-			Status: core_v1.ServiceStatus{
-				LoadBalancer: core_v1.LoadBalancerStatus{
-					Ingress: []core_v1.LoadBalancerIngress{
+			Status: slim_core_v1.ServiceStatus{
+				LoadBalancer: slim_core_v1.LoadBalancerStatus{
+					Ingress: []slim_core_v1.LoadBalancerIngress{
 						{
 							IP: "192.168.1.12",
 						},
@@ -463,24 +463,24 @@ func TestAllocOnInit(t *testing.T) {
 		close(initDone)
 	})
 
-	policy := core_v1.IPFamilyPolicySingleStack
+	policy := slim_core_v1.IPFamilyPolicySingleStack
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				IPFamilyPolicy: &policy,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv4Protocol,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
 				},
 			},
-			Status: core_v1.ServiceStatus{
-				LoadBalancer: core_v1.LoadBalancerStatus{
-					Ingress: []core_v1.LoadBalancerIngress{
+			Status: slim_core_v1.ServiceStatus{
+				LoadBalancer: slim_core_v1.LoadBalancerStatus{
+					Ingress: []slim_core_v1.LoadBalancerIngress{
 						{
 							IP: "10.0.10.123",
 						},
@@ -490,19 +490,19 @@ func TestAllocOnInit(t *testing.T) {
 		},
 	)
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-b",
 				Namespace: "default",
 				UID:       serviceBUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: "10.0.10.124",
 			},
-			Status: core_v1.ServiceStatus{
-				LoadBalancer: core_v1.LoadBalancerStatus{
-					Ingress: []core_v1.LoadBalancerIngress{
+			Status: slim_core_v1.ServiceStatus{
+				LoadBalancer: slim_core_v1.LoadBalancerStatus{
+					Ingress: []slim_core_v1.LoadBalancerIngress{
 						{
 							IP: "10.0.10.124",
 						},
@@ -541,7 +541,7 @@ func TestAllocOnInit(t *testing.T) {
 // The selector in this case is a very simple label.
 func TestPoolSelectorBasic(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	selector := slimv1.LabelSelector{
+	selector := slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			"color": "red",
 		},
@@ -588,17 +588,17 @@ func TestPoolSelectorBasic(t *testing.T) {
 		return true
 	}, time.Second)
 
-	policy := core_v1.IPFamilyPolicySingleStack
-	matchingService := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	policy := slim_core_v1.IPFamilyPolicySingleStack
+	matchingService := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name: "red-service",
 			UID:  serviceAUID,
 			Labels: map[string]string{
 				"color": "red",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			IPFamilyPolicy: &policy,
 		},
 	}
@@ -642,16 +642,16 @@ func TestPoolSelectorBasic(t *testing.T) {
 		return true
 	}, time.Second)
 
-	nonMatchingService := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	nonMatchingService := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name: "blue-service",
 			UID:  serviceBUID,
 			Labels: map[string]string{
 				"color": "blue",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			IPFamilyPolicy: &policy,
 		},
 	}
@@ -670,7 +670,7 @@ func TestPoolSelectorBasic(t *testing.T) {
 // assign IPs to services in the given namespace.
 func TestPoolSelectorNamespace(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	selector := slimv1.LabelSelector{
+	selector := slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			"io.kubernetes.service.namespace": "tenant-one",
 		},
@@ -717,15 +717,15 @@ func TestPoolSelectorNamespace(t *testing.T) {
 		return true
 	}, time.Second)
 
-	policy := core_v1.IPFamilyPolicySingleStack
-	matchingService := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	policy := slim_core_v1.IPFamilyPolicySingleStack
+	matchingService := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "red-service",
 			Namespace: "tenant-one",
 			UID:       serviceAUID,
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			IPFamilyPolicy: &policy,
 		},
 	}
@@ -769,8 +769,8 @@ func TestPoolSelectorNamespace(t *testing.T) {
 		return true
 	}, time.Second)
 
-	nonMatchingService := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	nonMatchingService := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "blue-service",
 			Namespace: "tenant-two",
 			UID:       serviceBUID,
@@ -779,8 +779,8 @@ func TestPoolSelectorNamespace(t *testing.T) {
 				"io.kubernetes.service.namespace": "tenant-one",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			IPFamilyPolicy: &policy,
 		},
 	}
@@ -807,14 +807,14 @@ func TestChangeServiceType(t *testing.T) {
 
 	// This existing ClusterIP service should be ignored
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeClusterIP,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeClusterIP,
 			},
 		},
 	)
@@ -869,14 +869,14 @@ func TestChangeServiceType(t *testing.T) {
 		return true
 	}, time.Second)
 
-	updatedService := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	updatedService := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-a",
 			Namespace: "default",
 			UID:       serviceAUID,
 		},
-		Spec: core_v1.ServiceSpec{
-			Type: core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
 		},
 	}
 
@@ -907,14 +907,14 @@ func TestChangeServiceType(t *testing.T) {
 		return true
 	}, time.Second)
 
-	updatedService = &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	updatedService = &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-a",
 			Namespace: "default",
 			UID:       serviceAUID,
 		},
-		Spec: core_v1.ServiceSpec{
-			Type: core_v1.ServiceTypeNodePort,
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeNodePort,
 		},
 	}
 
@@ -943,35 +943,35 @@ func TestRangesFull(t *testing.T) {
 		close(initDone)
 	})
 
-	policy := core_v1.IPFamilyPolicySingleStack
+	policy := slim_core_v1.IPFamilyPolicySingleStack
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				IPFamilyPolicy: &policy,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv4Protocol,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
 				},
 			},
 		},
 	)
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-b",
 				Namespace: "default",
 				UID:       serviceBUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				IPFamilyPolicy: &policy,
-				IPFamilies: []core_v1.IPFamily{
-					core_v1.IPv6Protocol,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv6Protocol,
 				},
 			},
 		},
@@ -1052,14 +1052,14 @@ func TestRequestIPs(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: "10.0.10.20",
 			},
 		},
@@ -1136,8 +1136,8 @@ func TestRequestIPs(t *testing.T) {
 		return true
 	}, time.Second)
 
-	serviceB := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	serviceB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-b",
 			Namespace: "default",
 			UID:       serviceBUID,
@@ -1145,8 +1145,8 @@ func TestRequestIPs(t *testing.T) {
 				ciliumSvcLBIPSAnnotation: "10.0.10.22,10.0.10.23",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			LoadBalancerIP: "10.0.10.21",
 		},
 	}
@@ -1195,14 +1195,14 @@ func TestRequestIPs(t *testing.T) {
 	}, time.Second)
 
 	// request an already allocated IP
-	serviceC := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	serviceC := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-c",
 			Namespace: "default",
 			UID:       serviceCUID,
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			LoadBalancerIP: "10.0.10.21",
 		},
 	}
@@ -1224,14 +1224,14 @@ func TestAddPool(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: "10.0.20.10",
 			},
 		},
@@ -1294,14 +1294,14 @@ func TestAddRange(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: "10.0.20.10",
 			},
 		},
@@ -1368,14 +1368,14 @@ func TestDisablePool(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
 			},
 		},
 	)
@@ -1441,14 +1441,14 @@ func TestDisablePool(t *testing.T) {
 		return true
 	}, time.Second)
 
-	serviceB := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	serviceB := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-b",
 			Namespace: "default",
 			UID:       serviceBUID,
 		},
-		Spec: core_v1.ServiceSpec{
-			Type: core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
 		},
 	}
 
@@ -1503,14 +1503,14 @@ func TestPoolDelete(t *testing.T) {
 	})
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
 			},
 		},
 	)
@@ -1588,14 +1588,14 @@ func TestRangeDelete(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
 			},
 		},
 	)
@@ -1682,21 +1682,21 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		name              string
 		IPv4Enabled       bool
 		IPv6Enabled       bool
-		svc               *core_v1.Service
+		svc               *slim_core_v1.Service
 		wantIPv4Requested bool
 		wantIPv6Requested bool
 	}
 
-	singleStack := core_v1.IPFamilyPolicySingleStack
-	preferDual := core_v1.IPFamilyPolicyPreferDualStack
-	requireDual := core_v1.IPFamilyPolicyRequireDualStack
+	singleStack := slim_core_v1.IPFamilyPolicySingleStack
+	preferDual := slim_core_v1.IPFamilyPolicyPreferDualStack
+	requireDual := slim_core_v1.IPFamilyPolicyRequireDualStack
 
 	tests := []test{
 		{
 			// If no policy is set, fall back to single stack. Only IPv4 enabled
 			name: "No policy, No families, IPv4",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{},
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{},
 			},
 			IPv4Enabled:       true,
 			wantIPv4Requested: true,
@@ -1704,8 +1704,8 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Only IPv6 enabled
 			name: "No policy, No families, IPv6",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{},
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{},
 			},
 			IPv6Enabled:       true,
 			wantIPv6Requested: true,
@@ -1713,8 +1713,8 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Prefer IPv4 over IPv6 in single stack
 			name: "No policy, No families, IPv4/IPv6",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{},
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{},
 			},
 			IPv4Enabled:       true,
 			IPv6Enabled:       true,
@@ -1724,10 +1724,10 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Request IPv6, even if it is disabled.
 			name: "No policy, IPv6 family, IPv4",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv6Protocol,
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv6Protocol,
 					},
 				},
 			},
@@ -1737,10 +1737,10 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Request IPv4, even if it is disabled.
 			name: "No policy, IPv4 family, IPv6",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv4Protocol,
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv4Protocol,
 					},
 				},
 			},
@@ -1750,11 +1750,11 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Request the first family
 			name: "No policy, IPv4/IPv6 family, No enabled",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv4Protocol,
-						core_v1.IPv6Protocol,
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv4Protocol,
+						slim_core_v1.IPv6Protocol,
 					},
 				},
 			},
@@ -1763,11 +1763,11 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If no policy is set, fall back to single stack. Request the first family
 			name: "No policy, IPv4/IPv6 family, No enabled",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv6Protocol,
-						core_v1.IPv4Protocol,
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv6Protocol,
+						slim_core_v1.IPv4Protocol,
 					},
 				},
 			},
@@ -1776,8 +1776,8 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If single stack is explicitly set, and both are available, prefer IPv4
 			name: "Single stack, No families, IPv6/IPv4",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
 					IPFamilyPolicy: &singleStack,
 				},
 			},
@@ -1788,8 +1788,8 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If dual stack is requested, and available, request both
 			name: "PreferDual, No families, IPv6/IPv4",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
 					IPFamilyPolicy: &preferDual,
 				},
 			},
@@ -1801,11 +1801,11 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If dual stack is requested, and available, request family
 			name: "PreferDual, IPv4 family, IPv6",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
 					IPFamilyPolicy: &preferDual,
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv4Protocol,
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv4Protocol,
 					},
 				},
 			},
@@ -1817,11 +1817,11 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 		{
 			// If dual stack is required, and available, request both
 			name: "RequireDual, IPv4 family, IPv6",
-			svc: &core_v1.Service{
-				Spec: core_v1.ServiceSpec{
+			svc: &slim_core_v1.Service{
+				Spec: slim_core_v1.ServiceSpec{
 					IPFamilyPolicy: &requireDual,
-					IPFamilies: []core_v1.IPFamily{
-						core_v1.IPv4Protocol,
+					IPFamilies: []slim_core_v1.IPFamily{
+						slim_core_v1.IPv4Protocol,
 					},
 				},
 			},
@@ -1852,7 +1852,7 @@ func TestLBIPAM_serviceIPFamilyRequest(t *testing.T) {
 // will cause the allocated IPs from that pool to be released and removed from the service.
 func TestRemoveServiceLabel(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	poolA.Spec.ServiceSelector = &slimv1.LabelSelector{
+	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			"color": "blue",
 		},
@@ -1861,8 +1861,8 @@ func TestRemoveServiceLabel(t *testing.T) {
 		poolA,
 	}, true, true, nil)
 
-	svc1 := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	svc1 := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-a",
 			Namespace: "default",
 			UID:       serviceAUID,
@@ -1870,8 +1870,8 @@ func TestRemoveServiceLabel(t *testing.T) {
 				"color": "blue",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type: core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type: slim_core_v1.ServiceTypeLoadBalancer,
 		},
 	}
 
@@ -1932,7 +1932,7 @@ func TestRemoveServiceLabel(t *testing.T) {
 // doesn't match the selector on the pool.
 func TestRequestIPWithMismatchedLabel(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	poolA.Spec.ServiceSelector = &slimv1.LabelSelector{
+	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{
 			"color": "blue",
 		},
@@ -1942,8 +1942,8 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
@@ -1951,8 +1951,8 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 					"color": "red",
 				},
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:           core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: "10.0.10.123",
 			},
 		},
@@ -1983,8 +1983,8 @@ func TestRemoveRequestedIP(t *testing.T) {
 		poolA,
 	}, true, true, nil)
 
-	svc1 := &core_v1.Service{
-		ObjectMeta: meta_v1.ObjectMeta{
+	svc1 := &slim_core_v1.Service{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
 			Name:      "service-a",
 			Namespace: "default",
 			UID:       serviceAUID,
@@ -1992,8 +1992,8 @@ func TestRemoveRequestedIP(t *testing.T) {
 				"io.cilium/lb-ipam-ips": "10.0.10.124,10.0.10.125",
 			},
 		},
-		Spec: core_v1.ServiceSpec{
-			Type:           core_v1.ServiceTypeLoadBalancer,
+		Spec: slim_core_v1.ServiceSpec{
+			Type:           slim_core_v1.ServiceTypeLoadBalancer,
 			LoadBalancerIP: "10.0.10.123",
 		},
 	}
@@ -2073,14 +2073,14 @@ func TestNonMatchingLBClass(t *testing.T) {
 
 	lbClass := "net.example/some-other-class"
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
 			},
-			Spec: core_v1.ServiceSpec{
-				Type:              core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type:              slim_core_v1.ServiceTypeLoadBalancer,
 				LoadBalancerClass: &lbClass,
 			},
 		},
@@ -2107,7 +2107,7 @@ func TestNonMatchingLBClass(t *testing.T) {
 // stripped of their allocations and assignments
 func TestChangePoolSelector(t *testing.T) {
 	poolA := mkPool(poolAUID, "pool-a", []string{"10.0.10.0/24"})
-	poolA.Spec.ServiceSelector = &slimv1.LabelSelector{
+	poolA.Spec.ServiceSelector = &slim_meta_v1.LabelSelector{
 		MatchLabels: map[string]string{"color": "red"},
 	}
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
@@ -2115,8 +2115,8 @@ func TestChangePoolSelector(t *testing.T) {
 	}, true, true, nil)
 
 	fixture.coreCS.Tracker().Add(
-		&core_v1.Service{
-			ObjectMeta: meta_v1.ObjectMeta{
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
 				Name:      "service-a",
 				Namespace: "default",
 				UID:       serviceAUID,
@@ -2124,8 +2124,8 @@ func TestChangePoolSelector(t *testing.T) {
 					"color": "red",
 				},
 			},
-			Spec: core_v1.ServiceSpec{
-				Type: core_v1.ServiceTypeLoadBalancer,
+			Spec: slim_core_v1.ServiceSpec{
+				Type: slim_core_v1.ServiceTypeLoadBalancer,
 			},
 		},
 	)
