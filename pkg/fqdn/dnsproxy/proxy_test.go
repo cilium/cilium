@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/netip"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -1029,38 +1030,71 @@ func (t selectorMock) String() string {
 
 func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	const (
-		nMatchPatterns = 100
+		nEPs              = 10000
+		nEPsAtOnce        = 60
+		nMatchPatterns    = 30
+		nMatchNames       = 600
+		everyNIsEqual     = 10
+		everyNHasWildcard = 20
+		cacheSize         = 128
 	)
+	re.InitRegexCompileLRU(cacheSize)
+	runtime.GC()
+	initialHeap := getMemStats().HeapInuse
+	rulesPerEP := make([]policy.L7DataMap, 0, nEPs)
 
-	var selectorA, selectorB *selectorMock
-	newRules := policy.L7DataMap{
-		selectorA: nil,
-		selectorB: nil,
-	}
-
-	var portRuleDNS []api.PortRuleDNS
+	var defaultRules []api.PortRuleDNS
 	for i := 0; i < nMatchPatterns; i++ {
-		portRuleDNS = append(portRuleDNS, api.PortRuleDNS{
-			MatchPattern: "kubernetes.default.svc.cluster.local",
-		})
+		defaultRules = append(defaultRules, api.PortRuleDNS{MatchPattern: "*.bar" + strconv.Itoa(i) + "another.very.long.domain.here"})
+	}
+	for i := 0; i < nMatchNames; i++ {
+		defaultRules = append(defaultRules, api.PortRuleDNS{MatchName: strconv.Itoa(i) + "very.long.domain.containing.a.lot.of.chars"})
 	}
 
-	for selector := range newRules {
-		newRules[selector] = &policy.PerSelectorPolicy{
-			L7Rules: api.L7Rules{
-				DNS: portRuleDNS,
-			},
+	for i := 0; i < nEPs; i++ {
+		commonRules := append([]api.PortRuleDNS{}, defaultRules...)
+		if i%everyNIsEqual != 0 {
+			commonRules = append(
+				commonRules,
+				api.PortRuleDNS{MatchName: "custom-for-this-one" + strconv.Itoa(i) + ".domain.tld"},
+				api.PortRuleDNS{MatchPattern: "custom2-for-this-one*" + strconv.Itoa(i) + ".domain.tld"},
+			)
 		}
+		if (i+1)%everyNHasWildcard == 0 {
+			commonRules = append(commonRules, api.PortRuleDNS{MatchPattern: "*"})
+		}
+		psp := &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: commonRules}}
+		rulesPerEP = append(rulesPerEP, policy.L7DataMap{new(selectorMock): psp, new(selectorMock): psp})
 	}
 
 	pea := perEPAllow{}
-	re.InitRegexCompileLRU(128)
 	b.ReportAllocs()
+	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for epID := uint64(0); epID < 20; epID++ {
-			pea.setPortRulesForID(epID, 8053, newRules)
+		re.InitRegexCompileLRU(cacheSize)
+		for epID := uint64(0); epID < nEPs; epID++ {
+			pea.setPortRulesForID(epID, 8053, nil)
 		}
+		b.StartTimer()
+		for epID, rules := range rulesPerEP {
+			if epID >= nEPsAtOnce {
+				pea.setPortRulesForID(uint64(epID)-nEPsAtOnce, 8053, nil)
+			}
+			pea.setPortRulesForID(uint64(epID), 8053, rules)
+		}
+		b.StopTimer()
+	}
+	runtime.GC()
+	// This is a ~proxy metric for the growth of heap per b.N. We call it here instead of the loop to
+	// ensure we also count things like the strings "borrowed" from rulesPerEP
+	b.ReportMetric(float64(getMemStats().HeapInuse-initialHeap), "B(HeapInUse)/op")
+
+	for epID := uint64(0); epID < nEPs; epID++ {
+		pea.setPortRulesForID(epID, 8053, nil)
+	}
+	if len(pea) > 0 {
+		b.Fail()
 	}
 }
 
