@@ -115,115 +115,16 @@ func NewVirtualHostWithDefaults(hostnames []string, httpsRedirect bool, hostName
 
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
 func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
-	routes := make(SortableRoute, 0, len(httpRoutes))
 	matchBackendMap := make(map[string][]model.HTTPRoute)
-
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
 	}
 
+	var routes SortableRoute
 	if httpsRedirect {
-		for _, hRoutes := range matchBackendMap {
-			if httpsRedirect {
-				rRedirect := &envoy_config_route_v3.Route_Redirect{
-					Redirect: &envoy_config_route_v3.RedirectAction{
-						SchemeRewriteSpecifier: &envoy_config_route_v3.RedirectAction_HttpsRedirect{
-							HttpsRedirect: true,
-						},
-					},
-				}
-
-				route := envoy_config_route_v3.Route{
-					Match: getRouteMatch(hostnames,
-						hostNameSuffixMatch,
-						hRoutes[0].PathMatch,
-						hRoutes[0].QueryParamsMatch,
-						hRoutes[0].HeadersMatch,
-						hRoutes[0].Method),
-					Action: rRedirect,
-				}
-				routes = append(routes, &route)
-			}
-		}
+		routes = envoyHTTPSRoutes(matchBackendMap, hostnames, hostNameSuffixMatch)
 	} else {
-		for _, hRoutes := range matchBackendMap {
-			var backends []model.Backend
-			for _, r := range hRoutes {
-				backends = append(backends, r.Backends...)
-			}
-			var routeAction *envoy_config_route_v3.Route_Route
-			if len(backends) == 0 {
-				if hRoutes[0].DirectResponse != nil {
-					route := envoy_config_route_v3.Route{
-						Match: getRouteMatch(hostnames,
-							hostNameSuffixMatch,
-							hRoutes[0].PathMatch,
-							hRoutes[0].HeadersMatch,
-							hRoutes[0].QueryParamsMatch,
-							hRoutes[0].Method),
-						Action: &envoy_config_route_v3.Route_DirectResponse{
-							DirectResponse: &envoy_config_route_v3.DirectResponseAction{
-								Status: uint32(hRoutes[0].DirectResponse.StatusCode),
-								Body: &envoy_config_core_v3.DataSource{
-									Specifier: &envoy_config_core_v3.DataSource_InlineString{
-										InlineString: hRoutes[0].DirectResponse.Body,
-									},
-								},
-							},
-						},
-					}
-					routes = append(routes, &route)
-				}
-				continue
-			}
-
-			if len(backends) == 1 {
-				routeAction = &envoy_config_route_v3.Route_Route{
-					Route: &envoy_config_route_v3.RouteAction{
-						ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
-							Cluster: fmt.Sprintf("%s/%s:%s", backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
-						},
-					},
-				}
-			} else {
-				weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(routes))
-				totalWeight := int32(0)
-				for _, be := range backends {
-					var weight int32 = 1
-					if be.Weight != nil {
-						weight = *be.Weight
-					}
-					totalWeight += weight
-					weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
-						Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
-						Weight: wrapperspb.UInt32(uint32(weight)),
-					})
-				}
-				routeAction = &envoy_config_route_v3.Route_Route{
-					Route: &envoy_config_route_v3.RouteAction{
-						ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
-							WeightedClusters: &envoy_config_route_v3.WeightedCluster{
-								Clusters:    weightedClusters,
-								TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
-							},
-						},
-					},
-				}
-			}
-
-			route := envoy_config_route_v3.Route{
-				Match: getRouteMatch(hostnames,
-					hostNameSuffixMatch,
-					hRoutes[0].PathMatch,
-					hRoutes[0].HeadersMatch,
-					hRoutes[0].QueryParamsMatch,
-					hRoutes[0].Method),
-				Action:                 routeAction,
-				RequestHeadersToAdd:    getRequestHeadersToAdd(hRoutes[0]),
-				RequestHeadersToRemove: getRequestHeadersToRemove(hRoutes[0]),
-			}
-			routes = append(routes, &route)
-		}
+		routes = envoyHTTPRoutes(matchBackendMap, hostnames, hostNameSuffixMatch)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -256,6 +157,119 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 	}
 
 	return res, nil
+}
+
+func envoyHTTPSRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
+	for _, hRoutes := range matchBackendMap {
+		rRedirect := &envoy_config_route_v3.Route_Redirect{
+			Redirect: &envoy_config_route_v3.RedirectAction{
+				SchemeRewriteSpecifier: &envoy_config_route_v3.RedirectAction_HttpsRedirect{
+					HttpsRedirect: true,
+				},
+			},
+		}
+		route := envoy_config_route_v3.Route{
+			Match: getRouteMatch(hostnames,
+				hostNameSuffixMatch,
+				hRoutes[0].PathMatch,
+				hRoutes[0].QueryParamsMatch,
+				hRoutes[0].HeadersMatch,
+				hRoutes[0].Method),
+			Action: rRedirect,
+		}
+		routes = append(routes, &route)
+	}
+	return routes
+}
+
+func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+	routes := make([]*envoy_config_route_v3.Route, 0, len(matchBackendMap))
+	for _, hRoutes := range matchBackendMap {
+		var backends []model.Backend
+		for _, r := range hRoutes {
+			backends = append(backends, r.Backends...)
+		}
+
+		if len(backends) == 0 {
+			routes = append(routes, envoyHTTPRouteNoBackend(hRoutes[0], hostnames, hostNameSuffixMatch))
+			continue
+		}
+
+		var routeAction *envoy_config_route_v3.Route_Route
+		if len(backends) == 1 {
+			routeAction = &envoy_config_route_v3.Route_Route{
+				Route: &envoy_config_route_v3.RouteAction{
+					ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+						Cluster: fmt.Sprintf("%s/%s:%s", backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
+					},
+				},
+			}
+		} else {
+			weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(routes))
+			totalWeight := int32(0)
+			for _, be := range backends {
+				var weight int32 = 1
+				if be.Weight != nil {
+					weight = *be.Weight
+				}
+				totalWeight += weight
+				weightedClusters = append(weightedClusters, &envoy_config_route_v3.WeightedCluster_ClusterWeight{
+					Name:   fmt.Sprintf("%s/%s:%s", be.Namespace, be.Name, be.Port.GetPort()),
+					Weight: wrapperspb.UInt32(uint32(weight)),
+				})
+			}
+			routeAction = &envoy_config_route_v3.Route_Route{
+				Route: &envoy_config_route_v3.RouteAction{
+					ClusterSpecifier: &envoy_config_route_v3.RouteAction_WeightedClusters{
+						WeightedClusters: &envoy_config_route_v3.WeightedCluster{
+							Clusters:    weightedClusters,
+							TotalWeight: wrapperspb.UInt32(uint32(totalWeight)),
+						},
+					},
+				},
+			}
+		}
+
+		route := envoy_config_route_v3.Route{
+			Match: getRouteMatch(hostnames,
+				hostNameSuffixMatch,
+				hRoutes[0].PathMatch,
+				hRoutes[0].HeadersMatch,
+				hRoutes[0].QueryParamsMatch,
+				hRoutes[0].Method),
+			Action:                 routeAction,
+			RequestHeadersToAdd:    getRequestHeadersToAdd(hRoutes[0]),
+			RequestHeadersToRemove: getRequestHeadersToRemove(hRoutes[0]),
+		}
+		routes = append(routes, &route)
+	}
+	return routes
+}
+
+func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) *envoy_config_route_v3.Route {
+	if route.DirectResponse == nil {
+		return nil
+	}
+
+	return &envoy_config_route_v3.Route{
+		Match: getRouteMatch(hostnames,
+			hostNameSuffixMatch,
+			route.PathMatch,
+			route.HeadersMatch,
+			route.QueryParamsMatch,
+			route.Method),
+		Action: &envoy_config_route_v3.Route_DirectResponse{
+			DirectResponse: &envoy_config_route_v3.DirectResponseAction{
+				Status: uint32(route.DirectResponse.StatusCode),
+				Body: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineString{
+						InlineString: route.DirectResponse.Body,
+					},
+				},
+			},
+		},
+	}
 }
 
 func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
