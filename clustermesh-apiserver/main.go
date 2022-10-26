@@ -41,9 +41,11 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
@@ -100,10 +102,31 @@ var (
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 )
 
+var resources = cell.Module(
+	"resources",
+
+	cell.Provide(
+		func(lc hive.Lifecycle, c k8sClient.Clientset) (resource.Resource[*slim_corev1.Service], error) {
+			optsModifier, err := utils.GetServiceListOptionsModifier(cfg)
+			if err != nil {
+				return nil, err
+			}
+			return resource.New[*slim_corev1.Service](
+				lc,
+				utils.ListerWatcherWithModifier(
+					utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](c.Slim().CoreV1().Services("")),
+					optsModifier),
+				resource.WithErrorHandler(resource.AlwaysRetry),
+			), nil
+		},
+	),
+)
+
 func init() {
 	rootHive = hive.New(
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
+		resources,
 		healthAPIServerCell,
 
 		cell.Invoke(registerHooks),
@@ -112,7 +135,7 @@ func init() {
 	vp = rootHive.Viper()
 }
 
-func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
+func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
 	if !clientset.IsEnabled() {
 		return errors.New("Kubernetes client not configured, cannot continue.")
 	}
@@ -120,7 +143,7 @@ func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
 	k8s.SetClients(clientset, clientset.Slim(), clientset, clientset)
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
-			startServer(ctx, clientset)
+			startServer(ctx, clientset, services)
 			return nil
 		},
 	})
@@ -548,7 +571,7 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   clusterID,
@@ -590,7 +613,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 		synchronizeIdentities(clientset)
 		synchronizeNodes(clientset)
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(clientset, false, cfg)
+		operatorWatchers.StartSynchronizingServices(context.Background(), clientset, services, false, cfg)
 	}
 
 	go func() {

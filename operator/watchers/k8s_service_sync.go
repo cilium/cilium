@@ -18,13 +18,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -36,22 +36,11 @@ import (
 var (
 	K8sSvcCache = k8s.NewServiceCache(nil)
 
-	// serviceInitOnce ensures we onlt initialize the service watcher once.
-	serviceInitOnce sync.Once
-	// serviceController is the global (to this package) slim_corev1.Service
-	// controller that monitors objects for changes.
-	serviceController cache.Controller
-	// serviceIndexer is the store containing all the slim_corev1.Service
-	// objects seen by the controller.
-	serviceIndexer cache.Store
-
 	// k8sSvcCacheSynced is used do signalize when all services are synced with
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               *store.SharedStore
 	sharedOnly        bool
-
-	serviceSubscribers = subscriber.NewServiceChain()
 )
 
 func k8sEventMetric(scope, action string) {
@@ -110,7 +99,7 @@ type ServiceSyncConfiguration interface {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(clientset k8sClient.Clientset, shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 	sharedOnly = shared
 
@@ -145,9 +134,33 @@ func StartSynchronizingServices(clientset k8sClient.Clientset, shared bool, cfg 
 	swgSvcs := lock.NewStoppableWaitGroup()
 	swgEps := lock.NewStoppableWaitGroup()
 
-	serviceSubscribers.Register(newServiceCacheSubscriber(swgSvcs, swgEps))
+	// Start populating the service cache
+	services.Observe(
+		ctx,
+		func(ev resource.Event[*slim_corev1.Service]) {
+			ev.Handle(
+				func() error {
+					// Wait until service cache updates have been fully processed.
+					swgSvcs.Stop()
+					swgSvcs.Wait()
+					close(k8sSvcCacheSynced)
+					return nil
+				},
+				func(key resource.Key, svc *slim_corev1.Service) error {
+					k8sEventMetric(resources.MetricService, resources.MetricUpdate)
+					K8sSvcCache.UpdateService(svc, swgSvcs)
+					return nil
+				},
+				func(_ resource.Key, deletedSvc *slim_corev1.Service) error {
+					k8sEventMetric(resources.MetricService, resources.MetricDelete)
+					K8sSvcCache.DeleteService(deletedSvc, swgSvcs)
+					return nil
+				},
+			)
 
-	InitServiceWatcher(cfg, clientset, swgSvcs, swgEps, serviceOptsModifier)
+		},
+		func(error) { /* only completes when stopping */ },
+	)
 
 	var (
 		endpointController cache.Controller
@@ -186,63 +199,6 @@ func StartSynchronizingServices(clientset k8sClient.Clientset, shared bool, cfg 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
 		k8sServiceHandler(cfg.LocalClusterName())
 	}()
-}
-
-// InitServiceWatcher creates and runs the v1.Service watcher which watches for
-// changes and push changes into ServiceCache.
-func InitServiceWatcher(
-	cfg ServiceSyncConfiguration,
-	clientset k8sClient.Clientset,
-	swgSvcs, swgEps *lock.StoppableWaitGroup,
-	optsModifier func(options *v1meta.ListOptions),
-) {
-	serviceInitOnce.Do(func() {
-		// Watch for v1.Service changes and push changes into ServiceCache.
-		serviceIndexer, serviceController = informer.NewInformer(
-			utils.ListerWatcherWithModifier(
-				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](clientset.Slim().CoreV1().Services("")),
-				optsModifier),
-			&slim_corev1.Service{},
-			0,
-			cache.ResourceEventHandlerFuncs{
-				AddFunc: func(obj interface{}) {
-					k8sEventMetric(resources.MetricService, resources.MetricCreate)
-					if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
-						serviceSubscribers.OnAddService(k8sSvc)
-					}
-				},
-				UpdateFunc: func(oldObj, newObj interface{}) {
-					k8sEventMetric(resources.MetricService, resources.MetricUpdate)
-					if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
-						if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
-							if oldk8sSvc.DeepEqual(newk8sSvc) {
-								return
-							}
-							serviceSubscribers.OnUpdateService(oldk8sSvc, newk8sSvc)
-						}
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					k8sEventMetric(resources.MetricService, resources.MetricDelete)
-					k8sSvc := k8s.ObjToV1Services(obj)
-					if k8sSvc == nil {
-						return
-					}
-					serviceSubscribers.OnDeleteService(k8sSvc)
-				},
-			},
-			nil,
-		)
-
-		go serviceController.Run(wait.NeverStop)
-
-		go func() {
-			cache.WaitForCacheSync(wait.NeverStop, serviceController.HasSynced)
-			swgSvcs.Stop()
-			swgSvcs.Wait()
-			close(k8sSvcCacheSynced)
-		}()
-	})
 }
 
 func endpointsInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
