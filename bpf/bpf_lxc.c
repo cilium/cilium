@@ -2105,7 +2105,7 @@ int handle_policy_egress(struct __ctx_buff *ctx)
 
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, 0, LXC_ID,
+		return send_drop_notify(ctx, SECLABEL, 0, 0,
 					ret, CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;

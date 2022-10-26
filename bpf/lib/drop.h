@@ -25,7 +25,7 @@ struct drop_notify {
 	NOTIFY_CAPTURE_HDR
 	__u32		src_label;
 	__u32		dst_label;
-	__u32		dst_id;
+	__u32		dst_id; /* 0 for egress */
 	__u16		line;
 	__u8		file;
 	__s8		ext_error;
@@ -40,11 +40,11 @@ struct drop_notify {
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |                       Destination Label                       |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |  Error Code  | Extended Error|            Unused              |
+ *     |  Error Code   | Extended Error|            Unused             |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     |             Designated Destination Endpoint ID                |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     |   Exit Code  |  Source File  |         Source Line            |
+ *     |   Exit Code   |  Source File  |         Source Line           |
  *     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
@@ -86,7 +86,7 @@ int __send_drop_notify(struct __ctx_buff *ctx)
  * @ctx:	socket buffer
  * @src:	source identity
  * @dst:	destination identity
- * @dst_id:	designated destination endpoint ID
+ * @dst_id:	designated destination endpoint ID, if ingress, otherwise 0
  * @reason:	Reason for drop
  * @exitcode:	error code to return to the kernel
  *
@@ -103,6 +103,14 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	if (!__builtin_constant_p(exitcode) || exitcode > 0xff ||
 	    !__builtin_constant_p(file) || file > 0xff ||
 	    !__builtin_constant_p(line) || line > 0xffff)
+		__throw_build_bug();
+
+	/* These fields should be constants, and non-zero 'dst_id' is only to be
+	 * used for ingress.
+	 */
+	if (!__builtin_constant_p(dst_id) ||
+	    (dst_id != 0 &&
+	     (!__builtin_constant_p(direction) || direction != METRIC_INGRESS)))
 		__throw_build_bug();
 
 	ctx_store_meta(ctx, 0, src);
