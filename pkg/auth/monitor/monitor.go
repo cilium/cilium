@@ -6,6 +6,7 @@ package monitor
 import (
 	"bytes"
 	"encoding/binary"
+	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -33,14 +34,19 @@ func (dm *dropMonitor) NotifyAgentEvent(typ int, message interface{}) {
 
 func (dm *dropMonitor) NotifyPerfEvent(data []byte, cpu int) {
 	if len(data) < monitor.DropNotifyLen || data[0] != monitorAPI.MessageTypeDrop || data[1] != byte(flow.DropReason_AUTH_REQUIRED) {
+		// Event was not AUTH_REQUIRED
 		return
 	}
+
 	dn := &monitor.DropNotify{}
 	if err := binary.Read(bytes.NewReader(data), byteorder.Native, dn); err != nil {
 		log.WithError(err).Warning("failed to parse drop")
 		return
 	}
-	connInfo := monitor.GetConnectionInfo(data)
+
+	// Packet data starts right after the DropNotify
+	connInfo := monitor.GetConnectionInfo(data[unsafe.Sizeof(*dn):])
+
 	dm.authManager.AuthRequired(dn, connInfo)
 }
 
