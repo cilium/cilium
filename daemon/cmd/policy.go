@@ -65,7 +65,7 @@ func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {
 		return fmt.Errorf("failed to create policy update trigger: %w", err)
 	}
 
-	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager()))
+	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager(epMgr)))
 
 	return nil
 }

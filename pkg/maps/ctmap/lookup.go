@@ -13,10 +13,10 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
-	ip, port, err := net.SplitHostPort(remoteAddr)
+func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
+	ip, port, err := net.SplitHostPort(srcAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid remote address '%s': %s", remoteAddr, err)
+		return nil, false, fmt.Errorf("invalid source address '%s': %s", srcAddr, err)
 	}
 
 	sIP := net.ParseIP(ip)
@@ -29,17 +29,17 @@ func createTupleKey(isGlobal bool, remoteAddr, localAddr string, proto u8proto.U
 		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
 	}
 
-	localIp, localPort, err := net.SplitHostPort(localAddr)
+	dstIp, dstPort, err := net.SplitHostPort(dstAddr)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid local address '%s': %s", localAddr, err)
+		return nil, false, fmt.Errorf("invalid destination address '%s': %s", dstAddr, err)
 	}
 
-	dIP := net.ParseIP(localIp)
+	dIP := net.ParseIP(dstIp)
 	if dIP == nil {
-		return nil, false, fmt.Errorf("unable to parse IP %s", localIp)
+		return nil, false, fmt.Errorf("unable to parse IP %s", dstIp)
 	}
 
-	dport, err := strconv.ParseUint(localPort, 10, 16)
+	dport, err := strconv.ParseUint(dstPort, 10, 16)
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to parse port string: %s", err)
 	}
@@ -136,27 +136,17 @@ func getMapName(mapname string, ipv4 bool, proto u8proto.U8proto) string {
 	return mapname
 }
 
-// Lookup opens a conntrack map if necessary, and does a lookup on it with a key constructed from
-// the parameters
-// 'epname' is a 5-digit representation of the endpoint ID if local maps
-// are to be used, or "global" if global maps should be used.
-func Lookup(epname string, remoteAddr, localAddr string, proto u8proto.U8proto, ingress bool) (*CtEntry, error) {
-	isGlobal := epname == "global"
-
-	key, ipv4, err := createTupleKey(isGlobal, remoteAddr, localAddr, proto, ingress)
-	if err != nil {
-		return nil, err
-	}
-
+func getOrOpenMap(epname string, ipv4 bool, proto u8proto.U8proto) (*bpf.Map, error) {
 	mapname := getMapName(epname, ipv4, proto)
-
 	m := bpf.GetMap(mapname)
 	if m == nil {
+		var err error
 		// Open the map and leave it open
 		m, err = bpf.OpenMap(mapname)
 		if err != nil {
 			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
 		}
+		isGlobal := epname == "global"
 		if isGlobal {
 			if ipv4 {
 				m.MapKey = &CtKey4Global{}
@@ -172,12 +162,64 @@ func Lookup(epname string, remoteAddr, localAddr string, proto u8proto.U8proto, 
 		}
 		m.MapValue = &CtEntry{}
 	}
+	return m, nil
+}
+
+// Lookup opens a conntrack map if necessary, and does a lookup on it with a key constructed from
+// the parameters
+// 'epname' is a 5-digit representation of the endpoint ID if local maps
+// are to be used, or "global" if global maps should be used.
+func Lookup(epname string, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (*CtEntry, error) {
+	isGlobal := epname == "global"
+
+	key, ipv4, err := createTupleKey(isGlobal, srcAddr, dstAddr, proto, ingress)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := getOrOpenMap(epname, ipv4, proto)
+	if err != nil || m == nil {
+		return nil, err
+	}
 
 	v, err := m.Lookup(key)
 	if err != nil || v == nil {
 		return nil, err
 	}
+
 	return v.(*CtEntry), err
+}
+
+// Update opens a conntrack map if necessary, and does a lookup on it with a key constructed from
+// the parameters, and updates the found entry (if any) via 'updateFn'.
+// 'epname' is a 5-digit representation of the endpoint ID if local maps
+// are to be used, or "global" if global maps should be used.
+func Update(epname string, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool,
+	updateFn func(*CtEntry) error) error {
+	isGlobal := epname == "global"
+
+	key, ipv4, err := createTupleKey(isGlobal, srcAddr, dstAddr, proto, ingress)
+	if err != nil {
+		return err
+	}
+
+	m, err := getOrOpenMap(epname, ipv4, proto)
+	if err != nil || m == nil {
+		return err
+	}
+
+	v, err := m.Lookup(key)
+	if err != nil || v == nil {
+		return err
+	}
+
+	entry := v.(*CtEntry)
+	err = updateFn(entry)
+	if err != nil {
+		return err
+	}
+
+	return m.Update(key, entry)
 }
 
 func getMapWithName(epname string, ipv4 bool, proto u8proto.U8proto) *bpf.Map {
