@@ -22,6 +22,10 @@ type Store[T k8sRuntime.Object] interface {
 
 	// GetByKey returns the latest version of the object with given key.
 	GetByKey(key Key) (item T, exists bool, err error)
+
+	// CacheStore returns the underlying cache.Store instance. Use for temporary
+	// compatibility purposes only!
+	CacheStore() cache.Store
 }
 
 // typedStore implements Store on top of an untyped cache.Store.
@@ -55,6 +59,10 @@ func (s *typedStore[T]) GetByKey(key Key) (item T, exists bool, err error) {
 		item = itemAny.(T)
 	}
 	return
+}
+
+func (s *typedStore[T]) CacheStore() cache.Store {
+	return s.store
 }
 
 type KeyIter interface {
