@@ -12,10 +12,11 @@ Azure CNI
 
 .. note::
 
-   This is not the best option to run Cilium on AKS or Azure. Please refer to
-   :ref:`k8s_install_quick` for the best guide to run Cilium in Azure Cloud.
-   Follow this guide if you specifically want to run Cilium in combination with
-   the Azure CNI in a chaining configuration.
+   For most users, the best way to run Cilium on AKS is either
+   AKS BYO CNI as described in :ref:`k8s_install_quick`
+   or `Azure CNI Powered by Cilium <https://aka.ms/aks/cilium-dataplane>`_.
+   This guide provides alternative instructions to run Cilium with Azure CNI
+   in a chaining configuration.
 
 .. include:: cni-chaining-limitations.rst
 
