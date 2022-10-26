@@ -209,7 +209,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict = 0, l4_off, hdrlen, zero = 0;
+	int ret, verdict, l4_off, hdrlen, zero = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -286,6 +286,8 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 
 #if defined(ENABLE_L7_LB)
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
 	if (proxy_port > 0) {
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr.p4, tuple->saddr.p4,
@@ -322,18 +324,27 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ct_status != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
+		/* Crete CT entry if drop for auth required. */
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			if (ct_status == CT_NEW) {
+				ct_state_new.src_sec_id = SECLABEL;
+				ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+					   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+					   true);
+				return verdict;
+			} else if (!ct_state->auth_required) {
+				verdict = CTX_ACT_OK; /* allow if auth done */
+			}
+		}
+		if (verdict != CTX_ACT_OK)
+			return verdict;
+	}
 
 skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate6:
@@ -344,7 +355,7 @@ ct_recreate6:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb);
+				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb, false);
 		if (IS_ERR(ret))
 			return ret;
 		trace.monitor = TRACE_PAYLOAD_LEN;
@@ -723,7 +734,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 #endif
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, verdict = 0, l4_off;
+	int ret, verdict, l4_off;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -803,10 +814,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	trace.reason = (enum trace_reason)ret;
 
 #if defined(ENABLE_L7_LB)
+	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
+
 	if (proxy_port > 0) {
 		/* tuple addresses have been swapped by CT lookup */
 		cilium_dbg3(ctx, DBG_L7_LB, tuple->daddr, tuple->saddr, bpf_ntohs(proxy_port));
-		verdict = proxy_port;
 		goto skip_policy_enforcement;
 	}
 #endif /* ENABLE_L7_LB */
@@ -839,18 +851,27 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ct_status != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
-
+		/* Crete CT entry if drop for auth required. */
+		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+			if (ct_status == CT_NEW) {
+				ct_state_new.src_sec_id = SECLABEL;
+				ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
+					   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+					   true);
+				return verdict;
+			} else if (!ct_state->auth_required) {
+				verdict = CTX_ACT_OK; /* allow if auth done */
+			}
+		}
+		if (verdict != CTX_ACT_OK) {
+			return verdict;
+		}
+	}
 skip_policy_enforcement:
-#if defined(ENABLE_L7_LB)
-	from_l7lb = ctx_load_meta(ctx, CB_FROM_HOST) == FROM_HOST_L7_LB;
-#endif
 	switch (ct_status) {
 	case CT_NEW:
 ct_recreate4:
@@ -864,7 +885,7 @@ ct_recreate4:
 		 * handling here, but turns out that verifier cannot handle it.
 		 */
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, verdict > 0, from_l7lb);
+				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb, false);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -1342,7 +1363,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 {
 	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple tuple_on_stack __maybe_unused, *tuple;
-	int ret, verdict, hdrlen, zero = 0;
+	int ret, verdict = CTX_ACT_OK, hdrlen, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1432,14 +1453,17 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr, false,
 					    &policy_match_type, &audited, proxy_port);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED &&
+	    ret != CT_NEW && !ct_state->auth_required)
+		verdict = CTX_ACT_OK; /* allow if auth done */
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, *proxy_port, policy_match_type, audited);
 
-	if (verdict < 0)
+	if (verdict != CTX_ACT_OK && verdict != DROP_POLICY_AUTH_REQUIRED)
 		return verdict;
 
 skip_policy_enforcement:
@@ -1474,12 +1498,16 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false);
+				 &ct_state_new, *proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
 		if (IS_ERR(ret))
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
 	}
+
+	if (verdict != CTX_ACT_OK)
+		return verdict;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1655,7 +1683,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	struct ct_buffer4 *ct_buffer;
 	__u32 monitor = 0, zero = 0;
 	enum trace_reason reason;
-	int ret, verdict = 0;
+	int ret, verdict = CTX_ACT_OK;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -1759,14 +1787,17 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 					    tuple->dport, tuple->nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, proxy_port);
+	if (verdict == DROP_POLICY_AUTH_REQUIRED &&
+	    ret != CT_NEW && !ct_state->auth_required)
+		verdict = CTX_ACT_OK; /* allow if auth done */
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
 					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, *proxy_port, policy_match_type, audited);
 
-	if (verdict < 0)
+	if (verdict != CTX_ACT_OK && verdict != DROP_POLICY_AUTH_REQUIRED)
 		return verdict;
 
 skip_policy_enforcement:
@@ -1801,12 +1832,16 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false);
+				 &ct_state_new, *proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
 		if (IS_ERR(ret))
 			return ret;
 
 		/* NOTE: tuple has been invalidated after this */
 	}
+
+	if (verdict != CTX_ACT_OK)
+		return verdict;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
