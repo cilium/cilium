@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"net"
 	"testing"
 
@@ -21,6 +22,106 @@ import (
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
+
+func TestLocalRedirectServiceExistsError(t *testing.T) {
+	addrCluster1 := cmtypes.MustParseAddrCluster("1.2.3.4")
+	addrCluster2 := cmtypes.MustParseAddrCluster("5.6.7.8")
+	name1 := "my-svc-1"
+	name2 := "my-svc-2"
+
+	// same frontend, same name
+	err1 := NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 := NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	assert.Equal(t, err1, err2)
+	assert.True(t, errors.Is(err1, err2))
+
+	// same frontend, different name
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name2},
+	)
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// different frontend, same name
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster2, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// different frontend, different name
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster2, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name2},
+	)
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// different error types
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = errors.New("another error")
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// different error types
+	err1 = errors.New("another error")
+	err2 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// an error is nil
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = nil
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// an error is nil
+	err1 = nil
+	err2 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+
+	// We don't match against strings. It must be the sentinel value.
+	err1 = NewErrLocalRedirectServiceExists(
+		*lb.NewL3n4AddrID(lb.TCP, addrCluster1, 8080, lb.ScopeInternal, 1),
+		lb.ServiceName{Namespace: "default", Name: name1},
+	)
+	err2 = errors.New(err1.Error())
+	assert.NotEqual(t, err1, err2)
+	assert.False(t, errors.Is(err1, err2))
+}
 
 type ManagerTestSuite struct {
 	svc                         *Service
