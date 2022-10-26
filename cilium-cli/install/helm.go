@@ -273,7 +273,27 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		return err
 	}
 
-	helm.PrintHelmTemplateCommand(k, vals, k.params.HelmChartDirectory, k.params.Namespace, k.chartVersion)
+	// Pull APIVersions and filter for known needed CRDs, if not provided by the user.
+	// _Each value_ in apiVersions passed to helm.MergeVals will be logged in the `helm template` command, so
+	// pulling all values from the API server will add a ton of '--api-versions <group/version>' arguments to
+	// the printed command if filtering is not performed.
+	// Filtering reduces this output to a reasonable size for users, and works for now since there is a limited
+	// set of CRDs needed for helm template verification.
+	apiVersions := k.params.APIVersions
+	if len(apiVersions) == 0 {
+		gvs, err := k.client.ListAPIResources(ctx)
+		if err != nil {
+			k.Log("⚠️ Unable to list kubernetes api resources, try --api-versions if needed: %w", err)
+		}
+		for _, gv := range gvs {
+			switch gv {
+			case "monitoring.coreos.com/v1":
+				apiVersions = append(apiVersions, gv)
+			}
+		}
+	}
+
+	helm.PrintHelmTemplateCommand(k, vals, k.params.HelmChartDirectory, k.params.Namespace, k.chartVersion, apiVersions)
 
 	yamlValue, err := chartutil.Values(vals).YAML()
 	if err != nil {
@@ -293,7 +313,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		k8sVersionStr = k8sVersion.String()
 	}
 
-	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, k.chartVersion, k.params.Namespace, vals)
+	manifests, err := helm.GenManifests(ctx, k.params.HelmChartDirectory, k8sVersionStr, k.chartVersion, k.params.Namespace, vals, apiVersions)
 	if err != nil {
 		return err
 	}
