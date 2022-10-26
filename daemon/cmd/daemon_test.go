@@ -133,6 +133,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
 	_, clientset := k8sClient.NewFakeClientset()
+	clientset.Disable()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ds.cancel = cancel
