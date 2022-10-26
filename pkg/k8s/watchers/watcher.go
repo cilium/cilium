@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/service"
 )
 
 const (
@@ -922,7 +923,11 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			},
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
-			scopedLog.WithError(err).Error("Error while inserting service in LB map")
+			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
+				scopedLog.WithError(err).Debug("Error while inserting service in LB map")
+			} else {
+				scopedLog.WithError(err).Error("Error while inserting service in LB map")
+			}
 		}
 	}
 	return nil

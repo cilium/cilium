@@ -49,6 +49,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -657,7 +658,11 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 		}
 
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {
-			logger.WithError(err).Error("Error while inserting service in LB map")
+			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
+				logger.WithError(err).Debug("Error while inserting service in LB map")
+			} else {
+				logger.WithError(err).Error("Error while inserting service in LB map")
+			}
 			return err
 		}
 	}
