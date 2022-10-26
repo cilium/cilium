@@ -901,6 +901,18 @@ func (c *Client) GetHelmState(ctx context.Context, namespace string, secretName 
 	}, nil
 }
 
+func (c *Client) ListAPIResources(ctx context.Context) ([]string, error) {
+	lists, err := c.Clientset.Discovery().ServerPreferredResources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list api resources: %w", err)
+	}
+	results := make([]string, len(lists))
+	for _, list := range lists {
+		results = append(results, list.GroupVersion)
+	}
+	return results, nil
+}
+
 // CreateEphemeralContainer will create a EphemeralContainer (debug container) in the specified pod.
 // EphemeralContainers are special containers which can be added after-the-fact in running pods. They're
 // useful for debugging, either when the target container image doesn't have necessary tools, or because
