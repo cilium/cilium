@@ -68,24 +68,25 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	verdict = policy_can_egress6(ctx, &tuple, src_id, dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	/* Only create CT entry for accepted connections, or when auth is required */
+	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+		ct_state_new.src_sec_id = HOST_ID;
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
+		if (IS_ERR(ret))
+			return ret;
+	} else if (verdict == DROP_POLICY_AUTH_REQUIRED && !ct_state.auth_required) {
+		/* Accept if policy states auth is required and CT states it is granted. */
+		verdict = CTX_ACT_OK;
+	}
+
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
-
-	if (ret == CT_NEW) {
-		ct_state_new.src_sec_id = HOST_ID;
-		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
+	return verdict;
 }
 
 static __always_inline int
@@ -97,7 +98,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	__u8 audited = 0;
 	__u32 dst_id = WORLD_ID;
 	struct remote_endpoint_info *info;
-	int ret, verdict, l4_off, hdrlen;
+	int ret, verdict = CTX_ACT_OK, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
 	union v6addr orig_sip;
 	void *data, *data_end;
@@ -150,30 +151,32 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 					    tuple.nexthdr, false,
 					    &policy_match_type, &audited, &proxy_port);
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
-
-	if (ret == CT_NEW) {
+	/* Only create CT entry for accepted connections, or when auth is required */
+	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_id;
 		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false);
+				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
 		if (IS_ERR(ret))
 			return ret;
+	} else if (verdict == DROP_POLICY_AUTH_REQUIRED && !ct_state.auth_required) {
+		/* Accept if policy states auth is required and CT states it is granted. */
+		verdict = CTX_ACT_OK;
 	}
+
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, proxy_port, policy_match_type, audited);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
-	return CTX_ACT_OK;
+	return verdict;
 }
 # endif /* ENABLE_IPV6 */
 
@@ -217,7 +220,7 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 		if (ret == CT_NEW) {
 			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4,
 					 &tuple, ctx, CT_EGRESS, &ct_state_new,
-					 false, false);
+					 false, false, false);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -283,24 +286,25 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	verdict = policy_can_egress4(ctx, &tuple, src_id, dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	/* Only create CT entry for accepted connections, or when auth is required */
+	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+		ct_state_new.src_sec_id = HOST_ID;
+		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
+		if (IS_ERR(ret))
+			return ret;
+	} else if (verdict == DROP_POLICY_AUTH_REQUIRED && !ct_state.auth_required) {
+		/* Accept if policy states auth is required and CT states it is granted. */
+		verdict = CTX_ACT_OK;
+	}
+
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
-
-	if (ret == CT_NEW) {
-		ct_state_new.src_sec_id = HOST_ID;
-		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
+	return verdict;
 }
 
 static __always_inline int
@@ -308,7 +312,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 			 struct trace_ctx *trace)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
-	int ret, verdict, l4_off, l3_off = ETH_HLEN;
+	int ret, verdict = CTX_ACT_OK, l4_off, l3_off = ETH_HLEN;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u32 dst_id = WORLD_ID;
@@ -368,30 +372,32 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, &proxy_port);
 
-	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
-	if (verdict < 0 || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, proxy_port, policy_match_type, audited);
-
-	if (verdict < 0)
-		return verdict;
-
-	if (ret == CT_NEW) {
+	/* Only create CT entry for accepted connections, or when auth is required */
+	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_id;
 		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false);
+				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
+				 verdict == DROP_POLICY_AUTH_REQUIRED);
 		if (IS_ERR(ret))
 			return ret;
+	} else if (verdict == DROP_POLICY_AUTH_REQUIRED && !ct_state.auth_required) {
+		/* Accept if policy states auth is required and CT states it is granted. */
+		verdict = CTX_ACT_OK;
 	}
+
+	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
+	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, proxy_port, policy_match_type, audited);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
 	 * the host device.
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
-	return CTX_ACT_OK;
+	return verdict;
 }
 # endif /* ENABLE_IPV4 */
 #endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
