@@ -411,6 +411,8 @@ type (
 )
 
 type FakeClientset struct {
+	disabled bool
+
 	*KubernetesFakeClientset
 	*CiliumFakeClientset
 	*APIExtFakeClientset
@@ -430,11 +432,11 @@ func (c *FakeClientset) Discovery() discovery.DiscoveryInterface {
 }
 
 func (c *FakeClientset) IsEnabled() bool {
-	return true
+	return !c.disabled
 }
 
 func (c *FakeClientset) Disable() {
-	/* nop */
+	c.disabled = true
 }
 
 func (c *FakeClientset) Config() Config {
