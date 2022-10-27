@@ -738,6 +738,7 @@ nodePort
 nodeSelector
 nodeX
 nodegroup
+nodeid
 nodeinit
 nodeport
 nonMasqueradeCIDRs
