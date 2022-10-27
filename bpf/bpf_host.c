@@ -885,6 +885,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
+	enum metric_dir __maybe_unused direction;
 	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
@@ -893,6 +894,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		enum trace_point trace = TRACE_FROM_HOST;
 		__u32 magic;
 
+		direction = METRIC_EGRESS;
 #if defined(ENABLE_L7_LB)
 		magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
@@ -927,6 +929,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			return CTX_ACT_OK;
 #endif
 
+		direction = METRIC_INGRESS;
 		ctx_skip_nodeport_clear(ctx);
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex,
@@ -951,7 +954,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 		/* See comment below for IPv4. */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-					      CTX_ACT_OK, METRIC_INGRESS);
+					      CTX_ACT_OK, direction);
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
@@ -977,12 +980,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		 * this notification is unlikely to succeed.
 		 */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-					      CTX_ACT_OK, METRIC_INGRESS);
+					      CTX_ACT_OK, direction);
 #endif
 	default:
 #ifdef ENABLE_HOST_FIREWALL
 		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
-					     CTX_ACT_DROP, METRIC_INGRESS);
+					     CTX_ACT_DROP, direction);
 #else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
@@ -1009,7 +1012,8 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 		int ret = DROP_UNSUPPORTED_L2;
 
 		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+					CTX_ACT_DROP,
+					from_host ? METRIC_EGRESS : METRIC_INGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
 				  TRACE_REASON_UNKNOWN, 0);
