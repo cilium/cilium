@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -35,6 +36,7 @@ var (
 
 func init() {
 	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
+	utilruntime.Must(gatewayv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
 }
@@ -89,6 +91,15 @@ func NewController(enableSecretSync bool, secretsNamespace string) (*Controller,
 		Model:  m,
 	}
 	if err = hrReconciler.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
+	rgReconciler := &referenceGrantReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Model:  m,
+	}
+	if err = rgReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
 
