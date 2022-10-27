@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -52,4 +53,8 @@ func (n *fakeNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 
 func (n *fakeNodeHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
+}
+
+func (n *fakeNodeHandler) DumpNodeIDs() []*models.NodeID {
+	return nil
 }
