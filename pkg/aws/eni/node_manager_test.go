@@ -68,6 +68,7 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
+	node1 := newCiliumNode("node1")
 	mngr.Update(newCiliumNode("node1"))
 
 	names := mngr.GetNames()
@@ -79,7 +80,7 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
 
-	mngr.Delete("node1")
+	mngr.Delete(node1)
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
@@ -94,12 +95,13 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1"))
+	node1 := newCiliumNode("node1")
+	mngr.Update(node1)
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
 
-	mngr.Delete("node1")
+	mngr.Delete(node1)
 	c.Assert(mngr.Get("node1"), check.IsNil)
 	c.Assert(mngr.Get("node2"), check.IsNil)
 }
