@@ -491,7 +491,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 		ciliumNodesToK8s    map[string]*ciliumNodeK8sOp
 	}
 	type args struct {
-		nodeName string
+		node *v2.CiliumNode
 	}
 	tests := []struct {
 		testSetup   func() *fields
@@ -542,7 +542,11 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
 			},
 			args: args{
-				nodeName: "node-1",
+				node: &v2.CiliumNode{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
 			},
 		},
 		{
@@ -559,7 +563,11 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(0))
 			},
 			args: args{
-				nodeName: "node-1",
+				node: &v2.CiliumNode{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
 			},
 		},
 	}
@@ -577,7 +585,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 				nodes:               tt.fields.nodes,
 				ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
 			}
-			n.Delete(tt.args.nodeName)
+			n.Delete(tt.args.node)
 
 			if tt.testPostRun != nil {
 				tt.testPostRun(tt.fields)
