@@ -138,6 +138,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		MetricsGetMetricsHandler: metrics.GetMetricsHandlerFunc(func(params metrics.GetMetricsParams) middleware.Responder {
 			return middleware.NotImplemented("operation metrics.GetMetrics has not yet been implemented")
 		}),
+		DaemonGetNodeIdsHandler: daemon.GetNodeIdsHandlerFunc(func(params daemon.GetNodeIdsParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetNodeIds has not yet been implemented")
+		}),
 		PolicyGetPolicyHandler: policy.GetPolicyHandlerFunc(func(params policy.GetPolicyParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicy has not yet been implemented")
 		}),
@@ -288,6 +291,8 @@ type CiliumAPIAPI struct {
 	DaemonGetMapNameHandler daemon.GetMapNameHandler
 	// MetricsGetMetricsHandler sets the operation handler for the get metrics operation
 	MetricsGetMetricsHandler metrics.GetMetricsHandler
+	// DaemonGetNodeIdsHandler sets the operation handler for the get node ids operation
+	DaemonGetNodeIdsHandler daemon.GetNodeIdsHandler
 	// PolicyGetPolicyHandler sets the operation handler for the get policy operation
 	PolicyGetPolicyHandler policy.GetPolicyHandler
 	// PolicyGetPolicyResolveHandler sets the operation handler for the get policy resolve operation
@@ -487,6 +492,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.MetricsGetMetricsHandler == nil {
 		unregistered = append(unregistered, "metrics.GetMetricsHandler")
+	}
+	if o.DaemonGetNodeIdsHandler == nil {
+		unregistered = append(unregistered, "daemon.GetNodeIdsHandler")
 	}
 	if o.PolicyGetPolicyHandler == nil {
 		unregistered = append(unregistered, "policy.GetPolicyHandler")
@@ -748,6 +756,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/metrics"] = metrics.NewGetMetrics(o.context, o.MetricsGetMetricsHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/node/ids"] = daemon.NewGetNodeIds(o.context, o.DaemonGetNodeIdsHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

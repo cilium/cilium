@@ -951,6 +951,21 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: No IP cache entries with provided parameters found
+  "/node/ids":
+    get:
+      summary: List information about known node IDs
+      description: |
+        Retrieves a list of node IDs allocated by the agent and their
+        associated node IP addresses.
+      tags:
+      - daemon
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/NodeID"
 parameters:
   endpoint-id:
     name: id
@@ -3038,6 +3053,21 @@ definitions:
       source:
         description: The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
         type: string
+  NodeID:
+    description: Node ID with associated node IP addresses
+    type: object
+    required:
+      - id
+      - ips
+    properties:
+      id:
+        description: ID allocated by the agent for the node
+        type: integer
+      ips:
+        description: IP addresses of the node associated with the ID in the agent
+        type: array
+        items:
+            type: string
   IPListEntry:
     description: IP entry with metadata
     type: object

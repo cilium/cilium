@@ -992,6 +992,26 @@ func init() {
         }
       }
     },
+    "/node/ids": {
+      "get": {
+        "description": "Retrieves a list of node IDs allocated by the agent and their\nassociated node IP addresses.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "List information about known node IDs",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/NodeID"
+              }
+            }
+          }
+        }
+      }
+    },
     "/policy": {
       "get": {
         "description": "Returns the entire policy tree with all children.\n",
@@ -3342,6 +3362,27 @@ func init() {
         }
       }
     },
+    "NodeID": {
+      "description": "Node ID with associated node IP addresses",
+      "type": "object",
+      "required": [
+        "id",
+        "ips"
+      ],
+      "properties": {
+        "id": {
+          "description": "ID allocated by the agent for the node",
+          "type": "integer"
+        },
+        "ips": {
+          "description": "IP addresses of the node associated with the ID in the agent",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "Policy": {
       "description": "Policy definition",
       "type": "object",
@@ -5298,6 +5339,26 @@ func init() {
           },
           "500": {
             "description": "Metrics cannot be retrieved"
+          }
+        }
+      }
+    },
+    "/node/ids": {
+      "get": {
+        "description": "Retrieves a list of node IDs allocated by the agent and their\nassociated node IP addresses.\n",
+        "tags": [
+          "daemon"
+        ],
+        "summary": "List information about known node IDs",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/NodeID"
+              }
+            }
           }
         }
       }
@@ -8028,6 +8089,27 @@ func init() {
           "type": "array",
           "items": {
             "$ref": "#/definitions/NodeAddressingElement"
+          }
+        }
+      }
+    },
+    "NodeID": {
+      "description": "Node ID with associated node IP addresses",
+      "type": "object",
+      "required": [
+        "id",
+        "ips"
+      ],
+      "properties": {
+        "id": {
+          "description": "ID allocated by the agent for the node",
+          "type": "integer"
+        },
+        "ips": {
+          "description": "IP addresses of the node associated with the ID in the agent",
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         }
       }
