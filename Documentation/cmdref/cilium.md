@@ -35,6 +35,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium metrics](../cilium_metrics)	 - Access metric status
 * [cilium monitor](../cilium_monitor)	 - Display BPF program events
 * [cilium node](../cilium_node)	 - Manage cluster nodes
+* [cilium nodeid](../cilium_nodeid)	 - List node IDs and associated information
 * [cilium policy](../cilium_policy)	 - Manage security policies
 * [cilium prefilter](../cilium_prefilter)	 - Manage XDP CIDR filters
 * [cilium preflight](../cilium_preflight)	 - cilium upgrade helper

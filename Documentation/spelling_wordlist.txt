@@ -660,6 +660,7 @@ nodePort
 nodeSelector
 nodeX
 nodegroup
+nodeid
 nodeinit
 nonMasqueradeCIDRs
 numReplicas
