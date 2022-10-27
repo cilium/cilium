@@ -88,10 +88,7 @@ var (
 	EndpointGCObjects *prometheus.CounterVec
 
 	// CiliumEndpointSliceDensity indicates the number of CEPs batched in a CES and it used to
-	// collect the number of CEPs in CES at various buckets. For example,
-	// number of CESs in the CEP range <0, 10>
-	// number of CESs in the CEP range <11, 20>
-	// number of CESs in the CEP range <21, 30> and so on
+	// collect the number of CEPs in CES at various buckets.
 	CiliumEndpointSliceDensity prometheus.Histogram
 
 	// CiliumEndpointsChangeCount indicates the total number of CEPs changed for every CES request sent to k8s-apiserver.
@@ -169,7 +166,7 @@ func registerMetrics() []prometheus.Collector {
 		Namespace: Namespace,
 		Name:      "number_of_ceps_per_ces",
 		Help:      "The number of CEPs batched in a CES",
-		Buckets:   prometheus.LinearBuckets(0, 10, operatorOption.Config.CESMaxCEPsInCES/10),
+		Buckets:   []float64{1, 10, 25, 50, 100, 200, 500, 1000},
 	})
 	collectors = append(collectors, CiliumEndpointSliceDensity)
 
@@ -191,7 +188,7 @@ func registerMetrics() []prometheus.Collector {
 		Namespace: Namespace,
 		Name:      "ces_queueing_delay_seconds",
 		Help:      "CiliumEndpointSlice queueing delay in seconds",
-		Buckets:   prometheus.ExponentialBucketsRange(.005, 3600, 20),
+		Buckets:   append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
 	})
 	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
 
