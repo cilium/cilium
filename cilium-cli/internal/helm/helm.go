@@ -301,20 +301,12 @@ func GenManifests(
 // helm values from a previous installation ('helmValues'),
 // extra options that are not defined as helm flags ('extraConfigMapOpts')
 // and returns a single map with all of these options merged.
-// It will log a message so that users can replicate the same behavior as the
-// CLI. The log message will be slightly different depending on if
-// 'helmChartDirectory' is set or not.
-// Both 'helmMapOpts', 'helmValues', 'extraConfigMapOpts' can be nil.
+// Both 'helmMapOpts', 'helmValues', 'extraConfigMapOpts', can be nil.
 func MergeVals(
-	logger utils.Logger,
-	printHelmTemplate bool,
 	helmFlagOpts values.Options,
 	helmMapOpts map[string]string,
 	helmValues,
 	extraConfigMapOpts chartutil.Values,
-	helmChartDirectory string,
-	ciliumVer semver2.Version,
-	namespace string,
 ) (map[string]interface{}, error) {
 
 	// Create helm values from helmMapOpts
@@ -353,17 +345,25 @@ func MergeVals(
 
 	vals := mergeMaps(extraConfig, userVals)
 
-	valsStr := valuesToString("", vals)
-
-	if printHelmTemplate {
-		if helmChartDirectory != "" {
-			logger.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", namespace, helmChartDirectory, ciliumVer, valsStr)
-		} else {
-			logger.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", namespace, ciliumVer, valsStr)
-		}
-	}
-
 	return vals, nil
+}
+
+// PrintHelmTemplateCommand will log a message so that users can replicate
+// the same behavior as the CLI. The log message will be slightly different
+// depending on if 'helmChartDirectory' is set or not.
+func PrintHelmTemplateCommand(
+	logger utils.Logger,
+	helmValues map[string]any,
+	helmChartDirectory string,
+	namespace string,
+	ciliumVer semver2.Version,
+) {
+	valsStr := valuesToString("", helmValues)
+	if helmChartDirectory != "" {
+		logger.Log("ℹ️  helm template --namespace %s cilium %q --version %s --set %s", namespace, helmChartDirectory, ciliumVer, valsStr)
+	} else {
+		logger.Log("ℹ️  helm template --namespace %s cilium cilium/cilium --version %s --set %s", namespace, ciliumVer, valsStr)
+	}
 }
 
 // ListVersions returns a list of available Helm chart versions (with "v" prefix) sorted by semver in ascending order.

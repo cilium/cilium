@@ -560,9 +560,12 @@ func (k *K8sHubble) generateManifestsDisable(ctx context.Context, helmValues cha
 
 func (k *K8sHubble) genManifests(ctx context.Context, printHelmTemplate bool, prevHelmValues chartutil.Values, helmMapOpts map[string]string, ciliumVer semver.Version) error {
 	// Store all the options passed by --config into helm extraConfig
-	vals, err := helm.MergeVals(k, printHelmTemplate, k.params.HelmOpts, helmMapOpts, prevHelmValues, nil, k.params.HelmChartDirectory, ciliumVer, k.params.Namespace)
+	vals, err := helm.MergeVals(k.params.HelmOpts, helmMapOpts, prevHelmValues, nil)
 	if err != nil {
 		return err
+	}
+	if printHelmTemplate {
+		helm.PrintHelmTemplateCommand(k, vals, k.params.HelmChartDirectory, k.params.Namespace, ciliumVer)
 	}
 
 	yamlValue, err := chartutil.Values(vals).YAML()
