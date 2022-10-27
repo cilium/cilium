@@ -52,6 +52,7 @@ func TestConformance(t *testing.T) {
 		Debug:                *flags.ShowDebug,
 		CleanupBaseResources: *flags.CleanupBaseResources,
 		SupportedFeatures: []suite.SupportedFeature{
+			suite.SupportReferenceGrant,
 			suite.SupportHTTPRouteQueryParamMatching, // Extended conformance
 		},
 	})
