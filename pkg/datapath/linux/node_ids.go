@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -121,4 +122,30 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
 	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+}
+
+// DumpNodeIDs returns all node IDs and their associated IP addresses.
+func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	nodeIDs := map[uint16]*models.NodeID{}
+	for ip, id := range n.nodeIDsByIPs {
+		if nodeID, exists := nodeIDs[id]; exists {
+			nodeID.Ips = append(nodeID.Ips, ip)
+			nodeIDs[id] = nodeID
+		} else {
+			i := int64(id)
+			nodeIDs[id] = &models.NodeID{
+				ID:  &i,
+				Ips: []string{ip},
+			}
+		}
+	}
+
+	dump := make([]*models.NodeID, 0, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		dump = append(dump, nodeID)
+	}
+	return dump
 }
