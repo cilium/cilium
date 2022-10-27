@@ -46,9 +46,9 @@ func (c *ciliumNodeName) GetKeyName() string {
 var (
 	// ciliumNodeStore contains all CiliumNodes present in k8s.
 	ciliumNodeStore cache.Store
-
-	k8sCiliumNodesCacheSynced    = make(chan struct{})
-	ciliumNodeManagerQueueSynced = make(chan struct{})
+	synced                       = make(chan struct{})
+	k8sCiliumNodesCacheSynced    = synced
+	ciliumNodeManagerQueueSynced = synced
 )
 
 type ciliumNodeManagerQueueSyncedKey struct{}
@@ -63,8 +63,9 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
 		ciliumNodeConvertFunc  = k8s.ConvertToCiliumNode
-		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-		kvStoreQueue           = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		queue 		       = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+		ciliumNodeManagerQueue = queue
+		kvStoreQueue           = queue
 	)
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
