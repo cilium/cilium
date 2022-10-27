@@ -836,12 +836,12 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
 	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
 	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface, &ext_err);
 	if (ret)
 		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	bpf_clear_meta(ctx);
 #ifdef BPF_HAVE_FIB_LOOKUP
