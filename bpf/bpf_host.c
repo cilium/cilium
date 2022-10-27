@@ -889,9 +889,12 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
 
-#if defined(ENABLE_L7_LB)
 	if (from_host) {
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+		enum trace_point trace = TRACE_FROM_HOST;
+		__u32 magic;
+
+#if defined(ENABLE_L7_LB)
+		magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
 		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 			__u32 lxc_id = get_epid(ctx);
@@ -900,17 +903,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
 			return DROP_MISSED_TAIL_CALL;
 		}
-	}
 #endif
-
-#ifdef ENABLE_IPSEC
-	if (!from_host && !do_decrypt(ctx, proto))
-		return CTX_ACT_OK;
-#endif
-
-	if (from_host) {
-		__u32 magic;
-		enum trace_point trace = TRACE_FROM_HOST;
 
 		magic = inherit_identity_from_host(ctx, &identity);
 		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
@@ -929,6 +922,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	} else {
+#ifdef ENABLE_IPSEC
+		if (!do_decrypt(ctx, proto))
+			return CTX_ACT_OK;
+#endif
+
 		ctx_skip_nodeport_clear(ctx);
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex,
