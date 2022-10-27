@@ -537,6 +537,11 @@ func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
 
+func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
+	// no-op
+	return nil
+}
+
 func (h *getNodes) cleanupClients() {
 	past := time.Now().Add(-clientGCTimeout)
 	for k, v := range h.clients {
