@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/datapath"
 	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
@@ -133,6 +134,11 @@ func (h *handler) Close() {
 func (h *handler) AllocateNodeID(_ net.IP) uint16 {
 	// no-op
 	return 0
+}
+
+func (h *handler) DumpNodeIDs() []*models.NodeID {
+	// no-op
+	return nil
 }
 
 // newChangeNotification creates a new change notification with the provided
