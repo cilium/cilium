@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -88,12 +89,19 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
+	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		scopedLog.WithError(err).Error("Unable to list ReferenceGrants")
+		return fail(err)
+	}
+
 	routes := r.filterRoutesByGateway(ctx, gw, routeList.Items)
 	listeners := ingestion.GatewayAPI(ingestion.Input{
-		GatewayClass: *gwc,
-		Gateway:      *gw,
-		HTTPRoutes:   routes,
-		Services:     servicesList.Items,
+		GatewayClass:    *gwc,
+		Gateway:         *gw,
+		HTTPRoutes:      routes,
+		Services:        servicesList.Items,
+		ReferenceGrants: grants.Items,
 	})
 
 	// Step 3: Translate the listeners into Cilium model
@@ -274,6 +282,23 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 				if !IsSecret(cert) {
 					continue
 				}
+
+				allowed, err := isReferenceAllowed(ctx, r.Client, gw, cert)
+				if err != nil {
+					return err
+				}
+
+				if !allowed {
+					cond = metav1.Condition{
+						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
+						Status:             metav1.ConditionFalse,
+						Reason:             string(gatewayv1beta1.ListenerReasonRefNotPermitted),
+						Message:            "CertificateRef is not permitted",
+						LastTransitionTime: metav1.Now(),
+					}
+					break
+				}
+
 				secret := &corev1.Secret{}
 				if err := r.Client.Get(ctx, client.ObjectKey{
 					Namespace: namespaceDerefOr(cert.Namespace, gw.GetNamespace()),
@@ -316,4 +341,32 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 		}
 	}
 	return nil
+}
+
+func isReferenceAllowed(ctx context.Context, c client.Client, gw *gatewayv1beta1.Gateway, cert gatewayv1beta1.SecretObjectReference) (bool, error) {
+	// Secret is in the same namespace as the Gateway
+	if cert.Namespace == nil || string(*cert.Namespace) == gw.GetNamespace() {
+		return true, nil
+	}
+
+	// check if this cert is allowed to be used by this gateway
+	grants := &gatewayv1alpha2.ReferenceGrantList{}
+	if err := c.List(ctx, grants, client.InNamespace(*cert.Namespace)); err != nil {
+		return false, err
+	}
+
+	for _, g := range grants.Items {
+		for _, from := range g.Spec.From {
+			if from.Group == gatewayv1beta1.GroupName &&
+				from.Kind == kindGateway && (string)(from.Namespace) == gw.GetNamespace() {
+				for _, to := range g.Spec.To {
+					if to.Group == corev1.GroupName && to.Kind == kindSecret &&
+						(to.Name == nil || string(*to.Name) == string(cert.Name)) {
+						return true, nil
+					}
+				}
+			}
+		}
+	}
+	return false, nil
 }
