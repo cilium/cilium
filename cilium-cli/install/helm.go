@@ -268,10 +268,12 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 		extraConfigMap[k] = v
 	}
 
-	vals, err := helm.MergeVals(k, true, k.params.HelmOpts, helmMapOpts, nil, extraConfigMap, k.params.HelmChartDirectory, k.chartVersion, k.params.Namespace)
+	vals, err := helm.MergeVals(k.params.HelmOpts, helmMapOpts, nil, extraConfigMap)
 	if err != nil {
 		return err
 	}
+
+	helm.PrintHelmTemplateCommand(k, vals, k.params.HelmChartDirectory, k.params.Namespace, k.chartVersion)
 
 	yamlValue, err := chartutil.Values(vals).YAML()
 	if err != nil {
