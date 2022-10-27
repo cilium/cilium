@@ -191,6 +191,7 @@ func registerMetrics() []prometheus.Collector {
 		Namespace: Namespace,
 		Name:      "ces_queueing_delay_seconds",
 		Help:      "CiliumEndpointSlice queueing delay in seconds",
+		Buckets:   prometheus.ExponentialBucketsRange(.005, 3600, 20),
 	})
 	collectors = append(collectors, CiliumEndpointSliceQueueDelay)
 
