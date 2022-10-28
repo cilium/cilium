@@ -578,6 +578,7 @@ kata
 keepDeprecatedLabels
 keepDeprecatedProbes
 keyFile
+keyless
 keypair
 keyspace
 keyspaces
