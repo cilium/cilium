@@ -56,10 +56,6 @@ type RouterInfo interface {
 	GetInterfaceNumber() int
 }
 
-func SetLocalNodeStore(s LocalNodeStore) {
-	localNode = s
-}
-
 func makeIPv6HostIP() net.IP {
 	ipstr := "fc00::10CA:1"
 	ip := net.ParseIP(ipstr)
@@ -354,6 +350,7 @@ func SetIPv4AllocRange(net *cidr.CIDR) {
 func Uninitialize() {
 	addrsMu.Lock()
 	addrs = addresses{}
+	localNode = defaultLocalNodeStore()
 	addrsMu.Unlock()
 }
 
