@@ -457,6 +457,27 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			}
 		})
 
+		Context("with L7 policy", func() {
+			var demoPolicyL7 string
+
+			BeforeAll(func() {
+				demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			})
+
+			AfterAll(func() {
+				kubectl.Delete(demoPolicyL7)
+				// Remove CT entries to avoid packet drops which could happen
+				// due to matching stale entries with proxy_redirect = 1
+				kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
+					"cilium bpf ct flush global", "Unable to flush CT maps")
+			})
+
+			It("Tests NodePort with L7 Policy", func() {
+				applyPolicy(kubectl, demoPolicyL7)
+				testNodePort(kubectl, ni, true, true, 0)
+			})
+		})
+
 		SkipItIf(func() bool {
 			// Currently, KIND doesn't support multiple interfaces among nodes
 			return helpers.IsIntegration(helpers.CIIntegrationKind)
