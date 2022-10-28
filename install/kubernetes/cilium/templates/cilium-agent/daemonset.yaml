@@ -109,6 +109,13 @@ spec:
         {{- end }}
         {{- if semverCompare ">=1.20-0" .Capabilities.KubeVersion.Version }}
         startupProbe:
+          {{- if or .Values.keepDeprecatedProbes $defaultKeepDeprecatedProbes }}
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+          {{- else }}
           httpGet:
             host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
             path: /healthz
@@ -117,6 +124,7 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+          {{- end }}
           failureThreshold: {{ .Values.startupProbe.failureThreshold }}
           periodSeconds: {{ .Values.startupProbe.periodSeconds }}
           successThreshold: 1
