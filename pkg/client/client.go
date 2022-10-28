@@ -311,6 +311,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "\n")
 	}
 
+	if sr.SRv6 != nil {
+		fmt.Fprintf(w, "Host firewall:\t%s", sr.SRv6.Mode)
+		if sr.SRv6.Mode != models.SRv6ModeDisabled {
+			fmt.Fprintf(w, "\t[%s]", strings.Join(sr.SRv6.Devices, ", "))
+		}
+		fmt.Fprintf(w, "\n")
+	}
+
 	if sr.CniChaining != nil {
 		fmt.Fprintf(w, "CNI Chaining:\t%s\n", sr.CniChaining.Mode)
 	}

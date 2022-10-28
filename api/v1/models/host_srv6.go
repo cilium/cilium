@@ -17,12 +17,12 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// HostSRv6 Status of the host SRv6
+// SRv6 Status of the host SRv6
 //
 // +k8s:deepcopy-gen=true
 //
-// swagger:model HostSRv6
-type HostSRv6 struct {
+// swagger:model SRv6
+type SRv6 struct {
 
 	// devices
 	Devices []string `json:"devices"`
@@ -33,7 +33,7 @@ type HostSRv6 struct {
 }
 
 // Validate validates this host SRv6
-func (m *HostSRv6) Validate(formats strfmt.Registry) error {
+func (m *SRv6) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateMode(formats); err != nil {
@@ -46,7 +46,7 @@ func (m *HostSRv6) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-var hostSRv6TypeModePropEnum []interface{}
+var SRv6TypeModePropEnum []interface{}
 
 func init() {
 	var res []string
@@ -54,28 +54,28 @@ func init() {
 		panic(err)
 	}
 	for _, v := range res {
-		hostSRv6TypeModePropEnum = append(hostSRv6TypeModePropEnum, v)
+		SRv6TypeModePropEnum = append(SRv6TypeModePropEnum, v)
 	}
 }
 
 const (
 
-	// HostSRv6ModeDisabled captures enum value "Disabled"
-	HostSRv6ModeDisabled string = "Disabled"
+	// SRv6ModeDisabled captures enum value "Disabled"
+	SRv6ModeDisabled string = "Disabled"
 
-	// HostSRv6ModeEnabled captures enum value "Enabled"
-	HostSRv6ModeEnabled string = "Enabled"
+	// SRv6ModeEnabled captures enum value "Enabled"
+	SRv6ModeEnabled string = "Enabled"
 )
 
 // prop value enum
-func (m *HostSRv6) validateModeEnum(path, location string, value string) error {
-	if err := validate.EnumCase(path, location, value, hostSRv6TypeModePropEnum, true); err != nil {
+func (m *SRv6) validateModeEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, SRv6TypeModePropEnum, true); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *HostSRv6) validateMode(formats strfmt.Registry) error {
+func (m *SRv6) validateMode(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Mode) { // not required
 		return nil
@@ -90,7 +90,7 @@ func (m *HostSRv6) validateMode(formats strfmt.Registry) error {
 }
 
 // MarshalBinary interface implementation
-func (m *HostSRv6) MarshalBinary() ([]byte, error) {
+func (m *SRv6) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -98,8 +98,8 @@ func (m *HostSRv6) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *HostSRv6) UnmarshalBinary(b []byte) error {
-	var res HostSRv6
+func (m *SRv6) UnmarshalBinary(b []byte) error {
+	var res SRv6
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

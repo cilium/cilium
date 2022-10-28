@@ -192,6 +192,21 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	}
 }
 
+func (d *Daemon) getSRv6Status() *models.SRv6 {
+	mode := models.SRv6ModeDisabled
+	if option.Config.EnableSRv6 {
+		mode = models.SRv6ModeEnabled
+	}
+	devices := make([]string, len(option.Config.Devices))
+	for i, iface := range option.Config.Devices {
+		devices[i] = iface
+	}
+	return &models.SRv6{
+		Mode:    mode,
+		Devices: devices,
+	}
+}
+
 func (d *Daemon) getClockSourceStatus() *models.ClockSource {
 	s := &models.ClockSource{Mode: models.ClockSourceModeKtime}
 	if option.Config.ClockSource == option.ClockSourceJiffies {
@@ -1083,6 +1098,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
+	d.statusResponse.SRv6 = d.getSRv6Status()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()

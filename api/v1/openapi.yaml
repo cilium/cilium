@@ -1738,7 +1738,7 @@ definitions:
         "$ref": "#/definitions/HostFirewall"
       host-srv6:
         description: Status of the host srv6
-        "$ref": "#/definitions/HostSRv6"
+        "$ref": "#/definitions/SRv6"
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"
@@ -1837,7 +1837,7 @@ definitions:
         type: array
         items:
           type: string
-  HostSRv6:
+  SRv6:
     description: |-
       Status of the host srv6
 
