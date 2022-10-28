@@ -64,9 +64,6 @@ type StatusResponse struct {
 	// Status of the host firewall
 	HostFirewall *HostFirewall `json:"host-firewall,omitempty"`
 
-	// Status of the host srv6
-	HostSRv6 *HostSRv6 `json:"host-firewall,omitempty"`
-
 	// Status of host routing
 	HostRouting *HostRouting `json:"host-routing,omitempty"`
 
