@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/node"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -33,6 +34,7 @@ func (h *agentHandle) tearDown() {
 	}
 	h.d.Close()
 	os.RemoveAll(h.tempDir)
+	node.Uninitialize()
 }
 
 func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {

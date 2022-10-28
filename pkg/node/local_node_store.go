@@ -38,6 +38,17 @@ type LocalNodeStore interface {
 	Get() types.Node
 }
 
+// LocalNodeStoreCell provides the LocalNodeStore instance.
+// The LocalNodeStore is the canonical owner of `types.Node` for the local node and
+// provides a reactive API for observing and updating it.
+//
+// This currently returns the singleton instance instead of constructing a fresh
+// one with newLocalNodeStore() in order to keep the semantics of the global getters/setters
+// as is.
+var LocalNodeStoreCell = cell.Provide(
+	func() LocalNodeStore { return localNode },
+)
+
 // LocalNodeStoreParams are the inputs needed for constructing LocalNodeStore.
 type LocalNodeStoreParams struct {
 	cell.In
@@ -45,11 +56,6 @@ type LocalNodeStoreParams struct {
 	Lifecycle hive.Lifecycle
 	Init      LocalNodeInitializer `optional:"true"`
 }
-
-// LocalNodeStoreCell provides the LocalNodeStore when given a LocalNodeInitializer.
-// The LocalNodeStore is the canonical owner of `types.Node` for the local node and
-// provides a reactive API for observing and updating it.
-var LocalNodeStoreCell = cell.Provide(newLocalNodeStore)
 
 // localNodeStore implements the LocalNodeStore using a simple in-memory
 // backing. Reflecting the new state to persistent stores, e.g. kvstore or k8s
@@ -68,7 +74,7 @@ type localNodeStore struct {
 
 var _ LocalNodeStore = &localNodeStore{}
 
-func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
+func NewLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 	src, emit, complete := stream.Multicast[types.Node](stream.EmitLatest)
 
 	s := &localNodeStore{
@@ -106,8 +112,7 @@ func newLocalNodeStore(params LocalNodeStoreParams) (LocalNodeStore, error) {
 }
 
 // defaultLocalNodeStore constructs the default instance for the LocalNodeStore used by
-// address.go unless changed by call to SetLocalNodeStore. This instance is used by tests
-// that have not transitioned to constructing via hive.
+// address.go.
 func defaultLocalNodeStore() LocalNodeStore {
 	src, emit, complete := stream.Multicast[types.Node](stream.EmitLatest)
 	s := &localNodeStore{
