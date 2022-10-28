@@ -21,6 +21,8 @@ import (
 func Cell(defaultPort uint16) cell.Cell {
 	return cell.Module(
 		"gops",
+		"Gops Agent",
+
 		cell.Config(GopsConfig{GopsPort: defaultPort}),
 		cell.Invoke(registerGopsHooks),
 	)

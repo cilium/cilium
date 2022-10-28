@@ -26,6 +26,8 @@ func (HealthAPIServerConfig) Flags(flags *pflag.FlagSet) {
 
 var healthAPIServerCell = cell.Module(
 	"health-api-server",
+	"ClusterMesh Health API Server",
+
 	cell.Config(HealthAPIServerConfig{}),
 	cell.Invoke(registerHealthAPIServer),
 )

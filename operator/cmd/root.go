@@ -91,6 +91,7 @@ var (
 	// Used also in tests.
 	OperatorCell = cell.Module(
 		"operator",
+		"Cilium Operator",
 
 		cell.Invoke(
 			registerOperatorHooks,

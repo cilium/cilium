@@ -55,6 +55,8 @@ func main() {
 
 var resourcesCell = cell.Module(
 	"resources",
+	"Kubernetes Pod and Service resources",
+
 	cell.Provide(
 		func(lc hive.Lifecycle, c client.Clientset) resource.Resource[*corev1.Pod] {
 			if !c.IsEnabled() {
@@ -75,6 +77,8 @@ var resourcesCell = cell.Module(
 
 var printServicesCell = cell.Module(
 	"print-services",
+	"Prints Kubernetes Services",
+
 	cell.Provide(newPrintServices),
 )
 

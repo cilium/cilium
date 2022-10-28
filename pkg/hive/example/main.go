@@ -22,6 +22,8 @@ import (
 // way around.
 var exampleCell = cell.Module(
 	"example",
+	"Example",
+
 	cell.Config(defaultExampleConfig),
 	cell.Provide(newExampleObject),
 	cell.ProvidePrivate(newPrivateObject),

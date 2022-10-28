@@ -50,6 +50,7 @@ import (
 // used by Cilium.
 var Cell = cell.Module(
 	"k8s-client",
+	"Kubernetes Client",
 
 	cell.Config(defaultConfig),
 	cell.Provide(newClientset),
