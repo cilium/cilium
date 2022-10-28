@@ -30,6 +30,7 @@ func TestHiveGoodConfig(t *testing.T) {
 	var cfg Config
 	testCell := cell.Module(
 		"test",
+		"Test Module",
 		cell.Config(Config{}),
 		cell.Invoke(func(c Config) {
 			cfg = c
@@ -68,6 +69,7 @@ func (BadConfig) Flags(flags *pflag.FlagSet) {
 func TestHiveBadConfig(t *testing.T) {
 	testCell := cell.Module(
 		"test",
+		"Test Module",
 		cell.Config(BadConfig{}),
 		cell.Invoke(func(c BadConfig) {}),
 	)
@@ -88,6 +90,7 @@ func TestProvideInvoke(t *testing.T) {
 
 	testCell := cell.Module(
 		"test",
+		"Test Module",
 		cell.Provide(func() *SomeObject { return &SomeObject{10} }),
 		cell.Invoke(func(*SomeObject) { invoked = true }),
 	)
@@ -106,6 +109,7 @@ func TestProvidePrivate(t *testing.T) {
 
 	testCell := cell.Module(
 		"test",
+		"Test Module",
 		cell.ProvidePrivate(func() *SomeObject { return &SomeObject{10} }),
 		cell.Invoke(func(*SomeObject) { invoked = true }),
 	)
