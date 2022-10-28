@@ -655,8 +655,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 
 		l4_off = ETH_HLEN + hdrlen;
 
-		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
-				      CT_EGRESS);
+		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
@@ -1218,8 +1217,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
-				      CT_EGRESS);
+		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
