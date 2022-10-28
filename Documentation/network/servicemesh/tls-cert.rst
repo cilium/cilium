@@ -32,7 +32,11 @@ Create TLS Certificate and Private Key
         .. code-block:: shell-session
 
             $ helm repo add jetstack https://charts.jetstack.io
-            $ helm install cert-manager jetstack/cert-manager --version v1.7.1 --namespace cert-manager --set installCRDs=true --create-namespace
+            $ helm install cert-manager jetstack/cert-manager --version v1.10.0 \
+                --namespace cert-manager \
+                --set installCRDs=true \
+                --create-namespace \
+                --set "extraArgs={--feature-gates=ExperimentalGatewayAPISupport=true}"
 
         Now, create a CA Issuer:
 
