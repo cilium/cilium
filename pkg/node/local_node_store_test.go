@@ -62,7 +62,7 @@ func TestLocalNodeStore(t *testing.T) {
 	}
 
 	hive := hive.New(
-		LocalNodeStoreCell,
+		cell.Provide(NewLocalNodeStore),
 
 		cell.Provide(func() LocalNodeInitializer { return testInitializer{} }),
 		cell.Invoke(observe),

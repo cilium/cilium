@@ -1659,11 +1659,6 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		params.Clientset.Disable()
 	}
 
-	// Set the global LocalNodeStore. This is to retain the API of getters and setters
-	// defined in pkg/node/address.go until uses of them have been converted to use
-	// LocalNodeStore directly.
-	node.SetLocalNodeStore(params.LocalNodeStore)
-
 	var daemon *Daemon
 	var wg sync.WaitGroup
 
