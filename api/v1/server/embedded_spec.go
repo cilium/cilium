@@ -3984,6 +3984,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "SRv6": {
+          "description": "Status of srv6",
+          "$ref": "#/definitions/SRv6"
+        },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
@@ -4079,10 +4083,6 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
-        },
-        "srv6": {
-          "description": "Status of srv6",
-          "$ref": "#/definitions/SRv6"
         },
         "stale": {
           "description": "List of stale information in the status",
@@ -8937,6 +8937,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "SRv6": {
+          "description": "Status of srv6",
+          "$ref": "#/definitions/SRv6"
+        },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
@@ -9032,10 +9036,6 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
-        },
-        "srv6": {
-          "description": "Status of srv6",
-          "$ref": "#/definitions/SRv6"
         },
         "stale": {
           "description": "List of stale information in the status",

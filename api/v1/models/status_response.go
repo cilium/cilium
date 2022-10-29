@@ -22,6 +22,9 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
+	// Status of srv6
+	SRv6 *SRv6 `json:"SRv6,omitempty"`
+
 	// Status of bandwidth manager
 	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
 
@@ -97,9 +100,6 @@ type StatusResponse struct {
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
 
-	// Status of srv6
-	Srv6 *SRv6 `json:"srv6,omitempty"`
-
 	// List of stale information in the status
 	Stale map[string]strfmt.DateTime `json:"stale,omitempty"`
 }
@@ -107,6 +107,10 @@ type StatusResponse struct {
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateSRv6(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateBandwidthManager(formats); err != nil {
 		res = append(res, err)
@@ -200,10 +204,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateSrv6(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateStale(formats); err != nil {
 		res = append(res, err)
 	}
@@ -211,6 +211,24 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) validateSRv6(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.SRv6) { // not required
+		return nil
+	}
+
+	if m.SRv6 != nil {
+		if err := m.SRv6.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("SRv6")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -618,24 +636,6 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 		if err := m.Proxy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("proxy")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *StatusResponse) validateSrv6(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Srv6) { // not required
-		return nil
-	}
-
-	if m.Srv6 != nil {
-		if err := m.Srv6.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("srv6")
 			}
 			return err
 		}
