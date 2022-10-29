@@ -1736,8 +1736,8 @@ definitions:
       host-firewall:
         description: Status of the host firewall
         "$ref": "#/definitions/HostFirewall"
-      host-srv6:
-        description: Status of the host srv6
+      srv6:
+        description: Status of srv6
         "$ref": "#/definitions/SRv6"
       hubble:
         description: Status of Hubble server
