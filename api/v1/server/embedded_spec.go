@@ -3802,6 +3802,25 @@ func init() {
         }
       }
     },
+    "SRv6": {
+      "description": "Status of the host srv6\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Enabled"
+          ]
+        }
+      }
+    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -4020,6 +4039,10 @@ func init() {
         "host-routing": {
           "description": "Status of host routing",
           "$ref": "#/definitions/HostRouting"
+        },
+        "host-srv6": {
+          "description": "Status of the host srv6",
+          "$ref": "#/definitions/SRv6"
         },
         "hubble": {
           "description": "Status of Hubble server",
@@ -8684,6 +8707,25 @@ func init() {
         }
       }
     },
+    "SRv6": {
+      "description": "Status of the host srv6\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "Enabled"
+          ]
+        }
+      }
+    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -8950,6 +8992,10 @@ func init() {
         "host-routing": {
           "description": "Status of host routing",
           "$ref": "#/definitions/HostRouting"
+        },
+        "host-srv6": {
+          "description": "Status of the host srv6",
+          "$ref": "#/definitions/SRv6"
         },
         "hubble": {
           "description": "Status of Hubble server",
