@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -128,6 +127,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 				nodeManager.Update(node)
 			})
 	}
+
 	if withKVStore {
 		kvStoreSyncHandler = syncHandlerConstructor(
 			func(name string) {
@@ -219,7 +219,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	)
 
 	go func() {
-		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
+		cache.WaitForCacheSync(ctx.Done(), ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
 		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey{})
 		log.Info("CiliumNodes caches synced with Kubernetes")
@@ -248,7 +248,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 		}
 	}()
 
-	go ciliumNodeInformer.Run(wait.NeverStop)
+	go ciliumNodeInformer.Run(ctx.Done())
 
 	return nil
 }
