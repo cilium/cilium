@@ -67,9 +67,6 @@ type StatusResponse struct {
 	// Status of host routing
 	HostRouting *HostRouting `json:"host-routing,omitempty"`
 
-	// Status of the host srv6
-	HostSrv6 *SRv6 `json:"host-srv6,omitempty"`
-
 	// Status of Hubble server
 	Hubble *HubbleStatus `json:"hubble,omitempty"`
 
@@ -99,6 +96,9 @@ type StatusResponse struct {
 
 	// Status of proxy
 	Proxy *ProxyStatus `json:"proxy,omitempty"`
+
+	// Status of srv6
+	Srv6 *SRv6 `json:"srv6,omitempty"`
 
 	// List of stale information in the status
 	Stale map[string]strfmt.DateTime `json:"stale,omitempty"`
@@ -160,10 +160,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateHostSrv6(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateHubble(formats); err != nil {
 		res = append(res, err)
 	}
@@ -201,6 +197,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateProxy(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSrv6(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -446,24 +446,6 @@ func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *StatusResponse) validateHostSrv6(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.HostSrv6) { // not required
-		return nil
-	}
-
-	if m.HostSrv6 != nil {
-		if err := m.HostSrv6.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("host-srv6")
-			}
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.Hubble) { // not required
@@ -636,6 +618,24 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 		if err := m.Proxy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("proxy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateSrv6(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Srv6) { // not required
+		return nil
+	}
+
+	if m.Srv6 != nil {
+		if err := m.Srv6.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("srv6")
 			}
 			return err
 		}

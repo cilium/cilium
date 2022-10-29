@@ -4040,10 +4040,6 @@ func init() {
           "description": "Status of host routing",
           "$ref": "#/definitions/HostRouting"
         },
-        "host-srv6": {
-          "description": "Status of the host srv6",
-          "$ref": "#/definitions/SRv6"
-        },
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
@@ -4083,6 +4079,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "srv6": {
+          "description": "Status of srv6",
+          "$ref": "#/definitions/SRv6"
         },
         "stale": {
           "description": "List of stale information in the status",
@@ -8993,10 +8993,6 @@ func init() {
           "description": "Status of host routing",
           "$ref": "#/definitions/HostRouting"
         },
-        "host-srv6": {
-          "description": "Status of the host srv6",
-          "$ref": "#/definitions/SRv6"
-        },
         "hubble": {
           "description": "Status of Hubble server",
           "$ref": "#/definitions/HubbleStatus"
@@ -9036,6 +9032,10 @@ func init() {
         "proxy": {
           "description": "Status of proxy",
           "$ref": "#/definitions/ProxyStatus"
+        },
+        "srv6": {
+          "description": "Status of srv6",
+          "$ref": "#/definitions/SRv6"
         },
         "stale": {
           "description": "List of stale information in the status",
