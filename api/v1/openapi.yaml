@@ -1736,9 +1736,9 @@ definitions:
       host-firewall:
         description: Status of the host firewall
         "$ref": "#/definitions/HostFirewall"
-      SRv6:
-        description: Status of srv6
-        "$ref": "#/definitions/SRv6"
+      Srv6:
+        description: Status of the SRv6 support
+        "$ref": "#/definitions/Srv6"
       hubble:
         description: Status of Hubble server
         "$ref": "#/definitions/HubbleStatus"
@@ -1837,18 +1837,15 @@ definitions:
         type: array
         items:
           type: string
-  SRv6:
+  Srv6:
     description: |-
-      Status of the host srv6
+      Status of SRv6 support
 
       +k8s:deepcopy-gen=true
     type: object
     properties:
-      mode:
-        type: string
-        enum:
-        - Disabled
-        - Enabled
+      enabled:
+        type: boolean
       devices:
         type: array
         items:

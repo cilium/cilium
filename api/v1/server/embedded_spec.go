@@ -3802,25 +3802,6 @@ func init() {
         }
       }
     },
-    "SRv6": {
-      "description": "Status of the host srv6\n\n+k8s:deepcopy-gen=true",
-      "type": "object",
-      "properties": {
-        "devices": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "mode": {
-          "type": "string",
-          "enum": [
-            "Disabled",
-            "Enabled"
-          ]
-        }
-      }
-    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -3960,6 +3941,21 @@ func init() {
         }
       }
     },
+    "Srv6": {
+      "description": "Status of SRv6 support\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "Status": {
       "description": "Status of an individual component",
       "type": "object",
@@ -3984,9 +3980,9 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "SRv6": {
-          "description": "Status of srv6",
-          "$ref": "#/definitions/SRv6"
+        "Srv6": {
+          "description": "Status of the SRv6 support",
+          "$ref": "#/definitions/Srv6"
         },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
@@ -8707,25 +8703,6 @@ func init() {
         }
       }
     },
-    "SRv6": {
-      "description": "Status of the host srv6\n\n+k8s:deepcopy-gen=true",
-      "type": "object",
-      "properties": {
-        "devices": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "mode": {
-          "type": "string",
-          "enum": [
-            "Disabled",
-            "Enabled"
-          ]
-        }
-      }
-    },
     "SelectorCache": {
       "description": "cache of which identities match selectors in the policy repository",
       "type": "array",
@@ -8913,6 +8890,21 @@ func init() {
         }
       }
     },
+    "Srv6": {
+      "description": "Status of SRv6 support\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
     "Status": {
       "description": "Status of an individual component",
       "type": "object",
@@ -8937,9 +8929,9 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "SRv6": {
-          "description": "Status of srv6",
-          "$ref": "#/definitions/SRv6"
+        "Srv6": {
+          "description": "Status of the SRv6 support",
+          "$ref": "#/definitions/Srv6"
         },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",

@@ -22,8 +22,8 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
-	// Status of srv6
-	SRv6 *SRv6 `json:"SRv6,omitempty"`
+	// Status of the SRv6 support
+	Srv6 *Srv6 `json:"Srv6,omitempty"`
 
 	// Status of bandwidth manager
 	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
@@ -108,7 +108,7 @@ type StatusResponse struct {
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateSRv6(formats); err != nil {
+	if err := m.validateSrv6(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -214,16 +214,16 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *StatusResponse) validateSRv6(formats strfmt.Registry) error {
+func (m *StatusResponse) validateSrv6(formats strfmt.Registry) error {
 
-	if swag.IsZero(m.SRv6) { // not required
+	if swag.IsZero(m.Srv6) { // not required
 		return nil
 	}
 
-	if m.SRv6 != nil {
-		if err := m.SRv6.Validate(formats); err != nil {
+	if m.Srv6 != nil {
+		if err := m.Srv6.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("SRv6")
+				return ve.ValidateName("Srv6")
 			}
 			return err
 		}
