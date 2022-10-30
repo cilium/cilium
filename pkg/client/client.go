@@ -311,10 +311,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "\n")
 	}
 
-	if sr.SRv6 != nil {
-		fmt.Fprintf(w, "Segment Routing:\t%s", sr.SRv6.Mode)
-		if sr.SRv6.Mode != models.SRv6ModeDisabled {
-			fmt.Fprintf(w, "\t[%s]", strings.Join(sr.SRv6.Devices, ", "))
+	if sr.Srv6 != nil {
+		fmt.Fprintf(w, "Segment Routing:\t%t", sr.Srv6.Enabled)
+		if sr.Srv6.Enabled {
+			fmt.Fprintf(w, "\t[%s]", strings.Join(sr.Srv6.Devices, ", "))
 		}
 		fmt.Fprintf(w, "\n")
 	}
