@@ -192,18 +192,14 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	}
 }
 
-func (d *Daemon) getSRv6Status() *models.SRv6 {
+func (d *Daemon) getSRv6Status() *models.Srv6 {
 	mode := models.SRv6ModeDisabled
 	if option.Config.EnableSRv6 {
 		mode = models.SRv6ModeEnabled
 	}
-	devices := make([]string, len(option.Config.Devices))
-	for i, iface := range option.Config.Devices {
-		devices[i] = iface
-	}
 	return &models.SRv6{
 		Mode:    mode,
-		Devices: devices,
+		Devices: option.Config.GetDevices(),
 	}
 }
 
