@@ -143,5 +143,4 @@ get started and experiment with Cilium.
    :maxdepth: 2
    :caption: BPF and XDP Reference Guide
 
-   bpf
-
+   bpf/index
