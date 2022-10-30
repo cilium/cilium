@@ -197,7 +197,7 @@ func (d *Daemon) getSRv6Status() *models.Srv6 {
 	if option.Config.EnableSRv6 {
 		mode = models.SRv6ModeEnabled
 	}
-	return &models.SRv6{
+	return &models.Srv6{
 		Mode:    mode,
 		Devices: option.Config.GetDevices(),
 	}
@@ -1094,7 +1094,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
-	d.statusResponse.SRv6 = d.getSRv6Status()
+	d.statusResponse.Srv6 = d.getSRv6Status()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.ClockSource = d.getClockSourceStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
