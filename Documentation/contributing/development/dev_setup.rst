@@ -151,8 +151,8 @@ brought up by vagrant:
   test/bpf/verifier-test.sh``.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
-  cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
-  set, it defaults to ``docker``.
+  cluster. Valid options are: ``containerd`` and ``crio``. If not
+  set, it defaults to ``containerd``.
 * ``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``.
 * ``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only
   useful when the installation was interrupted.
