@@ -507,7 +507,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
-		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
+		scopedLog.Warn("Attempt to remove non-existing IP from ipcache layer")
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorNoExist,
 		).Inc()
