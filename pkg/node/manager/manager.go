@@ -526,7 +526,13 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			if skipIPCache(address) {
 				continue
 			}
-			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP.String())
+			var prefix netip.Prefix
+			if v4 := address.IP.To4(); v4 != nil {
+				prefix = ip.IPToNetPrefix(v4)
+			} else {
+				prefix = ip.IPToNetPrefix(address.IP.To16())
+			}
+			oldNodeIPAddrs = append(oldNodeIPAddrs, prefix.String())
 		}
 		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
 
@@ -640,7 +646,13 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 			continue
 		}
 
-		m.ipcache.Delete(address.IP.String(), n.Source)
+		var prefix netip.Prefix
+		if v4 := address.IP.To4(); v4 != nil {
+			prefix = ip.IPToNetPrefix(v4)
+		} else {
+			prefix = ip.IPToNetPrefix(address.IP.To16())
+		}
+		m.ipcache.Delete(prefix.String(), n.Source)
 	}
 
 	for _, address := range []net.IP{
