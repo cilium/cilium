@@ -223,7 +223,14 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 
 			// Replace the map load with an immediate load. Must be a dword load
 			// to match the instruction width of a map load.
-			prog.Instructions[i] = asm.LoadImm(ins.Dst, int64(imm), asm.DWord)
+			r := asm.LoadImm(ins.Dst, int64(imm), asm.DWord)
+
+			// Preserve metadata of the original instruction. Otherwise, a program's
+			// first instruction could be stripped of its func_info or Symbol
+			// (function start) annotations.
+			r.Metadata = ins.Metadata
+
+			prog.Instructions[i] = r
 		}
 	}
 
