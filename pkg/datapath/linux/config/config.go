@@ -248,10 +248,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_TPROXY"] = "1"
 	}
 
-	if option.Config.EncryptNode {
-		cDefinesMap["ENCRYPT_NODE"] = "1"
-	}
-
 	if option.Config.EnableXDPPrefilter {
 		cDefinesMap["ENABLE_PREFILTER"] = "1"
 	}
