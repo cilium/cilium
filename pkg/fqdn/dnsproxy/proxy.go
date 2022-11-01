@@ -854,6 +854,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	case !allowed:
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
+		// Send refused msg before calling NotifyOnDNSMsg() because we know
+		// that this DNS request is rejected anyway. NotifyOnDNSMsg depends on
+		// stat.Err field to be set in order to propagate the correct
+		// information for metrics.
 		stat.Err = p.sendRefused(scopedLog, w, request)
 		stat.ProcessingTime.End(true)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
@@ -913,12 +917,13 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		stat.Err = err
 		if stat.IsTimeout() {
 			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
-		} else {
-			scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
-			p.sendRefused(scopedLog, w, request)
-			stat.Err = fmt.Errorf("Cannot forward proxied DNS lookup: %w", err)
+			p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+			return
 		}
+		scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
+		stat.Err = fmt.Errorf("cannot forward proxied DNS lookup: %w", err)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 
