@@ -20,7 +20,7 @@ func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 	// prefix is always a subset of shorter prefix.
 	cidrPrefix := "cidr:"
 	var filteredLabels []string
-	var max *net.IPNet
+	var maxSize int
 	var maxStr string
 	for _, label := range labels {
 		if !strings.HasPrefix(label, cidrPrefix) {
@@ -37,18 +37,11 @@ func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 			log.WithField("label", label).Warn("got an invalid cidr label")
 			continue
 		}
-		if max == nil {
-			max = curr
-			maxStr = label
-		}
-		currMask, _ := curr.Mask.Size()
-		maxMask, _ := max.Mask.Size()
-		if currMask > maxMask {
-			max = curr
-			maxStr = label
+		if currMask, _ := curr.Mask.Size(); currMask > maxSize {
+			maxSize, maxStr = currMask, label
 		}
 	}
-	if max != nil {
+	if maxSize != 0 {
 		filteredLabels = append(filteredLabels, maxStr)
 	}
 	return filteredLabels
