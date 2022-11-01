@@ -168,6 +168,7 @@ cilium-agent [flags]
       --hubble-prefer-ipv6                                      Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                     Queue size of each Hubble recorder sink (default 1024)
       --hubble-recorder-storage-path string                     Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
+      --hubble-skip-unknown-cgroup-ids                          Skip Hubble events with unknown cgroup ids (default true)
       --hubble-socket-path string                               Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                             Path to the public key file for the Hubble server. The file must contain PEM encoded data.
       --hubble-tls-client-ca-files strings                      Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.

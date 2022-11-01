@@ -193,8 +193,11 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	tt := []struct {
-		name   string
-		msg    monitor.TraceSockNotify
+		name string
+		msg  monitor.TraceSockNotify
+
+		skipUnknownCGroupIDs bool
+
 		rawMsg []byte
 		flow   *flowpb.Flow
 		errMsg string
@@ -215,6 +218,20 @@ func TestDecodeSockEvent(t *testing.T) {
 			errMsg: parserErrors.NewErrInvalidType(0).Error(),
 		},
 		{
+			name: "invalid cgroup id",
+			msg: monitor.TraceSockNotify{
+				Type:       monitorAPI.MessageTypeTraceSock,
+				XlatePoint: monitor.XlatePointPreDirectionFwd,
+				DstIP:      mustParseIP("10.10.10.10"),
+				DstPort:    8080,
+				L4Proto:    monitor.L4ProtocolUDP,
+				SockCookie: 0xc0ffee,
+				CgroupId:   1234,
+			},
+			skipUnknownCGroupIDs: true,
+			errMsg:               parserErrors.ErrEventSkipped.Error(),
+		},
+		{
 			name: "minimal",
 			msg: monitor.TraceSockNotify{
 				Type:       monitorAPI.MessageTypeTraceSock,
@@ -224,6 +241,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				L4Proto:    monitor.L4ProtocolUDP,
 				SockCookie: 0xc0ffee,
 			},
+			skipUnknownCGroupIDs: false,
 			flow: &flowpb.Flow{
 				Type:    flowpb.FlowType_SOCK,
 				Verdict: flowpb.Verdict_TRACED,
@@ -255,6 +273,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
+			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRACED,
@@ -298,6 +317,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				CgroupId:   xwingCgroupId,
 				L4Proto:    monitor.L4ProtocolTCP,
 			},
+			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
@@ -342,6 +362,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				L4Proto:    monitor.L4ProtocolTCP,
 				Flags:      monitor.TraceSockNotifyFlagIPv6,
 			},
+			skipUnknownCGroupIDs: true,
 			flow: &flowpb.Flow{
 				Type:     flowpb.FlowType_SOCK,
 				Verdict:  flowpb.Verdict_TRANSLATED,
@@ -382,6 +403,7 @@ func TestDecodeSockEvent(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			p.skipUnknownCGroupIDs = tc.skipUnknownCGroupIDs
 			data := tc.rawMsg
 			if data == nil {
 				buf := &bytes.Buffer{}
