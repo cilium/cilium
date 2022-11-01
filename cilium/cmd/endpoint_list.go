@@ -55,11 +55,11 @@ func endpointPolicyMode(ep *models.Endpoint) (string, string) {
 		return PolicyEnabled, PolicyDisabled
 	case models.EndpointPolicyEnabledEgress:
 		return PolicyDisabled, PolicyEnabled
-	case models.EndpointPolicyEnabledAuditBoth:
+	case models.EndpointPolicyEnabledAuditDashBoth:
 		return PolicyAudit, PolicyAudit
-	case models.EndpointPolicyEnabledAuditIngress:
+	case models.EndpointPolicyEnabledAuditDashIngress:
 		return PolicyAudit, PolicyDisabled
-	case models.EndpointPolicyEnabledAuditEgress:
+	case models.EndpointPolicyEnabledAuditDashEgress:
 		return PolicyDisabled, PolicyAudit
 	}
 
@@ -79,11 +79,11 @@ func endpointAddressPair(ep *models.Endpoint) (string, string) {
 }
 
 func endpointState(ep *models.Endpoint) string {
-	if ep.Status == nil {
+	if ep.Status == nil || ep.Status.State == nil {
 		return UnknownState
 	}
 
-	return string(ep.Status.State)
+	return string(*ep.Status.State)
 }
 
 func endpointLabels(ep *models.Endpoint) []string {

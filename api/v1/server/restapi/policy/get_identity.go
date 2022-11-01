@@ -33,7 +33,7 @@ func NewGetIdentity(ctx *middleware.Context, handler GetIdentityHandler) *GetIde
 }
 
 /*
-GetIdentity swagger:route GET /identity policy getIdentity
+	GetIdentity swagger:route GET /identity policy getIdentity
 
 Retrieves a list of identities that have metadata matching the provided parameters.
 
@@ -47,17 +47,15 @@ type GetIdentity struct {
 func (o *GetIdentity) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetIdentityParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

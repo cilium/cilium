@@ -189,7 +189,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 		ContainerID:   event.Actor.ID,
 		ContainerName: strings.TrimPrefix(cont.Name, "/"),
 		Labels:        addLbls,
-		State:         models.EndpointStateWaitingForIdentity,
+		State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 	}
 	err = driver.client.EndpointPatch(endpointID(epID), ecr)
 	if err != nil {
@@ -374,7 +374,7 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	endpoint := &models.EndpointChangeRequest{
 		SyncBuildEndpoint: true,
-		State:             models.EndpointStateWaitingForIdentity,
+		State:             models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		DockerEndpointID:  create.EndpointID,
 		DockerNetworkID:   create.NetworkID,
 		Addressing: &models.AddressPair{

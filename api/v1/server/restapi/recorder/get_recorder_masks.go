@@ -33,7 +33,7 @@ func NewGetRecorderMasks(ctx *middleware.Context, handler GetRecorderMasksHandle
 }
 
 /*
-GetRecorderMasks swagger:route GET /recorder/masks recorder getRecorderMasks
+	GetRecorderMasks swagger:route GET /recorder/masks recorder getRecorderMasks
 
 Retrieve list of all recorder masks
 */
@@ -45,17 +45,15 @@ type GetRecorderMasks struct {
 func (o *GetRecorderMasks) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetRecorderMasksParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

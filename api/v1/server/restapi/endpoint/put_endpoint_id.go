@@ -33,7 +33,7 @@ func NewPutEndpointID(ctx *middleware.Context, handler PutEndpointIDHandler) *Pu
 }
 
 /*
-PutEndpointID swagger:route PUT /endpoint/{id} endpoint putEndpointId
+	PutEndpointID swagger:route PUT /endpoint/{id} endpoint putEndpointId
 
 # Create endpoint
 
@@ -47,17 +47,15 @@ type PutEndpointID struct {
 func (o *PutEndpointID) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewPutEndpointIDParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

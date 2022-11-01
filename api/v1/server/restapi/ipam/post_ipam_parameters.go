@@ -20,7 +20,8 @@ import (
 )
 
 // NewPostIpamParams creates a new PostIpamParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPostIpamParams() PostIpamParams {
 
 	return PostIpamParams{}
@@ -73,7 +74,6 @@ func (o *PostIpamParams) BindRequest(r *http.Request, route *middleware.MatchedR
 	if err := o.bindOwner(qOwner, qhkOwner, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -111,10 +111,10 @@ func (o *PostIpamParams) bindFamily(rawData []string, hasKey bool, formats strfm
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Family = &raw
 
 	if err := o.validateFamily(formats); err != nil {
@@ -143,10 +143,10 @@ func (o *PostIpamParams) bindOwner(rawData []string, hasKey bool, formats strfmt
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Owner = &raw
 
 	return nil

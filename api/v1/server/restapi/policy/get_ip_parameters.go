@@ -18,7 +18,8 @@ import (
 )
 
 // NewGetIPParams creates a new GetIPParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetIPParams() GetIPParams {
 
 	return GetIPParams{}
@@ -54,7 +55,6 @@ func (o *GetIPParams) BindRequest(r *http.Request, route *middleware.MatchedRout
 	if err := o.bindCidr(qCidr, qhkCidr, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -70,10 +70,10 @@ func (o *GetIPParams) bindCidr(rawData []string, hasKey bool, formats strfmt.Reg
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Cidr = &raw
 
 	return nil

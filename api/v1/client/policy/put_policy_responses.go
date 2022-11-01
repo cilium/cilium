@@ -50,7 +50,6 @@ func (o *PutPolicyReader) ReadResponse(response runtime.ClientResponse, consumer
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -62,7 +61,7 @@ func NewPutPolicyOK() *PutPolicyOK {
 }
 
 /*
-PutPolicyOK handles this case with default header values.
+PutPolicyOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -70,7 +69,36 @@ type PutPolicyOK struct {
 	Payload *models.Policy
 }
 
+// IsSuccess returns true when this put policy o k response has a 2xx status code
+func (o *PutPolicyOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put policy o k response has a 3xx status code
+func (o *PutPolicyOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put policy o k response has a 4xx status code
+func (o *PutPolicyOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put policy o k response has a 5xx status code
+func (o *PutPolicyOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put policy o k response a status code equal to that given
+func (o *PutPolicyOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PutPolicyOK) Error() string {
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK  %+v", 200, o.Payload)
+}
+
+func (o *PutPolicyOK) String() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyOK  %+v", 200, o.Payload)
 }
 
@@ -96,7 +124,7 @@ func NewPutPolicyInvalidPolicy() *PutPolicyInvalidPolicy {
 }
 
 /*
-PutPolicyInvalidPolicy handles this case with default header values.
+PutPolicyInvalidPolicy describes a response with status code 400, with default header values.
 
 Invalid policy
 */
@@ -104,7 +132,36 @@ type PutPolicyInvalidPolicy struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put policy invalid policy response has a 2xx status code
+func (o *PutPolicyInvalidPolicy) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put policy invalid policy response has a 3xx status code
+func (o *PutPolicyInvalidPolicy) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put policy invalid policy response has a 4xx status code
+func (o *PutPolicyInvalidPolicy) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put policy invalid policy response has a 5xx status code
+func (o *PutPolicyInvalidPolicy) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put policy invalid policy response a status code equal to that given
+func (o *PutPolicyInvalidPolicy) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PutPolicyInvalidPolicy) Error() string {
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
+}
+
+func (o *PutPolicyInvalidPolicy) String() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPolicy  %+v", 400, o.Payload)
 }
 
@@ -128,7 +185,7 @@ func NewPutPolicyInvalidPath() *PutPolicyInvalidPath {
 }
 
 /*
-PutPolicyInvalidPath handles this case with default header values.
+PutPolicyInvalidPath describes a response with status code 460, with default header values.
 
 Invalid path
 */
@@ -136,7 +193,36 @@ type PutPolicyInvalidPath struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put policy invalid path response has a 2xx status code
+func (o *PutPolicyInvalidPath) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put policy invalid path response has a 3xx status code
+func (o *PutPolicyInvalidPath) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put policy invalid path response has a 4xx status code
+func (o *PutPolicyInvalidPath) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put policy invalid path response has a 5xx status code
+func (o *PutPolicyInvalidPath) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put policy invalid path response a status code equal to that given
+func (o *PutPolicyInvalidPath) IsCode(code int) bool {
+	return code == 460
+}
+
 func (o *PutPolicyInvalidPath) Error() string {
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath  %+v", 460, o.Payload)
+}
+
+func (o *PutPolicyInvalidPath) String() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyInvalidPath  %+v", 460, o.Payload)
 }
 
@@ -160,7 +246,7 @@ func NewPutPolicyFailure() *PutPolicyFailure {
 }
 
 /*
-PutPolicyFailure handles this case with default header values.
+PutPolicyFailure describes a response with status code 500, with default header values.
 
 Policy import failed
 */
@@ -168,7 +254,36 @@ type PutPolicyFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put policy failure response has a 2xx status code
+func (o *PutPolicyFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put policy failure response has a 3xx status code
+func (o *PutPolicyFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put policy failure response has a 4xx status code
+func (o *PutPolicyFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put policy failure response has a 5xx status code
+func (o *PutPolicyFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this put policy failure response a status code equal to that given
+func (o *PutPolicyFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PutPolicyFailure) Error() string {
+	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure  %+v", 500, o.Payload)
+}
+
+func (o *PutPolicyFailure) String() string {
 	return fmt.Sprintf("[PUT /policy][%d] putPolicyFailure  %+v", 500, o.Payload)
 }
 
