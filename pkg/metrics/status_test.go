@@ -117,11 +117,11 @@ type fakeConnectivityClient struct {
 	response *connectivity.GetStatusOK
 }
 
-func (f *fakeConnectivityClient) GetStatus(params *connectivity.GetStatusParams) (*connectivity.GetStatusOK, error) {
+func (f *fakeConnectivityClient) GetStatus(params *connectivity.GetStatusParams, opts ...connectivity.ClientOption) (*connectivity.GetStatusOK, error) {
 	return f.response, nil
 }
 
-func (f *fakeDaemonClient) GetHealthz(params *daemon.GetHealthzParams) (*daemon.GetHealthzOK, error) {
+func (f *fakeDaemonClient) GetHealthz(params *daemon.GetHealthzParams, opts ...daemon.ClientOption) (*daemon.GetHealthzOK, error) {
 	return f.response, nil
 }
 

@@ -33,7 +33,7 @@ func NewGetLrp(ctx *middleware.Context, handler GetLrpHandler) *GetLrp {
 }
 
 /*
-GetLrp swagger:route GET /lrp service getLrp
+	GetLrp swagger:route GET /lrp service getLrp
 
 Retrieve list of all local redirect policies
 */
@@ -45,17 +45,15 @@ type GetLrp struct {
 func (o *GetLrp) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetLrpParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

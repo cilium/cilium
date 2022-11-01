@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -27,6 +29,11 @@ type PrefilterSpec struct {
 
 // Validate validates this prefilter spec
 func (m *PrefilterSpec) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this prefilter spec based on context it is used
+func (m *PrefilterSpec) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -96,7 +97,6 @@ func (m *MapEvent) validateActionEnum(path, location string, value string) error
 }
 
 func (m *MapEvent) validateAction(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Action) { // not required
 		return nil
 	}
@@ -142,7 +142,6 @@ func (m *MapEvent) validateDesiredActionEnum(path, location string, value string
 }
 
 func (m *MapEvent) validateDesiredAction(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.DesiredAction) { // not required
 		return nil
 	}
@@ -156,7 +155,6 @@ func (m *MapEvent) validateDesiredAction(formats strfmt.Registry) error {
 }
 
 func (m *MapEvent) validateTimestamp(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Timestamp) { // not required
 		return nil
 	}
@@ -165,6 +163,11 @@ func (m *MapEvent) validateTimestamp(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this map event based on context it is used
+func (m *MapEvent) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

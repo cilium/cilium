@@ -72,13 +72,13 @@ type State string
 const (
 	// StateWaitingForIdentity is used to set if the endpoint is waiting
 	// for an identity from the KVStore.
-	StateWaitingForIdentity = State(models.EndpointStateWaitingForIdentity)
+	StateWaitingForIdentity = State(models.EndpointStateWaitingDashForDashIdentity)
 
 	// StateReady specifies if the endpoint is ready to be used.
 	StateReady = State(models.EndpointStateReady)
 
 	// StateWaitingToRegenerate specifies when the endpoint needs to be regenerated, but regeneration has not started yet.
-	StateWaitingToRegenerate = State(models.EndpointStateWaitingToRegenerate)
+	StateWaitingToRegenerate = State(models.EndpointStateWaitingDashToDashRegenerate)
 
 	// StateRegenerating specifies when the endpoint is being regenerated.
 	StateRegenerating = State(models.EndpointStateRegenerating)

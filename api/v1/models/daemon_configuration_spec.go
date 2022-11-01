@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -49,16 +50,19 @@ func (m *DaemonConfigurationSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DaemonConfigurationSpec) validateOptions(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Options) { // not required
 		return nil
 	}
 
-	if err := m.Options.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("options")
+	if m.Options != nil {
+		if err := m.Options.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("options")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("options")
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil
@@ -97,13 +101,40 @@ func (m *DaemonConfigurationSpec) validatePolicyEnforcementEnum(path, location s
 }
 
 func (m *DaemonConfigurationSpec) validatePolicyEnforcement(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.PolicyEnforcement) { // not required
 		return nil
 	}
 
 	// value enum
 	if err := m.validatePolicyEnforcementEnum("policy-enforcement", "body", m.PolicyEnforcement); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this daemon configuration spec based on the context it is used
+func (m *DaemonConfigurationSpec) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateOptions(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *DaemonConfigurationSpec) contextValidateOptions(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Options.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("options")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("options")
+		}
 		return err
 	}
 
