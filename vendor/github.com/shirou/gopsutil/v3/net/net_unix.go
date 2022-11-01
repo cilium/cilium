@@ -20,7 +20,7 @@ func Connections(kind string) ([]ConnectionStat, error) {
 }
 
 func ConnectionsWithContext(ctx context.Context, kind string) ([]ConnectionStat, error) {
-	return ConnectionsPid(kind, 0)
+	return ConnectionsPidWithContext(ctx, kind, 0)
 }
 
 // Return a list of network connections opened returning at most `max`
