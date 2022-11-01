@@ -942,6 +942,9 @@ func initializeFlags() {
 	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
 	option.BindEnv(Vp, option.HubbleRecorderSinkQueueSize)
 
+	flags.Bool(option.HubbleSkipUnknownCGroupIDs, true, "Skip Hubble events with unknown cgroup ids")
+	option.BindEnv(Vp, option.HubbleSkipUnknownCGroupIDs)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
