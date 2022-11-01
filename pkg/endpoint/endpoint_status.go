@@ -337,7 +337,7 @@ type EndpointStatusConfiguration interface {
 
 func compressEndpointState(state models.EndpointState) string {
 	switch state {
-	case models.EndpointStateRestoring, models.EndpointStateWaitingToRegenerate,
+	case models.EndpointStateRestoring, models.EndpointStateWaitingDashToDashRegenerate,
 		models.EndpointStateRegenerating, models.EndpointStateReady,
 		models.EndpointStateDisconnecting, models.EndpointStateDisconnected:
 		return string(models.EndpointStateReady)

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
@@ -65,7 +66,6 @@ func (m *ServiceSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.BackendAddresses) { // not required
 		return nil
 	}
@@ -79,6 +79,8 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 			if err := m.BackendAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -90,7 +92,6 @@ func (m *ServiceSpec) validateBackendAddresses(formats strfmt.Registry) error {
 }
 
 func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Flags) { // not required
 		return nil
 	}
@@ -99,6 +100,8 @@ func (m *ServiceSpec) validateFlags(formats strfmt.Registry) error {
 		if err := m.Flags.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("flags")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("flags")
 			}
 			return err
 		}
@@ -117,6 +120,82 @@ func (m *ServiceSpec) validateFrontendAddress(formats strfmt.Registry) error {
 		if err := m.FrontendAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("frontend-address")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this service spec based on the context it is used
+func (m *ServiceSpec) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateBackendAddresses(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateFlags(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateFrontendAddress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.BackendAddresses); i++ {
+
+		if m.BackendAddresses[i] != nil {
+			if err := m.BackendAddresses[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("backend-addresses" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *ServiceSpec) contextValidateFlags(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Flags != nil {
+		if err := m.Flags.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("flags")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("flags")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *ServiceSpec) contextValidateFrontendAddress(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.FrontendAddress != nil {
+		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("frontend-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("frontend-address")
 			}
 			return err
 		}
@@ -225,7 +304,6 @@ func (m *ServiceSpecFlags) validateNatPolicyEnum(path, location string, value st
 }
 
 func (m *ServiceSpecFlags) validateNatPolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NatPolicy) { // not required
 		return nil
 	}
@@ -268,7 +346,6 @@ func (m *ServiceSpecFlags) validateTrafficPolicyEnum(path, location string, valu
 }
 
 func (m *ServiceSpecFlags) validateTrafficPolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.TrafficPolicy) { // not required
 		return nil
 	}
@@ -323,7 +400,6 @@ func (m *ServiceSpecFlags) validateTypeEnum(path, location string, value string)
 }
 
 func (m *ServiceSpecFlags) validateType(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Type) { // not required
 		return nil
 	}
@@ -333,6 +409,11 @@ func (m *ServiceSpecFlags) validateType(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this service spec flags based on context it is used
+func (m *ServiceSpecFlags) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

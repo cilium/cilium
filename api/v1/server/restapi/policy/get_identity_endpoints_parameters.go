@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetIdentityEndpointsParams creates a new GetIdentityEndpointsParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetIdentityEndpointsParams() GetIdentityEndpointsParams {
 
 	return GetIdentityEndpointsParams{}

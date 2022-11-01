@@ -33,7 +33,7 @@ func NewGetFqdnCacheID(ctx *middleware.Context, handler GetFqdnCacheIDHandler) *
 }
 
 /*
-GetFqdnCacheID swagger:route GET /fqdn/cache/{id} policy getFqdnCacheId
+	GetFqdnCacheID swagger:route GET /fqdn/cache/{id} policy getFqdnCacheId
 
 Retrieves the list of DNS lookups intercepted from an endpoint.
 
@@ -48,17 +48,15 @@ type GetFqdnCacheID struct {
 func (o *GetFqdnCacheID) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetFqdnCacheIDParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

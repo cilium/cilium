@@ -17,7 +17,8 @@ import (
 )
 
 // NewGetEndpointIDConfigParams creates a new GetEndpointIDConfigParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetEndpointIDConfigParams() GetEndpointIDConfigParams {
 
 	return GetEndpointIDConfigParams{}
@@ -64,7 +65,6 @@ func (o *GetEndpointIDConfigParams) BindRequest(r *http.Request, route *middlewa
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -80,7 +80,6 @@ func (o *GetEndpointIDConfigParams) bindID(rawData []string, hasKey bool, format
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil

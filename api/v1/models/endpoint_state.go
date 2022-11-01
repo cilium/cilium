@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -21,16 +22,25 @@ import (
 // swagger:model EndpointState
 type EndpointState string
 
+func NewEndpointState(value EndpointState) *EndpointState {
+	return &value
+}
+
+// Pointer returns a pointer to a freshly-allocated EndpointState.
+func (m EndpointState) Pointer() *EndpointState {
+	return &m
+}
+
 const (
 
-	// EndpointStateWaitingForIdentity captures enum value "waiting-for-identity"
-	EndpointStateWaitingForIdentity EndpointState = "waiting-for-identity"
+	// EndpointStateWaitingDashForDashIdentity captures enum value "waiting-for-identity"
+	EndpointStateWaitingDashForDashIdentity EndpointState = "waiting-for-identity"
 
-	// EndpointStateNotReady captures enum value "not-ready"
-	EndpointStateNotReady EndpointState = "not-ready"
+	// EndpointStateNotDashReady captures enum value "not-ready"
+	EndpointStateNotDashReady EndpointState = "not-ready"
 
-	// EndpointStateWaitingToRegenerate captures enum value "waiting-to-regenerate"
-	EndpointStateWaitingToRegenerate EndpointState = "waiting-to-regenerate"
+	// EndpointStateWaitingDashToDashRegenerate captures enum value "waiting-to-regenerate"
+	EndpointStateWaitingDashToDashRegenerate EndpointState = "waiting-to-regenerate"
 
 	// EndpointStateRegenerating captures enum value "regenerating"
 	EndpointStateRegenerating EndpointState = "regenerating"
@@ -83,5 +93,10 @@ func (m EndpointState) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// ContextValidate validates this endpoint state based on context it is used
+func (m EndpointState) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

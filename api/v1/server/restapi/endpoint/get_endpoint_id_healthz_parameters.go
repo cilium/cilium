@@ -17,7 +17,8 @@ import (
 )
 
 // NewGetEndpointIDHealthzParams creates a new GetEndpointIDHealthzParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetEndpointIDHealthzParams() GetEndpointIDHealthzParams {
 
 	return GetEndpointIDHealthzParams{}
@@ -64,7 +65,6 @@ func (o *GetEndpointIDHealthzParams) BindRequest(r *http.Request, route *middlew
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -80,7 +80,6 @@ func (o *GetEndpointIDHealthzParams) bindID(rawData []string, hasKey bool, forma
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil
