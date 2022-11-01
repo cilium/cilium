@@ -23,29 +23,29 @@ func FilterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 	var max *net.IPNet
 	var maxStr string
 	for _, label := range labels {
-		if strings.HasPrefix(label, cidrPrefix) {
-			currLabel := strings.TrimPrefix(label, cidrPrefix)
-			// labels for IPv6 addresses are represented with - instead of : as
-			// : cannot be used in labels; make sure to convert it to a valid
-			// IPv6 representation
-			currLabel = strings.Replace(currLabel, "-", ":", -1)
-			_, curr, err := net.ParseCIDR(currLabel)
-			if err != nil {
-				log.WithField("label", label).Warn("got an invalid cidr label")
-				continue
-			}
-			if max == nil {
-				max = curr
-				maxStr = label
-			}
-			currMask, _ := curr.Mask.Size()
-			maxMask, _ := max.Mask.Size()
-			if currMask > maxMask {
-				max = curr
-				maxStr = label
-			}
-		} else {
+		if !strings.HasPrefix(label, cidrPrefix) {
 			filteredLabels = append(filteredLabels, label)
+			continue
+		}
+		currLabel := strings.TrimPrefix(label, cidrPrefix)
+		// labels for IPv6 addresses are represented with - instead of : as
+		// : cannot be used in labels; make sure to convert it to a valid
+		// IPv6 representation
+		currLabel = strings.Replace(currLabel, "-", ":", -1)
+		_, curr, err := net.ParseCIDR(currLabel)
+		if err != nil {
+			log.WithField("label", label).Warn("got an invalid cidr label")
+			continue
+		}
+		if max == nil {
+			max = curr
+			maxStr = label
+		}
+		currMask, _ := curr.Mask.Size()
+		maxMask, _ := max.Mask.Size()
+		if currMask > maxMask {
+			max = curr
+			maxStr = label
 		}
 	}
 	if max != nil {
