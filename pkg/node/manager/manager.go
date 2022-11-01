@@ -521,20 +521,34 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			})
 		}
 		// Delete the old node IP addresses if they have changed in this node.
-		var oldNodeIPAddrs []net.IP
+		var oldNodeIPAddrs []string
 		for _, address := range oldNode.IPAddresses {
 			if skipIPCache(address) {
 				continue
 			}
-			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP)
+			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP.String())
 		}
 		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
 
 		// Delete the old health IP addresses if they have changed in this node.
-		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded)
+		oldHealthIPs := []string{}
+		if oldNode.IPv4HealthIP != nil {
+			oldHealthIPs = append(oldHealthIPs, oldNode.IPv4HealthIP.String())
+		}
+		if oldNode.IPv6HealthIP != nil {
+			oldHealthIPs = append(oldHealthIPs, oldNode.IPv6HealthIP.String())
+		}
+		m.deleteIPCache(oldNode.Source, oldHealthIPs, healthIPsAdded)
 
 		// Delete the old ingress IP addresses if they have changed in this node.
-		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP}, ingressIPsAdded)
+		oldIngressIPs := []string{}
+		if oldNode.IPv4IngressIP != nil {
+			oldIngressIPs = append(oldIngressIPs, oldNode.IPv4IngressIP.String())
+		}
+		if oldNode.IPv6IngressIP != nil {
+			oldIngressIPs = append(oldIngressIPs, oldNode.IPv6IngressIP.String())
+		}
+		m.deleteIPCache(oldNode.Source, oldIngressIPs, ingressIPsAdded)
 
 		entry.mutex.Unlock()
 	} else {
@@ -567,15 +581,11 @@ func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentit
 
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
 // if they are not found in the newIPs slice.
-func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
+func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []string, newIPs []string) {
 	for _, address := range oldIPs {
-		if address == nil {
-			continue
-		}
-		addrStr := address.String()
 		var found bool
 		for _, ipAdded := range newIPs {
-			if ipAdded == addrStr {
+			if ipAdded == address {
 				found = true
 				break
 			}
@@ -583,7 +593,7 @@ func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs
 		// Delete from the IPCache if the node's IP addresses was not
 		// added in this update.
 		if !found {
-			m.ipcache.Delete(addrStr, oldSource)
+			m.ipcache.Delete(address, oldSource)
 		}
 	}
 }
