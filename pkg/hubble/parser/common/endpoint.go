@@ -48,7 +48,7 @@ func (r *EndpointResolver) ResolveEndpoint(ip net.IP, datapathSecurityIdentity u
 	resolveIdentityConflict := func(identity identity.NumericIdentity) uint32 {
 		// if the datapath did not provide an identity (e.g. FROM_LXC trace
 		// points), use what we have in the user-space cache
-		userspaceSecurityIdentity := uint32(identity)
+		userspaceSecurityIdentity := identity.Uint32()
 		if datapathSecurityIdentity == 0 {
 			return userspaceSecurityIdentity
 		}
