@@ -84,7 +84,6 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
       "cniVersion":"0.3.1",
       "type":"cilium-cni",
       "eni": {
-        "pre-allocate": 5,
         "first-interface-index":1,
         "security-groups":[
           "sg-xxx"
@@ -110,7 +109,6 @@ func (t *CNITypesSuite) TestReadCNIConfENIWithPlugins(c *check.C) {
 			Type:       "cilium-cni",
 		},
 		ENI: eniTypes.ENISpec{
-			PreAllocate:         5,
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg-xxx"},
 			SubnetIDs:           []string{"subnet-xxx"},
@@ -132,7 +130,6 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
   "type": "cilium-cni",
   "eni": {
     "instance-type": "m4.xlarge",
-    "pre-allocate": 16,
     "first-interface-index": 2,
     "security-groups": [ "sg1", "sg2" ],
     "subnet-ids":[
@@ -160,7 +157,6 @@ func (t *CNITypesSuite) TestReadCNIConfENI(c *check.C) {
 		},
 		ENI: eniTypes.ENISpec{
 			InstanceType:        "m4.xlarge",
-			PreAllocate:         16,
 			FirstInterfaceIndex: &firstInterfaceIndex,
 			SecurityGroups:      []string{"sg1", "sg2"},
 			SubnetIDs:           []string{"subnet-1", "subnet-2"},
