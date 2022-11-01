@@ -575,14 +575,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
-			} else if c.ENI.MinAllocate != 0 {
-				nodeResource.Spec.IPAM.MinAllocate = c.ENI.MinAllocate
 			}
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			} else if c.ENI.PreAllocate != 0 {
-				nodeResource.Spec.IPAM.PreAllocate = c.ENI.PreAllocate
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {
