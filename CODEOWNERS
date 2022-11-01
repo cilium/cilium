@@ -23,8 +23,8 @@
 # repository in the Cilium project:
 #
 # - @cilium/api:
-#   Ensure the backwards-compatibility of Cilium REST and gRPC APIs, including
-#   for Hubble flow export.
+#   Ensure the backwards-compatibility of Cilium REST and gRPC APIs, excluding
+#   Hubble which is owned by @cilium/sig-hubble-api.
 # - @cilium/build:
 #   Provide feedback on languages and scripting used for build and packaging
 #   system: Make, Shell, Docker.
@@ -56,6 +56,11 @@
 #   the review process. Ensure that Helm changes are defined in manners that
 #   will be forward-compatible for upgrade and follow best practices for
 #   deployment (for example, being GitOps-friendly).
+# - @cilium/sig-hubble-api:
+#   Review all Hubble API related changes. The Hubble API covers gRPC and
+#   metrics endpoints. The team ensures that API changes are backward
+#   compatible or that a new API version is created for backward incompatible
+#   changes.
 # - @cilium/metrics:
 #   Provide recommendations about the types, names and labels for metrics to
 #   follow best practices. This includes considering the cardinality impact of
@@ -223,13 +228,15 @@
 /.travis.yml @cilium/ci-structure
 /.vscode @cilium/contributing
 /api/ @cilium/api
-/api/v1/flow/ @cilium/api @cilium/sig-hubble
+/api/v1/Makefile @cilium/sig-hubble-api
+/api/v1/Makefile.protoc @cilium/sig-hubble-api
+/api/v1/flow/ @cilium/sig-hubble-api
 /api/v1/health/ @cilium/api @cilium/health
-/api/v1/observer/ @cilium/api @cilium/sig-hubble
+/api/v1/observer/ @cilium/sig-hubble-api
 /api/v1/operator/ @cilium/api @cilium/operator
-/api/v1/peer/ @cilium/api @cilium/sig-hubble
-/api/v1/recorder/ @cilium/api @cilium/sig-hubble
-/api/v1/relay/ @cilium/api @cilium/sig-hubble
+/api/v1/peer/ @cilium/sig-hubble-api
+/api/v1/recorder/ @cilium/sig-hubble-api
+/api/v1/relay/ @cilium/sig-hubble-api
 /bpf/ @cilium/sig-datapath
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
@@ -338,6 +345,8 @@ Makefile* @cilium/build
 *.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/sig-hubble
 /images @cilium/build
+/images/builder/install-protoc.sh @cilium/sig-hubble-api
+/images/builder/install-protoplugins.sh @cilium/sig-hubble-api
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
 jenkinsfiles @cilium/ci-structure
@@ -384,6 +393,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
 /pkg/health/ @cilium/health
 /pkg/hubble/ @cilium/sig-hubble
+/pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
 /pkg/ipam/ @cilium/sig-ipam
 /pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
