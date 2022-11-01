@@ -17,8 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Parser is a parser for SockTraceNotify payloads
@@ -31,6 +33,8 @@ type Parser struct {
 	serviceGetter  getters.ServiceGetter
 	cgroupGetter   getters.PodMetadataGetter
 	epResolver     *common.EndpointResolver
+
+	skipUnknownCGroupIDs bool
 }
 
 // New creates a new parser
@@ -43,14 +47,15 @@ func New(log logrus.FieldLogger,
 	cgroupGetter getters.PodMetadataGetter,
 ) (*Parser, error) {
 	return &Parser{
-		log:            log,
-		endpointGetter: endpointGetter,
-		identityGetter: identityGetter,
-		dnsGetter:      dnsGetter,
-		ipGetter:       ipGetter,
-		serviceGetter:  serviceGetter,
-		cgroupGetter:   cgroupGetter,
-		epResolver:     common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		log:                  log,
+		endpointGetter:       endpointGetter,
+		identityGetter:       identityGetter,
+		dnsGetter:            dnsGetter,
+		ipGetter:             ipGetter,
+		serviceGetter:        serviceGetter,
+		cgroupGetter:         cgroupGetter,
+		epResolver:           common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
+		skipUnknownCGroupIDs: option.Config.HubbleSkipUnknownCGroupIDs,
 	}, nil
 }
 
@@ -71,18 +76,25 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 		return fmt.Errorf("failed to parse sock trace event: %w", err)
 	}
 
-	isRevNat := decodeRevNat(sock.XlatePoint)
 	ipVersion := decodeIPVersion(sock.Flags)
+	epIP, ok := p.decodeEndpointIP(sock.CgroupId, ipVersion)
+	if !ok && p.skipUnknownCGroupIDs {
+		// Skip events for which we cannot determine the endpoint ip based on
+		// the numeric cgroup id, since those events do not provide much value
+		// to end users.
+		return errors.ErrEventSkipped
+	}
 
 	dstIP := sock.IP()
 	dstPort := sock.DstPort
-	srcIP := p.decodeSrcIP(sock.CgroupId, ipVersion)
+	srcIP := epIP
 	srcPort := uint16(0) // source port is not known for TraceSock events
 
 	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0)
 	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0)
 
 	// On the reverse path, source and destination IP of the packet are reversed
+	isRevNat := decodeRevNat(sock.XlatePoint)
 	if isRevNat {
 		srcIP, dstIP = dstIP, srcIP
 		srcPort, dstPort = dstPort, srcPort
@@ -114,21 +126,33 @@ func decodeIPVersion(flags uint8) flowpb.IPVersion {
 	return flowpb.IPVersion_IPv4
 }
 
-func (p *Parser) decodeSrcIP(cgroupId uint64, ipVersion flowpb.IPVersion) net.IP {
+func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) (ip net.IP, ok bool) {
 	if p.cgroupGetter != nil {
 		if m := p.cgroupGetter.GetPodMetadataForContainer(cgroupId); m != nil {
+			scopedLog := p.log.WithFields(logrus.Fields{
+				logfields.CGroupID:     cgroupId,
+				logfields.K8sPodName:   m.Name,
+				logfields.K8sNamespace: m.Namespace,
+			})
+
 			for _, podIP := range m.IPs {
 				isIPv6 := strings.Contains(podIP, ":")
 				if isIPv6 && ipVersion == flowpb.IPVersion_IPv6 ||
 					!isIPv6 && ipVersion == flowpb.IPVersion_IPv4 {
-					return net.ParseIP(podIP)
+					ip = net.ParseIP(podIP)
+					if ip == nil {
+						scopedLog.WithField(logfields.IPAddr, podIP).Debug("failed to parse pod IP")
+						return nil, false
+					}
+
+					return ip, true
 				}
 			}
-			p.log.WithField("id", cgroupId).WithField("pod", m.Namespace+"/"+m.Name).Debug("no matching IP for pod")
+			scopedLog.Debug("no matching IP for pod")
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
 func decodeL3(srcIP, dstIP net.IP, ipVersion flowpb.IPVersion) *flowpb.IP {
