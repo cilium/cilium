@@ -1480,7 +1480,6 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 			// kernels with FIB lookup helpers we do a lookup from
 			// the datapath side and ignore this value.
 			ifaceName = option.Config.EncryptInterface[0]
-			n.enableNeighDiscovery = true
 		}
 
 		if n.enableNeighDiscovery {
