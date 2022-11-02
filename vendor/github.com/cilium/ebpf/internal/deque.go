@@ -9,6 +9,17 @@ type Deque[T any] struct {
 	mask        uint64
 }
 
+// Reset clears the contents of the deque while retaining the backing buffer.
+func (dq *Deque[T]) Reset() {
+	var zero T
+
+	for i := dq.read; i < dq.write; i++ {
+		dq.elems[i&dq.mask] = zero
+	}
+
+	dq.read, dq.write = 0, 0
+}
+
 func (dq *Deque[T]) Empty() bool {
 	return dq.read == dq.write
 }

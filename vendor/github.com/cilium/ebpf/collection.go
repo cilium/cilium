@@ -386,42 +386,11 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 	}, nil
 }
 
-type handleCache struct {
-	btfHandles map[*btf.Spec]*btf.Handle
-}
-
-func newHandleCache() *handleCache {
-	return &handleCache{
-		btfHandles: make(map[*btf.Spec]*btf.Handle),
-	}
-}
-
-func (hc handleCache) btfHandle(spec *btf.Spec) (*btf.Handle, error) {
-	if hc.btfHandles[spec] != nil {
-		return hc.btfHandles[spec], nil
-	}
-
-	handle, err := btf.NewHandle(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	hc.btfHandles[spec] = handle
-	return handle, nil
-}
-
-func (hc handleCache) close() {
-	for _, handle := range hc.btfHandles {
-		handle.Close()
-	}
-}
-
 type collectionLoader struct {
 	coll     *CollectionSpec
 	opts     *CollectionOptions
 	maps     map[string]*Map
 	programs map[string]*Program
-	handles  *handleCache
 }
 
 func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collectionLoader, error) {
@@ -446,13 +415,11 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 		opts,
 		make(map[string]*Map),
 		make(map[string]*Program),
-		newHandleCache(),
 	}, nil
 }
 
 // close all resources left over in the collectionLoader.
 func (cl *collectionLoader) close() {
-	cl.handles.close()
 	for _, m := range cl.maps {
 		m.Close()
 	}
@@ -486,7 +453,7 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return m, nil
 	}
 
-	m, err := newMapWithOptions(mapSpec, cl.opts.Maps, cl.handles)
+	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
 	if err != nil {
 		return nil, fmt.Errorf("map %s: %w", mapName, err)
 	}
@@ -509,10 +476,6 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 	// This skips loading map dependencies, saving some cleanup work later.
 	if progSpec.Type == UnspecifiedProgram {
 		return nil, fmt.Errorf("cannot load program %s: program type is unspecified", progName)
-	}
-
-	if progSpec.BTF != nil && cl.coll.Types != progSpec.BTF {
-		return nil, fmt.Errorf("program %s: BTF doesn't match collection", progName)
 	}
 
 	progSpec = progSpec.Copy()
@@ -543,7 +506,7 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 		}
 	}
 
-	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs, cl.handles)
+	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs)
 	if err != nil {
 		return nil, fmt.Errorf("program %s: %w", progName, err)
 	}
@@ -559,17 +522,22 @@ func (cl *collectionLoader) populateMaps() error {
 			return fmt.Errorf("missing map spec %s", mapName)
 		}
 
-		mapSpec = mapSpec.Copy()
-
 		// MapSpecs that refer to inner maps or programs within the same
 		// CollectionSpec do so using strings. These strings are used as the key
 		// to look up the respective object in the Maps or Programs fields.
 		// Resolve those references to actual Map or Program resources that
 		// have been loaded into the kernel.
-		for i, kv := range mapSpec.Contents {
-			if objName, ok := kv.Value.(string); ok {
-				switch mapSpec.Type {
-				case ProgramArray:
+		if mapSpec.Type.canStoreMap() || mapSpec.Type.canStoreProgram() {
+			mapSpec = mapSpec.Copy()
+
+			for i, kv := range mapSpec.Contents {
+				objName, ok := kv.Value.(string)
+				if !ok {
+					continue
+				}
+
+				switch t := mapSpec.Type; {
+				case t.canStoreProgram():
 					// loadProgram is idempotent and could return an existing Program.
 					prog, err := cl.loadProgram(objName)
 					if err != nil {
@@ -577,7 +545,7 @@ func (cl *collectionLoader) populateMaps() error {
 					}
 					mapSpec.Contents[i] = MapKV{kv.Key, prog}
 
-				case ArrayOfMaps, HashOfMaps:
+				case t.canStoreMap():
 					// loadMap is idempotent and could return an existing Map.
 					innerMap, err := cl.loadMap(objName)
 					if err != nil {

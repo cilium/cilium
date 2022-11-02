@@ -32,8 +32,7 @@ type ID = sys.BTFID
 // Spec represents decoded BTF.
 type Spec struct {
 	// Data from .BTF.
-	rawTypes []rawType
-	strings  *stringTable
+	strings *stringTable
 
 	// All types contained by the spec. For the base type, the position of
 	// a type in the slice is its ID.
@@ -48,6 +47,8 @@ type Spec struct {
 
 	byteOrder binary.ByteOrder
 }
+
+var btfHeaderLen = binary.Size(&btfHeader{})
 
 type btfHeader struct {
 	Magic   uint16
@@ -234,7 +235,6 @@ func inflateSpec(rawTypes []rawType, rawStrings *stringTable, bo binary.ByteOrde
 	typeIDs, typesByName := indexTypes(types, TypeID(len(baseTypes)))
 
 	return &Spec{
-		rawTypes:   rawTypes,
 		namedTypes: typesByName,
 		typeIDs:    typeIDs,
 		types:      types,
@@ -455,74 +455,12 @@ func (s *Spec) Copy() *Spec {
 
 	// NB: Other parts of spec are not copied since they are immutable.
 	return &Spec{
-		s.rawTypes,
 		s.strings,
 		types,
 		typeIDs,
 		typesByName,
 		s.byteOrder,
 	}
-}
-
-type marshalOpts struct {
-	ByteOrder        binary.ByteOrder
-	StripFuncLinkage bool
-}
-
-func (s *Spec) marshal(opts marshalOpts) ([]byte, error) {
-	var (
-		buf        bytes.Buffer
-		header     = new(btfHeader)
-		headerLen  = binary.Size(header)
-		stringsLen int
-	)
-
-	// Reserve space for the header. We have to write it last since
-	// we don't know the size of the type section yet.
-	_, _ = buf.Write(make([]byte, headerLen))
-
-	// Write type section, just after the header.
-	for _, raw := range s.rawTypes {
-		switch {
-		case opts.StripFuncLinkage && raw.Kind() == kindFunc:
-			raw.SetLinkage(StaticFunc)
-		}
-
-		if err := raw.Marshal(&buf, opts.ByteOrder); err != nil {
-			return nil, fmt.Errorf("can't marshal BTF: %w", err)
-		}
-	}
-
-	typeLen := uint32(buf.Len() - headerLen)
-
-	// Write string section after type section.
-	if s.strings != nil {
-		stringsLen = s.strings.Length()
-		buf.Grow(stringsLen)
-		if err := s.strings.Marshal(&buf); err != nil {
-			return nil, err
-		}
-	}
-
-	// Fill out the header, and write it out.
-	header = &btfHeader{
-		Magic:     btfMagic,
-		Version:   1,
-		Flags:     0,
-		HdrLen:    uint32(headerLen),
-		TypeOff:   0,
-		TypeLen:   typeLen,
-		StringOff: typeLen,
-		StringLen: uint32(stringsLen),
-	}
-
-	raw := buf.Bytes()
-	err := binary.Write(sliceWriter(raw[:headerLen]), opts.ByteOrder, header)
-	if err != nil {
-		return nil, fmt.Errorf("can't write header: %v", err)
-	}
-
-	return raw, nil
 }
 
 type sliceWriter []byte
@@ -706,22 +644,28 @@ type Handle struct {
 //
 // Returns ErrNotSupported if BTF is not supported.
 func NewHandle(spec *Spec) (*Handle, error) {
-	if err := haveBTF(); err != nil {
-		return nil, err
-	}
-
 	if spec.byteOrder != nil && spec.byteOrder != internal.NativeEndian {
 		return nil, fmt.Errorf("can't load %s BTF on %s", spec.byteOrder, internal.NativeEndian)
 	}
 
-	btf, err := spec.marshal(marshalOpts{
-		ByteOrder:        internal.NativeEndian,
-		StripFuncLinkage: haveFuncLinkage() != nil,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("can't marshal BTF: %w", err)
+	enc := newEncoder(kernelEncoderOptions, newStringTableBuilderFromTable(spec.strings))
+
+	for _, typ := range spec.types {
+		_, err := enc.Add(typ)
+		if err != nil {
+			return nil, fmt.Errorf("add %s: %w", typ, err)
+		}
 	}
 
+	btf, err := enc.Encode()
+	if err != nil {
+		return nil, fmt.Errorf("marshal BTF: %w", err)
+	}
+
+	return newHandleFromRawBTF(btf)
+}
+
+func newHandleFromRawBTF(btf []byte) (*Handle, error) {
 	if uint64(len(btf)) > math.MaxUint32 {
 		return nil, errors.New("BTF exceeds the maximum size")
 	}
@@ -732,21 +676,25 @@ func NewHandle(spec *Spec) (*Handle, error) {
 	}
 
 	fd, err := sys.BtfLoad(attr)
-	if err != nil {
-		logBuf := make([]byte, 64*1024)
-		attr.BtfLogBuf = sys.NewSlicePointer(logBuf)
-		attr.BtfLogSize = uint32(len(logBuf))
-		attr.BtfLogLevel = 1
-
-		// Up until at least kernel 6.0, the BTF verifier does not return ENOSPC
-		// if there are other verification errors. ENOSPC is only returned when
-		// the BTF blob is correct, a log was requested, and the provided buffer
-		// is too small.
-		_, ve := sys.BtfLoad(attr)
-		return nil, internal.ErrorWithLog(err, logBuf, errors.Is(ve, unix.ENOSPC))
+	if err == nil {
+		return &Handle{fd, attr.BtfSize}, nil
 	}
 
-	return &Handle{fd, attr.BtfSize}, nil
+	if err := haveBTF(); err != nil {
+		return nil, err
+	}
+
+	logBuf := make([]byte, 64*1024)
+	attr.BtfLogBuf = sys.NewSlicePointer(logBuf)
+	attr.BtfLogSize = uint32(len(logBuf))
+	attr.BtfLogLevel = 1
+
+	// Up until at least kernel 6.0, the BTF verifier does not return ENOSPC
+	// if there are other verification errors. ENOSPC is only returned when
+	// the BTF blob is correct, a log was requested, and the provided buffer
+	// is too small.
+	_, ve := sys.BtfLoad(attr)
+	return nil, internal.ErrorWithLog(err, logBuf, errors.Is(ve, unix.ENOSPC))
 }
 
 // NewHandleFromID returns the BTF handle for a given id.

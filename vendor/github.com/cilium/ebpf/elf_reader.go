@@ -51,6 +51,12 @@ func LoadCollectionSpecFromReader(rd io.ReaderAt) (*CollectionSpec, error) {
 		return nil, err
 	}
 
+	// Checks if the ELF file is for BPF data.
+	// Old LLVM versions set e_machine to EM_NONE.
+	if f.File.Machine != unix.EM_NONE && f.File.Machine != elf.EM_BPF {
+		return nil, fmt.Errorf("unexpected machine type for BPF ELF: %s", f.File.Machine)
+	}
+
 	var (
 		licenseSection *elf.Section
 		versionSection *elf.Section
@@ -895,13 +901,6 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		default:
 			return nil, fmt.Errorf("unrecognized field %s in BTF map definition", member.Name)
 		}
-	}
-
-	if key == nil {
-		key = &btf.Void{}
-	}
-	if value == nil {
-		value = &btf.Void{}
 	}
 
 	return &MapSpec{

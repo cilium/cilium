@@ -21,7 +21,7 @@ eBPF and the library, and help shape the future of the project.
 
 ## Getting Help
 
-The community actively monitors our [GitHub Discussions](discussions/) page.
+The community actively monitors our [GitHub Discussions](https://github.com/cilium/ebpf/discussions) page.
 Please search for existing threads before starting a new one. Refrain from
 opening issues on the bug tracker if you're just starting out or if you're not
 sure if something is a bug in the library code.

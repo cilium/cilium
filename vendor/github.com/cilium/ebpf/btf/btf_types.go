@@ -36,6 +36,8 @@ const (
 	// Added 5.16
 	kindDeclTag // DeclTag
 	kindTypeTag // TypeTag
+	// Added 6.0
+	kindEnum64 // Enum64
 )
 
 // FuncLinkage describes BTF function linkage metadata.
@@ -65,6 +67,8 @@ const (
 	btfTypeKindFlagShift = 31
 	btfTypeKindFlagMask  = 1
 )
+
+var btfTypeLen = binary.Size(btfType{})
 
 // btfType is equivalent to struct btf_type in Documentation/bpf/btf.rst.
 type btfType struct {
@@ -126,8 +130,41 @@ func (bt *btfType) SetVlen(vlen int) {
 	bt.setInfo(uint32(vlen), btfTypeVlenMask, btfTypeVlenShift)
 }
 
-func (bt *btfType) KindFlag() bool {
+func (bt *btfType) kindFlagBool() bool {
 	return bt.info(btfTypeKindFlagMask, btfTypeKindFlagShift) == 1
+}
+
+func (bt *btfType) setKindFlagBool(set bool) {
+	var value uint32
+	if set {
+		value = 1
+	}
+	bt.setInfo(value, btfTypeKindFlagMask, btfTypeKindFlagShift)
+}
+
+// Bitfield returns true if the struct or union contain a bitfield.
+func (bt *btfType) Bitfield() bool {
+	return bt.kindFlagBool()
+}
+
+func (bt *btfType) SetBitfield(isBitfield bool) {
+	bt.setKindFlagBool(isBitfield)
+}
+
+func (bt *btfType) FwdKind() FwdKind {
+	return FwdKind(bt.info(btfTypeKindFlagMask, btfTypeKindFlagShift))
+}
+
+func (bt *btfType) SetFwdKind(kind FwdKind) {
+	bt.setInfo(uint32(kind), btfTypeKindFlagMask, btfTypeKindFlagShift)
+}
+
+func (bt *btfType) Signed() bool {
+	return bt.kindFlagBool()
+}
+
+func (bt *btfType) SetSigned(signed bool) {
+	bt.setKindFlagBool(signed)
 }
 
 func (bt *btfType) Linkage() FuncLinkage {
@@ -141,6 +178,10 @@ func (bt *btfType) SetLinkage(linkage FuncLinkage) {
 func (bt *btfType) Type() TypeID {
 	// TODO: Panic here if wrong kind?
 	return TypeID(bt.SizeType)
+}
+
+func (bt *btfType) SetType(id TypeID) {
+	bt.SizeType = uint32(id)
 }
 
 func (bt *btfType) Size() uint32 {
@@ -240,6 +281,12 @@ type btfEnum struct {
 	Val     uint32
 }
 
+type btfEnum64 struct {
+	NameOff uint32
+	ValLo32 uint32
+	ValHi32 uint32
+}
+
 type btfParam struct {
 	NameOff uint32
 	Type    TypeID
@@ -254,7 +301,7 @@ func readTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32) ([]rawType, err
 	// because of the interleaving between types and struct members it is difficult to
 	// precompute the numbers of raw types this will parse
 	// this "guess" is a good first estimation
-	sizeOfbtfType := uintptr(binary.Size(btfType{}))
+	sizeOfbtfType := uintptr(btfTypeLen)
 	tyMaxCount := uintptr(typeLen) / sizeOfbtfType / 2
 	types := make([]rawType, 0, tyMaxCount)
 
@@ -294,6 +341,8 @@ func readTypes(r io.Reader, bo binary.ByteOrder, typeLen uint32) ([]rawType, err
 		case kindDeclTag:
 			data = new(btfDeclTag)
 		case kindTypeTag:
+		case kindEnum64:
+			data = make([]btfEnum64, header.Vlen())
 		default:
 			return nil, fmt.Errorf("type id %v: unknown kind: %v", id, header.Kind())
 		}

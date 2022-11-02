@@ -9,21 +9,22 @@ import (
 )
 
 const (
-	ENOENT  = linux.ENOENT
-	EEXIST  = linux.EEXIST
-	EAGAIN  = linux.EAGAIN
-	ENOSPC  = linux.ENOSPC
-	EINVAL  = linux.EINVAL
-	EPOLLIN = linux.EPOLLIN
-	EINTR   = linux.EINTR
-	EPERM   = linux.EPERM
-	ESRCH   = linux.ESRCH
-	ENODEV  = linux.ENODEV
-	EBADF   = linux.EBADF
-	E2BIG   = linux.E2BIG
-	EFAULT  = linux.EFAULT
-	EACCES  = linux.EACCES
-	EILSEQ  = linux.EILSEQ
+	ENOENT     = linux.ENOENT
+	EEXIST     = linux.EEXIST
+	EAGAIN     = linux.EAGAIN
+	ENOSPC     = linux.ENOSPC
+	EINVAL     = linux.EINVAL
+	EPOLLIN    = linux.EPOLLIN
+	EINTR      = linux.EINTR
+	EPERM      = linux.EPERM
+	ESRCH      = linux.ESRCH
+	ENODEV     = linux.ENODEV
+	EBADF      = linux.EBADF
+	E2BIG      = linux.E2BIG
+	EFAULT     = linux.EFAULT
+	EACCES     = linux.EACCES
+	EILSEQ     = linux.EILSEQ
+	EOPNOTSUPP = linux.EOPNOTSUPP
 )
 
 const (
@@ -74,6 +75,8 @@ const (
 	SIGPROF                   = linux.SIGPROF
 	SIG_BLOCK                 = linux.SIG_BLOCK
 	SIG_UNBLOCK               = linux.SIG_UNBLOCK
+	EM_NONE                   = linux.EM_NONE
+	EM_BPF                    = linux.EM_BPF
 )
 
 type Statfs_t = linux.Statfs_t

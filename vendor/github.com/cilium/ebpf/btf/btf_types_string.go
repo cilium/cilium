@@ -65,11 +65,12 @@ func _() {
 	_ = x[kindFloat-16]
 	_ = x[kindDeclTag-17]
 	_ = x[kindTypeTag-18]
+	_ = x[kindEnum64-19]
 }
 
-const _btfKind_name = "UnknownIntPointerArrayStructUnionEnumForwardTypedefVolatileConstRestrictFuncFuncProtoVarDatasecFloatDeclTagTypeTag"
+const _btfKind_name = "UnknownIntPointerArrayStructUnionEnumForwardTypedefVolatileConstRestrictFuncFuncProtoVarDatasecFloatDeclTagTypeTagEnum64"
 
-var _btfKind_index = [...]uint8{0, 7, 10, 17, 22, 28, 33, 37, 44, 51, 59, 64, 72, 76, 85, 88, 95, 100, 107, 114}
+var _btfKind_index = [...]uint8{0, 7, 10, 17, 22, 28, 33, 37, 44, 51, 59, 64, 72, 76, 85, 88, 95, 100, 107, 114, 120}
 
 func (i btfKind) String() string {
 	if i >= btfKind(len(_btfKind_index)-1) {
