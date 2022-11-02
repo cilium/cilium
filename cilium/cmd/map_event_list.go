@@ -76,14 +76,13 @@ var mapEventListCmd = &cobra.Command{
 						Fatalf("could not dump data to specified output format: %s", err.Error())
 					}
 				} else {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-						time.Time(event.Timestamp).Format(time.RFC3339),
-						event.Action,
-						event.DesiredAction,
-						event.LastError,
-						event.Key,
-						event.Value,
-					)
+					fmt.Fprintf(os.Stdout, "-----------------------------------------\n")
+					fmt.Fprintf(os.Stdout, "Key: %s\n", event.Key)
+					fmt.Fprintf(os.Stdout, "Value: %s\n", event.Value)
+					fmt.Fprintf(os.Stdout, "Time: %s\n", time.Time(event.Timestamp).Format(time.RFC3339))
+					fmt.Fprintf(os.Stdout, "Action: %s\n", event.Action)
+					fmt.Fprintf(os.Stdout, "Desired Action: %s\n", event.DesiredAction)
+					fmt.Fprintf(os.Stdout, "LastError: %s\n", event.LastError)
 					w.Flush()
 				}
 			}
