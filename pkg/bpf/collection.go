@@ -33,7 +33,9 @@ func LoadCollectionSpec(path string) (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	classifyProgramTypes(spec)
+	if err := classifyProgramTypes(spec); err != nil {
+		return nil, err
+	}
 
 	return spec, nil
 }
@@ -166,10 +168,19 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 //
 // Cilium uses the iproute2 X/Y section name convention for assigning programs
 // to prog array slots, which is also not supported.
-func classifyProgramTypes(spec *ebpf.CollectionSpec) {
-	// Assign a program type based on the first recognized function name.
+//
+// TODO(timo): When iproute2 is no longer used for any loading, tail call progs
+// can receive proper prefixes.
+func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 	var t ebpf.ProgramType
-	for name := range spec.Programs {
+	for name, p := range spec.Programs {
+		// If the loader was able to classify a program, go with the verdict.
+		if p.Type != ebpf.UnspecifiedProgram {
+			t = p.Type
+			break
+		}
+
+		// Assign a program type based on the first recognized function name.
 		switch name {
 		// bpf_xdp.c
 		case "cil_xdp_entry":
@@ -196,6 +207,12 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) {
 			p.Type = t
 		}
 	}
+
+	if t == ebpf.UnspecifiedProgram {
+		return errors.New("unable to classify program types")
+	}
+
+	return nil
 }
 
 // inlineGlobalData replaces all map loads from a global data section with
