@@ -127,8 +127,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -170,8 +169,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -224,8 +222,8 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	sgTags := map[string]string{
 		"test-sg-1": "yes",
 	}
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withSecurityGroupTags(sgTags), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"),
+		withSecurityGroupTags(sgTags), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -279,8 +277,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m5.4xlarge"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(-1), withIPAMMinAllocate(10))
+	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m5.4xlarge"), withIPAMPreAllocate(-1), withIPAMMinAllocate(10))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -334,8 +331,8 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m3.large"), withAvailabilityZone("us-west-1"),
-		withVpcID("vpc-1"), withIPAMPreAllocate(1), withIPAMMinAllocate(10))
+	cn := newCiliumNode("node2", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m3.large"),
+		withIPAMPreAllocate(1), withIPAMMinAllocate(10))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -397,8 +394,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", withInstanceID(instanceID), withInstanceType("m4.xlarge"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(2), withIPAMMinAllocate(10), withIPAMMaxAboveWatermark(3))
+	cn := newCiliumNode("node3", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m4.xlarge"),
+		withIPAMPreAllocate(2), withIPAMMinAllocate(10), withIPAMMaxAboveWatermark(3))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
 
@@ -502,9 +499,8 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
-		withExcludeInterfaceTags(map[string]string{"cilium.io/no_manage": "true"}), withAvailabilityZone("us-west-1"),
-		withVpcID("vpc-1"), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"),
+		withExcludeInterfaceTags(map[string]string{"cilium.io/no_manage": "true"}), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -564,8 +560,8 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("t2.xlarge"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8), withIPAMMinAllocate(20))
+	cn := newCiliumNode("node2", withTestDefaults(), withInstanceID(instanceID), withInstanceType("t2.xlarge"),
+		withIPAMPreAllocate(8), withIPAMMinAllocate(20))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
 
@@ -631,8 +627,8 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 		c.Assert(err, check.IsNil)
 		instancesManager.Resync(context.TODO())
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-testNodeManagerManyNodes-%d", i)}
-		s.cn = newCiliumNode(s.name, withInstanceID(s.instanceName), withInstanceType("c3.xlarge"), withAvailabilityZone("us-west-1"),
-			withVpcID("vpc-1"), withFirstInterfaceIndex(1), withIPAMPreAllocate(1), withIPAMMinAllocate(minAllocate))
+		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("c3.xlarge"),
+			withFirstInterfaceIndex(1), withIPAMPreAllocate(1), withIPAMMinAllocate(minAllocate))
 		state[i] = s
 		mngr.Update(s.cn)
 	}
@@ -697,8 +693,8 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, ENI attachement will fail
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withFirstInterfaceIndex(1), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m4.large"),
+		withFirstInterfaceIndex(1), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 
 	// Wait for node to be declared notRunning
@@ -742,8 +738,7 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"),
-		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
 
@@ -798,8 +793,8 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 		c.Assert(err, check.IsNil)
 		instances.Resync(context.TODO())
 		s := &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-benchmarkAllocWorker-%d", i)}
-		s.cn = newCiliumNode(s.name, withInstanceID(s.instanceName), withInstanceType("m4.large"),
-			withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(1), withIPAMMinAllocate(10))
+		s.cn = newCiliumNode(s.name, withTestDefaults(), withInstanceID(s.instanceName), withInstanceType("m4.large"),
+			withIPAMPreAllocate(1), withIPAMMinAllocate(10))
 		state[i] = s
 		mngr.Update(s.cn)
 	}
@@ -879,6 +874,13 @@ func newCiliumNode(name string, opts ...func(*v2.CiliumNode)) *v2.CiliumNode {
 	return cn
 }
 
+func withTestDefaults() func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.AvailabilityZone = testSubnet.AvailabilityZone
+		cn.Spec.ENI.VpcID = testVpc.ID
+	}
+}
+
 func withInstanceID(instanceID string) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.InstanceID = instanceID
@@ -894,18 +896,6 @@ func withInstanceType(instanceType string) func(*v2.CiliumNode) {
 func withFirstInterfaceIndex(firstInterface int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.ENI.FirstInterfaceIndex = &firstInterface
-	}
-}
-
-func withAvailabilityZone(az string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.AvailabilityZone = az
-	}
-}
-
-func withVpcID(vpcID string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.VpcID = vpcID
 	}
 }
 
