@@ -68,16 +68,6 @@ func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
-	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-1", eniID1)
-	c.Assert(err, check.IsNil)
-	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
-	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testGetNodeNames-2", eniID2)
-	c.Assert(err, check.IsNil)
-	instances.Resync(context.TODO())
-
 	mngr.Update(newCiliumNode("node1"))
 
 	names := mngr.GetNames()
@@ -103,12 +93,6 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
-
-	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
-	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerGet-1", eniID1)
-	c.Assert(err, check.IsNil)
-	instances.Resync(context.TODO())
 
 	mngr.Update(newCiliumNode("node1"))
 
