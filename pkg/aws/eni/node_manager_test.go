@@ -112,12 +112,14 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 // - PreAllocate 8
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
+	const instanceID = "i-testNodeManagerDefaultAllocation-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -125,7 +127,7 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID("i-testNodeManagerDefaultAllocation-0"), withInstanceType("m5.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -153,12 +155,14 @@ func (e *ENISuite) TestNodeManagerDefaultAllocation(c *check.C) {
 // - PreAllocate 8
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
+	const instanceID = "i-testNodeManagerDefaultAllocation-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, true)
@@ -166,7 +170,7 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID("i-testNodeManagerDefaultAllocation-0"), withInstanceType("m5a.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5a.large"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -202,12 +206,14 @@ func (e *ENISuite) TestNodeManagerPrefixDelegation(c *check.C) {
 // - PreAllocate 8
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
+	const instanceID = "i-testNodeManagerDefaultAllocation-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -218,7 +224,7 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 	sgTags := map[string]string{
 		"test-sg-1": "yes",
 	}
-	cn := newCiliumNode("node1", withInstanceID("i-testNodeManagerDefaultAllocation-0"), withInstanceType("m5.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withSecurityGroupTags(sgTags), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -258,12 +264,14 @@ func (e *ENISuite) TestNodeManagerENIWithSGTags(c *check.C) {
 // - PreAllocate -1
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
+	const instanceID = "i-testNodeManagerMinAllocate20-1"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocate20-1", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -271,7 +279,7 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID("i-testNodeManagerMinAllocate20-1"), withInstanceType("m5.4xlarge"),
+	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m5.4xlarge"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(-1), withIPAMMinAllocate(10))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
@@ -311,12 +319,14 @@ func (e *ENISuite) TestNodeManagerMinAllocate20(c *check.C) {
 // - PreAllocate 1
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
+	const instanceID = "i-testNodeManagerMinAllocateAndPreallocate-1"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerMinAllocateAndPreallocate-1", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -324,7 +334,7 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID("i-testNodeManagerMinAllocateAndPreallocate-1"), withInstanceType("m3.large"), withAvailabilityZone("us-west-1"),
+	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("m3.large"), withAvailabilityZone("us-west-1"),
 		withVpcID("vpc-1"), withIPAMPreAllocate(1), withIPAMMinAllocate(10))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
@@ -371,13 +381,15 @@ func (e *ENISuite) TestNodeManagerMinAllocateAndPreallocate(c *check.C) {
 // - MaxAboveWatermark 3
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
+	const instanceID = "i-testNodeManagerReleaseAddress-1"
+
 	operatorOption.Config.ExcessIPReleaseDelay = 2
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerReleaseAddress-1", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, true, false)
@@ -385,7 +397,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", withInstanceID("i-testNodeManagerReleaseAddress-1"), withInstanceType("m4.xlarge"),
+	cn := newCiliumNode("node3", withInstanceID(instanceID), withInstanceType("m4.xlarge"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(2), withIPAMMinAllocate(10), withIPAMMaxAboveWatermark(3))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second), check.IsNil)
@@ -470,6 +482,8 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 // - FirstInterfaceIndex 0
 // - ExcludeInterfaceTags {cilium.io/no_manage=true}
 func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
+	const instanceID = "i-testNodeManagerDefaultAllocation-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
@@ -480,7 +494,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 		"cilium.io/no_manage": "true",
 	})
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerDefaultAllocation-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -488,7 +502,7 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node wait for IPs to become available
-	cn := newCiliumNode("node1", withInstanceID("i-testNodeManagerDefaultAllocation-0"), withInstanceType("m5.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m5.large"),
 		withExcludeInterfaceTags(map[string]string{"cilium.io/no_manage": "true"}), withAvailabilityZone("us-west-1"),
 		withVpcID("vpc-1"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
@@ -535,12 +549,14 @@ func (e *ENISuite) TestNodeManagerENIExcludeInterfaceTags(c *check.C) {
 // - PreAllocate 8
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
+	const instanceID = "i-testNodeManagerExceedENICapacity-1"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerExceedENICapacity-1", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -548,7 +564,7 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node2", withInstanceID("i-testNodeManagerExceedENICapacity-1"), withInstanceType("t2.xlarge"),
+	cn := newCiliumNode("node2", withInstanceID(instanceID), withInstanceType("t2.xlarge"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8), withIPAMMinAllocate(20))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second), check.IsNil)
@@ -664,13 +680,15 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 //
 // - FirstInterfaceIndex 1
 func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
+	const instanceID = "i-testNodeManagerInstanceNotRunning-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	metricsMock := metricsmock.NewMockMetrics()
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testNodeManagerInstanceNotRunning-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
@@ -679,7 +697,7 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	// Announce node, ENI attachement will fail
-	cn := newCiliumNode("node1", withInstanceID("i-testNodeManagerInstanceNotRunning-0"), withInstanceType("m4.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withFirstInterfaceIndex(1), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 
@@ -706,23 +724,25 @@ func (e *ENISuite) TestNodeManagerInstanceNotRunning(c *check.C) {
 // - m4.large (2x ENIs, 2x10-2 IPs)
 // - FirstInterfaceIndex 0
 func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
+	const instanceID = "i-testInstanceBeenDeleted-0"
+
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api)
 	c.Assert(instances, check.Not(check.IsNil))
 	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, "i-testInstanceBeenDeleted-0", eniID1)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	eniID2, _, err := ec2api.CreateNetworkInterface(context.TODO(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false)
 	c.Assert(err, check.IsNil)
-	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, "i-testInstanceBeenDeleted-0", eniID2)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 1, instanceID, eniID2)
 	c.Assert(err, check.IsNil)
 	instances.Resync(context.TODO())
 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", withInstanceID("i-testInstanceBeenDeleted-0"), withInstanceType("m4.large"),
+	cn := newCiliumNode("node1", withInstanceID(instanceID), withInstanceType("m4.large"),
 		withAvailabilityZone("us-west-1"), withVpcID("vpc-1"), withIPAMPreAllocate(8))
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -734,11 +754,11 @@ func (e *ENISuite) TestInstanceBeenDeleted(c *check.C) {
 
 	// Delete all enis attached to instance, this mocks the operation of
 	// deleting the instance. The deletion should be detected.
-	err = ec2api.DetachNetworkInterface(context.TODO(), "i-testInstanceBeenDeleted-0", eniID1)
+	err = ec2api.DetachNetworkInterface(context.TODO(), instanceID, eniID1)
 	c.Assert(err, check.IsNil)
 	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID1)
 	c.Assert(err, check.IsNil)
-	err = ec2api.DetachNetworkInterface(context.TODO(), "i-testInstanceBeenDeleted-0", eniID2)
+	err = ec2api.DetachNetworkInterface(context.TODO(), instanceID, eniID2)
 	c.Assert(err, check.IsNil)
 	err = ec2api.DeleteNetworkInterface(context.TODO(), eniID2)
 	c.Assert(err, check.IsNil)
