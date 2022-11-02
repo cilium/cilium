@@ -830,6 +830,9 @@ hubble:
   listenAddress: ":4244"
   # -- Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
   preferIpv6: false
+  # -- (bool) Skip Hubble events with unknown cgroup ids
+  # @default -- `true`
+  skipUnknownCGroupIDs: ~
 
   peerService:
     # -- Enable a K8s Service for the Peer service, so that it can be accessed
