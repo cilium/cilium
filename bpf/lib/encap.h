@@ -162,16 +162,14 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-			       __u8 key __maybe_unused, __u32 seclabel,
+			       __u8 encrypt_key __maybe_unused, __u32 seclabel,
 			       __u32 dstid, const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
-	if (key) {
-		__u8 encrypt_key = get_min_encrypt_key(key);
-
+	encrypt_key = get_min_encrypt_key(encrypt_key);
+	if (encrypt_key)
 		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint,
 						       encrypt_key, seclabel);
-	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
 						trace);
@@ -242,13 +240,10 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 #ifdef ENABLE_IPSEC
-	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
-
+	encrypt_key = get_min_encrypt_key(tunnel->key);
+	if (encrypt_key)
 		return encap_and_redirect_ipsec(ctx, tunnel->ip4,
-						min_encrypt_key,
-						seclabel);
-	}
+						encrypt_key, seclabel);
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
 						dstid, NOT_VTEP_DST, trace);
