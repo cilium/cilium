@@ -17,25 +17,25 @@ func (e *ENISuite) TestGetMaximumAllocatableIPv4(c *check.C) {
 	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 0)
 
 	// With instance-type = m5.large and first-interface-index = 0, we should be able to allocate up to 3x10-3 addresses
-	n.k8sObj = newCiliumNode("node", "i-testnode", "m5.large", "eu-west-1", "test-vpc", 0, 0, 0, 0)
+	n.k8sObj = newCiliumNode("node", withInstanceType("m5.large"), withFirstInterfaceIndex(0))
 	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 27)
 
 	// With instance-type = m5.large and first-interface-index = 1, we should be able to allocate up to 2x10-2 addresses
-	n.k8sObj = newCiliumNode("node", "i-testnode", "m5.large", "eu-west-1", "test-vpc", 1, 0, 0, 0)
+	n.k8sObj = newCiliumNode("node", withInstanceType("m5.large"), withFirstInterfaceIndex(1))
 	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 18)
 
 	// With instance-type = m5.large and first-interface-index = 4, we should return 0 as there is only 3 interfaces
-	n.k8sObj = newCiliumNode("node", "i-testnode", "m5.large", "eu-west-1", "test-vpc", 4, 0, 0, 0)
+	n.k8sObj = newCiliumNode("node", withInstanceType("m5.large"), withFirstInterfaceIndex(4))
 	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 0)
 
 	// With instance-type = foo we should return 0
-	n.k8sObj = newCiliumNode("node", "i-testnode", "foo", "eu-west-1", "test-vpc", 0, 0, 0, 0)
+	n.k8sObj = newCiliumNode("node", withInstanceType("foo"))
 	c.Assert(n.GetMaximumAllocatableIPv4(), check.Equals, 0)
 }
 
 // TestGetUsedIPWithPrefixes tests the logic computing used IPs on a node when prefix delegation is enabled.
 func (e *ENISuite) TestGetUsedIPWithPrefixes(c *check.C) {
-	cn := newCiliumNode("node1", "i-testNodeManagerDefaultAllocation-0", "m5a.large", "us-west-1", "vpc-1", 0, 8, 0, 0)
+	cn := newCiliumNode("node1", withInstanceType("m5a.large"))
 	n := &Node{k8sObj: cn}
 	eniName := "eni-1"
 	prefixes := []string{"10.10.128.0/28", "10.10.128.16/28"}
