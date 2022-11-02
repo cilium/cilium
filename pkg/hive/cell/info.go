@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // indentBy is the number of spaces nested elements should be indented by
@@ -62,5 +64,21 @@ func (n *InfoNode) Print(indent int, w io.Writer) {
 
 	for _, child := range n.children {
 		child.Print(indent, w)
+	}
+}
+
+type InfoStruct struct {
+	value any
+}
+
+func (n *InfoStruct) Print(indent int, w io.Writer) {
+	scs := spew.ConfigState{Indent: strings.Repeat(" ", indentBy), SortKeys: true}
+	indentString := strings.Repeat(" ", indent)
+	for i, line := range strings.Split(scs.Sdump(n.value), "\n") {
+		if i == 0 {
+			fmt.Fprintf(w, "%s⚙️ %s\n", indentString, line)
+		} else {
+			fmt.Fprintf(w, "%s%s\n", indentString, line)
+		}
 	}
 }

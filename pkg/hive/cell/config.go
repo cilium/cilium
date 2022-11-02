@@ -117,25 +117,9 @@ func (c *config[Cfg]) Apply(cont container) error {
 	return cont.Provide(c.provideConfig, dig.Export(true))
 }
 
-type configInfoEntry struct {
-	nameAndType string
-	defValue    string
-}
-
-func (c *config[Cfg]) Info() Info {
-	n := NewInfoNode(fmt.Sprintf("⚙️ %T", c.defaultConfig))
-
-	entries := []configInfoEntry{}
-	maxWidth := 0
-	c.flags.VisitAll(func(f *pflag.Flag) {
-		nameAndType := fmt.Sprintf("%s[%s]", f.Name, f.Value.Type())
-		entries = append(entries, configInfoEntry{nameAndType, f.DefValue})
-		if len(nameAndType) > maxWidth {
-			maxWidth = len(nameAndType)
-		}
+func (c *config[Cfg]) Info(cont container) (info Info) {
+	cont.Invoke(func(cfg Cfg) {
+		info = &InfoStruct{cfg}
 	})
-	for _, entry := range entries {
-		n.AddLeaf(fmt.Sprintf("• %-*s = %s", maxWidth, entry.nameAndType, entry.defValue))
-	}
-	return n
+	return
 }
