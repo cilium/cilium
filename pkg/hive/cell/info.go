@@ -4,6 +4,7 @@
 package cell
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -11,8 +12,14 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// indentBy is the number of spaces nested elements should be indented by
-const indentBy = 4
+const (
+	// indentBy is the number of spaces nested elements should be indented by
+	indentBy = 4
+
+	// maxLineLength is the maximum line length after which the InfoLeaf line
+	// wraps.
+	maxLineLength = 120
+)
 
 // Info provides a simple way of printing cells hierarchically in
 // textual form.
@@ -23,7 +30,31 @@ type Info interface {
 type InfoLeaf string
 
 func (l InfoLeaf) Print(indent int, w io.Writer) {
-	fmt.Fprintf(w, "%s%s\n", strings.Repeat(" ", indent), l)
+	buf := bufio.NewWriter(w)
+	currentLineLength := indent
+	indentString := strings.Repeat(" ", indent)
+	buf.WriteString(indentString)
+	wrapped := false
+	for _, f := range strings.Fields(string(l)) {
+		buf.WriteString(f)
+		buf.WriteByte(' ')
+		currentLineLength += len(f)
+
+		if currentLineLength >= maxLineLength {
+			buf.WriteByte('\n')
+			if !wrapped {
+				// Increase the indent for the wrapped lines so it's clear we
+				// wrapped.
+				wrapped = true
+				indent += 2
+				indentString = strings.Repeat(" ", indent)
+			}
+			buf.WriteString(indentString)
+			currentLineLength = indent
+		}
+	}
+	buf.WriteByte('\n')
+	buf.Flush()
 }
 
 type InfoBreak struct{}
