@@ -283,14 +283,14 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 }
 
 func (h *Hive) PrintObjects() {
-	fmt.Printf("Cells:\n\n")
-	for _, c := range h.cells {
-		c.Info().Print(2, os.Stdout)
-		fmt.Println()
-	}
-
 	if err := h.populate(); err != nil {
 		log.WithError(err).Fatal("Failed to populate object graph")
+	}
+
+	fmt.Printf("Cells:\n\n")
+	for _, c := range h.cells {
+		c.Info(h.container).Print(2, os.Stdout)
+		fmt.Println()
 	}
 	h.lifecycle.PrintHooks()
 }

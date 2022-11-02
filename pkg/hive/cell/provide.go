@@ -24,7 +24,7 @@ func (p *provider) Apply(c container) error {
 	return nil
 }
 
-func (p *provider) Info() Info {
+func (p *provider) Info(container) Info {
 	n := &InfoNode{}
 	for _, ctor := range p.ctors {
 		privateSymbol := ""
