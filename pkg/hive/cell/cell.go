@@ -25,7 +25,7 @@ var (
 //   - Config(): Cell providing a configuration struct.
 type Cell interface {
 	// Info provides a structural summary of the cell for printing purposes.
-	Info() Info
+	Info(container) Info
 
 	// Apply the cell to the dependency graph container.
 	Apply(container) error
