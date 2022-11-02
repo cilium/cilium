@@ -901,6 +901,7 @@ sidecarImageRegex
 sig
 skb
 skipCRDCreation
+skipUnknownCGroupIDs
 skipteardown
 sleepAfterInit
 snat

@@ -993,6 +993,10 @@
      - hubble-relay update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
+   * - hubble.skipUnknownCGroupIDs
+     - Skip Hubble events with unknown cgroup ids
+     - bool
+     - ``true``
    * - hubble.socketPath
      - Unix domain socket path to listen to when Hubble is enabled.
      - string
