@@ -57,16 +57,11 @@ func (l InfoLeaf) Print(indent int, w io.Writer) {
 	buf.Flush()
 }
 
-type InfoBreak struct{}
-
-func (l InfoBreak) Print(indent int, w io.Writer) {
-	fmt.Fprintln(w)
-}
-
 type InfoNode struct {
 	// Header line. If missing, no header printed and children
 	// not indented.
-	header string
+	header    string
+	condensed bool
 
 	children []Info
 }
@@ -75,12 +70,13 @@ func NewInfoNode(header string) *InfoNode {
 	return &InfoNode{header: header}
 }
 
-func (n *InfoNode) Add(child Info) {
-	n.children = append(n.children, child)
+func (n *InfoNode) Condensed() *InfoNode {
+	n.condensed = true
+	return n
 }
 
-func (n *InfoNode) AddBreak() {
-	n.Add(InfoBreak{})
+func (n *InfoNode) Add(child Info) {
+	n.children = append(n.children, child)
 }
 
 func (n *InfoNode) AddLeaf(format string, args ...any) {
@@ -93,8 +89,11 @@ func (n *InfoNode) Print(indent int, w io.Writer) {
 		indent += indentBy
 	}
 
-	for _, child := range n.children {
+	for i, child := range n.children {
 		child.Print(indent, w)
+		if !n.condensed && i != len(n.children)-1 {
+			w.Write([]byte{'\n'})
+		}
 	}
 }
 
