@@ -57,7 +57,6 @@ func (d *decorator) Info(c container) Info {
 	n := NewInfoNode(fmt.Sprintf("🔀 %s: %s", internal.FuncNameAndLocation(d.decorator), internal.PrettyType(d.decorator)))
 	for _, cell := range d.cells {
 		n.Add(cell.Info(c))
-		n.AddBreak()
 	}
 	return n
 }
