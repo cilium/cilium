@@ -1,5 +1,6 @@
 This repository holds helm templates for the following Cilium releases:
 
+* [v1.13.0-rc2](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc2) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc2/install/kubernetes/cilium)_)
 * [v1.13.0-rc1](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc1) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc1/install/kubernetes/cilium)_)
 * [v1.13.0-rc0](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc0) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc0/install/kubernetes/cilium)_)
 * [v1.12.3](https://github.com/cilium/cilium/releases/tag/v1.12.3) (_[source](https://github.com/cilium/cilium/tree/v1.12.3/install/kubernetes/cilium)_)
@@ -116,6 +117,7 @@ This repository holds helm templates for the following Cilium releases:
 
 This repository holds helm templates for the following Tetragon releases:
 
+* [v0.8.3](https://github.com/cilium/tetragon/releases/tag/v0.8.3) (_[source](https://github.com/cilium/tetragon/tree/v0.8.3/install/kubernetes)_)
 * [v0.8.2](https://github.com/cilium/tetragon/releases/tag/v0.8.2) (_[source](https://github.com/cilium/tetragon/tree/v0.8.2/install/kubernetes)_)
 * [v0.8.1](https://github.com/cilium/tetragon/releases/tag/v0.8.1) (_[source](https://github.com/cilium/tetragon/tree/v0.8.1/install/kubernetes)_)
 * [v0.8.0](https://github.com/cilium/tetragon/releases/tag/v0.8.0) (_[source](https://github.com/cilium/tetragon/tree/v0.8.0/install/kubernetes)_)
