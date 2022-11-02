@@ -120,136 +120,6 @@ func (e *ENISuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(mngr.Get("node2"), check.IsNil)
 }
 
-type k8sMock struct{}
-
-func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	return nil, nil
-}
-
-func (k *k8sMock) Update(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	return nil, nil
-}
-
-func (k *k8sMock) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	return nil, nil
-}
-
-func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
-	return &v2.CiliumNode{}, nil
-}
-
-func newCiliumNode(name string, opts ...func(*v2.CiliumNode)) *v2.CiliumNode {
-	fii := 0
-	cn := &v2.CiliumNode{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
-		Spec: v2.NodeSpec{
-			ENI: eniTypes.ENISpec{
-				FirstInterfaceIndex: &fii,
-				SecurityGroupTags:   map[string]string{},
-			},
-			IPAM: ipamTypes.IPAMSpec{
-				Pool: ipamTypes.AllocationMap{},
-			},
-		},
-		Status: v2.NodeStatus{
-			IPAM: ipamTypes.IPAMStatus{
-				Used: ipamTypes.AllocationMap{},
-			},
-		},
-	}
-
-	for _, opt := range opts {
-		opt(cn)
-	}
-
-	return cn
-}
-
-func withInstanceID(instanceID string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.InstanceID = instanceID
-	}
-}
-
-func withInstanceType(instanceType string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.InstanceType = instanceType
-	}
-}
-
-func withFirstInterfaceIndex(firstInterface int) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.FirstInterfaceIndex = &firstInterface
-	}
-}
-
-func withAvailabilityZone(az string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.AvailabilityZone = az
-	}
-}
-
-func withVpcID(vpcID string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.VpcID = vpcID
-	}
-}
-
-func withSecurityGroupTags(tags map[string]string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.SecurityGroupTags = tags
-	}
-}
-
-func withIPAMPreAllocate(preAlloc int) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.IPAM.PreAllocate = preAlloc
-	}
-}
-
-func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.IPAM.MinAllocate = minAlloc
-	}
-}
-
-func withIPAMMaxAboveWatermark(aboveWM int) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.IPAM.MaxAboveWatermark = aboveWM
-	}
-}
-
-func withExcludeInterfaceTags(tags map[string]string) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.ENI.ExcludeInterfaceTags = tags
-	}
-}
-
-func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
-	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
-	for i := 0; i < used; i++ {
-		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
-	}
-
-	cn.Status.IPAM.Used = ipamTypes.AllocationMap{}
-	for ip, ipAllocation := range cn.Spec.IPAM.Pool {
-		if used > 0 {
-			delete(cn.Spec.IPAM.Pool, ip)
-			cn.Status.IPAM.Used[ip] = ipAllocation
-			used--
-		}
-	}
-
-	return cn
-}
-
-func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
-	if node := mngr.Get(nodeName); node != nil {
-		success = node.GetNeededAddresses() == needed
-	}
-	return
-}
-
 // TestNodeManagerDefaultAllocation tests allocation with default parameters
 //
 // - m5.large (3x ENIs, 2x10-2 IPs)
@@ -958,4 +828,134 @@ func (e *ENISuite) BenchmarkAllocDelay50Worker10(c *check.C) {
 }
 func (e *ENISuite) BenchmarkAllocDelay50Worker50(c *check.C) {
 	benchmarkAllocWorker(c, 50, 50*time.Millisecond, 100.0, 4)
+}
+
+type k8sMock struct{}
+
+func (k *k8sMock) Create(node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return nil, nil
+}
+
+func (k *k8sMock) Update(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return nil, nil
+}
+
+func (k *k8sMock) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return nil, nil
+}
+
+func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
+	return &v2.CiliumNode{}, nil
+}
+
+func newCiliumNode(name string, opts ...func(*v2.CiliumNode)) *v2.CiliumNode {
+	fii := 0
+	cn := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		Spec: v2.NodeSpec{
+			ENI: eniTypes.ENISpec{
+				FirstInterfaceIndex: &fii,
+				SecurityGroupTags:   map[string]string{},
+			},
+			IPAM: ipamTypes.IPAMSpec{
+				Pool: ipamTypes.AllocationMap{},
+			},
+		},
+		Status: v2.NodeStatus{
+			IPAM: ipamTypes.IPAMStatus{
+				Used: ipamTypes.AllocationMap{},
+			},
+		},
+	}
+
+	for _, opt := range opts {
+		opt(cn)
+	}
+
+	return cn
+}
+
+func withInstanceID(instanceID string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.InstanceID = instanceID
+	}
+}
+
+func withInstanceType(instanceType string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.InstanceType = instanceType
+	}
+}
+
+func withFirstInterfaceIndex(firstInterface int) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.FirstInterfaceIndex = &firstInterface
+	}
+}
+
+func withAvailabilityZone(az string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.AvailabilityZone = az
+	}
+}
+
+func withVpcID(vpcID string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.VpcID = vpcID
+	}
+}
+
+func withSecurityGroupTags(tags map[string]string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.SecurityGroupTags = tags
+	}
+}
+
+func withIPAMPreAllocate(preAlloc int) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.IPAM.PreAllocate = preAlloc
+	}
+}
+
+func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.IPAM.MinAllocate = minAlloc
+	}
+}
+
+func withIPAMMaxAboveWatermark(aboveWM int) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.IPAM.MaxAboveWatermark = aboveWM
+	}
+}
+
+func withExcludeInterfaceTags(tags map[string]string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.ExcludeInterfaceTags = tags
+	}
+}
+
+func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
+	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
+	for i := 0; i < used; i++ {
+		cn.Spec.IPAM.Pool[fmt.Sprintf("1.1.1.%d", i)] = ipamTypes.AllocationIP{Resource: "foo"}
+	}
+
+	cn.Status.IPAM.Used = ipamTypes.AllocationMap{}
+	for ip, ipAllocation := range cn.Spec.IPAM.Pool {
+		if used > 0 {
+			delete(cn.Spec.IPAM.Pool, ip)
+			cn.Status.IPAM.Used[ip] = ipAllocation
+			used--
+		}
+	}
+
+	return cn
+}
+
+func reachedAddressesNeeded(mngr *ipam.NodeManager, nodeName string, needed int) (success bool) {
+	if node := mngr.Get(nodeName); node != nil {
+		success = node.GetNeededAddresses() == needed
+	}
+	return
 }
