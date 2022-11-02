@@ -185,8 +185,8 @@ github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e/go.mod h1:c4R
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc/go.mod h1:e3IlAVfNqAllflbibAZEWOXOQ+Ynzk/dDozDxY7XnME=
 github.com/cilium/ebpf v0.5.0/go.mod h1:4tRaxcgiL706VnOzHOdBlY8IEAIdxINsQBcU4xJJXRs=
-github.com/cilium/ebpf v0.9.3 h1:5KtxXZU+scyERvkJMEm16TbScVvuuMrlhPly78ZMbSc=
-github.com/cilium/ebpf v0.9.3/go.mod h1:w27N4UjpaQ9X/DGrSugxUG+H+NhgntDuPb5lCzxCn8A=
+github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2 h1:0uNZvKfSZS/iA3EnfrnhNu/ZwZIxs5KW3j6sCg2ENNU=
+github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2/go.mod h1:w27N4UjpaQ9X/DGrSugxUG+H+NhgntDuPb5lCzxCn8A=
 github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735 h1:zVAyMgk50mGdTozg5aTQd9QKHlmQmQY5onmO1NqGrZ0=
 github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=

@@ -79,6 +79,8 @@ type MapSpec struct {
 	Key, Value btf.Type
 
 	// The BTF associated with this map.
+	//
+	// Deprecated: use [CollectionSpec.Types] instead.
 	BTF *btf.Spec
 }
 
@@ -102,12 +104,6 @@ func (ms *MapSpec) Copy() *MapSpec {
 	cpy.InnerMap = ms.InnerMap.Copy()
 
 	return &cpy
-}
-
-// hasBTF returns true if the MapSpec has a valid BTF spec and if its
-// map type supports associated BTF metadata in the kernel.
-func (ms *MapSpec) hasBTF() bool {
-	return ms.BTF != nil && ms.Type.hasBTF()
 }
 
 func (ms *MapSpec) clampPerfEventArraySize() error {
@@ -241,10 +237,7 @@ func NewMap(spec *MapSpec) (*Map, error) {
 //
 // May return an error wrapping ErrMapIncompatible.
 func NewMapWithOptions(spec *MapSpec, opts MapOptions) (*Map, error) {
-	handles := newHandleCache()
-	defer handles.close()
-
-	m, err := newMapWithOptions(spec, opts, handles)
+	m, err := newMapWithOptions(spec, opts)
 	if err != nil {
 		return nil, fmt.Errorf("creating map: %w", err)
 	}
@@ -257,7 +250,7 @@ func NewMapWithOptions(spec *MapSpec, opts MapOptions) (*Map, error) {
 	return m, nil
 }
 
-func newMapWithOptions(spec *MapSpec, opts MapOptions, handles *handleCache) (_ *Map, err error) {
+func newMapWithOptions(spec *MapSpec, opts MapOptions) (_ *Map, err error) {
 	closeOnError := func(c io.Closer) {
 		if err != nil {
 			c.Close()
@@ -307,7 +300,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions, handles *handleCache) (_ 
 			return nil, errors.New("inner maps cannot be pinned")
 		}
 
-		template, err := spec.InnerMap.createMap(nil, opts, handles)
+		template, err := spec.InnerMap.createMap(nil, opts)
 		if err != nil {
 			return nil, fmt.Errorf("inner map: %w", err)
 		}
@@ -319,7 +312,7 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions, handles *handleCache) (_ 
 		innerFd = template.fd
 	}
 
-	m, err := spec.createMap(innerFd, opts, handles)
+	m, err := spec.createMap(innerFd, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -337,14 +330,12 @@ func newMapWithOptions(spec *MapSpec, opts MapOptions, handles *handleCache) (_ 
 
 // createMap validates the spec's properties and creates the map in the kernel
 // using the given opts. It does not populate or freeze the map.
-func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions, handles *handleCache) (_ *Map, err error) {
+func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions) (_ *Map, err error) {
 	closeOnError := func(closer io.Closer) {
 		if err != nil {
 			closer.Close()
 		}
 	}
-
-	spec = spec.Copy()
 
 	// Kernels 4.13 through 5.4 used a struct bpf_map_def that contained
 	// additional 'inner_map_idx' and later 'numa_node' fields.
@@ -365,17 +356,21 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions, handles *handleCa
 		if spec.ValueSize != 0 && spec.ValueSize != 4 {
 			return nil, errors.New("ValueSize must be zero or four for map of map")
 		}
+
+		spec = spec.Copy()
 		spec.ValueSize = 4
 
 	case PerfEventArray:
 		if spec.KeySize != 0 && spec.KeySize != 4 {
 			return nil, errors.New("KeySize must be zero or four for perf event array")
 		}
-		spec.KeySize = 4
 
 		if spec.ValueSize != 0 && spec.ValueSize != 4 {
 			return nil, errors.New("ValueSize must be zero or four for perf event array")
 		}
+
+		spec = spec.Copy()
+		spec.KeySize = 4
 		spec.ValueSize = 4
 
 		if spec.MaxEntries == 0 {
@@ -425,22 +420,15 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions, handles *handleCa
 		attr.MapName = sys.NewObjName(spec.Name)
 	}
 
-	if spec.hasBTF() {
-		handle, err := handles.btfHandle(spec.BTF)
-		if err != nil && !errors.Is(err, btf.ErrNotSupported) {
+	btfDisabled := false
+	if spec.Type.supportsBTF() && (spec.Key != nil || spec.Value != nil) {
+		handle, keyTypeID, valueTypeID, err := btf.MarshalMapKV(spec.Key, spec.Value)
+		btfDisabled = errors.Is(err, btf.ErrNotSupported)
+		if err != nil && !btfDisabled {
 			return nil, fmt.Errorf("load BTF: %w", err)
 		}
-
 		if handle != nil {
-			keyTypeID, err := spec.BTF.TypeID(spec.Key)
-			if err != nil {
-				return nil, err
-			}
-
-			valueTypeID, err := spec.BTF.TypeID(spec.Value)
-			if err != nil {
-				return nil, err
-			}
+			defer handle.Close()
 
 			attr.BtfFd = uint32(handle.FD())
 			attr.BtfKeyTypeId = uint32(keyTypeID)
@@ -453,11 +441,11 @@ func (spec *MapSpec) createMap(inner *sys.FD, opts MapOptions, handles *handleCa
 		if errors.Is(err, unix.EPERM) {
 			return nil, fmt.Errorf("map create: %w (MEMLOCK may be too low, consider rlimit.RemoveMemlock)", err)
 		}
-		if !spec.hasBTF() {
-			return nil, fmt.Errorf("map create without BTF: %w", err)
-		}
 		if errors.Is(err, unix.EINVAL) && attr.MaxEntries == 0 {
 			return nil, fmt.Errorf("map create: %w (MaxEntries may be incorrectly set to zero)", err)
+		}
+		if btfDisabled {
+			return nil, fmt.Errorf("map create: %w (kernel without BTF support)", err)
 		}
 		return nil, fmt.Errorf("map create: %w", err)
 	}
@@ -1095,7 +1083,8 @@ func (m *Map) Clone() (*Map, error) {
 // the new path already exists. Re-pinning across filesystems is not supported.
 // You can Clone a map to pin it to a different path.
 //
-// This requires bpffs to be mounted above fileName. See https://docs.cilium.io/en/k8s-doc/admin/#admin-mount-bpffs
+// This requires bpffs to be mounted above fileName.
+// See https://docs.cilium.io/en/stable/concepts/kubernetes/configuration/#mounting-bpffs-with-systemd
 func (m *Map) Pin(fileName string) error {
 	if err := internal.Pin(m.pinnedPath, fileName, m.fd); err != nil {
 		return err

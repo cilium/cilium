@@ -23,6 +23,9 @@ func vdsoVersion() (uint32, error) {
 	// to the process. Go does not expose that data, so we must read it from procfs.
 	// https://man7.org/linux/man-pages/man3/getauxval.3.html
 	av, err := os.Open("/proc/self/auxv")
+	if errors.Is(err, unix.EACCES) {
+		return 0, fmt.Errorf("opening auxv: %w (process may not be dumpable due to file capabilities)", err)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("opening auxv: %w", err)
 	}

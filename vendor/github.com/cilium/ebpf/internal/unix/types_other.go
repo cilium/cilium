@@ -26,6 +26,7 @@ const (
 	EFAULT
 	EACCES
 	EILSEQ
+	EOPNOTSUPP
 )
 
 // Constants are distinct to avoid breaking switch statements.
@@ -78,6 +79,8 @@ const (
 	SIGPROF
 	SIG_BLOCK
 	SIG_UNBLOCK
+	EM_NONE
+	EM_BPF
 )
 
 type Statfs_t struct {

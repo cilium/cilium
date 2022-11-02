@@ -354,6 +354,13 @@ func (ins Instruction) Size() uint64 {
 	return uint64(InstructionSize * ins.OpCode.rawInstructions())
 }
 
+// WithMetadata sets the given Metadata on the Instruction. e.g. to copy
+// Metadata from another Instruction when replacing it.
+func (ins Instruction) WithMetadata(meta Metadata) Instruction {
+	ins.Metadata = meta
+	return ins
+}
+
 type symbolMeta struct{}
 
 // WithSymbol marks the Instruction as a Symbol, which other Instructions

@@ -77,9 +77,7 @@ all: format $(addsuffix -el.elf,$(TARGETS)) $(addsuffix -eb.elf,$(TARGETS)) gene
 generate: export BPF_CLANG := $(CLANG)
 generate: export BPF_CFLAGS := $(CFLAGS)
 generate:
-	go generate ./cmd/bpf2go/test
-	go generate ./internal/sys
-	go generate ./examples/...
+	go generate ./...
 
 testdata/loader-%-el.elf: testdata/loader.c
 	$* $(CFLAGS) -target bpfel -c $< -o $@
