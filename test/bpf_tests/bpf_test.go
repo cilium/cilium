@@ -18,9 +18,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -34,6 +32,7 @@ import (
 	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -132,35 +131,28 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		err  error
 	)
 
-	opts := ebpf.CollectionOptions{
-		Programs: ebpf.ProgramOptions{
-			LogSize: 64 << 20, // 64 MiB, not needed in most cases, except when running instrumented code.
-		},
+	if *testCoverageReport == "" {
+		coll, err = bpf.LoadCollection(spec, ebpf.CollectionOptions{})
+	} else {
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{
+			Programs: ebpf.ProgramOptions{
+				// 64 MiB, not needed in most cases, except when running instrumented code.
+				LogSize: 64 << 20,
+			},
+		}, instrLog)
 	}
 
-	if *testCoverageReport == "" {
-		coll, err = ebpf.NewCollectionWithOptions(spec, opts)
-	} else {
-		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, opts, instrLog)
+	var ve *ebpf.VerifierError
+	if errors.As(err, &ve) {
+		if ve.Truncated {
+			t.Fatal("Verifier log exceeds 64MiB, increase LogSize passed to coverbee.InstrumentAndLoadCollection")
+		}
+		t.Fatalf("verifier error: %+v", ve)
 	}
 	if err != nil {
-		// Use this definition of ENOSPC instead of syscall.ENOSPC, since the stdlib constant is only
-		// available on linux. Even if this doesn't run, we still want it to compile on non-linux systems.
-		const ENOSPC = syscall.Errno(0x1c)
-		// ENOSPC usually means that the log size was to small, so increase and retry.
-		if errors.Is(err, ENOSPC) {
-			t.Fatal("Verifier logs larger than 64MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
-				"or decrease the size/complexity of the program")
-		}
-
-		t.Fatal("new coll:", err)
+		t.Fatal("loading collection:", err)
 	}
 	defer coll.Close()
-
-	err = loadCallsMap(spec, coll)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	testNameToPrograms := make(map[string]programSet)
 
@@ -265,85 +257,26 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-	spec, err := ebpf.LoadCollectionSpec(elfPath)
+	spec, err := bpf.LoadCollectionSpec(elfPath)
 	if err != nil {
-		t.Fatal("load spec: ", elfPath, err)
+		t.Fatalf("load spec %s: %v", elfPath, err)
 	}
 
-	for _, mspec := range spec.Maps {
-		// Drain extra info from map specs, cilium/ebpf will complain if we don't
-		if mspec.Extra != nil {
-			io.ReadAll(mspec.Extra)
-		}
-
-		mspec.Pinning = ebpf.PinNone
+	for _, m := range spec.Maps {
+		m.Pinning = ebpf.PinNone
 	}
 
-	var progTestType ebpf.ProgramType
-	for progName, prog := range spec.Programs {
-		switch prog.Type {
+	for n, p := range spec.Programs {
+		switch p.Type {
 		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS:
-		case ebpf.UnspecifiedProgram:
-		default:
-			t.Logf(
-				"program '%s' has program type '%s' which doesn't have BPF_PROG_RUN support, not loading it",
-				prog.Name,
-				prog.Type,
-			)
-			delete(spec.Programs, progName)
 			continue
 		}
 
-		if progTestType != prog.Type {
-			if progTestType == ebpf.UnspecifiedProgram {
-				progTestType = prog.Type
-				continue
-			}
-			if prog.Type == ebpf.UnspecifiedProgram {
-				continue
-			}
-		}
-	}
-
-	if progTestType == ebpf.UnspecifiedProgram {
-		t.Fatalf("File '%s' only contains unspecified program types", elfPath)
-	}
-
-	// Give all untyped tail call programs the same program type as the test programs
-	for _, spec := range spec.Programs {
-		if spec.Type == ebpf.UnspecifiedProgram {
-			spec.Type = progTestType
-		}
+		t.Logf("Skipping program '%s' of type '%s': BPF_PROG_RUN not supported", p.Name, p.Type)
+		delete(spec.Programs, n)
 	}
 
 	return spec
-}
-
-// Fill the tail calls map with the tail calls based on the calls .id and names of the program sections.
-func loadCallsMap(spec *ebpf.CollectionSpec, coll *ebpf.Collection) error {
-	callMap, found := coll.Maps[callsMapName]
-	if !found {
-		// If we can't find the map, tailcalls aren't required for the current tests
-		return nil
-	}
-
-	for name, prog := range coll.Programs {
-		if strings.HasPrefix(spec.Programs[name].SectionName, callsMapID) {
-			indexStr := strings.TrimPrefix(spec.Programs[name].SectionName, callsMapID)
-			index, err := strconv.Atoi(indexStr)
-			if err != nil {
-				return fmt.Errorf("atoi tail call index: %w", err)
-			}
-
-			index32 := uint32(index)
-			err = callMap.Update(&index32, prog, ebpf.UpdateAny)
-			if err != nil {
-				return fmt.Errorf("update tailcall map: %w", err)
-			}
-		}
-	}
-
-	return nil
 }
 
 type programSet struct {
@@ -358,11 +291,6 @@ const (
 	ResultSuccess = 1
 
 	suiteResultMap = "suite_result_map"
-
-	callsMapName = "test_cilium_calls_65535"
-	// TODO we should read the .id field from the maps BTF, but the current cilium/ebpf version doesn't make the raw
-	// map BTF available.
-	callsMapID = "2/"
 )
 
 func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
