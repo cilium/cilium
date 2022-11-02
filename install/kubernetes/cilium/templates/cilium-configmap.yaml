@@ -768,6 +768,9 @@ data:
 {{- if .Values.hubble.preferIpv6 }}
   hubble-prefer-ipv6: "true"
 {{- end }}
+{{- if (not (kindIs "invalid" .Values.hubble.skipUnknownCGroupIDs)) }}
+  hubble-skip-unknown-cgroup-ids: {{ .Values.hubble.skipUnknownCGroupIDs | quote }}
+{{- end }}
 {{- end }}
 {{- if hasKey .Values "disableIptablesFeederRules" }}
   # A space separated list of iptables chains to disable when installing feeder rules.
