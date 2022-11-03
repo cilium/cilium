@@ -181,7 +181,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 	ipc.metadata.RLock()
 
 	for i, prefix := range modifiedPrefixes {
-		id, entryExists := ipc.LookupByIP(prefix.String())
+		oldID, entryExists := ipc.LookupByIP(prefix.String())
 		prefixInfo := ipc.metadata.getLocked(prefix)
 		if prefixInfo == nil {
 			if !entryExists {
@@ -206,7 +206,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				// unblock subsequent calls into this function.
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.IPAddr:   prefix,
-					logfields.Identity: id,
+					logfields.Identity: oldID,
 					logfields.Labels:   newID.Labels,
 				}).Warning(
 					"Failed to allocate new identity while handling change in labels associated with a prefix.",
@@ -222,7 +222,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// kvstore and via the k8s control plane. If the new
 			// security identity is the same as the one currently
 			// being used, then no need to update it.
-			if id.ID == newID.ID {
+			if oldID.ID == newID.ID {
 				goto releaseIdentity
 			}
 
@@ -238,7 +238,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// have now been removed, then we need to explicitly
 			// work around that to remove the old higher-priority
 			// identity and replace it with this new identity.
-			if entryExists && prefixInfo.Source() != id.Source {
+			if entryExists && prefixInfo.Source() != oldID.Source {
 				forceIPCacheUpdate[prefix] = true
 			}
 		}
@@ -251,15 +251,15 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// iteration of the loop, then we must balance the
 			// allocation from the prior InjectLabels() call by
 			// releasing the previous reference.
-			if _, ok := idsToAdd[id.ID]; !ok {
-				previouslyAllocatedIdentities[prefix] = id
+			if _, ok := idsToAdd[oldID.ID]; !ok {
+				previouslyAllocatedIdentities[prefix] = oldID
 			}
 			// If all associated metadata for this prefix has been removed,
 			// and the existing IPCache entry was never touched by any other
 			// subsystem using the old Upsert API, then we can safely remove
 			// the IPCache entry associated with this prefix.
-			if prefixInfo == nil && id.createdFromMetadata {
-				entriesToDelete[prefix] = id
+			if prefixInfo == nil && oldID.createdFromMetadata {
+				entriesToDelete[prefix] = oldID
 			}
 		}
 	}
