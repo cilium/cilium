@@ -26,8 +26,8 @@ These code owners may provide feedback for Pull Requests submitted to any
 repository in the Cilium project:
 
 - `@cilium/api <https://github.com/orgs/cilium/teams/api>`__:
-  Ensure the backwards-compatibility of Cilium REST and gRPC APIs, including
-  for Hubble flow export.
+  Ensure the backwards-compatibility of Cilium REST and gRPC APIs, excluding
+  Hubble which is owned by `@cilium/sig-hubble-api <https://github.com/orgs/cilium/teams/sig-hubble-api>`__.
 - `@cilium/build <https://github.com/orgs/cilium/teams/build>`__:
   Provide feedback on languages and scripting used for build and packaging
   system: Make, Shell, Docker.
@@ -59,6 +59,11 @@ repository in the Cilium project:
   the review process. Ensure that Helm changes are defined in manners that
   will be forward-compatible for upgrade and follow best practices for
   deployment (for example, being GitOps-friendly).
+- `@cilium/sig-hubble-api <https://github.com/orgs/cilium/teams/sig-hubble-api>`__:
+  Review all Hubble API related changes. The Hubble API covers gRPC and
+  metrics endpoints. The team ensures that API changes are backward
+  compatible or that a new API version is created for backward incompatible
+  changes.
 - `@cilium/metrics <https://github.com/orgs/cilium/teams/metrics>`__:
   Provide recommendations about the types, names and labels for metrics to
   follow best practices. This includes considering the cardinality impact of
