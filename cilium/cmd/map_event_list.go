@@ -10,8 +10,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
-	"text/tabwriter"
 	"time"
 
 	"github.com/go-openapi/runtime"
@@ -56,12 +56,10 @@ var mapEventListCmd = &cobra.Command{
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			defer cancel()
-			w := tabwriter.NewWriter(os.Stdout, 5, 0, 15, ' ', 0)
-			if !command.OutputOption() {
-				fmt.Fprintf(w, "Timestamp\tAction\tState\tError\tKey\tValue\n")
-			}
+			defer func() {
+				wg.Done()
+				cancel()
+			}()
 			for {
 				event := &models.MapEvent{}
 				err := dec.Decode(&event)
@@ -76,14 +74,7 @@ var mapEventListCmd = &cobra.Command{
 						Fatalf("could not dump data to specified output format: %s", err.Error())
 					}
 				} else {
-					fmt.Fprintf(os.Stdout, "-----------------------------------------\n")
-					fmt.Fprintf(os.Stdout, "Key: %s\n", event.Key)
-					fmt.Fprintf(os.Stdout, "Value: %s\n", event.Value)
-					fmt.Fprintf(os.Stdout, "Time: %s\n", time.Time(event.Timestamp).Format(time.RFC3339))
-					fmt.Fprintf(os.Stdout, "Action: %s\n", event.Action)
-					fmt.Fprintf(os.Stdout, "Desired Action: %s\n", event.DesiredAction)
-					fmt.Fprintf(os.Stdout, "LastError: %s\n", event.LastError)
-					w.Flush()
+					printEvent(event)
 				}
 			}
 		}()
@@ -106,6 +97,24 @@ var mapEventListCmd = &cobra.Command{
 		_ = writer.Close()
 		wg.Wait()
 	},
+}
+
+func printEvent(event *models.MapEvent) {
+	sanitize := func(s string) string {
+		s = strings.ReplaceAll(s, `"`, `\"`)
+		s = strings.ReplaceAll(s, "\n", `\n`)
+		return strings.ReplaceAll(s, "\t", `\n`)
+	}
+	ts := time.Time(event.Timestamp).Format(time.RFC3339)
+	fmt.Fprintf(os.Stdout,
+		"key=%q value=%q time=%s action=%s desiredState=%s lastError=%q\n",
+		sanitize(event.Key),
+		sanitize(event.Value),
+		sanitize(ts),
+		sanitize(event.Action),
+		sanitize(event.DesiredAction),
+		sanitize(event.LastError),
+	)
 }
 
 func init() {
