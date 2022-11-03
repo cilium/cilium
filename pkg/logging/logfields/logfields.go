@@ -582,4 +582,7 @@ const (
 
 	// IPSec old SPI
 	OldSPI = "oldSPI"
+
+	// Expected is an expected value
+	Expected = "expected"
 )

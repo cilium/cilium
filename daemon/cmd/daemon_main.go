@@ -913,7 +913,15 @@ func initializeFlags() {
 	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	option.BindEnv(option.DNSProxyConcurrencyProcessingGracePeriod)
 
-	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
+	flags.Int(option.DNSProxyLockCount, 128, "Array size containing mutexes which protect against parallel handling of DNS response IPs")
+	flags.MarkHidden(option.DNSProxyLockCount)
+	option.BindEnv(option.DNSProxyLockCount)
+
+	flags.Duration(option.DNSProxyLockTimeout, 500*time.Millisecond, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
+	flags.MarkHidden(option.DNSProxyLockTimeout)
+	option.BindEnv(option.DNSProxyLockTimeout)
+
+	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(option.PolicyQueueSize)
 
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
