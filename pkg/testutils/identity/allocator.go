@@ -70,7 +70,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 
 	requiresGlobal := identity.RequiresGlobalIdentity(lbls)
 
-	if numID, ok := f.labelsToIdentity[lbls.String()]; ok && !requiresGlobal {
+	if numID, ok := f.labelsToIdentity[lbls.String()]; ok {
 		id := f.idToIdentity[numID]
 		id.ReferenceCount++
 		return id, false, nil
