@@ -107,7 +107,7 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 
 var (
 	// We can remove the check for this warning once 1.9 is the oldest supported Cilium version.
-	warnWildcardToFromEndpointMessage = "It seems you have a CiliumClusterwideNetworkPolicy " +
+	errWildcardToFromEndpointMessage = "It seems you have a CiliumClusterwideNetworkPolicy " +
 		"with a wildcard to/from endpoint selector. The behavior of this selector has been " +
 		"changed. The selector now only allows traffic to/from Cilium managed K8s endpoints, " +
 		"instead of acting as a truly empty endpoint selector allowing all traffic. To " +
@@ -159,9 +159,9 @@ func checkWildCardToFromEndpoint(ccnp *unstructured.Unstructured) error {
 	if resCCNP.Spec != nil {
 		if containsWildcardToFromEndpoint(resCCNP.Spec) {
 			logOnce.Do(func() {
-				logger.Warning(warnWildcardToFromEndpointMessage)
+				logger.Error(errWildcardToFromEndpointMessage)
 			})
-			return nil
+			return fmt.Errorf("use of empty toEndpoints/fromEndpoints selector")
 		}
 	}
 
@@ -169,9 +169,9 @@ func checkWildCardToFromEndpoint(ccnp *unstructured.Unstructured) error {
 		for _, rule := range resCCNP.Specs {
 			if containsWildcardToFromEndpoint(rule) {
 				logOnce.Do(func() {
-					logger.Warning(warnWildcardToFromEndpointMessage)
+					logger.Error(errWildcardToFromEndpointMessage)
 				})
-				return nil
+				return fmt.Errorf("use of empty toEndpoints/fromEndpoints selector")
 			}
 		}
 	}
