@@ -42,7 +42,8 @@ func (d *Daemon) cleanStaleCEPs(ctx context.Context, eps localEndpointCache, cil
 			}
 			for _, cep := range ces.Endpoints {
 				if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupPodName(ces.Namespace+"/"+cep.Name) == nil {
-					d.deleteCiliumEndpoint(ctx, ces.Namespace, cep.Name, nil, ciliumClient, eps)
+					d.deleteCiliumEndpoint(ctx, ces.Namespace, cep.Name, nil, ciliumClient, eps,
+						enableCiliumEndpointSlice)
 				}
 			}
 		}
@@ -54,7 +55,8 @@ func (d *Daemon) cleanStaleCEPs(ctx context.Context, eps localEndpointCache, cil
 			}
 
 			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupPodName(cep.Namespace+"/"+cep.Name) == nil {
-				d.deleteCiliumEndpoint(ctx, cep.Namespace, cep.Name, &cep.ObjectMeta.UID, ciliumClient, eps)
+				d.deleteCiliumEndpoint(ctx, cep.Namespace, cep.Name, &cep.ObjectMeta.UID, ciliumClient, eps,
+					enableCiliumEndpointSlice)
 			}
 		}
 	}
@@ -69,12 +71,13 @@ func (d *Daemon) deleteCiliumEndpoint(
 	cepName string,
 	cepUID *apiTypes.UID,
 	ciliumClient ciliumv2.CiliumV2Interface,
-	eps localEndpointCache) {
+	eps localEndpointCache,
+	endpointSliceEnabled bool) {
 	// To avoid having to store CEP UIDs in CES Endpoints array, we have to get the latest
 	// referenced CEP from apiserver to verify that it still references this node.
 	// To avoid excessive api calls, we only do this if CES is enabled and the CEP
 	// appears to be stale.
-	if cepUID == nil {
+	if cepUID == nil && endpointSliceEnabled {
 		cep, err := ciliumClient.CiliumEndpoints(cepNamespace).Get(ctx, cepName, metav1.GetOptions{})
 		if err != nil {
 			log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
