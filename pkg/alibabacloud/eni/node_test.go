@@ -143,7 +143,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	mngr.Update(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots, check.Equals, 2)
+	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 2)
 
 	// create one eni
 	toAlloc, _, err := mngr.Get("node1").Ops().CreateInterface(context.Background(), &ipam.AllocationAction{
@@ -156,7 +156,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	// one eni left
 	a, err = mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
-	c.Assert(a.EmptyInterfaceSlots, check.Equals, 1)
+	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 1)
 }
 
 func (e *ENISuite) TestNode_allocENIIndex(c *check.C) {
