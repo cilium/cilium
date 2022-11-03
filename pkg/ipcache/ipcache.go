@@ -32,11 +32,30 @@ type Identity struct {
 	// Source is the source of the identity in the cache
 	Source source.Source
 
+	// This blank field ensures that the == operator cannot be used on this
+	// type, to avoid external packages accidentally comparing the private
+	// values below
+	_ []struct{}
+
 	// shadowed determines if another entry overlaps with this one.
 	// Shadowed identities are not propagated to listeners by default.
 	// Most commonly set for Identity with Source = source.Generated when
 	// a pod IP (other source) has the same IP.
 	shadowed bool
+
+	// createdFromMetadata indicates that this entry was created via the new
+	// metadata API. This is needed to know if it is safe to delete
+	// an IPCache entry when no further metadata is associated with its prefix.
+	// This field is intended to be removed once cilium/cilium#21142 has been
+	// fully implemented and all entries are created via the new metadata API
+	createdFromMetadata bool
+}
+
+func (i Identity) equals(o Identity) bool {
+	return i.ID == o.ID &&
+		i.Source == o.Source &&
+		i.shadowed == o.shadowed &&
+		i.createdFromMetadata == o.createdFromMetadata
 }
 
 // IPKeyPair is the (IP, key) pair used of the identity
@@ -312,12 +331,21 @@ func (ipc *IPCache) upsertLocked(
 
 		// Skip update if IP is already mapped to the given identity
 		// and the host IP hasn't changed.
-		if cachedIdentity == newIdentity && oldHostIP.Equal(hostIP) &&
+		if cachedIdentity.equals(newIdentity) && oldHostIP.Equal(hostIP) &&
 			hostKey == oldHostKey && metaEqual {
 			metrics.IPCacheErrorsTotal.WithLabelValues(
 				metricTypeUpsert, metricErrorIdempotent,
 			).Inc()
 			return false, nil
+		}
+
+		// Here we track if an entry was created via new asynchronous
+		// UpsertMetadata API or the old synchronous Upsert call.
+		// If an entry is ever touched via the old Upsert API, we want to keep
+		// createdFromMetadata set to false, and require that the entry
+		// manually is deleted via the Delete function.
+		if !cachedIdentity.createdFromMetadata {
+			newIdentity.createdFromMetadata = false
 		}
 
 		oldIdentity = &cachedIdentity

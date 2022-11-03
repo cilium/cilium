@@ -228,8 +228,9 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 			idsToAdd[newID.ID] = newID.Labels.LabelArray()
 			entriesToReplace[prefix] = Identity{
-				ID:     newID.ID,
-				Source: prefixInfo.Source(),
+				ID:                  newID.ID,
+				Source:              prefixInfo.Source(),
+				createdFromMetadata: true,
 			}
 			// IPCache.Upsert() and friends currently require a
 			// Source to be provided during upsert. If the old
@@ -252,6 +253,13 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// releasing the previous reference.
 			if _, ok := idsToAdd[id.ID]; !ok {
 				previouslyAllocatedIdentities[prefix] = id
+			}
+			// If all associated metadata for this prefix has been removed,
+			// and the existing IPCache entry was never touched by any other
+			// subsystem using the old Upsert API, then we can safely remove
+			// the IPCache entry associated with this prefix.
+			if prefixInfo == nil && id.createdFromMetadata {
+				entriesToDelete[prefix] = id
 			}
 		}
 	}
@@ -284,7 +292,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		}
 	}
 
-	for prefix, id := range previouslyAllocatedIdentities {
+	for _, id := range previouslyAllocatedIdentities {
 		realID := ipc.IdentityAllocator.LookupIdentityByID(ctx, id.ID)
 		if realID == nil {
 			continue
@@ -308,9 +316,6 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		// logic for handling the removal of these identities.
 		if released {
 			idsToDelete[id.ID] = nil // SelectorCache removal
-			if _, ok := entriesToReplace[prefix]; !ok {
-				entriesToDelete[prefix] = id // IPCache removal
-			}
 		}
 	}
 	if len(idsToDelete) > 0 {
