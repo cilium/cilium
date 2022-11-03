@@ -251,9 +251,8 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// iteration of the loop, then we must balance the
 			// allocation from the prior InjectLabels() call by
 			// releasing the previous reference.
-			if _, ok := idsToAdd[oldID.ID]; !ok {
-				previouslyAllocatedIdentities[prefix] = oldID
-			}
+			previouslyAllocatedIdentities[prefix] = oldID
+
 			// If all associated metadata for this prefix has been removed,
 			// and the existing IPCache entry was never touched by any other
 			// subsystem using the old Upsert API, then we can safely remove
