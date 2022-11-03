@@ -325,6 +325,9 @@ var (
 	// ProxyUpstreamTime is how long the upstream server took to reply labeled
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
+	// ProxyUpstreamTime is how long the upstream server took to reply labeled
+	// by error, protocol and span time
+	ProxyUpstreamTimeV2 = NoOpObserverVec
 
 	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
 	// updating the datapath due to an FQDN IP update
@@ -624,6 +627,7 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_policy_l7_denied_total":                                        {},
 		Namespace + "_policy_l7_received_total":                                      {},
 		Namespace + "_proxy_upstream_reply_seconds":                                  {},
+		Namespace + "_proxy_upstream_reply_seconds_v2":                               {},
 		Namespace + "_drop_count_total":                                              {},
 		Namespace + "_drop_bytes_total":                                              {},
 		Namespace + "_forward_count_total":                                           {},
@@ -884,6 +888,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.ProxyReceivedEnabled = true
 
 		case Namespace + "_proxy_upstream_reply_seconds":
+			// TODO: Deprecate?
 			ProxyUpstreamTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 				Namespace: Namespace,
 				Name:      "proxy_upstream_reply_seconds",
@@ -891,6 +896,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			}, []string{"error", LabelProtocolL7, LabelScope})
 
 			collectors = append(collectors, ProxyUpstreamTime)
+			c.NoOpObserverVecEnabled = true
+
+		case Namespace + "_proxy_upstream_reply_seconds_v2":
+			ProxyUpstreamTimeV2 = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+				Namespace:  Namespace,
+				Name:       "proxy_upstream_reply_seconds_v2",
+				Help:       "Seconds waited to get a reply from a upstream server (summary)",
+				Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+			}, []string{"error", LabelProtocolL7, LabelScope})
+
+			collectors = append(collectors, ProxyUpstreamTimeV2)
 			c.NoOpObserverVecEnabled = true
 
 		case Namespace + "_proxy_datapath_update_timeout_total":

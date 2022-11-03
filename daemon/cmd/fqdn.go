@@ -428,13 +428,23 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstream).Observe(
 			stat.UpstreamTime.Total().Seconds())
+		metrics.ProxyUpstreamTimeV2.WithLabelValues(metricError, metrics.L7DNS, upstream).Observe(
+			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
+			stat.ProcessingTime.Total().Seconds())
+		metrics.ProxyUpstreamTimeV2.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
 			stat.ProcessingTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
 			stat.SemaphoreAcquireTime.Total().Seconds())
+		metrics.ProxyUpstreamTimeV2.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
+			stat.SemaphoreAcquireTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
+		metrics.ProxyUpstreamTimeV2.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
+			stat.PolicyCheckTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
+			stat.DataplaneTime.Total().Seconds())
+		metrics.ProxyUpstreamTimeV2.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
 			stat.DataplaneTime.Total().Seconds())
 	}
 
