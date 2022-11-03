@@ -264,6 +264,8 @@ const (
 	AFI_SAFI_TYPE_IPV6_SRPOLICY         AfiSafiType = "ipv6-srpolicy"
 	AFI_SAFI_TYPE_OPAQUE                AfiSafiType = "opaque"
 	AFI_SAFI_TYPE_LS                    AfiSafiType = "ls"
+	AFI_SAFI_TYPE_IPV4_MUP              AfiSafiType = "ipv4-mup"
+	AFI_SAFI_TYPE_IPV6_MUP              AfiSafiType = "ipv6-mup"
 )
 
 var AfiSafiTypeToIntMap = map[AfiSafiType]int{
@@ -291,6 +293,8 @@ var AfiSafiTypeToIntMap = map[AfiSafiType]int{
 	AFI_SAFI_TYPE_IPV6_SRPOLICY:         21,
 	AFI_SAFI_TYPE_OPAQUE:                22,
 	AFI_SAFI_TYPE_LS:                    23,
+	AFI_SAFI_TYPE_IPV4_MUP:              24,
+	AFI_SAFI_TYPE_IPV6_MUP:              25,
 }
 
 var IntToAfiSafiTypeMap = map[int]AfiSafiType{
@@ -318,6 +322,8 @@ var IntToAfiSafiTypeMap = map[int]AfiSafiType{
 	21: AFI_SAFI_TYPE_IPV6_SRPOLICY,
 	22: AFI_SAFI_TYPE_OPAQUE,
 	23: AFI_SAFI_TYPE_LS,
+	24: AFI_SAFI_TYPE_IPV4_MUP,
+	25: AFI_SAFI_TYPE_IPV6_MUP,
 }
 
 func (v AfiSafiType) Validate() error {
@@ -4123,6 +4129,7 @@ type AfiSafi struct {
 	// original -> gobgp:add-paths
 	// add-paths configuration options related to a particular AFI-SAFI.
 	AddPaths AddPaths `mapstructure:"add-paths" json:"add-paths,omitempty"`
+	// original -> bgp-mp:ipv4-mup
 }
 
 func (lhs *AfiSafi) Equal(rhs *AfiSafi) bool {

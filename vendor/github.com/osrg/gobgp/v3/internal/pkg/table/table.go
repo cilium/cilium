@@ -86,6 +86,8 @@ func (t *Table) deletePathsByVrf(vrf *Vrf) []*Path {
 				rd = v.RD
 			case *bgp.EVPNNLRI:
 				rd = v.RD()
+			case *bgp.MUPNLRI:
+				rd = v.RD()
 			default:
 				return pathList
 			}

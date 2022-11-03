@@ -81,6 +81,7 @@ const (
 	SAFI_EVPN                     = 70
 	SAFI_LS                       = 71
 	SAFI_SRPOLICY                 = 73
+	SAFI_MUP                      = 85
 	SAFI_MPLS_VPN                 = 128
 	SAFI_MPLS_VPN_MULTICAST       = 129
 	SAFI_ROUTE_TARGET_CONSTRAINTS = 132
@@ -127,6 +128,7 @@ const (
 	EC_TYPE_COS_CAPABILITY                        ExtendedCommunityAttrType = 0x05
 	EC_TYPE_EVPN                                  ExtendedCommunityAttrType = 0x06
 	EC_TYPE_FLOWSPEC_REDIRECT_MIRROR              ExtendedCommunityAttrType = 0x08
+	EC_TYPE_MUP                                   ExtendedCommunityAttrType = 0x0c
 	EC_TYPE_NON_TRANSITIVE_TWO_OCTET_AS_SPECIFIC  ExtendedCommunityAttrType = 0x40
 	EC_TYPE_NON_TRANSITIVE_LINK_BANDWIDTH         ExtendedCommunityAttrType = 0x40
 	EC_TYPE_NON_TRANSITIVE_IP6_SPECIFIC           ExtendedCommunityAttrType = 0x40 // RFC5701
@@ -164,6 +166,8 @@ const (
 	EC_SUBTYPE_DEFAULT_GATEWAY ExtendedCommunityAttrSubType = 0x0D // EC_TYPE: 0x03
 
 	EC_SUBTYPE_ORIGIN_VALIDATION ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x43
+
+	EC_SUBTYPE_MUP_DIRECT_SEG ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
 
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_RATE   ExtendedCommunityAttrSubType = 0x06 // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_ACTION ExtendedCommunityAttrSubType = 0x07 // EC_TYPE: 0x80
@@ -2310,10 +2314,13 @@ func (esi *EthernetSegmentIdentifier) String() string {
 // the special keyword for all zeroed ESI.
 // For the "ARBITRARY" Value field (Type 0), it should be the colon separated
 // hex values and the number of elements should be 9 at most.
-//   e.g.) args := []string{"ARBITRARY", "11:22:33:44:55:66:77:88:99"}
+//
+//	e.g.) args := []string{"ARBITRARY", "11:22:33:44:55:66:77:88:99"}
+//
 // For the other types, the Value field format is the similar to the string
 // format of ESI.
-//   e.g.) args := []string{"lacp", "aa:bb:cc:dd:ee:ff", "100"}
+//
+//	e.g.) args := []string{"lacp", "aa:bb:cc:dd:ee:ff", "100"}
 func ParseEthernetSegmentIdentifier(args []string) (EthernetSegmentIdentifier, error) {
 	esi := EthernetSegmentIdentifier{}
 	argLen := len(args)
@@ -4675,12 +4682,11 @@ func (n *FlowSpecNLRI) MarshalJSON() ([]byte, error) {
 
 }
 
-//
 // CompareFlowSpecNLRI(n, m) returns
 // -1 when m has precedence
-//  0 when n and m have same precedence
-//  1 when n has precedence
 //
+//	0 when n and m have same precedence
+//	1 when n has precedence
 func CompareFlowSpecNLRI(n, m *FlowSpecNLRI) (int, error) {
 	family := AfiSafiToRouteFamily(n.AFI(), n.SAFI())
 	if family != AfiSafiToRouteFamily(m.AFI(), m.SAFI()) {
@@ -8301,6 +8307,8 @@ const (
 	RF_LS             RouteFamily = AFI_LS<<16 | SAFI_LS
 	RF_SR_POLICY_IPv4 RouteFamily = AFI_IP<<16 | SAFI_SRPOLICY
 	RF_SR_POLICY_IPv6 RouteFamily = AFI_IP6<<16 | SAFI_SRPOLICY
+	RF_MUP_IPv4       RouteFamily = AFI_IP<<16 | SAFI_MUP
+	RF_MUP_IPv6       RouteFamily = AFI_IP6<<16 | SAFI_MUP
 )
 
 var AddressFamilyNameMap = map[RouteFamily]string{
@@ -8328,6 +8336,8 @@ var AddressFamilyNameMap = map[RouteFamily]string{
 	RF_LS:             "ls",
 	RF_SR_POLICY_IPv4: "ipv4-srpolicy",
 	RF_SR_POLICY_IPv6: "ipv6-srpolicy",
+	RF_MUP_IPv4:       "ipv4-mup",
+	RF_MUP_IPv6:       "ipv6-mup",
 }
 
 var AddressFamilyValueMap = map[string]RouteFamily{
@@ -8355,6 +8365,8 @@ var AddressFamilyValueMap = map[string]RouteFamily{
 	AddressFamilyNameMap[RF_LS]:             RF_LS,
 	AddressFamilyNameMap[RF_SR_POLICY_IPv4]: RF_SR_POLICY_IPv4,
 	AddressFamilyNameMap[RF_SR_POLICY_IPv6]: RF_SR_POLICY_IPv6,
+	AddressFamilyNameMap[RF_MUP_IPv4]:       RF_MUP_IPv4,
+	AddressFamilyNameMap[RF_MUP_IPv6]:       RF_MUP_IPv6,
 }
 
 func GetRouteFamily(name string) (RouteFamily, error) {
@@ -8434,6 +8446,10 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		prefix = &OpaqueNLRI{}
 	case RF_LS:
 		prefix = &LsAddrPrefix{}
+	case RF_MUP_IPv4:
+		prefix = NewMUPNLRI(AFI_IP, 0, 0, nil)
+	case RF_MUP_IPv6:
+		prefix = NewMUPNLRI(AFI_IP6, 0, 0, nil)
 	default:
 		err = fmt.Errorf("unknown route family. AFI: %d, SAFI: %d", afi, safi)
 	}
@@ -11391,6 +11407,8 @@ func ParseExtended(data []byte) (ExtendedCommunityInterface, error) {
 		return parseEvpnExtended(data)
 	case EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL, EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL2, EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL3:
 		return parseFlowSpecExtended(data)
+	case EC_TYPE_MUP:
+		return parseMUPExtended(data)
 	default:
 		return &UnknownExtended{
 			Type:  ExtendedCommunityAttrType(data[0]),

@@ -459,6 +459,7 @@ message Family {
     SAFI_EVPN = 70;
     SAFI_LS = 71;
     SAFI_SR_POLICY = 73;
+    SAFI_MUP = 85;
     SAFI_MPLS_VPN = 128;
     SAFI_MPLS_VPN_MULTICAST = 129;
     SAFI_ROUTE_TARGET_CONSTRAINTS = 132;
@@ -505,6 +506,10 @@ message Path {
   // - OpaqueNLRI
   // - LsAddrPrefix
   // - SRPolicyNLRI
+  // - MUPInterworkSegmentDiscoveryRoute
+  // - MUPDirectSegmentDiscoveryRoute
+  // - MUPType1SessionTransformedRoute
+  // - MUPType2SessionTransformedRoute
   google.protobuf.Any nlri = 1;
   // Each attribute must be one of *Attribute defined in
   // "api/attribute.proto".

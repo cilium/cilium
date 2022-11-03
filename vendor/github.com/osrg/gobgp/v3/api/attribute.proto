@@ -366,6 +366,49 @@ message LsAddrPrefix {
   uint64 identifier = 5;
 }
 
+message MUPInterworkSegmentDiscoveryRoute {
+  // One of:
+  // - RouteDistinguisherTwoOctetASN
+  // - RouteDistinguisherIPAddress
+  // - RouteDistinguisherFourOctetASN
+  google.protobuf.Any rd = 1;
+  string prefix = 2;
+}
+
+message MUPDirectSegmentDiscoveryRoute {
+  // One of:
+  // - RouteDistinguisherTwoOctetASN
+  // - RouteDistinguisherIPAddress
+  // - RouteDistinguisherFourOctetASN
+  google.protobuf.Any rd = 1;
+  string address = 2;
+}
+
+message MUPType1SessionTransformedRoute {
+  // One of:
+  // - RouteDistinguisherTwoOctetASN
+  // - RouteDistinguisherIPAddress
+  // - RouteDistinguisherFourOctetASN
+  google.protobuf.Any rd = 1;
+  uint32 prefix_length = 2 [deprecated = true];
+  string prefix = 3;
+  uint32 teid = 4;
+  uint32 qfi = 5;
+  uint32 endpoint_address_length = 6;
+  string endpoint_address = 7;
+}
+
+message MUPType2SessionTransformedRoute {
+  // One of:
+  // - RouteDistinguisherTwoOctetASN
+  // - RouteDistinguisherIPAddress
+  // - RouteDistinguisherFourOctetASN
+  google.protobuf.Any rd = 1;
+  uint32 endpoint_address_length = 2;
+  string endpoint_address = 3;
+  uint32 teid = 4;
+}
+
 message MpReachNLRIAttribute {
   apipb.Family family = 1;
   repeated string next_hops = 2;
@@ -386,6 +429,10 @@ message MpReachNLRIAttribute {
   // - OpaqueNLRI
   // - LsAddrPrefix
   // - SR Policy NLRI
+  // - MUPInterworkSegmentDiscoveryRoute
+  // - MUPDirectSegmentDiscoveryRoute
+  // - MUPType1SessionTransformedRoute
+  // - MUPType2SessionTransformedRoute
   repeated google.protobuf.Any nlris = 3;
 }
 
@@ -475,6 +522,12 @@ message RedirectFourOctetAsSpecificExtended {
 
 message TrafficRemarkExtended { uint32 dscp = 1; }
 
+message MUPExtended {
+  uint32 sub_type = 1;
+  uint32 segment_id2 = 2;
+  uint32 segment_id4 = 3;
+}
+
 message UnknownExtended {
   uint32 type = 1;
   bytes value = 2;
@@ -495,6 +548,7 @@ message ExtendedCommunitiesAttribute {
   // - RedirectIPv4AddressSpecificExtended
   // - RedirectFourOctetAsSpecificExtended
   // - TrafficRemarkExtended
+  // - MUPExtended
   // - UnknownExtended
   repeated google.protobuf.Any communities = 1;
 }
@@ -579,6 +633,10 @@ enum SRv6Behavior {
   ENDT_WITH_PSP_USD = 37;
   ENDT_WITH_USP_USD = 38;
   ENDT_WITH_PSP_USP_USD = 39;
+  ENDM_GTP6D = 69; // 0x0045
+  ENDM_GTP6DI = 70; // 0x0046
+  ENDM_GTP6E = 71; // 0x0047
+  ENDM_GTP4E = 72; // 0x0048
 }
 
 message SRv6EndPointBehavior {
@@ -782,10 +840,10 @@ message UnknownAttribute {
   bytes value = 3;
 }
 
-// https://tools.ietf.org/html/draft-dawra-bess-srv6-services-02#section-2.1.1
+// https://www.rfc-editor.org/rfc/rfc9252.html#section-3.2.1
 message SRv6StructureSubSubTLV {
-  uint32 local_block_length = 1;
-  uint32 local_node_length = 2;
+  uint32 locator_block_length = 1;
+  uint32 locator_node_length = 2;
   uint32 function_length = 3;
   uint32 argument_length = 4;
   uint32 transposition_length = 5;
@@ -809,8 +867,15 @@ message SRv6InformationSubTLV {
   map<uint32, SRv6TLV> sub_sub_tlvs = 4;
 }
 
-// https://tools.ietf.org/html/draft-dawra-bess-srv6-services-02#section-2
+// https://www.rfc-editor.org/rfc/rfc9252.html#section-2
 message SRv6L3ServiceTLV {
+  // SRv6TLV is one of:
+  // - SRv6InformationSubTLV
+  map<uint32, SRv6TLV> sub_tlvs = 1;
+}
+
+// https://www.rfc-editor.org/rfc/rfc9252.html#section-2
+message SRv6L2ServiceTLV {
   // SRv6TLV is one of:
   // - SRv6InformationSubTLV
   map<uint32, SRv6TLV> sub_tlvs = 1;
@@ -822,6 +887,6 @@ message PrefixSID {
   // - IndexLabelTLV Type 1 (not yet implemented)
   // - OriginatorSRGBTLV Type 3 (not yet implemented)
   // - SRv6L3ServiceTLV Type 5
-  // - SRv6L2ServiceTLV Type 6 (not yet implemented)
+  // - SRv6L2ServiceTLV Type 6
   repeated google.protobuf.Any tlvs = 1;
 }

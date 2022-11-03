@@ -6,54 +6,61 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 )
 
 const (
 	prefixSIDtlvHdrLen = 4
 )
 
+// BGP Prefix-SID TLV Types
+// https://www.iana.org/assignments/bgp-parameters/bgp-parameters.xhtml#bgp-prefix-sid-tlv-types
 type TLVType uint8
+
+const (
+	_ TLVType = iota // Reserved
+	TLVTypeLavelIndex
+	_ // Deprecated
+	TLVTypeOriginatorSRGB
+	_ // Deprecated
+	TLVTypeSRv6L3Service
+	TLVTypeSRv6L2Service
+)
 
 type TLV struct {
 	Type   TLVType
 	Length uint16
 }
 
-func (s *TLV) Len() int {
-	return int(s.Length) + tlvHdrLen - 1 // Extra reserved byte in the header
+func (t *TLV) Len() int {
+	return int(t.Length) + 3 // Type(1) + Length(2)
 }
 
-func (s *TLV) Serialize(value []byte) ([]byte, error) {
-	if len(value) != int(s.Length)-1 {
+func (t *TLV) Serialize(value []byte) ([]byte, error) {
+	if len(value) != int(t.Len()) {
 		return nil, malformedAttrListErr("serialization failed: Prefix SID TLV malformed")
 	}
-	buf := make([]byte, prefixSIDtlvHdrLen+len(value))
 	p := 0
-	buf[p] = byte(s.Type)
+	value[p] = byte(t.Type)
 	p++
-	binary.BigEndian.PutUint16(buf[p:p+2], uint16(s.Length))
-	p += 2
-	// Reserved byte
-	p++
-	copy(buf[p:], value)
-
-	return buf, nil
+	binary.BigEndian.PutUint16(value[p:p+2], uint16(t.Length))
+	return value, nil
 }
 
-func (s *TLV) DecodeFromBytes(data []byte) ([]byte, error) {
-	if len(data) < prefixSIDtlvHdrLen {
+func (t *TLV) DecodeFromBytes(data []byte) ([]byte, error) {
+	if len(data) < 3 {
 		return nil, malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
 	}
 	p := 0
-	s.Type = TLVType(data[p])
+	t.Type = TLVType(data[p])
 	p++
-	s.Length = binary.BigEndian.Uint16(data[p : p+2])
+	t.Length = binary.BigEndian.Uint16(data[p : p+2])
+	p += 2
 
-	if s.Len() < prefixSIDtlvHdrLen || len(data) < s.Len() {
+	if len(data[p:]) < int(t.Length) {
 		return nil, malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
 	}
-
-	return data[prefixSIDtlvHdrLen:s.Len()], nil
+	return data[p : p+int(t.Length)], nil
 }
 
 // PrefixSIDTLVInterface defines standard set of methods to handle Prefix SID attribute's TLVs
@@ -74,6 +81,21 @@ type PathAttributePrefixSID struct {
 	TLVs []PrefixSIDTLVInterface
 }
 
+func NewPathAttributePrefixSID(values ...PrefixSIDTLVInterface) *PathAttributePrefixSID {
+	var l int
+	for _, v := range values {
+		l += v.Len()
+	}
+	return &PathAttributePrefixSID{
+		PathAttribute: PathAttribute{
+			Flags:  getPathAttrFlags(BGP_ATTR_TYPE_PREFIX_SID, l),
+			Type:   BGP_ATTR_TYPE_PREFIX_SID,
+			Length: uint16(l),
+		},
+		TLVs: values,
+	}
+}
+
 func (p *PathAttributePrefixSID) DecodeFromBytes(data []byte, options ...*MarshallingOption) error {
 	tlvs, err := p.PathAttribute.DecodeFromBytes(data)
 	if err != nil {
@@ -89,8 +111,8 @@ func (p *PathAttributePrefixSID) DecodeFromBytes(data []byte, options ...*Marsha
 
 		var tlv PrefixSIDTLVInterface
 		switch t.Type {
-		case 5:
-			tlv = &SRv6L3ServiceAttribute{
+		case TLVTypeSRv6L3Service, TLVTypeSRv6L2Service:
+			tlv = &SRv6ServiceTLV{
 				SubTLVs: make([]PrefixSIDTLVInterface, 0),
 			}
 		default:
@@ -158,6 +180,7 @@ type SRv6L3Service struct {
 }
 
 // SRv6L3ServiceAttribute defines the structure of SRv6 L3 Service attribute
+// Deprecated: Use SRv6ServiceTLV instead.
 type SRv6L3ServiceAttribute struct {
 	TLV
 	SubTLVs []PrefixSIDTLVInterface
@@ -168,13 +191,15 @@ func (s *SRv6L3ServiceAttribute) Len() int {
 }
 
 func (s *SRv6L3ServiceAttribute) Serialize() ([]byte, error) {
-	buf := make([]byte, 0)
+	buf := make([]byte, s.Length+3)
+	p := 4
 	for _, tlv := range s.SubTLVs {
 		s, err := tlv.Serialize()
 		if err != nil {
 			return nil, err
 		}
-		buf = append(buf, s...)
+		copy(buf[p:p+len(s)], s)
+		p += len(s)
 	}
 	return s.TLV.Serialize(buf)
 }
@@ -184,6 +209,7 @@ func (s *SRv6L3ServiceAttribute) DecodeFromBytes(data []byte) error {
 	if err != nil {
 		return err
 	}
+	stlvs = stlvs[1:] // RESERVED(1)
 
 	for len(stlvs) >= subTLVHdrLen {
 		t := &SubTLV{}
@@ -274,13 +300,13 @@ func (s *SubTLV) Serialize(value []byte) ([]byte, error) {
 
 func (s *SubTLV) DecodeFromBytes(data []byte) ([]byte, error) {
 	if len(data) < subTLVHdrLen {
-		return nil, malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
+		return nil, malformedAttrListErr("decoding failed: Prefix SID Sub TLV malformed")
 	}
 	s.Type = SubTLVType(data[0])
 	s.Length = binary.BigEndian.Uint16(data[1:3])
 
 	if len(data) < s.Len() {
-		return nil, malformedAttrListErr("decoding failed: Prefix SID TLV malformed")
+		return nil, malformedAttrListErr("decoding failed: Prefix SID Sub TLV malformed")
 	}
 
 	return data[subTLVHdrLen:s.Len()], nil
@@ -301,6 +327,23 @@ type SRv6InformationSubTLV struct {
 	Flags            uint8
 	EndpointBehavior uint16
 	SubSubTLVs       []PrefixSIDTLVInterface
+}
+
+func NewSRv6InformationSubTLV(sid netip.Addr, behavior SRBehavior, values ...PrefixSIDTLVInterface) *SRv6InformationSubTLV {
+	l := 21 // RESERVED1(1) + SID(16) + Flags(1) + Endpoint Behavior(2) + RESERVED2(1)
+	for _, v := range values {
+		l += v.Len()
+	}
+	return &SRv6InformationSubTLV{
+		SubTLV: SubTLV{
+			Type:   1,
+			Length: uint16(l),
+		},
+		SID:              sid.AsSlice(),
+		Flags:            0,
+		EndpointBehavior: uint16(behavior),
+		SubSubTLVs:       values,
+	}
 }
 
 func (s *SRv6InformationSubTLV) Len() int {
@@ -460,15 +503,30 @@ func (s *SubSubTLV) DecodeFromBytes(data []byte) ([]byte, error) {
 }
 
 // SRv6SIDStructureSubSubTLV defines a structure of SRv6 SID Structure Sub Sub TLV (type 1) object
-// https://tools.ietf.org/html/draft-dawra-bess-srv6-services-02#section-2.1.2.1
+// https://www.rfc-editor.org/rfc/rfc9252.html#section-3.2.1
 type SRv6SIDStructureSubSubTLV struct {
 	SubSubTLV
-	LocalBlockLength    uint8
+	LocatorBlockLength  uint8
 	LocatorNodeLength   uint8
 	FunctionLength      uint8
 	ArgumentLength      uint8
 	TranspositionLength uint8
 	TranspositionOffset uint8
+}
+
+func NewSRv6SIDStructureSubSubTLV(lbl, lnl, fl, al, tl, to uint8) *SRv6SIDStructureSubSubTLV {
+	return &SRv6SIDStructureSubSubTLV{
+		SubSubTLV: SubSubTLV{
+			Type:   1,
+			Length: 6,
+		},
+		LocatorBlockLength:  lbl,
+		LocatorNodeLength:   lnl,
+		FunctionLength:      fl,
+		ArgumentLength:      al,
+		TranspositionLength: tl,
+		TranspositionOffset: to,
+	}
 }
 
 func (s *SRv6SIDStructureSubSubTLV) Len() int {
@@ -478,7 +536,7 @@ func (s *SRv6SIDStructureSubSubTLV) Len() int {
 func (s *SRv6SIDStructureSubSubTLV) Serialize() ([]byte, error) {
 	buf := make([]byte, s.Length)
 	p := 0
-	buf[p] = s.LocalBlockLength
+	buf[p] = s.LocatorBlockLength
 	p++
 	buf[p] = s.LocatorNodeLength
 	p++
@@ -500,7 +558,7 @@ func (s *SRv6SIDStructureSubSubTLV) DecodeFromBytes(data []byte) error {
 	s.Type = SubSubTLVType(data[0])
 	s.Length = binary.BigEndian.Uint16(data[1:3])
 
-	s.LocalBlockLength = data[3]
+	s.LocatorBlockLength = data[3]
 	s.LocatorNodeLength = data[4]
 	s.FunctionLength = data[5]
 	s.ArgumentLength = data[6]
@@ -513,7 +571,7 @@ func (s *SRv6SIDStructureSubSubTLV) DecodeFromBytes(data []byte) error {
 func (s *SRv6SIDStructureSubSubTLV) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type                SubSubTLVType `json:"type"`
-		LocalBlockLength    uint8         `json:"local_block_length"`
+		LocatorBlockLength  uint8         `json:"locator_block_length"`
 		LocatorNodeLength   uint8         `json:"locator_node_length"`
 		FunctionLength      uint8         `json:"function_length"`
 		ArgumentLength      uint8         `json:"argument_length"`
@@ -521,7 +579,7 @@ func (s *SRv6SIDStructureSubSubTLV) MarshalJSON() ([]byte, error) {
 		TranspositionOffset uint8         `json:"transposition_offset"`
 	}{
 		Type:                s.Type,
-		LocalBlockLength:    s.LocalBlockLength,
+		LocatorBlockLength:  s.LocatorBlockLength,
 		LocatorNodeLength:   s.LocatorNodeLength,
 		FunctionLength:      s.FunctionLength,
 		ArgumentLength:      s.ArgumentLength,
@@ -531,12 +589,106 @@ func (s *SRv6SIDStructureSubSubTLV) MarshalJSON() ([]byte, error) {
 }
 
 func (s *SRv6SIDStructureSubSubTLV) String() string {
-	return fmt.Sprintf("{SRv6 Structure Sub Sub TLV: [ Local Block Length: %d, Locator Node Length: %d, Function Length: %d, Argument Length: %d, Transposition Length: %d, Transposition Offset: %d] }",
-		s.LocalBlockLength,
+	return fmt.Sprintf("{SRv6 Structure Sub Sub TLV: [ Locator Block Length: %d, Locator Node Length: %d, Function Length: %d, Argument Length: %d, Transposition Length: %d, Transposition Offset: %d] }",
+		s.LocatorBlockLength,
 		s.LocatorNodeLength,
 		s.FunctionLength,
 		s.ArgumentLength,
 		s.TranspositionLength,
 		s.TranspositionOffset,
 	)
+}
+
+// SRv6ServiceTLV represents SRv6 Service TLV.
+// https://www.rfc-editor.org/rfc/rfc9252.html#section-2
+type SRv6ServiceTLV struct {
+	TLV
+	SubTLVs []PrefixSIDTLVInterface
+}
+
+func NewSRv6ServiceTLV(t TLVType, values ...PrefixSIDTLVInterface) *SRv6ServiceTLV {
+	l := 1 // RESERVED(1)
+	for _, v := range values {
+		l += v.Len()
+	}
+	return &SRv6ServiceTLV{
+		TLV: TLV{
+			Type:   t,
+			Length: uint16(l),
+		},
+		SubTLVs: values,
+	}
+}
+
+func (s *SRv6ServiceTLV) Len() int {
+	return int(s.Length) + 3 // Type(1) + Length(2)
+}
+
+func (t *SRv6ServiceTLV) Serialize() ([]byte, error) {
+	buf := make([]byte, t.Len())
+	p := 4
+	for _, tlv := range t.SubTLVs {
+		b, err := tlv.Serialize()
+		if err != nil {
+			return nil, err
+		}
+		copy(buf[p:p+len(b)], b)
+		p += len(b)
+	}
+	return t.TLV.Serialize(buf)
+}
+
+func (s *SRv6ServiceTLV) DecodeFromBytes(data []byte) error {
+	stlvs, err := s.TLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+	stlvs = stlvs[1:] // RESERVED(1)
+
+	for len(stlvs) >= subTLVHdrLen {
+		t := &SubTLV{}
+		_, err := t.DecodeFromBytes(stlvs)
+		if err != nil {
+			return err
+		}
+
+		var stlv PrefixSIDTLVInterface
+		switch t.Type {
+		case 1:
+			stlv = &SRv6InformationSubTLV{
+				SubSubTLVs: make([]PrefixSIDTLVInterface, 0),
+			}
+		default:
+			data = data[t.Len():]
+			continue
+		}
+
+		if err := stlv.DecodeFromBytes(stlvs); err != nil {
+			return err
+		}
+		stlvs = stlvs[t.Len():]
+		s.SubTLVs = append(s.SubTLVs, stlv)
+	}
+
+	return nil
+}
+
+func (t *SRv6ServiceTLV) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type    TLVType `json:"type"`
+		SubTLVs []PrefixSIDTLVInterface
+	}{
+		t.Type,
+		t.SubTLVs,
+	})
+}
+
+func (t *SRv6ServiceTLV) String() string {
+	var buf bytes.Buffer
+
+	for _, tlv := range t.SubTLVs {
+		buf.WriteString(fmt.Sprintf("%s ", tlv.String()))
+	}
+
+	return fmt.Sprintf("{SRv6 Service TLV: %s}", buf.String())
 }

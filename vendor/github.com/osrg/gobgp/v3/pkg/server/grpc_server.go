@@ -235,7 +235,7 @@ func (s *server) ListPath(r *api.ListPathRequest, stream api.GobgpApi_ListPathSe
 }
 
 func (s *server) WatchEvent(r *api.WatchEventRequest, stream api.GobgpApi_WatchEventServer) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(stream.Context())
 	s.bgpServer.WatchEvent(ctx, r, func(rsp *api.WatchEventResponse) {
 		if err := stream.Send(rsp); err != nil {
 			cancel()

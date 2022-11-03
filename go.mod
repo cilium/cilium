@@ -61,7 +61,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.22.1
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
-	github.com/osrg/gobgp/v3 v3.5.0
+	github.com/osrg/gobgp/v3 v3.8.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/client_model v0.2.1-0.20210607210712-147c58e9608a
