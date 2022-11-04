@@ -61,11 +61,11 @@ above, as well as a Kubernetes Service *memcached-server* for the Memcached serv
 .. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-memcached/memcd-sw-app.yaml
-    deployment.extensions/memcached-server created
+    deployment.apps/memcached-server created
     service/memcached-server created
-    deployment.extensions/a-wing created
-    deployment.extensions/x-wing created
-    deployment.extensions/alliance-tracker created
+    deployment.apps/a-wing created
+    deployment.apps/x-wing created
+    deployment.apps/alliance-tracker created
 
 Kubernetes will deploy the pods and service in the background.
 Running ``kubectl get svc,pods`` will inform you about the progress of the operation.
