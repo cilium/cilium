@@ -4,9 +4,11 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 
 	v1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2"
 )
@@ -21,11 +23,17 @@ type nodeSpecer interface {
 	PodCIDRs() ([]string, error)
 	Labels() (map[string]string, error)
 	Annotations() (map[string]string, error)
+	Run(ctx context.Context)
 }
 
 type kubernetesNodeSpecer struct {
-	Name       string
-	NodeLister v1.NodeLister
+	Name         string
+	NodeLister   v1.NodeLister
+	nodeInformer cache.SharedIndexInformer
+}
+
+func (s *kubernetesNodeSpecer) Run(ctx context.Context) {
+	go s.nodeInformer.Run(ctx.Done())
 }
 
 func (s *kubernetesNodeSpecer) Annotations() (map[string]string, error) {
@@ -59,8 +67,13 @@ func (s *kubernetesNodeSpecer) PodCIDRs() ([]string, error) {
 }
 
 type ciliumNodeSpecer struct {
-	Name       string
-	NodeLister v2.CiliumNodeLister
+	Name         string
+	NodeLister   v2.CiliumNodeLister
+	nodeInformer cache.SharedIndexInformer
+}
+
+func (s *ciliumNodeSpecer) Run(ctx context.Context) {
+	go s.nodeInformer.Run(ctx.Done())
 }
 
 func (s *ciliumNodeSpecer) Annotations() (map[string]string, error) {
