@@ -248,6 +248,11 @@ func CreateCiliumEndpointLocalPodIndexFunc() cache.IndexFunc {
 			return nil, fmt.Errorf("unexpected object type: %T", obj)
 		}
 		indices := []string{}
+		if cep.Networking == nil {
+			log.WithField("ciliumendpoint", cep.GetNamespace()+"/"+cep.GetName()).
+				Debug("cannot index CiliumEndpoint by node without network status")
+			return nil, nil
+		}
 		if cep.Networking.NodeIP == nodeIP {
 			indices = append(indices, cep.Networking.NodeIP)
 		}
