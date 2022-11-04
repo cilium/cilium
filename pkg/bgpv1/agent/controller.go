@@ -318,7 +318,7 @@ func (c *Controller) Run(ctx context.Context) {
 	l.Info("Cilium BGP Control Plane Controller now running...")
 	for {
 		select {
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			killCTX, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
 
@@ -328,7 +328,7 @@ func (c *Controller) Run(ctx context.Context) {
 			return
 		case <-c.Sig.Sig:
 			l.Info("Cilium BGP Control Plane Controller woken for reconciliation")
-			if err := c.Reconcile(ctx); err != nil {
+			if err := c.Reconcile(c.ctx); err != nil {
 				l.WithError(err).Error("Encountered error during reconciliation")
 			} else {
 				l.Debug("Successfully completed reconciliation")
