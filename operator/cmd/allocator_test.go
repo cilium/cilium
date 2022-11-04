@@ -12,15 +12,14 @@ import (
 
 	"github.com/cilium/ipam/cidrset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8s_testing "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/pkg/ipam/allocator/podcidr"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // TestPodCIDRAllocatorOverlap tests that, on startup all nodes with assigned podCIDRs are processed so that nodes
@@ -80,36 +79,6 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 		},
 	})
 
-	// Sync channel to know when the APIServer state is stable.
-	updated := make(chan struct{})
-	var timer *time.Timer
-
-	// Add a reactor to the fake client, the callback is triggered for each Update to the APIServer.
-	poolReactor := &k8s_testing.SimpleReactor{
-		Verb:     "update",
-		Resource: "ciliumnodes",
-		Reaction: func(action k8s_testing.Action) (handled bool, ret runtime.Object, err error) {
-			// This closure is called for every API calls made to the mocked client.
-			// We expect, upon starting the node manager to get a burst of update events. We want to conclude the test
-			// as soon as the last update of this burst has occurred. We do this by starting a timer on the first ever
-			// call and resetting it for every subsequent call. Assuming the interval between calls in the bursts are
-			// less than 1 second, the timer should elapse 1 second after the last event and close the `updated` channel
-			// which will signal the main test thread to perform the check.
-			if timer == nil {
-				timer = time.NewTimer(time.Second)
-				go func() {
-					<-timer.C
-					close(updated)
-				}()
-			} else {
-				timer.Reset(time.Second)
-			}
-
-			return false, nil, nil
-		},
-	}
-	fakeClient.ReactionChain = append([]k8s_testing.Reactor{poolReactor}, fakeClient.ReactionChain...)
-
 	// Make a set out of the fake cilium client.
 	fakeSet := &k8sClient.FakeClientset{
 		CiliumFakeClientset: fakeClient,
@@ -126,39 +95,44 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 	}
 
 	// Wait for the "node manager synced" signal, just like we would normally.
+	// Wait for the "node manager synced" signal, just like we would normally.
 	<-ciliumNodeManagerQueueSynced
 
 	// Trigger the Resync after the cache sync signal
 	podCidrManager.Resync(ctx, time.Time{})
 
-	// Now wait until the APIServer state is stable
-	<-updated
+	err = testutils.WaitUntil(func() bool {
+		// Get node A from the mock APIServer
+		nodeAInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-a")
+		if err != nil {
+			return false
+		}
+		nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
 
-	// Get node A from the mock APIServer
-	nodeAInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-a")
+		// Get node B from the mock APIServer
+		nodeBInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-b")
+		if err != nil {
+			return false
+		}
+		nodeB := nodeBInt.(*cilium_api_v2.CiliumNode)
+
+		if len(nodeA.Spec.IPAM.PodCIDRs) != 1 {
+			return false
+		}
+
+		if len(nodeB.Spec.IPAM.PodCIDRs) != 1 {
+			return false
+		}
+
+		// The PodCIDRs should be distinct.
+		if nodeA.Spec.IPAM.PodCIDRs[0] == nodeB.Spec.IPAM.PodCIDRs[0] {
+			t.Fatal("Node A and Node B are assigned overlapping PodCIDRs")
+		}
+
+		return true
+	}, 2*time.Minute)
 	if err != nil {
-		t.Fatal(err)
-	}
-	nodeA := nodeAInt.(*cilium_api_v2.CiliumNode)
-
-	// Get node B from the mock APIServer
-	nodeBInt, err := fakeClient.Tracker().Get(ciliumnodesResource, "", "node-b")
-	if err != nil {
-		t.Fatal(err)
-	}
-	nodeB := nodeBInt.(*cilium_api_v2.CiliumNode)
-
-	if len(nodeA.Spec.IPAM.PodCIDRs) != 1 {
-		t.Fatal("Node A has no PodCIDRs")
-	}
-
-	if len(nodeB.Spec.IPAM.PodCIDRs) != 1 {
-		t.Fatal("Node B has no PodCIDRs")
-	}
-
-	// The PodCIDRs should be distinct.
-	if nodeA.Spec.IPAM.PodCIDRs[0] == nodeB.Spec.IPAM.PodCIDRs[0] {
-		t.Fatal("Node A and Node B are assigned overlapping PodCIDRs")
+		t.Fatalf("nodes have no pod CIDR: %s", err)
 	}
 }
 
