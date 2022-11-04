@@ -146,6 +146,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 				return cs
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
+			func() *option.DaemonConfig { return option.Config },
 		),
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
