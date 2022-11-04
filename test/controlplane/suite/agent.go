@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -53,6 +54,7 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 		cell.Provide(
 			func() k8sClient.Clientset { return clientset },
 			func() datapath.Datapath { return fdp },
+			func() *option.DaemonConfig { return option.Config },
 		),
 
 		cmd.ControlPlane,

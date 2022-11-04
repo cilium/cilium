@@ -75,7 +75,7 @@ type BGPRouterManager struct {
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
 // See NewBGPRouterManager for details.
-func NewBGPRouterManager() *BGPRouterManager {
+func NewBGPRouterManager() agent.BGPRouterManager {
 	return &BGPRouterManager{
 		Servers: make(LocalASNMap),
 	}
