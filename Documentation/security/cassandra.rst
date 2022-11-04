@@ -67,10 +67,10 @@ above, as well as a Kubernetes Service *cassandra-svc* for the Cassandra cluster
 .. parsed-literal::
 
     $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-cassandra/cass-sw-app.yaml
-    deployment.extensions/cass-server created
+    deployment.apps/cass-server created
     service/cassandra-svc created
-    deployment.extensions/empire-hq created
-    deployment.extensions/empire-outpost created
+    deployment.apps/empire-hq created
+    deployment.apps/empire-outpost created
 
 Kubernetes will deploy the pods and service in the background.
 Running ``kubectl get svc,pods`` will inform you about the progress of the operation.

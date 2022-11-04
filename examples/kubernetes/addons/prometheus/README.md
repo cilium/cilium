@@ -27,14 +27,14 @@ Next, install all monitoring tools and configurations by running:
 $ kubectl create -f examples/kubernetes/addons/prometheus/monitoring-example.yaml
 namespace/monitoring created
 configmap/prometheus created
-deployment.extensions/prometheus created
+deployment.apps/prometheus created
 service/prometheus created
 service/prometheus-open created
 clusterrolebinding.rbac.authorization.k8s.io/prometheus created
 clusterrole.rbac.authorization.k8s.io/prometheus created
 serviceaccount/prometheus-k8s created
 configmap/grafana-config created
-deployment.extensions/grafana created
+deployment.apps/grafana created
 service/grafana created
 configmap/grafana-dashboards created
 job.batch/grafana-dashboards-import created
