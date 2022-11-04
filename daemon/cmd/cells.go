@@ -55,7 +55,7 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
-		// The BGP Control Plane which enables various BGP related interop.
+		// The BGP Control Plane
 		bgpv1.Cell,
 	)
 
