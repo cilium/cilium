@@ -32,6 +32,8 @@ type fakeNodeSpecer struct {
 	Annotations_ func() (map[string]string, error)
 }
 
+func (f *fakeNodeSpecer) Run(ctx context.Context) {}
+
 func (f *fakeNodeSpecer) PodCIDRs() ([]string, error) {
 	return f.PodCIDRs_()
 }
