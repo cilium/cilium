@@ -59,7 +59,32 @@ CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
+function wait_for_svc_api() {
+    # Attempt to get service list for ten seconds.
+    # NOTE: Excessively long timeouts may indicate startup time regressions.
+    # TODO: 60 is way too long.
+    # TODO: 60 is way too long.
+    # TODO: 60 is way too long.
+    # TODO: 60 is way too long.
+    podname=${1}
+    for i in $(seq 1 60); do
+        echo "Waiting for Cilium API server to begin listening on cilium socket"
+        if SVC=$(kubectl -n kube-system exec "${podname}" -- cilium service list) ; then
+            echo "cilium service list returned ok, proceeding"
+            break
+        else
+            echo "'cilium service list' returned non-zero return, waiting 1 second before retrying..."
+        fi
+        sleep 1
+    done
+}
+
+wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+if [ -z "${SVC_AFTER}" ] ; then
+    echo "Timed out waiting for Cilium API socket to be ready"
+    exit 1
+fi
 
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
 
@@ -92,26 +117,6 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-
-function wait_for_svc_api() {
-    # Attempt to get service list for ten seconds.
-    # NOTE: Excessively long timeouts may indicate startup time regressions.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
-    podname=${1}
-    for i in $(seq 1 60); do
-        echo "Waiting for Cilium API server to begin listening on cilium socket"
-        if SVC=$(kubectl -n kube-system exec "${podname}" -- cilium service list) ; then
-            echo "cilium service list returned ok, proceeding"
-            break
-        else
-            echo "'cilium service list' returned non-zero return, waiting 1 second before retrying..."
-        fi
-        sleep 1
-    done
-}
 
 wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_AFTER=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
@@ -212,7 +217,12 @@ LB_VIP="fd00:cafe::1"
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 1 --frontend "[${LB_VIP}]:80" --backends "${WORKER_IP4}:80" --k8s-node-port
 
+wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
+if [ -z "${SVC_AFTER}" ] ; then
+    echo "Timed out waiting for Cilium API socket to be ready"
+    exit 1
+fi
 
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium bpf lb list
 
