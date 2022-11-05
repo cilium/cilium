@@ -164,6 +164,7 @@ done
 LB_ALT="fd00:dead:beef:15:bad::1"
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
+wait_for_svc_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
