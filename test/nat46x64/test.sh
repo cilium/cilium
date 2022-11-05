@@ -81,7 +81,7 @@ function wait_for_svc_api() {
 
 wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
-if [ -z "${SVC_AFTER}" ] ; then
+if [ -z "${SVC_BEFORE}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
     exit 1
 fi
@@ -219,7 +219,7 @@ kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
 
 wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
-if [ -z "${SVC_AFTER}" ] ; then
+if [ -z "${SVC_BEFORE}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
     exit 1
 fi
