@@ -207,6 +207,7 @@ for i in $(seq 1 10); do
 done
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
+wait_for_svc_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 
@@ -218,7 +219,6 @@ LB_VIP="fd00:cafe::1"
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 1 --frontend "[${LB_VIP}]:80" --backends "${WORKER_IP4}:80" --k8s-node-port
 
-wait_for_svc_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 if [ -z "${SVC_BEFORE}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
