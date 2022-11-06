@@ -1888,9 +1888,9 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 
 	// Wait for this to complete to avoid potentially complex race scenarios
 	// with endpoint create/update/delete API.
-	if cleanupStaleCEPComplete != nil {
-		<-cleanupStaleCEPComplete
-	}
+	// if cleanupStaleCEPComplete != nil {
+	// 	<-cleanupStaleCEPComplete
+	// }
 
 	err = srv.Serve()
 	if err != nil {

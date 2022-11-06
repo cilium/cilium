@@ -3,11 +3,15 @@
 PS4='+[\t] '
 set -eux
 
+# Configures how long to wait for Cilium to become ready to serve
+# on its API socket before failing test.
+CILIUM_API_TIMEOUT=1
+
 # Waits while cilium api 
 function wait_for_cilium_api() {
     podname=${1}
     echo "Waiting for Cilium API for Pod ${podname}"
-    for i in $(seq 1 10); do
+    for i in $(seq 1 ${CILIUM_API_TIMEOUT}); do
         if kubectl -n kube-system exec "${podname}" -- cilium status 2>/dev/null >/dev/null ; then
             echo "cilium status returned ok, proceeding"
             break
