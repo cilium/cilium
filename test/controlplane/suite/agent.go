@@ -6,7 +6,6 @@ package suite
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/cilium/cilium/daemon/cmd"
@@ -64,7 +63,7 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func setupTestDirectories() string {
-	tempDir, err := ioutil.TempDir("", "cilium-test-")
+	tempDir, err := os.MkdirTemp("", "cilium-test-")
 	if err != nil {
 		panic(fmt.Sprintf("TempDir() failed: %s", err))
 	}

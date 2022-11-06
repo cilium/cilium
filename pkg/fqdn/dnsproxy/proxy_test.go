@@ -8,9 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/netip"
+	"os"
 	"runtime"
 	"strconv"
 	"sync"
@@ -1116,7 +1116,7 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
-	bb, err := ioutil.ReadFile(cnpFile)
+	bb, err := os.ReadFile(cnpFile)
 	if err != nil {
 		b.Fatal(err)
 	}
