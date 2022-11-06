@@ -1827,7 +1827,7 @@ func runDaemon() {
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			d.startKubeProxyHealthzHTTPService(fmt.Sprintf("%s", option.Config.KubeProxyReplacementHealthzBindAddr))
+			d.startKubeProxyHealthzHTTPService(option.Config.KubeProxyReplacementHealthzBindAddr)
 		}
 	}
 
