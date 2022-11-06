@@ -3,6 +3,21 @@
 PS4='+[\t] '
 set -eux
 
+# Waits while cilium api 
+function wait_for_cilium_api() {
+    podname=${1}
+    echo "Waiting for Cilium API for Pod ${podname}"
+    for i in $(seq 1 10); do
+        if kubectl -n kube-system exec "${podname}" -- cilium status 2>/dev/null >/dev/null ; then
+            echo "cilium status returned ok, proceeding"
+            break
+        else
+            echo "status returned non-zero return, waiting 1 second before retrying..."
+        fi
+        sleep 1
+    done
+}
+
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
 HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
@@ -55,26 +70,12 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 
 LB_VIP="10.0.0.4"
 
-function wait_for_svc_api() {
-    podname=${1}
-    for i in $(seq 1 10); do
-        echo "Waiting for Cilium API server to begin listening on cilium socket"
-        if SVC=$(kubectl -n kube-system exec "${podname}" -- cilium service list) ; then
-            echo "cilium service list returned ok, proceeding"
-            break
-        else
-            echo "'cilium service list' returned non-zero return, waiting 1 second before retrying..."
-        fi
-        sleep 1
-    done
-}
-
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 SVC_BEFORE=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 if [ -z "${SVC_BEFORE}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
@@ -113,7 +114,7 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
 
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 SVC_AFTER=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 if [ -z "${SVC_AFTER}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
@@ -159,7 +160,7 @@ done
 LB_ALT="fd00:dead:beef:15:bad::1"
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 2 --frontend "[${LB_ALT}]:80" --backends "[${WORKER_IP6}]:80" --k8s-node-port
 
@@ -202,7 +203,7 @@ for i in $(seq 1 10); do
 done
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 
@@ -251,7 +252,7 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 # Check that restoration went fine. Note that we currently cannot do runtime test
 # as veth + XDP is broken when switching protocols. Needs something bare metal.
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 SVC_AFTER=$(kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service list)
 if [ -z "${SVC_AFTER}" ] ; then
     echo "Timed out waiting for Cilium API socket to be ready"
@@ -296,7 +297,7 @@ done
 
 LB_ALT="10.0.0.8"
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium service update --id 2 --frontend "${LB_ALT}:80" --backends "${WORKER_IP4}:80" --k8s-node-port
 
@@ -339,7 +340,7 @@ for i in $(seq 1 10); do
 done
 
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 1
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- cilium service delete 2
 
@@ -388,7 +389,7 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 
 # Trigger recompilation with 32 IPv4 filter masks
 CILIUM_POD_NAME=$(kubectl -n kube-system get pod -l k8s-app=cilium -o=jsonpath='{.items[0].metadata.name}')
-wait_for_svc_api ${CILIUM_POD_NAME}
+wait_for_cilium_api ${CILIUM_POD_NAME}
 kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
     cilium recorder update --id 1 --caplen 100 \
         --filters="2.2.2.2/0 0 1.1.1.1/32 80 TCP,\
