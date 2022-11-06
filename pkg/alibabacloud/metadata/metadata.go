@@ -6,7 +6,7 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
@@ -67,7 +67,7 @@ func getMetadata(ctx context.Context, path string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
