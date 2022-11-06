@@ -56,14 +56,8 @@ kubectl -n kube-system rollout status ds/cilium --timeout=5m
 LB_VIP="10.0.0.4"
 
 function wait_for_svc_api() {
-    # Attempt to get service list for ten seconds.
-    # NOTE: Excessively long timeouts may indicate startup time regressions.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
-    # TODO: 60 is way too long.
     podname=${1}
-    for i in $(seq 1 60); do
+    for i in $(seq 1 10); do
         echo "Waiting for Cilium API server to begin listening on cilium socket"
         if SVC=$(kubectl -n kube-system exec "${podname}" -- cilium service list) ; then
             echo "cilium service list returned ok, proceeding"
