@@ -653,6 +653,7 @@ update-go-version: ## Update Go version for all the components (images, CI, dev-
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 	# Update Go version in Dockerfiles.
+	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION=$(GO_VERSION)/g' contrib/backporting/Dockerfile
 	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_IMAGE_VERSION)/g' images/scripts/update-golang-image.sh
 	$(QUIET) $(MAKE) -C images update-golang-image
 	@echo "Updated go version in image Dockerfiles to $(GO_IMAGE_VERSION)"
