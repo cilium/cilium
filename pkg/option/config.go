@@ -3020,7 +3020,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	ipv4NativeRoutingCIDR := vp.GetString(IPv4NativeRoutingCIDR)
 
 	if ipv4NativeRoutingCIDR != "" {
-		c.IPv4NativeRoutingCIDR = cidr.MustParseCIDR(ipv4NativeRoutingCIDR)
+		c.IPv4NativeRoutingCIDR, err = cidr.ParseCIDR(ipv4NativeRoutingCIDR)
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to parse CIDR '%s'", ipv4NativeRoutingCIDR)
+		}
 
 		if len(c.IPv4NativeRoutingCIDR.IP) != net.IPv4len {
 			log.Fatalf("%s must be an IPv4 CIDR", IPv4NativeRoutingCIDR)
@@ -3035,7 +3038,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	ipv6NativeRoutingCIDR := vp.GetString(IPv6NativeRoutingCIDR)
 
 	if ipv6NativeRoutingCIDR != "" {
-		c.IPv6NativeRoutingCIDR = cidr.MustParseCIDR(ipv6NativeRoutingCIDR)
+		c.IPv6NativeRoutingCIDR, err = cidr.ParseCIDR(ipv6NativeRoutingCIDR)
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to parse CIDR '%s'", ipv6NativeRoutingCIDR)
+		}
 
 		if len(c.IPv6NativeRoutingCIDR.IP) != net.IPv6len {
 			log.Fatalf("%s must be an IPv6 CIDR", IPv6NativeRoutingCIDR)
