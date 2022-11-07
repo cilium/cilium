@@ -465,7 +465,7 @@ cni:
   # This can be useful if you want to manage your CNI
   # configuration outside of a Kubernetes environment. This parameter is
   # mutually exclusive with the 'cni.configMap' parameter.
-  # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+  # readCniConf: /host/etc/cni/net.d/05-cilium.conf.template
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
   # interpret the cniConf variable as CNI configuration file and write it

@@ -256,12 +256,6 @@ data:
   clean-cilium-bpf-state: "true"
 {{- end }}
 
-{{- if hasKey .Values.cni "customConf" }}
-  # Users who wish to specify their own custom CNI configuration file must set
-  # custom-cni-conf to "true", otherwise Cilium may overwrite the configuration.
-  custom-cni-conf: "{{ .Values.cni.customConf }}"
-{{- end }}
-
 {{- if hasKey .Values "bpfClockProbe" }}
   enable-bpf-clock-probe: {{ .Values.bpfClockProbe | quote }}
 {{- else if eq $defaultBpfClockProbe "true" }}
@@ -460,16 +454,6 @@ data:
 {{- end }}
 
 {{- if ne .Values.cni.chainingMode "none" }}
-  # Enable chaining with another CNI plugin
-  #
-  # Supported modes:
-  #  - none
-  #  - aws-cni
-  #  - flannel
-  #  - generic-veth
-  #  - portmap (Enables HostPort support for Cilium)
-  cni-chaining-mode: {{ .Values.cni.chainingMode }}
-
 {{- if hasKey .Values "enableIdentityMark" }}
   enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- else if (ne $enableIdentityMark "true") }}
@@ -701,12 +685,41 @@ data:
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
-{{- if .Values.cni.configMap }}
+
+  ## CNI configuration
+{{- if .Values.cni.install }}
+
+# cni.customConf disables CNI file management **except** if cni.configMap is set
+{{- if or (not .Values.cni.customConf) (hasKey .Values.cni "configMap") }}
+  # direct Cilium agent to write a CNI configuration to disk on startup
+  write-cni-conf-when-ready: {{ print .Values.cni.hostConfDirMountPath "/05-cilium.conflist" | quote }}
+{{- end }}
+
+{{- if hasKey .Values.cni "configMap" }}
+  # user-supplied CNI configuration via a ConfigMap
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
-  write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
-{{- else if .Values.cni.readCniConf }}
+{{- else if hasKey .Values.cni "readCniConf" }}
+  # user-supplied CNI configuration from disk
   read-cni-conf: {{ .Values.cni.readCniConf }}
 {{- end }}
+
+  # Enable chaining with another CNI plugin
+  #
+  # Supported modes:
+  #  - none
+  #  - aws-cni
+  #  - flannel
+  #  - generic-veth
+  #  - portmap (Enables HostPort support for Cilium)
+  cni-chaining-mode: {{ .Values.cni.chainingMode | quote }}
+{{- if .Values.cni.logFile }}
+  cni-log-file: {{ .Values.cni.logFile }}
+{{- end }}
+  # if cni-exclusive is set to true, Cilium will remove any pre-existing CNI configurations
+  cni-exclusive: {{ .Values.cni.exclusive | quote}}
+{{- end }}
+  ## end CNI configuration
+
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}

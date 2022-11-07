@@ -60,7 +60,6 @@ RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=
 
 COPY images/cilium/init-container.sh \
      plugins/cilium-cni/cni-install.sh \
-     plugins/cilium-cni/cni-uninstall.sh \
        /tmp/install/${TARGETOS}/${TARGETARCH}
 
 #
