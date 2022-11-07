@@ -218,10 +218,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-
-			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
-				option.Config.NodePortMode)
-			option.Config.NodePortMode = option.NodePortModeSNAT
+			return false, fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
