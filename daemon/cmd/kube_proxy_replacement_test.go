@@ -33,6 +33,9 @@ type kprConfig struct {
 
 	expectedStrict     bool
 	expectedErrorRegex string
+
+	tunnelingEnabled bool
+	nodePortMode     string
 }
 
 func (cfg *kprConfig) set() {
@@ -50,6 +53,14 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
 	option.Config.EnableSocketLBTracing = true
+
+	if cfg.tunnelingEnabled {
+		option.Config.Tunnel = "enabled"
+	}
+
+	if cfg.nodePortMode == option.NodePortModeDSR || cfg.nodePortMode == option.NodePortModeHybrid {
+		option.Config.NodePortMode = cfg.nodePortMode
+	}
 }
 
 func (cfg *kprConfig) verify(c *C) {
@@ -256,6 +267,27 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
 				enableSocketLBTracing:      true,
+			},
+		},
+		// Node port DSR mode + tunneling: error as they're incompatible
+		{
+			"node-port-dsr-mode+tunneling",
+			func(cfg *kprConfig) {
+				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
+				cfg.tunnelingEnabled = true
+				cfg.nodePortMode = option.NodePortModeDSR
+			},
+			kprConfig{
+				expectedErrorRegex:      "Node Port .+ mode cannot be used with tunneling.",
+				enableSocketLB:          true,
+				enableNodePort:          true,
+				enableHostPort:          true,
+				enableExternalIPs:       true,
+				enableHostServicesTCP:   true,
+				enableHostServicesUDP:   true,
+				enableSessionAffinity:   true,
+				enableHostLegacyRouting: false,
+				enableSocketLBTracing:   true,
 			},
 		},
 	}

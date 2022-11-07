@@ -312,6 +312,9 @@ Annotations:
 1.13 Upgrade Notes
 ------------------
 
+* The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
+  In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
