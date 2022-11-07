@@ -13,7 +13,7 @@ TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)
 RELEASE_GID ?= $(shell id -g)
 
-GOLANGCILINT_WANT_VERSION = 1.49.0
+GOLANGCILINT_WANT_VERSION = 1.50.1
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 $(TARGET):
@@ -27,7 +27,7 @@ release:
 	docker run \
 		--rm \
 		--workdir /cilium \
-		--volume `pwd`:/cilium docker.io/library/golang:1.19.1-alpine3.16 \
+		--volume `pwd`:/cilium docker.io/library/golang:1.19.3-alpine3.16 \
 		sh -c "apk add --no-cache make git && \
 			addgroup -g $(RELEASE_GID) release && \
 			adduser -u $(RELEASE_UID) -D -G release release && \
