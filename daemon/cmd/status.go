@@ -6,6 +6,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -1036,34 +1038,33 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 					}, nil
 				}
 
-				// extract cni status from controllers
+				// Check to see if the controller is enabled.
+				found := false
 				statuses := d.controllers.GetStatusModel()
 				for _, cs := range statuses {
-					if cs.Name != cniControllerName {
-						continue
+					if cs.Name == cniControllerName {
+						found = true
+						break
 					}
+				}
+				if !found {
+					return &models.Status{
+						State: models.StatusStateDisabled,
+						Msg:   "CNI configuration file management disabled",
+					}, nil
+				}
 
-					if cs.Status == nil || (cs.Status.FailureCount == 0 && cs.Status.SuccessCount == 0) {
-						return &models.Status{
-							State: models.StatusStateFailure,
-							Msg:   "CNI config file has not yet been written",
-						}, nil
-					}
-					if cs.Status.SuccessCount > 0 {
-						return &models.Status{
-							State: models.StatusStateOk,
-							Msg:   "CNI configuration file successfully written to " + option.Config.WriteCNIConfigurationWhenReady,
-						}, nil
-					}
-
+				// Check to see that the CNI configuration file exists
+				cniFile := path.Join(cniConfPaths(option.Config))
+				if _, err := os.Stat(cniFile); err != nil {
 					return &models.Status{
 						State: models.StatusStateFailure,
-						Msg:   cs.Status.LastFailureMsg,
+						Msg:   "CNI configuration file not yet written",
 					}, nil
 				}
 				return &models.Status{
-					State: models.StatusStateFailure,
-					Msg:   "CNI configuration file controller hasn't yet run",
+					State: models.StatusStateOk,
+					Msg:   "CNI configuration file successfully written to " + cniFile,
 				}, nil
 			},
 			OnStatusUpdate: func(status status.Status) {

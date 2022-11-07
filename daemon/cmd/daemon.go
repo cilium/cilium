@@ -182,6 +182,10 @@ type Daemon struct {
 	// been fully synchronized
 	k8sCachesSynced <-chan struct{}
 
+	// bootstrapCompleted is closed when bootstrap is fully complete
+	// and the agent is ready to handle pod creation requests.
+	bootstrapCompleted chan struct{}
+
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
@@ -537,19 +541,20 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 
 	d := Daemon{
-		ctx:               ctx,
-		clientset:         clientset,
-		prefixLengths:     createPrefixLengthCounter(),
-		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationMutex:  new(lock.RWMutex),
-		netConf:           netConf,
-		mtuConfig:         mtuConfig,
-		datapath:          dp,
-		deviceManager:     devMngr,
-		nodeDiscovery:     nd,
-		endpointCreations: newEndpointCreationManager(clientset),
-		apiLimiterSet:     apiLimiterSet,
-		controllers:       controller.NewManager(),
+		ctx:                ctx,
+		clientset:          clientset,
+		prefixLengths:      createPrefixLengthCounter(),
+		buildEndpointSem:   semaphore.NewWeighted(int64(numWorkerThreads())),
+		compilationMutex:   new(lock.RWMutex),
+		netConf:            netConf,
+		mtuConfig:          mtuConfig,
+		datapath:           dp,
+		deviceManager:      devMngr,
+		nodeDiscovery:      nd,
+		endpointCreations:  newEndpointCreationManager(clientset),
+		apiLimiterSet:      apiLimiterSet,
+		controllers:        controller.NewManager(),
+		bootstrapCompleted: make(chan struct{}),
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -1305,6 +1310,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		ipsec.StartStaleKeysReclaimer(ctx)
 	}
 
+	// Set up the CNI configuration file controller.
+	d.startCNIConfWriter(option.Config, cleaner)
+
 	return &d, restoredEndpoints, nil
 }
 
@@ -1497,4 +1505,12 @@ func (d *Daemon) K8sCacheIsSynced() bool {
 	default:
 		return false
 	}
+}
+
+// bootstrapComplete tells any waiting components that
+// bootstrap is done and they can proceed.
+// Only the CNI config file controller uses this.
+func (d *Daemon) bootstrapComplete() {
+	close(d.bootstrapCompleted)
+	d.controllers.TriggerController(cniControllerName)
 }

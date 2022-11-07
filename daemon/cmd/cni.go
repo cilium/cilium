@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/google/renameio"
 	"github.com/tidwall/sjson"
 )
@@ -97,10 +98,15 @@ const awsCNIEntry = `
 
 const cniControllerName = "write-cni-file"
 
-// startCNIConfWriter writes the CNI configuration file to disk.
+// startCNIConfWriter starts the CNI configuration file manager.
+//
+// This has two responsibilities:
+// - remove any existing non-Cilium CNI configuration files
+// - write the Cilium configuration file when ready.
+//
 // This is done once the daemon has started up, to signify to the
 // kubelet that we're ready to handle sandbox creation.
-// There are numerous, conflicting CNI options, exposed in Helm and
+// There are numerous conflicting CNI options, exposed in Helm and
 // the cilium-config config map.
 //
 // This consumes the following config map keys (or equivalent arguments):
@@ -115,49 +121,98 @@ const cniControllerName = "write-cni-file"
 // - CILIUM_CUSTOM_CNI_CONF -- if true, then don't touch CNI configuration
 // - CNI_CONF_NAME -- the filename (NOT full path) to write the CNI configuration to
 func (d *Daemon) startCNIConfWriter(opts *option.DaemonConfig, cleaner *daemonCleanup) {
-	if opts.WriteCNIConfigurationWhenReady == "" {
+	if opts.WriteCNIConfigurationWhenReady == "" || opts.DryMode {
 		return
 	}
 
 	// We used to disable CNI generation with this environment variable
 	// It's no longer documented, but we need to still support it.
-	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" {
+	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" && opts.ReadCNIConfiguration == "" {
 		return
 	}
 
+	cniConfDir, _ := cniConfPaths(opts)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Warnf("Failed to create watcher: %v", err)
+	} else {
+		if err := watcher.Add(cniConfDir); err != nil {
+			log.Warnf("Failed to watch CNI configuration directory %s: %v", cniConfDir, err)
+			watcher = nil
+		}
+	}
+
+	// Install the CNI file controller
 	d.controllers.UpdateController(cniControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := installCNIConfFile(opts)
+				err := setupCNIConfFile(opts, d.bootstrapCompleted)
 				if err != nil {
 					log.Printf("Failed to write CNI config file (will retry): %v", err)
 				}
 				return err
+			},
+			StopFunc: func(_ context.Context) error {
+				if watcher != nil {
+					watcher.Close()
+				}
+				return nil
 			},
 			Context:                d.ctx,
 			ErrorRetryBaseDuration: 10 * time.Second,
 		},
 	)
 
+	// Watch the CNI directory for changes, re-triggering an update just in case someone
+	// wrote a file we're interested in.
+	go func() {
+		if watcher == nil {
+			return
+		}
+		for {
+			select {
+			case _, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				log.Infof("Activity in %s, re-generating CNI configuration", cniConfDir)
+				d.controllers.TriggerController(cniControllerName)
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Errorf("Error while watching CNI configuration directory: %v", err)
+			case <-d.ctx.Done():
+				return
+			}
+		}
+	}()
+
 	cleaner.cleanupFuncs.Add(func() {
 		removeCNIConfFile(opts)
 	})
 }
 
-// installCNIConfFile tries to render and write the CNI configuration file to disk.
+// setupCNIConfFile tries to render and write the CNI configuration file to disk.
 // Returns error on failure.
-func installCNIConfFile(opts *option.DaemonConfig) error {
-	// Determine the path to the CNI conf directory
-	confDir, filename := path.Split(opts.WriteCNIConfigurationWhenReady)
-
-	// we used to document overriding the CNI file with the env var CNI_CONF_NAME
-	// this is no longer documented, but we still support it
-	if override := os.Getenv("CNI_CONF_NAME"); override != "" {
-		filename = override
-	}
-
+func setupCNIConfFile(opts *option.DaemonConfig, daemonReady <-chan struct{}) error {
 	var contents []byte
 	var err error
+
+	// Rename any non-cilium CNI config files.
+	// Do this even if the daemon isn't ready; we want to minimize
+	// the time that pods might start with the wrong network.
+	cleanupOtherCNI(opts)
+
+	// if daemonReady is closed, agent is done initializing and we should write our CNI config file
+	select {
+	case <-daemonReady:
+	default:
+		log.Debug("daemon not initialized; skipping CNI file creation")
+		return nil
+	}
+
+	confDir, filename := cniConfPaths(opts)
 
 	// generate CNI config, either by reading a user-supplied
 	// template file or rendering our own.
@@ -174,19 +229,21 @@ func installCNIConfFile(opts *option.DaemonConfig) error {
 		}
 	}
 
-	// commit CNI config
-	if err := renameio.WriteFile(path.Join(confDir, filename), contents, 0644); err != nil {
-		return fmt.Errorf("failed to write CNI configuration file at %s: %w", opts.WriteCNIConfigurationWhenReady, err)
-	}
-	log.Infof("Wrote CNI configuration file to %s", opts.WriteCNIConfigurationWhenReady)
+	dest := path.Join(confDir, filename)
 
-	// Remove the old non-conflist cilium file
-	if filename != "05-cilium.conf" {
-		_ = os.Remove(path.Join(confDir, "05-cilium.conf"))
-	}
-	// Rename any non-cilium CNI config files.
-	if opts.CNIExclusive {
-		cleanupOtherCNI(confDir, filename)
+	// Check to see if existing file is the same; if so, do nothing
+	existingContents, err := os.ReadFile(dest)
+	if err == nil && bytes.Equal(existingContents, contents) {
+		log.Debugf("Existing CNI configuration file %s unchanged", dest)
+	} else {
+		if err != nil && !os.IsNotExist(err) {
+			log.Debugf("Failed to read existing CNI configuration file %s: %v", dest, err)
+		}
+		// commit CNI config
+		if err := renameio.WriteFile(path.Join(confDir, filename), contents, 0644); err != nil {
+			return fmt.Errorf("failed to write CNI configuration file at %s: %w", dest, err)
+		}
+		log.Infof("Wrote CNI configuration file to %s", dest)
 	}
 
 	return nil
@@ -288,7 +345,11 @@ func renderCNITemplate(in string, opts *option.DaemonConfig) []byte {
 
 // cleanupOldCNI renames any existing CNI configuration files with the suffix
 // ".cilium_bak", excepting files in keep
-func cleanupOtherCNI(confDir, keep string) error {
+func cleanupOtherCNI(opts *option.DaemonConfig) error {
+	if !opts.CNIExclusive || opts.DryMode {
+		return nil
+	}
+	confDir, cniFile := cniConfPaths(opts)
 	files, err := os.ReadDir(confDir)
 	if err != nil {
 		return fmt.Errorf("failed to list CNI conf dir %s: %w", confDir, err)
@@ -299,7 +360,7 @@ func cleanupOtherCNI(confDir, keep string) error {
 			continue
 		}
 		name := f.Name()
-		if name == keep {
+		if name == cniFile {
 			continue
 		}
 		if !(strings.HasSuffix(name, ".conf") || strings.HasSuffix(name, ".conflist") || strings.HasSuffix(name, ".json")) {
@@ -328,4 +389,16 @@ func findFile(basedir string, paths []string) (string, error) {
 	}
 
 	return "", os.ErrNotExist
+}
+
+func cniConfPaths(opts *option.DaemonConfig) (cniConfDir, cniFile string) {
+	// Determine the path to the CNI conf directory
+	cniConfDir, cniFile = path.Split(opts.WriteCNIConfigurationWhenReady)
+
+	// we used to document overriding the CNI file with the env var CNI_CONF_NAME
+	// this is no longer documented, but we still support it
+	if override := os.Getenv("CNI_CONF_NAME"); override != "" {
+		cniFile = override
+	}
+	return
 }

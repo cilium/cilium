@@ -1713,6 +1713,11 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
 	log.Info("Initializing daemon")
 
+	// First, remove any other non-Cilium CNI configuration files
+	// We want to minimize the time they are written to disk, so as few pods
+	// as possible use them
+	cleanupOtherCNI(option.Config)
+
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
 	log.Info("Validating configured node address ranges")
@@ -1896,8 +1901,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
-
-	d.startCNIConfWriter(option.Config, cleaner)
+	d.bootstrapComplete()
 
 	bootstrapStats.overall.End(true)
 	bootstrapStats.updateMetrics()

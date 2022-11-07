@@ -27,13 +27,16 @@ func TestInstallCNIConfFile(t *testing.T) {
 	touch(t, workdir, "other.conflist")
 	touch(t, workdir, "05-cilium.conf") // older config file we no longer create
 
-	err := installCNIConfFile(opts)
+	donech := make(chan struct{})
+	close(donech)
+	err := setupCNIConfFile(opts, donech)
 	assert.NoError(t, err)
 
 	filenames := ls(t, workdir)
 
 	assert.ElementsMatch(t, filenames, []string{
 		"05-cilium.conflist",
+		"05-cilium.conf.cilium_bak",
 		"other.conflist.cilium_bak",
 	})
 
@@ -137,7 +140,10 @@ func TestCleanupOtherCNI(t *testing.T) {
 		touch(t, workdir, name)
 	}
 
-	if err := cleanupOtherCNI(workdir, "42-keep.json"); err != nil {
+	if err := cleanupOtherCNI(&option.DaemonConfig{
+		CNIExclusive:                   true,
+		WriteCNIConfigurationWhenReady: path.Join(workdir, "42-keep.json"),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
