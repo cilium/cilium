@@ -427,6 +427,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/mtu @cilium/sig-datapath
 /pkg/multicast @cilium/sig-datapath
 /pkg/node @cilium/sig-agent
+/pkg/nodediscovery/ @cilium/sig-agent
 /pkg/option @cilium/sig-agent @cilium/cli
 /pkg/pidfile @cilium/sig-agent
 /pkg/policy @cilium/sig-policy
