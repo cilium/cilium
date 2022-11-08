@@ -85,4 +85,4 @@ endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all
-	$(QUIET)$(GO) test ./bpf_tests -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
+	$(QUIET)$(GO) test bpf_tests/*.go -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
