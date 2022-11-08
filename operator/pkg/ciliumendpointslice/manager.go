@@ -300,7 +300,7 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 		// Get the largest available CES.
 		// This ensures the minimum number of CES updates, as the CESs will be
 		// consistently filled up in order.
-		ces := c.getLargestAvailableCES()
+		ces := c.getLargestAvailableCESForNamespace(ns)
 		if ces != nil {
 			ces.backendMutex.RLock()
 			defer ces.backendMutex.RUnlock()
@@ -367,10 +367,10 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	return
 }
 
-// getLargestAvailableCES returns the largest CES from cache that has at least 1
-// CEP and not more than maximum number of CEPs in it. If it is not found, a nil
-// is returned.
-func (c *cesMgr) getLargestAvailableCES() *cesTracker {
+// getLargestAvailableCESForNamespace returns the largest CES from cache for the
+// specified namespace that has at least 1 CEP and 1 available spot (less than
+// maximum CEPs). If it is not found, a nil is returned.
+func (c *cesMgr) getLargestAvailableCESForNamespace(ns string) *cesTracker {
 	var selectedCES *cesTracker
 	largestCEPCount := 0
 
@@ -379,7 +379,7 @@ func (c *cesMgr) getLargestAvailableCES() *cesTracker {
 		cepCount := len(ces.ces.Endpoints)
 		ces.backendMutex.RUnlock()
 
-		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount {
+		if cepCount < c.maxCEPsInCES && cepCount > largestCEPCount && ces.ces.Namespace == ns {
 			selectedCES = ces
 			largestCEPCount = cepCount
 			if largestCEPCount == c.maxCEPsInCES-1 {
