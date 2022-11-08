@@ -1060,10 +1060,10 @@ func initializeFlags() {
 	option.BindEnv(Vp, option.EnablePMTUDiscovery)
 
 	flags.Bool(option.EnableSpiffe, defaults.EnableSpiffe, "Enable SPIFFE integration")
-	option.BindEnv(option.EnableSpiffe)
+	option.BindEnv(Vp, option.EnableSpiffe)
 
 	flags.String(option.SpirePrivilegedAPISocketPath, defaults.SpirePrivilegedAPISocketPath, "Socket path to contact the Spire agent")
-	option.BindEnv(option.Config.SpirePrivilegedAPISocketPath)
+	option.BindEnv(Vp, option.Config.SpirePrivilegedAPISocketPath)
 	
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
