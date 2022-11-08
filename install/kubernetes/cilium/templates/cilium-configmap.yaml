@@ -293,6 +293,10 @@ data:
 
 {{- if (not (kindIs "invalid" .Values.bpf.hostLegacyRouting)) }}
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
+{{- else if ne .Values.cni.chainingMode "none" }}
+  # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
+  # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
+  enable-host-legacy-routing: "true"
 {{- end }}
 
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
