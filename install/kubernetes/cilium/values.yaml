@@ -408,6 +408,10 @@ cni:
   # inside the agent pod.
   hostConfDirMountPath: /host/etc/cni/net.d
 
+  # -- Seconds to wait before uninstalling the CNI plugin during agent 
+  # `preStop` lifecycle.
+  waitBeforeUninstall: 0
+
 # -- Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # conntrackGCInterval: "0s"

@@ -223,7 +223,13 @@ spec:
           preStop:
             exec:
               command:
+              {{- if gt (int .Values.cni.waitBeforeUninstall) 0 }}
+              - sh
+              - -c
+              - "sleep {{ .Values.cni.waitBeforeUninstall }}; /cni-uninstall.sh"
+              {{- else }}
               - /cni-uninstall.sh
+              {{- end }}
         {{- end }}
         {{- with .Values.resources }}
         resources:
@@ -670,7 +676,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.cilium.name | quote }}
-      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ add .Values.terminationGracePeriodSeconds (ternary .Values.cni.waitBeforeUninstall 0 .Values.cni.install) }}
       hostNetwork: true
       {{- if and .Values.etcd.managed (not .Values.etcd.k8sService) }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
