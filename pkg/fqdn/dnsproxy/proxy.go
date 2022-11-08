@@ -711,7 +711,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 
 	for selector, regex := range epAllow {
 		// The port was matched in getPortRulesForID, above.
-		if regex != nil && selector.Selects(destID) && regex.MatchString(name) {
+		if regex != nil && selector.Selects(destID) && (regex.String() == matchpattern.MatchAllAnchoredPattern || regex.MatchString(name)) {
 			return true, nil
 		}
 	}
