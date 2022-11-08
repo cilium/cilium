@@ -43,7 +43,7 @@ func (ts *MatchPatternTestSuite) TestUnAnchoredMatchPatternREConversion(c *C) {
 	for source, target := range map[string]string{
 		"cilium.io.":   "cilium[.]io[.]",
 		"*.cilium.io.": allowedDNSCharsREGroup + "*[.]cilium[.]io[.]",
-		"*":            "(" + allowedDNSCharsREGroup + "+[.])+|[.]",
+		"*":            MatchAllUnAnchoredPattern,
 		".":            "[.]",
 	} {
 		reStr := ToUnAnchoredRegexp(source)

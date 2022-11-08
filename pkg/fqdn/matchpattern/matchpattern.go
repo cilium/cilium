@@ -14,6 +14,15 @@ import (
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 
+// MatchAllAnchoredPattern is the simplest pattern that match all inputs. This resulting
+// parsed regular expression is the same as an empty string regex (""), but this
+// value is easier to reason about when serializing to and from json.
+const MatchAllAnchoredPattern = "(?:)"
+
+// MatchAllUnAnchoredPattern is the same as MatchAllAnchoredPattern, except that
+// it can be or-ed (joined with "|") with other rules, and still match all rules.
+const MatchAllUnAnchoredPattern = ".*"
+
 // Validate ensures that pattern is a parseable matchPattern. It returns the
 // regexp generated when validating.
 func Validate(pattern string) (matcher *regexp.Regexp, err error) {
@@ -86,7 +95,7 @@ func ToUnAnchoredRegexp(pattern string) string {
 	pattern = strings.ToLower(pattern)
 	// handle the * match-all case. This will filter down to the end.
 	if pattern == "*" {
-		return "(" + allowedDNSCharsREGroup + "+[.])+|[.]"
+		return MatchAllUnAnchoredPattern
 	}
 	pattern = escapeRegexpCharacters(pattern)
 	return pattern

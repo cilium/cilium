@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -1108,7 +1107,7 @@ func shouldCompressResponse(request, response *dns.Msg) bool {
 // provided l7 rules.
 func GeneratePattern(l7Rules *policy.PerSelectorPolicy) (pattern string) {
 	if l7Rules == nil || len(l7Rules.DNS) == 0 {
-		l7Rules = &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}}}
+		return matchpattern.MatchAllAnchoredPattern
 	}
 	reStrings := make([]string, 0, len(l7Rules.DNS))
 	for _, dnsRule := range l7Rules.DNS {
@@ -1120,6 +1119,9 @@ func GeneratePattern(l7Rules *policy.PerSelectorPolicy) (pattern string) {
 		if len(dnsRule.MatchPattern) > 0 {
 			dnsPattern := matchpattern.Sanitize(dnsRule.MatchPattern)
 			dnsPatternAsRE := matchpattern.ToUnAnchoredRegexp(dnsPattern)
+			if dnsPatternAsRE == matchpattern.MatchAllUnAnchoredPattern {
+				return matchpattern.MatchAllAnchoredPattern
+			}
 			reStrings = append(reStrings, dnsPatternAsRE)
 		}
 	}
