@@ -289,7 +289,7 @@ jobs:
         run: |
           cilium connectivity test \
             --base-version=v${{ env.cilium_base_version }} \
-            --flow-validation=disabled \
+            --flow-validation=disabled --hubble=false \
             --test '!fqdn,!l7' # L7 policies are not supported in chaining mode.
 
       - name: Post-test information gathering
