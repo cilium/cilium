@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
-// CreateMap creates a Map of type mapType, with key size keySize, a value size of
 // valueSize and the maximum amount of entries of maxEntries.
 // mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
 // When mapType is the type HASH_OF_MAPS an innerID is required to point at a
