@@ -80,7 +80,16 @@ Cilium replacement has been installed:
 .. include:: ../../installation/k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Make sure you correctly set your
-``API_SERVER_IP`` and ``API_SERVER_PORT`` below with the control-plane node IP address and the kube-apiserver port number reported by ``kubeadm init`` (Kubeadm will use port ``6443`` by default).
+``API_SERVER_HOST`` and ``API_SERVER_PORT`` below with the control-plane node host address and the kube-apiserver port number reported by ``kubeadm init`` (Kubeadm will use port ``6443`` by default).
+
+.. note::
+
+    In certain cloud environments such as EKS, Kubernetes API server IP addresses are ephemeral and can change. Therefore, in such environments, it is crucial to use the Kubernetes API server hostname instead of the IP address to prevent cluster-wide network failure.
+
+    .. code:: shell-session
+
+      $ export API_SERVER_HOST=${$(kubectl config view -o jsonpath='{$.clusters[0].cluster.server}')/https:\/\//}
+      $ export API_SERVER_PORT=443
 
 Specifying this is necessary as ``kubeadm init`` is run explicitly without setting
 up kube-proxy and as a consequence, although it exports ``KUBERNETES_SERVICE_HOST``
@@ -90,13 +99,13 @@ Therefore, the Cilium agent needs to be made aware of this information with the 
 
 .. parsed-literal::
 
-    API_SERVER_IP=<your_api_server_ip>
+    API_SERVER_HOST=<your_api_server_host>
     # Kubeadm default is 6443
     API_SERVER_PORT=<your_api_server_port>
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 .. note::
@@ -375,7 +384,7 @@ Maglev hashing for services load balancing can be enabled by setting ``loadBalan
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.algorithm=maglev \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 Note that Maglev hashing is applied only to external (N-S) traffic. For
@@ -441,7 +450,7 @@ given service (with the property of at most 1% difference on backend reassignmen
         --set loadBalancer.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -503,7 +512,7 @@ enabled would look as follows:
         --set tunnel=disabled \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 .. _Hybrid mode:
@@ -531,7 +540,7 @@ mode would look as follows:
         --set tunnel=disabled \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=hybrid \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -603,7 +612,7 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=hybrid \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -775,12 +784,21 @@ In order to use XDP the channels must be set to at most 1/2 of the value from
   $ for ip in $IPS ; do ssh ec2-user@$ip "sudo ip link set dev eth0 mtu 3498"; done
   $ for ip in $IPS ; do ssh ec2-user@$ip "sudo ethtool -L eth0 combined 2"; done
 
-In order to deploy Cilium, the Kubernetes API server IP and port is needed:
+In order to deploy Cilium, the Kubernetes API server host and port is needed:
 
 .. code-block:: shell-session
 
-  $ export API_SERVER_IP=$(kubectl get ep kubernetes -o jsonpath='{$.subsets[0].addresses[0].ip}')
+  $ export API_SERVER_HOST=$(kubectl get ep kubernetes -o jsonpath='{$.subsets[0].addresses[0].ip}')
   $ export API_SERVER_PORT=443
+
+.. note::
+
+    In certain cloud environments such as EKS, Kubernetes API server IP addresses are ephemeral and can change. Therefore, in such environments, it is crucial to use the Kubernetes API server hostname instead of the IP address to prevent cluster-wide network failure.
+
+    .. code:: shell-session
+
+      $ export API_SERVER_HOST=${$(kubectl config view -o jsonpath='{$.clusters[0].cluster.server}')/https:\/\//}
+      $ export API_SERVER_PORT=443
 
 Finally, the deployment can be upgraded and later rolled-out with the
 ``loadBalancer.acceleration=native`` setting to enable XDP in Cilium:
@@ -793,7 +811,7 @@ Finally, the deployment can be upgraded and later rolled-out with the
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=snat \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -854,7 +872,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set kubeProxyReplacement=strict \\
      --set loadBalancer.acceleration=native \\
      --set loadBalancer.mode=hybrid \\
-     --set k8sServiceHost=${API_SERVER_IP} \\
+     --set k8sServiceHost=${API_SERVER_HOST} \\
      --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -979,7 +997,7 @@ as in the earlier getting started deployment:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
@@ -1131,7 +1149,7 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true \\
         --set hostPort.enabled=true \\
-        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServiceHost=${API_SERVER_HOST} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
 
