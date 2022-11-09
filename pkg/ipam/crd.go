@@ -109,8 +109,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset cl
 	owner.UpdateCiliumNodeResource()
 	apiGroup := "cilium/v2::CiliumNode"
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
-	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	ciliumNodeInformer := informer.NewInformerWithStore(
+	_, ciliumNodeInformer := informer.NewInformer(
 		utils.ListerWatcherWithFields(
 			utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](clientset.CiliumV2().CiliumNodes()),
 			ciliumNodeSelector),
@@ -166,7 +165,6 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset cl
 			},
 		},
 		nil,
-		ciliumNodeStore,
 	)
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
