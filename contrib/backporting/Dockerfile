@@ -1,7 +1,7 @@
 FROM ubuntu:20.04
 
 LABEL maintainer="maintainer@cilium.io"
-ARG GOLANG_VERSION=1.19.2
+ARG GOLANG_VERSION=1.19.3
 
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get -y install tzdata
 RUN apt-get install -y \

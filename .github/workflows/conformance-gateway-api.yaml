@@ -77,7 +77,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
         with:
-          go-version: 1.19.2
+          go-version: 1.19.3
 
       - name: Wait for images to be available
         timeout-minutes: 30
