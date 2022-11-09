@@ -204,18 +204,25 @@ func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamType
 // describeNetworkInterfaces lists all ENIs
 func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamTypes.SubnetMap) ([]ec2_types.NetworkInterface, error) {
 	var result []ec2_types.NetworkInterface
-	input := &ec2.DescribeNetworkInterfacesInput{}
+	input := &ec2.DescribeNetworkInterfacesInput{
+		// Filters out ipv6-only ENIs. For now we require that every interface
+		// has a primary IPv4 address.
+		Filters: []ec2_types.Filter{
+			{
+				Name:   aws.String("private-ip-address"),
+				Values: []string{"*"},
+			},
+		},
+	}
 	if len(c.subnetsFilters) > 0 {
 		subnetsIDs := make([]string, 0, len(subnets))
 		for id := range subnets {
 			subnetsIDs = append(subnetsIDs, id)
 		}
-		input.Filters = []ec2_types.Filter{
-			{
-				Name:   aws.String("subnet-id"),
-				Values: subnetsIDs,
-			},
-		}
+		input.Filters = append(input.Filters, ec2_types.Filter{
+			Name:   aws.String("subnet-id"),
+			Values: subnetsIDs,
+		})
 	}
 	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
 	for paginator.HasMorePages() {
@@ -265,7 +272,16 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		enisListFromInstances = append(enisListFromInstances, k)
 	}
 
-	ENIAttrs := &ec2.DescribeNetworkInterfacesInput{}
+	ENIAttrs := &ec2.DescribeNetworkInterfacesInput{
+		// Filters out ipv6-only ENIs. For now we require that every interface
+		// has a primary IPv4 address.
+		Filters: []ec2_types.Filter{
+			{
+				Name:   aws.String("private-ip-address"),
+				Values: []string{"*"},
+			},
+		},
+	}
 	if len(enisListFromInstances) > 0 {
 		ENIAttrs.NetworkInterfaceIds = enisListFromInstances
 	}
