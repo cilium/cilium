@@ -185,6 +185,12 @@ Users (Alphabetically)
       U: Service load-balancing, Encryption, CNI, NetworkPolicies
       Q: @kevholditch-f3, samo-f3, ewilde-form3
 
+    * N: FRSCA - Factory for Repeatable Secure Creation of Artifacts
+      D: FRSCA is utilizing tetragon integrated with Tekton to create runtime attestation to attest artifact and builder attributes
+      U: Runtime observability
+      L: https://github.com/buildsec/frsca
+      Q: @Parth Patel
+
     * N: F5 Inc
       D: F5 helps customers with Cilium VXLAN tunnel integration with BIG-IP
       U: Networking
