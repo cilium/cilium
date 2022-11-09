@@ -25,9 +25,8 @@ import (
 )
 
 func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
-	cecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	apiGroup := k8sAPIGroupCiliumEnvoyConfigV2
-	cecController := informer.NewInformerWithStore(
+	_, cecController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
 			cilium_v2.CECPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumEnvoyConfig{},
@@ -71,7 +70,6 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
 			},
 		},
 		k8s.ConvertToCiliumEnvoyConfig,
-		cecStore,
 	)
 
 	k.blockWaitGroupToSyncResources(
