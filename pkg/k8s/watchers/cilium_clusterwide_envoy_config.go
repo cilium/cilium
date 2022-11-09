@@ -23,9 +23,8 @@ import (
 )
 
 func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(clientset client.Clientset) {
-	ccecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	apiGroup := k8sAPIGroupCiliumClusterwideEnvoyConfigV2
-	ccecController := informer.NewInformerWithStore(
+	_, ccecController := informer.NewInformer(
 		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideEnvoyConfigList](k.clientset.CiliumV2().CiliumClusterwideEnvoyConfigs()),
 		&cilium_v2.CiliumClusterwideEnvoyConfig{},
 		0,
@@ -68,7 +67,6 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(clientset client.Clientset
 			},
 		},
 		k8s.ConvertToCiliumClusterwideEnvoyConfig,
-		ccecStore,
 	)
 
 	k.blockWaitGroupToSyncResources(

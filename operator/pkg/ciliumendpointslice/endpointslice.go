@@ -301,15 +301,13 @@ func (c *CiliumEndpointSliceController) syncCES(key string) error {
 // Initialize and start CES watcher
 // TODO Watch for CES's, make sure only CES controller Create/Update/Delete the CES not bad actors.
 func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-chan struct{}) cache.Store {
-	cesStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	cesController := informer.NewInformerWithStore(
+	cesStore, cesController := informer.NewInformer(
 		utils.ListerWatcherFromTyped[*capi_v2a1.CiliumEndpointSliceList](
 			client.CiliumEndpointSlices()),
 		&capi_v2a1.CiliumEndpointSlice{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
 		nil,
-		cesStore,
 	)
 	go cesController.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, cesController.HasSynced)
