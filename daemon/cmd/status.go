@@ -217,8 +217,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeStrict
 	case option.KubeProxyReplacementPartial:
 		mode = models.KubeProxyReplacementModePartial
-	case option.KubeProxyReplacementProbe:
-		mode = models.KubeProxyReplacementModeProbe
 	case option.KubeProxyReplacementDisabled:
 		mode = models.KubeProxyReplacementModeDisabled
 	}
