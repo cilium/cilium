@@ -362,6 +362,13 @@ const (
 	// Tunnel is the tunnel name
 	Tunnel = "tunnel"
 
+	// TunnelPeer is the tunnel peer address
+	TunnelPeer = "tunnelPeer"
+
+	// ConflictingTunnelPeer is the address of a tunnel peer which conflicts
+	// with TunnelPeer
+	ConflictingTunnelPeer = "conflictingTunnelPeer"
+
 	// Selector is a selector of any sort: endpoint, CIDR, toFQDNs
 	Selector = "Selector"
 
@@ -541,6 +548,10 @@ const (
 
 	// Key is the identity of the encryption key
 	Key = "key"
+
+	// ConflictingKey is the identity of the encryption key which conflicts with
+	// Key
+	ConflictingKey = "conflictingKey"
 
 	// URL represents a Uniform Resource Locator.
 	URL = "url"

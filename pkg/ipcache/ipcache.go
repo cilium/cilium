@@ -225,6 +225,12 @@ func (ipc *IPCache) GetHostIP(ip string) net.IP {
 	return hostIP
 }
 
+func (ipc *IPCache) GetHostIPCache(ip string) (net.IP, uint8) {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getHostIPCache(ip)
+}
+
 func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	ipKeyPair := ipc.ipToHostIPCache[ip]
 	return ipKeyPair.IP, ipKeyPair.Key
