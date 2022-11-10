@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "includePaths": ["images/**"],
+  "ignorePresets": [":prHourlyLimit2"],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": true,
+  "baseBranches": [
+    "master",
+    "v1.12",
+    "v1.11",
+    "v1.10"
+  ],
+  "labels": [
+    "kind/enhancement",
+    "release-note/misc"
+  ]
+}
