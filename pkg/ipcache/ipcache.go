@@ -495,6 +495,15 @@ func (ipc *IPCache) RemoveMetadata(prefix netip.Prefix, resource ipcacheTypes.Re
 	ipc.TriggerLabelInjection()
 }
 
+// RemoveAllMetadata removes all metadata associated with this resource
+func (ipc *IPCache) RemoveAllMetadata(prefix netip.Prefix, resource ipcacheTypes.ResourceID) {
+	ipc.metadata.Lock()
+	ipc.metadata.removeAll(prefix, resource)
+	ipc.metadata.Unlock()
+	ipc.metadata.enqueuePrefixUpdates(prefix)
+	ipc.TriggerLabelInjection()
+}
+
 // UpsertLabels upserts a given IP and its corresponding labels associated
 // with it into the ipcache metadata map. The given labels are not modified nor
 // is its reference saved, as they're copied when inserting into the map.

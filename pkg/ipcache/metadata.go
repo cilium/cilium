@@ -483,6 +483,21 @@ func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ..
 	m.enqueuePrefixUpdates(prefix)
 }
 
+// removeAll asynchronously removes _all_ the metadata association for a prefix.
+//
+// This function assumes that the ipcache metadata lock is held for writing.
+func (m *metadata) removeAll(prefix netip.Prefix, resource types.ResourceID) {
+	info, ok := m.m[prefix]
+	if !ok {
+		return
+	}
+	delete(info, resource)
+	if !info.isValid() { // Metadata empty, delete
+		delete(m.m, prefix)
+	}
+	m.enqueuePrefixUpdates(prefix)
+}
+
 // TriggerLabelInjection triggers the label injection controller to iterate
 // through the IDMD and potentially allocate new identities based on any label
 // changes.
