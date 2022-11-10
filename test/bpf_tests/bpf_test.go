@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/monitor"
-	"github.com/cilium/cilium/pkg/testutils"
 )
 
 var (
@@ -50,10 +49,8 @@ var (
 )
 
 func TestBPF(t *testing.T) {
-	testutils.PrivilegedTest(t)
-
 	if testPath == nil || *testPath == "" {
-		t.Fatal("-bpf-test-path is a required flag")
+		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
 
 	entries, err := os.ReadDir(*testPath)
