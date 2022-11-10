@@ -1237,10 +1237,6 @@ const (
 	// NodePortAccelerationNative means we accelerate NodePort via native XDP in the driver (preferred)
 	NodePortAccelerationNative = XDPModeNative
 
-	// KubeProxyReplacementProbe specifies to auto-enable available features for
-	// kube-proxy replacement
-	KubeProxyReplacementProbe = "probe"
-
 	// KubeProxyReplacementPartial specifies to enable only selected kube-proxy
 	// replacement features (might panic)
 	KubeProxyReplacementPartial = "partial"
@@ -3735,10 +3731,6 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 
 // KubeProxyReplacementFullyEnabled returns true if Cilium is _effectively_
 // running in full KPR mode.
-//
-// The extra logic to check that all the individual features are enabled is
-// required to deal with the case when KubeProxyReplacement mode is set to
-// "probe" (as Cilium may or may not be running full KPR mode).
 func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&

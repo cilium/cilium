@@ -428,10 +428,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
-	if err != nil {
-		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
-		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
+	if err := initKubeProxyReplacementOptions(); err != nil {
+		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
+		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
@@ -937,7 +936,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+	if err := finishKubeProxyReplacementInit(); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
