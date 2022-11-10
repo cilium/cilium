@@ -5,6 +5,9 @@ package types
 
 import (
 	"context"
+	"net"
+	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -54,4 +57,39 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	str.WriteRune('/')
 	str.WriteString(name)
 	return ResourceID(str.String())
+}
+
+// TunnelPeer is the IP address of the host associated with this prefix. This is
+// typically used to establish a tunnel, e.g. in tunnel mode or for encryption.
+// This type implements ipcache.IPMetadata
+type TunnelPeer netip.Addr
+
+func (t TunnelPeer) IsValid() bool {
+	return netip.Addr(t).IsValid()
+}
+
+func (t TunnelPeer) String() string {
+	return netip.Addr(t).String()
+}
+
+func (t TunnelPeer) IP() net.IP {
+	return netip.Addr(t).AsSlice()
+}
+
+// EncryptKey is the identity of the encryption key.
+// This type implements ipcache.IPMetadata
+type EncryptKey uint8
+
+const EncryptKeyEmpty = EncryptKey(0)
+
+func (e EncryptKey) IsValid() bool {
+	return e != EncryptKeyEmpty
+}
+
+func (e EncryptKey) Uint8() uint8 {
+	return uint8(e)
+}
+
+func (e EncryptKey) String() string {
+	return strconv.Itoa(int(e))
 }

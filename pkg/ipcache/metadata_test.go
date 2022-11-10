@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/ipcache/types"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/identity"
@@ -209,6 +211,33 @@ func TestOverrideIdentity(t *testing.T) {
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.Equal(t, barID.ReferenceCount, 1)
 	assert.False(t, ok)
+}
+
+func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {
+	setupTest(t)
+	ctx := context.Background()
+
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "node-uid",
+		types.TunnelPeer(netip.MustParseAddr("192.168.1.100")),
+		types.EncryptKey(7))
+	remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	ip, key := IPIdentityCache.getHostIPCache(worldPrefix.String())
+	assert.True(t, net.ParseIP("192.168.1.100").Equal(ip))
+	assert.Equal(t, uint8(7), key)
+
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "node-uid",
+		types.TunnelPeer(netip.MustParseAddr("192.168.1.200")))
+	IPIdentityCache.metadata.remove(worldPrefix, "node-uid", types.EncryptKey(7))
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	ip, key = IPIdentityCache.getHostIPCache(worldPrefix.String())
+	assert.True(t, net.ParseIP("192.168.1.200").Equal(ip))
+	assert.Equal(t, uint8(0), key)
 }
 
 func setupTest(t *testing.T) {
