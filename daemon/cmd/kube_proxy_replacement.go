@@ -44,17 +44,11 @@ import (
 //
 // if this function cannot determine the strictness an error is returned and the boolean
 // is false. If an error is returned the boolean is of no meaning.
-func initKubeProxyReplacementOptions() (bool, error) {
+func initKubeProxyReplacementOptions() error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-		return false, fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
-	}
-
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
-		log.Warnf("The option --%s=%s is deprecated and it will be removed in v1.13",
-			option.KubeProxyReplacement, option.KubeProxyReplacementProbe)
+		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
@@ -70,21 +64,16 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		option.Config.EnableSocketLBTracing = false
 
 		if option.Config.EnableSessionAffinity {
-			if err := disableSessionAffinityIfNeeded(true); err != nil {
-				return false, err
+			if err := disableSessionAffinityIfNeeded(); err != nil {
+				return err
 			}
 		}
 
-		return false, nil
+		return nil
 	}
 
-	// strict denotes to panic if any to-be enabled feature cannot be enabled
-	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
-
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
-
-		log.Infof("Trying to auto-enable %q, %q, %q, %q, %q features",
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
+		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity)
@@ -100,19 +89,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 	if option.Config.EnableNodePort {
 		if option.Config.EnableIPSec {
-			msg := "IPSec cannot be used with BPF NodePort."
-			if strict {
-				return false, fmt.Errorf(msg)
-			} else {
-				disableNodePort()
-				log.Warn(msg + " Disabling BPF NodePort feature.")
-			}
+			return fmt.Errorf("IPSec cannot be used with BPF NodePort")
 		}
 
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
 			option.Config.NodePortMode != option.NodePortModeHybrid {
-			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
+			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
@@ -120,13 +103,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
-			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
+			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateFrontend &&
 			option.Config.LoadBalancerDSRL4Xlate != option.DSRL4XlateBackend {
-			return false, fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
+			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRL4Xlate, option.Config.LoadBalancerDSRL4Xlate)
 		}
 
 		if option.Config.LoadBalancerRSSv4CIDR != "" {
@@ -140,7 +123,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				}
 			}
 			if err != nil {
-				return false, fmt.Errorf("Invalid value for --%s: %s",
+				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv4CIDR, option.Config.LoadBalancerRSSv4CIDR)
 			}
 			option.Config.LoadBalancerRSSv4 = *cidr
@@ -157,7 +140,7 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				}
 			}
 			if err != nil {
-				return false, fmt.Errorf("Invalid value for --%s: %s",
+				return fmt.Errorf("Invalid value for --%s: %s",
 					option.LoadBalancerRSSv6CIDR, option.Config.LoadBalancerRSSv6CIDR)
 			}
 			option.Config.LoadBalancerRSSv6 = *cidr
@@ -166,27 +149,22 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		if (option.Config.LoadBalancerRSSv4CIDR != "" || option.Config.LoadBalancerRSSv6CIDR != "") &&
 			(option.Config.NodePortMode != option.NodePortModeDSR ||
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP) {
-			return false, fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
+			return fmt.Errorf("Invalid value for --%s/%s: currently only supported under IPIP dispatch for DSR",
 				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
 		}
 
 		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
 			option.Config.NodePortAlg != option.NodePortAlgMaglev {
-			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
+			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
-			return false, fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
+			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
 		}
 
-		if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
-			// We let kube-proxy do the less efficient bind-protection in
-			// this case to avoid the latter throwing (harmless) warnings
-			// to its log that bind request is rejected.
-			option.Config.NodePortBindProtection = false
-		} else if !option.Config.NodePortBindProtection {
+		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
@@ -203,14 +181,14 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				}
 			}
 			if !found {
-				return false, fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
+				return fmt.Errorf("Invalid value for --%s: %d, supported values are: %v",
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
 			}
 			if err := maglev.Init(
 				option.Config.MaglevHashSeed,
 				uint64(option.Config.MaglevTableSize),
 			); err != nil {
-				return false, fmt.Errorf("Failed to initialize maglev hash seeds: %w", err)
+				return fmt.Errorf("Failed to initialize maglev hash seeds: %w", err)
 			}
 		}
 	}
@@ -218,16 +196,16 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-			return false, fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
+			return fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
 			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				return false, fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+				return fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
 			}
 			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-				return false, fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
+				return fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
 			}
 		}
 
@@ -242,12 +220,12 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		// running in full KPR mode as otherwise conntrack would be
 		// required for NAT operations
 		if !option.Config.KubeProxyReplacementFullyEnabled() {
-			return false, fmt.Errorf("%s requires the agent to run with %s=%s.",
+			return fmt.Errorf("%s requires the agent to run with %s=%s.",
 				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		}
 
 		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
-			return false, fmt.Errorf("%s requires the agent to run with %s.",
+			return fmt.Errorf("%s requires the agent to run with %s.",
 				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
 		}
 	}
@@ -256,38 +234,27 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	}
 
 	if option.Config.DryMode {
-		return strict, nil
+		return nil
 	}
 
-	return probeKubeProxyReplacementOptions(strict)
+	return probeKubeProxyReplacementOptions()
 }
 
 // probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
 // the running kernel.
-func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
+func probeKubeProxyReplacementOptions() error {
 	if option.Config.EnableNodePort {
 		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
-			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
-			if strict {
-				return false, fmt.Errorf(msg)
-			} else {
-				disableNodePort()
-				log.Warn(msg + " Disabling BPF NodePort.")
-			}
+			return fmt.Errorf("BPF NodePort services needs kernel 4.17.0 or newer")
 		}
 
 		if err := checkNodePortAndEphemeralPortRanges(); err != nil {
-			if strict {
-				return false, err
-			} else {
-				disableNodePort()
-				log.WithError(err).Warn("Disabling BPF NodePort.")
-			}
+			return err
 		}
 
 		if option.Config.EnableRecorder {
 			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
-				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
+				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
 			}
 		}
 
@@ -307,13 +274,7 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 		if option.Config.EnableMKE {
 			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
 				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
-				if strict {
-					log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
-				} else {
-					option.Config.EnableHostServicesTCP = false
-					option.Config.EnableHostServicesUDP = false
-					log.Warnf("Disabling host reachable services under MKE with --%s. Needs kernel 5.7 or newer.", option.EnableMKE)
-				}
+				log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 			}
 		}
 
@@ -329,27 +290,27 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 			}
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv4 {
-			err := probeCgroupSupportTCP(strict, true)
+			err := probeCgroupSupportTCP(true)
 			if err != nil {
-				return false, err
+				return err
 			}
 		}
 		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv6 {
-			err := probeCgroupSupportTCP(strict, false)
+			err := probeCgroupSupportTCP(false)
 			if err != nil {
-				return false, err
+				return err
 			}
 		}
 		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv4 {
-			err := probeCgroupSupportUDP(strict, true)
+			err := probeCgroupSupportUDP(true)
 			if err != nil {
-				return false, err
+				return err
 			}
 		}
 		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv6 {
-			err := probeCgroupSupportUDP(strict, false)
+			err := probeCgroupSupportUDP(false)
 			if err != nil {
-				return false, err
+				return err
 			}
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
@@ -366,8 +327,8 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 		option.Config.EnableSocketLBTracing = false
 	}
 
-	if err := disableSessionAffinityIfNeeded(strict); err != nil {
-		return false, err
+	if err := disableSessionAffinityIfNeeded(); err != nil {
+		return err
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
@@ -382,12 +343,7 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
 		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
 			option.EnableSVCSourceRangeCheck)
-		if strict {
-			return strict, fmt.Errorf(msg)
-		} else {
-			log.Warnf(msg + " Disabling the check.")
-			option.Config.EnableSVCSourceRangeCheck = false
-		}
+		return fmt.Errorf(msg)
 	}
 
 	if !option.Config.EnableHostLegacyRouting {
@@ -431,7 +387,7 @@ func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
 		}
 	}
 
-	return strict, nil
+	return nil
 }
 
 func probeManagedNeighborSupport() {
@@ -450,7 +406,7 @@ func probeManagedNeighborSupport() {
 	}
 }
 
-func probeCgroupSupportTCP(strict, ipv4 bool) error {
+func probeCgroupSupportTCP(ipv4 bool) error {
 	var err error
 
 	if ipv4 {
@@ -464,17 +420,12 @@ func probeCgroupSupportTCP(strict, ipv4 bool) error {
 			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
 		}
 
-		if strict {
-			return fmt.Errorf(msg)
-		} else {
-			option.Config.EnableHostServicesTCP = false
-			log.WithError(err).Warn(msg + " Disabling the feature.")
-		}
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
 
-func probeCgroupSupportUDP(strict, ipv4 bool) error {
+func probeCgroupSupportUDP(ipv4 bool) error {
 	var err error
 
 	if ipv4 {
@@ -483,25 +434,19 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG)
 	}
 	if err != nil {
-		scopedLog := log.WithError(err)
 		msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
 		if errors.Is(err, unix.EPERM) {
 			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
 		}
 
-		if strict {
-			return fmt.Errorf(msg)
-		} else {
-			option.Config.EnableHostServicesUDP = false
-			scopedLog.Warn(msg + " Disabling the feature.")
-		}
+		return fmt.Errorf(msg)
 	}
 	return nil
 }
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
+func finishKubeProxyReplacementInit() error {
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -514,12 +459,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
 		msg := "failed to initialize NodePort addrs."
-		if isKubeProxyReplacementStrict {
-			return fmt.Errorf(msg+" : %w", err)
-		} else {
-			disableNodePort()
-			log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
-		}
+		return fmt.Errorf(msg+" : %w", err)
 	}
 
 	// +-------------------------------------------------------+
@@ -761,16 +701,10 @@ func hasFullHostReachableServices() bool {
 		option.Config.EnableHostServicesUDP
 }
 
-func disableSessionAffinityIfNeeded(strict bool) error {
+func disableSessionAffinityIfNeeded() error {
 	if option.Config.EnableSessionAffinity {
 		if !option.Config.DryMode && probes.HaveMapType(ebpf.LRUHash) != nil {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				return fmt.Errorf(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
+			return fmt.Errorf("SessionAffinity feature requires BPF LRU maps")
 		}
 	}
 	return nil

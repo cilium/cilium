@@ -31,7 +31,6 @@ type kprConfig struct {
 	enableIPv4Masquerade                         bool
 	enableSocketLBTracing                        bool
 
-	expectedStrict     bool
 	expectedErrorRegex string
 
 	tunnelingEnabled bool
@@ -64,15 +63,13 @@ func (cfg *kprConfig) set() {
 }
 
 func (cfg *kprConfig) verify(c *C) {
-	strict, err := initKubeProxyReplacementOptions()
-
+	err := initKubeProxyReplacementOptions()
 	if err != nil || cfg.expectedErrorRegex != "" {
 		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
 			return
 		}
 	}
-	c.Assert(strict, Equals, cfg.expectedStrict)
 
 	c.Assert(option.Config.EnableSocketLB, Equals, cfg.enableSocketLB)
 	c.Assert(option.Config.EnableNodePort, Equals, cfg.enableNodePort)
@@ -129,7 +126,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableIPSec:             false,
 				enableHostLegacyRouting: true,
 				enableSocketLBTracing:   false,
-				expectedStrict:          false,
 				expectedErrorRegex:      "",
 			},
 		},
@@ -141,7 +137,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
 			},
 			kprConfig{
-				expectedStrict:          true,
 				enableSocketLB:          true,
 				enableNodePort:          true,
 				enableHostPort:          true,
@@ -177,27 +172,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 			},
 		},
 
-		// KPR probe + IPsec: nodeport gets disabled
-		{
-			"kpr-probe+ipsec",
-			func(cfg *kprConfig) {
-				cfg.kubeProxyReplacement = option.KubeProxyReplacementProbe
-				cfg.enableIPSec = true
-			},
-			kprConfig{
-				enableSocketLB:          true,
-				enableNodePort:          false,
-				enableHostPort:          false,
-				enableExternalIPs:       false,
-				enableHostServicesTCP:   true,
-				enableHostServicesUDP:   true,
-				enableSessionAffinity:   true,
-				enableHostLegacyRouting: true,
-				enableIPSec:             true,
-				enableSocketLBTracing:   true,
-			},
-		},
-
 		// KPR strict + no conntrack ipt rules + masquerade: ok
 		{
 			"kpr-strict+no-conntrack-ipt-rules+masquerade",
@@ -208,7 +182,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.enableIPv4Masquerade = true
 			},
 			kprConfig{
-				expectedStrict:             true,
 				enableSocketLB:             true,
 				enableNodePort:             true,
 				enableHostPort:             true,

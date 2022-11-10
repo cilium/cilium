@@ -44,7 +44,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sAgentIstioTest", func() {
 		// " --set values.global.mtls.auto=false"
 		ciliumOptions = map[string]string{
 			// These comments are retained for Istio release update testing:
-			// "kubeProxyReplacement": "probe",
+			// "kubeProxyReplacement": "disabled",
 			// "hostServices.hostNamespaceOnly": "true",
 			// "proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
 			// "debug.enabled": "true",
