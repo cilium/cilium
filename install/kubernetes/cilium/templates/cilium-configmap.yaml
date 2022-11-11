@@ -589,11 +589,6 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if hasKey .Values "hostServices" }}
-{{- if ne .Values.hostServices.protocols "tcp,udp" }}
-  host-reachable-services-protos: {{ .Values.hostServices.protocols }}
-{{- end }}
-{{- end }}
 {{- if hasKey .Values "hostPort" }}
 {{- if eq $kubeProxyReplacement "partial" }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
