@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:a1e764d2e16cf2463235c3f7d19f4d9f792a4eb2@sha256:20eefc8b0d0398bc9d30b1c39c197d16d8c15d02ab88afa99d2a15398a26efec
-ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:cf31af331f38d1d7158470e095b132acd126a7180a54f263d386da88eb681d93
+ARG UBUNTU_IMAGE=docker.io/library/ubuntu:22.04@sha256:4b1d0c4a2d2aaf63b37111f34eb9fa89fa1bf53dd6e4ca954d47caebca4005c2
 
 FROM ${UBUNTU_IMAGE} as rootfs
 ARG TARGETPLATFORM
