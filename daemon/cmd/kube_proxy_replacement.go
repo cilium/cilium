@@ -59,8 +59,6 @@ func initKubeProxyReplacementOptions() error {
 
 		disableNodePort()
 		option.Config.EnableSocketLB = false
-		option.Config.EnableHostServicesTCP = false
-		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSocketLBTracing = false
 
 		if option.Config.EnableSessionAffinity {
@@ -82,8 +80,6 @@ func initKubeProxyReplacementOptions() error {
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
 		option.Config.EnableSocketLB = true
-		option.Config.EnableHostServicesTCP = true
-		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
 	}
 
@@ -289,32 +285,31 @@ func probeKubeProxyReplacementOptions() error {
 				option.Config.EnableHostServicesPeer = false
 			}
 		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv4 {
+		if option.Config.EnableIPv4 {
 			err := probeCgroupSupportTCP(true)
 			if err != nil {
 				return err
 			}
 		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableIPv6 {
+		if option.Config.EnableIPv6 {
 			err := probeCgroupSupportTCP(false)
 			if err != nil {
 				return err
 			}
 		}
-		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv4 {
+		if option.Config.EnableIPv4 {
 			err := probeCgroupSupportUDP(true)
 			if err != nil {
 				return err
 			}
 		}
-		if option.Config.EnableHostServicesUDP && option.Config.EnableIPv6 {
+		if option.Config.EnableIPv6 {
 			err := probeCgroupSupportUDP(false)
 			if err != nil {
 				return err
 			}
 		}
-		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
-			option.Config.EnableSocketLB = false
+		if !option.Config.EnableSocketLB {
 			option.Config.EnableSocketLBTracing = false
 		}
 		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
@@ -322,8 +317,6 @@ func probeKubeProxyReplacementOptions() error {
 			log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 		}
 	} else {
-		option.Config.EnableHostServicesTCP = false
-		option.Config.EnableHostServicesUDP = false
 		option.Config.EnableSocketLBTracing = false
 	}
 
@@ -434,7 +427,7 @@ func probeCgroupSupportUDP(ipv4 bool) error {
 		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG)
 	}
 	if err != nil {
-		msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+		msg := "BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer"
 		if errors.Is(err, unix.EPERM) {
 			msg = "Cilium cannot load bpf programs. Security profiles like SELinux may be restricting permissions."
 		}
@@ -693,12 +686,6 @@ func checkNodePortAndEphemeralPortRanges() error {
 	}
 
 	return nil
-}
-
-func hasFullHostReachableServices() bool {
-	return option.Config.EnableSocketLB &&
-		option.Config.EnableHostServicesTCP &&
-		option.Config.EnableHostServicesUDP
 }
 
 func disableSessionAffinityIfNeeded() error {

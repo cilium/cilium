@@ -359,7 +359,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	createSockRevNatMaps := option.Config.EnableSocketLB &&
-		option.Config.EnableHostServicesUDP && probes.HaveMapType(ebpf.LRUHash) == nil
+		probes.HaveMapType(ebpf.LRUHash) == nil
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		createSockRevNatMaps, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
