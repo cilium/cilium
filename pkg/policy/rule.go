@@ -24,7 +24,7 @@ type rule struct {
 
 type ruleMetadata struct {
 	// mutex protects all fields in this type.
-	Mutex lock.RWMutex
+	Mutex lock.Mutex
 
 	// IdentitySelected is a cache that maps from an identity to whether
 	// this rule selects that identity.
