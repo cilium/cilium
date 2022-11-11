@@ -14,7 +14,7 @@ endif
 
 PLATFORMS=linux/amd64,linux/arm64
 
-all-images: lint update-alpine-image update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image
+all-images: lint runtime-image builder-image cilium-image operator-image hubble-relay-image
 
 lint:
 	scripts/lint.sh
@@ -23,12 +23,6 @@ lint:
 	# see https://github.com/docker/buildx/issues/308
 	mkdir -p ../.buildx
 	docker buildx create --platform $(PLATFORMS) --buildkitd-flags '--debug' > $@
-
-update-golang-image:
-	scripts/update-golang-image.sh
-
-update-alpine-image:
-	scripts/update-alpine-image.sh
 
 runtime-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-runtime-dev images/runtime $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
