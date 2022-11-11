@@ -52,7 +52,6 @@ const (
 	initArgHostDev2
 	initArgMTU
 	initArgHostReachableServices
-	initArgHostReachableServicesUDP
 	initArgHostReachableServicesPeer
 	initArgCgroupRoot
 	initArgBpffsRoot
@@ -311,11 +310,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableSocketLB {
 		args[initArgHostReachableServices] = "true"
-		if option.Config.EnableHostServicesUDP {
-			args[initArgHostReachableServicesUDP] = "true"
-		} else {
-			args[initArgHostReachableServicesUDP] = "false"
-		}
 		if option.Config.EnableHostServicesPeer {
 			args[initArgHostReachableServicesPeer] = "true"
 		} else {
@@ -323,7 +317,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	} else {
 		args[initArgHostReachableServices] = "false"
-		args[initArgHostReachableServicesUDP] = "false"
 		args[initArgHostReachableServicesPeer] = "false"
 	}
 

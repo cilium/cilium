@@ -311,15 +311,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(Vp, option.EnableSocketLBTracing)
 
-	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
-	option.BindEnv(Vp, option.EnableHostReachableServices)
-	flags.MarkDeprecated(option.EnableHostReachableServices,
-		fmt.Sprintf("This option will be removed in v1.13. Use --%s instead", option.EnableSocketLB))
-
-	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
-	option.BindEnv(Vp, option.HostReachableServicesProtos)
-	flags.MarkDeprecated(option.HostReachableServicesProtos, "This option will be removed in v1.13")
-
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(Vp, option.EnableAutoDirectRoutingName)
 

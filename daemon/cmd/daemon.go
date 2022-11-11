@@ -941,8 +941,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
-	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
-	// be fully enabled in the tunneling mode, so the following checks should
+	// BPF masquerade depends on BPF NodePort and require socket-LB to
+	// be enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 
@@ -957,8 +957,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		case option.Config.EgressMasqueradeInterfaces != "":
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.EgressMasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
-			err = fmt.Errorf("BPF masquerade requires full host reachable services enabled in tunnel mode (--%s=\"false\")",
+		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
+			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than

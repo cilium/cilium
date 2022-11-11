@@ -269,20 +269,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableSocketLB {
-		if option.Config.EnableHostServicesTCP {
-			cDefinesMap["ENABLE_SOCKET_LB_TCP"] = "1"
-		}
-		if option.Config.EnableHostServicesUDP {
-			cDefinesMap["ENABLE_SOCKET_LB_UDP"] = "1"
-		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP && !option.Config.BPFSocketLBHostnsOnly {
+		if option.Config.BPFSocketLBHostnsOnly {
+			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
+		} else {
 			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
 		if option.Config.EnableHostServicesPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
-		}
-		if option.Config.BPFSocketLBHostnsOnly {
-			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
 		}
 		if option.Config.EnableSocketLBTracing {
 			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"

@@ -493,20 +493,8 @@ const (
 	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
 	EnableSocketLBTracing = "trace-sock"
 
-	// EnableHostReachableServices is the name of the EnableHostReachableServices option
-	EnableHostReachableServices = "enable-host-reachable-services"
-
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
-
-	// HostReachableServicesProtos is the name of the HostReachableServicesProtos option
-	HostReachableServicesProtos = "host-reachable-services-protos"
-
-	// HostServicesTCP is the name of EnableHostServicesTCP config
-	HostServicesTCP = "tcp"
-
-	// HostServicesUDP is the name of EnableHostServicesUDP config
-	HostServicesUDP = "udp"
 
 	// TunnelName is the name of the Tunnel option
 	TunnelName = "tunnel"
@@ -1606,9 +1594,7 @@ type DaemonConfig struct {
 	DebugVerbose                  []string
 	EnableSocketLB                bool
 	EnableSocketLBTracing         bool
-	EnableHostServicesTCP         bool
-	EnableHostServicesUDP         bool
-	EnableHostServicesPeer        bool
+	EnableHostServicesPeer        bool // TODO(brb) rename to SocketLBPeer
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnableUnreachableRoutes       bool
@@ -2658,11 +2644,6 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 			int64(defaults.KVstoreLeaseMaxTTL.Seconds()))
 	}
 
-	if c.EnableSocketLB && !c.EnableHostServicesUDP && !c.EnableHostServicesTCP {
-		return fmt.Errorf("%s must be at minimum one of [%s,%s]",
-			HostReachableServicesProtos, HostServicesTCP, HostServicesUDP)
-	}
-
 	allowedEndpointStatusValues := EndpointStatusValuesMap()
 	for enabledEndpointStatus := range c.EndpointStatus {
 		if _, ok := allowedEndpointStatusValues[enabledEndpointStatus]; !ok {
@@ -2810,7 +2791,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = vp.GetString(EgressMasqueradeInterfaces)
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
-	c.EnableSocketLB = vp.GetBool(EnableHostReachableServices) || vp.GetBool(EnableSocketLB)
+	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
@@ -3105,11 +3086,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
-	err = c.populateHostServicesProtos(vp)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to populate HostReachableServicesProtos")
-	}
-
 	monitorAggregationFlags := vp.GetStringSlice(MonitorAggregationFlags)
 	var ctMonitorReportFlags uint16
 	for i := 0; i < len(monitorAggregationFlags); i++ {
@@ -3375,32 +3351,6 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 		}
 	default:
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
-	}
-
-	return nil
-}
-
-func (c *DaemonConfig) populateHostServicesProtos(vp *viper.Viper) error {
-	hostServicesProtos := vp.GetStringSlice(HostReachableServicesProtos)
-	// When passed via configmap, we might not get a slice but single
-	// string instead, so split it if needed.
-	if len(hostServicesProtos) == 1 {
-		hostServicesProtos = strings.Split(hostServicesProtos[0], ",")
-	}
-	if len(hostServicesProtos) > 2 {
-		return fmt.Errorf("More than two protocols for host reachable services not supported: %s",
-			hostServicesProtos)
-	}
-	for i := 0; i < len(hostServicesProtos); i++ {
-		switch strings.ToLower(hostServicesProtos[i]) {
-		case HostServicesTCP:
-			c.EnableHostServicesTCP = true
-		case HostServicesUDP:
-			c.EnableHostServicesUDP = true
-		default:
-			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
-				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
-		}
 	}
 
 	return nil
@@ -3736,8 +3686,6 @@ func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 		c.EnableNodePort &&
 		c.EnableExternalIPs &&
 		c.EnableSocketLB &&
-		c.EnableHostServicesTCP &&
-		c.EnableHostServicesUDP &&
 		c.EnableSessionAffinity
 }
 
