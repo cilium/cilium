@@ -320,6 +320,13 @@ Removed Options
 
 * The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
   version 1.12 have been removed.
+* The ``host-reachable-services-protos`` option deprecated in version v1.12 has
+  been removed.
+* The ``probe`` option of ``kube-proxy-replacement`` deprecated in version v1.12
+  has been removed. Users of the ``probe`` option are advised either to use
+  ``strict`` or ``partial`` with individual options configured. Please refer to
+  :ref:`kubeproxy-free` for more info.
+
 
 Added Metrics
 ~~~~~~~~~~~~~
