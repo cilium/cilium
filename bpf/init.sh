@@ -18,17 +18,16 @@ HOST_DEV1=${11}
 HOST_DEV2=${12}
 MTU=${13}
 HOSTLB=${14}
-HOSTLB_UDP=${15}
-HOSTLB_PEER=${16}
-CGROUP_ROOT=${17}
-BPFFS_ROOT=${18}
-NODE_PORT=${19}
-NODE_PORT_BIND=${20}
-MCPU=${21}
-NR_CPUS=${22}
-ENDPOINT_ROUTES=${23}
-PROXY_RULE=${24}
-FILTER_PRIO=${25}
+HOSTLB_PEER=${15}
+CGROUP_ROOT=${16}
+BPFFS_ROOT=${17}
+NODE_PORT=${18}
+NODE_PORT_BIND=${19}
+MCPU=${20}
+NR_CPUS=${21}
+ENDPOINT_ROUTES=${22}
+PROXY_RULE=${23}
+FILTER_PRIO=${24}
 
 ID_HOST=1
 ID_WORLD=2
@@ -516,13 +515,8 @@ if [ "$HOSTLB" = "true" ]; then
 		else
 			bpf_clear_cgroups $CGROUP_ROOT bind6
 		fi
-		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg6
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg6
-		fi
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
@@ -539,13 +533,8 @@ if [ "$HOSTLB" = "true" ]; then
 		else
 			bpf_clear_cgroups $CGROUP_ROOT bind4
 		fi
-		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg4
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
-		fi
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 	fi
 
 	cilium bpf migrate-maps -e bpf_sock.o -r 0

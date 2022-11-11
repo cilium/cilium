@@ -280,15 +280,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 
 		features.HostReachableServices.Enabled = true
 
-		protocols := []string{}
-		if option.Config.EnableHostServicesTCP {
-			protocols = append(protocols, "TCP")
-		}
-		if option.Config.EnableHostServicesUDP {
-			protocols = append(protocols, "UDP")
-		}
-		features.HostReachableServices.Protocols = protocols
-
 		features.SocketLBTracing.Enabled = true
 	}
 	if option.Config.EnableSessionAffinity {

@@ -8,11 +8,8 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_HOST_SERVICES_TCP 1
 #undef ENABLE_HEALTH_CHECK
 #define ENABLE_SOCKET_LB_HOST_ONLY 1
-#define ENABLE_SOCKET_LB_TCP
-#define ENABLE_SOCKET_LB_UDP
 
 #define DST_PORT 6000
 #define DST_PORT_HOSTNS 6001
