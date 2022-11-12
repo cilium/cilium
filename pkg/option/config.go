@@ -3420,8 +3420,9 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 			c.PolicyMapEntries, PolicyMapMin)
 	}
 	if c.PolicyMapEntries > PolicyMapMax {
-		return fmt.Errorf("specified PolicyMap max entries %d must not exceed maximum %d",
+		log.Warnf("specified PolicyMap max entries %d must not exceed maximum %d, lowering it to the maximum value",
 			c.PolicyMapEntries, PolicyMapMax)
+		c.PolicyMapEntries = PolicyMapMax
 	}
 
 	if c.FragmentsMapEntries < FragmentsMapMin {
