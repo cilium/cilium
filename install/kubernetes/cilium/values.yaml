@@ -817,7 +817,7 @@ hubble:
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
     dashboards:
-      enabled: true
+      enabled: false
       label: grafana_dashboard
       namespace: ~
       labelValue: "1"
