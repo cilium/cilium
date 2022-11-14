@@ -321,6 +321,16 @@ Removed Options
 * The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
   version 1.12 have been removed.
 
+New Options
+~~~~~~~~~~~
+
+* ``per-node-identities``: This option enables allocation of security identity based on Node
+  labels instead of previously used ``reserved:remote-node``. The change might impact those who
+  are using ``remote-node-identities=true`` and have a network policy allowing access to the endpoints
+  using ``fromEntities: remote-node``. If this is the case then during the upgrade users will have to
+  specify new CNP/CCNP field ``fromNodes``/``toNodes`` together with ``fromEntities: remote-node``
+  until all nodes are upgraded.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
