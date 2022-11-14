@@ -69,6 +69,11 @@ const (
 
 	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
 	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNodeConfig (CNC)
+	CNCPluralName     = "ciliumnodeconfigs"
+	CNCKindDefinition = "CiliumNodeConfig"
+	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -118,6 +123,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumBGPPeeringPolicyList{},
 		&CiliumLoadBalancerIPPool{},
 		&CiliumLoadBalancerIPPoolList{},
+		&CiliumNodeConfig{},
+		&CiliumNodeConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
