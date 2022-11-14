@@ -422,7 +422,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	} else { // Found k8s pods
 		for _, pod := range k8sPods {
 			dst := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
+			kubectlArg := fmt.Sprintf("-c %s %s/%s:%s", ciliumAgentContainerName, k8sNamespace, pod, stateDir)
 			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
 			commands = append(commands, fmt.Sprintf("kubectl cp %s %s", kubectlArg, dst))
 			for _, cmd := range ciliumCommands {
