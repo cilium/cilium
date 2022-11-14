@@ -412,7 +412,8 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// correspond to remote nodes.
 	if !lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
 		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
-		lbls.MergeLabels(cidrLabels)
+		cidrLabels.MergeLabels(lbls)
+		lbls = cidrLabels
 	}
 
 	// This should only ever allocate an identity locally on the node,
