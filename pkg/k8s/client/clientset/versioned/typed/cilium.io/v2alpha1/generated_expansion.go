@@ -10,3 +10,5 @@ type CiliumBGPPeeringPolicyExpansion interface{}
 type CiliumEndpointSliceExpansion interface{}
 
 type CiliumLoadBalancerIPPoolExpansion interface{}
+
+type CiliumNodeConfigExpansion interface{}
