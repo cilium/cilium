@@ -1482,7 +1482,7 @@ endpoints:
 - https://clustermesh-apiserver.cilium.io:$CLUSTER_PORT
 EOF
 
-CILIUM_OPTS=" --join-cluster --enable-host-reachable-services --enable-endpoint-health-checking=false"
+CILIUM_OPTS=" --join-cluster --bpf-lb-sock --enable-endpoint-health-checking=false"
 CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml"
 if [ -n "$HOST_IP" ] ; then
     CILIUM_OPTS+=" --ipv4-node $HOST_IP"
