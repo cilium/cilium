@@ -57,23 +57,24 @@ for sensitive information.
 )
 
 var (
-	archive         bool
-	archiveType     string
-	k8s             bool
-	dumpPath        string
-	host            string
-	k8sNamespace    string
-	k8sLabel        string
-	execTimeout     time.Duration
-	configPath      string
-	dryRunMode      bool
-	enableMarkdown  bool
-	archivePrefix   string
-	getPProf        bool
-	envoyDump       bool
-	pprofPort       int
-	traceSeconds    int
-	parallelWorkers int
+	archive                  bool
+	archiveType              string
+	k8s                      bool
+	dumpPath                 string
+	host                     string
+	k8sNamespace             string
+	k8sLabel                 string
+	execTimeout              time.Duration
+	configPath               string
+	dryRunMode               bool
+	enableMarkdown           bool
+	archivePrefix            string
+	getPProf                 bool
+	envoyDump                bool
+	pprofPort                int
+	traceSeconds             int
+	parallelWorkers          int
+	ciliumAgentContainerName string
 )
 
 func init() {
@@ -100,6 +101,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
+	BugtoolRootCmd.Flags().StringVarP(&ciliumAgentContainerName, "cilium-agent-container-name", "", "cilium-agent", "Name of the Cilium Agent main container (when k8s-mode is true)")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {
@@ -294,7 +296,7 @@ func createDir(dbgDir string, newDir string) string {
 }
 
 func podPrefix(pod, cmd string) string {
-	return fmt.Sprintf("kubectl exec %s -n %s -- %s", pod, k8sNamespace, cmd)
+	return fmt.Sprintf("kubectl exec %s -c %s -n %s -- %s", pod, ciliumAgentContainerName, k8sNamespace, cmd)
 }
 
 func runAll(commands []string, cmdDir string, k8sPods []string) {
