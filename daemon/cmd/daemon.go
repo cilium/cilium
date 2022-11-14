@@ -614,6 +614,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
 	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
 	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
+	nodeMngr = nodeMngr.WithIdentityAllocator(d.identityAllocator)
 
 	proxy.Allocator = d.identityAllocator
 

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func Test(t *testing.T) {
@@ -37,6 +38,7 @@ var _ = check.Suite(&managerTestSuite{})
 type configMock struct {
 	Tunneling          bool
 	RemoteNodeIdentity bool
+	PerNodeIdentity    bool
 	NodeEncryption     bool
 	Encryption         bool
 }
@@ -47,6 +49,10 @@ func (c *configMock) TunnelingEnabled() bool {
 
 func (c *configMock) RemoteNodeIdentitiesEnabled() bool {
 	return c.RemoteNodeIdentity
+}
+
+func (c *configMock) PerNodeIdentitiesEnabled() bool {
+	return c.PerNodeIdentity
 }
 
 func (c *configMock) NodeEncryptionEnabled() bool {
@@ -594,6 +600,54 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("f00d::1")})
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Errorf("unexected ipcache interaction %+v", event)
+	default:
+	}
+}
+
+func (s *managerTestSuite) TestPerNodeIdentities(c *check.C) {
+	ipcacheMock := newIPcacheMock()
+	mngr, err := NewManager("test", newSignalNodeHandler(), &configMock{RemoteNodeIdentity: true, PerNodeIdentity: true}, nil, nil)
+
+	mngr = mngr.WithIPCache(ipcacheMock)
+	mngr = mngr.WithIdentityAllocator(testidentity.NewMockIdentityAllocator(nil))
+	c.Assert(err, check.IsNil)
+	defer mngr.Close()
+
+	n1 := nodeTypes.Node{
+		Name:    "node2",
+		Cluster: "c2",
+		IPAddresses: []nodeTypes.Address{
+			{Type: addressing.NodeCiliumInternalIP, IP: net.ParseIP("1.1.1.1")},
+			{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.0.2")},
+			{Type: addressing.NodeExternalIP, IP: net.ParseIP("f00d::1")},
+		},
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("1.1.1.1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 1.1.1.1")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("10.0.0.2")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP 10.0.0.2")
+	}
+
+	select {
+	case event := <-ipcacheMock.events:
+		c.Assert(event, checker.DeepEquals, nodeEvent{event: "upsert", ip: net.ParseIP("f00d::1")})
+	case <-time.After(5 * time.Second):
+		c.Errorf("timeout while waiting for ipcache upsert for IP f00d::1")
 	}
 
 	select {

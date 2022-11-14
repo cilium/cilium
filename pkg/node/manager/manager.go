@@ -63,6 +63,7 @@ type IPCache interface {
 type Configuration interface {
 	TunnelingEnabled() bool
 	RemoteNodeIdentitiesEnabled() bool
+	PerNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
 	EncryptionEnabled() bool
 }
@@ -147,6 +148,9 @@ type Manager struct {
 
 	// policyTriggerer triggers policy updates (recalculations).
 	policyTriggerer policyTriggerer
+
+	// identityAllocator is used to allocate identities for node labels
+	identityAllocator cache.IdentityAllocator
 }
 
 type selectorCacheUpdater interface {
@@ -249,6 +253,12 @@ func (m *Manager) WithPolicyTriggerer(pt policyTriggerer) *Manager {
 // WithIPCache sets the ipcache field in the Manager.
 func (m *Manager) WithIPCache(ipc IPCache) *Manager {
 	m.ipcache = ipc
+	return m
+}
+
+// WithIdentityAllocator sets the ipcache field in the Manager.
+func (m *Manager) WithIdentityAllocator(ia cache.IdentityAllocator) *Manager {
+	m.identityAllocator = ia
 	return m
 }
 
@@ -384,6 +394,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIdentity := n.Identity()
 	dpUpdate := true
 	nodeIP := n.GetNodeIP(false)
+	lbls := labels.Labels{}
 
 	remoteHostIdentity := identity.ReservedIdentityHost
 	if m.conf.RemoteNodeIdentitiesEnabled() {
@@ -391,7 +402,28 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		if nid != identity.IdentityUnknown && nid != identity.ReservedIdentityHost {
 			remoteHostIdentity = nid
 		} else if !n.IsLocal() {
-			remoteHostIdentity = identity.ReservedIdentityRemoteNode
+			if m.conf.PerNodeIdentitiesEnabled() {
+				ctx, cancel := context.WithTimeout(context.TODO(), option.Config.KVstoreConnectivityTimeout)
+				defer cancel()
+
+				if err := m.identityAllocator.WaitForInitialGlobalIdentities(ctx); err != nil {
+					log.Errorf("failed while waiting for initial global identities: %v", err)
+					return
+				}
+				lbls = labels.Map2Labels(n.Labels, "k8s")
+				id, _, err := m.identityAllocator.AllocateIdentity(ctx, lbls, true, identity.InvalidIdentity)
+				if err != nil {
+					log.Errorf("failed to allocate identity: %v", err)
+					return
+				}
+				if id == nil {
+					remoteHostIdentity = identity.ReservedIdentityRemoteNode
+				} else {
+					remoteHostIdentity = identity.NumericIdentity(id.ID.Uint32())
+				}
+			} else {
+				remoteHostIdentity = identity.ReservedIdentityRemoteNode
+			}
 		}
 	}
 
@@ -445,7 +477,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			Source: n.Source,
 		})
 		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-		m.upsertIntoIDMD(prefix, remoteHostIdentity, resource)
+		m.upsertIntoIDMD(prefix, remoteHostIdentity, lbls, resource)
 
 		// Upsert() will return true if the ipcache entry is owned by
 		// the source of the node update that triggered this node
@@ -557,11 +589,14 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
+func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, lbls labels.Labels, rid ipcacheTypes.ResourceID) {
 	if id == identity.ReservedIdentityHost {
 		m.ipcache.UpsertLabels(prefix, labels.LabelHost, source.Local, rid)
 	} else {
-		m.ipcache.UpsertLabels(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
+		if !m.conf.PerNodeIdentitiesEnabled() {
+			lbls = labels.LabelRemoteNode
+		}
+		m.ipcache.UpsertLabels(prefix, lbls, source.CustomResource, rid)
 	}
 }
 

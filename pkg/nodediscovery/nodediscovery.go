@@ -204,7 +204,8 @@ func (n *NodeDiscovery) StartDiscovery() {
 		}
 	}()
 
-	n.Manager.NodeUpdated(n.localNode)
+	// update the ipcache
+	go n.Manager.NodeUpdated(n.localNode)
 	close(n.localStateInitialized)
 
 	n.updateLocalNode()

@@ -27,6 +27,12 @@ func (f *Config) RemoteNodeIdentitiesEnabled() bool {
 	return true
 }
 
+// PerNodeIdentitiesEnabled returns true if the per-node identity feature
+// is enabled
+func (f *Config) PerNodeIdentitiesEnabled() bool {
+	return true
+}
+
 // EncryptionEnabled returns true if encryption is enabled
 func (f *Config) EncryptionEnabled() bool {
 	return true

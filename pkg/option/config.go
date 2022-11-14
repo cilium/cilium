@@ -894,6 +894,9 @@ const (
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity = "enable-remote-node-identity"
 
+	// EnablePerNodeIdentity enables use of the per-node identity
+	EnablePerNodeIdentity = "enable-per-node-identity"
+
 	// PolicyAuditModeArg argument enables policy audit mode.
 	PolicyAuditModeArg = "policy-audit-mode"
 
@@ -2030,6 +2033,9 @@ type DaemonConfig struct {
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
 
+	// EablePerNodeIdentity enables use of the per-node identity
+	EnablePerNodeIdentity bool
+
 	// Azure options
 
 	// PolicyAuditMode enables non-drop mode for installed policies. In
@@ -2448,6 +2454,12 @@ func (c *DaemonConfig) RemoteNodeIdentitiesEnabled() bool {
 	return c.EnableRemoteNodeIdentity
 }
 
+// PerNodeIdentitiesEnabled returns true if per-node identity feature
+// is enabled
+func (c *DaemonConfig) PerNodeIdentitiesEnabled() bool {
+	return c.EnablePerNodeIdentity
+}
+
 // NodeEncryptionEnabled returns true if node encryption is enabled
 func (c *DaemonConfig) NodeEncryptionEnabled() bool {
 	return c.EncryptNode
@@ -2801,6 +2813,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableSocketLB = vp.GetBool(EnableHostReachableServices) || vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
+	c.EnablePerNodeIdentity = vp.GetBool(EnablePerNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)

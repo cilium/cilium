@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "from-nodes"
+spec:
+  endpointSelector:
+    matchLabels:
+      {}
+  ingress:
+  - fromNodes:
+    - matchLabels:
+        cilium.io/ci-node: k8s1

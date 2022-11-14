@@ -264,6 +264,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
 	option.BindEnv(Vp, option.EnableRemoteNodeIdentity)
 
+	flags.Bool(option.EnablePerNodeIdentity, defaults.EnablePerNodeIdentity, "Enable use of remote node identity")
+	option.BindEnv(Vp, option.EnablePerNodeIdentity)
+
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
 	option.BindEnv(Vp, option.EncryptInterface)
 
