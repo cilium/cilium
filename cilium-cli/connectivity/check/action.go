@@ -146,11 +146,11 @@ func (a *Action) Run(f func(*Action)) {
 
 		// Start flow listener in the background.
 		go func() {
+			defer wg.Done()
 			if err := a.followFlows(ctx, ready); err != nil {
 				a.Fatalf("Receiving flows from Hubble Relay: %s", err)
 			}
 			a.Debug("Receiving flows from Hubble Relay gracefully closed down.")
-			wg.Done()
 		}()
 
 		// Wait for at least one Hubble node to signal that it's ready so we don't
