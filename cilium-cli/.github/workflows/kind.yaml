@@ -84,7 +84,7 @@ jobs:
 
       - name: Install Cilium with IPsec Encryption
         run: |
-          cilium install --version=${{ env.cilium_version}} --encryption=ipsec --kube-proxy-replacement=probe
+          cilium install --version=${{ env.cilium_version}} --encryption=ipsec --kube-proxy-replacement=disabled
 
       - name: Enable Relay
         run: |

@@ -76,7 +76,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().MarkDeprecated("cluster-id", "This can now be overridden via `helm-set` (Helm value: `cluster.id`).")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
 	// It can be deprecated since we have a helm option for it
-	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "disabled", "Enable/disable kube-proxy replacement { disabled | probe | strict }")
+	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "disabled", "Enable/disable kube-proxy replacement { disabled | partial | strict }")
 	cmd.Flags().MarkDeprecated("kube-proxy-replacement", "This can now be overridden via `helm-set` (Helm value: `kubeProxyReplacement`).")
 	cmd.Flags().BoolVar(&params.Wait, "wait", true, "Wait for status to report success (no errors)")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
