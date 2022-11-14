@@ -640,4 +640,13 @@ const (
 
 	// Expected is an expected value
 	Expected = "expected"
+
+	// ConfigSource is a configuration source (for process options, e.g. agent)
+	ConfigSource = "configSource"
+
+	// ConfigKey is a single key in a configuration source
+	ConfigKey = "configKey"
+
+	// ConfigAnnotation is an annotation on a node
+	ConfigAnnotation = "configAnnotation"
 )
