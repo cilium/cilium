@@ -3666,6 +3666,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get pods --all-namespaces -o json":                          "pods.json",
 		"kubectl get services --all-namespaces -o json":                      "svc.json",
 		"kubectl get nodes -o json":                                          "nodes.json",
+		"kubectl get cn -o json":                                             "ciliumnodes.json",
 		"kubectl get ds --all-namespaces -o json":                            "ds.json",
 		"kubectl get cnp --all-namespaces -o json":                           "cnp.json",
 		"kubectl get cep --all-namespaces -o json":                           "cep.json",
