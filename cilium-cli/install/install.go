@@ -789,31 +789,33 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 				k.Log("Cannot delete %s Namespace: %s", secretsNamespace, err)
 			}
 		})
+	}
 
-		for _, roleName := range []string{defaults.AgentSecretsRoleName, defaults.OperatorSecretsRoleName} {
-			r := k.NewRole(roleName)
-			if r == nil {
-				continue
-			}
+	for _, roleName := range []string{defaults.AgentSecretsRoleName, defaults.OperatorSecretsRoleName} {
+		rs := k.NewRole(roleName)
 
-			_, err = k.client.CreateRole(ctx, secretsNamespace, r, metav1.CreateOptions{})
+		for _, r := range rs {
+			_, err = k.client.CreateRole(ctx, r.GetNamespace(), r, metav1.CreateOptions{})
 			if err != nil {
 				return err
 			}
 
 			k.pushRollbackStep(func(ctx context.Context) {
-				if err := k.client.DeleteRole(ctx, secretsNamespace, r.GetName(), metav1.DeleteOptions{}); err != nil {
+				if err := k.client.DeleteRole(ctx, r.GetNamespace(), r.GetName(), metav1.DeleteOptions{}); err != nil {
 					k.Log("Cannot delete %s Role: %s", r.GetName(), err)
 				}
 			})
+		}
 
-			rb, err := k.client.CreateRoleBinding(ctx, secretsNamespace, k.NewRoleBinding(roleName), metav1.CreateOptions{})
+		rbs := k.NewRoleBinding(roleName)
+		for _, rb := range rbs {
+			rb, err := k.client.CreateRoleBinding(ctx, rb.GetNamespace(), rb, metav1.CreateOptions{})
 			if err != nil {
 				return err
 			}
 			k.pushRollbackStep(func(ctx context.Context) {
-				if err := k.client.DeleteRoleBinding(ctx, secretsNamespace, rb.GetName(), metav1.DeleteOptions{}); err != nil {
-					k.Log("Cannot delete %s RoleBinding: %s", rb.GetName(), err)
+				if err := k.client.DeleteRoleBinding(ctx, rb.GetNamespace(), rb.GetName(), metav1.DeleteOptions{}); err != nil {
+					k.Log("Cannot delete %s RoleBinding: %s/%s", rb.GetNamespace(), rb.GetName(), err)
 				}
 			})
 		}
