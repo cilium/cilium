@@ -18,5 +18,5 @@ sphinxcontrib-spelling==7.6.0
 sphinxcontrib-websupport==1.2.4
 
 # Linters
-rstcheck==3.3.1
+rstcheck==6.1.1
 yamllint==1.27.1
