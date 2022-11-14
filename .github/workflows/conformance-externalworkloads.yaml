@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   # 
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -289,6 +289,9 @@ jobs:
       - name: Install Cilium on VM
         run: |
           cilium clustermesh vm install install-external-workload.sh --config debug
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          cat install-external-workload.sh
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "~/install-external-workload.sh"
