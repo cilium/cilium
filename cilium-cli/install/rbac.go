@@ -100,7 +100,7 @@ func (k *K8sInstaller) NewClusterRoleBinding(crbName string) *rbacv1.ClusterRole
 	return &crb
 }
 
-func (k *K8sInstaller) NewRole(name string) *rbacv1.Role {
+func (k *K8sInstaller) NewRole(name string) []*rbacv1.Role {
 	var (
 		roleFileName string
 	)
@@ -120,12 +120,17 @@ func (k *K8sInstaller) NewRole(name string) *rbacv1.Role {
 		return nil
 	}
 
-	var cr rbacv1.Role
-	utils.MustUnmarshalYAML([]byte(rFile), &cr)
-	return &cr
+	roles := utils.MustUnmarshalYAMLMulti[*rbacv1.Role]([]byte(rFile))
+	out := []*rbacv1.Role{}
+	for _, role := range roles {
+		if role != nil {
+			out = append(out, role)
+		}
+	}
+	return out
 }
 
-func (k *K8sInstaller) NewRoleBinding(crbName string) *rbacv1.RoleBinding {
+func (k *K8sInstaller) NewRoleBinding(crbName string) []*rbacv1.RoleBinding {
 	var (
 		rbFileName string
 	)
@@ -144,7 +149,13 @@ func (k *K8sInstaller) NewRoleBinding(crbName string) *rbacv1.RoleBinding {
 	if !exists {
 		return nil
 	}
-	var crb rbacv1.RoleBinding
-	utils.MustUnmarshalYAML([]byte(rbFile), &crb)
-	return &crb
+
+	rbs := utils.MustUnmarshalYAMLMulti[*rbacv1.RoleBinding]([]byte(rbFile))
+	out := []*rbacv1.RoleBinding{}
+	for _, rb := range rbs {
+		if rb != nil {
+			out = append(out, rb)
+		}
+	}
+	return out
 }
