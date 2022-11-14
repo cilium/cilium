@@ -72,6 +72,9 @@ const (
 
 	// LBIPPoolCRDName is the full name of the BGPPool CRD.
 	LBIPPoolCRDName = k8sconstv2alpha1.PoolKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
+
+	// CNCCRDName is the full name of the CiliumNodeConfig CRD.
+	CNCCRDName = k8sconstv2alpha1.CNCKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 )
 
 var (
@@ -102,6 +105,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2.CECName):            createCECCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.BGPPName):     createBGPPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.LBIPPoolName): createLBIPPoolCRD,
+		synced.CRDResourceName(k8sconstv2alpha1.CNCName):      createCNCCRD,
 	}
 	for _, r := range synced.AllCRDResourceNames() {
 		fn, ok := resourceToCreateFnMapping[r]
@@ -155,6 +159,9 @@ var (
 
 	//go:embed crds/v2alpha1/ciliumloadbalancerippools.yaml
 	crdsv2Alpha1Ciliumloadbalancerippools []byte
+
+	//go:embed crds/v2alpha1/ciliumnodeconfigs.yaml
+	crdsv2Alpha1CiliumNodeConfigs []byte
 )
 
 // GetPregeneratedCRD returns the pregenerated CRD based on the requested CRD
@@ -196,6 +203,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsv2Alpha1Ciliumbgppeeringpolicies
 	case LBIPPoolCRDName:
 		crdBytes = crdsv2Alpha1Ciliumloadbalancerippools
+	case CNCCRDName:
+		crdBytes = crdsv2Alpha1CiliumNodeConfigs
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -366,6 +375,18 @@ func createLBIPPoolCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		LBIPPoolCRDName,
 		constructV1CRD(k8sconstv2alpha1.LBIPPoolName, ciliumCRD),
+		newDefaultPoller(),
+	)
+}
+
+// createCNCCRD creates and updates the CiliumNodeConfig CRD.
+func createCNCCRD(clientset apiextensionsclient.Interface) error {
+	ciliumCRD := GetPregeneratedCRD(CNCCRDName)
+
+	return createUpdateCRD(
+		clientset,
+		CNCCRDName,
+		constructV1CRD(k8sconstv2alpha1.CNCName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
