@@ -324,9 +324,6 @@ spec:
         - name: clustermesh-secrets
           mountPath: /var/lib/cilium/clustermesh
           readOnly: true
-        - name: cilium-config-path
-          mountPath: /tmp/cilium/config-map
-          readOnly: true
         {{- if .Values.ipMasqAgent.enabled }}
         - name: ip-masq-agent
           mountPath: /etc/config
@@ -362,6 +359,8 @@ spec:
           mountPath: /var/lib/cilium/tls/hubble
           readOnly: true
         {{- end }}
+        - name: tmp
+          mountPath: /tmp
         {{- range .Values.extraHostPathMounts }}
         - name: {{ .name }}
           mountPath: {{ .mountPath }}
@@ -403,6 +402,44 @@ spec:
       {{- toYaml .Values.extraContainers | nindent 6 }}
       {{- end }}
       initContainers:
+      - name: config
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+        - cilium
+        - build-config
+        {{- if (not (kindIs "invalid" .Values.daemon.configSources)) }}
+        - "--source={{.Values.daemon.configSources}}"
+        {{- end }}
+        {{- if (not (kindIs "invalid" .Values.daemon.allowedConfigOverrides)) }}
+        - "--allow-config-keys={{.Values.daemon.allowedConfigOverrides}}"
+        {{- end }}
+        {{- if (not (kindIs "invalid" .Values.daemon.blockedConfigOverrides)) }}
+        - "--deny-config-keys={{.Values.daemon.blockedConfigOverrides}}"
+        {{- end }}
+        env:
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: CILIUM_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.k8sServiceHost }}
+        - name: KUBERNETES_SERVICE_HOST
+          value: {{ .Values.k8sServiceHost | quote }}
+        {{- end }}
+        {{- if .Values.k8sServicePort }}
+        - name: KUBERNETES_SERVICE_PORT
+          value: {{ .Values.k8sServicePort | quote }}
+        {{- end }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        terminationMessagePolicy: FallbackToLogsOnError
       {{- if .Values.cgroup.autoMount.enabled }}
       # Required to mount cgroup2 filesystem on the underlying Kubernetes node.
       # We use nsenter command with host's cgroup and mount namespaces enabled.
@@ -670,6 +707,9 @@ spec:
       {{- end }}
       {{- end }}
       volumes:
+        # For sharing configuration between the "config" initContainer and the agent
+      - name: tmp
+        emptyDir: {}
         # To keep state between restarts / upgrades
       - name: cilium-run
         hostPath:
@@ -753,10 +793,6 @@ spec:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
           optional: true
-        # To read the configuration from the config map
-      - name: cilium-config-path
-        configMap:
-          name: cilium-config
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:
