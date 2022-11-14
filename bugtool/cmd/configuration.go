@@ -457,7 +457,7 @@ func k8sCommands(allCommands []string, pods []string) []string {
 				cmd = fmt.Sprintf("%s -H %s", cmd, host)
 			}
 
-			if !strings.Contains(cmd, "kubectl exec") {
+			if !strings.Contains(cmd, "kubectl exec") && !strings.Contains(cmd, "kubectl cp") {
 				cmd = podPrefix(pod, cmd)
 			}
 			commands = append(commands, cmd)
