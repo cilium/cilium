@@ -21,6 +21,10 @@ watermark is used to maintain a number of IP addresses to be available for use
 on nodes at all time without needing to contact the EC2 API when a new pod is
 scheduled in the cluster.
 
+Note that Cilium currently does not support IPv6-only ENIs. Cilium support for
+IPv6 ENIs is being tracked in :gh-issue:`18405`, and the related feature of
+assigning IPv6 prefixes in :gh-issue:`19251`.
+
 ************
 Architecture
 ************
