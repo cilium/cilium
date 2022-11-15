@@ -24,28 +24,4 @@ if [ -n "${sha256}" ]; then
   image_full="${image_full}@${sha256}"
 fi
 
-# shellcheck disable=SC2207
-used_by=($(git grep -l CILIUM_RUNTIME_IMAGE= images/*/Dockerfile))
-
-for i in "${used_by[@]}" ; do
-  sed -E "s#((CILIUM_RUNTIME|BASE)_IMAGE=)${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
-done
-
-# shellcheck disable=SC2207
-jenkins_used_by=($(git grep -l "${image}:" jenkinsfiles/))
-
-for i in "${jenkins_used_by[@]}" ; do
-  sed -E "s#\"${image}:.*\"#\"${image_full}\"#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
-done
-
-# shellcheck disable=SC2207
-github_used_by=($(git grep -l "${image}:" .github/workflows/))
-
-for i in "${github_used_by[@]}" ; do
-  sed -E "s#${image}:.*#${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
-done
-
-do_check="${CHECK:-false}"
-if [ "${do_check}" = "true" ] ; then
-    git diff --exit-code "${used_by[@]}"
-fi
+"${script_dir}/../runtime/update-cilium-runtime-image.sh" "${image_full}"

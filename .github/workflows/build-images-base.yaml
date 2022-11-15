@@ -52,6 +52,11 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Set-up git
+        run: |
+          git config user.name "Cilium Imagebot"
+          git config user.email "noreply@cilium.io"
+
       - name: Generating image tag for Cilium-Runtime
         id: runtime-tag
         run: |
@@ -112,6 +117,12 @@ jobs:
           path: image-digest
           retention-days: 1
 
+      - name: Update Runtime Image
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
+          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          git commit -sam "images: update cilium-{runtime,builder}"
+
       - name: Generating image tag for Cilium-Builder
         id: builder-tag
         run: |
@@ -171,6 +182,38 @@ jobs:
           name: image-digest cilium-builder
           path: image-digest
           retention-days: 1
+
+      - name: Update Runtime and Builder Images
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' || steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
+          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
+
+      - name: Commit changes by amending previous commit
+        # Run this step in case we have committed the cilium-runtime changes before
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
+          git commit --amend -sam "images: update cilium-{runtime,builder}"
+
+      - name: Commit changes
+        # Run this step in case we have NOT committed the cilium-runtime changes before
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' && steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
+          git commit -sam "images: update cilium-{runtime,builder}"
+
+      - name: Get token
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' || steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+        id: get_token
+        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76
+        with:
+          APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
+          APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
+
+      - name: Push changes into PR
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
+          git diff HEAD^
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.QUAY_ORGANIZATION }}/cilium.git HEAD:${{ github.event.pull_request.head.ref }}
 
   image-digests:
     name: Display Digests
