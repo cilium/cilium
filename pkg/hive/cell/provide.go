@@ -40,7 +40,7 @@ func (p *provider) Info(container) Info {
 		}
 
 		ctorNode := NewInfoNode(fmt.Sprintf("🚧%s %s", privateSymbol, internal.FuncNameAndLocation(ctor)))
-		ctorNode = ctorNode.Condensed()
+		ctorNode.condensed = true
 
 		var ins, outs []string
 		for _, input := range info.Inputs {
