@@ -274,7 +274,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		} else {
 			cDefinesMap["ENABLE_SOCKET_LB_FULL"] = "1"
 		}
-		if option.Config.EnableHostServicesPeer {
+		if option.Config.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
 		if option.Config.EnableSocketLBTracing {

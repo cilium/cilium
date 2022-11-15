@@ -17,8 +17,8 @@ NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
 MTU=${13}
-HOSTLB=${14}
-HOSTLB_PEER=${15}
+SOCKETLB=${14}
+SOCKETLB_PEER=${15}
 CGROUP_ROOT=${16}
 BPFFS_ROOT=${17}
 NODE_PORT=${18}
@@ -493,7 +493,7 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 done
 
-if [ "$HOSTLB" = "true" ]; then
+if [ "$SOCKETLB" = "true" ]; then
 	if [ "$IP6_HOST" != "<nil>" ]; then
 		echo 1 > "${PROCSYSNETDIR}/ipv6/conf/all/forwarding"
 	fi
@@ -502,7 +502,7 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS=""
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f "${PROCSYSNETDIR}/ipv6/conf/all/forwarding" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$HOSTLB_PEER" = "true" ]; then
+		if [ "$SOCKETLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
@@ -520,7 +520,7 @@ if [ "$HOSTLB" = "true" ]; then
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$HOSTLB_PEER" = "true" ]; then
+		if [ "$SOCKETLB_PEER" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
