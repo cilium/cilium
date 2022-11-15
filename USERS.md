@@ -415,6 +415,11 @@ Users (Alphabetically)
       L: https://sapian.com.co, https://arpagon.co/blog/k8s-edge
       Q: @arpagon
 
+    * N: Seznam.cz
+      D: Seznam.cz uses Cilium in multiple scenarios in on-prem DCs. At first as L4LB which loadbalances external traffic into k8s+openstack clusters then as CNI in multiple k8s and openstack clusters which are all connected in a clustermesh to enforce NetworkPolicies across pods/VMs.
+      U: L4LB, L3/4 CNPs+CCNPs, KPR, Hubble, HostPolicy, Direct-routing, IPv4+IPv6, ClusterMesh
+      Q: @oblazek
+
     * N: Simple
       D: Simple uses cilium as default CNI in Kubernetes clusters (AWS EKS) for both development and production environments.
       U: CNI, Network Policies, Hubble
