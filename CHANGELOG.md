@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.10.17
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fixed CCNP garbage collection (Backport PR #21811, Upstream PR #21394, @zuzzas)
+* Fixes a deadlock that can be exposed in high-churn clusters when Pods are deleted rapidly. (Backport PR #21811, Upstream PR #21771, @squeed)
+
+**Misc Changes:**
+* Add a section with distro-specific considerations (Backport PR #22074, Upstream PR #21064, @bmcustodio)
+* build(deps): bump actions/cache from 3.0.10 to 3.0.11 (#21729, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.0 to 3.0.1 (#21838, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.3.0 to 3.3.1 (#21784, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.0 to 3.1.1 (#21851, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.1.1 to 3.2.0 (#21692, @dependabot[bot])
+* build(deps): bump docker/login-action from 2.0.0 to 2.1.0 (#21691, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.0.0 to 2.1.0 (#21694, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.1.0 to 2.2.0 (#21756, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.2.0 to 2.2.1 (#21783, @dependabot[bot])
+* build(deps): bump docker/setup-qemu-action from 2.0.0 to 2.1.0 (#21693, @dependabot[bot])
+* build(deps): bump dorny/paths-filter from 2.10.2 to 2.11.1 (#21712, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.27 to 2.1.28 (#21782, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.28 to 2.1.29 (#21891, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.29 to 2.1.30 (#21971, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.30 to 2.1.32 (#22154, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.2.0 to 3.3.0 (#21839, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.0 to 3.3.1 (#22111, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.4 to 1.5.5 (#21407, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.5 to 1.6.0 (#21866, @dependabot[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.3 (v1.10) (#22173, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.16.15 docker digest to 5f6a466 (v1.10) (#22170, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 450e066 (v1.10) (#22171, @renovate[bot])
+* chore(deps): update module go to 1.16 (v1.10) (#22174, @renovate[bot])
+* Clarify in documentation that Azure CNI chaining is different from Azure CNI powered by Cilium. (Backport PR #22074, Upstream PR #21897, @wedaly)
+* docs: Remove `autoDirectNodeRoutes` where not needed (Backport PR #22074, Upstream PR #21831, @pchaigno)
+* docs: Update k8s NetworkPolicy descriptions (Backport PR #21811, Upstream PR #21670, @joestringer)
+
+**Other Changes:**
+* install: Update image digests for v1.10.16 (#21765, @qmonnet)
+
 ## v1.10.16
 
 Summary of Changes
