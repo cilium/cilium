@@ -26,24 +26,13 @@ jobs:
     timeout-minutes: 30
     environment: release-base-images
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        include:
-          - name: cilium-runtime
-            dockerfile: ./images/runtime/Dockerfile
-            context: ./images/runtime
-
-          - name: cilium-builder
-            dockerfile: ./images/builder/Dockerfile
-            context: ./images/builder
-      fail-fast: false
-
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -54,72 +43,132 @@ jobs:
         id: qemu
         uses: docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18
 
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
+
       - name: Checkout Source Code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Generating image tag
-        id: tag
+      - name: Generating image tag for Cilium-Runtime
+        id: runtime-tag
         run: |
-          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ${{ matrix.context }} | awk '{ print $3 }')"
+          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ./images/runtime | awk '{ print $3 }')"
 
-      - name: Checking if tag already exists
-        id: tag-in-repositories
+      - name: Checking if tag for Cilium-Runtime already exists
+        id: cilium-runtime-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{  steps.tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
             echo ::set-output name=exists::"true"
           else
             echo ::set-output name=exists::"false"
           fi
 
       - name: Login to quay.io
-        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
           password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD }}
 
-      - name: Release build ${{ matrix.name }}
-        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+      - name: Release build cilium-runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
-        id: docker_build_release
+        id: docker_build_release_runtime
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: ./images/runtime
+          file: ./images/runtime/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
-
-      - name: Sign Container Image
-        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+      - name: Sign Container Image Runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}@${{ steps.docker_build_release.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
-      - name: Image Release Digest
-        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+      - name: Image Release Digest Runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "## ${{ matrix.name }}" > image-digest/${{ matrix.name }}.txt
-          echo "" >> image-digest/${{ matrix.name }}.txt
-          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_release.outputs.digest }}\`" >> image-digest/${{ matrix.name }}.txt
-          echo "" >> image-digest/${{ matrix.name }}.txt
+          echo "## cilium-runtime" > image-digest/cilium-runtime.txt
+          echo "" >> image-digest/cilium-runtime.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/cilium-runtime.txt
+          echo "" >> image-digest/cilium-runtime.txt
 
-      - name: Upload artifact digests
-        if: ${{ steps.tag-in-repositories.outputs.exists == 'false' }}
+      - name: Upload artifact digests runtime
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: image-digest ${{ matrix.name }}
+          name: image-digest cilium-runtime
+          path: image-digest
+          retention-days: 1
+
+      - name: Generating image tag for Cilium-Builder
+        id: builder-tag
+        run: |
+          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ./images/builder | awk '{ print $3 }')"
+
+      - name: Checking if tag for Cilium-Builder already exists
+        id: cilium-builder-tag-in-repositories
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
+            echo ::set-output name=exists::"true"
+          else
+            echo ::set-output name=exists::"false"
+          fi
+
+      - name: Login to quay.io
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_BASE_RELEASE_USERNAME }}
+          password: ${{ secrets.QUAY_BASE_RELEASE_PASSWORD }}
+
+      - name: Release build cilium-builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5
+        id: docker_build_release_builder
+        with:
+          context: ./images/builder
+          file: ./images/builder/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+
+      - name: Sign Container Image Builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+
+      - name: Image Release Digest Builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        shell: bash
+        run: |
+          mkdir -p image-digest/
+          echo "## cilium-builder" > image-digest/cilium-builder.txt
+          echo "" >> image-digest/cilium-builder.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}\`" >> image-digest/cilium-builder.txt
+          echo "" >> image-digest/cilium-builder.txt
+
+      - name: Upload artifact digests builder
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        with:
+          name: image-digest cilium-builder
           path: image-digest
           retention-days: 1
 
