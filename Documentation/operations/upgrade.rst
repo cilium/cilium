@@ -321,6 +321,12 @@ Removed Options
 * The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
   version 1.12 have been removed.
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``force-local-policy-eval-at-source`` option is deprecated and will be
+  removed in 1.14.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
