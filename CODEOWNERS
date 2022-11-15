@@ -10,6 +10,8 @@
 * @cilium/tophat
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /api/ @cilium/api
+/images/builder/update-cilium-builder-image.sh @cilium/github-sec
+/images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /pkg/api/ @cilium/api
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/client @cilium/api
