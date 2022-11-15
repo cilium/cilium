@@ -1594,7 +1594,7 @@ type DaemonConfig struct {
 	DebugVerbose                  []string
 	EnableSocketLB                bool
 	EnableSocketLBTracing         bool
-	EnableHostServicesPeer        bool // TODO(brb) rename to SocketLBPeer
+	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnableUnreachableRoutes       bool

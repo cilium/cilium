@@ -51,8 +51,8 @@ const (
 	initArgHostDev1
 	initArgHostDev2
 	initArgMTU
-	initArgHostReachableServices
-	initArgHostReachableServicesPeer
+	initArgSocketLB
+	initArgSocketLBPeer
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
@@ -309,15 +309,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
 	if option.Config.EnableSocketLB {
-		args[initArgHostReachableServices] = "true"
-		if option.Config.EnableHostServicesPeer {
-			args[initArgHostReachableServicesPeer] = "true"
+		args[initArgSocketLB] = "true"
+		if option.Config.EnableSocketLBPeer {
+			args[initArgSocketLBPeer] = "true"
 		} else {
-			args[initArgHostReachableServicesPeer] = "false"
+			args[initArgSocketLBPeer] = "false"
 		}
 	} else {
-		args[initArgHostReachableServices] = "false"
-		args[initArgHostReachableServicesPeer] = "false"
+		args[initArgSocketLB] = "false"
+		args[initArgSocketLBPeer] = "false"
 	}
 
 	if len(option.Config.GetDevices()) != 0 {
