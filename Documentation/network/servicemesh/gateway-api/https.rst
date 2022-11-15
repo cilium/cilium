@@ -66,7 +66,7 @@ related HTTPRoutes.
     NAME          CLASS    ADDRESS         READY   AGE
     tls-gateway   cilium   10.104.247.23   True    29s
 
-    $ kubectl httproutes  https-app-route-1 https-app-route-2
+    $ kubectl get httproutes https-app-route-1 https-app-route-2
     NAME                HOSTNAMES                      AGE
     https-app-route-1   ["bookinfo.cilium.rocks"]      29s
     https-app-route-2   ["hipstershop.cilium.rocks"]   29s
