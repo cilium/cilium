@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -118,39 +117,30 @@ func (k RuleTranslator) generateToCidrFromEndpoint(
 	// known at that time, so the IPCache hasn't been informed about them.
 	// In this case, it's the job of this Translator to notify the IPCache.
 	if allocatePrefixes {
-		cidrs, err := endpoint.CIDRPrefixes()
-		if err != nil {
-			return nil, err
-		}
-		prefixes = make([]netip.Prefix, 0, len(cidrs))
-		for _, c := range cidrs {
-			prefixes = append(prefixes, ip.IPNetToPrefix(c))
-		}
+		prefixes = endpoint.Prefixes()
 	}
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
-	mask := net.CIDRMask(128, 128)
 	for addrCluster := range endpoint.Backends {
-		ipStr := addrCluster.Addr().String()
-
-		epIP := net.ParseIP(ipStr)
-		if epIP == nil {
-			return nil, fmt.Errorf("unable to parse ip: %s", ipStr)
-		}
+		epIP := addrCluster.Addr()
 
 		found := false
 		for _, c := range egress.ToCIDRSet {
-			_, cidr, err := net.ParseCIDR(string(c.Cidr))
+			prefix, err := netip.ParsePrefix(string(c.Cidr))
 			if err != nil {
 				return nil, err
 			}
-			if cidr.Contains(epIP) {
+			if prefix.Contains(epIP) {
 				found = true
 				break
 			}
 		}
 		if !found {
-			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
+			mask := 32
+			if epIP.Is6() {
+				mask = 128
+			}
+			cidr := netip.PrefixFrom(epIP, mask)
 			egress.ToCIDRSet = append(egress.ToCIDRSet, api.CIDRRule{
 				Cidr:      api.CIDR(cidr.String()),
 				Generated: true,
