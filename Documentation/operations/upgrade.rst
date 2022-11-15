@@ -334,6 +334,12 @@ Removed Options
   :ref:`kubeproxy-free` for more info.
 
 
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``force-local-policy-eval-at-source`` option is deprecated and will be
+  removed in 1.14.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
