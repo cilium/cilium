@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 )
 
 var (
@@ -51,6 +52,10 @@ var (
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
 		k8s.SharedResourcesCell,
+
+		// ServiceCache provides the 'Services' interface for accessing k8s services
+		// merged with the associated endpoints.
+		serviceCache.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
