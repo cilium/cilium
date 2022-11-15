@@ -288,8 +288,9 @@ func (h *Hive) PrintObjects() {
 	}
 
 	fmt.Printf("Cells:\n\n")
+	ip := cell.NewInfoPrinter()
 	for _, c := range h.cells {
-		c.Info(h.container).Print(2, os.Stdout)
+		c.Info(h.container).Print(2, ip)
 		fmt.Println()
 	}
 	h.lifecycle.PrintHooks()
