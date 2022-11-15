@@ -307,6 +307,24 @@ client.
     // will create or update the CRD and its validation schema as necessary. This
     // function only accepts v1 CRD objects, and defers to its v1beta1 variant if
 
+
+``pkg/k8s/watchers/watcher.go``
+
+Also, configure the watcher for this resource (or tell the agent not to watch it)
+
+.. code-block:: diff
+
+   diff --git a/pkg/k8s/watchers/watcher.go b/pkg/k8s/watchers/watcher.go
+   index eedf397b6b..8419eb90fd 100644
+   --- a/pkg/k8s/watchers/watcher.go
+   +++ b/pkg/k8s/watchers/watcher.go
+   @@ -398,6 +398,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
+         synced.CRDResourceName(v2.CECName):           {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
+         synced.CRDResourceName(v2alpha1.BGPPName):    {skip, ""}, // Handled in BGP control plane
+         synced.CRDResourceName(v2alpha1.BGPPoolName): {skip, ""}, // Handled in BGP control plane
+   +     synced.CRDResourceName(v2.CCOName):           {skip, ""}, // Handled by init directly
+
+
 Getting Your CRDs Installed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
