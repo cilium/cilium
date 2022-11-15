@@ -27,3 +27,4 @@ Security
    :glob:
 
    verify-image-signatures
+   sbom

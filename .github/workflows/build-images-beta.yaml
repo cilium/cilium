@@ -57,6 +57,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
@@ -111,6 +112,33 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Install Bom
+        shell: bash
+        run: |
+          curl -L https://github.com/kubernetes-sigs/bom/releases/download/v0.4.1/bom-linux-amd64 -o bom
+          sudo mv ./bom /usr/local/bin/bom
+          sudo chmod +x /usr/local/bin/bom
+
+      - name: Generate SBOM
+        shell: bash
+        run: |
+          bom generate -o sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx \
+          --dirs=. \
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${{ github.event.inputs.tag }}
+
+      - name: Attach SBOM to Container Image
+        run: |
+          cosign attach sbom --sbom sbom_${{ matrix.name }}_${{ github.event.inputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${{ steps.docker_build_release.outputs.digest }}
+
+      - name: Sign SBOM Image
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          docker_build_release_digest="${{ steps.docker_build_release.outputs.digest }}"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}:${docker_build_release_digest/:/-}.sbom"
+          docker_build_release_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
+          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-${{ github.event.inputs.suffix }}@${docker_build_release_sbom_digest}"
 
       - name: Image Release Digest
         shell: bash
