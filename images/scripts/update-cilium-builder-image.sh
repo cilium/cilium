@@ -24,14 +24,4 @@ if [ -n "${sha256}" ]; then
   image_full="${image_full}@${sha256}"
 fi
 
-# shellcheck disable=SC2207
-used_by=($(git grep -l CILIUM_BUILDER_IMAGE= images/*/Dockerfile) "test/k8s/manifests/demo-customcalls.yaml" "api/v1/Makefile")
-
-for i in "${used_by[@]}" ; do
-  sed -E "s#(CILIUM_BUILDER_IMAGE=|image: )${image}:.*\$#\1${image_full}#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
-done
-
-do_check="${CHECK:-false}"
-if [ "${do_check}" = "true" ] ; then
-    git diff --exit-code "${used_by[@]}"
-fi
+"${script_dir}/../builder/update-cilium-builder-image.sh" "${image_full}"
