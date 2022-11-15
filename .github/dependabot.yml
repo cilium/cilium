@@ -3,8 +3,11 @@ updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
-      interval: daily
-    open-pull-requests-limit: 5
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     ignore:
         # using a cilium-specific fork
@@ -22,6 +25,21 @@ updates:
     - kind/enhancement
     - release-note/misc
 
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 20
+    rebase-strategy: "disabled"
+    allow:
+        # cloud provider SDKs are updated too frequently, update them monthly.
+      - dependency-name: "github.com/aliyun/alibaba-cloud-sdk-go"
+      - dependency-name: "github.com/aws/*"
+      - dependency-name: "github.com/Azure/*"
+    labels:
+    - kind/enhancement
+    - release-note/misc
+
 # # # # # # # # # # # # # # # #
 #        GitHub Actions       #
 # # # # # # # # # # # # # # # #
@@ -29,8 +47,11 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
-    open-pull-requests-limit: 5
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -39,9 +60,12 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
     target-branch: "v1.12"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     labels:
       - kind/enhancement
@@ -50,9 +74,12 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
     target-branch: "v1.11"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -61,9 +88,12 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
     target-branch: "v1.10"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
@@ -76,8 +106,11 @@ updates:
   - package-ecosystem: pip
     directory: /Documentation/requirements-min/
     schedule:
-      interval: daily
-    open-pull-requests-limit: 5
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 20
     rebase-strategy: "disabled"
     labels:
     - kind/enhancement
