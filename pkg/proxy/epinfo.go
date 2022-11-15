@@ -37,6 +37,13 @@ var (
 	Allocator cache.IdentityAllocator
 )
 
+// SetEndpointLookuper sets the package-level endpointManager. This is only
+// intended for unit testing, hence no mutex to synchronize multiple callers /
+// writers.
+func SetEndpointLookuper(epl EndpointLookup) {
+	endpointManager = epl
+}
+
 // EndpointLookup is any type which maps from IP to the endpoint owning that IP.
 type EndpointLookup interface {
 	LookupIP(ip net.IP) (ep *endpoint.Endpoint)
