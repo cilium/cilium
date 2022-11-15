@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
@@ -119,21 +119,14 @@ func newEndpoints() *Endpoints {
 	}
 }
 
-// CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
-func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
-	prefixes := make([]string, len(e.Backends))
-	index := 0
+// Prefixes returns the endpoint's backends as a slice of netip.Prefix.
+func (e *Endpoints) Prefixes() []netip.Prefix {
+	prefixes := make([]netip.Prefix, 0, len(e.Backends))
 	for addrCluster := range e.Backends {
-		prefixes[index] = addrCluster.Addr().String()
-		index++
+		addr := addrCluster.Addr()
+		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
-
-	valid, invalid := ip.ParseCIDRs(prefixes)
-	if len(invalid) > 0 {
-		return nil, fmt.Errorf("invalid IPs specified as backends: %+v", invalid)
-	}
-
-	return valid, nil
+	return prefixes
 }
 
 // ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
