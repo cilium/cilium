@@ -274,15 +274,15 @@ func probeKubeProxyReplacementOptions() error {
 			}
 		}
 
-		option.Config.EnableHostServicesPeer = true
+		option.Config.EnableSocketLBPeer = true
 		if option.Config.EnableIPv4 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME); err != nil {
-				option.Config.EnableHostServicesPeer = false
+				option.Config.EnableSocketLBPeer = false
 			}
 		}
 		if option.Config.EnableIPv6 {
 			if err := bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME); err != nil {
-				option.Config.EnableHostServicesPeer = false
+				option.Config.EnableSocketLBPeer = false
 			}
 		}
 		if option.Config.EnableIPv4 {
