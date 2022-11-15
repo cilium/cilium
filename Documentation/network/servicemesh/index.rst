@@ -15,3 +15,4 @@ Service Mesh
 
    ingress
    l7-traffic-management
+   gateway-api/gateway-api
