@@ -225,7 +225,7 @@ type Runtime struct {
 
 	Transport http.RoundTripper
 	Jar       http.CookieJar
-	//Spec      *spec.Document
+	// Spec      *spec.Document
 	Host     string
 	BasePath string
 	Formats  strfmt.Registry
@@ -237,6 +237,7 @@ type Runtime struct {
 	clientOnce *sync.Once
 	client     *http.Client
 	schemes    []string
+	response   ClientResponseFunc
 }
 
 // New creates a new default runtime for a swagger api runtime.Client
@@ -275,6 +276,7 @@ func New(host, basePath string, schemes []string) *Runtime {
 
 	rt.Debug = logger.DebugEnabled()
 	rt.logger = logger.StandardLogger{}
+	rt.response = newResponse
 
 	if len(schemes) > 0 {
 		rt.schemes = schemes
@@ -329,6 +331,7 @@ func (r *Runtime) selectScheme(schemes []string) string {
 	}
 	return scheme
 }
+
 func transportOrDefault(left, right http.RoundTripper) http.RoundTripper {
 	if left == nil {
 		return right
@@ -381,7 +384,7 @@ func (r *Runtime) createHttpRequest(operation *runtime.ClientOperation) (*reques
 			return r.DefaultAuthentication.AuthenticateRequest(req, reg)
 		})
 	}
-	//if auth != nil {
+	// if auth != nil {
 	//	if err := auth.AuthenticateRequest(request, r.Formats); err != nil {
 	//		return nil, err
 	//	}
@@ -500,7 +503,7 @@ func (r *Runtime) Submit(operation *runtime.ClientOperation) (interface{}, error
 			return nil, fmt.Errorf("no consumer: %q", ct)
 		}
 	}
-	return readResponse.ReadResponse(response{res}, cons)
+	return readResponse.ReadResponse(r.response(res), cons)
 }
 
 // SetDebug changes the debug flag.
@@ -515,4 +518,14 @@ func (r *Runtime) SetDebug(debug bool) {
 func (r *Runtime) SetLogger(logger logger.Logger) {
 	r.logger = logger
 	middleware.Logger = logger
+}
+
+type ClientResponseFunc = func(*http.Response) runtime.ClientResponse
+
+// SetResponseReader changes the response reader implementation.
+func (r *Runtime) SetResponseReader(f ClientResponseFunc) {
+	if f == nil {
+		return
+	}
+	r.response = f
 }
