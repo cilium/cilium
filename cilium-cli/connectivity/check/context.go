@@ -55,6 +55,9 @@ type ConnectivityTest struct {
 	lastFlowTimestamps map[string]time.Time
 
 	nodesWithoutCilium []string
+
+	manifests      map[string]string
+	helmYAMLValues string
 }
 
 type PerfTests struct {
@@ -265,6 +268,14 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 func (ct *ConnectivityTest) Run(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+
+	if len(ct.params.DeleteCiliumOnNodes) > 0 {
+		// Delete Cilium pods so only the datapath plumbing remains
+		ct.Debug("Deleting Cilium pods from specified nodes")
+		if err := ct.deleteCiliumPods(ctx); err != nil {
+			return err
+		}
 	}
 
 	ct.Debug("Registered connectivity tests:")
@@ -578,7 +589,5 @@ func (ct *ConnectivityTest) K8sClient() *k8s.Client {
 }
 
 func (ct *ConnectivityTest) NodesWithoutCilium() []string {
-	out := make([]string, len(ct.nodesWithoutCilium))
-	copy(out, ct.nodesWithoutCilium)
-	return out
+	return ct.nodesWithoutCilium
 }

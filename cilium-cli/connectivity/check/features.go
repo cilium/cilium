@@ -343,3 +343,11 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 
 	return nil
 }
+
+func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
+	return ct.extractFeaturesFromNodes(ctx, ct.client, ct.features)
+}
+
+func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
+	ct.features[feature] = FeatureStatus{Enabled: false}
+}

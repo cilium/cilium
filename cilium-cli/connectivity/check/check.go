@@ -49,6 +49,12 @@ type Parameters struct {
 	DNSTestServerImage    string
 	Datapath              bool
 	AgentPodSelector      string
+
+	K8sVersion           string
+	HelmChartDirectory   string
+	HelmValuesSecretName string
+
+	DeleteCiliumOnNodes []string
 }
 
 func (p Parameters) ciliumEndpointTimeout() time.Duration {
