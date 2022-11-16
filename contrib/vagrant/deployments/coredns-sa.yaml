@@ -1,6 +1,7 @@
-# File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.23/cluster/addons/dns/coredns/coredns.yaml.base
----
+# File source with modifications to the coredns corefile
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.26/cluster/addons/dns/coredns/coredns.yaml.base
+# __MACHINE_GENERATED_WARNING__
+
 apiVersion: v1
 kind: ServiceAccount
 metadata:

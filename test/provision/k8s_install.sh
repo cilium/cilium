@@ -98,7 +98,7 @@ retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
 apt-key add apt-key.gpg
 
 case $K8S_VERSION in
-    "1.24" | "1.25")
+    "1.24" | "1.25" | "1.26")
         KUBEADM_CRI_SOCKET="unix:///run/containerd/containerd.sock"
         ;;
 esac
@@ -521,7 +521,7 @@ case $K8S_VERSION in
         API_SERVER_FEATURE_GATES="EndpointSlice=true,EndpointSliceTerminatingCondition=true"
         ;;
     "1.25")
-        # kubeadm 1.24 requires conntrack to be installed, we can remove this
+        # kubeadm <= 1.24 requires conntrack to be installed, we can remove this
         # once we have upgraded the VM image version.
         sudo apt-get install -y conntrack
         # We don't need to define dthe kubernetes CNI version once we have stable
@@ -536,6 +536,19 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
         API_SERVER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
         ;;
+    "1.26")
+        # kubeadm >= 1.24 requires conntrack to be installed, we can remove this
+        # once we have upgraded the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="1.1.1"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.26.0-rc.0"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri,swap"
+        KUBEADM_WORKER_OPTIONS="--config=/tmp/config.yaml"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA5}"
+        CONTROLLER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
+        API_SERVER_FEATURE_GATES="EndpointSliceTerminatingCondition=true"
 esac
 
 if [ "$KUBEPROXY" == "0" ]; then

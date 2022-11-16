@@ -9,6 +9,7 @@ import (
 	. "gopkg.in/check.v1"
 	core_v1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -18,6 +19,7 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1071,6 +1073,91 @@ func (s *K8sSuite) Test_ConvertToK8sV1LoadBalancerIngress(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sV1LoadBalancerIngress(tt.args.ings)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToNetworkV1IngressLoadBalancerIngress(c *C) {
+	type args struct {
+		ings []slim_corev1.LoadBalancerIngress
+	}
+	tests := []struct {
+		name string
+		args args
+		want []networkingv1.IngressLoadBalancerIngress
+	}{
+		{
+			name: "empty",
+			args: args{
+				ings: []slim_corev1.LoadBalancerIngress{},
+			},
+			want: []networkingv1.IngressLoadBalancerIngress{},
+		},
+		{
+			name: "non-empty",
+			args: args{
+				ings: []slim_corev1.LoadBalancerIngress{
+					{
+						IP: "1.1.1.1",
+					},
+				},
+			},
+			want: []networkingv1.IngressLoadBalancerIngress{
+				{
+					IP:    "1.1.1.1",
+					Ports: []networkingv1.IngressPortStatus{},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToNetworkV1IngressLoadBalancerIngress(tt.args.ings)
+		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
+	}
+}
+
+func (s *K8sSuite) Test_ConvertToSlimIngressLoadBalancerStatus(c *C) {
+	type args struct {
+		lbs *slim_corev1.LoadBalancerStatus
+	}
+	tests := []struct {
+		name string
+		args args
+		want *slim_networkingv1.IngressLoadBalancerStatus
+	}{
+		{
+			name: "empty",
+			args: args{
+				lbs: &slim_corev1.LoadBalancerStatus{},
+			},
+			want: &slim_networkingv1.IngressLoadBalancerStatus{
+				Ingress: []slim_networkingv1.IngressLoadBalancerIngress{},
+			},
+		},
+		{
+			name: "non-empty",
+			args: args{
+				lbs: &slim_corev1.LoadBalancerStatus{
+					Ingress: []slim_corev1.LoadBalancerIngress{
+						{
+							IP:    "1.1.1.1",
+							Ports: []slim_corev1.PortStatus{},
+						},
+					},
+				},
+			},
+			want: &slim_networkingv1.IngressLoadBalancerStatus{
+				Ingress: []slim_networkingv1.IngressLoadBalancerIngress{
+					{
+						IP:    "1.1.1.1",
+						Ports: []slim_networkingv1.IngressPortStatus{},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		got := ConvertToSlimIngressLoadBalancerStatus(tt.args.lbs)
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

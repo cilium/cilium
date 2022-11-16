@@ -5,6 +5,7 @@ package k8s
 
 import (
 	v1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/comparator"
@@ -399,6 +400,54 @@ func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngr
 		)
 	}
 	return lbIngs
+}
+
+func ConvertToNetworkV1IngressLoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngress) []networkingv1.IngressLoadBalancerIngress {
+	if slimLBIngs == nil {
+		return nil
+	}
+
+	ingLBIngs := make([]networkingv1.IngressLoadBalancerIngress, 0, len(slimLBIngs))
+	for _, lbIng := range slimLBIngs {
+		ports := make([]networkingv1.IngressPortStatus, 0, len(lbIng.Ports))
+		for _, port := range lbIng.Ports {
+			ports = append(ports, networkingv1.IngressPortStatus{
+				Port:     port.Port,
+				Protocol: v1.Protocol(port.Protocol),
+				Error:    port.Error,
+			})
+		}
+		ingLBIngs = append(ingLBIngs,
+			networkingv1.IngressLoadBalancerIngress{
+				IP:       lbIng.IP,
+				Hostname: lbIng.Hostname,
+				Ports:    ports,
+			})
+	}
+	return ingLBIngs
+}
+
+func ConvertToSlimIngressLoadBalancerStatus(slimLBStatus *slim_corev1.LoadBalancerStatus) *slim_networkingv1.IngressLoadBalancerStatus {
+	ingLBIngs := make([]slim_networkingv1.IngressLoadBalancerIngress, 0, len(slimLBStatus.Ingress))
+	for _, lbIng := range slimLBStatus.Ingress {
+		ports := make([]slim_networkingv1.IngressPortStatus, 0, len(lbIng.Ports))
+		for _, port := range lbIng.Ports {
+			ports = append(ports, slim_networkingv1.IngressPortStatus{
+				Port:     port.Port,
+				Protocol: slim_corev1.Protocol(port.Protocol),
+				Error:    port.Error,
+			})
+		}
+		ingLBIngs = append(ingLBIngs,
+			slim_networkingv1.IngressLoadBalancerIngress{
+				IP:       lbIng.IP,
+				Hostname: lbIng.Hostname,
+				Ports:    ports,
+			})
+	}
+	return &slim_networkingv1.IngressLoadBalancerStatus{
+		Ingress: ingLBIngs,
+	}
 }
 
 // ConvertToK8sService converts a *v1.Service into a

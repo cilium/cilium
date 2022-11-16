@@ -517,10 +517,10 @@ Minor version
    date with these changes.
 
 #  Update documentation files:
-   - Documentation/concepts/kubernetes/compatibility.rst
-   - Documentation/concepts/kubernetes/requirements.rst
    - Documentation/contributing/testing/e2e.rst
-   - Documentation/gettingstarted/istio.rst
+   - Documentation/network/istio.rst
+   - Documentation/network/kubernetes/compatibility.rst
+   - Documentation/network/kubernetes/requirements.rst
 
 #. Update the Kubernetes version with the newer version in ``test/Vagrantfile``,
    ``test/test_suite_test.go`` and ``test/vagrant-local-start.sh``.
@@ -559,7 +559,7 @@ Minor version
 #. Provision a new dev VM to check if the provisioning scripts work correctly
    with the new k8s version.
 
-#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.23.0-rc.0"``
+#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.27.0-rc.0"``
 
 #. Submit all your changes into a new PR.
 

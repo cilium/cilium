@@ -368,7 +368,7 @@ type PodStatus struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	ContainerStatuses []ContainerStatus `json:"statuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
+	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 
 	// The Quality of Service (QOS) classification assigned to the pod based on resource requirements
 	// See PodQOSClass type for available QOS classes
