@@ -88,7 +88,8 @@ static __always_inline struct endpoint_info *mock__lookup_ip4_endpoint(__maybe_u
 	return NULL;
 }
 
-static __always_inline struct remote_endpoint_info *mock_lookup_ip4_remote_endpoint(__maybe_unused __u32 ip)
+static __always_inline struct remote_endpoint_info *
+mock_lookup_ip4_remote_endpoint(__maybe_unused __u32 ip, __maybe_unused __u8 cluster_id)
 {
 	return NULL;
 }

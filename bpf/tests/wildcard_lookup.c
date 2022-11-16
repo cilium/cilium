@@ -123,7 +123,7 @@ int test_v4_check(__maybe_unused struct xdp_md *ctx)
 	test_init();
 
 	TEST("setup", {
-		info = ipcache_lookup4(&IPCACHE_MAP, bpf_htonl(HOST_IP), V4_CACHE_KEY_LEN);
+		info = ipcache_lookup4(&IPCACHE_MAP, bpf_htonl(HOST_IP), V4_CACHE_KEY_LEN, 0);
 		assert(info);
 	});
 
@@ -348,7 +348,7 @@ int test_v6_check(__maybe_unused struct xdp_md *ctx)
 	test_init();
 
 	TEST("setup", {
-		info = ipcache_lookup6(&IPCACHE_MAP, &HOST_IP6, V6_CACHE_KEY_LEN);
+		info = ipcache_lookup6(&IPCACHE_MAP, &HOST_IP6, V6_CACHE_KEY_LEN, 0);
 		assert(info);
 	});
 

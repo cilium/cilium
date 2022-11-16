@@ -620,7 +620,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
 	local_ep = __lookup_ip4_endpoint(ip4->saddr);
-	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr);
+	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.

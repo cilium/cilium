@@ -54,7 +54,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve destination identity. */
-	info = lookup_ip6_remote_endpoint(&orig_dip);
+	info = lookup_ip6_remote_endpoint(&orig_dip, 0);
 	if (info && info->sec_label)
 		dst_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -110,7 +110,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 
 	/* Retrieve destination identity. */
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-	info = lookup_ip6_remote_endpoint(&tuple.daddr);
+	info = lookup_ip6_remote_endpoint(&tuple.daddr, 0);
 	if (info && info->sec_label)
 		dst_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -136,7 +136,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
-	info = lookup_ip6_remote_endpoint(&orig_sip);
+	info = lookup_ip6_remote_endpoint(&orig_sip, 0);
 	if (info && info->sec_label)
 		*src_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -272,7 +272,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve destination identity. */
-	info = lookup_ip4_remote_endpoint(ip4->daddr);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (info && info->sec_label)
 		dst_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
@@ -327,7 +327,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 		return DROP_INVALID;
 
 	/* Retrieve destination identity. */
-	info = lookup_ip4_remote_endpoint(ip4->daddr);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (info && info->sec_label)
 		dst_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
@@ -356,7 +356,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
-	info = lookup_ip4_remote_endpoint(ip4->saddr);
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 	if (info && info->sec_label)
 		*src_id = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,

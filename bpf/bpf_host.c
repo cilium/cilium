@@ -123,7 +123,7 @@ ipcache_lookup_srcid6(struct __ctx_buff *ctx)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	info = lookup_ip6_remote_endpoint((union v6addr *) &ip6->saddr);
+	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 	if (info != NULL)
 		srcid = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -159,7 +159,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		src = (union v6addr *) &ip6->saddr;
-		info = lookup_ip6_remote_endpoint(src);
+		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info != NULL && info->sec_label)
 			srcid_from_ipcache = info->sec_label;
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -293,7 +293,7 @@ skip_host_firewall:
 
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
@@ -320,7 +320,7 @@ skip_host_firewall:
 #endif
 
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
@@ -422,7 +422,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr);
+		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
 			*sec_label = info->sec_label;
 
@@ -595,7 +595,7 @@ skip_vtep:
 #endif
 
 #ifdef TUNNEL_MODE
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      info->key, secctx, info->sec_label,
@@ -614,7 +614,7 @@ skip_vtep:
 	}
 #endif
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
@@ -968,7 +968,7 @@ handle_srv6(struct __ctx_buff *ctx)
 			return DROP_MISSED_TAIL_CALL;
 		}
 
-		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 		if (ep) {
 			dst_id = ep->sec_label;
 		} else {
@@ -1001,7 +1001,7 @@ handle_srv6(struct __ctx_buff *ctx)
 			return DROP_MISSED_TAIL_CALL;
 		}
 
-		ep = lookup_ip4_remote_endpoint(ip4->daddr);
+		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (ep) {
 			dst_id = ep->sec_label;
 		} else {
