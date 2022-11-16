@@ -26,8 +26,7 @@ type Interface interface {
 	NetworkingV1() networkingv1.NetworkingV1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	coreV1           *corev1.CoreV1Client
