@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -284,6 +285,15 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 // IPCache will not take into account the source of the identity and bypasses
 // the overwrite logic! Once GH-18301 is addressed, there will be no need for
 // any force logic.
+//
+// The ip argument is a string, and the format is one of
+// - Prefix (e.g., 10.0.0.0/24)
+// - Host IP (e.g., 10.0.0.1)
+// - Prefix with ClusterID (e.g., 10.0.0.0/24@1)
+// - Host IP with ClusterID (e.g., 10.0.0.1@1)
+//
+// The formats with ClusterID are only used by Cluster Mesh for overlapping IP
+// range support which identifies prefix or host IPs using prefix/ip + ClusterID.
 func (ipc *IPCache) upsertLocked(
 	ip string,
 	hostIP net.IP,
@@ -313,7 +323,7 @@ func (ipc *IPCache) upsertLocked(
 		}
 	}
 
-	var cidr *net.IPNet
+	var cidrCluster cmtypes.PrefixCluster
 	var oldIdentity *Identity
 	var hostID uint16
 	callbackListeners := true
@@ -356,29 +366,28 @@ func (ipc *IPCache) upsertLocked(
 	// Endpoint IP identities take precedence over CIDR identities, so if the
 	// IP is a full CIDR prefix and there's an existing equivalent endpoint IP,
 	// don't notify the listeners.
-	if _, cidr, err = net.ParseCIDR(ip); err == nil {
-		ones, bits := cidr.Mask.Size()
-		if ones == bits {
-			if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
+	if cidrCluster, err = cmtypes.ParsePrefixCluster(ip); err == nil {
+		if cidrCluster.IsSingleIP() {
+			if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
 				scopedLog.Debug("Ignoring CIDR to identity mapping as it is shadowed by an endpoint IP")
 				// Skip calling back the listeners, since the endpoint IP has
 				// precedence over the new CIDR.
 				newIdentity.shadowed = true
 			}
 		}
-	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
-		cidr = endpointIPToCIDR(endpointIP)
+	} else if addrCluster, err := cmtypes.ParseAddrCluster(ip); err == nil { // Endpoint IP or Endpoint IP with ClusterID
+		cidrCluster = addrCluster.AsPrefixCluster()
 
 		// Check whether the upserted endpoint IP will shadow that CIDR, and
 		// replace its mapping with the listeners if that was the case.
 		if !found {
-			cidrStr := cidr.String()
-			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
-				oldHostIP, _ = ipc.getHostIPCache(cidrStr)
+			cidrClusterStr := cidrCluster.String()
+			if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
+				oldHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
 				if cidrIdentity.ID != newIdentity.ID || !oldHostIP.Equal(hostIP) {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
 					cidrIdentity.shadowed = true
-					ipc.ipToIdentityCache[cidrStr] = cidrIdentity
+					ipc.ipToIdentityCache[cidrClusterStr] = cidrIdentity
 					oldIdentity = &cidrIdentity
 				} else {
 					// The endpoint IP and the CIDR are associated with the
@@ -390,9 +399,9 @@ func (ipc *IPCache) upsertLocked(
 		}
 	} else {
 		log.WithFields(logrus.Fields{
-			logfields.IPAddr:   ip,
-			logfields.Identity: newIdentity,
-			logfields.Key:      hostKey,
+			logfields.AddrCluster: ip,
+			logfields.Identity:    newIdentity,
+			logfields.Key:         hostKey,
 		}).Error("Attempt to upsert invalid IP into ipcache layer")
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeUpsert, metricErrorInvalid,
@@ -458,7 +467,7 @@ func (ipc *IPCache) upsertLocked(
 
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, hostID, k8sMeta)
+			listener.OnIPIdentityCacheChange(Upsert, cidrCluster, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, hostID, k8sMeta)
 		}
 	}
 
@@ -541,16 +550,16 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 		}
 		hostIP, encryptKey := ipc.getHostIPCache(ip)
 		k8sMeta := ipc.getK8sMetadata(ip)
-		_, cidr, err := net.ParseCIDR(ip)
+		cidrCluster, err := cmtypes.ParsePrefixCluster(ip)
 		if err != nil {
-			endpointIP := net.ParseIP(ip)
-			cidr = endpointIPToCIDR(endpointIP)
+			addrCluster := cmtypes.MustParseAddrCluster(ip)
+			cidrCluster = addrCluster.AsPrefixCluster()
 		}
 		nodeID := uint16(0)
 		if hostIP != nil {
 			nodeID = ipc.AllocateNodeID(hostIP)
 		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
+		listener.OnIPIdentityCacheChange(Upsert, cidrCluster, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
 	}
 }
 
@@ -579,7 +588,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		return false
 	}
 
-	var cidr *net.IPNet
+	var cidrCluster cmtypes.PrefixCluster
 	cacheModification := Delete
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.getK8sMetadata(ip)
@@ -590,28 +599,28 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	var nodeID uint16
 
 	var err error
-	if _, cidr, err = net.ParseCIDR(ip); err == nil {
+	if cidrCluster, err = cmtypes.ParsePrefixCluster(ip); err == nil {
 		// Check whether the deleted CIDR was shadowed by an endpoint IP. In
 		// this case, skip calling back the listeners since they don't know
 		// about its mapping.
-		if _, endpointIPFound := ipc.ipToIdentityCache[cidr.IP.String()]; endpointIPFound {
+		if _, endpointIPFound := ipc.ipToIdentityCache[cidrCluster.AddrCluster().String()]; endpointIPFound {
 			scopedLog.Debug("Deleting CIDR shadowed by endpoint IP")
 			callbackListeners = false
 		}
-	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
+	} else if addrCluster, err := cmtypes.ParseAddrCluster(ip); err == nil { // Endpoint IP or Endpoint IP with ClusterID
 		// Convert the endpoint IP into an equivalent full CIDR.
-		cidr = endpointIPToCIDR(endpointIP)
+		cidrCluster = addrCluster.AsPrefixCluster()
 
 		// Check whether the deleted endpoint IP was shadowing that CIDR, and
 		// restore its mapping with the listeners if that was the case.
-		cidrStr := cidr.String()
-		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrStr]; cidrFound {
-			newHostIP, _ = ipc.getHostIPCache(cidrStr)
+		cidrClusterStr := cidrCluster.String()
+		if cidrIdentity, cidrFound := ipc.ipToIdentityCache[cidrClusterStr]; cidrFound {
+			newHostIP, _ = ipc.getHostIPCache(cidrClusterStr)
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
 				cidrIdentity.shadowed = false
-				ipc.ipToIdentityCache[cidrStr] = cidrIdentity
+				ipc.ipToIdentityCache[cidrClusterStr] = cidrIdentity
 				oldIdentity = &cachedIdentity
 				newIdentity = cidrIdentity
 			} else {
@@ -650,7 +659,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
+			listener.OnIPIdentityCacheChange(cacheModification, cidrCluster, oldHostIP, newHostIP,
 				oldIdentity, newIdentity, encryptKey, nodeID, oldK8sMeta)
 		}
 	}

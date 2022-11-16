@@ -14,6 +14,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -564,12 +565,12 @@ func newDummyListener(ipc *IPCache) *dummyListener {
 }
 
 func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
-	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *Identity,
+	cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP, oldID *Identity,
 	newID Identity, encryptKey uint8, _ uint16, k8sMeta *K8sMetadata) {
 
 	switch modType {
 	case Upsert:
-		dl.entries[cidr.String()] = newID.ID
+		dl.entries[cidrCluster.String()] = newID.ID
 	default:
 		// Ignore, for simplicity we just clear the cache every time
 	}
