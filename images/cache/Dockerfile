@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.2
+# syntax=quay.io/cilium/dockerfile:1.2
 
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
