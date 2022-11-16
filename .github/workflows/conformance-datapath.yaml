@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -195,6 +195,7 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
+            --helm-set=hubble.eventBufferCapacity=65535 \
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 --kube-proxy-replacement=strict --helm-set-string="k8sServiceHost=kind-control-plane,k8sServicePort=6443"
@@ -213,7 +214,7 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance-${{ matrix.kernel }}
+            ./cilium-cli sysdump --hubble-flows-count 1000000 --hubble-flows-timeout 20m --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance-${{ matrix.kernel }}
 
       - name: Upload artifacts
         if: ${{ !success() }}
