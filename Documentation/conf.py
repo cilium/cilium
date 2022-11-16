@@ -100,8 +100,10 @@ relinfo = semver.parse_version_info(release)
 current_release = '%d.%d' % (relinfo.major, relinfo.minor)
 if relinfo.patch == 90:
     next_release = '%d.%d' % (relinfo.major, relinfo.minor + 1)
+    prev_release = current_release
 else:
     next_release = current_release
+    prev_release = '%d.%d' % (relinfo.major, relinfo.minor - 1)
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + current_release
@@ -139,6 +141,7 @@ extlinks = {
     'github-project': (project_link + '%s', None),
     'github-backport': (backport_format, None),
     'gh-issue': (github_repo + 'issues/%s', 'GitHub issue %s'),
+    'prev-docs': (versionwarning_api_url + language + '/v' + prev_release + '/%s', None),
 }
 
 # List of patterns, relative to source directory, that match files and
