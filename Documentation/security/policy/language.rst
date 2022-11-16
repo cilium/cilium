@@ -407,6 +407,22 @@ in the cluster that Cilium is running on.
 
         .. literalinclude:: ../../../examples/policies/l3/entities/nodes.json
 
+Access to/from custom nodes in the cluster
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Allow all endpoints with the label ``env=dev`` to receive traffic from nodes with
+a label ``node=worker``.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/from_nodes.yaml
+     .. group-tab:: JSON
+
+        .. literalinclude:: ../../../examples/policies/l3/entities/from_nodes.json
+
 Access to/from outside cluster
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

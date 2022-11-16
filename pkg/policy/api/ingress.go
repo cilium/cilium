@@ -72,6 +72,9 @@ type IngressCommonRule struct {
 	// +kubebuilder:validation:Optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	FromNodes []EndpointSelector `json:"fromNodes,omitempty"`
+
 	// TODO: Move this to the policy package
 	// (https://github.com/cilium/cilium/issues/8353)
 	aggregatedSelectors EndpointSelectorSlice `json:"-"`
@@ -198,6 +201,7 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 		}
 	} else {
 		res = append(res, i.FromEndpoints...)
+		res = append(res, i.FromNodes...)
 	}
 
 	return append(res, i.aggregatedSelectors...)

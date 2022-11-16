@@ -1,0 +1,9 @@
+[{
+    "labels": [{"key": "name", "value": "to-dev-from-worker-nodes"}],
+    "endpointSelector": {"matchLabels": {"env":"dev"}},
+    "ingress": [{
+        "fromNodes": [
+            {"matchLabels": {"role": "worker"}}
+        ]
+    }]
+}]

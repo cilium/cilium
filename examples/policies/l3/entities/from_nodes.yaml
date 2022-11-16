@@ -1,0 +1,12 @@
+apiversion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "to-dev-from-worker-nodes"
+spec:
+  endpointSelector:
+    matchLabels:
+      env: dev
+  ingress:
+    - fromNodes:
+      - matchLabels:
+          role: worker
