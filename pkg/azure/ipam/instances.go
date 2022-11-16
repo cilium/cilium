@@ -46,6 +46,13 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.Nod
 	return &Node{manager: m, node: n}
 }
 
+// HasInstance returns whether the instance is in instances
+func (m *InstancesManager) HasInstance(instanceID string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.instances.Exists(instanceID)
+}
+
 // GetPoolQuota returns the number of available IPs in all IP pools
 func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
 	m.mutex.RLock()
@@ -90,4 +97,11 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	m.mutex.Unlock()
 
 	return resyncStart
+}
+
+// DeleteInstance delete instance from m.instances
+func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.instances.Delete(instanceID)
 }

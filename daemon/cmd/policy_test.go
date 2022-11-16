@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -41,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 var (
@@ -203,7 +203,7 @@ func (ds *DaemonSuite) prepareEndpoint(c *C, identity *identity.Identity, qa boo
 	if qa {
 		testEndpointID = testQAEndpointID
 	}
-	e := endpoint.NewEndpointWithState(ds.d, ds.d, ipcache.NewIPCache(nil), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
+	e := endpoint.NewEndpointWithState(ds.d, ds.d, testipcache.NewMockIPCache(), ds.d.l7Proxy, ds.d.identityAllocator, testEndpointID, endpoint.StateWaitingForIdentity)
 	if qa {
 		e.IPv6 = QAIPv6Addr
 		e.IPv4 = QAIPv4Addr
@@ -1295,7 +1295,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		rules, policyImportErr := args.cnp.Parse()
 		c.Assert(policyImportErr, checker.DeepEquals, want.err)
 
-		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache, ipcache.NewIPCache(nil))
+		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache)
 		c.Assert(policyImportErr, IsNil)
 
 		// Only add policies if we have successfully parsed them. Otherwise, if

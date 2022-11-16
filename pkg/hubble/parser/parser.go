@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/parser/seven"
+	"github.com/cilium/cilium/pkg/hubble/parser/sock"
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -26,9 +27,10 @@ import (
 
 // Parser for all flows
 type Parser struct {
-	l34 *threefour.Parser
-	l7  *seven.Parser
-	dbg *debug.Parser
+	l34  *threefour.Parser
+	l7   *seven.Parser
+	dbg  *debug.Parser
+	sock *sock.Parser
 }
 
 // New creates a new parser
@@ -40,6 +42,7 @@ func New(
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
 	linkGetter getters.LinkGetter,
+	cgroupGetter getters.PodMetadataGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 
@@ -58,10 +61,16 @@ func New(
 		return nil, err
 	}
 
+	sock, err := sock.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Parser{
-		l34: l34,
-		l7:  l7,
-		dbg: dbg,
+		l34:  l34,
+		l7:   l7,
+		dbg:  dbg,
+		sock: sock,
 	}, nil
 }
 
@@ -95,21 +104,28 @@ func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, er
 	case *observerTypes.PerfEvent:
 		if len(payload.Data) == 0 {
 			return nil, errors.ErrEmptyData
-		} else if payload.Data[0] == monitorAPI.MessageTypeDebug {
-			// Debug is currently the only perf ring buffer event without any
-			// associated captured network packet header, so we treat it as
-			// a special case
+		}
+
+		flow := &pb.Flow{}
+		switch payload.Data[0] {
+		case monitorAPI.MessageTypeDebug:
+			// Debug and TraceSock are both perf ring buffer events without any
+			// associated captured network packet header, so we treat them
+			// separately
 			dbg, err := p.dbg.Decode(payload.Data, payload.CPU)
 			if err != nil {
 				return nil, err
 			}
 			ev.Event = dbg
 			return ev, nil
-		}
-
-		flow := &pb.Flow{}
-		if err := p.l34.Decode(payload.Data, flow); err != nil {
-			return nil, err
+		case monitorAPI.MessageTypeTraceSock:
+			if err := p.sock.Decode(payload.Data, flow); err != nil {
+				return nil, err
+			}
+		default:
+			if err := p.l34.Decode(payload.Data, flow); err != nil {
+				return nil, err
+			}
 		}
 		// FIXME: Time and NodeName are now part of GetFlowsResponse. We
 		// populate these fields for compatibility with old clients.

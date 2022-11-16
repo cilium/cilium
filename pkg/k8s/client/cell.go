@@ -420,6 +420,8 @@ type FakeClientset struct {
 	clientsetGetters
 
 	SlimFakeClientset *SlimFakeClientset
+
+	enabled bool
 }
 
 var _ Clientset = &FakeClientset{}
@@ -450,6 +452,7 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
+		enabled:                 true,
 	}
 	client.clientsetGetters = clientsetGetters{&client}
 	return &client, &client

@@ -10,6 +10,7 @@ package daemon
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
@@ -41,6 +42,8 @@ type ClientService interface {
 	GetMap(params *GetMapParams) (*GetMapOK, error)
 
 	GetMapName(params *GetMapNameParams) (*GetMapNameOK, error)
+
+	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error)
 
 	PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error)
 
@@ -255,6 +258,40 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetMapName: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+GetMapNameEvents retrieves the recent event logs associated with this endpoint
+*/
+func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetMapNameEventsParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetMapNameEvents",
+		Method:             "GET",
+		PathPattern:        "/map/{name}/events",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetMapNameEventsReader{formats: a.formats, writer: writer},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*GetMapNameEventsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetMapNameEvents: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

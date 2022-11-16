@@ -6,10 +6,12 @@ package recorder
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -70,7 +72,7 @@ func (k *CaptureWcard6) ToHost() RecorderKey {
 }
 
 func (k *CaptureWcard6) Map() *bpf.Map {
-	return &CaptureMap6.Map
+	return &CaptureMap6().Map
 }
 
 func (v *CaptureRule6) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -96,15 +98,25 @@ func (v *CaptureRule6) String() string {
 	return sb.String()
 }
 
-var CaptureMap6 = &Map{
-	Map: *bpf.NewMap(
-		MapNameWcard6,
-		bpf.MapTypeHash,
-		&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
-		&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
-		MapSize,
-		bpf.BPF_F_NO_PREALLOC, 0,
-		bpf.ConvertKeyValue,
-	).WithCache(),
-	v4: false,
+var (
+	captureMap6         *Map
+	captureMap6InitOnce sync.Once
+)
+
+func CaptureMap6() *Map {
+	captureMap6InitOnce.Do(func() {
+		captureMap6 = &Map{
+			Map: *bpf.NewMap(
+				MapNameWcard6,
+				bpf.MapTypeHash,
+				&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
+				&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
+				MapSize,
+				bpf.BPF_F_NO_PREALLOC, 0,
+				bpf.ConvertKeyValue,
+			).WithCache().WithEvents(option.Config.GetEventBufferConfig(MapNameWcard6)),
+			v4: false,
+		}
+	})
+	return captureMap6
 }

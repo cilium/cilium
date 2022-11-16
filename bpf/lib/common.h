@@ -733,6 +733,7 @@ enum {
 	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
+	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */

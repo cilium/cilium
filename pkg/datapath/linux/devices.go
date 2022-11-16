@@ -57,14 +57,14 @@ func NewDeviceManager() (*DeviceManager, error) {
 func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
 	handle, err := netlink.NewHandleAt(netns)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to setup device manager: %w", err)
 	}
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
 		filter:  deviceFilter(option.Config.GetDevices()),
 		handle:  handle,
 		netns:   netns,
-	}, err
+	}, nil
 }
 
 // Detect tries to detect devices to which BPF programs may be loaded.

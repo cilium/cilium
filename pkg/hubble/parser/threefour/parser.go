@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 
 	"github.com/google/gopacket"
@@ -18,12 +17,10 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -37,6 +34,8 @@ type Parser struct {
 	ipGetter       getters.IPGetter
 	serviceGetter  getters.ServiceGetter
 	linkGetter     getters.LinkGetter
+
+	epResolver *common.EndpointResolver
 
 	// TODO: consider using a pool of these
 	packet *packet
@@ -86,6 +85,7 @@ func New(
 		ipGetter:       ipGetter,
 		serviceGetter:  serviceGetter,
 		linkGetter:     linkGetter,
+		epResolver:     common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
 		packet:         packet,
 	}, nil
 }
@@ -181,8 +181,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
-	srcEndpoint := p.resolveEndpoint(srcIP, srcLabelID)
-	dstEndpoint := p.resolveEndpoint(dstIP, dstLabelID)
+	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, srcLabelID)
+	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
 		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)
@@ -222,133 +222,6 @@ func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	}
 
 	return nil
-}
-
-func filterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
-	// Cilium might return a bunch of cidr labels with different prefix length. Filter out all
-	// but the longest prefix cidr label, which can be useful for troubleshooting. This also
-	// relies on the fact that when a Cilium security identity has multiple CIDR labels, longer
-	// prefix is always a subset of shorter prefix.
-	cidrPrefix := "cidr:"
-	var filteredLabels []string
-	var max *net.IPNet
-	var maxStr string
-	for _, label := range labels {
-		if strings.HasPrefix(label, cidrPrefix) {
-			currLabel := strings.TrimPrefix(label, cidrPrefix)
-			// labels for IPv6 addresses are represented with - instead of : as
-			// : cannot be used in labels; make sure to convert it to a valid
-			// IPv6 representation
-			currLabel = strings.Replace(currLabel, "-", ":", -1)
-			_, curr, err := net.ParseCIDR(currLabel)
-			if err != nil {
-				log.WithField("label", label).Warn("got an invalid cidr label")
-				continue
-			}
-			if max == nil {
-				max = curr
-				maxStr = label
-			}
-			currMask, _ := curr.Mask.Size()
-			maxMask, _ := max.Mask.Size()
-			if currMask > maxMask {
-				max = curr
-				maxStr = label
-			}
-		} else {
-			filteredLabels = append(filteredLabels, label)
-		}
-	}
-	if max != nil {
-		filteredLabels = append(filteredLabels, maxStr)
-	}
-	return filteredLabels
-}
-
-func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity uint32) []string {
-	if identity.NumericIdentity(securityIdentity).HasLocalScope() {
-		labels = filterCIDRLabels(log, labels)
-	}
-	sort.Strings(labels)
-	return labels
-}
-
-func (p *Parser) resolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb.Endpoint {
-	// The datapathSecurityIdentity parameter is the numeric security identity
-	// obtained from the datapath.
-	// The numeric identity from the datapath can differ from the one we obtain
-	// from user-space (e.g. the endpoint manager or the IP cache), because
-	// the identity could have changed between the time the datapath event was
-	// created and the time the event reaches the Hubble parser.
-	// To aid in troubleshooting, we want to preserve what the datapath observed
-	// when it made the policy decision.
-	resolveIdentityConflict := func(identity identity.NumericIdentity) uint32 {
-		// if the datapath did not provide an identity (e.g. FROM_LXC trace
-		// points), use what we have in the user-space cache
-		userspaceSecurityIdentity := uint32(identity)
-		if datapathSecurityIdentity == 0 {
-			return userspaceSecurityIdentity
-		}
-
-		if datapathSecurityIdentity != userspaceSecurityIdentity {
-			p.log.WithFields(logrus.Fields{
-				logfields.Identity:    datapathSecurityIdentity,
-				logfields.OldIdentity: userspaceSecurityIdentity,
-				logfields.IPAddr:      ip,
-			}).Debugf("stale identity observed")
-		}
-
-		return datapathSecurityIdentity
-	}
-
-	// for local endpoints, use the available endpoint information
-	if p.endpointGetter != nil {
-		if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
-			epIdentity := resolveIdentityConflict(ep.GetIdentity())
-			e := &pb.Endpoint{
-				ID:        uint32(ep.GetID()),
-				Identity:  epIdentity,
-				Namespace: ep.GetK8sNamespace(),
-				Labels:    sortAndFilterLabels(p.log, ep.GetLabels(), epIdentity),
-				PodName:   ep.GetK8sPodName(),
-			}
-			if pod := ep.GetPod(); pod != nil {
-				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-				if ok {
-					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
-				}
-			}
-			return e
-		}
-	}
-
-	// for remote endpoints, assemble the information via ip and identity
-	numericIdentity := datapathSecurityIdentity
-	var namespace, podName string
-	if p.ipGetter != nil {
-		if ipIdentity, ok := p.ipGetter.LookupSecIDByIP(ip); ok {
-			numericIdentity = resolveIdentityConflict(ipIdentity.ID)
-		}
-		if meta := p.ipGetter.GetK8sMetadata(ip); meta != nil {
-			namespace, podName = meta.Namespace, meta.PodName
-		}
-	}
-	var labels []string
-	if p.identityGetter != nil {
-		if id, err := p.identityGetter.GetIdentity(numericIdentity); err != nil {
-			p.log.WithError(err).WithField("identity", numericIdentity).
-				Debug("failed to resolve identity")
-		} else {
-			labels = sortAndFilterLabels(p.log, id.Labels.GetModel(), numericIdentity)
-		}
-	}
-
-	return &pb.Endpoint{
-		Identity:  numericIdentity,
-		Namespace: namespace,
-		Labels:    labels,
-		PodName:   podName,
-	}
 }
 
 func decodeLayers(packet *packet) (

@@ -510,3 +510,20 @@ const (
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
 )
+
+var (
+	// BPFEventBufferConfigs contains default configuration entries for bpf map event buffers.
+	// These are to be merged with the client configuration to create the final config.
+	// Note: The TTL corresponds to GC interval times, which is a somewhat expensive operation.
+	// Under the worst case GC may need to memcopy almost the entire buffer, which will
+	// cause memory spikes. Be mindful of this when increasing the default buffer configurations.
+	BPFEventBufferConfigs = map[string]string{
+		"cilium_lxc": "enabled,128,0",
+		// cilium_ipcache is the likely the most useful use of this feature, but also has
+		// the highest churn.
+		"cilium_ipcache":         "enabled,1024,0",
+		"cilium_lb4_services_v2": "enabled,128,0",
+		"cilium_lb4_backends_v2": "enabled,128,0",
+		"cilium_lb4_reverse_nat": "enabled,128,0",
+	}
+)

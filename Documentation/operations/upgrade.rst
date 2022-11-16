@@ -353,6 +353,7 @@ Helm Options
   been using ``securityContext.extraCapabilities`` you do not need to do anything.
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
   ``securityContext.capabilities.cilium_agent``.
+* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
 
 .. _1.12_upgrade_notes:
 

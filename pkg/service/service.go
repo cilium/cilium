@@ -99,6 +99,7 @@ type svcInfo struct {
 	loadBalancerSourceRanges  []*cidr.CIDR
 	l7LBProxyPort             uint16   // Non-zero for egress L7 LB services
 	l7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
+	LoopbackHostport          bool
 
 	restoredFromDatapath bool
 }
@@ -122,6 +123,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		Name:                svc.svcName,
 		L7LBProxyPort:       svc.l7LBProxyPort,
 		L7LBFrontendPorts:   svc.l7LBFrontendPorts,
+		LoopbackHostport:    svc.LoopbackHostport,
 	}
 }
 
@@ -790,6 +792,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 						CheckSourceRange:          info.checkLBSourceRange(),
 						UseMaglev:                 info.useMaglev(),
 						Name:                      info.svcName,
+						LoopbackHostport:          info.LoopbackHostport,
 					}
 				}
 				p.PreferredBackends, p.ActiveBackends, p.NonActiveBackends = segregateBackends(info.backends)
@@ -1069,6 +1072,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			loadBalancerSourceRanges: p.LoadBalancerSourceRanges,
 			l7LBProxyPort:            p.L7LBProxyPort,
 			l7LBFrontendPorts:        p.L7LBFrontendPorts,
+			LoopbackHostport:         p.LoopbackHostport,
 		}
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
@@ -1269,6 +1273,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		UseMaglev:                 svc.useMaglev(),
 		L7LBProxyPort:             svc.l7LBProxyPort,
 		Name:                      svc.svcName,
+		LoopbackHostport:          svc.LoopbackHostport,
 	}
 	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
@@ -1370,6 +1375,7 @@ func (s *Service) restoreServicesLocked() error {
 			svcType:          svc.Type,
 			svcTrafficPolicy: svc.TrafficPolicy,
 			svcNatPolicy:     svc.NatPolicy,
+			LoopbackHostport: svc.LoopbackHostport,
 
 			sessionAffinity:           svc.SessionAffinity,
 			sessionAffinityTimeoutSec: svc.SessionAffinityTimeoutSec,
