@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -491,8 +492,9 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 }
 
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
-func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, ipnet net.IPNet, oldHostIP, newHostIP net.IP,
+func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
 	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ uint16, _ *ipcache.K8sMetadata) {
+	ipnet := cidrCluster.AsIPNet()
 
 	// This function is invoked from the IPCache with the
 	// ipcache.IPIdentityCache lock held. We therefore need to be careful when
