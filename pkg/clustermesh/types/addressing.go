@@ -218,3 +218,27 @@ func (ac AddrCluster) As20() (ac20 [20]byte) {
 func (ac AddrCluster) AsNetIP() net.IP {
 	return ac.addr.AsSlice()
 }
+
+// PrefixCluster is a type that holds a pair of prefix and ClusterID.
+// We should use this type as much as possible when we implement
+// prefix + Cluster addressing. We should avoid managing prefix and
+// ClusterID separately. Otherwise, it is very hard for code readers
+// to see where we are using cluster-aware addressing.
+type PrefixCluster struct {
+	prefix    netip.Prefix
+	clusterID uint32
+}
+
+func PrefixClusterFrom(addr netip.Addr, bits int, clusterID uint32) PrefixCluster {
+	return PrefixCluster{
+		prefix:    netip.PrefixFrom(addr, bits),
+		clusterID: clusterID,
+	}
+}
+
+func (pc PrefixCluster) String() string {
+	if pc.clusterID == 0 {
+		return pc.prefix.String()
+	}
+	return pc.prefix.String() + "@" + strconv.FormatUint(uint64(pc.clusterID), 10)
+}
