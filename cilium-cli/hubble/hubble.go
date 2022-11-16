@@ -185,7 +185,7 @@ func NewK8sHubble(ctx context.Context, client k8sHubbleImplementation, p Paramet
 		// if cilium-cli-helm-values secret was not found (e.g. cilium was not installed with cilium-cli)
 		// or the secret parsing failed for whatever reason, then we create a default helm state.
 		k.Log("⚠️  Error parsing helm cli secret: %s", err)
-		k.Log("⚠️  Proceed in unknown install state")
+		k.Log("⚠️  Proceeding in unknown installation state")
 		helmState, err = k.generateDefaultHelmState(ctx, client, p.Namespace)
 		if err != nil {
 			return nil, err
