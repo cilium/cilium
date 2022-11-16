@@ -26,6 +26,7 @@ by the "janitor role" which is rotated between all committers.
  * [Aditi Ghag] (Isovalent)
  * [Alexandre Perrin] (Isovalent)
  * [Beatriz Martínez] (Isovalent)
+ * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
@@ -77,6 +78,7 @@ project.
 [Alexandre Perrin]: https://github.com/kaworu
 [André Martins]: https://github.com/aanm
 [Beatriz Martínez]: https://github.com/b3a-dev
+[Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio
 [Chance Zibolski]: https://github.com/chancez
 [Chris Tarazi]: https://github.com/christarazi
