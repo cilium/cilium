@@ -62,6 +62,7 @@ Holzheu
 Huapeng
 Hypercalls
 IP
+IPVS
 IPcache
 IPsec
 IPv
@@ -116,6 +117,7 @@ Polytechnique
 QCon
 Qemu
 Qlogic
+RSS
 Redis
 RuleParser
 SIG
@@ -593,6 +595,7 @@ kubeConfigPath
 kubeProxyReplacement
 kubeProxyReplacementHealthzBindAddr
 kubeadm
+kubeapi
 kubeconfig
 kubectl
 kubelet
@@ -904,6 +907,7 @@ sha
 sid
 sidecarImageRegex
 sig
+siloing
 skb
 skipCNPStatusStartupClean
 skipCRDCreation

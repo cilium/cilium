@@ -79,6 +79,7 @@ get started and experiment with Cilium.
    network/clustermesh/index
    network/external-toc
    network/servicemesh/index
+   network/standalone
    network/istio
    network/vtep
    network/lb-ipam
