@@ -164,7 +164,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 		case err == nil:
 			successfulEndpointObjectGC()
 		case k8serrors.IsNotFound(err), k8serrors.IsConflict(err):
-			// No-op.
+			scopedLog.WithError(err).Debug("Unable to delete CEP, will retry again")
 		default:
 			scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
 			failedEndpointObjectGC()
