@@ -168,7 +168,7 @@ _Pragma("unroll")							\
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 pad1;
-	__u8 pad2;
+	__u8 cluster_id;
 	__u8 family;
 	union {
 		struct {
