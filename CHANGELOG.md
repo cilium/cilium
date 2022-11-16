@@ -1,5 +1,66 @@
 # Changelog
 
+## v1.12.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* ctmap: add support for GC of DSR orphaned entries (Backport PR #21809, Upstream PR #21626, @jibi)
+
+**Bugfixes:**
+* Add missing inner IP header in ICMP error-reply packet (Backport PR #22028, Upstream PR #21234, @nnbu)
+* bpf: always track egress gateway connections (Backport PR #21639, Upstream PR #21499, @jibi)
+* Fix overlapping/duplicate PodCIDR allocation when nodes are added while operator is down (Backport PR #22028, Upstream PR #21526, @dylandreimerink)
+* Fixed CCNP garbage collection (Backport PR #21809, Upstream PR #21394, @zuzzas)
+* Fixes a deadlock that can be exposed in high-churn clusters when Pods are deleted rapidly. (Backport PR #21809, Upstream PR #21771, @squeed)
+* nodeinit: Move kubelet version check to expected branch (Backport PR #22028, Upstream PR #21772, @dctrwatson)
+
+**Misc Changes:**
+* Add a section with distro-specific considerations (Backport PR #22028, Upstream PR #21064, @bmcustodio)
+* build(deps): bump actions/cache from 3.0.10 to 3.0.11 (#21723, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.0 to 3.0.1 (#21842, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.3.0 to 3.3.1 (#21789, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.0 to 3.1.1 (#21850, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.1.1 to 3.2.0 (#21703, @dependabot[bot])
+* build(deps): bump docker/login-action from 2.0.0 to 2.1.0 (#21706, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.0.0 to 2.1.0 (#21704, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.1.0 to 2.2.1 (#21788, @dependabot[bot])
+* build(deps): bump docker/setup-qemu-action from 2.0.0 to 2.1.0 (#21705, @dependabot[bot])
+* build(deps): bump dorny/paths-filter from 2.10.2 to 2.11.0 (#21707, @dependabot[bot])
+* build(deps): bump dorny/paths-filter from 2.11.0 to 2.11.1 (#21724, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.27 to 2.1.28 (#21790, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.28 to 2.1.29 (#21893, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.29 to 2.1.30 (#21974, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.30 to 2.1.31 (#22050, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.31 to 2.1.32 (#22166, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.2.0 to 3.3.0 (#21843, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.0 to 3.3.1 (#22136, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.5.5 to 1.6.0 (#21868, @dependabot[bot])
+* build(deps): bump library/alpine from `bc41182` to `65a2763` in /images/cache (#22113, @dependabot[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.2 (v1.12) (#22105, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.3 (v1.12) (#22142, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.7 docker digest to 1542419 (v1.12) (#22102, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.8 docker digest to 1cbe009 (v1.12) (#22189, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.8 docker digest to 6e3764d (v1.12) (#22169, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 450e066 (v1.12) (#22104, @renovate[bot])
+* chore(deps): update module go to 1.18 (v1.12) (#22122, @renovate[bot])
+* Clarify in documentation that Azure CNI chaining is different from Azure CNI powered by Cilium. (Backport PR #22028, Upstream PR #21897, @wedaly)
+* docs: Fix 'interface' field indentation (Backport PR #21809, Upstream PR #21798, @lou-lan)
+* docs: Remove `autoDirectNodeRoutes` where not needed (Backport PR #22028, Upstream PR #21831, @pchaigno)
+* Docs: Remove `RUNTIME=docker` option in dev_setup, given that K8s 1.24+ no longer supports it (options: containerd (default), crio). (Backport PR #22028, Upstream PR #21940, @Shunpoco)
+* docs: Update k8s NetworkPolicy descriptions (Backport PR #21809, Upstream PR #21670, @joestringer)
+* Fix incorrect env var name used in docs for Helm installation on Rancher Desktop (Backport PR #22028, Upstream PR #21835, @ehausig)
+* k8s: optimize API calls made to kube-apiserver (Backport PR #21809, Upstream PR #21088, @aanm)
+* Remove unused sections for bpf_lxc from nodeport.h (Backport PR #22028, Upstream PR #21505, @alexkats)
+* v1.12: Update Go to 1.18.7 (#21592, @tklauser)
+* v1.12: Update Go to 1.18.8 (#22026, @tklauser)
+
+**Other Changes:**
+* bpf: nat: fix indentation (#21807, @jibi)
+* images: update cilium-{runtime,builder} (#22194, @michi-covalent)
+* install: Update image digests for v1.12.3 (#21767, @qmonnet)
+
 ## v1.12.3
 
 Summary of Changes
