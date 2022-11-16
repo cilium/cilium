@@ -49,9 +49,8 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			// version from being used as the operator tag by Cilium Helm charts.
 			// This also makes k8s pod list to actually contain the image tag.
 			if imageTag == "" {
-				k.Log("ℹ️  Defaulting image tag to \"latest\" due to \"--image-suffix\" option")
-
 				imageTag = "latest"
+				k.Log("ℹ️  Defaulting image tag to %q due to --image-suffix option", imageTag)
 			}
 			colonTag := ":" + imageTag
 			helmMapOpts["image.override"] = fmt.Sprintf("quay.io/cilium/cilium%s%s", imageSuffix, colonTag)

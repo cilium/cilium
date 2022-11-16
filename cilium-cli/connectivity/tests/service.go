@@ -181,5 +181,4 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 			i++
 		}
 	}
-
 }
