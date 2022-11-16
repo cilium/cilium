@@ -138,7 +138,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 
 	// Update BPF Maps.
 
-	key := ipcacheMap.NewKey(cidr.IP, cidr.Mask)
+	key := ipcacheMap.NewKey(cidr.IP, cidr.Mask, 0)
 
 	switch modType {
 	case ipcache.Upsert:
