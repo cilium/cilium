@@ -236,7 +236,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip6_remote_endpoint(daddr);
+		info = lookup_ip6_remote_endpoint(daddr, 0);
 		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
@@ -760,7 +760,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(ip4->daddr);
+		info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (info && info->sec_label) {
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
@@ -1602,7 +1602,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		union v6addr *src = (union v6addr *)&ip6->saddr;
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip6_remote_endpoint(src);
+		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 
@@ -1942,7 +1942,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	if (identity_is_reserved(src_identity)) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(ip4->saddr);
+		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 

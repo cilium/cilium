@@ -54,7 +54,7 @@ int cil_redir_proxy(struct sk_msg_md *msg)
 	 * socket to avoid extra overhead. This would require the agent though
 	 * to flush the sock ops map on policy changes.
 	 */
-	info = lookup_ip4_remote_endpoint(key.dip4);
+	info = lookup_ip4_remote_endpoint(key.dip4, 0);
 	if (info != NULL && info->sec_label)
 		dst_id = info->sec_label;
 	else

@@ -75,7 +75,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	if (1) {
 		struct remote_endpoint_info *info;
 
-		info = lookup_ip4_remote_endpoint(key.dip4);
+		info = lookup_ip4_remote_endpoint(key.dip4, 0);
 		if (info != NULL && info->sec_label)
 			dst_id = info->sec_label;
 		else
