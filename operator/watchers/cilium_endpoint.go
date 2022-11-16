@@ -132,6 +132,7 @@ func convertToCiliumEndpoint(obj interface{}) interface{} {
 				Namespace:       concreteObj.Namespace,
 				ResourceVersion: concreteObj.ResourceVersion,
 				OwnerReferences: concreteObj.OwnerReferences,
+				UID:             concreteObj.UID,
 			},
 			Status: cilium_api_v2.EndpointStatus{
 				Identity:   concreteObj.Status.Identity,
@@ -156,6 +157,7 @@ func convertToCiliumEndpoint(obj interface{}) interface{} {
 					Namespace:       ciliumEndpoint.Namespace,
 					ResourceVersion: ciliumEndpoint.ResourceVersion,
 					OwnerReferences: ciliumEndpoint.OwnerReferences,
+					UID:             ciliumEndpoint.UID,
 				},
 				Status: cilium_api_v2.EndpointStatus{
 					Identity:   ciliumEndpoint.Status.Identity,
