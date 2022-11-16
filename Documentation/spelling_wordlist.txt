@@ -251,6 +251,7 @@ cgroup
 chainingMode
 changelog
 cheatsheet
+checksums
 ci
 cidr
 cidrs
