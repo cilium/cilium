@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build darwin
+//go:build !linux
 
 package node
 
-import (
-	"net"
-)
+import "net"
 
 func firstGlobalV4Addr(intf string, preferredIP net.IP, preferPublic bool) (net.IP, error) {
 	return net.IP{}, nil
