@@ -306,6 +306,8 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
+	config.QPS = qps
+	config.Burst = burst
 	return config, nil
 }
 
