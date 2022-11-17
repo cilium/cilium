@@ -41,6 +41,7 @@ extensions = ['sphinx.ext.ifconfig',
               'sphinx.ext.extlinks',
               'sphinxcontrib.openapi',
               'sphinx_tabs.tabs',
+              'sphinxcontrib.googleanalytics',
               'sphinxcontrib.spelling',
               'versionwarning.extension']
 
@@ -160,6 +161,7 @@ todo_include_todos = False
 # Add custom filters for spell checks.
 spelling_filters = [cilium_spellfilters.WireGuardFilter]
 
+googleanalytics_id = 'G-V9SYWYG92Y'
 
 # -- Options for HTML output ----------------------------------------------
 
