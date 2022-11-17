@@ -87,6 +87,10 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 		labelPrefix.Prefix = label
 	}
 
+	if len(labelPrefix.Prefix) == 0 {
+		return nil, fmt.Errorf("invalid label source %q, prefix %q",
+			labelPrefix.Source, labelPrefix.Prefix)
+	}
 	if labelPrefix.Prefix[0] == '!' {
 		labelPrefix.Ignore = true
 		labelPrefix.Prefix = labelPrefix.Prefix[1:]
@@ -125,6 +129,9 @@ func ParseLabelPrefixCfg(prefixes []string, file string) error {
 
 	log.Infof("Parsing additional label prefixes from user inputs: %v", prefixes)
 	for _, label := range prefixes {
+		if len(label) == 0 {
+			continue
+		}
 		p, err := parseLabelPrefix(label)
 		if err != nil {
 			return err
