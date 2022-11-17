@@ -63,6 +63,7 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set cni.chainingMode=portmap \
+            --helm-set=hubble.eventBufferCapacity=65535 \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
@@ -120,7 +121,10 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          sudo apt-get update -y
+          sudo apt-get install -y tcpdump
+          sudo tcpdump -i any -w foo.pcap 'host 1.1.1.1' &
+          cilium connectivity test -t -d ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Clean up Cilium
         run: |
@@ -144,14 +148,14 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
+          cilium connectivity test -t -d ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --hubble-flows-count 1000000 --hubble-flows-timeout 20m --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
@@ -159,5 +163,7 @@ jobs:
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          path: |
+            cilium-sysdump-out.zip
+            foo.pcap
           retention-days: 5
