@@ -45,16 +45,13 @@ type InfoLeaf string
 
 func (l InfoLeaf) Print(indent int, w *InfoPrinter) {
 	buf := bufio.NewWriter(w)
-	currentLineLength := indent
 	indentString := strings.Repeat(" ", indent)
 	buf.WriteString(indentString)
+	currentLineLength := len(indentString)
 	wrapped := false
 	for _, f := range strings.Fields(string(l)) {
-		buf.WriteString(f)
-		buf.WriteByte(' ')
-		currentLineLength += len(f)
-
-		if currentLineLength >= w.width {
+		newLineLength := currentLineLength + len(f) + 1
+		if newLineLength >= w.width {
 			buf.WriteByte('\n')
 			if !wrapped {
 				// Increase the indent for the wrapped lines so it's clear we
@@ -65,7 +62,11 @@ func (l InfoLeaf) Print(indent int, w *InfoPrinter) {
 			}
 			buf.WriteString(indentString)
 			currentLineLength = indent
+		} else {
+			currentLineLength = newLineLength
 		}
+		buf.WriteString(f)
+		buf.WriteByte(' ')
 	}
 	buf.WriteByte('\n')
 	buf.Flush()
