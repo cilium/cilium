@@ -42,6 +42,7 @@ extensions = ['myst_parser',
               'sphinx.ext.extlinks',
               'sphinxcontrib.openapi',
               'sphinx_tabs.tabs',
+              'sphinxcontrib.googleanalytics',
               'sphinxcontrib.spelling',
               'versionwarning.extension']
 
@@ -164,6 +165,7 @@ spelling_filters = [cilium_spellfilters.WireGuardFilter]
 # Ignore some warnings from MyST parser
 suppress_warnings = ['myst.header']
 
+googleanalytics_id = 'G-V9SYWYG92Y'
 
 # -- Options for HTML output ----------------------------------------------
 
