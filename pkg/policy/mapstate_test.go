@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package policy
 
 import (
@@ -798,10 +796,6 @@ func testEntry(proxyPort uint16, deny bool, owners ...MapStateOwner) MapStateEnt
 
 func allowEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
 	return testEntryD(proxyPort, false, derivedFrom, owners...)
-}
-
-func denyEntryD(proxyPort uint16, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {
-	return testEntryD(proxyPort, true, derivedFrom, owners...)
 }
 
 func testEntryD(proxyPort uint16, deny bool, derivedFrom labels.LabelArrayList, owners ...MapStateOwner) MapStateEntry {

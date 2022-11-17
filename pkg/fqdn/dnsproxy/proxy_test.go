@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-// +build privileged_tests
-
 package dnsproxy
 
 import (
@@ -11,9 +8,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
+	"net/netip"
+	"os"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -22,7 +21,6 @@ import (
 	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -42,7 +40,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -56,6 +56,10 @@ type DNSProxyTestSuite struct {
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
 	restoring    bool
+}
+
+func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 }
 
 func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
@@ -127,10 +131,6 @@ func setupServer(c *C) (dnsServer *dns.Server) {
 	return nil
 }
 
-func teardown(dnsServer *dns.Server) {
-	dnsServer.Listener.Close()
-}
-
 func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -199,7 +199,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 			if s.restoring {
 				return nil, fmt.Errorf("No EPs available when restoring")
 			}
-			return endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), nil
+			return endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
 		func(ip net.IP) (ipcache.Identity, bool) {
@@ -233,7 +233,7 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 		func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, dstAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error {
 			return nil
 		},
-		0,
+		0, 0,
 	)
 	c.Assert(err, IsNil, Commentf("error starting DNS Proxy"))
 	s.proxy = proxy
@@ -733,7 +733,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore rules
-	ep1 := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
+	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
 	ep1.DNSRules = restored1
 	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
@@ -779,7 +779,7 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Restore rules for epID3
-	ep3 := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID3), endpoint.StateReady)
+	ep3 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID3), endpoint.StateReady)
 	ep3.DNSRules = restored3
 	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
@@ -963,9 +963,9 @@ func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
 
 	// restore rules, set the mock to restoring state
 	s.restoring = true
-	ep1 := endpoint.NewEndpointWithState(s, s, ipcache.NewIPCache(nil), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
-	ep1.IPv4, _ = addressing.NewCiliumIPv4("127.0.0.1")
-	ep1.IPv6, _ = addressing.NewCiliumIPv6("::1")
+	ep1 := endpoint.NewEndpointWithState(s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), uint16(epID1), endpoint.StateReady)
+	ep1.IPv4 = netip.MustParseAddr("127.0.0.1")
+	ep1.IPv6 = netip.MustParseAddr("::1")
 	ep1.DNSRules = restored
 	s.proxy.RestoreRules(ep1)
 	_, exists := s.proxy.restored[epID1]
@@ -997,9 +997,9 @@ func (s *DNSProxyTestSuite) TestProxyRequestContext_IsTimeout(c *C) {
 	p.Err = fmt.Errorf("sample err: %s", context.DeadlineExceeded)
 	c.Assert(p.IsTimeout(), Equals, false)
 
-	p.Err = errFailedAcquireSemaphore{}
+	p.Err = ErrFailedAcquireSemaphore{}
 	c.Assert(p.IsTimeout(), Equals, true)
-	p.Err = errTimedOutAcquireSemaphore{
+	p.Err = ErrTimedOutAcquireSemaphore{
 		gracePeriod: 1 * time.Second,
 	}
 	c.Assert(p.IsTimeout(), Equals, true)
@@ -1031,45 +1031,93 @@ func (t selectorMock) String() string {
 
 func Benchmark_perEPAllow_setPortRulesForID(b *testing.B) {
 	const (
-		nMatchPatterns = 100
+		nEPs              = 10000
+		nEPsAtOnce        = 60
+		nMatchPatterns    = 30
+		nMatchNames       = 600
+		everyNIsEqual     = 10
+		everyNHasWildcard = 20
+		cacheSize         = 128
 	)
+	re.InitRegexCompileLRU(cacheSize)
+	runtime.GC()
+	initialHeap := getMemStats().HeapInuse
+	rulesPerEP := make([]policy.L7DataMap, 0, nEPs)
 
-	var selectorA, selectorB *selectorMock
-	newRules := policy.L7DataMap{
-		selectorA: nil,
-		selectorB: nil,
-	}
-
-	var portRuleDNS []api.PortRuleDNS
+	var defaultRules []api.PortRuleDNS
 	for i := 0; i < nMatchPatterns; i++ {
-		portRuleDNS = append(portRuleDNS, api.PortRuleDNS{
-			MatchPattern: "kubernetes.default.svc.cluster.local",
-		})
+		defaultRules = append(defaultRules, api.PortRuleDNS{MatchPattern: "*.bar" + strconv.Itoa(i) + "another.very.long.domain.here"})
+	}
+	for i := 0; i < nMatchNames; i++ {
+		defaultRules = append(defaultRules, api.PortRuleDNS{MatchName: strconv.Itoa(i) + "very.long.domain.containing.a.lot.of.chars"})
 	}
 
-	for selector := range newRules {
-		newRules[selector] = &policy.PerSelectorPolicy{
-			L7Rules: api.L7Rules{
-				DNS: portRuleDNS,
-			},
+	for i := 0; i < nEPs; i++ {
+		commonRules := append([]api.PortRuleDNS{}, defaultRules...)
+		if i%everyNIsEqual != 0 {
+			commonRules = append(
+				commonRules,
+				api.PortRuleDNS{MatchName: "custom-for-this-one" + strconv.Itoa(i) + ".domain.tld"},
+				api.PortRuleDNS{MatchPattern: "custom2-for-this-one*" + strconv.Itoa(i) + ".domain.tld"},
+			)
 		}
+		if (i+1)%everyNHasWildcard == 0 {
+			commonRules = append(commonRules, api.PortRuleDNS{MatchPattern: "*"})
+		}
+		psp := &policy.PerSelectorPolicy{L7Rules: api.L7Rules{DNS: commonRules}}
+		rulesPerEP = append(rulesPerEP, policy.L7DataMap{new(selectorMock): psp, new(selectorMock): psp})
 	}
 
 	pea := perEPAllow{}
-	re.InitRegexCompileLRU(128)
 	b.ReportAllocs()
+	b.StopTimer()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for epID := uint64(0); epID < 20; epID++ {
-			pea.setPortRulesForID(epID, 8053, newRules)
+		re.InitRegexCompileLRU(cacheSize)
+		for epID := uint64(0); epID < nEPs; epID++ {
+			pea.setPortRulesForID(epID, 8053, nil)
 		}
+		b.StartTimer()
+		for epID, rules := range rulesPerEP {
+			if epID >= nEPsAtOnce {
+				pea.setPortRulesForID(uint64(epID)-nEPsAtOnce, 8053, nil)
+			}
+			pea.setPortRulesForID(uint64(epID), 8053, rules)
+		}
+		b.StopTimer()
+	}
+	runtime.GC()
+	// This is a ~proxy metric for the growth of heap per b.N. We call it here instead of the loop to
+	// ensure we also count things like the strings "borrowed" from rulesPerEP
+	b.ReportMetric(float64(getMemStats().HeapInuse-initialHeap), "B(HeapInUse)/op")
+
+	for epID := uint64(0); epID < nEPs; epID++ {
+		pea.setPortRulesForID(epID, 8053, nil)
+	}
+	if len(pea) > 0 {
+		b.Fail()
 	}
 }
 
 func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 	b.Skip()
+	cacheSize := 128
+	numEPs := uint64(20)
+	cnpFile := "testdata/cnps-large.yaml"
 
-	bb, err := ioutil.ReadFile("testdata/cnps-large.yaml")
+	// init empty cache so old cache entries are correctly
+	// garbage collected.
+	re.InitRegexCompileLRU(cacheSize)
+	runtime.GC()
+	m := getMemStats()
+	fmt.Printf("Before Setup (N=%v,EPs=%d,cache=%d)\n", b.N, numEPs, cacheSize)
+
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+
+	bb, err := os.ReadFile(cnpFile)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1126,42 +1174,50 @@ func Benchmark_perEPAllow_setPortRulesForID_large(b *testing.B) {
 		}
 	}
 
-	fmt.Printf("Before (N=%v)\n", b.N)
-
 	runtime.GC()
+	m = getMemStats()
+	fmt.Printf("Before Test (N=%v,EPs=%d,cache=%d)\n", b.N, numEPs, cacheSize)
 
-	m := getMemStats()
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
 	pea := perEPAllow{}
-	re.InitRegexCompileLRU(128) // modify to 1024 and compare results
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for epID := uint64(0); epID < 20; epID++ {
+		for epID := uint64(0); epID < numEPs; epID++ {
 			pea.setPortRulesForID(epID, 8053, rules)
 		}
 	}
 	b.StopTimer()
 
-	fmt.Printf("After (N=%v)\n", b.N)
+	// Uncomment to see the HeapInUse from only the regexp cache
+	// for epID := uint64(0); epID < numEPs; epID++ {
+	//	 pea.setPortRulesForID(epID, 8053, nil)
+	// }
 
+	// Explicitly run gc to ensure we measure what we want
+	runtime.GC()
 	m = getMemStats()
+	// Explicitly keep a reference to "pea" to keep it on the heap
+	// so that we can measure it before it is garbage collected.
+	fmt.Printf("After Test (N=%v,EPs=%d,cache=%d)\n", b.N, len(pea), cacheSize)
 	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
 	fmt.Printf("\tHeapInuse = %v MiB", bToMb(m.HeapInuse))
 	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 }
 
+//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func getMemStats() runtime.MemStats {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	return m
 }
 
+//nolint:unused // Used in benchmark above, false-positive in golangci-lint v1.48.0.
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }

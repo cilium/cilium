@@ -1,0 +1,27 @@
+ - Services ---------------------------------------------------------------------------------------
+| ID |                                      Name |      Type |              Frontend | Backend IDs |
+|----+-------------------------------------------+-----------+-----------------------+-------------
+|  0 |                        default/kubernetes | ClusterIP |    10.96.0.1:443/NONE |           1 |
+|  1 |                                 test/echo | ClusterIP |  10.96.223.82:80/NONE |           0 |
+|  2 |                           test/echo-local | ClusterIP |  10.96.247.58:80/NONE |           0 |
+|  3 | test/echo-78d445655d-cfrdf/host-port/8080 |  HostPort |     0.0.0.0:8080/NONE |           0 |
+|  4 | test/echo-78d445655d-cfrdf/host-port/8080 |  HostPort |    10.0.0.2:8080/NONE |           0 |
+|  5 | test/echo-78d445655d-cfrdf/host-port/8080 |  HostPort |    10.0.0.3:8080/NONE |           0 |
+|  6 |                                 test/echo |  NodePort |    0.0.0.0:31010/NONE |           0 |
+|  7 |                                 test/echo |  NodePort |   10.0.0.2:31010/NONE |           0 |
+|  8 |                                 test/echo |  NodePort |   10.0.0.3:31010/NONE |           0 |
+|  9 |                           test/echo-local |  NodePort |    0.0.0.0:32556/NONE |           0 |
+| 10 |                           test/echo-local |  NodePort |  0.0.0.0:32556/NONE/i |           0 |
+| 11 |                           test/echo-local |  NodePort |   10.0.0.2:32556/NONE |           0 |
+| 12 |                           test/echo-local |  NodePort | 10.0.0.2:32556/NONE/i |           0 |
+| 13 |                           test/echo-local |  NodePort |   10.0.0.3:32556/NONE |           0 |
+| 14 |                           test/echo-local |  NodePort | 10.0.0.3:32556/NONE/i |           0 |
+ --------------------------------------------------------------------------------------------------
+
+ - Backends ------------------------------------------------------------------------
+| ID |            L3n4Addr |  State |                               Linked Services |
+|----+---------------------+--------+-----------------------------------------------
+|  0 |  10.244.2.73:80/TCP | active | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 |
+|  1 | 172.18.0.4:6443/TCP | active |                                             0 |
+ -----------------------------------------------------------------------------------
+

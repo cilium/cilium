@@ -188,6 +188,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
 {
+	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
 	int reopen;
 
@@ -197,8 +198,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 #ifdef HAVE_LARGE_INSN_LIMIT
-		if (dir == CT_SERVICE &&
-		    (seen_flags.value & TCP_FLAG_SYN) &&
+		if (dir == CT_SERVICE && syn &&
 		    ct_entry_closing(entry) &&
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
@@ -213,8 +213,10 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			ct_state->from_l7lb = entry->from_l7lb;
-			if (dir == CT_SERVICE)
+			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->backend_id;
+				ct_state->syn = syn;
+			}
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -290,6 +292,9 @@ ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		return ret;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+#ifdef ENABLE_SCTP
+			 tuple->nexthdr != IPPROTO_SCTP &&
+#endif  /* ENABLE_SCTP */
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -413,6 +418,9 @@ static __always_inline int ct_lookup6(const void *map,
 		break;
 
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		/* load sport + dport into tuple */
 		if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -470,6 +478,9 @@ ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	tuple->nexthdr = ip4->protocol;
 
 	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+#ifdef ENABLE_SCTP
+			 tuple->nexthdr != IPPROTO_SCTP &&
+#endif  /* ENABLE_SCTP */
 		     tuple->nexthdr != IPPROTO_UDP))
 		return DROP_CT_UNKNOWN_PROTO;
 
@@ -587,8 +598,12 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		}
 		break;
 
+	/* TCP, UDP, and SCTP all have the ports at the same location */
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
 			return err;
@@ -708,6 +723,9 @@ static __always_inline int ct_lookup4(const void *map,
 		break;
 
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple, NULL);
 		if (err < 0)
 			return err;

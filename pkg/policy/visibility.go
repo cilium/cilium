@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	singleAnnotationRegex = "<(Ingress|Egress)/([1-9][0-9]{1,5})/(TCP|UDP|ANY)/([A-Za-z]{3,32})>"
+	singleAnnotationRegex = "<(Ingress|Egress)/([1-9][0-9]{1,5})/(TCP|UDP|SCTP|ANY)/([A-Za-z]{3,32})>"
 	annotationRegex       = regexp.MustCompile(fmt.Sprintf(`^((%s)(,(%s))*)$`, singleAnnotationRegex, singleAnnotationRegex))
 )
 
@@ -38,10 +38,10 @@ func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 // NewVisibilityPolicy generates the VisibilityPolicy that is encoded in the
 // annotation parameter.
 // Returns an error:
-// * if the annotation does not correspond to the expected
-//   format for a visibility annotation.
-// * if there is a conflict between the state encoded in the annotation (e.g.,
-//   different L7 protocols for the same L4 port / protocol / traffic direction.
+//   - if the annotation does not correspond to the expected
+//     format for a visibility annotation.
+//   - if there is a conflict between the state encoded in the annotation (e.g.,
+//     different L7 protocols for the same L4 port / protocol / traffic direction.
 func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 	if !annotationRegex.MatchString(anno) {
 		return nil, fmt.Errorf("annotation for proxy visibility did not match expected format %s", annotationRegex.String())
@@ -83,6 +83,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		if u8Prot == u8proto.ANY {
 			protos = append(protos, u8proto.TCP)
 			protos = append(protos, u8proto.UDP)
+			protos = append(protos, u8proto.SCTP)
 		} else {
 			protos = append(protos, u8Prot)
 		}

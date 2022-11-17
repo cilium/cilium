@@ -13,7 +13,8 @@ import (
 
 // Delete an IPAM. Deleting an IPAM removes all monitored data associated with the
 // IPAM including the historical data for CIDRs. For more information, see Delete
-// an IPAM in the Amazon VPC IPAM User Guide.
+// an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/delete-ipam.html) in the
+// Amazon VPC IPAM User Guide.
 func (c *Client) DeleteIpam(ctx context.Context, params *DeleteIpamInput, optFns ...func(*Options)) (*DeleteIpamOutput, error) {
 	if params == nil {
 		params = &DeleteIpamInput{}

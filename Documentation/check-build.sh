@@ -12,6 +12,7 @@ set -o pipefail
 # times anyway.
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+root_dir="$(dirname "${script_dir}")"
 
 build_dir="${script_dir}/_build"
 warnings="${build_dir}/warnings.txt"
@@ -52,12 +53,34 @@ describe_spelling_errors() {
     find "${spelldir}" -type f -print0 | xargs -0 sed 's/^/* Documentation\//'
 
     # Print a hint on how to add new correct words to the list of good words
-    new_words="$(sed -E "s/^([^:]+:){2} \(([^ ]+)\).*/\2/g" "${spelldir}"/* | sort -u | tr '\r\n' ' ' | sed "s/'/\\\\\\\\'/g")"
+    new_words="$(find "${spelldir}" -type f -print0 | \
+        xargs -0 sed -E "s/^([^:]+:){2} \(([^ ]+)\).*/\2/g" | \
+        sort -u | \
+        tr '\r\n' ' ' | \
+        sed "s/'/\\\\\\\\'/g")"
     printf "\nIf the words are not misspelled, run:\n%s %s\n" \
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
 
 build_with_spellchecker() {
+    # The spell checker runs some Git commands to retreive the name of authors
+    # and consider them as acceptable words.
+    #
+    # Recent Git versions refuse to work by default if the repository owner is
+    # different from the user. This is the case when we run this script in a
+    # container on macOS, because pass --user "uid:gid", and these values
+    # differ from what Linux is used to (The gid from macOS seems to be 20,
+    # which corresponds to the "dialout" group in the container). We pass
+    # --user "uid:gid" to have the "install" command work in the workaround for
+    # versionwarning above.
+    #
+    # If running in a container, tell Git that the repository is safe.
+    set +o nounset
+    if [[ -n "$MAKE_GIT_REPO_SAFE" ]]; then
+        git config --global --add safe.directory "${root_dir}"
+    fi
+    set -o nounset
+
     rm -rf "${spelldir}"
     # Call with -q -W --keep-going: suppresses regular output (keeps warning;
     # -Q would suppress warnings as well including those we write to a file),

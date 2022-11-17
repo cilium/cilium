@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package envoy
 
 import (
@@ -14,14 +12,16 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/spf13/viper"
+
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -42,7 +42,7 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 }
 
 func (s *EnvoySuite) TestEnvoy(c *C) {
-	option.Config.Populate()
+	option.Config.Populate(viper.GetViper())
 	option.Config.ProxyConnectTimeout = 1
 	c.Assert(option.Config.ProxyConnectTimeout, Not(Equals), 0)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -62,7 +62,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(ipcache.NewIPCache(nil), stateLogDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 
@@ -142,7 +142,7 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("state log directory: %s", stateLogDir)
 
-	xdsServer := StartXDSServer(ipcache.NewIPCache(nil), stateLogDir)
+	xdsServer := StartXDSServer(testipcache.NewMockIPCache(), stateLogDir)
 	defer xdsServer.stop()
 	StartAccessLogServer(stateLogDir, xdsServer)
 

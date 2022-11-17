@@ -58,7 +58,8 @@ func NewGetEndpointIDConfigParamsWithHTTPClient(client *http.Client) *GetEndpoin
 	}
 }
 
-/*GetEndpointIDConfigParams contains all the parameters to send to the API endpoint
+/*
+GetEndpointIDConfigParams contains all the parameters to send to the API endpoint
 for the get endpoint ID config operation typically these are written to a http.Request
 */
 type GetEndpointIDConfigParams struct {

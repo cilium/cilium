@@ -13,7 +13,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/eventqueue"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -181,8 +180,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 
 	status := &models.DaemonConfigurationStatus{
 		Addressing:       node.GetNodeAddressing(),
-		K8sConfiguration: k8s.GetKubeconfigPath(),
-		K8sEndpoint:      k8s.GetAPIServerURL(),
+		K8sConfiguration: d.clientset.Config().K8sKubeConfigPath,
+		K8sEndpoint:      d.clientset.Config().K8sAPIServer,
 		NodeMonitor:      d.monitorAgent.State(),
 		KvstoreConfiguration: &models.KVstoreConfiguration{
 			Type:    option.Config.KVStore,
@@ -193,17 +192,15 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 		DeviceMTU:              int64(d.mtuConfig.GetDeviceMTU()),
 		RouteMTU:               int64(d.mtuConfig.GetRouteMTU()),
 		DatapathMode:           models.DatapathMode(option.Config.DatapathMode),
-		IpvlanConfiguration: &models.IpvlanConfiguration{
-			MasterDeviceIndex: int64(option.Config.Ipvlan.MasterDeviceIndex),
-			OperationMode:     option.Config.Ipvlan.OperationMode,
-		},
-		IpamMode:   option.Config.IPAM,
-		Masquerade: option.Config.MasqueradingEnabled(),
+		IpamMode:               option.Config.IPAM,
+		Masquerade:             option.Config.MasqueradingEnabled(),
 		MasqueradeProtocols: &models.DaemonConfigurationStatusMasqueradeProtocols{
 			IPV4: option.Config.EnableIPv4Masquerade,
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
+		GROMaxSize:                  int64(d.bigTCPConfig.GetGROMaxSize()),
+		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOMaxSize()),
 	}
 
 	cfg := &models.DaemonConfiguration{

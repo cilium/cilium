@@ -8,19 +8,19 @@ metadata:
 spec:
   ingressClassName: cilium
   rules:
-    - http:
-        paths:
-          - backend:
-              service:
-                name: details
-                port:
-                  number: 9080
-            path: /details
-            pathType: Prefix
-          - backend:
-              service:
-                name: productpage
-                port:
-                  number: 9080
-            path: /
-            pathType: Prefix
+  - http:
+      paths:
+      - backend:
+          service:
+            name: details
+            port:
+              number: 9080
+        path: /details
+        pathType: Prefix
+      - backend:
+          service:
+            name: productpage
+            port:
+              number: 9080
+        path: /
+        pathType: Prefix

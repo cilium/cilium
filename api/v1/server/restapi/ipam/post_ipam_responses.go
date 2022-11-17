@@ -19,7 +19,8 @@ import (
 // PostIpamCreatedCode is the HTTP code returned for type PostIpamCreated
 const PostIpamCreatedCode int = 201
 
-/*PostIpamCreated Success
+/*
+PostIpamCreated Success
 
 swagger:response postIpamCreated
 */
@@ -63,7 +64,8 @@ func (o *PostIpamCreated) WriteResponse(rw http.ResponseWriter, producer runtime
 // PostIpamFailureCode is the HTTP code returned for type PostIpamFailure
 const PostIpamFailureCode int = 502
 
-/*PostIpamFailure Allocation failure
+/*
+PostIpamFailure Allocation failure
 
 swagger:response postIpamFailure
 */

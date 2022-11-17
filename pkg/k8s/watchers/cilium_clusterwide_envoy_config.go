@@ -9,25 +9,23 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ciliumNPClient *k8s.K8sCiliumClient) {
-	ccecStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(clientset client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumClusterwideEnvoyConfigV2
-	ccecController := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-			cilium_v2.CCECPluralName, v1.NamespaceAll, fields.Everything()),
+	_, ccecController := informer.NewInformer(
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideEnvoyConfigList](k.clientset.CiliumV2().CiliumClusterwideEnvoyConfigs()),
 		&cilium_v2.CiliumClusterwideEnvoyConfig{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -69,7 +67,6 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ciliumNPClient *k8s.K8sCil
 			},
 		},
 		k8s.ConvertToCiliumClusterwideEnvoyConfig,
-		ccecStore,
 	)
 
 	k.blockWaitGroupToSyncResources(
@@ -90,7 +87,13 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources, true, k.envoyConfigManager)
+	resources, err := envoy.ParseResources(
+		ccec.GetNamespace(),
+		ccec.GetName(),
+		ccec.Spec.Resources,
+		true,
+		k.envoyConfigManager,
+	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
 		return err
@@ -103,7 +106,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		return err
 	}
 
-	name := service.Name{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
 	if err := k.addK8sServiceRedirects(name, &ccec.Spec, resources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to redirect K8s services to Envoy")
 		return err
@@ -120,17 +123,29 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		logfields.K8sAPIVersion: newCCEC.TypeMeta.APIVersion,
 	})
 
-	oldResources, err := envoy.ParseResources("", oldCCEC.Spec.Resources, false, k.envoyConfigManager)
+	oldResources, err := envoy.ParseResources(
+		oldCCEC.GetNamespace(),
+		oldCCEC.GetName(),
+		oldCCEC.Spec.Resources,
+		false,
+		k.envoyConfigManager,
+	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
 		return err
 	}
-	newResources, err := envoy.ParseResources("", newCCEC.Spec.Resources, true, k.envoyConfigManager)
+	newResources, err := envoy.ParseResources(
+		newCCEC.GetNamespace(),
+		newCCEC.GetName(),
+		newCCEC.Spec.Resources,
+		true,
+		k.envoyConfigManager,
+	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
 		return err
 	}
-	name := service.Name{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: oldCCEC.ObjectMeta.Name, Namespace: oldCCEC.ObjectMeta.Namespace}
 	if err = k.removeK8sServiceRedirects(name, &oldCCEC.Spec, &newCCEC.Spec, oldResources, newResources); err != nil {
 		scopedLog.WithError(err).Warn("Failed to update K8s service redirections")
 		return err
@@ -159,13 +174,19 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		logfields.K8sAPIVersion: ccec.TypeMeta.APIVersion,
 	})
 
-	resources, err := envoy.ParseResources("", ccec.Spec.Resources, false, k.envoyConfigManager)
+	resources, err := envoy.ParseResources(
+		ccec.GetNamespace(),
+		ccec.GetName(),
+		ccec.Spec.Resources,
+		false,
+		k.envoyConfigManager,
+	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
 		return err
 	}
 
-	name := service.Name{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
+	name := loadbalancer.ServiceName{Name: ccec.ObjectMeta.Name, Namespace: ccec.ObjectMeta.Namespace}
 	if err = k.deleteK8sServiceRedirects(name, &ccec.Spec); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete K8s service redirections")
 		return err

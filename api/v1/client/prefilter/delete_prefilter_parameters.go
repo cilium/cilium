@@ -60,7 +60,8 @@ func NewDeletePrefilterParamsWithHTTPClient(client *http.Client) *DeletePrefilte
 	}
 }
 
-/*DeletePrefilterParams contains all the parameters to send to the API endpoint
+/*
+DeletePrefilterParams contains all the parameters to send to the API endpoint
 for the delete prefilter operation typically these are written to a http.Request
 */
 type DeletePrefilterParams struct {

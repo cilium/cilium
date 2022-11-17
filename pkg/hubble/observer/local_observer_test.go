@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-//go:build !privileged_tests
-
 package observer
 
 import (
@@ -46,6 +44,7 @@ func noopParser(t *testing.T) *parser.Parser {
 		&testutils.NoopIPGetter,
 		&testutils.NoopServiceGetter,
 		&testutils.NoopLinkGetter,
+		&testutils.NoopPodMetadataGetter,
 	)
 	require.NoError(t, err)
 	return pp

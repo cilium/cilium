@@ -407,8 +407,8 @@ func (s *httpSigner) buildCanonicalHeaders(host string, rule v4Internal.Rule, he
 	headers = append(headers, hostHeader)
 	signed[hostHeader] = append(signed[hostHeader], host)
 
+	const contentLengthHeader = "content-length"
 	if length > 0 {
-		const contentLengthHeader = "content-length"
 		headers = append(headers, contentLengthHeader)
 		signed[contentLengthHeader] = append(signed[contentLengthHeader], strconv.FormatInt(length, 10))
 	}
@@ -416,6 +416,10 @@ func (s *httpSigner) buildCanonicalHeaders(host string, rule v4Internal.Rule, he
 	for k, v := range header {
 		if !rule.IsValid(k) {
 			continue // ignored header
+		}
+		if strings.EqualFold(k, contentLengthHeader) {
+			// prevent signing already handled content-length header.
+			continue
 		}
 
 		lowerCaseKey := strings.ToLower(k)

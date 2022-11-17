@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package trigger
 
 import (
@@ -110,4 +108,29 @@ func (s *TriggerTestSuite) TestLongTrigger(c *C) {
 	c.Assert(triggeredCopy, Equals, 1)
 
 	t.Shutdown()
+}
+
+func (s *TriggerTestSuite) TestShutdownFunc(c *C) {
+	done := make(chan struct{})
+	t, err := NewTrigger(Parameters{
+		TriggerFunc: func(reasons []string) {},
+		ShutdownFunc: func() {
+			close(done)
+		},
+	})
+	c.Assert(err, IsNil)
+
+	t.Trigger()
+	select {
+	case <-done:
+		c.Errorf("shutdown func called unexpectedly")
+	default:
+	}
+
+	t.Shutdown()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		c.Errorf("timed out while waiting for shutdown func")
+	}
 }

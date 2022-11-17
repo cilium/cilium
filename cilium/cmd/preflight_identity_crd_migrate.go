@@ -11,16 +11,17 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
-	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -33,10 +34,12 @@ import (
 // listing, allocating and getting identities.
 const opTimeout = 30 * time.Second
 
-var migrateIdentityCmd = &cobra.Command{
-	Use:   "migrate-identity",
-	Short: "Migrate KVStore-backed identities to kubernetes CRD-backed identities",
-	Long: `migrate-identity allows migrating to CRD-backed identities while
+func migrateIdentityCmd() *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "migrate-identity",
+		Short: "Migrate KVStore-backed identities to kubernetes CRD-backed identities",
+		Long: `migrate-identity allows migrating to CRD-backed identities while
 	minimizing connection interruptions. It will allocate a CRD-backed identity,
 	with the same numeric security identity, for each cilium security identity
 	defined in the kvstore. When cilium-agents are restarted with
@@ -44,9 +47,32 @@ var migrateIdentityCmd = &cobra.Command{
 	equivalent between new instances and not-upgraded ones. In cases where the
 	numeric identity is already in-use by a different set of labels, a new
 	numeric identity is created.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		migrateIdentities()
-	},
+	}
+
+	hive := hive.New(
+		k8sClient.Cell,
+		cell.Invoke(func(lc hive.Lifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStart: func(ctx hive.HookContext) error {
+					return migrateIdentities(ctx, clientset, shutdowner)
+				},
+			})
+		}),
+	)
+	hive.SetTimeouts(opTimeout, opTimeout)
+	hive.RegisterFlags(cmd.Flags())
+
+	cmd.Run = func(cmd *cobra.Command, args []string) {
+		// The internal packages log things. Make sure they follow the setup of
+		// the CLI tool.
+		logging.DefaultLogger.SetFormatter(log.Formatter)
+
+		if err := hive.Run(); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	return cmd
 }
 
 // migrateIdentities attempts to mirror the security identities in the kvstore
@@ -57,18 +83,19 @@ var migrateIdentityCmd = &cobra.Command{
 // The steps are:
 // 1- Connect to the kvstore via a pkg/allocatore.Backend
 // 2- Connect to k8s
-//   a- Create the ciliumidentity CRD if it is missing.
+//
+//	a- Create the ciliumidentity CRD if it is missing.
+//
 // 3- Iterate over each identity in the kvstore
-//   a- Attempt to allocate the same numeric ID to this key
-//   b- Already allocated identies that match ID->key are skipped
-//   c- kvstore IDs with conflicting CRDs are allocated with a different ID
+//
+//	a- Attempt to allocate the same numeric ID to this key
+//	b- Already allocated identies that match ID->key are skipped
+//	c- kvstore IDs with conflicting CRDs are allocated with a different ID
 //
 // NOTE: It is assumed that the migration is from k8s to k8s installations. The
 // key labels different when running in non-k8s mode.
-func migrateIdentities() {
-	// The internal packages log things. Make sure they follow the setup of of
-	// the CLI tool.
-	logging.DefaultLogger.SetFormatter(log.Formatter)
+func migrateIdentities(ctx hive.HookContext, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
+	defer shutdowner.Shutdown(nil)
 
 	// Setup global configuration
 	// These are defined in cilium/cmd/kvstore.go
@@ -79,14 +106,14 @@ func migrateIdentities() {
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD // force CRD mode to make ciliumid
 
 	// Init Identity backends
-	initCtx, initCancel := context.WithTimeout(context.Background(), opTimeout)
+	initCtx, initCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreBackend := initKVStore(initCtx)
 
-	crdBackend, crdAllocator := initK8s(initCtx)
+	crdBackend, crdAllocator := initK8s(initCtx, clientset)
 	initCancel()
 
 	log.Info("Listing identities in kvstore")
-	listCtx, listCancel := context.WithTimeout(context.Background(), opTimeout)
+	listCtx, listCancel := context.WithTimeout(ctx, opTimeout)
 	kvstoreIDs, err := getKVStoreIdentities(listCtx, kvstoreBackend)
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
@@ -102,7 +129,7 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+		ctx, cancel := context.WithTimeout(ctx, opTimeout)
 		err := crdBackend.AllocateID(ctx, id, key)
 		switch {
 		case err != nil && k8serrors.IsAlreadyExists(err):
@@ -127,7 +154,7 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		})
 
-		getCtx, getCancel := context.WithTimeout(context.TODO(), opTimeout)
+		getCtx, getCancel := context.WithTimeout(ctx, opTimeout)
 		upstreamKey, err := crdBackend.GetByID(getCtx, id)
 		getCancel()
 		scopedLog.Debugf("Looking at upstream key with this ID: %+v", upstreamKey)
@@ -171,34 +198,26 @@ func migrateIdentities() {
 			logfields.IdentityLabels: key.GetKey(),
 		}).Info("New ID allocated for key in CRD")
 	}
+	return nil
 }
 
 // initK8s connects to k8s with a allocator.Backend and an initialized
 // allocator.Allocator, using the k8s config passed into the command.
-func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
+func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend allocator.Backend, crdAllocator *allocator.Allocator) {
 	log.Info("Setting up kubernetes client")
 
-	k8sClientQPSLimit := viper.GetFloat64(option.K8sClientQPSLimit)
-	k8sClientBurst := viper.GetInt(option.K8sClientBurst)
-
-	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
-
-	if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
-		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
-	}
-
-	if err := k8s.WaitForNodeInformation(ctx, k8s.Client()); err != nil {
+	if err := k8s.WaitForNodeInformation(ctx, clientset); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 
 	// Update CRDs to ensure ciliumIdentity is present
-	ciliumClient.RegisterCRDs()
+	ciliumClient.RegisterCRDs(clientset)
 
 	// Create a CRD Backend
 	crdBackend, err := identitybackend.NewCRDBackend(identitybackend.CRDBackendConfiguration{
 		NodeName: "cilium-preflight",
 		Store:    nil,
-		Client:   k8s.CiliumClient(),
+		Client:   clientset,
 		KeyType:  cache.GlobalIdentity{},
 	})
 	if err != nil {

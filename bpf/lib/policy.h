@@ -52,8 +52,18 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	}
 	key.sec_label = identity;
 
-	/* If L4 policy check misses, fall back to L3. */
+	/* Check L4 any port policy */
 	key.dport = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
+		return CTX_ACT_OK;
+	}
+
+	/* If L4 policy check misses, fall back to L3. */
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
@@ -186,6 +196,17 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 				return DROP_POLICY_DENY;
 			return policy->proxy_port;
 		}
+
+		/* Check L4 any port policy */
+		key.dport = 0;
+		policy = map_lookup_elem(map, &key);
+		if (likely(policy)) {
+			account(ctx, policy);
+			*match_type = POLICY_MATCH_L4_ONLY;
+			if (unlikely(policy->deny))
+				return DROP_POLICY_DENY;
+			return CTX_ACT_OK;
+		}
 		key.sec_label = remote_id;
 	}
 
@@ -263,7 +284,7 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 	return ret;
 }
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 static __always_inline bool is_encap(__u16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(TUNNEL_PORT);
@@ -276,7 +297,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 {
 	int ret;
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 	if (src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif

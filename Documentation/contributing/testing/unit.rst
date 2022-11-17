@@ -68,30 +68,34 @@ prerequisites:
 
 .. code-block:: shell-session
 
-    $ make integration-tests TESTPKGS=pkg/kvstore
+    $ make integration-tests TESTPKGS=./pkg/kvstore
 
-Some packages have privileged tests. They are not run by default when you run
-the integration tests for the respective package. The privileged test files have
-an entry at the top of the test file as shown.
+Some tests are marked as 'privileged' if they require the test suite to be run
+as a privileged user or with a given set of capabilities. They are skipped by
+default when running ``go test``.
 
-::
+There are a few ways to run privileged tests.
 
-    +build privileged_tests
-
-There are two ways that you can run the 'privileged' tests.
-
-1. To run all the 'privileged' tests for cilium follow the instructions below.
+1. Run the whole test suite with sudo.
 
     .. code-block:: shell-session
 
-        $ sudo -E make tests-privileged
+        $ sudo make tests-privileged
 
-2. To run a specific package 'privileged' test, follow the instructions below.
-   Here for example we are trying to run the tests for 'routing' package.
+2. To narrow down the packages under test, specify ``TESTPKGS``. Note that this
+   takes the Go package pattern syntax, including ``...`` wildcard specifier.
 
     .. code-block:: shell-session
 
-        $ TESTPKGS="pkg/aws/eni/routing" sudo -E make tests-privileged
+        $ sudo make tests-privileged TESTPKGS="./pkg/datapath/linux ./pkg/maps/..." 
+
+3. Set the ``PRIVILEGED_TESTS`` environment variable and run ``go test``
+   directly. This only escalates privileges when executing the test binaries,
+   the ``go build`` process is run unprivileged.
+
+    .. code-block:: shell-session
+
+        $ PRIVILEGED_TESTS=true go test -exec "sudo -E" ./pkg/ipam
 
 Running individual tests
 ^^^^^^^^^^^^^^^^^^^^^^^^

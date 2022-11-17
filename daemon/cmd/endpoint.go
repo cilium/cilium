@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -191,7 +192,9 @@ func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*slim_cor
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
-	ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
+	if ep != nil {
+		ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
+	}
 	return nil, PutEndpointIDInvalidCode, err
 }
 
@@ -218,13 +221,15 @@ type endpointCreationRequest struct {
 }
 
 type endpointCreationManager struct {
-	mutex    lock.Mutex
-	requests map[string]*endpointCreationRequest
+	mutex     lock.Mutex
+	clientset client.Clientset
+	requests  map[string]*endpointCreationRequest
 }
 
-func newEndpointCreationManager() *endpointCreationManager {
+func newEndpointCreationManager(cs client.Clientset) *endpointCreationManager {
 	return &endpointCreationManager{
-		requests: map[string]*endpointCreationRequest{},
+		requests:  map[string]*endpointCreationRequest{},
+		clientset: cs,
 	}
 }
 
@@ -233,7 +238,7 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 	// The endpoint create logic already ensures that IPs and containerID
 	// are unique and thus tracking is not required outside of the
 	// Kubernetes context
-	if !ep.K8sNamespaceAndPodNameIsSet() || !k8s.IsEnabled() {
+	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
 		return
 	}
 
@@ -256,7 +261,7 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 }
 
 func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
-	if !ep.K8sNamespaceAndPodNameIsSet() || !k8s.IsEnabled() {
+	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
 		return false
 	}
 
@@ -342,11 +347,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 
 	var checkIDs []string
 
-	if ep.IPv4.IsSet() {
+	if ep.IPv4.IsValid() {
 		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv4Prefix, ep.IPv4.String()))
 	}
 
-	if ep.IPv6.IsSet() {
+	if ep.IPv6.IsValid() {
 		checkIDs = append(checkIDs, endpointid.NewID(endpointid.IPv6Prefix, ep.IPv6.String()))
 	}
 
@@ -382,7 +387,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	d.endpointCreations.NewCreateRequest(ep, cancel)
 	defer d.endpointCreations.EndCreateRequest(ep)
 
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
+	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		pod, cp, identityLabels, info, annotations, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
@@ -426,7 +431,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	// static pod's labels. In this case, start a controller to attempt to
 	// resolve the labels.
 	k8sLabelsConfigured := true
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
+	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
 		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
@@ -440,17 +445,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build takes place.
-	if err = ep.PinDatapathMap(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
-	}
-
 	// We need to update the the visibility policy after adding the endpoint in
 	// the endpoint manager because the endpoint manager create the endpoint
 	// queue of the endpoint. If we execute this function before the endpoint
 	// manager creates the endpoint queue the operation will fail.
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() && k8sLabelsConfigured {
+	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() && k8sLabelsConfigured {
 		ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
 			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
 			if err != nil {
@@ -717,13 +716,13 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 
 	if !conf.NoIPRelease {
 		if option.Config.EnableIPv4 {
-			if err := d.ipam.ReleaseIP(ep.IPv4.IP()); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv4.AsSlice()); err != nil {
 				scopedLog := ep.Logger(daemonSubsys).WithError(err)
 				scopedLog.Warning("Unable to release IPv4 address during endpoint deletion")
 			}
 		}
 		if option.Config.EnableIPv6 {
-			if err := d.ipam.ReleaseIP(ep.IPv6.IP()); err != nil {
+			if err := d.ipam.ReleaseIP(ep.IPv6.AsSlice()); err != nil {
 				scopedLog := ep.Logger(daemonSubsys).WithError(err)
 				scopedLog.Warning("Unable to release IPv6 address during endpoint deletion")
 			}

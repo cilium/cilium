@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-// +build !privileged_tests
-
 package envoy
 
 import (
@@ -14,6 +11,7 @@ import (
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"sigs.k8s.io/yaml"
 
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -138,6 +136,16 @@ spec:
             route_config_name: local_route
           http_filters:
           - name: envoy.filters.http.router
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+          require_client_certificate: true
+          common_tls_context:
+            tls_certificate_sds_secret_configs:
+            - name: cilium-secrets/server-mtls
+            validation_context_sds_secret_config:
+              name: cilium-secrets/server-mtls
 `
 
 func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
@@ -154,12 +162,34 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
+
+	c.Assert(chain.TransportSocket, Not(IsNil))
+	c.Assert(chain.TransportSocket.Name, Equals, "envoy.transport_sockets.tls")
+	msg, err := chain.TransportSocket.GetTypedConfig().UnmarshalNew()
+	c.Assert(err, IsNil)
+	c.Assert(msg, Not(IsNil))
+	tls, ok := msg.(*envoy_config_tls.DownstreamTlsContext)
+	c.Assert(ok, Equals, true)
+	c.Assert(tls, Not(IsNil))
+	//
+	// Check that missing SDS config sources are automatically filled in
+	//
+	tlsContext := tls.CommonTlsContext
+	c.Assert(tlsContext, Not(IsNil))
+	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
+		checkCiliumXDS(c, sc.SdsConfig)
+	}
+	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
+	c.Assert(sdsConfig, Not(IsNil))
+	checkCiliumXDS(c, sdsConfig.SdsConfig)
+
 	c.Assert(chain.Filters, HasLen, 1)
 	c.Assert(chain.Filters[0].Name, Equals, "envoy.filters.network.http_connection_manager")
 	message, err := chain.Filters[0].GetTypedConfig().UnmarshalNew()
@@ -174,17 +204,8 @@ func (s *JSONSuite) TestCiliumEnvoyConfig(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
-	cs := rds.GetConfigSource()
-	c.Assert(cs, Not(IsNil))
-	acs := cs.GetApiConfigSource()
-	c.Assert(acs, Not(IsNil))
-	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
-	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
-	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
-	c.Assert(acs.GrpcServices, HasLen, 1)
-	eg := acs.GrpcServices[0].GetEnvoyGrpc()
-	c.Assert(eg, Not(IsNil))
-	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
+	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
 	// Check that HTTP filters are parsed
@@ -232,9 +253,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, false, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, false, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(0)) // invalid listener port number
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -252,17 +274,8 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
-	cs := rds.GetConfigSource()
-	c.Assert(cs, Not(IsNil))
-	acs := cs.GetApiConfigSource()
-	c.Assert(acs, Not(IsNil))
-	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
-	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
-	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
-	c.Assert(acs.GrpcServices, HasLen, 1)
-	eg := acs.GrpcServices[0].GetEnvoyGrpc()
-	c.Assert(eg, Not(IsNil))
-	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
+	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
 	// Check that HTTP filters are parsed
@@ -273,7 +286,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigValidation(c *C) {
 	//
 	// Same with validation fails
 	//
-	resources, err = ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err = ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, Not(IsNil))
 }
 
@@ -313,9 +326,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/envoy-prometheus-metrics-listener")
 	c.Assert(resources.Listeners[0].Address, Not(IsNil))
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress(), Not(IsNil))
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Not(Equals), 0)
@@ -336,17 +350,8 @@ func (s *JSONSuite) TestCiliumEnvoyConfigNoAddress(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
-	cs := rds.GetConfigSource()
-	c.Assert(cs, Not(IsNil))
-	acs := cs.GetApiConfigSource()
-	c.Assert(acs, Not(IsNil))
-	c.Assert(acs.ApiType, Equals, envoy_config_core.ApiConfigSource_GRPC)
-	c.Assert(acs.TransportApiVersion, Equals, envoy_config_core.ApiVersion_V3)
-	c.Assert(acs.SetNodeOnFirstMessageOnly, Equals, true)
-	c.Assert(acs.GrpcServices, HasLen, 1)
-	eg := acs.GrpcServices[0].GetEnvoyGrpc()
-	c.Assert(eg, Not(IsNil))
-	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
+	checkCiliumXDS(c, rds.GetConfigSource())
 
 	//
 	// Check that HTTP filters are parsed
@@ -393,6 +398,15 @@ spec:
     connect_timeout: 0.25s
     lb_policy: ROUND_ROBIN
     type: EDS
+    transport_socket:
+      name: envoy.transport_sockets.tls
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+          - name: cilium-secrets/client-mtls
+          validation_context_sds_secret_config:
+            name: cilium-secrets/client-mtls
   - "@type": type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment
     cluster_name: some_service
     endpoints:
@@ -426,9 +440,10 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	c.Assert(cec.Spec.Resources, HasLen, 5)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
 
-	resources, err := ParseResources("prefix", cec.Spec.Resources, true, portAllocator)
+	resources, err := ParseResources("namespace", "name", cec.Spec.Resources, true, portAllocator)
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
+	c.Assert(resources.Listeners[0].Name, Equals, "namespace/name/multi-resource-listener")
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
 	c.Assert(resources.Listeners[0].FilterChains, HasLen, 1)
 	chain := resources.Listeners[0].FilterChains[0]
@@ -445,9 +460,8 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	rds := hcm.GetRds()
 	c.Assert(rds, Not(IsNil))
-	cs := rds.GetConfigSource()
-	c.Assert(cs, Not(IsNil))
-	checkCiliumXDS(c, cs)
+	c.Assert(rds.RouteConfigName, Equals, "namespace/name/local_route")
+	checkCiliumXDS(c, rds.GetConfigSource())
 	//
 	// Check that HTTP filters are parsed
 	//
@@ -459,7 +473,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	c.Assert(cec.Spec.Resources[1].TypeUrl, Equals, "type.googleapis.com/envoy.config.route.v3.RouteConfiguration")
 	c.Assert(resources.Routes, HasLen, 1)
-	c.Assert(resources.Routes[0].Name, Equals, "local_route")
+	c.Assert(resources.Routes[0].Name, Equals, "namespace/name/local_route")
 	c.Assert(resources.Routes[0].VirtualHosts, HasLen, 1)
 	vh := resources.Routes[0].VirtualHosts[0]
 	c.Assert(vh.Name, Equals, "local_service")
@@ -486,9 +500,27 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 	//
 	eds := resources.Clusters[0].GetEdsClusterConfig()
 	c.Assert(eds, Not(IsNil))
-	ec := eds.GetEdsConfig()
-	c.Assert(ec, Not(IsNil))
-	checkCiliumXDS(c, ec)
+	checkCiliumXDS(c, eds.GetEdsConfig())
+
+	c.Assert(resources.Clusters[0].TransportSocket, Not(IsNil))
+	c.Assert(resources.Clusters[0].TransportSocket.Name, Equals, "envoy.transport_sockets.tls")
+	msg, err := resources.Clusters[0].TransportSocket.GetTypedConfig().UnmarshalNew()
+	c.Assert(err, IsNil)
+	c.Assert(msg, Not(IsNil))
+	tls, ok := msg.(*envoy_config_tls.UpstreamTlsContext)
+	c.Assert(ok, Equals, true)
+	c.Assert(tls, Not(IsNil))
+	//
+	// Check that missing SDS config sources are automatically filled in
+	//
+	tlsContext := tls.CommonTlsContext
+	c.Assert(tlsContext, Not(IsNil))
+	for _, sc := range tlsContext.TlsCertificateSdsSecretConfigs {
+		checkCiliumXDS(c, sc.SdsConfig)
+	}
+	sdsConfig := tlsContext.GetValidationContextSdsSecretConfig()
+	c.Assert(sdsConfig, Not(IsNil))
+	checkCiliumXDS(c, sdsConfig.SdsConfig)
 
 	//
 	// Check 1st endpoint resource
@@ -520,6 +552,7 @@ func (s *JSONSuite) TestCiliumEnvoyConfigMulti(c *C) {
 }
 
 func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
+	c.Assert(cs, Not(IsNil))
 	c.Assert(cs.ResourceApiVersion, Equals, envoy_config_core.ApiVersion_V3)
 	acs := cs.GetApiConfigSource()
 	c.Assert(acs, Not(IsNil))
@@ -530,4 +563,29 @@ func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
 	eg := acs.GrpcServices[0].GetEnvoyGrpc()
 	c.Assert(eg, Not(IsNil))
 	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
+}
+
+func (s *JSONSuite) TestResourceQualifiedName(c *C) {
+	var fullName, namespace, name, resource string
+
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-resource")
+
+	name = "test-name"
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-name/test-resource")
+
+	namespace = "test-namespace"
+	name = ""
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-resource")
+
+	namespace = "test-namespace"
+	name = "test-name"
+	resource = "test-resource"
+	fullName = resourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-name/test-resource")
 }

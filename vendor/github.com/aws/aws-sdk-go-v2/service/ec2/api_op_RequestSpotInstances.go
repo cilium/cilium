@@ -20,7 +20,11 @@ import (
 // For options for requesting Spot Instances, see Which is the best Spot request
 // method to use?
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-best-practices.html#which-spot-request-method-to-use)
-// in the Amazon EC2 User Guide for Linux Instances.
+// in the Amazon EC2 User Guide for Linux Instances. We are retiring EC2-Classic on
+// August 15, 2022. We recommend that you migrate from EC2-Classic to a VPC. For
+// more information, see Migrate from EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon EC2 User Guide for Linux Instances.
 func (c *Client) RequestSpotInstances(ctx context.Context, params *RequestSpotInstancesInput, optFns ...func(*Options)) (*RequestSpotInstancesOutput, error) {
 	if params == nil {
 		params = &RequestSpotInstancesInput{}
@@ -86,8 +90,11 @@ type RequestSpotInstancesInput struct {
 	// The launch specification.
 	LaunchSpecification *types.RequestSpotLaunchSpecification
 
-	// The maximum price per hour that you are willing to pay for a Spot Instance. The
-	// default is the On-Demand price.
+	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
+	// We do not recommend using this parameter because it can lead to increased
+	// interruptions. If you do not specify this parameter, you will pay the current
+	// Spot price. If you specify a maximum price, your instances will be interrupted
+	// more frequently than if you do not specify this parameter.
 	SpotPrice *string
 
 	// The key-value pair for tagging the Spot Instance request on creation. The value

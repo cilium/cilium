@@ -32,10 +32,10 @@ func NewGetDebuginfo(ctx *middleware.Context, handler GetDebuginfoHandler) *GetD
 	return &GetDebuginfo{Context: ctx, Handler: handler}
 }
 
-/*GetDebuginfo swagger:route GET /debuginfo daemon getDebuginfo
+/*
+GetDebuginfo swagger:route GET /debuginfo daemon getDebuginfo
 
 Retrieve information about the agent and evironment for debugging
-
 */
 type GetDebuginfo struct {
 	Context *middleware.Context

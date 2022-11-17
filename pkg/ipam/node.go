@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 // Copyright 2017 Lyft, Inc.
 
 package ipam
@@ -15,6 +16,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ipam/metrics"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -30,6 +32,15 @@ const (
 	// warningInterval is the interval for warnings which should be done
 	// once and then repeated if the warning persists.
 	warningInterval = time.Hour
+
+	// allocation type
+	createInterfaceAndAllocateIP = "createInterfaceAndAllocateIP"
+	allocateIP                   = "allocateIP"
+	releaseIP                    = "releaseIP"
+
+	// operator status
+	success = "success"
+	failed  = "failed"
 )
 
 // Node represents a Kubernetes node running Cilium with an associated
@@ -131,6 +142,14 @@ type Statistics struct {
 	// allocated or have not yet exhausted the instance specific quota of
 	// addresses
 	RemainingInterfaces int
+
+	// InterfaceCandidates is the number of attached interfaces with IPs
+	// available for allocation.
+	InterfaceCandidates int
+
+	// EmptyInterfaceSlots is the number of empty interface slots available
+	// for interfaces to be attached
+	EmptyInterfaceSlots int
 }
 
 // IsRunning returns true if the node is considered to be running
@@ -357,14 +376,20 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	// dependent on caller not using the resource after this call.
 	resource = resource.DeepCopy()
 
-	n.ops.UpdatedNode(resource)
-
+	// Update n.resource before n.ops.UpdatedNode. This is to increase the chance
+	// of performing a complete n.recalculate() execution when the nodeManager performs a resync
+	// and the operator is starting up.
+	// This is best effort to solve the issue where the metrics `cilium_operator_ipam_available_interfaces`
+	// only contains a part of the nodes at operator startup. It will be set to the correct
+	// value after the next period where nodeManager performs a resync.
 	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
 	// instance is alive
 	n.instanceRunning = true
 	n.resource = resource
 	n.mutex.Unlock()
+
+	n.ops.UpdatedNode(resource)
 
 	n.recalculate()
 	allocationNeeded := n.allocationNeeded()
@@ -390,7 +415,7 @@ func (n *Node) recalculate() {
 	}
 	scopedLog := n.logger()
 
-	a, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+	a, remainingAvailableInterfaceCount, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
 
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
@@ -415,6 +440,7 @@ func (n *Node) recalculate() {
 	n.stats.AvailableIPs = len(n.available)
 	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
 	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, usedIPForExcessCalc, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+	n.stats.RemainingInterfaces = remainingAvailableInterfaceCount
 
 	scopedLog.WithFields(logrus.Fields{
 		"available":                 n.stats.AvailableIPs,
@@ -423,6 +449,7 @@ func (n *Node) recalculate() {
 		"toRelease":                 n.stats.ExcessIPs,
 		"waitingForPoolMaintenance": n.waitingForPoolMaintenance,
 		"resyncNeeded":              n.resyncNeeded,
+		"remainingInterfaces":       remainingAvailableInterfaceCount,
 	}).Debug("Recalculated needed addresses")
 }
 
@@ -469,8 +496,8 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 // attaches it to the instance as specified by the CiliumNode. neededAddresses
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
-func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
-	if a.AvailableInterfaces == 0 {
+func (n *Node) createInterface(ctx context.Context, a *AllocationAction) (created bool, err error) {
+	if a.EmptyInterfaceSlots == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as interface allocation failure. There is a
 		// separate metric to track nodes running at capacity.
@@ -480,21 +507,23 @@ func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
 			n.lastMaxAdapterWarning = time.Now()
 		}
 		n.mutex.Unlock()
-		return nil
+		return false, nil
 	}
 
 	scopedLog := n.logger()
+	start := time.Now()
 	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
 	if err != nil {
+		n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, errCondition, string(a.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.Warningf("Unable to create interface on instance: %s", err)
-		n.manager.metricsAPI.IncAllocationAttempt(errCondition, string(a.PoolID))
-		return err
+		return false, err
 	}
 
-	n.manager.metricsAPI.IncAllocationAttempt("success", string(a.PoolID))
+	n.manager.metricsAPI.AllocationAttempt(createInterfaceAndAllocateIP, success, string(a.PoolID), metrics.SinceInSeconds(start))
 	n.manager.metricsAPI.AddIPAllocation(string(a.PoolID), int64(toAllocate))
+	n.manager.metricsAPI.IncInterfaceAllocation(string(a.PoolID))
 
-	return nil
+	return true, nil
 }
 
 // AllocationAction is the action to be taken to resolve allocation deficits
@@ -529,8 +558,13 @@ type AllocationAction struct {
 	// getMaxAboveWatermark() }.
 	MaxIPsToAllocate int
 
-	// AvailableInterfaces is the number of interfaces available to be created
-	AvailableInterfaces int
+	// InterfaceCandidates is the number of attached interfaces with IPs
+	// available for allocation.
+	InterfaceCandidates int
+
+	// EmptyInterfaceSlots is the number of empty interface slots available
+	// for interfaces to be attached
+	EmptyInterfaceSlots int
 }
 
 // ReleaseAction is the action to be taken to resolve allocation excess for a
@@ -605,7 +639,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 
 	if a.allocation != nil {
 		n.mutex.Lock()
-		n.stats.RemainingInterfaces = a.allocation.AvailableInterfaces
+		n.stats.RemainingInterfaces = a.allocation.InterfaceCandidates + a.allocation.EmptyInterfaceSlots
 		stats = n.stats
 		n.mutex.Unlock()
 		scopedLog = scopedLog.WithFields(logrus.Fields{
@@ -613,7 +647,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 			"selectedPoolID":         a.allocation.PoolID,
 			"maxIPsToAllocate":       a.allocation.MaxIPsToAllocate,
 			"availableForAllocation": a.allocation.AvailableForAllocation,
-			"availableInterfaces":    a.allocation.AvailableInterfaces,
+			"emptyInterfaceSlots":    a.allocation.EmptyInterfaceSlots,
 		})
 	}
 
@@ -785,8 +819,10 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			"selectedPoolID":    a.release.PoolID,
 		})
 		scopedLog.Info("Releasing excess IPs from node")
+		start := time.Now()
 		err := n.ops.ReleaseIPs(ctx, a.release)
 		if err == nil {
+			n.manager.metricsAPI.ReleaseAttempt(releaseIP, success, string(a.release.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPRelease(string(a.release.PoolID), int64(len(a.release.IPsToRelease)))
 
 			// Remove the IPs from ipsMarkedForRelease
@@ -798,7 +834,7 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 			n.mutex.Unlock()
 			return true, nil
 		}
-		n.manager.metricsAPI.IncAllocationAttempt("ip unassignment failed", string(a.release.PoolID))
+		n.manager.metricsAPI.ReleaseAttempt(releaseIP, failed, string(a.release.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface":  a.release.InterfaceID,
 			"releasingAddresses": len(a.release.IPsToRelease),
@@ -821,22 +857,22 @@ func (n *Node) handleIPAllocation(ctx context.Context, a *maintenanceAction) (in
 	if a.allocation.AvailableForAllocation > 0 {
 		a.allocation.AvailableForAllocation = math.IntMin(a.allocation.AvailableForAllocation, a.allocation.MaxIPsToAllocate)
 
+		start := time.Now()
 		err := n.ops.AllocateIPs(ctx, a.allocation)
 		if err == nil {
-			n.manager.metricsAPI.IncAllocationAttempt("success", string(a.allocation.PoolID))
+			n.manager.metricsAPI.AllocationAttempt(allocateIP, success, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 			n.manager.metricsAPI.AddIPAllocation(string(a.allocation.PoolID), int64(a.allocation.AvailableForAllocation))
 			return true, nil
 		}
 
-		n.manager.metricsAPI.IncAllocationAttempt("ip assignment failed", string(a.allocation.PoolID))
+		n.manager.metricsAPI.AllocationAttempt(allocateIP, failed, string(a.allocation.PoolID), metrics.SinceInSeconds(start))
 		scopedLog.WithFields(logrus.Fields{
 			"selectedInterface": a.allocation.InterfaceID,
 			"ipsToAllocate":     a.allocation.AvailableForAllocation,
 		}).WithError(err).Warning("Unable to assign additional IPs to interface, will create new interface")
 	}
 
-	err = n.createInterface(ctx, a.allocation)
-	return err != nil, err
+	return n.createInterface(ctx, a.allocation)
 }
 
 // maintainIPPool attempts to allocate or release all required IPs to fulfill the needed gap.
@@ -1034,9 +1070,9 @@ func (n *Node) syncToAPIServer() (err error) {
 // Note that the `origNode` and `node` pointers will have their underlying
 // values modified in this function! The following is an outline of when
 // `origNode` and `node` pointers are updated:
-//  * `node` is updated when we succeed in updating to update the resource to
+//   - `node` is updated when we succeed in updating to update the resource to
 //     the apiserver.
-//  * `origNode` and `node` are updated when we fail to update the resource,
+//   - `origNode` and `node` are updated when we fail to update the resource,
 //     but we succeed in retrieving the latest version of it from the
 //     apiserver.
 func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {

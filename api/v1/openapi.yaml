@@ -3,7 +3,7 @@ swagger: '2.0'
 info:
   title: Cilium API
   description: Cilium
-  version: v1beta
+  version: v1beta1
 x-schemes:
 - unix
 basePath: "/v1"
@@ -831,7 +831,22 @@ paths:
             "$ref": "#/definitions/BPFMap"
         '404':
           description: Map not found
-
+  "/map/{name}/events":
+    get:
+      summary: Retrieves the recent event logs associated with this endpoint.
+      tags:
+      - daemon
+      parameters:
+      - "$ref": "#/parameters/map-name"
+      - "$ref": "#/parameters/follow"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: string
+            format: binary 
+        '404':
+          description: Map not found
   "/metrics/":
     get:
       summary: Retrieve cilium metrics
@@ -1090,6 +1105,12 @@ parameters:
     required: true
     in: path
     type: string
+  follow:
+    name: follow
+    description: Whether to follow streamed requests
+    required: false
+    in: query
+    type: boolean
   matchpattern:
     name: matchpattern
     description: A toFQDNs compatible matchPattern expression
@@ -1727,6 +1748,9 @@ definitions:
       kvstore:
         description: Status of key/value datastore
         "$ref": "#/definitions/Status"
+      cni-file:
+        description: Status of the CNI configuration file
+        "$ref": "#/definitions/Status"
       container-runtime:
         description: Status of local container runtime
         "$ref": "#/definitions/Status"
@@ -1760,6 +1784,9 @@ definitions:
       identity-range:
         description: Status of identity range of the cluster
         "$ref": "#/definitions/IdentityRange"
+      ipv6-big-tcp:
+        description: Status of IPv6 BIG TCP
+        "$ref": "#/definitions/IPV6BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2013,6 +2040,15 @@ definitions:
                 type: array
                 items:
                   type: string
+          socketLB:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
           sessionAffinity:
             description: |-
 
@@ -2032,6 +2068,15 @@ definitions:
               enabled:
                 type: boolean
           nat46X64:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
+            type: object
+            properties:
+              enabled:
+                type: boolean
+          socketLBTracing:
             description: |-
 
 
@@ -2234,8 +2279,6 @@ definitions:
         type: integer
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
-      ipvlanConfiguration:
-        "$ref": "#/definitions/IpvlanConfiguration"
       ipam-mode:
         description: Configured IPAM mode
         type: string
@@ -2258,25 +2301,17 @@ definitions:
         description: Config map which contains all the active daemon configurations
         additionalProperties:
           type: object
+      GSOMaxSize:
+        description: Maximum GSO size on workload facing devices
+        type: integer
+      GROMaxSize:
+        description: Maximum GRO size on workload facing devices
+        type: integer
   DatapathMode:
     description: Datapath mode
     type: string
     enum:
       - veth
-      - ipvlan
-  IpvlanConfiguration:
-    description: Setup for datapath when operating in ipvlan mode.
-    type: object
-    properties:
-      masterDeviceIndex:
-        description: Workload facing ipvlan master device ifindex.
-        type: integer
-      operationMode:
-        description: Mode in which ipvlan setup operates.
-        type: string
-        enum:
-          - L3
-          - L3S
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object
@@ -2391,6 +2426,7 @@ definitions:
         enum:
           - TCP
           - UDP
+          - SCTP
           - ICMP
           - ICMPV6
           - ANY
@@ -2507,6 +2543,11 @@ definitions:
           Indicator if this backend is preferred in the context of clustermesh service affinity. The value is set based
           on related annotation of global service. Applicable for active state only.
         type: boolean
+      weight:
+        description: Backend weight
+        type: integer
+        format: uint16
+        x-nullable: true
   LRPBackend:
     description: Pod backend of an LRP
     type: object
@@ -2664,6 +2705,7 @@ definitions:
         enum:
         - TCP
         - UDP
+        - SCTP
         - ANY
   RecorderSpec:
     description: Configuration of a recorder
@@ -2821,6 +2863,16 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  IPV6BigTCP:
+    description: |-
+      Status of IPv6 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv6 BIG TCP enabled
+        type: boolean
   BandwidthManager:
     description: |-
       Status of bandwidth manager
@@ -2976,6 +3028,36 @@ definitions:
           last-failure-msg:
             description: Error message of last failed run
             type: string
+  MapEvent:
+    description: Event on Map
+    type: object
+    properties:
+      timestamp:
+        description: Timestamp when the event occurred
+        type: string
+        format: date-time
+      key:
+        description: Map key on which the event occured
+        type: string
+      value:
+        description: Map value on which the event occured
+        type: string
+      action:
+        description: Action type for event
+        type: string
+        enum:
+        - update
+        - delete
+      desired-action:
+        description: Desired action to be performed after this event
+        type: string
+        enum:
+        - ok
+        - insert
+        - delete
+      last-error:
+        description: Last error seen while performing desired action
+        type: string
   BPFMapList:
     description: List of BPF Maps
     type: object

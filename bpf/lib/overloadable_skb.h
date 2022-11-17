@@ -4,6 +4,8 @@
 #ifndef __LIB_OVERLOADABLE_SKB_H_
 #define __LIB_OVERLOADABLE_SKB_H_
 
+#include "linux/ip.h"
+
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct __sk_buff *ctx)
 {
@@ -37,7 +39,7 @@ get_epid(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused void
 set_encrypt_dip(struct __sk_buff *ctx, __u32 ip_endpoint)
 {
-	ctx->cb[4] = ip_endpoint;
+	ctx->cb[CB_ENCRYPT_DST] = ip_endpoint;
 }
 
 /**
@@ -53,7 +55,7 @@ set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 static __always_inline __maybe_unused void
 set_identity_meta(struct __sk_buff *ctx, __u32 identity)
 {
-	ctx->cb[1] = identity;
+	ctx->cb[CB_ENCRYPT_IDENTITY] = identity;
 }
 
 /**
@@ -68,7 +70,7 @@ set_encrypt_key_mark(struct __sk_buff *ctx, __u8 key)
 static __always_inline __maybe_unused void
 set_encrypt_key_meta(struct __sk_buff *ctx, __u8 key)
 {
-	ctx->cb[0] = or_encrypt_key(key);
+	ctx->cb[CB_ENCRYPT_MAGIC] = or_encrypt_key(key);
 }
 
 /**
@@ -85,17 +87,10 @@ set_encrypt_mark(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 redirect_self(const struct __sk_buff *ctx)
 {
-	/* Looping back the packet into the originating netns. In
-	 * case of veth, it's xmit'ing into the hosts' veth device
-	 * such that we end up on ingress in the peer. For ipvlan
-	 * slave it's redirect to ingress as we are attached on the
-	 * slave in netns already.
+	/* Looping back the packet into the originating netns. We xmit into the
+	 * hosts' veth device such that we end up on ingress in the peer.
 	 */
-#ifdef ENABLE_HOST_REDIRECT
 	return ctx_redirect(ctx, ctx->ifindex, 0);
-#else
-	return ctx_redirect(ctx, ctx->ifindex, BPF_F_INGRESS);
-#endif
 }
 
 static __always_inline __maybe_unused void
@@ -143,16 +138,23 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 }
 #endif /* ENABLE_HOST_FIREWALL */
 
-static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx)
+static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
+							 __u32 off)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
 	void *data = ctx_data(ctx);
 
-	return !ctx_no_room(data_meta + 1, data) ? data_meta[0] : 0;
+	return !ctx_no_room(data_meta + off + 1, data) ? data_meta[off] : 0;
 }
 
 static __always_inline __maybe_unused void
 ctx_set_xfer(struct __sk_buff *ctx __maybe_unused, __u32 meta __maybe_unused)
+{
+	/* Only possible from XDP -> SKB. */
+}
+
+static __always_inline __maybe_unused void
+ctx_move_xfer(struct __sk_buff *ctx __maybe_unused)
 {
 	/* Only possible from XDP -> SKB. */
 }
@@ -162,5 +164,44 @@ ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 {
 	return skb_change_head(ctx, head_room, flags);
 }
+
+static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
+{
+	ctx->mark |= MARK_MAGIC_SNAT_DONE;
+}
+
+static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
+{
+	return (ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE;
+}
+
+#ifdef HAVE_ENCAP
+static __always_inline __maybe_unused int
+ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
+		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
+		   __u32 *ifindex)
+{
+	struct bpf_tunnel_key key = {};
+	int ret;
+
+#ifdef ENABLE_VTEP
+	if (vni != NOT_VTEP_DST)
+		key.tunnel_id = vni;
+	else
+#endif /* ENABLE_VTEP */
+		key.tunnel_id = seclabel;
+
+	key.remote_ipv4 = node_id;
+	key.tunnel_ttl = IPDEFTTL;
+
+	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
+	if (unlikely(ret < 0))
+		return DROP_WRITE_ERROR;
+
+	*ifindex = ENCAP_IFINDEX;
+
+	return CTX_ACT_REDIRECT;
+}
+#endif /* HAVE_ENCAP */
 
 #endif /* __LIB_OVERLOADABLE_SKB_H_ */

@@ -1,0 +1,352 @@
+# This file contains the base resources that most conformance tests will rely
+# on. This includes 3 namespaces along with Gateways, Services and Deployments
+# that can be used as backends for routing traffic. The most important
+# resources included are the Gateways (all in the gateway-conformance-infra
+# namespace):
+# - same-namespace (only supports route in same ns)
+# - all-namespaces (supports routes in all ns)
+# - backend-namespaces (supports routes in ns with backend label)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-infra
+  labels:
+    gateway-conformance: infra
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: same-namespace
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: all-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: backend-namespaces
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v1
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v1
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v1
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v1
+    spec:
+      containers:
+      - name: infra-backend-v1
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v2
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v2
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v2
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v2
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v2
+    spec:
+      containers:
+      - name: infra-backend-v2
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infra-backend-v3
+  namespace: gateway-conformance-infra
+spec:
+  selector:
+    app: infra-backend-v3
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infra-backend-v3
+  namespace: gateway-conformance-infra
+  labels:
+    app: infra-backend-v3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: infra-backend-v3
+  template:
+    metadata:
+      labels:
+        app: infra-backend-v3
+    spec:
+      containers:
+      - name: infra-backend-v3
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-app-backend
+  labels:
+    gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-backend-v1
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: app-backend-v1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-backend-v1
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-backend-v1
+  template:
+    metadata:
+      labels:
+        app: app-backend-v1
+    spec:
+      containers:
+      - name: app-backend-v1
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-backend-v2
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: app-backend-v2
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-backend-v2
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-v2
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-backend-v2
+  template:
+    metadata:
+      labels:
+        app: app-backend-v2
+    spec:
+      containers:
+      - name: app-backend-v2
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-web-backend
+  labels:
+    gateway-conformance: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-backend
+  namespace: gateway-conformance-web-backend
+spec:
+  selector:
+    app: web-backend
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-backend
+  namespace: gateway-conformance-web-backend
+  labels:
+    app: web-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-backend
+  template:
+    metadata:
+      labels:
+        app: web-backend
+    spec:
+      containers:
+      - name: web-backend
+        image: k8s.gcr.io/ingressconformance/echoserver:v0.0.1
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m

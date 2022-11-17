@@ -32,10 +32,10 @@ func NewGetPolicyResolve(ctx *middleware.Context, handler GetPolicyResolveHandle
 	return &GetPolicyResolve{Context: ctx, Handler: handler}
 }
 
-/*GetPolicyResolve swagger:route GET /policy/resolve policy getPolicyResolve
+/*
+GetPolicyResolve swagger:route GET /policy/resolve policy getPolicyResolve
 
 Resolve policy for an identity context
-
 */
 type GetPolicyResolve struct {
 	Context *middleware.Context

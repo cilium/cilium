@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ipsec
 
 import (
@@ -17,6 +15,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -25,6 +24,10 @@ func Test(t *testing.T) { TestingT(t) }
 type IPSecSuitePrivileged struct{}
 
 var _ = Suite(&IPSecSuitePrivileged{})
+
+func (s *IPSecSuitePrivileged) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 var (
 	path           = "ipsec_keys_test"
@@ -57,7 +60,7 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, NotNil)
 }
 
@@ -90,7 +93,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -108,7 +111,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -137,7 +140,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -156,11 +159,11 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, true)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -186,7 +189,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local, IPSecDirBoth, false, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(c)

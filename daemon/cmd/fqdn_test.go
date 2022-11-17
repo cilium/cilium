@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests && integration_tests
+//go:build integration_tests
 
 package cmd
 
@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func NewFakeIdentityAllocator(c cache.IdentityCache) *FakeRefcountingIdentityAll
 // 'newlyAllocatedIdentities' is not properly mocked out.
 //
 // The resulting identities are not guaranteed to have all fields populated.
-func (f *FakeRefcountingIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (f *FakeRefcountingIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	result := make([]*identity.Identity, 0, len(IPs))
 	for _, ip := range IPs {
 		id, ok := f.ipToIdentity[ip.String()]
@@ -124,10 +125,10 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 }
 
 // makeIPs generates count sequential IPv4 IPs
-func makeIPs(count uint32) []net.IP {
-	ips := make([]net.IP, 0, count)
+func makeIPs(count uint32) []netip.Addr {
+	ips := make([]netip.Addr, 0, count)
 	for i := uint32(0); i < count; i++ {
-		ips = append(ips, net.IPv4(byte(i>>24), byte(i>>16), byte(i>>8), byte(i>>0)))
+		ips = append(ips, netip.AddrFrom4([4]byte{byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i >> 0)}))
 	}
 	return ips
 }
@@ -179,19 +180,19 @@ func (ds *DaemonFQDNSuite) TestFQDNIdentityReferenceCounting(c *C) {
 	nameManager.Unlock()
 
 	// poll DNS once, check that we only generate 1 IP for cilium.io
-	_, _, err := nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
+	_, _, _, err := nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))
 
 	// Same thing, new reference for same identity but otherwise the same.
-	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
+	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ciliumDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 1,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))
 
 	// poll DNS for ebpf.io, check that we now have two different identities referenced
-	_, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ebpfDNSRecord)
+	_, _, _, err = nameManager.UpdateGenerateDNS(context.Background(), time.Now(), ebpfDNSRecord)
 	c.Assert(err, IsNil, Commentf("Error mapping selectors to IPs"))
 	c.Assert(len(idAllocator.IdentityReferenceCounter()), Equals, 2,
 		Commentf("Unexpected number of identities allocated during DNS name event handler"))

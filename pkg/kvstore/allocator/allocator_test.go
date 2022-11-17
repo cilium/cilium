@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests && integration_tests
+//go:build integration_tests
 
 package allocator
 
@@ -67,7 +67,7 @@ func (e *AllocatorConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().Close()
 }
 
-//FIXME: this should be named better, it implements pkg/allocator.Backend
+// FIXME: this should be named better, it implements pkg/allocator.Backend
 type TestAllocatorKey string
 
 func (t TestAllocatorKey) GetKey() string { return string(t) }

@@ -159,7 +159,7 @@ specifying the equivalent options as used for the initial deployment, either by
 specifying a them at the command line or by committing the values to a YAML
 file.
 
-.. include:: ../gettingstarted/k8s-install-download-release.rst
+.. include:: ../installation/k8s-install-download-release.rst
 
 To minimize datapath disruption during the upgrade, the
 ``upgradeCompatibility`` option should be set to the initial Cilium
@@ -286,16 +286,16 @@ The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
 case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.9.x`` to ``1.10.y`` first, and to ``1.11.z`` only afterwards).
+from ``1.10.x`` to ``1.11.y`` first, and to ``1.12.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
+| ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.10.x``            | ``1.11.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.9.x``             | ``1.10.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.8.x``             | ``1.9.y``             | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -306,6 +306,54 @@ Annotations:
    connections.
 
 .. _current_release_required_changes:
+
+.. _1.13_upgrade_notes:
+
+1.13 Upgrade Notes
+------------------
+
+* The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
+  In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
+
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
+  version 1.12 have been removed.
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_operator_allocation_duration_seconds``
+* ``cilium_operator_release_duration_seconds``
+* ``httpV2``, an updated version of the existing ``http`` metrics.
+* ``cilium_operator_ipam_interface_candidates``
+* ``cilium_operator_ipam_empty_interface_slots``
+
+Deprecated Metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``http`` is deprecated. Please use ``httpV2`` instead.
+* ``cilium_operator_ipam_available_interfaces`` is deprecated. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
+
+Removed Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
+* ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
+* ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
+* The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
+
+Helm Options
+~~~~~~~~~~~~
+
+* The way Linux capabilities are configured has been revamped in this release. 
+  All capabilities of every container in the ``cilium-agent`` DaemonSet is
+  configured from Helm's values, defaulting to the old behavior. If you have not
+  been using ``securityContext.extraCapabilities`` you do not need to do anything.
+  If you were leveraging ``securityContext.extraCapabilities``, you need to review
+  ``securityContext.capabilities.cilium_agent``.
+* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
 
 .. _1.12_upgrade_notes:
 
@@ -347,6 +395,18 @@ Annotations:
   removed once the upgrade is complete. Backward compatibility will be maintained when
   ``upgradeCompatibility`` is set on the helm chart.
 
+* The ``sessionAffinity`` has to be set to ``true`` in order to enable the
+  feature when running with the ``kubeProxyReplacement=partial``. Previously,
+  the feature was automatically enabled for the ``partial`` when
+  ``upgradeCompatibility`` was not set or it was set to ``>= 1.8``.
+
+* The ``limit-ipam-api-burst`` and ``limit-ipam-api-qps`` default values have
+  been made more conservative to better reflect the rate limits used by cloud
+  providers. The new default values are ``limit-ipam-api-burst=20`` and
+  ``limit-ipam-api-qps=4``.
+  Use the Helm values ``ipam.operator.externalAPILimit{BurstSize,QPS}`` to
+  reconfigure if needed.
+
 New Options
 ~~~~~~~~~~~
 
@@ -360,18 +420,23 @@ New Options
 * ``nodes-gc-interval``: This option was marked as deprecated and has no effect
   in 1.11. Cilium Node Garbage collector is added back in 1.12 (but for k8s GC instead
   of kvstore), so this flag is moved out of deprecated list.
+* ``enable-pmtu-discovery``: This option enables path MTU discovery to send ICMP
+  fragmentation-needed replies to the client. Use ``pmtuDiscovery`` in Helm chart.
 
 Removed Options
 ~~~~~~~~~~~~~~~
 
+* IPVLAN support has been removed following the deprecation in v1.11.
+  :ref:`eBPF_Host_Routing` should provide the same performance benefits.
 * The endpoint config option ``Conntrack`` was removed. The option was used
   to disable the stateful connection tracking for the endpoint. However, many
   Cilium features depend on the tracking. Therefore the option to disable the
   connection tracking was removed. In addition, we deprecated the
   ``disable-conntrack`` option and made it non-operational. It will be removed
   in version 1.13.
-* The ``host-reachable-services-protos`` option (``.hostServices.protocols`` in
-  Helm) was deprecated, and it will be removed in version 1.13.
+* The ``enable-host-reachable-services`` option (``.hostServices`` in Helm) was
+  renamed to ``bpf-lb-sock`` (``.socketLB`` in Helm), and will be removed
+  in version 1.13.
 * The ``native-routing-cidr`` option deprecated in 1.11 in favor of
   ``ipv4-native-routing-cidr`` has been removed.
 * The ``prefilter-device`` and ``prefilter-mode`` options deprecated in 1.11 in
@@ -383,6 +448,10 @@ Deprecated Options
 * The ``CiliumEgressNATPolicy`` CRD has been deprecated, and will be removed in
   version 1.13. It is superseded by the ``CiliumEgressGatewayPolicy`` CRD, which
   allows for better selection of the Egress Node, Egress Interface and Masquerade IP.
+* The ``host-reachable-services-protos`` option (``.hostServices.protocols`` in
+  Helm) was deprecated, and it will be removed in version 1.13.
+* The ``probe`` option of ``kube-proxy-replacement`` was deprecated, and it will
+  be removed in version 1.13.
 
 Helm Options
 ~~~~~~~~~~~~
@@ -784,8 +853,8 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set agent.enabled=false \
       --set config.enabled=false \
       --set operator.enabled=false \
-      --set global.etcd.enabled=true \
-      --set global.etcd.ssl=true \
+      --set etcd.enabled=true \
+      --set etcd.ssl=true \
       > cilium-preflight.yaml
     kubectl create -f cilium-preflight.yaml
 
@@ -795,7 +864,7 @@ Example migration
 
 .. code-block:: shell-session
 
-      $ kubectl exec -n kube-system cilium-preflight-1234 -- cilium preflight migrate-identity
+      $ kubectl exec -n kube-system cilium-pre-flight-check-1234 -- cilium preflight migrate-identity
       INFO[0000] Setting up kvstore client
       INFO[0000] Connecting to etcd server...                  config=/var/lib/cilium/etcd-config.yml endpoints="[https://192.168.60.11:2379]" subsys=kvstore
       INFO[0000] Setting up kubernetes client
@@ -831,6 +900,13 @@ Example migration
   .. code-block:: shell-session
 
         cilium preflight migrate-identity --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd-config.yml
+
+Once the migration is complete, confirm the endpoint identities match by listing the endpoints stored in CRDs and in etcd:
+
+.. code-block:: shell-session
+
+      $ kubectl get ciliumendpoints -A # new CRD-backed endpoints
+      $ kubectl exec -n kube-system cilium-1234 -- cilium endpoint list # existing etcd-backed endpoints
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~

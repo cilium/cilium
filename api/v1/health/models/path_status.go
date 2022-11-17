@@ -17,7 +17,6 @@ import (
 // PathStatus Connectivity status via different paths, for example using different
 // policies or service redirection
 //
-//
 // swagger:model PathStatus
 type PathStatus struct {
 

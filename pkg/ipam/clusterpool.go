@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,14 +62,14 @@ type podCIDRPool struct {
 
 // newPodCIDRPool creates a new pod CIDR pool with the parameters used
 // to manage the pod CIDR status:
-// - allocationThreshold defines the minimum number of free IPs in this pool
-//   before all used CIDRs are marked as depleted (causing the operator to
-//   allocate a new one)
-// - releaseThreshold defines the maximum number of free IPs in this pool
-//   before unused CIDRs are marked for release.
-// - previouslyReleasedCIDRs contains a list of pod CIDRs which were allocated
-//   to this node, but have been released before the agent was restarted. We
-//   keep track of them to avoid accidental use-after-free after an agent restart.
+//   - allocationThreshold defines the minimum number of free IPs in this pool
+//     before all used CIDRs are marked as depleted (causing the operator to
+//     allocate a new one)
+//   - releaseThreshold defines the maximum number of free IPs in this pool
+//     before unused CIDRs are marked for release.
+//   - previouslyReleasedCIDRs contains a list of pod CIDRs which were allocated
+//     to this node, but have been released before the agent was restarted. We
+//     keep track of them to avoid accidental use-after-free after an agent restart.
 func newPodCIDRPool(allocationThreshold, releaseThreshold int, previouslyReleasedCIDRs []string) *podCIDRPool {
 	if allocationThreshold <= 0 {
 		allocationThreshold = defaults.IPAMPodCIDRAllocationThreshold
@@ -679,9 +680,9 @@ type clusterPoolAllocator struct {
 	pool *podCIDRPool
 }
 
-func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
+func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, clientset client.Clientset) Allocator {
 	crdWatcherInit.Do(func() {
-		nodeClient := k8s.CiliumClient().CiliumV2().CiliumNodes()
+		nodeClient := clientset.CiliumV2().CiliumNodes()
 		sharedCRDWatcher = newCRDWatcher(conf, k8sEventReg, owner, nodeClient)
 	})
 

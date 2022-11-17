@@ -5,7 +5,6 @@ package bgpv1
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"net"
 	"strconv"
@@ -23,7 +22,7 @@ type ErrNotVRouterAnno struct {
 }
 
 func (e ErrNotVRouterAnno) Error() string {
-	return fmt.Sprintf("annotation %v is not a valid cilium.io/bgp-virtual-router annotation", e.a)
+	return "annotation " + e.a + " is not a valid cilium.io/bgp-virtual-router annotation"
 }
 
 // ErrNoASNAnno is an error returned from parseAnnotation() when the bgp-virtual-router
@@ -33,19 +32,19 @@ type ErrNoASNAnno struct {
 }
 
 func (e ErrNoASNAnno) Error() string {
-	return fmt.Sprintf("annotation %v provides no asn", e.a)
+	return "annotation " + e.a + " provides no asn"
 }
 
 // ErrASN is an error returned from parseAnnotation() when the bgp-virtual-router
 // annotation includes an ASN that cannot be parsed into an
 type ErrASNAnno struct {
-	err  error
+	err  string
 	asn  string
 	anno string
 }
 
 func (e ErrASNAnno) Error() string {
-	return fmt.Sprintf("ASN %v in annotation %v cannot be parsed into integer: %v", e.asn, e.anno, e.err)
+	return "ASN" + e.asn + " in annotation " + e.anno + " cannot be parsed into integer: " + e.err
 }
 
 // ErrAttrib is an error returned from parseAnnotation() when an attribute is
@@ -57,7 +56,7 @@ type ErrAttrib struct {
 }
 
 func (e ErrAttrib) Error() string {
-	return fmt.Sprintf("annotation %v failed to parse attribute %v: %v", e.anno, e.attr, e.err)
+	return "annotation " + e.anno + " failed to parse attribute " + e.attr + ":" + e.err
 }
 
 // The BGP control plane may need some node-specific configuration for
@@ -76,9 +75,10 @@ func (e ErrAttrib) Error() string {
 // Where {asn} is replaced by the local ASN of the virtual router.
 //
 // Currently supported attributes are:
-//  router-id=IPv4 (string): when present on a specific node, use this value for
-//                           the router ID of the virtual router with local {asn}
-//  local-port=port (int):  the local port to listen on for incoming BGP connections
+//
+//	router-id=IPv4 (string): when present on a specific node, use this value for
+//	                         the router ID of the virtual router with local {asn}
+//	local-port=port (int):  the local port to listen on for incoming BGP connections
 type Attributes struct {
 	// The local ASN of the virtual router these Attributes targets.
 	ASN int

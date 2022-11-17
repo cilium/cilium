@@ -6,7 +6,7 @@ package cmd
 import (
 	"encoding/json"
 	"io"
-	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -26,9 +26,6 @@ const (
 var (
 	toFQDNsPreCachePath string
 	toFQDNsPreCacheTTL  int
-
-	k8sAPIServer      string
-	k8sKubeConfigPath string
 )
 
 // preflightCmd is the command used to manage preflight tasks for upgrades
@@ -60,15 +57,12 @@ func init() {
 	preflightCmd.AddCommand(pollerCmd)
 
 	// From preflight_migrate_crd_identity.go
-	migrateIdentityCmd.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	migrateIdentityCmd.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	migrateIdentityCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
-	migrateIdentityCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	preflightCmd.AddCommand(migrateIdentityCmd)
+	miCmd := migrateIdentityCmd()
+	miCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
+	miCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
+	preflightCmd.AddCommand(miCmd)
 
-	validateCNP.Flags().StringVar(&k8sAPIServer, "k8s-api-server", "", "Kubernetes api address server (for https use --k8s-kubeconfig-path instead)")
-	validateCNP.Flags().StringVar(&k8sKubeConfigPath, "k8s-kubeconfig-path", "", "Absolute path of the kubernetes kubeconfig file")
-	preflightCmd.AddCommand(validateCNP)
+	preflightCmd.AddCommand(validateCNPCmd())
 
 	rootCmd.AddCommand(preflightCmd)
 }
@@ -118,7 +112,7 @@ func preflightPoller() {
 // matchName. In cases where different sets of matchNames are used, each with a
 // different combination of names, the IPs set per name will reflects IPs that
 // actuall belong to other names also seen in the toFQDNs section of that rule.
-func getDNSMappings() (DNSData map[string][]net.IP, err error) {
+func getDNSMappings() (DNSData map[string][]netip.Addr, err error) {
 	policy, err := client.PolicyGet(nil)
 	if err != nil {
 		return nil, err
@@ -133,7 +127,7 @@ func getDNSMappings() (DNSData map[string][]net.IP, err error) {
 	// inserted into that rule as IPs for that DNS name (this may be shared by many
 	// DNS names). We ensure that we only read /32 CIDRs, since we only ever insert
 	// those.
-	DNSData = make(map[string][]net.IP)
+	DNSData = make(map[string][]netip.Addr)
 	for _, rule := range rules {
 		for _, egressRule := range rule.Egress {
 			for _, ToFQDN := range egressRule.ToFQDNs {
@@ -143,12 +137,12 @@ func getDNSMappings() (DNSData map[string][]net.IP, err error) {
 					continue
 				}
 				for _, cidr := range egressRule.ToCIDRSet {
-					ip, _, err := net.ParseCIDR(string(cidr.Cidr))
+					prefix, err := netip.ParsePrefix(string(cidr.Cidr))
 					if err != nil {
 						return nil, err
 					}
 					name := matchpattern.Sanitize(ToFQDN.MatchName)
-					DNSData[name] = append(DNSData[name], ip)
+					DNSData[name] = append(DNSData[name], prefix.Addr())
 				}
 			}
 		}

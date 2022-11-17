@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-//go:build !privileged_tests
-
 package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -79,7 +78,7 @@ func TestRingReader_Previous(t *testing.T) {
 			var got []*v1.Event
 			for i := 0; i < tt.count; i++ {
 				event, err := reader.Previous()
-				if err != tt.wantErr {
+				if !errors.Is(err, tt.wantErr) {
 					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
 				}
 				if err != nil {
@@ -166,7 +165,7 @@ func TestRingReader_Next(t *testing.T) {
 			var got []*v1.Event
 			for i := 0; i < tt.count; i++ {
 				event, err := reader.Next()
-				if err != tt.wantErr {
+				if !errors.Is(err, tt.wantErr) {
 					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
 				}
 				if err != nil {

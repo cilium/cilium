@@ -17,9 +17,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -76,19 +78,20 @@ func (n noOpsSecretManager) Run() {}
 func (n noOpsSecretManager) Add(event interface{}) {}
 
 // newSyncSecretsManager constructs a new secret manager instance
-func newSyncSecretsManager(namespace string, maxRetries int) (secretManager, error) {
+func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxRetries int) (secretManager, error) {
 	manager := &syncSecretManager{
 		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		namespace:        namespace,
 		maxRetries:       maxRetries,
-		client:           k8s.Client().CoreV1().Secrets(namespace),
+		client:           clientset.CoreV1().Secrets(namespace),
 		watchedSecretMap: map[string]string{},
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "secrets",
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](clientset.Slim().CoreV1().Secrets(corev1.NamespaceAll)),
 			// only watch TLS secret
-			corev1.NamespaceAll, func(options *metav1.ListOptions) {
+			func(options *metav1.ListOptions) {
 				options.FieldSelector = tlsFieldSelector
 			}),
 		&slim_corev1.Secret{},
@@ -233,10 +236,6 @@ func (sm *syncSecretManager) handleIngressDeletedEvent(ev ingressDeletedEvent) e
 }
 
 func (sm *syncSecretManager) handleIngressUpsertedEvent(ingress *slim_networkingv1.Ingress) error {
-	if !tlsEnabled(ingress) {
-		return nil
-	}
-
 	for _, tls := range ingress.Spec.TLS {
 		// check if the secret is available
 		key := getSecretKey(ingress.GetNamespace(), tls.SecretName)

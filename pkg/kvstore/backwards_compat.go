@@ -19,13 +19,12 @@ const (
 // stale keys
 //
 // Rules:
-//  - For non-persistent state, obsoletd prefixes can be deleted as soon as the
-//    prefix has been declared obsolete
 //
-//  - For persistent configuration stored in the kvstore, a forward upgrade
-//    path must be created which automatically removes the old keys on successful
-//    translation.
-//
+//   - For non-persistent state, obsoletd prefixes can be deleted as soon as the
+//     prefix has been declared obsolete
+//   - For persistent configuration stored in the kvstore, a forward upgrade
+//     path must be created which automatically removes the old keys on successful
+//     translation.
 func deleteLegacyPrefixes(ctx context.Context) {
 	// Delete all keys in old services prefix
 	Client().DeletePrefix(ctx, servicePathV1)

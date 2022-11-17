@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	core_v1 "k8s.io/api/core/v1"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -121,7 +122,7 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	}
 
 	for _, port := range svc.Ports {
-		return loadbalancer.NewL3n4Addr(port.Protocol, feIP, port.Port,
+		return loadbalancer.NewL3n4Addr(port.Protocol, cmtypes.MustAddrClusterFromIP(feIP), port.Port,
 			loadbalancer.ScopeExternal)
 	}
 	return nil
@@ -156,7 +157,7 @@ func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
 		addrs := make([]*loadbalancer.L3n4Addr, 0, len(svc.FrontendIPs))
 		for _, feIP := range svc.FrontendIPs {
 			if isValidServiceFrontendIP(feIP) {
-				addrs = append(addrs, loadbalancer.NewL3n4Addr(l4Addr.Protocol, feIP, l4Addr.Port, loadbalancer.ScopeExternal))
+				addrs = append(addrs, loadbalancer.NewL3n4Addr(l4Addr.Protocol, cmtypes.MustAddrClusterFromIP(feIP), l4Addr.Port, loadbalancer.ScopeExternal))
 			}
 		}
 
@@ -406,9 +407,9 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 		for _, feIP := range svc.FrontendIPs {
 			for _, p := range svc.Ports {
 				address := loadbalancer.L3n4Addr{
-					IP:     feIP,
-					L4Addr: *p,
-					Scope:  loadbalancer.ScopeExternal,
+					AddrCluster: cmtypes.MustAddrClusterFromIP(feIP),
+					L4Addr:      *p,
+					Scope:       loadbalancer.ScopeExternal,
 				}
 				uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 			}
@@ -448,7 +449,7 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 		return localEndpoints
 	}
 
-	filteredEndpoints := &Endpoints{Backends: map[string]*Backend{}}
+	filteredEndpoints := &Endpoints{Backends: map[cmtypes.AddrCluster]*Backend{}}
 
 	for key, backend := range localEndpoints.Backends {
 		if len(backend.HintsForZones) == 0 {
@@ -478,7 +479,9 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 // returns a boolean that indicates whether the service is ready to be plumbed,
 // this is true if:
 // A local endpoints resource is present. Regardless whether the
-//    endpoints resource contains actual backends or not.
+//
+//	endpoints resource contains actual backends or not.
+//
 // OR Remote endpoints exist which correlate to the service.
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()
@@ -556,9 +559,9 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		delete(externalEndpoints.endpoints, service.Cluster)
 	} else {
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
-		backends := map[string]*Backend{}
+		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[ipString] = &Backend{Ports: portConfig}
+			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
 		}
 		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 			Backends: backends,

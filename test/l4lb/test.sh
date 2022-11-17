@@ -3,6 +3,8 @@
 PS4='+[\t] '
 set -eux
 
+export LC_NUMERIC=C
+
 IMG_OWNER=${1:-cilium}
 IMG_TAG=${2:-latest}
 HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
@@ -11,11 +13,14 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 #  SETUP  #
 ###########
 
+
 # bpf_xdp_veth_host is a dummy XDP program which is going to be attached to LB
 # node's veth pair end in the host netns. When bpf_xdp, which is attached in
 # the container netns, forwards a LB request with XDP_TX, the request needs to
 # be picked in the host netns by a NAPI handler. To register the handler, we
 # attach the dummy program.
+apt-get update
+apt-get install -y gcc-multilib libbpf-dev
 clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
 
 # The worker (aka backend node) will receive IPIP packets from the LB node.
@@ -32,7 +37,7 @@ clang -O2 -Wall -target bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
 #
 # The LB cilium does not connect to the kube-apiserver. For now we use Kind
 # just to create Docker-in-Docker containers.
-kind create cluster --config kind-config.yaml
+kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
 # Create additional veth pair which is going to be used to test XDP_REDIRECT.
 ip l a l4lb-veth0 type veth peer l4lb-veth1
@@ -62,7 +67,6 @@ helm install cilium ${HELM_CHART_DIR} \
     --set loadBalancer.dsrDispatch=ipip \
     --set devices='{eth0,l4lb-veth1}' \
     --set nodePort.directRoutingDevice=eth0 \
-    --set ipv6.enabled=false \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key="kubernetes.io/hostname" \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator=In \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]=kind-control-plane
@@ -113,6 +117,21 @@ ip r replace "${LB_VIP}/32" via "$SECOND_LB_NODE_IP"
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
     curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
+done
+
+# Set kind-worker to maintenance
+kubectl -n kube-system exec "${CILIUM_POD_NAME}" -- \
+    cilium service update --id 1 --frontend "${LB_VIP}:80" --backends "${WORKER_IP}:80" --backend-weights "0" --k8s-node-port
+
+# Do not stop on error
+set +e
+# Issue 10 requests to LB (with 500ms timeout) which are expected to timeout
+for i in $(seq 1 10); do
+    curl -o /dev/null -m 0.5 "${LB_VIP}:80"
+    # code 28 - Operation timeout
+    if [ ! "$?" -eq 28 ]; then
+        exit -1;
+    fi
 done
 
 # Cleanup

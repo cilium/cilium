@@ -38,11 +38,11 @@ type ClientService interface {
 }
 
 /*
-  GetStatus gets connectivity status of the cilium cluster
+	GetStatus gets connectivity status of the cilium cluster
 
-  Returns the connectivity status to all other cilium-health instances
+	Returns the connectivity status to all other cilium-health instances
+
 using interval-based probing.
-
 */
 func (a *Client) GetStatus(params *GetStatusParams) (*GetStatusOK, error) {
 	// TODO: Validate the params before sending
@@ -76,11 +76,11 @@ func (a *Client) GetStatus(params *GetStatusParams) (*GetStatusOK, error) {
 }
 
 /*
-  PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster
+	PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster
 
-  Runs a synchronous probe to all other cilium-health instances and
+	Runs a synchronous probe to all other cilium-health instances and
+
 returns the connectivity status.
-
 */
 func (a *Client) PutStatusProbe(params *PutStatusProbeParams) (*PutStatusProbeOK, error) {
 	// TODO: Validate the params before sending

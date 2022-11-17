@@ -4,13 +4,17 @@
 package redirectpolicy
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -21,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -104,15 +109,8 @@ func (rpm *Manager) RegisterGetStores(sg StoreGetter) {
 // internal state with the config fields.
 func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	rpm.warnOnce.Do(func() {
-		found := false
-		if h := probes.NewProbeManager().GetHelpers("cgroup_sock_addr"); h != nil {
-			if _, ok := h["bpf_sk_lookup_tcp"]; ok {
-				if _, ok = h["bpf_sk_lookup_udp"]; ok {
-					found = true
-				}
-			}
-		}
-		if !found {
+		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnSkLookupTcp) != nil ||
+			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnSkLookupUdp) != nil {
 			log.Warn("Without socket lookup kernel functionality, BPF " +
 				"datapath cannot prevent potential loop caused by local-redirect" +
 				"service translation. Needs kernel version >= 5.1")
@@ -370,7 +368,8 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 			// The LRP will be applied when the selected service is added later.
 			return
 		}
-		config.frontendMappings[0].feAddr.IP = ip
+		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
+		config.frontendMappings[0].feAddr.AddrCluster = addrCluster
 		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
 
 	case svcFrontendNamedPorts:
@@ -384,8 +383,9 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 			// The LRP will be applied when the selected service is added later.
 			return
 		}
+		addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = ip
+			feM.feAddr.AddrCluster = addrCluster
 			rpm.updateConfigSvcFrontend(config, feM.feAddr)
 		}
 	}
@@ -488,7 +488,7 @@ func (rpm *Manager) deletePolicyService(config *LRPConfig) {
 		fallthrough
 	case svcFrontendNamedPorts:
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = net.IP{}
+			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 	// Retores the svc backends if there's still such a k8s svc.
@@ -521,7 +521,7 @@ func (rpm *Manager) deleteService(svcID k8s.ServiceID) {
 		fallthrough
 	case svcFrontendNamedPorts:
 		for _, feM := range config.frontendMappings {
-			feM.feAddr.IP = net.IP{}
+			feM.feAddr.AddrCluster = cmtypes.AddrCluster{}
 		}
 	}
 }
@@ -532,16 +532,18 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		L3n4Addr: *frontendMapping.feAddr,
 		ID:       lb.ID(0),
 	}
-	backendAddrs := make([]lb.Backend, 0, len(frontendMapping.podBackends))
+	backendAddrs := make([]*lb.Backend, 0, len(frontendMapping.podBackends))
 	for _, be := range frontendMapping.podBackends {
-		backendAddrs = append(backendAddrs, lb.Backend{
+		backendAddrs = append(backendAddrs, &lb.Backend{
 			NodeName: nodeTypes.GetName(),
 			L3n4Addr: be.L3n4Addr,
 		})
 	}
 	p := &lb.SVC{
-		Name:          config.id.Name + localRedirectSvcStr,
-		Namespace:     config.id.Namespace,
+		Name: lb.ServiceName{
+			Name:      config.id.Name + localRedirectSvcStr,
+			Namespace: config.id.Namespace,
+		},
 		Type:          lb.SVCTypeLocalRedirect,
 		Frontend:      frontendAddr,
 		Backends:      backendAddrs,
@@ -549,7 +551,11 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 	}
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
-		log.WithError(err).Error("Error while inserting service in LB map")
+		if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
+			log.WithError(err).Debug("Error while inserting service in LB map")
+		} else {
+			log.WithError(err).Error("Error while inserting service in LB map")
+		}
 	}
 }
 
@@ -669,18 +675,18 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 			}
 			be := backend{
 				lb.L3n4Addr{
-					IP: net.ParseIP(ip),
+					AddrCluster: cmtypes.MustParseAddrCluster(ip),
 					L4Addr: lb.L4Addr{
 						Protocol: bePort.l4Addr.Protocol,
 						Port:     bePort.l4Addr.Port,
 					},
 				}, pod.id,
 			}
-			if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
+			if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 				if option.Config.EnableIPv4 {
 					bes4 = append(bes4, be)
 				}
-			} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
+			} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 				if option.Config.EnableIPv6 {
 					bes6 = append(bes6, be)
 				}
@@ -729,7 +735,7 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 					}
 					be := backend{
 						lb.L3n4Addr{
-							IP: net.ParseIP(ip),
+							AddrCluster: cmtypes.MustParseAddrCluster(ip),
 							L4Addr: lb.L4Addr{
 								Protocol: bePort.l4Addr.Protocol,
 								Port:     bePort.l4Addr.Port,
@@ -737,11 +743,11 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 						},
 						pod.id,
 					}
-					if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
+					if feM.feAddr.AddrCluster.Is4() && be.AddrCluster.Is4() {
 						if option.Config.EnableIPv4 {
 							bes4 = append(bes4, be)
 						}
-					} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
+					} else if feM.feAddr.AddrCluster.Is6() && be.AddrCluster.Is6() {
 						if option.Config.EnableIPv6 {
 							bes6 = append(bes6, be)
 						}

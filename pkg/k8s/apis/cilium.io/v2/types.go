@@ -22,8 +22,8 @@ import (
 // +kubebuilder:resource:categories={cilium},singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
 // +kubebuilder:printcolumn:JSONPath=".status.id",description="Cilium endpoint id",name="Endpoint ID",type=integer
 // +kubebuilder:printcolumn:JSONPath=".status.identity.id",description="Cilium identity id",name="Identity ID",type=integer
-// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.enforcing",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=boolean
-// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.enforcing",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.state",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.state",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.visibility-policy-status",description="Status of visibility policy in the endpoint",name="Visibility Policy",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
@@ -40,6 +40,9 @@ type CiliumEndpoint struct {
 	// +kubebuilder:validation:Optional
 	Status EndpointStatus `json:"status"`
 }
+
+// EndpointPolicyState defines the state of the Policy mode: "enforcing", "non-enforcing", "disabled"
+type EndpointPolicyState string
 
 // EndpointStatus is the status of a Cilium endpoint.
 type EndpointStatus struct {
@@ -141,6 +144,7 @@ type EndpointPolicyDirection struct {
 	Removing AllowedIdentityList `json:"removing,omitempty"`
 	// Deprecated
 	Adding AllowedIdentityList `json:"adding,omitempty"`
+	State  EndpointPolicyState `json:"state,omitempty"`
 }
 
 // IdentityTuple specifies a peer by identity, destination port and protocol.
@@ -225,7 +229,9 @@ type EndpointIdentity struct {
 // The labels under metav1.ObjectMeta can be used when searching for
 // CiliumIdentity instances that include particular labels. This can be done
 // with invocations such as:
-//   kubectl get ciliumid -l 'foo=bar'
+//
+//	kubectl get ciliumid -l 'foo=bar'
+//
 // Each node using a ciliumidentity updates the status field with it's name and
 // a timestamp when it first allocates or uses an identity, and periodically
 // after that. It deletes its entry when no longer using this identity.
@@ -305,6 +311,9 @@ type CiliumEndpointList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"CiliumInternalIP\")].ip",description="Cilium internal IP for this node",name="CiliumInternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"InternalIP\")].ip",description="IP of the node",name="InternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="Time duration since creation of Ciliumnode",name="Age",type=date
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 

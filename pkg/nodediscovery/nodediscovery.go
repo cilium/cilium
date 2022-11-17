@@ -30,6 +30,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -56,14 +57,9 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
 
-type k8sNodeGetter interface {
+type k8sGetters interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
-}
-
-// The KVStoreNodeUpdater interface is used to provide an abstraction for the
-// NodeStore object logic used to update a node entry in the KV store.
-type KVStoreNodeUpdater interface {
-	UpdateKVNodeEntry(node *nodeTypes.Node) error
+	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
 // NodeDiscovery represents a node discovery action
@@ -74,9 +70,10 @@ type NodeDiscovery struct {
 	Registered            chan struct{}
 	localStateInitialized chan struct{}
 	NetConf               *cnitypes.NetConf
-	k8sNodeGetter         k8sNodeGetter
+	k8sGetters            k8sGetters
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
+	clientset             client.Clientset
 }
 
 func enableLocalNodeRoute() bool {
@@ -87,7 +84,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager *nodemanager.Manager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -130,6 +127,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 		Registered:            make(chan struct{}),
 		localStateInitialized: make(chan struct{}),
 		NetConf:               netConf,
+		clientset:             clientset,
 	}
 }
 
@@ -297,7 +295,10 @@ func (n *NodeDiscovery) updateLocalNode() {
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
 				controller.ControllerParams{
 					DoFunc: func(ctx context.Context) error {
-						err := n.Registrar.UpdateLocalKeySync(&n.localNode)
+						n.localNodeLock.Lock()
+						localNode := n.localNode.DeepCopy()
+						n.localNodeLock.Unlock()
+						err := n.Registrar.UpdateLocalKeySync(localNode)
 						if err != nil {
 							log.WithError(err).Error("Unable to propagate local node change to kvstore")
 						}
@@ -307,7 +308,7 @@ func (n *NodeDiscovery) updateLocalNode() {
 		}()
 	}
 
-	if k8s.IsEnabled() {
+	if n.clientset.IsEnabled() {
 		// CRD IPAM endpoint restoration depends on the completion of this
 		// to avoid custom resource update conflicts.
 		n.UpdateCiliumNodeResource()
@@ -327,12 +328,12 @@ func (n *NodeDiscovery) UpdateLocalNode() {
 
 // LocalNode syncs the localNode object with the information stored in the node
 // package and then returns a copy of the localNode object
-func (n *NodeDiscovery) LocalNode() types.Node {
+func (n *NodeDiscovery) LocalNode() *types.Node {
 	n.localNodeLock.Lock()
 	defer n.localNodeLock.Unlock()
 
 	n.fillLocalNode()
-	return n.localNode
+	return n.localNode.DeepCopy()
 }
 
 // Close shuts down the node discovery engine
@@ -349,16 +350,15 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	log.WithField(logfields.Node, nodeTypes.GetName()).Info("Creating or updating CiliumNode resource")
 
-	ciliumClient := k8s.CiliumClient()
-
 	performGet := true
 	var nodeResource *ciliumv2.CiliumNode
 	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
 		performUpdate := true
 		if performGet {
 			var err error
-			nodeResource, err = ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
+			nodeResource, err = n.k8sGetters.GetCiliumNode(context.TODO(), nodeTypes.GetName())
 			if err != nil {
+				log.WithError(err).Warning("Unable to get node resource")
 				performUpdate = false
 				nodeResource = &ciliumv2.CiliumNode{
 					ObjectMeta: metav1.ObjectMeta{
@@ -380,7 +380,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		// updating.
 		performGet = true
 		if performUpdate {
-			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
 				if k8serrors.IsConflict(err) {
 					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
 					continue
@@ -390,9 +390,11 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 				return
 			}
 		} else {
-			if _, err := ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
-				if k8serrors.IsConflict(err) {
+			if _, err := n.clientset.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+				if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
+					// Backoff before retrying
+					time.Sleep(500 * time.Millisecond)
 					continue
 				}
 				log.WithError(err).Fatal("Unable to create CiliumNode resource")
@@ -422,7 +424,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	// as this was added in sufficiently earlier versions of Cilium (v1.6).
 	// Source:
 	// https://github.com/cilium/cilium/commit/5c365f2c6d7930dcda0b8f0d5e6b826a64022a4f
-	k8sNode, err := n.k8sNodeGetter.GetK8sNode(
+	k8sNode, err := n.k8sGetters.GetK8sNode(
 		context.TODO(),
 		nodeTypes.GetName(),
 	)
@@ -456,6 +458,9 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	k8sNodeAddresses = k8sNodeParsed.IPAddresses
 
 	nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
+
+	localCN := n.localNode.ToCiliumNode()
+	nodeResource.ObjectMeta.Annotations = localCN.Annotations
 
 	for _, k8sAddress := range k8sNodeAddresses {
 		k8sAddressStr := k8sAddress.IP.String()
@@ -707,8 +712,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	return nil
 }
 
-func (n *NodeDiscovery) RegisterK8sNodeGetter(k8sNodeGetter k8sNodeGetter) {
-	n.k8sNodeGetter = k8sNodeGetter
+func (n *NodeDiscovery) RegisterK8sGetters(k8sGetters k8sGetters) {
+	n.k8sGetters = k8sGetters
 }
 
 // LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have
@@ -772,20 +777,4 @@ func getInt(i int) *int {
 
 func getBool(b bool) *bool {
 	return &b
-}
-
-func (nodeDiscovery *NodeDiscovery) UpdateKVNodeEntry(node *nodeTypes.Node) error {
-	if nodeDiscovery.Registrar.SharedStore == nil {
-		return nil
-	}
-
-	if err := nodeDiscovery.Registrar.UpdateLocalKeySync(node); err != nil {
-		return fmt.Errorf("failed to update KV node store entry: %w", err)
-	}
-
-	if err := nodeDiscovery.mutateNodeResource(node.ToCiliumNode()); err != nil {
-		return fmt.Errorf("failed to mutate node resource: %w", err)
-	}
-
-	return nil
 }

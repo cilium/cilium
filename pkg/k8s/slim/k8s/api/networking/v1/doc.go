@@ -5,7 +5,7 @@
 // +k8s:protobuf-gen=package
 // +k8s:openapi-gen=true
 // +deepequal-gen=package
-// +groupName=meta
+// +groupName=networking.k8s.io
 
 // Package v1 contains slimmer versions of k8s networking types.
 package v1

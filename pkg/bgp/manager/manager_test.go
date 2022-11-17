@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package manager
 
 import (
@@ -81,7 +79,7 @@ func TestManagerEventNoService(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -149,7 +147,7 @@ func TestManagerEvent(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 

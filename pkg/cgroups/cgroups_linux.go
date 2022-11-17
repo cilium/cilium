@@ -9,6 +9,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/vishvananda/netlink/nl"
+
 	"github.com/cilium/cilium/pkg/mountinfo"
 )
 
@@ -53,4 +55,15 @@ func cgrpCheckOrMountLocation(cgroupRoot string) error {
 	}
 
 	return nil
+}
+
+func GetCgroupID(cgroupPath string) (uint64, error) {
+	handle, _, err := unix.NameToHandleAt(unix.AT_FDCWD, cgroupPath, 0)
+	if err != nil {
+		return 0, fmt.Errorf("NameToHandleAt failed: %w", err)
+	}
+	b := handle.Bytes()[:8]
+	cgId := nl.NativeEndian().Uint64(b)
+
+	return cgId, nil
 }

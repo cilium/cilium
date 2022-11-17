@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package helpers
 
 import (
@@ -26,9 +29,6 @@ func GetScope() (string, error) {
 	case strings.HasPrefix(focusString, "run"):
 		return Runtime, nil
 	case strings.HasPrefix(focusString, K8s):
-		return K8s, nil
-	case strings.Contains(focusString, "nightly"):
-		// Nightly tests run in a Kubernetes environment.
 		return K8s, nil
 	default:
 		return "", errors.New("Scope cannot be set")

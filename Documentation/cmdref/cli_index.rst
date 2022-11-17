@@ -15,6 +15,7 @@ cilium
 
       cilium
       cilium_*
+      cilium-agent*
       cilium-bugtool*
       cilium-health_*
       cilium-operator*

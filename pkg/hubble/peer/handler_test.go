@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package peer
 
 import (
@@ -13,16 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
+	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/types"
 )
 
 func TestNodeAdd(t *testing.T) {
 	tests := []struct {
-		name       string
-		withoutTLS bool
-		arg        types.Node
-		want       *peerpb.ChangeNotification
+		name        string
+		withoutTLS  bool
+		addressPref serviceoption.AddressFamilyPreference
+		arg         types.Node
+		want        *peerpb.ChangeNotification
 	}{
 		{
 			name:       "node with just a name",
@@ -48,8 +48,9 @@ func TestNodeAdd(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
-			name:       "node with name, cluster and one internal IP address",
-			withoutTLS: true,
+			name:        "node with name, cluster and one internal IP address",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -66,8 +67,9 @@ func TestNodeAdd(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
-			name:       "node with name, cluster and one external IP address",
-			withoutTLS: true,
+			name:        "node with name, cluster and one external IP address",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -81,6 +83,52 @@ func TestNodeAdd(t *testing.T) {
 			want: &peerpb.ChangeNotification{
 				Name:    "cluster/name",
 				Address: "192.0.2.1",
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv4",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeExternalIP,
+						IP:   net.ParseIP("192.0.2.1"),
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   net.ParseIP("fe80::1"),
+					},
+				},
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "192.0.2.1",
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv6",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv6,
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeExternalIP,
+						IP:   net.ParseIP("192.0.2.1"),
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   net.ParseIP("fe80::1"),
+					},
+				},
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "fe80::1",
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
@@ -142,7 +190,7 @@ func TestNodeAdd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS)
+			h := newHandler(tt.withoutTLS, tt.addressPref)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification
@@ -164,10 +212,11 @@ func TestNodeUpdate(t *testing.T) {
 		old, updated types.Node
 	}
 	tests := []struct {
-		name       string
-		withoutTLS bool
-		args       args
-		want       []*peerpb.ChangeNotification
+		name        string
+		withoutTLS  bool
+		addressPref serviceoption.AddressFamilyPreference
+		args        args
+		want        []*peerpb.ChangeNotification
 	}{
 		{
 			name:       "a node is renamed",
@@ -212,8 +261,9 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name:       "a node with name, cluster and one internal IP address, the latter is updated",
-			withoutTLS: true,
+			name:        "a node with name, cluster and one internal IP address, the latter is updated",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			args: args{
 				types.Node{
 					Name:    "name",
@@ -242,8 +292,9 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name:       "node with name, cluster and one external IP address, the latter is updated",
-			withoutTLS: true,
+			name:        "node with name, cluster and one external IP address, the latter is updated",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			args: args{
 				types.Node{
 					Name:    "name",
@@ -268,6 +319,76 @@ func TestNodeUpdate(t *testing.T) {
 				{
 					Name:    "cluster/name",
 					Address: "192.0.2.2",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+				},
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv4, the latter is updated",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
+			args: args{
+				types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.1"),
+						},
+					},
+				}, types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.2"),
+						},
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.ParseIP("fe80::2"),
+						},
+					},
+				}},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/name",
+					Address: "192.0.2.2",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+				},
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv6, the latter is updated",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv6,
+			args: args{
+				types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("fe80::1"),
+						},
+					},
+				}, types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.2"),
+						},
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.ParseIP("fe80::2"),
+						},
+					},
+				}},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/name",
+					Address: "fe80::2",
 					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
 				},
 			},
@@ -351,7 +472,7 @@ func TestNodeUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS)
+			h := newHandler(tt.withoutTLS, tt.addressPref)
 			defer h.Close()
 
 			var got []*peerpb.ChangeNotification
@@ -372,10 +493,11 @@ func TestNodeUpdate(t *testing.T) {
 
 func TestNodeDelete(t *testing.T) {
 	tests := []struct {
-		name       string
-		withoutTLS bool
-		arg        types.Node
-		want       *peerpb.ChangeNotification
+		name        string
+		withoutTLS  bool
+		addressPref serviceoption.AddressFamilyPreference
+		arg         types.Node
+		want        *peerpb.ChangeNotification
 	}{
 		{
 			name:       "node with just a name",
@@ -401,8 +523,9 @@ func TestNodeDelete(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
-			name:       "node with name, cluster and one internal IP address",
-			withoutTLS: true,
+			name:        "node with name, cluster and one internal IP address",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -419,8 +542,9 @@ func TestNodeDelete(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
-			name:       "node with name, cluster and one external IP address",
-			withoutTLS: true,
+			name:        "node with name, cluster and one external IP address",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -434,6 +558,52 @@ func TestNodeDelete(t *testing.T) {
 			want: &peerpb.ChangeNotification{
 				Name:    "cluster/name",
 				Address: "192.0.2.1",
+				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv4",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv4,
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeExternalIP,
+						IP:   net.ParseIP("192.0.2.1"),
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   net.ParseIP("fe80::1"),
+					},
+				},
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "192.0.2.1",
+				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+			},
+		}, {
+			name:        "node with name, cluster and mixed IP addresses preferring IPv6",
+			withoutTLS:  true,
+			addressPref: serviceoption.AddressPreferIPv6,
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+				IPAddresses: []types.Address{
+					{
+						Type: addressing.NodeExternalIP,
+						IP:   net.ParseIP("192.0.2.1"),
+					},
+					{
+						Type: addressing.NodeInternalIP,
+						IP:   net.ParseIP("fe80::1"),
+					},
+				},
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "fe80::1",
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
@@ -467,7 +637,7 @@ func TestNodeDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler(tt.withoutTLS)
+			h := newHandler(tt.withoutTLS, tt.addressPref)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification

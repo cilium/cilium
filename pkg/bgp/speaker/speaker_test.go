@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package speaker
 
 import (
@@ -94,7 +92,7 @@ func TestSpeakerOnUpdateService(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -178,7 +176,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -264,7 +262,7 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -351,9 +349,16 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 			atomic.AddInt32(&callCount, 1)
 			return types.SyncStateSuccess
 		},
-		PeerSession_: func() []metallbspr.Session {
+		GetBGPController_: func() *metallbspr.BGPController {
 			atomic.AddInt32(&callCount, 1)
-			return []metallbspr.Session{mockSession}
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
 		},
 	}
 
@@ -373,7 +378,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -449,6 +454,16 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 			atomic.AddInt32(&callCount, 1)
 			return []metallbspr.Session{mockSession}
 		},
+		GetBGPController_: func() *metallbspr.BGPController {
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
+		},
 	}
 
 	spkr := &MetalLBSpeaker{
@@ -467,7 +482,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	}
 
 	<-ctx.Done()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		t.Fatal(errTimeout)
 	}
 
@@ -484,28 +499,28 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	if spkr.shutDown() != true {
 		t.Fatalf("wanted speaker to be shutdown")
 	}
-	if err := spkr.OnAddNode(nil, nil); err != ErrShutDown {
+	if err := spkr.OnAddNode(nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnDeleteNode(nil, nil); err != ErrShutDown {
+	if err := spkr.OnDeleteNode(nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnAddCiliumNode(nil, nil); err != ErrShutDown {
+	if err := spkr.OnAddCiliumNode(nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnDeleteCiliumNode(nil, nil); err != ErrShutDown {
+	if err := spkr.OnDeleteCiliumNode(nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnDeleteService(nil); err != ErrShutDown {
+	if err := spkr.OnDeleteService(nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnUpdateEndpoints(nil); err != ErrShutDown {
+	if err := spkr.OnUpdateEndpoints(nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnUpdateNode(nil, nil, nil); err != ErrShutDown {
+	if err := spkr.OnUpdateNode(nil, nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnUpdateService(nil); err != ErrShutDown {
+	if err := spkr.OnUpdateService(nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 }
@@ -531,6 +546,16 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 		},
 		PeerSession_: func() []metallbspr.Session {
 			return []metallbspr.Session{mockSession}
+		},
+		GetBGPController_: func() *metallbspr.BGPController {
+			return &metallbspr.BGPController{
+				SvcAds: make(map[string][]*metallbbgp.Advertisement),
+				Peers: []*metallbspr.Peer{
+					{
+						BGP: mockSession,
+					},
+				},
+			}
 		},
 	}
 

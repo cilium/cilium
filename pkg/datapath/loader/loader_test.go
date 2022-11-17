@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package loader
 
 import (
@@ -21,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -31,7 +28,9 @@ import (
 )
 
 // Hook up gocheck into the "go test" runner.
-type LoaderTestSuite struct{}
+type LoaderTestSuite struct {
+	teardown func() error
+}
 
 var (
 	_              = Suite(&LoaderTestSuite{})
@@ -54,33 +53,54 @@ func Test(t *testing.T) {
 }
 
 func (s *LoaderTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
+	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
+	if err != nil {
+		c.Fatalf("Failed to create temporary directory: %s", err)
+	}
+	dirInfo = getDirs(tmpDir)
+
+	cleanup, err := prepareEnv(&ep)
+	if err != nil {
+		SetTestIncludes(nil)
+		os.RemoveAll(tmpDir)
+		c.Fatalf("Failed to prepare environment: %s", err)
+	}
+
+	s.teardown = func() error {
+		if err := cleanup(); err != nil {
+			return err
+		}
+		return os.RemoveAll(tmpDir)
+	}
 
 	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+
 	SetTestIncludes([]string{
 		fmt.Sprintf("-I%s", bpfDir),
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
 	})
 
-	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
-	sourceFile := filepath.Join(bpfDir, endpointProg)
-	err = os.Symlink(sourceFile, endpointProg)
-	c.Assert(err, IsNil)
-	sourceFile = filepath.Join(bpfDir, hostEndpointProg)
-	err = os.Symlink(sourceFile, hostEndpointProg)
-	c.Assert(err, IsNil)
+	c.Assert(rlimit.RemoveMemlock(), IsNil)
 
-	// Set datapath in ipvlan mode to avoid loading the second master device.
-	// Loading that second device requires a proper compilation of the
-	// bpf_host.o object file with the adtual endpoint configurations, and not
-	// just the template compilation as we test here.
-	option.Config.DatapathMode = datapathOption.DatapathModeIpvlan
+	sourceFile := filepath.Join(bpfDir, endpointProg)
+	c.Assert(os.Symlink(sourceFile, endpointProg), IsNil)
+
+	sourceFile = filepath.Join(bpfDir, hostEndpointProg)
+	c.Assert(os.Symlink(sourceFile, hostEndpointProg), IsNil)
 }
 
 func (s *LoaderTestSuite) TearDownSuite(c *C) {
 	SetTestIncludes(nil)
 	os.RemoveAll(endpointProg)
 	os.RemoveAll(hostEndpointProg)
+
+	if s.teardown != nil {
+		if err := s.teardown(); err != nil {
+			c.Fatal(err)
+		}
+	}
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
@@ -93,42 +113,6 @@ func (s *LoaderTestSuite) TearDownTest(c *C) {
 			panic(err)
 		}
 	}
-}
-
-// runTests configures devices for running the whole testsuite, and runs the
-// tests. It is kept separate from TestMain() so that this function can defer
-// cleanups and pass the exit code of the test run to the caller which can run
-// os.Exit() with the result.
-func runTests(m *testing.M) (int, error) {
-	SetTestIncludes([]string{"-I/usr/include/x86_64-linux-gnu/"})
-	defer SetTestIncludes(nil)
-
-	tmpDir, err := os.MkdirTemp("/tmp/", "cilium_")
-	if err != nil {
-		return 1, fmt.Errorf("Failed to create temporary directory: %s", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	dirInfo = getDirs(tmpDir)
-
-	cleanup, err := prepareEnv(&ep)
-	if err != nil {
-		return 1, fmt.Errorf("Failed to prepare environment: %s", err)
-	}
-	defer func() {
-		if err := cleanup(); err != nil {
-			log.Error(err.Error())
-		}
-	}()
-
-	return m.Run(), nil
-}
-
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(exitCode)
 }
 
 func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
@@ -179,6 +163,19 @@ func (s *LoaderTestSuite) TestCompileAndLoadDefaultEndpoint(c *C) {
 // TestCompileAndLoadHostEndpoint is the same as
 // TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
 func (s *LoaderTestSuite) TestCompileAndLoadHostEndpoint(c *C) {
+	elfMapPrefixes = []string{
+		fmt.Sprintf("test_%s", policymap.MapName),
+		fmt.Sprintf("test_%s", callsmap.MapName),
+	}
+
+	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
+
+	epDir := ep.StateDir()
+	err := os.MkdirAll(epDir, 0755)
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(epDir)
+
 	s.testCompileAndLoad(c, &hostEp)
 }
 
@@ -191,11 +188,11 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 	c.Assert(err, IsNil)
 	finalize()
 
-	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 	c.Assert(err, IsNil)
 	finalize()
 }
@@ -279,7 +276,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, "")
 		if err != nil {
 			b.Fatal(err)
 		}

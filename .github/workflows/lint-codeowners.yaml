@@ -23,7 +23,7 @@ jobs:
       codeowners-changed: ${{ steps.changes.outputs.codeowners-changed }}
     steps:
       - name: Check code changes
-        uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         id: changes
         with:
           filters: |
@@ -41,7 +41,7 @@ jobs:
     name: Check CODEOWNERS consistency
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
           # Hard-code the path instead of using ${{ github.repository }}
@@ -117,7 +117,7 @@ jobs:
           # CODEOWNERS's comments.
           cd src/github.com/cilium/cilium
           for team in $(sed -e '/^\(#\|$\)/d' -e '/^[^ ]*$/d' -e 's/^[^ #]\+ //' -e 's/ /\n/g' CODEOWNERS | sort -u); do
-              if ! grep -q "^# ${team} " CODEOWNERS; then
+              if ! grep -q "^#[^@]*${team}" CODEOWNERS; then
                   echo "${team}";
                   EXIT_STATUS=1
               fi;

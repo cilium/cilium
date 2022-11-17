@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 //go:generate protoc --go_out=. trf.proto
 package bpftests
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
@@ -18,16 +17,20 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -35,17 +38,40 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 )
 
-var testPath = flag.String("bpf-test-path", "", "Path to the eBPF tests")
+var (
+	testPath               = flag.String("bpf-test-path", "", "Path to the eBPF tests")
+	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
+	testCoverageFormat     = flag.String("coverage-format", "html", "Specify the format of the coverage report")
+	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
+		" code coverage instrumentation, needed if code coverage breaks the verifier")
+
+	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
+)
 
 func TestBPF(t *testing.T) {
 	if testPath == nil || *testPath == "" {
-		t.Fatal("-bpf-test-path is a required flag")
+		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
 
 	entries, err := os.ReadDir(*testPath)
 	if err != nil {
 		t.Fatal("os readdir: ", err)
 	}
+
+	var instrLog io.Writer
+	if *testInstrumentationLog != "" {
+		instrLogFile, err := os.Create(*testInstrumentationLog)
+		if err != nil {
+			t.Fatal("os create instrumentation log: ", err)
+		}
+		defer instrLogFile.Close()
+
+		buf := bufio.NewWriter(instrLogFile)
+		instrLog = buf
+		defer buf.Flush()
+	}
+
+	mergedProfiles := make([]*cover.Profile, 0)
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -56,26 +82,67 @@ func TestBPF(t *testing.T) {
 			continue
 		}
 
-		loadAndRunSpec(t, entry)
+		profiles := loadAndRunSpec(t, entry, instrLog)
+		for _, profile := range profiles {
+			if len(profile.Blocks) > 0 {
+				mergedProfiles = addProfile(mergedProfiles, profile)
+			}
+		}
+	}
+
+	if *testCoverageReport != "" {
+		coverReport, err := os.Create(*testCoverageReport)
+		if err != nil {
+			t.Fatalf("create coverage report: %s", err.Error())
+		}
+		defer coverReport.Close()
+
+		switch *testCoverageFormat {
+		case "html":
+			if err = coverbee.HTMLOutput(mergedProfiles, coverReport); err != nil {
+				t.Fatalf("create HTML coverage report: %s", err.Error())
+			}
+		case "go-cover", "cover":
+			coverbee.ProfilesToGoCover(mergedProfiles, coverReport, "count")
+		default:
+			t.Fatal("unknown output format")
+		}
 	}
 }
 
-func loadAndRunSpec(t *testing.T, entry fs.DirEntry) {
+func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cover.Profile {
 	elfPath := path.Join(*testPath, entry.Name())
+
+	if instrLog != nil {
+		fmt.Fprintln(instrLog, "===", elfPath, "===")
+	}
+
 	spec := loadAndPrepSpec(t, elfPath)
 
-	coll, err := ebpf.NewCollectionWithOptions(spec, ebpf.CollectionOptions{
+	var (
+		coll *ebpf.Collection
+		cfg  []*coverbee.BasicBlock
+		err  error
+	)
+
+	opts := ebpf.CollectionOptions{
 		Programs: ebpf.ProgramOptions{
-			LogSize: 4 << 20, // 4 MiB
+			LogSize: 64 << 20, // 64 MiB, not needed in most cases, except when running instrumented code.
 		},
-	})
+	}
+
+	if *testCoverageReport == "" {
+		coll, err = ebpf.NewCollectionWithOptions(spec, opts)
+	} else {
+		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, opts, instrLog)
+	}
 	if err != nil {
 		// Use this definition of ENOSPC instead of syscall.ENOSPC, since the stdlib constant is only
 		// available on linux. Even if this doesn't run, we still want it to compile on non-linux systems.
 		const ENOSPC = syscall.Errno(0x1c)
 		// ENOSPC usually means that the log size was to small, so increase and retry.
 		if errors.Is(err, ENOSPC) {
-			t.Fatal("Verifier logs larger than 4MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
+			t.Fatal("Verifier logs larger than 64MiB, increase the log size passed to ebpf.NewCollectionWithOptions " +
 				"or decrease the size/complexity of the program")
 		}
 
@@ -145,8 +212,16 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry) {
 		}()
 	}
 
-	for name, progs := range testNameToPrograms {
-		t.Run(name, subTest(progs, coll.Maps[suiteResultMap]))
+	// Make sure sub-tests are executed in alphabetic order, to make test results repeatable if programs rely on
+	// the order of execution.
+	testNames := make([]string, 0, len(testNameToPrograms))
+	for name := range testNameToPrograms {
+		testNames = append(testNames, name)
+	}
+	sort.Strings(testNames)
+
+	for _, name := range testNames {
+		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap]))
 	}
 
 	if globalLogReader != nil {
@@ -154,6 +229,29 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry) {
 		// TODO: replace with flush on the buffer, as soon as cilium/ebpf supports that
 		time.Sleep(50 * time.Millisecond)
 	}
+
+	if *testCoverageReport == "" {
+		return nil
+	}
+
+	blocklist := coverbee.CFGToBlockList(cfg)
+	if err = coverbee.ApplyCoverMapToBlockList(coll.Maps["coverbee_covermap"], blocklist); err != nil {
+		t.Fatalf("apply covermap to blocklist: %s", err.Error())
+	}
+
+	outBlocks, err := coverbee.SourceCodeInterpolation(blocklist, nil)
+	if err != nil {
+		t.Fatalf("error while interpolating using source files: %s", err)
+	}
+
+	var buf bytes.Buffer
+	coverbee.BlockListToGoCover(outBlocks, &buf, "count")
+	profiles, err := cover.ParseProfilesFromReader(&buf)
+	if err != nil {
+		t.Fatalf("parse profiles: %s", err.Error())
+	}
+
+	return profiles
 }
 
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
@@ -182,14 +280,6 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 			if prog.Type == ebpf.UnspecifiedProgram {
 				continue
 			}
-
-			t.Fatalf(
-				"File '%s' contains both '%s' and '%s' program types, "+
-					"only one program type per ELF file allowed:",
-				elfPath,
-				progTestType,
-				prog.Type,
-			)
 		}
 	}
 
@@ -197,9 +287,11 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 		t.Fatalf("File '%s' only contains unspecified program types", elfPath)
 	}
 
-	// Give all tail call programs the same program type as the test programs
+	// Give all untyped tail call programs the same program type as the test programs
 	for _, spec := range spec.Programs {
-		spec.Type = progTestType
+		if spec.Type == ebpf.UnspecifiedProgram {
+			spec.Type = progTestType
+		}
 	}
 
 	return spec
@@ -261,15 +353,29 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 				t.Fatalf("error while running setup prog: %s", err)
 			}
 
+			if *dumpCtx {
+				t.Log("Setup returned status: ")
+				t.Log(statusCode)
+				t.Log("Ctx after setup: ")
+				t.Log(spew.Sdump(result))
+			}
+
 			ctx = make([]byte, len(result)+4)
 			nl.NativeEndian().PutUint32(ctx, statusCode)
 			copy(ctx[4:], result)
 		}
 
 		// Run test, input a
-		statusCode, _, err := progSet.checkProg.Test(ctx)
+		statusCode, ctxOut, err := progSet.checkProg.Test(ctx)
 		if err != nil {
 			t.Fatal("error while running check program:", err)
+		}
+
+		if *dumpCtx {
+			t.Log("Check returned status: ")
+			t.Log(statusCode)
+			t.Log("Ctx after check: ")
+			t.Log(spew.Sdump(ctxOut))
 		}
 
 		// Clear map value after each test
@@ -345,17 +451,6 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-}
-
-type suiteTestResult struct {
-	name string
-	logs []testLog
-	code byte
-}
-
-type testLog struct {
-	fmt  string
-	args []uint64
 }
 
 // A simplified version of fmt.Printf logic, the meaning of % specifiers changed to match the kernels printk specifiers.

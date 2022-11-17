@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/constants"
 )
 
-var _ = Describe("RuntimeConntrackInVethModeTest", runtimeConntrackTest("veth"))
+var _ = Describe("RuntimeDatapathConntrackInVethModeTest", runtimeConntrackTest("veth"))
 
 var runtimeConntrackTest = func(datapathMode string) func() {
 	return func() {

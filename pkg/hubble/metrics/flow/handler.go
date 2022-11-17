@@ -44,7 +44,11 @@ func (h *flowHandler) Status() string {
 	return h.context.Status()
 }
 
-func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
+func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	labelValues, err := h.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
 	var typeName, subType string
 	eventType := flow.GetEventType().GetType()
 	switch eventType {
@@ -75,7 +79,8 @@ func (h *flowHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) {
 	}
 
 	labels := []string{v1.FlowProtocol(flow), typeName, subType, flow.GetVerdict().String()}
-	labels = append(labels, h.context.GetLabelValues(flow)...)
+	labels = append(labels, labelValues...)
 
 	h.flows.WithLabelValues(labels...).Inc()
+	return nil
 }

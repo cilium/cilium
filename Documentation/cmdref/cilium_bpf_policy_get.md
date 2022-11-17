@@ -2,7 +2,7 @@
 
 ## cilium bpf policy get
 
-List contents of a policy BPF map
+Get contents of a policy BPF map
 
 ```
 cilium bpf policy get [flags]

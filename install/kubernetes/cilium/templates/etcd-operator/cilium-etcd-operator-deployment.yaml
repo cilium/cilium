@@ -5,6 +5,8 @@ metadata:
   labels:
     io.cilium/app: etcd-operator
     name: cilium-etcd-operator
+    app.kubernetes.io/name: cilium-etcd-operator
+    app.kubernetes.io/part-of: cilium
   name: cilium-etcd-operator
   namespace: {{ .Release.Namespace }}
 spec:
@@ -25,6 +27,8 @@ spec:
 {{- end }}
       labels:
         io.cilium/app: etcd-operator
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-etcd-operator
         name: cilium-etcd-operator
 {{- with .Values.etcd.podLabels }}
         {{- toYaml . | nindent 8 }}
@@ -33,6 +37,18 @@ spec:
 {{- if .Values.etcd.affinity }}
       affinity:
 {{ toYaml .Values.etcd.affinity | indent 8 }}
+{{- end }}
+{{- with .Values.etcd.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            io.cilium/app: etcd-operator
+            name: cilium-etcd-operator
+          {{- end }}
+        {{- end }}
 {{- end }}
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -70,9 +86,10 @@ spec:
           value: "revision"
         - name: CILIUM_ETCD_META_ETCD_AUTO_COMPACTION_RETENTION
           value: "25000"
-        image: {{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}
+        image: {{ include "cilium.image" .Values.etcd.image | quote }}
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: cilium-etcd-operator
+        terminationMessagePolicy: FallbackToLogsOnError
       dnsPolicy: ClusterFirst
       hostNetwork: true
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}

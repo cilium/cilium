@@ -71,17 +71,23 @@ func (client *Client) ModifyImageAttributeWithCallback(request *ModifyImageAttri
 // ModifyImageAttributeRequest is the request struct for api ModifyImageAttribute
 type ModifyImageAttributeRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ImageId              string           `position:"Query" name:"ImageId"`
-	Description          string           `position:"Query" name:"Description"`
-	BootMode             string           `position:"Query" name:"BootMode"`
-	ImageName            string           `position:"Query" name:"ImageName"`
-	LicenseType          string           `position:"Query" name:"LicenseType"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	ImageFamily          string           `position:"Query" name:"ImageFamily"`
-	Status               string           `position:"Query" name:"Status"`
+	ResourceOwnerId      requests.Integer             `position:"Query" name:"ResourceOwnerId"`
+	ImageId              string                       `position:"Query" name:"ImageId"`
+	Description          string                       `position:"Query" name:"Description"`
+	Features             ModifyImageAttributeFeatures `position:"Query" name:"Features"  type:"Struct"`
+	BootMode             string                       `position:"Query" name:"BootMode"`
+	ImageName            string                       `position:"Query" name:"ImageName"`
+	LicenseType          string                       `position:"Query" name:"LicenseType"`
+	ResourceOwnerAccount string                       `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                       `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer             `position:"Query" name:"OwnerId"`
+	ImageFamily          string                       `position:"Query" name:"ImageFamily"`
+	Status               string                       `position:"Query" name:"Status"`
+}
+
+// ModifyImageAttributeFeatures is a repeated param struct in ModifyImageAttributeRequest
+type ModifyImageAttributeFeatures struct {
+	NvmeSupport string `name:"NvmeSupport"`
 }
 
 // ModifyImageAttributeResponse is the response struct for api ModifyImageAttribute

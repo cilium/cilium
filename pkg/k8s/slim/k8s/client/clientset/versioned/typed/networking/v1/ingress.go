@@ -44,7 +44,7 @@ type ingresses struct {
 }
 
 // newIngresses returns a Ingresses
-func newIngresses(c *MetaV1Client, namespace string) *ingresses {
+func newIngresses(c *NetworkingV1Client, namespace string) *ingresses {
 	return &ingresses{
 		client: c.RESTClient(),
 		ns:     namespace,

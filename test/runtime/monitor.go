@@ -25,7 +25,7 @@ const (
 	MonitorTraceNotification = "TraceNotification"
 )
 
-var _ = Describe("RuntimeMonitorTest", func() {
+var _ = Describe("RuntimeDatapathMonitorTest", func() {
 
 	var (
 		vm            *helpers.SSHMeta

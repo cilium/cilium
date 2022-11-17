@@ -4,7 +4,7 @@
 package policy
 
 import (
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -12,8 +12,8 @@ import (
 
 // getPrefixesFromCIDR fetches all CIDRs referred to by the specified slice
 // and returns them as regular golang CIDR objects.
-func getPrefixesFromCIDR(cidrs api.CIDRSlice) []*net.IPNet {
-	result, _ := ip.ParseCIDRs(cidrs.StringSlice())
+func getPrefixesFromCIDR(cidrs api.CIDRSlice) []netip.Prefix {
+	result, _, _ := ip.ParsePrefixes(cidrs.StringSlice())
 	return result
 }
 
@@ -21,7 +21,7 @@ func getPrefixesFromCIDR(cidrs api.CIDRSlice) []*net.IPNet {
 // and returns them as regular golang CIDR objects.
 //
 // Assumes that validation already occurred on 'rules'.
-func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
+func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []netip.Prefix {
 	cidrs := api.ComputeResultantCIDRSet(rules)
 	return getPrefixesFromCIDR(cidrs)
 }
@@ -32,11 +32,11 @@ func GetPrefixesFromCIDRSet(rules api.CIDRRuleSlice) []*net.IPNet {
 // the CIDR in the returned slice.
 //
 // Assumes that validation already occurred on 'rules'.
-func GetCIDRPrefixes(rules api.Rules) []*net.IPNet {
+func GetCIDRPrefixes(rules api.Rules) []netip.Prefix {
 	if len(rules) == 0 {
 		return nil
 	}
-	res := make([]*net.IPNet, 0, 32)
+	res := make([]netip.Prefix, 0, 32)
 	for _, r := range rules {
 		for _, ir := range r.Ingress {
 			if len(ir.FromCIDR) > 0 {

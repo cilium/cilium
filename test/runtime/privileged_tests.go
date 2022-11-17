@@ -21,7 +21,7 @@ const (
 	privilegedUnitTestTimeout = 30 * time.Minute
 )
 
-var _ = Describe("RuntimePrivilegedUnitTests", func() {
+var _ = Describe("RuntimeDatapathPrivilegedUnitTests", func() {
 
 	var vm *helpers.SSHMeta
 

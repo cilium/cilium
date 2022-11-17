@@ -46,6 +46,15 @@
 #define CONDITIONAL_PREALLOC BPF_F_NO_PREALLOC
 #endif
 
+#if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY)
+#define HAVE_ENCAP
+
+/* NOT_VTEP_DST is passed to an encapsulation function when the
+ * destination of the tunnel is not a VTEP.
+ */
+#define NOT_VTEP_DST 0
+#endif
+
 /* TODO: ipsec v6 tunnel datapath still needs separate fixing */
 #ifndef ENABLE_IPSEC
 # ifdef ENABLE_IPV6
@@ -53,8 +62,20 @@
 # endif
 #endif
 
-/* XDP to SKB transferred meta data. */
-#define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
+/* XFER_FLAGS that get transferred from XDP to SKB */
+enum {
+	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
+	XFER_PKT_ENCAP		= (1 << 1),  /* needs encap, tunnel info is in metadata. */
+	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
+};
+
+/* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
+enum {
+	XFER_FLAGS = 0,		/* XFER_PKT_* */
+	XFER_ENCAP_NODEID = 1,
+	XFER_ENCAP_SECLABEL = 2,
+	XFER_ENCAP_DSTID = 3,
+};
 
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated.
@@ -68,8 +89,8 @@
 #define CILIUM_CALL_IPV4_FROM_LXC		7
 #define CILIUM_CALL_IPV4_FROM_NETDEV		CILIUM_CALL_IPV4_FROM_LXC
 #define CILIUM_CALL_IPV4_FROM_OVERLAY		CILIUM_CALL_IPV4_FROM_LXC
-#define CILIUM_CALL_UNUSED1			8
-#define CILIUM_CALL_UNUSED2			9
+#define CILIUM_CALL_IPV46_RFC8215		8
+#define CILIUM_CALL_IPV64_RFC8215		9
 #define CILIUM_CALL_IPV6_FROM_LXC		10
 #define CILIUM_CALL_IPV6_FROM_NETDEV		CILIUM_CALL_IPV6_FROM_LXC
 #define CILIUM_CALL_IPV6_FROM_OVERLAY		CILIUM_CALL_IPV6_FROM_LXC
@@ -79,8 +100,8 @@
 #define CILIUM_CALL_IPV6_TO_HOST_POLICY_ONLY	CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY
 #define CILIUM_CALL_IPV4_TO_ENDPOINT		13
 #define CILIUM_CALL_IPV6_TO_ENDPOINT		14
-#define CILIUM_CALL_IPV4_NODEPORT_NAT		15
-#define CILIUM_CALL_IPV6_NODEPORT_NAT		16
+#define CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS	15
+#define CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS	16
 #define CILIUM_CALL_IPV4_NODEPORT_REVNAT	17
 #define CILIUM_CALL_IPV6_NODEPORT_REVNAT	18
 #define CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT	19
@@ -97,7 +118,12 @@
 #define CILIUM_CALL_IPV6_CT_INGRESS		30
 #define CILIUM_CALL_IPV6_CT_INGRESS_POLICY_ONLY	31
 #define CILIUM_CALL_IPV6_CT_EGRESS		32
-#define CILIUM_CALL_SIZE			33
+#define CILIUM_CALL_SRV6_ENCAP			33
+#define CILIUM_CALL_SRV6_DECAP			34
+#define CILIUM_CALL_SRV6_REPLY			35
+#define CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS	36
+#define CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS	37
+#define CILIUM_CALL_SIZE			38
 
 typedef __u64 mac_t;
 
@@ -302,6 +328,40 @@ struct egress_gw_policy_entry {
 	__u32 gateway_ip;
 };
 
+struct srv6_vrf_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 src_ip;
+	__u32 dst_cidr;
+};
+
+struct srv6_vrf_key6 {
+	struct bpf_lpm_trie_key lpm;
+	union v6addr src_ip;
+	union v6addr dst_cidr;
+};
+
+struct srv6_policy_key4 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	__u32 dst_cidr;
+};
+
+struct srv6_policy_key6 {
+	struct bpf_lpm_trie_key lpm;
+	__u32 vrf_id;
+	union v6addr dst_cidr;
+};
+
+struct srv6_ipv4_2tuple {
+	__u32 src;
+	__u32 dst;
+};
+
+struct srv6_ipv6_2tuple {
+	union v6addr src;
+	union v6addr dst;
+};
+
 struct vtep_key {
 	__u32 vtep_ip;
 };
@@ -337,6 +397,7 @@ enum {
 	CILIUM_NOTIFY_TRACE,
 	CILIUM_NOTIFY_POLICY_VERDICT,
 	CILIUM_NOTIFY_CAPTURE,
+	CILIUM_NOTIFY_TRACE_SOCK,
 };
 
 #define NOTIFY_COMMON_HDR \
@@ -374,11 +435,6 @@ enum {
 #endif
 
 #define IS_ERR(x) (unlikely((x < 0) || (x == CTX_ACT_DROP)))
-
-/* Cilium IPSec code to indicate packet needs to be handled
- * by IPSec stack. Maps to CTX_ACT_OK.
- */
-#define IPSEC_ENDPOINT CTX_ACT_OK
 
 /* Return value to indicate that proxy redirection is required */
 #define POLICY_ACT_PROXY_REDIRECT (1 << 16)
@@ -445,6 +501,10 @@ enum {
 #define DROP_VLAN_FILTERED	-182
 #define DROP_INVALID_VNI	-183
 #define DROP_INVALID_TC_BUFFER  -184
+#define DROP_NO_SID		-185
+#define DROP_MISSING_SRV6_STATE	-186
+#define DROP_NAT46		-187
+#define DROP_NAT64		-188
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -581,7 +641,8 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
 /*
- * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb.
+ * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb or
+ * the cilium_xdp_scratch pad.
  * The verifier only exposes the first 5 slots in cb[], so this enum
  * only contains 5 entries. Aliases are added to the slots to re-use
  * them under different names in different parts of the datapath.
@@ -597,23 +658,31 @@ enum {
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
+#define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
+#define CB_ENCAP_NODEID		CB_SRC_LABEL	/* XDP */
 	CB_IFINDEX,
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
+#define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
+#define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
+#define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
 	CB_NAT,
 #define	CB_ADDR_V6_3		CB_NAT		/* Alias, non-overlapping */
 #define	CB_FROM_HOST		CB_NAT		/* Alias, non-overlapping */
+#define CB_SRV6_SID_4		CB_NAT		/* Alias, non-overlapping */
 	CB_CT_STATE,
 #define	CB_ADDR_V6_4		CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
 						 * Not used by xfrm.
 						 */
 #define	CB_CUSTOM_CALLS		CB_CT_STATE	/* Alias, non-overlapping */
+#define	CB_SRV6_VRF_ID		CB_CT_STATE	/* Alias, non-overlapping */
 };
 
 /* Magic values for CB_FROM_HOST.
@@ -664,6 +733,15 @@ enum {
 	SVC_FLAG_LOCALREDIRECT  = (1 << 0),  /* local redirect */
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
+	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
+};
+
+/* Backend flags (lb{4,6}_backends->flags) */
+enum {
+	BE_STATE_ACTIVE		= 0,
+	BE_STATE_TERMINATING,
+	BE_STATE_QUARANTINED,
+	BE_STATE_MAINTENANCE,
 };
 
 struct ipv6_ct_tuple {
@@ -891,10 +969,11 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      node_port:1,
-	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
-	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved:11;
+	      syn:1,
+	      proxy_redirect:1,	/* Connection is redirected to a proxy */
+	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
+	      reserved:10;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
@@ -932,30 +1011,22 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 				       int ifindex __maybe_unused,
 				       bool needs_backlog __maybe_unused)
 {
-	/* If our datapath has proper redirect support, we make use
-	 * of it here, otherwise we terminate tc processing by letting
-	 * stack handle forwarding e.g. in ipvlan case.
-	 *
-	 * Going via CPU backlog queue (aka needs_backlog) is required
+	/* Going via CPU backlog queue (aka needs_backlog) is required
 	 * whenever we cannot do a fast ingress -> ingress switch but
 	 * instead need an ingress -> egress netns traversal or vice
 	 * versa.
 	 */
-#ifdef ENABLE_HOST_REDIRECT
 	if (needs_backlog || !is_defined(ENABLE_HOST_ROUTING)) {
 		return ctx_redirect(ctx, ifindex, 0);
 	} else {
-# ifdef ENCAP_IFINDEX
+# ifdef HAVE_ENCAP
 		/* When coming from overlay, we need to set packet type
 		 * to HOST as otherwise we might get dropped in IP layer.
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
-# endif /* ENCAP_IFINDEX */
+# endif /* HAVE_ENCAP */
 		return ctx_redirect_peer(ctx, ifindex, 0);
 	}
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_REDIRECT */
 }
 
 struct lpm_v4_key {

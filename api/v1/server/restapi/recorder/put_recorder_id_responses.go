@@ -19,7 +19,8 @@ import (
 // PutRecorderIDOKCode is the HTTP code returned for type PutRecorderIDOK
 const PutRecorderIDOKCode int = 200
 
-/*PutRecorderIDOK Updated
+/*
+PutRecorderIDOK Updated
 
 swagger:response putRecorderIdOK
 */
@@ -43,7 +44,8 @@ func (o *PutRecorderIDOK) WriteResponse(rw http.ResponseWriter, producer runtime
 // PutRecorderIDCreatedCode is the HTTP code returned for type PutRecorderIDCreated
 const PutRecorderIDCreatedCode int = 201
 
-/*PutRecorderIDCreated Created
+/*
+PutRecorderIDCreated Created
 
 swagger:response putRecorderIdCreated
 */
@@ -67,7 +69,8 @@ func (o *PutRecorderIDCreated) WriteResponse(rw http.ResponseWriter, producer ru
 // PutRecorderIDFailureCode is the HTTP code returned for type PutRecorderIDFailure
 const PutRecorderIDFailureCode int = 500
 
-/*PutRecorderIDFailure Error while creating recorder
+/*
+PutRecorderIDFailure Error while creating recorder
 
 swagger:response putRecorderIdFailure
 */

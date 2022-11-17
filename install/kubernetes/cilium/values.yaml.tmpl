@@ -118,6 +118,13 @@ tolerations:
 # -- The priority class to use for cilium-agent.
 priorityClassName: ""
 
+# -- DNS policy for Cilium agent pods.
+# Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+dnsPolicy: ""
+
+# -- Additional containers added to the cilium DaemonSet.
+extraContainers: []
+
 # -- Additional agent container arguments.
 extraArgs: []
 
@@ -164,19 +171,80 @@ resources: {}
   #   cpu: 100m
   #   memory: 512Mi
 
-# -- Security context to be added to agent pods
 securityContext:
+  # -- User to run the pod with
   # runAsUser: 0
+  # -- Run the pod with elevated privileges
   privileged: false
-  extraCapabilities:
-    # Allow discretionary access control (e.g. required for package installation)
-    - DAC_OVERRIDE
-    # Allow to set Access Control Lists (ACLs) on arbitrary files (e.g. required for package installation)
-    - FOWNER
-    # Allow to execute program that changes GID (e.g. required for package installation)
-    - SETGID
-    # Allow to execute program that changes UID (e.g. required for package installation)
-    - SETUID
+  capabilities:
+    # -- Capabilities for the `cilium-agent` container
+    ciliumAgent:
+      # Use to set socket permission
+      - CHOWN
+      # Used to terminate envoy child process
+      - KILL
+      # Used since cilium modifies routing tables, etc...
+      - NET_ADMIN
+      # Used since cilium creates raw sockets, etc...
+      - NET_RAW
+      # Used since cilium monitor uses mmap
+      - IPC_LOCK
+      # Used in iptables. Consider removing once we are iptables-free
+      - SYS_MODULE
+      # We need it for now but might not need it for >= 5.11 specially
+      # for the 'SYS_RESOURCE'.
+      # In >= 5.8 there's already BPF and PERMON capabilities
+      - SYS_ADMIN
+      # Could be an alternative for the SYS_ADMIN for the RLIMIT_NPROC
+      - SYS_RESOURCE
+      # Both PERFMON and BPF requires kernel 5.8, container runtime
+      # cri-o >= v1.22.0 or containerd >= v1.5.0.
+      # If available, SYS_ADMIN can be removed.
+      #- PERFMON
+      #- BPF
+      # Allow discretionary access control (e.g. required for package installation)
+      - DAC_OVERRIDE
+      # Allow to set Access Control Lists (ACLs) on arbitrary files (e.g. required for package installation)
+      - FOWNER
+      # Allow to execute program that changes GID (e.g. required for package installation)
+      - SETGID
+      # Allow to execute program that changes UID (e.g. required for package installation)
+      - SETUID
+    # -- Capabilities for the `mount-cgroup` init container
+    mountCgroup:
+      # Only used for 'mount' cgroup
+      - SYS_ADMIN
+      # Used for nsenter
+      - SYS_CHROOT
+      - SYS_PTRACE
+    # -- capabilities for the `apply-sysctl-overwrites` init container
+    applySysctlOverwrites:
+      # Required in order to access host's /etc/sysctl.d dir
+      - SYS_ADMIN
+      # Used for nsenter
+      - SYS_CHROOT
+      - SYS_PTRACE
+    # -- Capabilities for the `clean-cilium-state` init container
+    cleanCiliumState:
+      # Most of the capabilities here are the same ones used in the
+      # cilium-agent's container because this container can be used to
+      # uninstall all Cilium resources, and therefore it is likely that
+      # will need the same capabilities.
+      # Used since cilium modifies routing tables, etc...
+      - NET_ADMIN
+      # Used in iptables. Consider removing once we are iptables-free
+      - SYS_MODULE
+      # We need it for now but might not need it for >= 5.11 specially
+      # for the 'SYS_RESOURCE'.
+      # In >= 5.8 there's already BPF and PERMON capabilities
+      - SYS_ADMIN
+      # Could be an alternative for the SYS_ADMIN for the RLIMIT_NPROC
+      - SYS_RESOURCE
+      # Both PERFMON and BPF requires kernel 5.8, container runtime
+      # cri-o >= v1.22.0 or containerd >= v1.5.0.
+      # If available, SYS_ADMIN can be removed.
+      #- PERFMON
+      #- BPF
 
 # -- Cilium agent update strategy
 updateStrategy:
@@ -231,6 +299,11 @@ bandwidthManager:
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
 
+# -- Configure Stateless NAT46/NAT64 translation
+statelessNat46x64:
+  # -- Enable RFC8215-prefixed translation
+  enabled: false
+
 # -- Configure BGP
 bgp:
   # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
@@ -242,10 +315,15 @@ bgp:
     # -- Enable announcement of node pod CIDR
     podCIDR: false
 
-# -- This feature set enables virtual BGP routers to be created via 
+# -- This feature set enables virtual BGP routers to be created via
 # CiliumBGPPeeringPolicy CRDs.
 bgpControlPlane:
-  # -- Enables the BGP control plane. 
+  # -- Enables the BGP control plane.
+  enabled: false
+
+pmtuDiscovery:
+  # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to
+  # the client.
   enabled: false
 
 bpf:
@@ -255,27 +333,37 @@ bpf:
   # -- Enable BPF clock source probing for more efficient tick retrieval.
   clockProbe: false
 
+  # -- Configure the path to the host boot directory
+  hostBoot: /boot
+
+  # -- Enable host boot directory mount for BPF clock source probing
+  mountHostBoot: true
+
   # -- Enables pre-allocation of eBPF map values. This increases
   # memory usage but can reduce latency.
   preallocateMaps: false
 
-  # -- Configure the maximum number of entries in the TCP connection tracking
+  # -- (int) Configure the maximum number of entries in the TCP connection tracking
   # table.
-  # ctTcpMax: '524288'
+  # @default -- `524288`
+  ctTcpMax: ~
 
-  # -- Configure the maximum number of entries for the non-TCP connection
+  # -- (int) Configure the maximum number of entries for the non-TCP connection
   # tracking table.
-  # ctAnyMax: '262144'
+  # @default -- `262144`
+  ctAnyMax: ~
 
   # -- Configure the maximum number of service entries in the
   # load balancer maps.
   lbMapMax: 65536
 
-  # -- Configure the maximum number of entries for the NAT table.
-  # natMax: 524288
+  # -- (int) Configure the maximum number of entries for the NAT table.
+  # @default -- `524288`
+  natMax: ~
 
-  # -- Configure the maximum number of entries for the neighbor table.
-  # neighMax: 524288
+  # -- (int) Configure the maximum number of entries for the neighbor table.
+  # @default -- `524288`
+  neighMax: ~
 
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
   policyMapMax: 16384
@@ -299,32 +387,26 @@ bpf:
   # -- Allow cluster external access to ClusterIP services.
   lbExternalClusterIP: false
 
-  # -- Enable native IP masquerade support in eBPF
-  #masquerade: false
+  # -- (bool) Enable native IP masquerade support in eBPF
+  # @default -- `false`
+  masquerade: ~
 
-  # -- Deprecated in favor of bpf.hostLegacyRouting. To be removed in 1.13.
-  # Configure whether direct routing mode should route traffic via
-  # host stack (true) or directly and more efficiently out of BPF (false) if
-  # the kernel supports it.
-  #hostRouting: true
-
-  # -- Configure whether direct routing mode should route traffic via
+  # -- (bool) Configure whether direct routing mode should route traffic via
   # host stack (true) or directly and more efficiently out of BPF (false) if
   # the kernel supports it. The latter has the implication that it will also
   # bypass netfilter in the host namespace.
-  #hostLegacyRouting: false
+  # @default -- `false`
+  hostLegacyRouting: ~
 
-  # -- Configure the eBPF-based TPROXY to reduce reliance on iptables rules
+  # -- (bool) Configure the eBPF-based TPROXY to reduce reliance on iptables rules
   # for implementing Layer 7 policy.
-  # tproxy: true
+  # @default -- `false`
+  tproxy: ~
 
-  # -- Configure the FIB lookup bypass optimization for nodeport reverse
-  # NAT handling.
-  # lbBypassFIBLookup: true
-
-  # -- Configure explicitly allowed VLAN id's for bpf logic bypass.
+  # -- (list) Configure explicitly allowed VLAN id's for bpf logic bypass.
   # [0] will allow all VLAN id's without any filtering.
-  # vlan-bpf-bypass: []
+  # @default -- `[]`
+  vlanBypass: ~
 
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.
@@ -337,6 +419,12 @@ cleanBpfState: false
 #
 # WARNING: Use with care!
 cleanState: false
+
+# -- Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy"
+# init container before launching cilium-agent.
+# More context can be found in the commit message of below PR
+# https://github.com/cilium/cilium/pull/20123
+waitForKubeProxy: false
 
 cni:
   # -- Install the CNI configuration and binary files into the filesystem.
@@ -416,11 +504,6 @@ customCalls:
   # -- Enable tail call hooks for custom eBPF programs.
   enabled: false
 
-# -- Configure which datapath mode should be used for configuring container
-# connectivity. Valid options are "veth" or "ipvlan". Deprecated, to be removed
-# in v1.12.
-datapathMode: veth
-
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"
@@ -464,9 +547,19 @@ ingressController:
   # This will automatically set enable-envoy-config as well.
   enabled: false
 
+  # -- Default ingress load balancer mode
+  # Supported values: shared, dedicated
+  # For granular control, use the following annotations on the ingress resource
+  # io.cilium.ingress/loadbalancer-mode: shared|dedicated,
+  loadbalancerMode: dedicated
+
   # -- Enforce https for host having matching TLS host in Ingress.
   # Incoming traffic to http listener will return 308 http error code with respective location in header.
   enforceHttps: true
+
+  # -- IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate
+  # from Ingress to the Load Balancer service
+  ingressLBAnnotationPrefixes: ['service.beta.kubernetes.io', 'service.kubernetes.io', 'cloud.google.com']
 
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
@@ -474,6 +567,33 @@ ingressController:
     create: true
 
     # -- Name of Ingress secret namespace.
+    name: cilium-secrets
+
+    # -- Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name.
+    # If disabled, TLS secrets must be maintained externally.
+    sync: true
+
+  # -- Load-balancer service in shared mode.
+  # This is a single load-balancer service for all Ingress resources.
+  service:
+    # -- Service name
+    name: cilium-ingress
+    # -- Labels to be added for the shared LB service
+    labels: {}
+    # -- Annotations to be added for the shared LB service
+    annotations: {}
+
+gatewayAPI:
+  # -- Enable support for Gateway API in cilium
+  # This will automatically set enable-envoy-config as well.
+  enabled: false
+
+  # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
+  secretsNamespace:
+    # -- Create secrets namespace for Gateway API.
+    create: true
+
+    # -- Name of Gateway API secret namespace.
     name: cilium-secrets
 
     # -- Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name.
@@ -539,7 +659,7 @@ endpointHealthChecking:
   enabled: true
 
 # -- Enable endpoint status.
-# Status can be: policy, health, controllers, logs and / or state. For 2 or more options use a comma.
+# Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
 endpointStatus:
   enabled: false
   status: ""
@@ -562,6 +682,13 @@ eni:
   ec2APIEndpoint: ""
   # -- Tags to apply to the newly created ENIs
   eniTags: {}
+  # -- Interval for garbage collection of unattached ENIs. Set to "0s" to disable.
+  # @default -- `"5m"`
+  gcInterval: ""
+  # -- Additional tags attached to ENIs created by Cilium.
+  # Dangling ENIs with this tag will be garbage collected
+  # @default -- `{"io.cilium/cilium-managed":"true,"io.cilium/cluster-name":"<auto-detected>"}`
+  gcTags: {}
   # -- If using IAM role for Service Accounts will not try to
   # inject identity values from cilium-aws kubernetes secret.
   # Adds annotation to service account if managed by Helm.
@@ -571,15 +698,15 @@ eni:
   # Important note: This requires that each instance has an ENI with a matching subnet attached
   # when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium,
   # use the CNI configuration file settings (cni.customConf) instead.
-  subnetIDsFilter: ""
+  subnetIDsFilter: []
   # -- Filter via tags (k=v) which will dictate which subnets are going to be used to create new ENIs
   # Important note: This requires that each instance has an ENI with a matching subnet attached
   # when Cilium is deployed. If you only want to control subnets for ENIs attached by Cilium,
   # use the CNI configuration file settings (cni.customConf) instead.
-  subnetTagsFilter: ""
+  subnetTagsFilter: []
   # -- Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances
   # are going to be used to create new ENIs
-  instanceTagsFilter: ""
+  instanceTagsFilter: []
 
 externalIPs:
   # -- Enable ExternalIPs service support.
@@ -607,13 +734,10 @@ hostPort:
   # -- Enable hostPort service support.
   enabled: false
 
-# -- Configure ClusterIP service handling in the host namespace (the node).
-hostServices:
-  # -- Enable host reachable services.
+# -- Configure socket LB
+socketLB:
+  # -- Enable socket LB
   enabled: false
-
-  # -- Supported list of protocols to apply ClusterIP translation to.
-  protocols: tcp,udp
 
   # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
   # hostNamespaceOnly: false
@@ -671,6 +795,8 @@ hubble:
     #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
     #
     enabled: ~
+    # -- Enables exporting hubble metrics in OpenMetrics format.
+    enableOpenMetrics: false
     # -- Configure the port the hubble metric server listens on.
     port: 9965
     # -- Annotations to be added to hubble-metrics service.
@@ -686,6 +812,14 @@ hubble:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Metrics relabeling configs for the ServiceMonitor hubble
+      metricRelabelings: ~
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      namespace: ~
+      labelValue: "1"
+      annotations: {}
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
@@ -694,6 +828,12 @@ hubble:
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
   # Hubble is listening on port 4244.
   listenAddress: ":4244"
+  # -- Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
+  preferIpv6: false
+  # -- (bool) Skip Hubble events with unknown cgroup ids
+  # @default -- `true`
+  skipUnknownCGroupIDs: ~
+
   peerService:
     # -- Enable a K8s Service for the Peer service, so that it can be accessed
     # by a non-local client
@@ -799,6 +939,12 @@ hubble:
             matchLabels:
               k8s-app: cilium
 
+    # -- Pod topology spread constraints for hubble-relay
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector:
@@ -846,7 +992,7 @@ hubble:
 
     # -- hubble-relay service configuration.
     service:
-      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble Relay access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31234
@@ -897,6 +1043,27 @@ hubble:
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
     # servicePort: 80
+
+    # -- Enable prometheus metrics for hubble-relay on the configured port at
+    # /metrics
+    prometheus:
+      enabled: false
+      port: 9966
+      serviceMonitor:
+        # -- Enable service monitors.
+        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+        enabled: false
+        # -- Labels to add to ServiceMonitor hubble-relay
+        labels: {}
+        # -- Annotations to add to ServiceMonitor hubble-relay
+        annotations: {}
+        # -- Interval for scrape metrics.
+        interval: "10s"
+        # -- Specify the Kubernetes namespace where Prometheus expects to find
+        # service monitors configured.
+        # namespace: ""
+        # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
+        metricRelabelings: ~
 
   ui:
     # -- Whether to enable the Hubble UI.
@@ -977,6 +1144,10 @@ hubble:
       #   requests:
       #     cpu: 100m
       #     memory: 64Mi
+      server:
+        # -- Controls server listener for ipv6
+        ipv6:
+          enabled: true
 
     # -- The number of replicas of Hubble UI to deploy.
     replicas: 1
@@ -1000,6 +1171,12 @@ hubble:
 
     # -- Affinity for hubble-ui
     affinity: {}
+
+    # -- Pod topology spread constraints for hubble-ui
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1031,7 +1208,7 @@ hubble:
 
     # -- hubble-ui service configuration.
     service:
-      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort. 
+      # --- The type of service used for Hubble UI access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31235
@@ -1094,10 +1271,23 @@ ipam:
     clusterPoolIPv6PodCIDRList: []
     # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
     clusterPoolIPv6MaskSize: 120
+    # -- The maximum burst size when rate limiting access to external APIs.
+    # Also known as the token bucket capacity.
+    # @default -- `20`
+    externalAPILimitBurstSize: ~
+    # -- The maximum queries per second when rate limiting access to
+    # external APIs. Also known as the bucket refill rate, which is used to
+    # refill the bucket up to the burst size capacity.
+    # @default -- `4.0`
+    externalAPILimitQPS: ~
 
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
   enabled: false
+# the config of nonMasqueradeCIDRs
+# config:
+  # nonMasqueradeCIDRs: []
+  # masqLinkLocal: false
 
 # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
 # iptablesLockTimeout: "5s"
@@ -1109,14 +1299,6 @@ ipv4:
 ipv6:
   # -- Enable IPv6 support.
   enabled: false
-
-ipvlan:
-  # -- Enable the IPVLAN datapath (deprecated)
-  enabled: false
-
-  # -- masterDevice is the name of the device to use to attach secondary IPVLAN
-  # devices
-  # masterDevice: eth0
 
 # -- Configure Kubernetes specific configuration
 k8s: {}
@@ -1152,7 +1334,7 @@ readinessProbe:
   periodSeconds: 30
 
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
-# Valid options are "disabled", "probe", "partial", "strict".
+# Valid options are "disabled", "partial", "strict".
 # ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
 #kubeProxyReplacement: "disabled"
 
@@ -1197,6 +1379,9 @@ maglev: {}
 # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
 enableIPv4Masquerade: true
 
+# -- Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+enableIPv6BIGTCP: false
+
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
 
@@ -1222,7 +1407,7 @@ vtep:
 # -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
   mac: ""
 
-# -- Allows to explicitly specify the IPv4 CIDR for native routing.
+# -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without
 # applying any SNAT.
@@ -1232,9 +1417,9 @@ vtep:
 # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
-# ipv4NativeRoutingCIDR:
+ipv4NativeRoutingCIDR: ""
 
-# -- Allows to explicitly specify the IPv6 CIDR for native routing.
+# -- (string) Allows to explicitly specify the IPv6 CIDR for native routing.
 # When specified, Cilium assumes networking for this CIDR is preconfigured and
 # hands traffic destined for that range to the Linux network stack without
 # applying any SNAT.
@@ -1244,7 +1429,7 @@ vtep:
 # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
 # the user must configure the routes to reach pods, either manually or by
 # setting the auto-direct-node-routes flag.
-# ipv6NativeRoutingCIDR:
+ipv6NativeRoutingCIDR: ""
 
 # -- cilium-monitor sidecar.
 monitor:
@@ -1323,6 +1508,8 @@ prometheus:
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
+    # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
+    metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
   # metric_bar).
@@ -1404,6 +1591,13 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
+# -- Configure VXLAN and Geneve tunnel port.
+# @default -- Port 8472 for VXLAN, Port 6081 for Geneve
+tunnelPort: 0
+
+# -- Configure the underlying network MTU to overwrite auto-detected MTU.
+MTU: 0
+
 # -- Disable the usage of CiliumEndpoint CRD.
 disableEndpointCRD: "false"
 
@@ -1436,6 +1630,12 @@ etcd:
     #   operator: "Equal|Exists"
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
+
+  # -- Pod topology spread constraints for cilium-etcd-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-etcd-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1526,6 +1726,10 @@ operator:
   # -- The priority class to use for cilium-operator
   priorityClassName: ""
 
+  # -- DNS policy for Cilium operator pods.
+  # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
   # -- cilium-operator update strategy
   updateStrategy:
     type: RollingUpdate
@@ -1541,6 +1745,12 @@ operator:
         labelSelector:
           matchLabels:
             io.cilium/app: operator
+
+  # -- Pod topology spread constraints for cilium-operator
+  topologySpreadConstraints: []
+    # - maxSkew: 1
+    #   topologyKey: topology.kubernetes.io/zone
+    #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
@@ -1636,6 +1846,8 @@ operator:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
+      metricRelabelings: ~
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
@@ -1951,6 +2163,12 @@ clustermesh:
             matchLabels:
               k8s-app: clustermesh-apiserver
 
+    # -- Pod topology spread constraints for clustermesh-apiserver
+    topologySpreadConstraints: []
+      # - maxSkew: 1
+      #   topologyKey: topology.kubernetes.io/zone
+      #   whenUnsatisfiable: DoNotSchedule
+
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector:
@@ -2091,3 +2309,8 @@ dnsProxy:
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
   proxyResponseMaxDelay: 100ms
+
+# -- SCTP Configuration Values
+sctp:
+  # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
+  enabled: false

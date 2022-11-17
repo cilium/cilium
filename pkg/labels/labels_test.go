@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package labels
 
 import (
@@ -421,6 +419,14 @@ func BenchmarkLabel_String(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = l.String()
+	}
+}
+
+func BenchmarkGenerateLabelString(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		generateLabelString("foo", "key", "value")
 	}
 }
 

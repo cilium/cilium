@@ -316,10 +316,12 @@ func (l4 *L4Filter) GetPort() uint16 {
 }
 
 // ToMapState converts filter into a MapState with two possible values:
-// - Entry with ProxyPort = 0: No proxy redirection is needed for this key
-// - Entry with any other port #: Proxy redirection is required for this key,
-//                                caller must replace the ProxyPort with the actual
-//                                listening port number.
+//
+//	Entry with ProxyPort = 0: No proxy redirection is needed for this key
+//	Entry with any other port #: Proxy redirection is required for this key,
+//	                             caller must replace the ProxyPort with the actual
+//	                             listening port number.
+//
 // Note: It is possible for two selectors to select the same security ID.
 // To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
 // DenyPreferredInsert() instead of directly inserting the value to the map.
@@ -715,9 +717,9 @@ func (l4 *L4Filter) IsProxylibRedirect() bool {
 	return l4.IsEnvoyRedirect() && l4.L7Parser != ParserTypeHTTP
 }
 
-// MarshalIndent returns the `L4Filter` in indented JSON string.
-func (l4 *L4Filter) MarshalIndent() string {
-	b, err := json.MarshalIndent(l4, "", "  ")
+// Marshal returns the `L4Filter` in a JSON string.
+func (l4 *L4Filter) Marshal() string {
+	b, err := json.Marshal(l4)
 	if err != nil {
 		b = []byte("\"L4Filter error: " + err.Error() + "\"")
 	}
@@ -851,10 +853,11 @@ func (l4 L4PolicyMap) HasProxylibRedirect() bool {
 // determine whether the policy allows L4 communication between the corresponding
 // endpoints.
 // Returns api.Denied in the following conditions:
-// * If a single port is not present in the `L4PolicyMap` and is not allowed
-//   by the distilled L3 policy
-// * If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
-//   FromEndpoints constraints that require labels not present in `labels`.
+//   - If a single port is not present in the `L4PolicyMap` and is not allowed
+//     by the distilled L3 policy
+//   - If a port is present in the `L4PolicyMap`, but it applies ToEndpoints or
+//     FromEndpoints constraints that require labels not present in `labels`.
+//
 // Otherwise, returns api.Allowed.
 //
 // Note: Only used for policy tracing
@@ -882,7 +885,7 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			portStr = fmt.Sprintf("%d", l4Ctx.Port)
 		}
 		lwrProtocol := l4Ctx.Protocol
-		var isUDPDeny, isTCPDeny bool
+		var isUDPDeny, isTCPDeny, isSCTPDeny bool
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
 			tcpPort := fmt.Sprintf("%s/TCP", portStr)
@@ -895,7 +898,12 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 			if udpmatch {
 				udpmatch, isUDPDeny = udpFilter.matchesLabels(labels)
 			}
-			if (!tcpmatch && !udpmatch) || (isTCPDeny && isUDPDeny) {
+			sctpPort := fmt.Sprintf("%s/SCTP", portStr)
+			sctpFilter, sctpmatch := l4[sctpPort]
+			if sctpmatch {
+				sctpmatch, isSCTPDeny = sctpFilter.matchesLabels(labels)
+			}
+			if (!tcpmatch && !udpmatch && !sctpmatch) || (isTCPDeny && isUDPDeny && isSCTPDeny) {
 				return api.Denied
 			}
 		default:
@@ -1064,7 +1072,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	ingress := []*models.PolicyRule{}
 	for _, v := range l4.Ingress {
 		ingress = append(ingress, &models.PolicyRule{
-			Rule:             v.MarshalIndent(),
+			Rule:             v.Marshal(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
 		})
 	}
@@ -1072,7 +1080,7 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 	egress := []*models.PolicyRule{}
 	for _, v := range l4.Egress {
 		egress = append(egress, &models.PolicyRule{
-			Rule:             v.MarshalIndent(),
+			Rule:             v.Marshal(),
 			DerivedFromRules: v.DerivedFromRules.GetModel(),
 		})
 	}

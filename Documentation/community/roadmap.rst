@@ -33,6 +33,8 @@ Major Feature Status
 +-----------------------------+------------------------------------------------------------+
 | Service Mesh                | Stable (:ref:`Roadmap Details<rm-cilium-service-mesh>`)    |
 +-----------------------------+------------------------------------------------------------+
+| Tetragon Security           | Beta                                                       |
++-----------------------------+------------------------------------------------------------+
 
 "Stable" means that the feature is in use in production (though advanced
 features may still be in beta or in development).
@@ -41,8 +43,8 @@ Release Cadence
 ~~~~~~~~~~~~~~~
 
 We aim to make 2-3 point releases per year of Cilium and its core components
-(Hubble, Cilium CLI etc). We also make patch releases available as necessary for
-security or urgent fixes. 
+(Hubble, Cilium CLI, Tetragon, etc). We also make patch releases available as
+necessary for security or urgent fixes. 
 
 Focus Areas
 -----------
@@ -64,11 +66,7 @@ CNCF Graduation
 ~~~~~~~~~~~~~~~
 
 Given the widespread adoption of Cilium, `CNCF Graduation`_ is a natural goal for
-the project. We believe that the majority of the criteria are already met, but
-the following still need to be addressed: 
-
-* `CII Best Practice Badge`_
-* Third-party security audit
+the project. We hope to apply for graduation soon.
 
 .. _rm-cilium-service-mesh:
 
@@ -81,13 +79,6 @@ capabilities. We released a beta at the end of 2021 and had very valuable
 feedback from our user community. The next steps we'd like to take for Cilium
 Service Mesh (in no particular order) are: 
 
-* Integration of service mesh branch into mainline Cilium
-* Graduating Ingress to stable
-  
-  * 100% upstream conformant
-  * Visibility via Hubble
-  * Support for additional annotations
- 
 * Graduating Prometheus metrics and OpenTelemetry collector to stable
 * Using Kubernetes as service mesh control plane 
  
@@ -153,14 +144,16 @@ CI Test Improvements
 We have a comprehensive set of tests running in CI, but several contributors are
 currently working on `CI improvements`_ to make these more reliable and easier to
 maintain. This is a good area to get involved if you are interested in learning
-more about Cilium internals and development. 
+more about Cilium internals and development.
 
-Documentation Improvements
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Tetragon Security
+~~~~~~~~~~~~~~~~~
 
-We would like to make this Cilium documentation :ref:`easier to
-navigate<season_of_docs>`, with more example configurations and links to
-articles and videos that explain features in more depth. 
+Tetragon provides security observability and runtime enforcement through the JSON events and the Tetragon
+CLI for things like process execution, file access, network observability, and
+privileged execution.
+
+
 
 .. _rm-influence:
 
@@ -200,7 +193,6 @@ anything other than trivial fixes.
 .. _point releases: https://cilium.io/blog/categories/release/
 .. _Get Involved: https://cilium.io/get-involved
 .. _CNCF Graduation: https://github.com/cncf/toc/blob/main/process/graduation_criteria.md
-.. _CII Best Practice Badge: https://bestpractices.coreinfrastructure.org/en
 .. _Hubble OpenTelemetry collector: https://github.com/cilium/hubble-otel
 .. _CI improvements: https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2FCI-improvement
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue

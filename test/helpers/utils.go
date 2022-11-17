@@ -416,8 +416,10 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 		return nil, err
 	}
 	switch {
+	case IsCiliumV1_14(cst):
+		return versioncheck.MustCompile(">=1.16.0 <1.26.0"), nil
 	case IsCiliumV1_13(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.25.0"), nil
+		return versioncheck.MustCompile(">=1.16.0 <1.26.0"), nil
 	case IsCiliumV1_12(cst):
 		return versioncheck.MustCompile(">=1.16.0 <1.25.0"), nil
 	case IsCiliumV1_11(cst):
@@ -512,7 +514,7 @@ func RunsOn419Kernel() bool {
 	return os.Getenv("KERNEL") == "419"
 }
 
-func GKENativeRoutingCIDR() string {
+func NativeRoutingCIDR() string {
 	return os.Getenv("NATIVE_CIDR")
 }
 
@@ -550,6 +552,16 @@ func RunsOnGKE() bool {
 // DoesNotRunOnGKE is the complement function of DoesNotRunOnGKE.
 func DoesNotRunOnGKE() bool {
 	return !RunsOnGKE()
+}
+
+// RunsOnAKS returns true if the tests are running on AKS.
+func RunsOnAKS() bool {
+	return GetCurrentIntegration() == CIIntegrationAKS
+}
+
+// DoesNotRunOnAKS is the complement function of DoesNotRunOnAKS.
+func DoesNotRunOnAKS() bool {
+	return !RunsOnAKS()
 }
 
 // RunsOnEKS returns true if the tests are running on EKS.
@@ -613,24 +625,16 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
-// HasHostReachableServices returns true if the given Cilium pod has TCP and/or
+// HasSocketLB returns true if the given Cilium pod has TCP and/or
 // UDP host reachable services are enabled.
-func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool) bool {
+func (kub *Kubectl) HasSocketLB(pod string) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
-		"cilium status -o jsonpath='{.kube-proxy-replacement.features.hostReachableServices}'")
+		"cilium status -o jsonpath='{.kube-proxy-replacement.features.socketLB}'")
 	status.ExpectSuccess("Failed to get status: %s", status.OutputPrettyPrint())
 	lines := status.ByLines()
-	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get hostReachableServices status")
+	Expect(len(lines)).ShouldNot(Equal(0), "Failed to get socketLB status")
 
-	// One-line result is e.g. "{true [TCP UDP]}" if host-reachable
-	// services are activated for both protocols.
-	if checkUDP && !strings.Contains(lines[0], "UDP") {
-		return false
-	}
-	if checkTCP && !strings.Contains(lines[0], "TCP") {
-		return false
-	}
-	return true
+	return strings.Contains(lines[0], "true")
 }
 
 // HasBPFNodePort returns true if the given Cilium pod has BPF NodePort enabled.
@@ -747,6 +751,11 @@ func DualStackSupported() bool {
 		return false
 	}
 
+	// AKS does not support dual stack yet
+	if IsIntegration(CIIntegrationAKS) {
+		return false
+	}
+
 	// We only have DualStack enabled in Vagrant test env or on KIND.
 	return (GetCurrentIntegration() == "" || IsIntegration(CIIntegrationKind)) &&
 		supportedVersions(k8sVersion)
@@ -762,6 +771,11 @@ func DualStackSupportBeta() bool {
 	supportedVersions := versioncheck.MustCompile(">=1.20.0")
 	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
 	if err != nil {
+		return false
+	}
+
+	// AKS does not support dual stack yet
+	if IsIntegration(CIIntegrationAKS) {
 		return false
 	}
 

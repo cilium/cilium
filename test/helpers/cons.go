@@ -174,9 +174,9 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.11"
+	CiliumStableHelmChartVersion = "1.12"
 	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.11.90"
+	CiliumLatestHelmChartVersion = "1.12.90"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -231,7 +231,6 @@ const (
 	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 
 	// ...and their exceptions.
-	lrpExists                = "local-redirect service exists for frontend"                         // cf. https://github.com/cilium/cilium/issues/16400
 	opCantBeFulfilled        = "Operation cannot be fulfilled on leases.coordination.k8s.io"        // cf. https://github.com/cilium/cilium/issues/16402
 	initLeaderElection       = "error initially creating leader election record: leases."           // cf. https://github.com/cilium/cilium/issues/16402#issuecomment-861544964
 	globalDataSupport        = "kernel doesn't support global data"                                 // cf. https://github.com/cilium/cilium/issues/16418
@@ -266,13 +265,6 @@ const (
 	ReservedIdentityHost = 1
 )
 
-// NightlyStableUpgradesFrom maps the cilium image versions to the helm charts
-// that will be used to run update tests in the Nightly test.
-var NightlyStableUpgradesFrom = map[string]string{
-	"v1.8": "1.8-dev",
-	"v1.9": "1.9-dev",
-}
-
 var (
 	IsCiliumV1_8  = versioncheck.MustCompile(">=1.7.90 <1.9.0")
 	IsCiliumV1_9  = versioncheck.MustCompile(">=1.8.90 <1.10.0")
@@ -280,6 +272,7 @@ var (
 	IsCiliumV1_11 = versioncheck.MustCompile(">=1.10.90 <1.12.0")
 	IsCiliumV1_12 = versioncheck.MustCompile(">=1.11.90 <1.13.0")
 	IsCiliumV1_13 = versioncheck.MustCompile(">=1.12.90 <1.14.0")
+	IsCiliumV1_14 = versioncheck.MustCompile(">=1.13.90 <1.15.0")
 )
 
 // badLogMessages is a map which key is a part of a log message which indicates
@@ -305,7 +298,7 @@ var badLogMessages = map[string][]string{
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	"level=error": {lrpExists, opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName},
+	"level=error": {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName},
 }
 
 var ciliumCLICommands = map[string]string{

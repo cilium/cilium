@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-//go:build !privileged_tests
-
 package http
 
 import (
@@ -22,9 +20,11 @@ Metrics:
   http_request_duration_seconds - Median, 90th and 99th percentile of request duration.
 
 Options:
- sourceContext          := identifier , { "|", identifier }
- destinationContext     := identifier , { "|", identifier }
- identifier             := identity | namespace | pod | pod-short | dns | ip
+ sourceContext          ::= identifier , { "|", identifier }
+ destinationContext     ::= identifier , { "|", identifier }
+ labels                 ::= label , { ",", label }
+ identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity | workload-name | app
+ label                  ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 	assert.Equal(t, expected, plugin.HelpText())
 }

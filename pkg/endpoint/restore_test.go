@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests && integration_tests
+//go:build integration_tests
 
 package endpoint
 
@@ -9,22 +9,21 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 func (ds *EndpointSuite) createEndpoints() ([]*Endpoint, map[uint16]*Endpoint) {
@@ -63,14 +62,14 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 	repo := ds.GetPolicyRepository()
 	repo.GetPolicyCache().LocalEndpointIdentityAdded(identity)
 
-	ep := NewEndpointWithState(ds, ds, ipcache.NewIPCache(nil), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
+	ep := NewEndpointWithState(ds, ds, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), id, StateReady)
 	// Random network ID and docker endpoint ID with 59 hex chars + 5 strID = 64 hex chars
 	ep.dockerNetworkID = "603e047d2268a57f5a5f93f7f9e1263e9207e348a06654bf64948def001" + strID
 	ep.dockerEndpointID = "93529fda8c401a071d21d6bd46fdf5499b9014dcb5a35f2e3efaa8d8002" + strID
 	ep.ifName = "lxc" + strID
 	ep.mac = mac.MAC([]byte{0x01, 0xff, 0xf2, 0x12, b[0], b[1]})
-	ep.IPv4 = addressing.DeriveCiliumIPv4(net.IP{0xc0, 0xa8, b[0], b[1]})
-	ep.IPv6 = addressing.DeriveCiliumIPv6(net.IP{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
+	ep.IPv4 = netip.AddrFrom4([4]byte{0xc0, 0xa8, b[0], b[1]})
+	ep.IPv6 = netip.AddrFrom16([16]byte{0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xbe, 0xef, 0xaa, 0xaa, 0xaa, 0xaa, 0x00, 0x00, b[0], b[1]})
 	ep.ifIndex = 1
 	ep.nodeMAC = []byte{0x02, 0xff, 0xf2, 0x12, 0x0, 0x0}
 	ep.SecurityIdentity = identity
@@ -132,7 +131,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 			epsNames = append(epsNames, ep.DirectoryPath())
 		}
 	}
-	eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
+	eps := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epsNames)
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
@@ -198,7 +197,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 		ep.DirectoryPath(), ep.NextDirectoryPath(),
 	}
 
-	epResult := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epNames)
+	epResult := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epNames)
 	c.Assert(len(epResult), Equals, 1)
 
 	restoredEP := epResult[ep.ID]
@@ -254,7 +253,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	c.StartTimer()
 
 	for i := 0; i < c.N; i++ {
-		eps := ReadEPsFromDirNames(context.TODO(), ds, ds, tmpDir, epsNames)
+		eps := ReadEPsFromDirNames(context.TODO(), ds, ds, ds, tmpDir, epsNames)
 		c.Assert(len(eps), Equals, len(epsWanted))
 	}
 }

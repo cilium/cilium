@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package agent
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -81,7 +80,12 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 }
 
 func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
-	ipCache := ipcache.NewIPCache(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
+		Context: ctx,
+	})
+	defer ipCache.Shutdown()
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
 		ipCache:          ipCache,

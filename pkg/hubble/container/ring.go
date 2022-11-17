@@ -64,7 +64,7 @@ const (
 // NewCapacity creates a new Capacity from n.
 // The value of n MUST satisfy n=2^i -1 for i = [1, 16]; ie:
 //
-//     1, 3, 7, ..., 2047, 4095, ..., 65535
+//	1, 3, 7, ..., 2047, 4095, ..., 65535
 //
 // Constants CapacityN represent all possible values of n and are valid
 // Capacity that can be provided to NewRing.

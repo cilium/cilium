@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests && integration_tests
+//go:build integration_tests
 
 package cmd
 
@@ -19,12 +19,15 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
-	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -32,13 +35,13 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
 type DaemonSuite struct {
+	hive *hive.Hive
+
 	d *Daemon
 
 	// oldPolicyEnabled is the policy enforcement mode that was set before the test,
@@ -49,6 +52,7 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
+	OnGetNamedPorts        func() (npm policy.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
@@ -78,7 +82,7 @@ func TestMain(m *testing.M) {
 
 	// Set up all configuration options which are global to the entire test
 	// run.
-	option.Config.Populate()
+	option.Config.Populate(Vp)
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -126,25 +130,44 @@ func (ds *DaemonSuite) TearDownSuite(c *C) {
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
+	ctx := context.Background()
+
 	setupTestDirectories()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	d, _, err := NewDaemon(ctx, cancel,
-		WithCustomEndpointManager(&dummyEpSyncher{}),
-		fakedatapath.NewDatapath())
+	var daemonPromise promise.Promise[*Daemon]
+	ds.hive = hive.New(
+		cell.Provide(
+			func() k8sClient.Clientset {
+				cs, _ := k8sClient.NewFakeClientset()
+				cs.Disable()
+				return cs
+			},
+			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
+		),
+
+		ControlPlane,
+
+		cell.Invoke(func(p promise.Promise[*Daemon]) {
+			daemonPromise = p
+		}),
+	)
+
+	err := ds.hive.Start(ctx)
 	c.Assert(err, IsNil)
-	ds.d = d
 
-	kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
-	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
+	ds.d, err = daemonPromise.Await(ctx)
+	c.Assert(err, IsNil)
 
-	ds.OnGetPolicyRepository = d.GetPolicyRepository
+	kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
+	kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
+
+	ds.OnGetPolicyRepository = ds.d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil
-	ds.OnGetCompilationLock = d.GetCompilationLock
-	ds.OnSendNotification = d.SendNotification
+	ds.OnGetCompilationLock = ds.d.GetCompilationLock
+	ds.OnSendNotification = ds.d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
 	// Reset the most common endpoint states before each test.
@@ -157,6 +180,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
+	ctx := context.Background()
+
 	controller.NewManager().RemoveAllAndWait()
 	ds.d.endpointManager.RemoveAll()
 
@@ -167,8 +192,8 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	}
 
 	if ds.kvstoreInit {
-		kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
-		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
+		kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
+		kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
 	}
 
 	// Restore the policy enforcement mode.
@@ -180,8 +205,10 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	identitymanager.RemoveAll()
 
+	err := ds.hive.Stop(ctx)
+	c.Assert(err, IsNil)
+
 	ds.d.Close()
-	ds.d.cancel()
 }
 
 type DaemonEtcdSuite struct {
@@ -232,6 +259,13 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 		return ds.OnGetPolicyRepository()
 	}
 	panic("GetPolicyRepository should not have been called")
+}
+
+func (ds *DaemonSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+	if ds.OnGetNamedPorts != nil {
+		return ds.OnGetNamedPorts()
+	}
+	panic("GetNamedPorts should not have been called")
 }
 
 func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), error) {

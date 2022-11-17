@@ -44,7 +44,7 @@ type ClientService interface {
 }
 
 /*
-  DeleteRecorderID deletes a recorder
+DeleteRecorderID deletes a recorder
 */
 func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecorderIDOK, error) {
 	// TODO: Validate the params before sending
@@ -78,7 +78,7 @@ func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecord
 }
 
 /*
-  GetRecorder retrieves list of all recorders
+GetRecorder retrieves list of all recorders
 */
 func (a *Client) GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error) {
 	// TODO: Validate the params before sending
@@ -112,7 +112,7 @@ func (a *Client) GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error) 
 }
 
 /*
-  GetRecorderID retrieves configuration of a recorder
+GetRecorderID retrieves configuration of a recorder
 */
 func (a *Client) GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, error) {
 	// TODO: Validate the params before sending
@@ -146,7 +146,7 @@ func (a *Client) GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, e
 }
 
 /*
-  GetRecorderMasks retrieves list of all recorder masks
+GetRecorderMasks retrieves list of all recorder masks
 */
 func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderMasksOK, error) {
 	// TODO: Validate the params before sending
@@ -180,7 +180,7 @@ func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderM
 }
 
 /*
-  PutRecorderID creates or update recorder
+PutRecorderID creates or update recorder
 */
 func (a *Client) PutRecorderID(params *PutRecorderIDParams) (*PutRecorderIDOK, *PutRecorderIDCreated, error) {
 	// TODO: Validate the params before sending

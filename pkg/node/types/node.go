@@ -216,7 +216,7 @@ type Node struct {
 	IPv6IngressIP net.IP
 
 	// ClusterID is the unique identifier of the cluster
-	ClusterID int
+	ClusterID uint32
 
 	// Source is the source where the node configuration was generated / created.
 	Source source.Source
@@ -330,6 +330,57 @@ func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
 		}
 	}
 	return nil
+}
+
+// SetCiliumInternalIP sets the CiliumInternalIP e.g. the IP associated
+// with cilium_host on the node.
+func (n *Node) SetCiliumInternalIP(newAddr net.IP) {
+	n.setAddress(addressing.NodeCiliumInternalIP, newAddr)
+}
+
+// SetNodeExternalIP sets the NodeExternalIP.
+func (n *Node) SetNodeExternalIP(newAddr net.IP) {
+	n.setAddress(addressing.NodeExternalIP, newAddr)
+}
+
+// SetNodeInternalIP sets the NodeInternalIP.
+func (n *Node) SetNodeInternalIP(newAddr net.IP) {
+	n.setAddress(addressing.NodeInternalIP, newAddr)
+}
+
+func (n *Node) RemoveAddresses(typ addressing.AddressType) {
+	newAddresses := []Address{}
+	for _, addr := range n.IPAddresses {
+		if addr.Type != typ {
+			newAddresses = append(newAddresses, addr)
+		}
+	}
+	n.IPAddresses = newAddresses
+}
+
+func (n *Node) setAddress(typ addressing.AddressType, newIP net.IP) {
+	newAddr := Address{Type: typ, IP: newIP}
+
+	if newIP == nil {
+		n.RemoveAddresses(typ)
+		return
+	}
+
+	ipv6 := newIP.To4() == nil
+	// Try first to replace an existing address with same type
+	for i, addr := range n.IPAddresses {
+		if addr.Type != typ {
+			continue
+		}
+		if ipv6 != (addr.IP.To4() == nil) {
+			// Don't replace if address family is different.
+			continue
+		}
+		n.IPAddresses[i] = newAddr
+		return
+	}
+	n.IPAddresses = append(n.IPAddresses, newAddr)
+
 }
 
 func (n *Node) GetIPByType(addrType addressing.AddressType, ipv6 bool) net.IP {

@@ -19,6 +19,7 @@ import (
 	bgpconfig "github.com/cilium/cilium/pkg/bgp/config"
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
 	bgplog "github.com/cilium/cilium/pkg/bgp/log"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -39,10 +40,10 @@ type metalLBController struct {
 	logger *bgplog.Logger
 }
 
-func newMetalLBController(ctx context.Context) (Controller, error) {
+func newMetalLBController(ctx context.Context, cs client.Clientset) (Controller, error) {
 	logger := &bgplog.Logger{Entry: log}
 	c := &metallbctl.Controller{
-		Client: bgpk8s.New(logger.Logger),
+		Client: bgpk8s.New(logger.Logger, cs),
 		IPs:    metallballoc.New(),
 	}
 

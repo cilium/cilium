@@ -14,11 +14,11 @@ import (
 
 // Version is the version of a node-monitor listener client. There are
 // two API versions:
-// - 1.0 which encodes the gob type information with each payload sent, and
-//   adds a meta object before it.
-// - 1.2 which maintains a gob session per listener, thus only encoding the
-//   type information on the first payload sent. It does NOT prepend the a meta
-//   object.
+//   - 1.0 which encodes the gob type information with each payload sent, and
+//     adds a meta object before it.
+//   - 1.2 which maintains a gob session per listener, thus only encoding the
+//     type information on the first payload sent. It does NOT prepend the a meta
+//     object.
 type Version string
 
 const (

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package bpf
 
 import (
@@ -12,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"testing"
 	"unsafe"
 
 	. "gopkg.in/check.v1"
@@ -21,12 +18,13 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
-type BPFPrivilegedTestSuite struct{}
+type BPFPrivilegedTestSuite struct {
+	teardown func() error
+}
 
 type TestKey struct {
 	Key uint32
@@ -46,6 +44,40 @@ func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
 
+func (s *BPFPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+
+	CheckOrMountFS("")
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		c.Fatal(err)
+	}
+
+	_, err := testMap.OpenOrCreate()
+	if err != nil {
+		c.Fatal("Failed to create map:", err)
+	}
+
+	s.teardown = func() error {
+		testMap.Close()
+
+		path, err := testMap.Path()
+		if err != nil {
+			return err
+		}
+
+		return os.Remove(path)
+	}
+}
+
+func (s *BPFPrivilegedTestSuite) TearDownSuite(c *C) {
+	if s.teardown != nil {
+		if err := s.teardown(); err != nil {
+			c.Fatal(err)
+		}
+	}
+}
+
 var (
 	maxEntries = 16
 
@@ -61,33 +93,6 @@ var (
 		ConvertKeyValue,
 	).WithCache()
 )
-
-func runTests(m *testing.M) (int, error) {
-	CheckOrMountFS("")
-	if err := rlimit.RemoveMemlock(); err != nil {
-		return 1, fmt.Errorf("Failed to configure rlimit")
-	}
-
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
-		return 1, fmt.Errorf("Failed to create map")
-	}
-	defer func() {
-		path, _ := testMap.Path()
-		os.Remove(path)
-	}()
-	defer testMap.Close()
-
-	return m.Run(), nil
-}
-
-func TestMain(m *testing.M) {
-	exitCode, err := runTests(m)
-	if err != nil {
-		log.Fatal(err)
-	}
-	os.Exit(exitCode)
-}
 
 func mapsEqual(a, b *Map) bool {
 	return a.name == b.name &&
@@ -246,6 +251,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 }
 
 func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
+
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
 		MapTypeHash,
@@ -256,7 +262,10 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		0,
-		ConvertKeyValue).WithCache()
+		ConvertKeyValue).
+		WithCache().
+		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
+
 	err := existingMap.Open()
 	defer existingMap.Close()
 	c.Assert(err, IsNil)
@@ -266,8 +275,41 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	key2 := &TestKey{Key: 104}
 	value2 := &TestValue{Value: 204}
 
+	dumpEvents := func() []*Event {
+		es := []*Event{}
+		existingMap.DumpAndSubscribe(func(e *Event) {
+			es = append(es, e)
+		}, false)
+		return es
+	}
+	event := func(i int) *Event {
+		es := dumpEvents()
+		if i >= len(es) {
+			return nil
+		}
+		return dumpEvents()[i]
+	}
+	assertEvent := func(i int, key, value, desiredAction, action string) {
+		e := event(i)
+		if e.cacheEntry.Key != nil {
+			c.Assert(e.cacheEntry.Key.String(), Equals, key)
+		}
+		c.Assert(e.GetValue(), Equals, value)
+		c.Assert(e.cacheEntry.DesiredAction.String(), Equals, desiredAction)
+		c.Assert(e.GetAction(), Equals, action)
+	}
+
+	// event buffer should be empty
+	c.Assert(existingMap.events.buffer.Size(), Equals, 0)
+
 	err = existingMap.Update(key1, value1)
 	c.Assert(err, IsNil)
+
+	// Check events buffer
+	c.Assert(len(dumpEvents()), Equals, 1)
+	c.Assert(event(0).cacheEntry.Key.String(), Equals, "key=103")
+	c.Assert(event(0).cacheEntry.Value.String(), Equals, "value=203")
+
 	// key    val
 	// 103    203
 	value, err := existingMap.Lookup(key1)
@@ -277,6 +319,11 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
 
+	// Check events buffer, ensure it doesn't change.
+	c.Assert(len(dumpEvents()), Equals, 1)
+	c.Assert(event(0).cacheEntry.Key.String(), Equals, "key=103")
+	c.Assert(event(0).cacheEntry.Value.String(), Equals, "value=203")
+
 	err = existingMap.Update(key1, value2)
 	c.Assert(err, IsNil)
 	// key    val
@@ -284,6 +331,16 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	value, err = existingMap.Lookup(key1)
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
+
+	// Check events buffer after second Update
+	c.Assert(len(dumpEvents()), Equals, 2)
+	assertEvent(0, "key=103", "value=203", "sync", "update")
+	c.Assert(event(0).cacheEntry.Key.String(), Equals, "key=103")
+	c.Assert(event(0).cacheEntry.Value.String(), Equals, "value=203")
+	c.Assert(event(0).cacheEntry.DesiredAction.String(), Equals, "sync")
+	c.Assert(event(1).cacheEntry.Key.String(), Equals, "key=103") // we used key1 again
+	c.Assert(event(1).cacheEntry.Value.String(), Equals, "value=204")
+	c.Assert(event(1).cacheEntry.DesiredAction.String(), Equals, "sync")
 
 	err = existingMap.Update(key2, value2)
 	c.Assert(err, IsNil)
@@ -297,6 +354,11 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
 
+	c.Assert(len(dumpEvents()), Equals, 3)
+	assertEvent(0, "key=103", "value=203", "sync", "update")
+	assertEvent(1, "key=103", "value=204", "sync", "update")
+	assertEvent(2, "key=104", "value=204", "sync", "update")
+
 	err = existingMap.Delete(key1)
 	c.Assert(err, IsNil)
 	// key    val
@@ -308,17 +370,36 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	err = existingMap.Delete(key1)
 	c.Assert(err, Not(IsNil))
 
+	c.Assert(len(dumpEvents()), Equals, 5)
+	assertEvent(0, "key=103", "value=203", "sync", "update")
+	assertEvent(1, "key=103", "value=204", "sync", "update")
+	assertEvent(2, "key=104", "value=204", "sync", "update")
+	assertEvent(3, "key=103", "<nil>", Delete.String(), "delete")
+	assertEvent(4, "key=103", "<nil>", Delete.String(), "delete")
+	c.Assert(event(3).GetLastError(), IsNil)
+	c.Assert(event(4).GetLastError(), Not(IsNil))
+
 	deleted, err := existingMap.SilentDelete(key1)
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, false)
 
+	c.Assert(len(dumpEvents()), Equals, 6)
+	assertEvent(5, "key=103", "<nil>", Delete.String(), "delete")
+	c.Assert(event(5).GetLastError(), IsNil)
+
 	err = existingMap.Update(key1, value1)
 	c.Assert(err, IsNil)
+
+	c.Assert(len(dumpEvents()), Equals, 7)
+	assertEvent(6, "key=103", "value=203", OK.String(), "update")
 
 	deleted, err = existingMap.SilentDelete(key1)
 	c.Assert(err, IsNil)
 	c.Assert(deleted, Equals, true)
 
+	c.Assert(len(dumpEvents()), Equals, 8)
+	assertEvent(7, "key=103", "<nil>", Delete.String(), "delete")
+
 	value, err = existingMap.Lookup(key1)
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
@@ -328,7 +409,82 @@ func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {
 	value, err = existingMap.Lookup(key1)
 	c.Assert(err, Not(IsNil))
 	c.Assert(value, Equals, nil)
+
+	c.Assert(len(dumpEvents()), Equals, 9)
+	assertEvent(8, "key=104", "<nil>", "sync", "delete-all")
+
+	c.Assert(event(0).cacheEntry.Key.String(), Equals, "key=103")
+	c.Assert(event(0).cacheEntry.Value.String(), Equals, "value=203")
+
+	c.Assert(event(0).cacheEntry.Key.String(), Equals, "key=103") // we used key1 again
+
+	err = existingMap.Update(key2, value2)
+	c.Assert(err, IsNil)
+	c.Assert(len(dumpEvents()), Equals, 10) // full buffer
+	assertEvent(9, "key=104", "value=204", OK.String(), "update")
+
+	key3 := &TestKey{Key: 999}
+	err = existingMap.Update(key3, value2)
+	c.Assert(err, IsNil)
+	c.Assert(len(dumpEvents()), Equals, 10) // full buffer
+	assertEvent(0, "key=103", "value=204", OK.String(), "update")
+	assertEvent(9, "key=999", "value=204", OK.String(), "update")
+
+	key4 := &TestKey{Key: 1000}
+	err = existingMap.Update(key4, value2)
+	c.Assert(err, IsNil)
 	err = existingMap.DeleteAll()
+	c.Assert(err, IsNil)
+	assertEvent(9, "<nil>", "<nil>", OK.String(), MapDeleteAll.String())
+
+	// cleanup
+	err = existingMap.DeleteAll()
+	c.Assert(err, IsNil)
+}
+
+func (s *BPFPrivilegedTestSuite) TestSubscribe(c *C) {
+	existingMap := NewMap("cilium_test",
+		MapTypeHash,
+		&TestKey{},
+		int(unsafe.Sizeof(TestKey{})),
+		&TestValue{},
+		int(unsafe.Sizeof(TestValue{})),
+		maxEntries,
+		BPF_F_NO_PREALLOC,
+		0,
+		ConvertKeyValue).
+		WithCache().
+		WithEvents(option.BPFEventBufferConfig{Enabled: true, MaxSize: 10})
+
+	subHandle, err := existingMap.DumpAndSubscribe(nil, true)
+	c.Assert(err, IsNil)
+
+	collect := 0
+	done := make(chan struct{})
+	go func(collect *int) {
+		defer subHandle.Close()
+		for range subHandle.C() {
+			*collect += 1
+		}
+		close(done)
+	}(&collect)
+
+	key1 := &TestKey{Key: 103}
+	value1 := &TestValue{Value: 203}
+	err = existingMap.Update(key1, value1)
+	c.Assert(err, IsNil)
+	err = existingMap.Update(key1, value1)
+	c.Assert(err, IsNil)
+	err = existingMap.Delete(key1)
+	c.Assert(err, IsNil)
+
+	subHandle.Close()
+	<-done
+	c.Assert(collect, Equals, 3)
+
+	// cleanup
+	err = existingMap.DeleteAll()
+	existingMap.events = nil
 	c.Assert(err, IsNil)
 }
 

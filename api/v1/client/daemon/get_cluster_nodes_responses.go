@@ -43,7 +43,8 @@ func NewGetClusterNodesOK() *GetClusterNodesOK {
 	return &GetClusterNodesOK{}
 }
 
-/*GetClusterNodesOK handles this case with default header values.
+/*
+GetClusterNodesOK handles this case with default header values.
 
 Success
 */

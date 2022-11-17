@@ -7,16 +7,16 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -43,7 +43,7 @@ type serviceManager struct {
 	ingressQueue workqueue.RateLimitingInterface
 }
 
-func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries int) (*serviceManager, error) {
+func newServiceManager(clientset k8sClient.Clientset, ingressQueue workqueue.RateLimitingInterface, maxRetries int) (*serviceManager, error) {
 	manager := &serviceManager{
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		ingressQueue: ingressQueue,
@@ -51,8 +51,9 @@ func newServiceManager(ingressQueue workqueue.RateLimitingInterface, maxRetries 
 	}
 
 	manager.store, manager.informer = informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(), "services",
-			v1.NamespaceAll, func(options *metav1.ListOptions) {
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](clientset.Slim().CoreV1().Services("")),
+			func(options *metav1.ListOptions) {
 				options.LabelSelector = ciliumIngressLabelKey
 			}),
 		&slim_corev1.Service{},
@@ -180,41 +181,5 @@ func (sm *serviceManager) notify(service *slim_corev1.Service) {
 	if len(service.Status.LoadBalancer.Ingress) > 0 {
 		log.Info("Notify ingress controller for service ingress")
 		sm.ingressQueue.Add(ingressServiceUpdatedEvent{ingressService: service})
-	}
-}
-
-func getServiceForIngress(ingress *slim_networkingv1.Ingress) *v1.Service {
-	ports := []v1.ServicePort{
-		{
-			Name:     "http",
-			Protocol: "TCP",
-			Port:     80,
-		},
-	}
-	if tlsEnabled(ingress) {
-		ports = append(ports, v1.ServicePort{
-			Name:     "https",
-			Protocol: "TCP",
-			Port:     443,
-		})
-	}
-	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      getServiceNameForIngress(ingress),
-			Namespace: ingress.Namespace,
-			Labels:    map[string]string{ciliumIngressLabelKey: "true"},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: slim_networkingv1.SchemeGroupVersion.String(),
-					Kind:       "Ingress",
-					Name:       ingress.Name,
-					UID:        ingress.UID,
-				},
-			},
-		},
-		Spec: v1.ServiceSpec{
-			Ports: ports,
-			Type:  v1.ServiceTypeLoadBalancer,
-		},
 	}
 }

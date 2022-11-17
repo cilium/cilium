@@ -41,6 +41,11 @@ ifeq ($(DOCKER_DEV_ACCOUNT),)
     DOCKER_DEV_ACCOUNT=cilium
 endif
 
+ifneq ($(CI_BUILD),)
+    DOCKER_IMAGE_SUFFIX=-ci
+    DOCKER_IMAGE_TAG=$(shell git rev-parse HEAD)
+endif
+
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG=latest
@@ -82,8 +87,8 @@ ifneq ($(V),0)
 endif
 endif
 
-GOLANGCILINT_WANT_VERSION = 1.46.2
-GOLANGCILINT_IMAGE_SHA = sha256:e84b639c061c8888be91939c78dae9b1525359954e405ab0d9868a46861bd21b
+GOLANGCILINT_WANT_VERSION = 1.48.0
+GOLANGCILINT_IMAGE_SHA = sha256:5e4256fd5001c1c6ec3de3d31fdae2fa2af6dd21ebbb86b3ddfe1925376af326
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -108,7 +113,7 @@ endif
 
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
     CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
-    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@]*).*/\1/p;d')
+    CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:([^:@-]*).*/\1/p;d')
     GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
 
@@ -118,7 +123,7 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
     BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
 else
     # this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
-    BPF_SRCFILES_IGNORE += bpf/cilium-probe-kernel-hz bpf/%.i bpf/%.s bpf/.rebuild_all
+    BPF_SRCFILES_IGNORE += bpf/%.i bpf/%.s bpf/.rebuild_all
     BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | LC_ALL=C sort | tr "\n" ' ')
 endif
 
@@ -191,11 +196,11 @@ endif
 GO_BUILD += $(GO_BUILD_FLAGS)
 GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
 
-GO_TEST = $(GO) test $(GO_TEST_FLAGS)
+GO_TEST = CGO_ENABLED=0 $(GO) test $(GO_TEST_FLAGS)
 GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
-# TODO: remove `GO111MODULE=off` once Go 1.13 is deprecated by Go maintainers
-GO_VET = GO111MODULE=off $(GO) vet
-GO_LIST = GO111MODULE=off $(GO) list
+
+GO_VET = $(GO) vet
+GO_LIST = $(GO) list
 
 ifeq ($(BASE_IMAGE),)
     BASE_IMAGE=scratch

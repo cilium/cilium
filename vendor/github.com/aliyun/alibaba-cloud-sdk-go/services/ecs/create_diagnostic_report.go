@@ -71,30 +71,17 @@ func (client *Client) CreateDiagnosticReportWithCallback(request *CreateDiagnost
 // CreateDiagnosticReportRequest is the request struct for api CreateDiagnosticReport
 type CreateDiagnosticReportRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	StartTime            string           `position:"Query" name:"StartTime"`
-	SourceSystem         string           `position:"Query" name:"SourceSystem"`
-	PluginVersion        string           `position:"Query" name:"PluginVersion"`
-	ResourceId           *[]string        `position:"Query" name:"ResourceId"  type:"Repeated"`
-	CommandName          *[]string        `position:"Query" name:"CommandName"  type:"Repeated"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	EndTime              string           `position:"Query" name:"EndTime"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	ResourceType         string           `position:"Query" name:"ResourceType"`
-	CommandType          string           `position:"Query" name:"CommandType"`
-	DiagnosticCategory   string           `position:"Query" name:"DiagnosticCategory"`
+	ResourceId  string `position:"Query" name:"ResourceId"`
+	MetricSetId string `position:"Query" name:"MetricSetId"`
+	EndTime     string `position:"Query" name:"EndTime"`
+	StartTime   string `position:"Query" name:"StartTime"`
 }
 
 // CreateDiagnosticReportResponse is the response struct for api CreateDiagnosticReport
 type CreateDiagnosticReportResponse struct {
 	*responses.BaseResponse
-	Status               string               `json:"Status" xml:"Status"`
-	ReportId             string               `json:"ReportId" xml:"ReportId"`
-	RequestId            string               `json:"RequestId" xml:"RequestId"`
-	CreateTime           string               `json:"CreateTime" xml:"CreateTime"`
-	CommandInvokeResults CommandInvokeResults `json:"CommandInvokeResults" xml:"CommandInvokeResults"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
+	ReportId  string `json:"ReportId" xml:"ReportId"`
 }
 
 // CreateCreateDiagnosticReportRequest creates a request to invoke CreateDiagnosticReport API

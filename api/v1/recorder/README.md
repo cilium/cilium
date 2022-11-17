@@ -225,6 +225,7 @@ Protocol is a one of the supported protocols for packet capture
 | PROTOCOL_ANY | 0 |  |
 | PROTOCOL_TCP | 6 |  |
 | PROTOCOL_UDP | 17 |  |
+| PROTOCOL_SCTP | 132 |  |
 
 
  

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package policy
 
 import (
+	"bytes"
+	"encoding/json"
 	"sort"
 
 	"github.com/kr/pretty"
@@ -170,7 +170,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	sort.Sort(SortablePolicyRules(model.Egress))
 	c.Assert(len(expectedEgress), Equals, len(model.Egress))
 	for i := range expectedEgress {
-		c.Assert(model.Egress[i].Rule, Equals, expectedEgress[i])
+		expected := new(bytes.Buffer)
+		err := json.Compact(expected, []byte(expectedEgress[i]))
+		c.Assert(err, Equals, nil, Commentf("Could not compact expected json"))
+		c.Assert(model.Egress[i].Rule, Equals, expected.String())
 	}
 
 	expectedIngress := []string{`{
@@ -244,7 +247,10 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	sort.Sort(SortablePolicyRules(model.Ingress))
 	c.Assert(len(expectedIngress), Equals, len(model.Ingress))
 	for i := range expectedIngress {
-		c.Assert(model.Ingress[i].Rule, Equals, expectedIngress[i])
+		expected := new(bytes.Buffer)
+		err := json.Compact(expected, []byte(expectedIngress[i]))
+		c.Assert(err, Equals, nil, Commentf("Could not compact expected json"))
+		c.Assert(model.Ingress[i].Rule, Equals, expected.String())
 	}
 
 	c.Assert(policy.HasEnvoyRedirect(), Equals, true)

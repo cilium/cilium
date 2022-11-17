@@ -99,9 +99,21 @@ var ciliumChains = []customChain{
 func (c *customChain) exists(prog iptablesInterface) (bool, error) {
 	args := []string{"-t", c.table, "-L", c.name}
 
-	output, err := prog.runProgCombinedOutput(args)
+	output, err := prog.runProgOutput(args)
 	if err != nil {
-		if strings.Contains(string(output), "No chain/target/match by that name.") {
+		if strings.Contains(err.Error(), "No chain/target/match by that name.") {
+			return false, nil
+		}
+
+		// with iptables-nft >= 1.8.7, when we try to list the rules of a non existing
+		// chain, the command will return an error in the format:
+		//
+		//     chain `$chain' in table `$chain' is incompatible, use 'nft' tool.
+		//
+		// rather than the usual one:
+		//
+		//     No chain/target/match by that name.
+		if strings.Contains(err.Error(), fmt.Sprintf("chain `%s' in table `%s' is incompatible, use 'nft' tool.", c.name, c.table)) {
 			return false, nil
 		}
 
@@ -114,7 +126,7 @@ func (c *customChain) exists(prog iptablesInterface) (bool, error) {
 func (c *customChain) doAdd(prog iptablesInterface) error {
 	args := []string{"-t", c.table, "-N", c.name}
 
-	output, err := prog.runProgCombinedOutput(args)
+	output, err := prog.runProgOutput(args)
 	if err != nil {
 		return fmt.Errorf("unable to add %s chain: %s (%w)", c.name, string(output), err)
 	}
@@ -146,7 +158,7 @@ func (c *customChain) doRename(prog iptablesInterface, newName string) error {
 
 	args := []string{"-t", c.table, "-E", c.name, newName}
 
-	output, err := prog.runProgCombinedOutput(args)
+	output, err := prog.runProgOutput(args)
 	if err != nil {
 		return fmt.Errorf("unable to rename %s chain to %s: %s (%w)", c.name, newName, string(output), err)
 	}
@@ -178,14 +190,14 @@ func (c *customChain) doRemove(prog iptablesInterface) error {
 
 	args := []string{"-t", c.table, "-F", c.name}
 
-	output, err := prog.runProgCombinedOutput(args)
+	output, err := prog.runProgOutput(args)
 	if err != nil {
 		return fmt.Errorf("unable to flush %s chain: %s (%w)", c.name, string(output), err)
 	}
 
 	args = []string{"-t", c.table, "-X", c.name}
 
-	output, err = prog.runProgCombinedOutput(args)
+	output, err = prog.runProgOutput(args)
 	if err != nil {
 		return fmt.Errorf("unable to remove %s chain: %s (%w)", c.name, string(output), err)
 	}
@@ -226,7 +238,7 @@ func (c *customChain) doInstallFeeder(prog iptablesInterface, feedArgs string) e
 
 	args := append([]string{"-t", c.table, installMode, c.hook}, feedRule...)
 
-	output, err := prog.runProgCombinedOutput(args)
+	output, err := prog.runProgOutput(args)
 	if err != nil {
 		return fmt.Errorf("unable to install feeder rule for %s chain: %s (%w)", c.name, string(output), err)
 	}

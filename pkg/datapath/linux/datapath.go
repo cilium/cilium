@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -27,6 +28,7 @@ type linuxDatapath struct {
 	config         DatapathConfiguration
 	loader         *loader.Loader
 	wgAgent        datapath.WireguardAgent
+	lbmap          types.LBMap
 }
 
 // NewDatapath creates a new Linux datapath
@@ -36,8 +38,9 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
-		loader:          loader.NewLoader(canDisableDwarfRelocations),
+		loader:          loader.NewLoader(),
 		wgAgent:         wgAgent,
+		lbmap:           lbmap.New(),
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, wgAgent)
@@ -65,4 +68,8 @@ func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {
 
 func (l *linuxDatapath) Procfs() string {
 	return l.config.ProcFs
+}
+
+func (l *linuxDatapath) LBMap() types.LBMap {
+	return l.lbmap
 }

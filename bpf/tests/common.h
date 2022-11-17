@@ -159,7 +159,7 @@ struct {
 		return TEST_SKIP;			\
 	}
 
-/* Write message to the log and mark current test as failed */
+/* Write message to the log and mark current test as failed. */
 #define test_error(fmt, ...)			\
 	{					\
 		test_log(fmt, ##__VA_ARGS__);	\
@@ -195,9 +195,9 @@ static void *(*test_bpf_map_lookup_elem)(void *map, const void *key) = (void *)1
 	__maybe_unused char *test_result_status = 0;			  \
 	char *suite_result_cursor;					  \
 	{								  \
-		__u32 key = 0;						  \
+		__u32 __key = 0;						  \
 		suite_result_cursor =					  \
-			test_bpf_map_lookup_elem(&suite_result_map, &key);\
+			test_bpf_map_lookup_elem(&suite_result_map, &__key);\
 		if (!suite_result_cursor) {				  \
 			return TEST_ERROR;				  \
 		}							  \

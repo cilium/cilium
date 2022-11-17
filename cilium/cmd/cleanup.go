@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/common"
@@ -74,19 +75,19 @@ func init() {
 	cleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")
 	cleanupCmd.Flags().BoolVarP(&force, forceFlagName, "f", false, "Skip confirmation")
 
-	option.BindEnv(allFlagName)
-	option.BindEnv(bpfFlagName)
+	option.BindEnv(vp, allFlagName)
+	option.BindEnv(vp, bpfFlagName)
 
 	bindEnv(cleanCiliumEnvVar, cleanCiliumEnvVar)
 	bindEnv(cleanBpfEnvVar, cleanBpfEnvVar)
 
-	if err := viper.BindPFlags(cleanupCmd.Flags()); err != nil {
+	if err := vp.BindPFlags(cleanupCmd.Flags()); err != nil {
 		Fatalf("viper failed to bind to flags: %v\n", err)
 	}
 }
 
 func bindEnv(flagName string, envName string) {
-	if err := viper.BindEnv(flagName, envName); err != nil {
+	if err := vp.BindEnv(flagName, envName); err != nil {
 		Fatalf("Unable to bind flag %s to env variable %s: %s", flagName, envName, err)
 	}
 }
@@ -126,6 +127,7 @@ type ciliumCleanup struct {
 	routes    map[int]netlink.Route
 	links     map[int]netlink.Link
 	tcFilters map[string][]*netlink.BpfFilter
+	xdpLinks  []netlink.Link
 	netNSs    []string
 	bpfOnly   bool
 }
@@ -161,8 +163,17 @@ func newCiliumCleanup(bpfOnly bool) ciliumCleanup {
 			}
 		}
 	}
+	xdpLinks := []netlink.Link{}
 
-	return ciliumCleanup{routes, ciliumLinks, tcFilters, netNSs, bpfOnly}
+	for _, link := range links {
+		if ok, err := isCiliumXDPAttachedToLink(link); ok && err == nil {
+			xdpLinks = append(xdpLinks, link)
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
+	}
+
+	return ciliumCleanup{routes, ciliumLinks, tcFilters, xdpLinks, netNSs, bpfOnly}
 }
 
 func (c ciliumCleanup) whatWillBeRemoved() []string {
@@ -172,6 +183,13 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		section := "tc filters\n"
 		for linkName, f := range c.tcFilters {
 			section += fmt.Sprintf("%s %v\n", linkName, f)
+		}
+		toBeRemoved = append(toBeRemoved, section)
+	}
+	if len(c.xdpLinks) > 0 {
+		section := "xdp programs\n"
+		for _, l := range c.xdpLinks {
+			section += fmt.Sprintf("%s: xdp/prog id %v\n", l.Attrs().Name, l.Attrs().Xdp.ProgId)
 		}
 		toBeRemoved = append(toBeRemoved, section)
 	}
@@ -223,13 +241,16 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 	cleanupNamedNetNSs := func() error {
 		return removeNamedNetNSs(c.netNSs)
 	}
-
+	cleanupXDPs := func() error {
+		return removeXDPs(c.xdpLinks)
+	}
 	cleanupTCFilters := func() error {
 		return removeTCFilters(c.tcFilters)
 	}
 
 	funcs := []cleanupFunc{
 		cleanupTCFilters,
+		cleanupXDPs,
 	}
 	if !c.bpfOnly {
 		funcs = append(funcs, cleanupRoutesAndLinks)
@@ -250,8 +271,8 @@ func runCleanup() {
 		os.Exit(1)
 	}
 
-	cleanAll = viper.GetBool(allFlagName) || viper.GetBool(cleanCiliumEnvVar)
-	cleanBPF = viper.GetBool(bpfFlagName) || viper.GetBool(cleanBpfEnvVar)
+	cleanAll = vp.GetBool(allFlagName) || vp.GetBool(cleanCiliumEnvVar)
+	cleanBPF = vp.GetBool(bpfFlagName) || vp.GetBool(cleanBpfEnvVar)
 
 	// if no flags are specified then clean all
 	if (cleanAll || cleanBPF) == false {
@@ -486,11 +507,14 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 		}
 		for _, f := range filters {
 			if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
+				// Filters created Go bpf loader are of format 'cilium-<iface>'.
+				// iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
 				if strings.Contains(bpfFilter.Name, "bpf_netdev") ||
 					strings.Contains(bpfFilter.Name, "bpf_network") ||
 					strings.Contains(bpfFilter.Name, "bpf_host") ||
 					strings.Contains(bpfFilter.Name, "bpf_lxc") ||
-					strings.Contains(bpfFilter.Name, "bpf_overlay") {
+					strings.Contains(bpfFilter.Name, "bpf_overlay") ||
+					strings.Contains(bpfFilter.Name, "cilium") {
 					allFilters = append(allFilters, bpfFilter)
 				}
 			}
@@ -511,4 +535,48 @@ func removeTCFilters(linkAndFilters map[string][]*netlink.BpfFilter) error {
 	}
 
 	return nil
+}
+
+func removeXDPs(links []netlink.Link) error {
+	for _, link := range links {
+		err := netlink.LinkSetXdpFd(link, -1)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("removed cilium xdp of %s\n", link.Attrs().Name)
+	}
+	return nil
+}
+
+func isCiliumXDPAttachedToLink(link netlink.Link) (bool, error) {
+	linkxdp := link.Attrs().Xdp
+	if linkxdp == nil || !linkxdp.Attached {
+		return false, nil
+	}
+
+	ok, err := isCiliumXDP(linkxdp.ProgId)
+	if ok && err == nil {
+		return true, nil
+	}
+
+	return false, err
+}
+
+func isCiliumXDP(progId uint32) (bool, error) {
+	xdp, err := ebpf.NewProgramFromID(ebpf.ProgramID(progId))
+	if err != nil {
+		return false, err
+	}
+
+	info, err := xdp.Info()
+	if err != nil {
+		return false, err
+	}
+
+	if strings.Contains(info.Name, "cil_xdp_entry") {
+		return true, nil
+	}
+
+	return false, nil
+
 }

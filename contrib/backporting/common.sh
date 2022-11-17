@@ -40,6 +40,22 @@ get_user_remote() {
   echo $USER_REMOTE
 }
 
+is_collaborator() {
+  local username=${1:-}
+  local org=${2:-cilium}
+  local repo=${3:-cilium}
+  if [ -z "$username" ]; then
+      echo "Error: no username specified in is_collaborator"
+      exit 1
+  fi
+  local path="repos/$org/$repo/collaborators/$username"
+  if hub api "$path" &> /dev/null; then
+    echo "yes"
+  else
+    echo "no"
+  fi
+}
+
 require_linux() {
   if [ "$(uname)" != "Linux" ]; then
       echo "$0: Linux required"

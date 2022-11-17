@@ -5,10 +5,10 @@ package endpoint
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -27,13 +27,12 @@ type epInfoCache struct {
 	epdir  string
 	id     uint64
 	ifName string
-	ipvlan bool
 
 	// For datapath.EndpointConfiguration
 	identity                               identity.NumericIdentity
 	mac                                    mac.MAC
-	ipv4                                   addressing.CiliumIPv4
-	ipv6                                   addressing.CiliumIPv6
+	ipv4                                   netip.Addr
+	ipv6                                   netip.Addr
 	conntrackLocal                         bool
 	requireARPPassthrough                  bool
 	requireEgressProg                      bool
@@ -65,7 +64,6 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		epdir:                  epdir,
 		id:                     e.GetID(),
 		ifName:                 e.ifName,
-		ipvlan:                 e.HasIpvlanDataPath(),
 		identity:               e.getIdentity(),
 		mac:                    e.GetNodeMAC(),
 		ipv4:                   e.IPv4Address(),
@@ -102,11 +100,6 @@ func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
 }
 
-// MapPath returns tail call map path
-func (ep *epInfoCache) MapPath() string {
-	return ep.endpoint.BPFIpvlanMapPath()
-}
-
 // GetID returns the endpoint's ID.
 func (ep *epInfoCache) GetID() uint64 {
 	return ep.id
@@ -132,18 +125,13 @@ func (ep *epInfoCache) Logger(subsystem string) *logrus.Entry {
 	return ep.endpoint.Logger(subsystem)
 }
 
-// HasIpvlanDataPath returns whether the endpoint's datapath is implemented via ipvlan.
-func (ep *epInfoCache) HasIpvlanDataPath() bool {
-	return ep.ipvlan
-}
-
 // IPv4Address returns the cached IPv4 address for the endpoint.
-func (ep *epInfoCache) IPv4Address() addressing.CiliumIPv4 {
+func (ep *epInfoCache) IPv4Address() netip.Addr {
 	return ep.ipv4
 }
 
 // IPv6Address returns the cached IPv6 address for the endpoint.
-func (ep *epInfoCache) IPv6Address() addressing.CiliumIPv6 {
+func (ep *epInfoCache) IPv6Address() netip.Addr {
 	return ep.ipv6
 }
 

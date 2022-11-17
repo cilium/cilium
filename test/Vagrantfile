@@ -12,7 +12,7 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.24"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.25"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="0"? false : true
 $NFS_OPTS = (ENV['NFS_OPTS'] || "nolock").split(",")
@@ -117,6 +117,8 @@ Vagrant.configure("2") do |config|
             vb.default_nic_type = "virtio"
             # Prevent VirtualBox from interfering with host audio stack
             vb.customize ["modifyvm", :id, "--audio", "none"]
+            # Enable HPET, the Go scheduler heavily relies on accurate timers.
+            vb.customize ["modifyvm", :id, "--hpet", "on"]
         end
 
         server.vm.box =  "#{$SERVER_BOX}"
@@ -180,6 +182,9 @@ Vagrant.configure("2") do |config|
                 vb.default_nic_type = "virtio"
                 # Prevent VirtualBox from interfering with host audio stack
                 vb.customize ["modifyvm", :id, "--audio", "none"]
+                # Enable HPET, the Go scheduler heavily relies on accurate timers.
+                vb.customize ["modifyvm", :id, "--hpet", "on"]
+
                 if ENV['PRELOAD_VM'] == "false" then
                   # Use serial ports if the VM is no longer accessible via SSH
                   vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]

@@ -25,9 +25,6 @@ const (
 
 	// DatapathModeVeth captures enum value "veth"
 	DatapathModeVeth DatapathMode = "veth"
-
-	// DatapathModeIpvlan captures enum value "ipvlan"
-	DatapathModeIpvlan DatapathMode = "ipvlan"
 )
 
 // for schema
@@ -35,7 +32,7 @@ var datapathModeEnum []interface{}
 
 func init() {
 	var res []DatapathMode
-	if err := json.Unmarshal([]byte(`["veth","ipvlan"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["veth"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {

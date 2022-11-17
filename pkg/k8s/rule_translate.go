@@ -6,8 +6,8 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -19,7 +19,6 @@ var _ policy.Translator = RuleTranslator{}
 // Translate populates/depopulates given rule with ToCIDR rules
 // Based on provided service/endpoint
 type RuleTranslator struct {
-	ipcache          *ipcache.IPCache
 	Service          ServiceID
 	Endpoint         Endpoints
 	ServiceLabels    map[string]string
@@ -59,8 +58,10 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 func (k RuleTranslator) populateEgress(r *api.EgressRule, result *policy.TranslationResult) error {
 	for _, service := range r.ToServices {
 		if k.serviceMatches(service) {
-			if err := k.generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if backendPrefixes, err := k.generateToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
+			} else {
+				result.PrefixesToAdd = append(result.PrefixesToAdd, backendPrefixes...)
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
 		}
@@ -74,8 +75,10 @@ func (k RuleTranslator) depopulateEgress(r *api.EgressRule, result *policy.Trans
 		// counting rules twice
 		result.NumToServicesRules++
 		if k.serviceMatches(service) {
-			if err := k.deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
+			if prefixesToRelease, err := k.deleteToCidrFromEndpoint(r, k.Endpoint, k.AllocatePrefixes); err != nil {
 				return err
+			} else {
+				result.PrefixesToRelease = append(result.PrefixesToRelease, prefixesToRelease...)
 			}
 			// TODO: generateToPortsFromEndpoint when ToPorts and ToCIDR are compatible
 		}
@@ -105,76 +108,68 @@ func (k RuleTranslator) serviceMatches(service api.Service) bool {
 func (k RuleTranslator) generateToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	allocatePrefixes bool) error {
+	allocatePrefixes bool) ([]netip.Prefix, error) {
+
+	var prefixes []netip.Prefix
 
 	// allocatePrefixes if true here implies that this translation is
 	// occurring after policy import. This means that the CIDRs were not
 	// known at that time, so the IPCache hasn't been informed about them.
 	// In this case, it's the job of this Translator to notify the IPCache.
 	if allocatePrefixes {
-		prefixes, err := endpoint.CIDRPrefixes()
-		if err != nil {
-			return err
-		}
-		// TODO: Collect new identities to be upserted to the ipcache only after all
-		// endpoints have been regenerated later. This would make sure that any CIDRs in the
-		// policy would be first pushed to the endpoint policies and then to the ipcache to
-		// avoid traffic mapping to an ID that the endpoint policy maps do not know about
-		// yet.
-		if _, err := k.ipcache.AllocateCIDRs(prefixes, nil, nil); err != nil {
-			return err
-		}
+		prefixes = endpoint.Prefixes()
 	}
 
 	// This will generate one-address CIDRs consisting of endpoint backend ip
-	mask := net.CIDRMask(128, 128)
-	for ip := range endpoint.Backends {
-		epIP := net.ParseIP(ip)
-		if epIP == nil {
-			return fmt.Errorf("unable to parse ip: %s", ip)
-		}
+	for addrCluster := range endpoint.Backends {
+		epIP := addrCluster.Addr()
 
 		found := false
 		for _, c := range egress.ToCIDRSet {
-			_, cidr, err := net.ParseCIDR(string(c.Cidr))
+			prefix, err := netip.ParsePrefix(string(c.Cidr))
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if cidr.Contains(epIP) {
+			if prefix.Contains(epIP) {
 				found = true
 				break
 			}
 		}
 		if !found {
-			cidr := net.IPNet{IP: epIP.Mask(mask), Mask: mask}
+			mask := 32
+			if epIP.Is6() {
+				mask = 128
+			}
+			cidr := netip.PrefixFrom(epIP, mask)
 			egress.ToCIDRSet = append(egress.ToCIDRSet, api.CIDRRule{
 				Cidr:      api.CIDR(cidr.String()),
 				Generated: true,
 			})
 		}
 	}
-	return nil
+	return prefixes, nil
 }
 
 // deleteToCidrFromEndpoint takes an egress rule and removes ToCIDR rules
 // matching endpoint. Returns an error if any of the backends are malformed.
 //
-// If all backends are valid, attempts to remove any ipcache CIDR mappings (and
-// CIDR Identities) from the kvstore for backends in 'endpoint' that are being
-// removed from the policy. On failure to release such kvstore mappings, errors
-// will be logged but this function will return nil to allow subsequent
-// processing to proceed.
+// If all backends are valid, returns any CIDR mappings that are being removed
+// from the policy. The caller must attempt to release this via the IPCache
+// identity release functions.
 func (k RuleTranslator) deleteToCidrFromEndpoint(
 	egress *api.EgressRule,
 	endpoint Endpoints,
-	releasePrefixes bool) error {
+	releasePrefixes bool) ([]netip.Prefix, error) {
 
+	var toReleasePrefixes []netip.Prefix
 	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
-	for ip := range endpoint.Backends {
-		epIP := net.ParseIP(ip)
+	for addrCluster := range endpoint.Backends {
+		ipStr := addrCluster.Addr().String()
+
+		epIP := net.ParseIP(ipStr)
 		if epIP == nil {
-			return fmt.Errorf("unable to parse ip: %s", ip)
+			return nil, fmt.Errorf("unable to parse ip: %s", ipStr)
 		}
 
 		for i, c := range egress.ToCIDRSet {
@@ -184,7 +179,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 			}
 			_, cidr, err := net.ParseCIDR(string(c.Cidr))
 			if err != nil {
-				return err
+				return nil, err
 			}
 			// delete all generated CIDRs for a CIDR that match the given
 			// endpoint
@@ -200,7 +195,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 	// If no rules were deleted we can do an early return here and avoid doing
 	// the useless operations below.
 	if len(delCIDRRules) == 0 {
-		return nil
+		return toReleasePrefixes, nil
 	}
 
 	if releasePrefixes {
@@ -208,8 +203,7 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 		for _, delCIDRRule := range delCIDRRules {
 			delSlice = append(delSlice, *delCIDRRule)
 		}
-		prefixes := policy.GetPrefixesFromCIDRSet(delSlice)
-		k.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
+		toReleasePrefixes = policy.GetPrefixesFromCIDRSet(delSlice)
 	}
 
 	// if endpoint is not in CIDR or it's not generated it's ok to retain it
@@ -224,11 +218,11 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 
 	egress.ToCIDRSet = newCIDRRules
 
-	return nil
+	return toReleasePrefixes, nil
 }
 
 // PreprocessRules translates rules that apply to headless services
-func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache) error {
+func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
@@ -243,7 +237,9 @@ func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache)
 			if ok && svc.IsExternal() {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ipcache, ns, *eps, false, svc.Labels, false)
+					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
+					// We don't need to check the translation result here because the k8s
+					// RuleTranslator above sets allocatePrefixes to be false.
 					err := t.Translate(rule, &policy.TranslationResult{})
 					if err != nil {
 						return err
@@ -255,14 +251,20 @@ func PreprocessRules(r api.Rules, cache *ServiceCache, ipcache *ipcache.IPCache)
 	return nil
 }
 
-// NewK8sTranslator returns RuleTranslator
+// NewK8sTranslator returns RuleTranslator.
+// If allocatePrefixes is set to true, then translation calls will return
+// prefixes that need to be allocated or deallocated.
 func NewK8sTranslator(
-	ipcache *ipcache.IPCache,
 	serviceInfo ServiceID,
 	endpoint Endpoints,
 	revert bool,
 	labels map[string]string,
 	allocatePrefixes bool) RuleTranslator {
-
-	return RuleTranslator{ipcache, serviceInfo, endpoint, labels, revert, allocatePrefixes}
+	return RuleTranslator{
+		Service:          serviceInfo,
+		Endpoint:         endpoint,
+		ServiceLabels:    labels,
+		Revert:           revert,
+		AllocatePrefixes: allocatePrefixes,
+	}
 }

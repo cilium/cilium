@@ -17,16 +17,18 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami.html) in
 // the Amazon Elastic Compute Cloud User Guide. For Amazon EBS-backed instances,
 // CreateImage creates and registers the AMI in a single request, so you don't have
-// to register the AMI yourself. If needed, you can deregister an AMI at any time.
-// Any modifications you make to an AMI backed by an instance store volume
-// invalidates its registration. If you make changes to an image, deregister the
-// previous image and register the new image. Register a snapshot of a root device
-// volume You can use RegisterImage to create an Amazon EBS-backed Linux AMI from a
-// snapshot of a root device volume. You specify the snapshot using a block device
-// mapping. You can't set the encryption state of the volume using the block device
-// mapping. If the snapshot is encrypted, or encryption by default is enabled, the
-// root volume of an instance launched from the AMI is encrypted. For more
-// information, see Create a Linux AMI from a snapshot
+// to register the AMI yourself. We recommend that you always use CreateImage
+// unless you have a specific reason to use RegisterImage. If needed, you can
+// deregister an AMI at any time. Any modifications you make to an AMI backed by an
+// instance store volume invalidates its registration. If you make changes to an
+// image, deregister the previous image and register the new image. Register a
+// snapshot of a root device volume You can use RegisterImage to create an Amazon
+// EBS-backed Linux AMI from a snapshot of a root device volume. You specify the
+// snapshot using a block device mapping. You can't set the encryption state of the
+// volume using the block device mapping. If the snapshot is encrypted, or
+// encryption by default is enabled, the root volume of an instance launched from
+// the AMI is encrypted. For more information, see Create a Linux AMI from a
+// snapshot
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html#creating-launching-ami-from-snapshot)
 // and Use encryption with Amazon EBS-backed AMIs
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AMIEncryption.html) in the

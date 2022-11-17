@@ -32,13 +32,12 @@ func NewGetEndpoint(ctx *middleware.Context, handler GetEndpointHandler) *GetEnd
 	return &GetEndpoint{Context: ctx, Handler: handler}
 }
 
-/*GetEndpoint swagger:route GET /endpoint endpoint getEndpoint
+/*
+GetEndpoint swagger:route GET /endpoint endpoint getEndpoint
 
 Retrieves a list of endpoints that have metadata matching the provided parameters.
 
 Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
-
-
 */
 type GetEndpoint struct {
 	Context *middleware.Context

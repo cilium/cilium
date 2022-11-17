@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package bgpv1
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // TestAnnotation performs a series of unit tests ensuring the parsing of
 // annotations works correctly.
@@ -45,9 +46,44 @@ func TestAnnotation(t *testing.T) {
 			if attr.RouterID != tt.attr.RouterID {
 				t.Fatalf("got: %v, want: %v", attr.RouterID, tt.attr.RouterID)
 			}
-			if err != tt.error {
+			if !errors.Is(err, tt.error) {
 				t.Fatalf("got: %v, want: %v", err, tt.error)
 			}
 		})
+	}
+}
+
+func BenchmarkErrNotVRouterAnnoError(b *testing.B) {
+	e := &ErrNotVRouterAnno{
+		a: "foo error",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
+	}
+}
+
+func BenchmarkErrErrNoASNAnno(b *testing.B) {
+	e := &ErrNoASNAnno{
+		a: "foo error",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
+	}
+}
+
+func BenchmarkErrASNAnno(b *testing.B) {
+	e := &ErrASNAnno{
+		err:  "foo error",
+		asn:  "foo asn",
+		anno: "foo anno",
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = e.Error()
 	}
 }

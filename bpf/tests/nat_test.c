@@ -5,6 +5,8 @@
 
 #include <bpf/ctx/skb.h>
 
+#include "node_config.h"
+
 #define ENDPOINTS_MAP test_cilium_lxc
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define METRICS_MAP test_cilium_metrics
@@ -38,6 +40,10 @@
 
 #define NODEPORT_PORT_MAX 32767
 #define NODEPORT_PORT_MIN_NAT (NODEPORT_PORT_MAX + 1)
+
+#define DIRECT_ROUTING_DEV_IFINDEX 0
+
+#include "lib/conntrack.h"
 
 #define ct_lookup4 mock_ct_lookup4
 #define ct_create4 mock_ct_create4
@@ -73,6 +79,19 @@ static __always_inline int mock_ct_create4(__maybe_unused const void *map_main,
 	return mock_ct_create4_response;
 }
 
+#define __lookup_ip4_endpoint      mock__lookup_ip4_endpoint
+#define lookup_ip4_remote_endpoint mock_lookup_ip4_remote_endpoint
+
+static __always_inline struct endpoint_info *mock__lookup_ip4_endpoint(__maybe_unused __u32 ip)
+{
+	return NULL;
+}
+
+static __always_inline struct remote_endpoint_info *mock_lookup_ip4_remote_endpoint(__maybe_unused __u32 ip)
+{
+	return NULL;
+}
+
 #include "lib/nat.h"
 #include "bpf/section.h"
 
@@ -90,10 +109,10 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* can simply assume it to be -1 because the actually value does not matter. */
 	mock_ct_lookup4_response = -1;
 
-	/* So snat_v4_track_local will return exactly the same value which means */
-	/* an error occurs when snat_v4_track_local is looking for the ipv4_ct_tuple. */
+	/* So snat_v4_track_connection will return exactly the same value which means */
+	/* an error occurs when snat_v4_track_connection is looking for the ipv4_ct_tuple. */
 	TEST("return -1 on error", {
-		if (snat_v4_track_local(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
 		    != -1){
 			test_fail();
 		}
@@ -103,10 +122,10 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* also assume it to be 1 because the actually value does not matter. */
 	mock_ct_lookup4_response = 1;
 
-	/* So snat_v4_track_local will return 0 which means snat_v4_track_local */
+	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully tracks ipv4_ct_tuple. */
 	TEST("return 0 on track", {
-		if (snat_v4_track_local(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
 		    != 0){
 			test_fail();
 		}
@@ -119,10 +138,10 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	mock_ct_lookup4_response = CT_NEW;
 	mock_ct_create4_response = -1;
 
-	/* So snat_v4_track_local will return that value which means an error occurs */
-	/* when snat_v4_track_local is trying to create the ipv4_ct_tuple. */
+	/* So snat_v4_track_connection will return that value which means an error occurs */
+	/* when snat_v4_track_connection is trying to create the ipv4_ct_tuple. */
 	TEST("return -1 on create error", {
-		if (snat_v4_track_local(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
 		    != -1){
 			test_fail();
 		}
@@ -134,10 +153,10 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	mock_ct_lookup4_response = CT_NEW;
 	mock_ct_create4_response = 0;
 
-	/* So snat_v4_track_local will return 0 which means snat_v4_track_local */
+	/* So snat_v4_track_connection will return 0 which means snat_v4_track_connection */
 	/* successfully creates the ipv4_ct_tuple. */
 	TEST("return 0 on create success", {
-		if (snat_v4_track_local(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
+		if (snat_v4_track_connection(&ctx_buff, &tuple, &state, NAT_DIR_EGRESS, 0, &target)
 		    != 0) {
 			test_fail();
 		}

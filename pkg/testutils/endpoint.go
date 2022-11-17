@@ -4,9 +4,10 @@
 package testutils
 
 import (
+	"net/netip"
+
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
@@ -23,7 +24,7 @@ type TestEndpoint struct {
 	Identity *identity.Identity
 	Opts     *option.IntOptions
 	MAC      mac.MAC
-	IPv6     addressing.CiliumIPv6
+	IPv6     netip.Addr
 	isHost   bool
 }
 
@@ -42,7 +43,7 @@ func NewTestHostEndpoint() TestEndpoint {
 	opts := option.NewIntOptions(&option.OptionLibrary{})
 	opts.SetBool("TEST_OPTION", true)
 	return TestEndpoint{
-		Id:       uint64(identity.ReservedIdentityHost),
+		Id:       65535,
 		Identity: hostIdentity,
 		MAC:      mac.MAC([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
 		Opts:     opts,
@@ -50,7 +51,6 @@ func NewTestHostEndpoint() TestEndpoint {
 	}
 }
 
-func (e *TestEndpoint) HasIpvlanDataPath() bool                     { return false }
 func (e *TestEndpoint) ConntrackLocalLocked() bool                  { return false }
 func (e *TestEndpoint) RequireARPPassthrough() bool                 { return false }
 func (e *TestEndpoint) RequireEgressProg() bool                     { return false }
@@ -68,11 +68,10 @@ func (e *TestEndpoint) GetNodeMAC() mac.MAC                         { return e.M
 func (e *TestEndpoint) GetOptions() *option.IntOptions              { return e.Opts }
 func (e *TestEndpoint) IsHost() bool                                { return e.isHost }
 
-func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
-	addr, _ := addressing.NewCiliumIPv4("192.0.2.3")
-	return addr
+func (e *TestEndpoint) IPv4Address() netip.Addr {
+	return netip.MustParseAddr("192.0.2.3")
 }
-func (e *TestEndpoint) IPv6Address() addressing.CiliumIPv6 {
+func (e *TestEndpoint) IPv6Address() netip.Addr {
 	return e.IPv6
 }
 
@@ -90,8 +89,4 @@ func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
 
 func (e *TestEndpoint) StateDir() string {
 	return "test_loader"
-}
-
-func (e *TestEndpoint) MapPath() string {
-	return "map_path"
 }

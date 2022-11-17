@@ -97,6 +97,7 @@ run_buildx() {
   build_args=(
     "--platform=${platform}"
     "--builder=${builder}"
+    "--target=release"
     "--file=${image_dir}/Dockerfile"
   )
   if [ "${with_root_context}" = "false" ] ; then

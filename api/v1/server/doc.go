@@ -4,18 +4,18 @@
 
 // Package server Cilium API
 //
-//  Cilium
-//  Schemes:
-//    unix
-//  Host: localhost
-//  BasePath: /v1
-//  Version: v1beta
+//	Cilium
+//	Schemes:
+//	  unix
+//	Host: localhost
+//	BasePath: /v1
+//	Version: v1beta1
 //
-//  Consumes:
-//    - application/json
+//	Consumes:
+//	  - application/json
 //
-//  Produces:
-//    - application/json
+//	Produces:
+//	  - application/json
 //
 // swagger:meta
 package server

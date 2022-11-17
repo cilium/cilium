@@ -145,7 +145,7 @@ func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
 func deleteIpRule(ipRule netlink.Rule) {
 	logger := log.WithFields(logrus.Fields{})
 
-	logger.Info("Removing IP rule")
+	logger.Debug("Removing IP rule")
 	route.DeleteRule(route.Rule{
 		Priority: linux_defaults.RulePriorityEgressGateway,
 		From:     ipRule.Src,
@@ -170,7 +170,7 @@ func deleteIpRouteTable(tableIndex int) {
 func deleteIpRoute(ipRoute netlink.Route) {
 	logger := log.WithFields(logrus.Fields{})
 
-	logger.Info("Removing IP route")
+	logger.Debug("Removing IP route")
 
 	netlink.RouteDel(&ipRoute)
 }

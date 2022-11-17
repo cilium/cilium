@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package linuxrouting
 
 import (
 	"net"
-	"testing"
 
 	"gopkg.in/check.v1"
 
@@ -15,14 +12,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/mac"
 )
-
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
-
-type LinuxRoutingSuite struct{}
-
-var _ = check.Suite(&LinuxRoutingSuite{})
 
 func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")

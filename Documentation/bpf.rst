@@ -14,8 +14,8 @@ BPF and XDP Reference Guide
           want to understand BPF and XDP in great technical depth. While
           reading this reference guide may help broaden your understanding of
           Cilium, it is not a requirement to use Cilium. Please refer to the
-          :ref:`gs_guide` and :ref:`ebpf_datapath` for a higher level
-          introduction.
+          :ref:`getting_started` guide and :ref:`ebpf_datapath` for a higher
+          level introduction.
 
 BPF is a highly flexible and efficient virtual machine-like construct in the
 Linux kernel allowing to execute bytecode at various hook points in a safe
@@ -2075,9 +2075,10 @@ describe some of the differences for the BPF model:
 10. **Remove struct padding with aligning members by using #pragma pack.**
 
   In modern compilers, data structures are aligned by default to access memory
-  efficiently. Structure members are aligned to memory address that multiples their
-  size, and padding is added for the proper alignment. Because of this, the size
-  of struct may often grow larger than expected.
+  efficiently. Structure members are packed to memory addresses and padding is
+  added for the proper alignment with the processor word size (e.g. 8-byte for
+  64-bit processors, 4-byte for 32-bit processors). Because of this, the size of
+  struct may often grow larger than expected.
 
   .. code-block:: c
 
@@ -2169,7 +2170,7 @@ describe some of the differences for the BPF model:
   byte from the start pointer to make sure that it's within stack boundary and all
   elements of the stack are initialized. Since the padding isn't supposed to be used,
   it gets the 'invalid indirect read from stack' failure. To avoid this kind of
-  failure, remove the padding from the struct is necessary.
+  failure, removing the padding from the struct is necessary.
 
   Removing the padding by using ``#pragma pack(n)`` directive:
 
@@ -2194,12 +2195,12 @@ describe some of the differences for the BPF model:
     //  |  sector(4) |             <= address aligned to 4
     //  |____________|                 with no PADDING.
 
-  By locating ``#pragma pack(4)`` before of ``struct called_info``, compiler will align
+  By locating ``#pragma pack(4)`` before of ``struct called_info``, the compiler will align
   members of a struct to the least of 4-byte and their natural alignment. As you can
   see, the size of ``struct called_info`` has been shrunk to 20-byte and the padding
-  is no longer exist.
+  no longer exists.
 
-  But, removing the padding have downsides either. For example, compiler will generate
+  But, removing the padding has downsides too. For example, the compiler will generate
   less optimized code. Since we've removed the padding, processors will conduct
   unaligned access to the structure and this might lead to performance degradation.
   And also, unaligned access might get rejected by verifier on some architectures.
@@ -3238,6 +3239,12 @@ is included in the BTF. With this command, BTF dump can be formatted either
 
         typedef unsigned int u32;
         [...]
+
+.. admonition:: Video
+  :class: attention
+
+  To learn more about bpftool, check out `eCHO episode 11: Exploring
+  bpftool <https://www.youtube.com/watch?v=1EOLh3zzWP4&t=650s>`__ with Quentin Monnet, maintainer of bpftool.
 
 BPF sysctls
 -----------
@@ -4885,6 +4892,15 @@ Talks
 
 The following (incomplete) list includes talks and conference papers
 related to BPF and XDP:
+
+46. July 2021,
+     eBPF & Cilium Office Hours episode 13: XDP Hands-on Tutorial, with Liz Rice,
+     https://www.youtube.com/watch?v=YUI78vC4qSQ&t=300s
+
+45. June 2021,
+     eBPF & Cilium Office Hours episode 9: XDP and Load Balancing, 
+     with Daniel Borkmann,
+     https://www.youtube.com/watch?v=OIyPm6K4ooY&t=308s
 
 44. May 2017,
      PyCon 2017, Portland,

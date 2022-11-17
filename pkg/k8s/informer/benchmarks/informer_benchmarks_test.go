@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package benchmarks
 
 import (
@@ -22,7 +20,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/annotation"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 )
@@ -36,13 +33,6 @@ type K8sIntegrationSuite struct{}
 var _ = Suite(&K8sIntegrationSuite{})
 
 func (k *K8sIntegrationSuite) SetUpSuite(c *C) {
-	if os.Getenv("INTEGRATION") != "" {
-		if k8sConfigPath := os.Getenv("KUBECONFIG"); k8sConfigPath == "" {
-			k8s.Configure("", "/var/lib/cilium/cilium.kubeconfig", defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
-		} else {
-			k8s.Configure("", k8sConfigPath, defaults.K8sClientQPSLimit, defaults.K8sClientBurst)
-		}
-	}
 }
 
 var nodeSampleJSON = `{
@@ -59,10 +49,10 @@ var nodeSampleJSON = `{
         },
         "creationTimestamp": "2019-03-07T13:35:02Z",
         "labels": {
-            "beta.kubernetes.io/arch": "amd64",
+            "kubernetes.io/arch": "amd64",
             "beta.kubernetes.io/fluentd-ds-ready": "true",
             "beta.kubernetes.io/instance-type": "foo",
-            "beta.kubernetes.io/os": "linux",
+            "kubernetes.io/os": "linux",
             "cloud.google.com/gke-nodepool": "default-pool",
             "cloud.google.com/gke-os-distribution": "cos",
             "disktype": "ssd",

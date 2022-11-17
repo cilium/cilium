@@ -122,6 +122,19 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	}
 }
 
+func (m *MonitorFormatter) traceSockEvents(prefix string, data []byte) {
+	tn := monitor.TraceSockNotify{}
+
+	if err := binary.Read(bytes.NewReader(data), byteorder.Native, &tn); err != nil {
+		fmt.Printf("Error while parsing socket trace notification message: %s\n", err)
+	}
+	// Currently only printed with the debug option. Extend it to info and json.
+	// GH issue: https://github.com/cilium/cilium/issues/21510
+	if m.Verbosity == DEBUG {
+		tn.DumpDebug(prefix)
+	}
+}
+
 func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
 	pn := monitor.PolicyVerdictNotify{}
 
@@ -249,6 +262,8 @@ func (m *MonitorFormatter) FormatSample(data []byte, cpu int) {
 		m.policyVerdictEvents(prefix, data)
 	case monitorAPI.MessageTypeRecCapture:
 		m.recorderCaptureEvents(prefix, data)
+	case monitorAPI.MessageTypeTraceSock:
+		m.traceSockEvents(prefix, data)
 	default:
 		fmt.Printf("%s Unknown event: %+v\n", prefix, data)
 	}

@@ -49,6 +49,9 @@ type StatusResponse struct {
 	// Status of CNI chaining
 	CniChaining *CNIChainingStatus `json:"cni-chaining,omitempty"`
 
+	// Status of the CNI configuration file
+	CniFile *Status `json:"cni-file,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -72,6 +75,9 @@ type StatusResponse struct {
 
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
+
+	// Status of IPv6 BIG TCP
+	IPV6BigTCP *IPV6BigTCP `json:"ipv6-big-tcp,omitempty"`
 
 	// Status of kube-proxy replacement
 	KubeProxyReplacement *KubeProxyReplacement `json:"kube-proxy-replacement,omitempty"`
@@ -127,6 +133,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateCniFile(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateContainerRuntime(formats); err != nil {
 		res = append(res, err)
 	}
@@ -156,6 +166,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIpam(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIPV6BigTCP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -319,6 +333,24 @@ func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *StatusResponse) validateCniFile(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.CniFile) { // not required
+		return nil
+	}
+
+	if m.CniFile != nil {
+		if err := m.CniFile.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-file")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error {
 
 	if swag.IsZero(m.ContainerRuntime) { // not required
@@ -453,6 +485,24 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 		if err := m.Ipam.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateIPV6BigTCP(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.IPV6BigTCP) { // not required
+		return nil
+	}
+
+	if m.IPV6BigTCP != nil {
+		if err := m.IPV6BigTCP.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv6-big-tcp")
 			}
 			return err
 		}

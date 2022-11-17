@@ -36,3 +36,17 @@ func NewStringPointer(str string) Pointer {
 
 	return Pointer{ptr: unsafe.Pointer(p)}
 }
+
+// NewStringSlicePointer allocates an array of Pointers to each string in the
+// given slice of strings and returns a 64-bit pointer to the start of the
+// resulting array.
+//
+// Use this function to pass arrays of strings as syscall arguments.
+func NewStringSlicePointer(strings []string) Pointer {
+	sp := make([]Pointer, 0, len(strings))
+	for _, s := range strings {
+		sp = append(sp, NewStringPointer(s))
+	}
+
+	return Pointer{ptr: unsafe.Pointer(&sp[0])}
+}

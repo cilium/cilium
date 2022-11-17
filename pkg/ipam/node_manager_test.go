@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package ipam
 
 import (
@@ -60,6 +58,13 @@ func (a *allocationImplementationMock) Resync(ctx context.Context) time.Time {
 	return time.Now()
 }
 
+func (a *allocationImplementationMock) HasInstance(instanceID string) bool {
+	return true
+}
+
+func (a *allocationImplementationMock) DeleteInstance(instanceID string) {
+}
+
 type nodeOperationsMock struct {
 	allocator *allocationImplementationMock
 
@@ -80,14 +85,14 @@ func (n *nodeOperationsMock) CreateInterface(ctx context.Context, allocation *Al
 	return 0, "operation not supported", fmt.Errorf("operation not supported")
 }
 
-func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
+func (n *nodeOperationsMock) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, int, error) {
 	available := ipamTypes.AllocationMap{}
 	n.mutex.RLock()
 	for _, ip := range n.allocatedIPs {
 		available[ip] = ipamTypes.AllocationIP{}
 	}
 	n.mutex.RUnlock()
-	return available, nil
+	return available, 0, nil
 }
 
 func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error) {
@@ -96,7 +101,6 @@ func (n *nodeOperationsMock) PrepareIPAllocation(scopedLog *logrus.Entry) (*Allo
 	return &AllocationAction{
 		PoolID:                 testPoolID,
 		AvailableForAllocation: n.allocator.poolSize - n.allocator.allocatedIPs,
-		AvailableInterfaces:    0,
 	}, nil
 }
 
@@ -169,7 +173,8 @@ func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1", 0, 0, 0))
+	node1 := newCiliumNode("node1", 0, 0, 0)
+	mngr.Update(node1)
 
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
@@ -180,7 +185,7 @@ func (e *IPAMSuite) TestGetNodeNames(c *check.C) {
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
 
-	mngr.Delete("node1")
+	mngr.Delete(node1)
 
 	names = mngr.GetNames()
 	c.Assert(len(names), check.Equals, 1)
@@ -196,12 +201,13 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 
 	// instances.Resync(context.TODO())
 
-	mngr.Update(newCiliumNode("node1", 0, 0, 0))
+	node1 := newCiliumNode("node1", 0, 0, 0)
+	mngr.Update(node1)
 
 	c.Assert(mngr.Get("node1"), check.Not(check.IsNil))
 	c.Assert(mngr.Get("node2"), check.IsNil)
 
-	mngr.Delete("node1")
+	mngr.Delete(node1)
 	c.Assert(mngr.Get("node1"), check.IsNil)
 	c.Assert(mngr.Get("node2"), check.IsNil)
 }

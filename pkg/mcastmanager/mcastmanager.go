@@ -4,9 +4,10 @@
 package mcastmanager
 
 import (
+	"net/netip"
+
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -27,25 +28,25 @@ type MCastManager struct {
 	// addresses keeps track of all ipv6 addresses by grouping them based on the
 	// last 3 bytes of the address. The last 3 bytes of an IPv6 address determines
 	// the solicited node multicast address: https://tools.ietf.org/html/rfc4291#section-2.7.1
-	addresses map[int32]map[string]struct{}
+	addresses map[int32]map[netip.Addr]struct{}
 
 	// state tracks all the IPv6 multicast addresses created by MCastManager
-	state map[string]struct{}
+	state map[netip.Addr]struct{}
 }
 
 // New creates a McastManager instance. Create a dummy manager when iface is empty
 // string.
 func New(iface string) *MCastManager {
 	return &MCastManager{
-		addresses: make(map[int32]map[string]struct{}),
-		state:     make(map[string]struct{}),
+		addresses: make(map[int32]map[netip.Addr]struct{}),
+		state:     make(map[netip.Addr]struct{}),
 		iface:     iface,
 	}
 }
 
 // AddAddress is called when a new endpoint is added
-func (mgr *MCastManager) AddAddress(ipv6 addressing.CiliumIPv6) {
-	if mgr.iface == "" || !ipv6.IsSet() {
+func (mgr *MCastManager) AddAddress(ipv6 netip.Addr) {
+	if mgr.iface == "" || !ipv6.IsValid() {
 		return
 	}
 
@@ -57,15 +58,15 @@ func (mgr *MCastManager) AddAddress(ipv6 addressing.CiliumIPv6) {
 	if _, ok := mgr.addresses[key]; !ok {
 		// First IP that has the solicited node maddr
 		mgr.joinGroup(ipv6)
-		mgr.addresses[key] = map[string]struct{}{}
+		mgr.addresses[key] = map[netip.Addr]struct{}{}
 	}
 
-	mgr.addresses[key][ipv6.String()] = struct{}{}
+	mgr.addresses[key][ipv6] = struct{}{}
 }
 
 // RemoveAddress is called when an endpoint is removed
-func (mgr *MCastManager) RemoveAddress(ipv6 addressing.CiliumIPv6) {
-	if mgr.iface == "" || !ipv6.IsSet() {
+func (mgr *MCastManager) RemoveAddress(ipv6 netip.Addr) {
+	if mgr.iface == "" || !ipv6.IsValid() {
 		return
 	}
 
@@ -75,7 +76,7 @@ func (mgr *MCastManager) RemoveAddress(ipv6 addressing.CiliumIPv6) {
 	defer mgr.mutex.Unlock()
 
 	if m, ok := mgr.addresses[key]; ok {
-		delete(m, ipv6.String())
+		delete(m, ipv6)
 		if len(m) == 0 {
 			// Last IP that has the solicited node maddr
 			mgr.leaveGroup(ipv6)
@@ -84,9 +85,9 @@ func (mgr *MCastManager) RemoveAddress(ipv6 addressing.CiliumIPv6) {
 	}
 }
 
-func (mgr *MCastManager) joinGroup(ipv6 addressing.CiliumIPv6) {
+func (mgr *MCastManager) joinGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
-	if err := multicast.JoinGroup(mgr.iface, maddr.String()); err != nil {
+	if err := multicast.JoinGroup(mgr.iface, maddr); err != nil {
 		log.WithError(err).WithField("maddr", maddr).Warn("failed to join multicast group")
 		return
 	}
@@ -96,12 +97,12 @@ func (mgr *MCastManager) joinGroup(ipv6 addressing.CiliumIPv6) {
 		"mcast":  maddr,
 	}).Info("Joined multicast group")
 
-	mgr.state[maddr.String()] = struct{}{}
+	mgr.state[maddr] = struct{}{}
 }
 
-func (mgr *MCastManager) leaveGroup(ipv6 addressing.CiliumIPv6) {
+func (mgr *MCastManager) leaveGroup(ipv6 netip.Addr) {
 	maddr := multicast.Address(ipv6).SolicitedNodeMaddr()
-	if err := multicast.LeaveGroup(mgr.iface, maddr.String()); err != nil {
+	if err := multicast.LeaveGroup(mgr.iface, maddr); err != nil {
 		log.WithError(err).WithField("maddr", maddr).Warn("failed to leave multicast group")
 		return
 	}
@@ -111,5 +112,5 @@ func (mgr *MCastManager) leaveGroup(ipv6 addressing.CiliumIPv6) {
 		"mcast":  maddr,
 	}).Info("Left multicast group")
 
-	delete(mgr.state, maddr.String())
+	delete(mgr.state, maddr)
 }

@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package ctmap
 
 import (
-	"testing"
 	"unsafe"
 
 	. "gopkg.in/check.v1"
@@ -16,31 +13,30 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Hook up gocheck into the "go test" runner.
-type CTMapTestSuite struct{}
+type CTMapPrivilegedTestSuite struct{}
 
-var _ = Suite(&CTMapTestSuite{})
+var _ = Suite(&CTMapPrivilegedTestSuite{})
 
 func init() {
 	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 }
 
-func Test(t *testing.T) {
-	TestingT(t)
-}
+func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 
-func (k *CTMapTestSuite) SetUpSuite(c *C) {
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
 }
 
-func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
+func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
 	_, err := m.OpenOrCreate()
 	defer m.Map.Unpin()
@@ -99,7 +95,7 @@ func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
 
 // TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
 // their CT entry (GH#12625).
-func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
+func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
 	_, err := natMap.OpenOrCreate()
@@ -123,7 +119,7 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 
 	ctKey := &CtKey4Global{
 		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{192, 168, 61, 12},
 				DestAddr:   types.IPv4{192, 168, 61, 11},
 				SourcePort: 0x3195,
@@ -143,8 +139,8 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{192, 168, 61, 12},
 				SourceAddr: types.IPv4{192, 168, 61, 11},
 				DestPort:   0,
@@ -164,8 +160,8 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{192, 168, 61, 12},
 				DestAddr:   types.IPv4{192, 168, 61, 11},
 				SourcePort: 0,
@@ -211,7 +207,7 @@ func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
 }
 
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
-func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
+func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
 	_, err := natMap.OpenOrCreate()
@@ -258,8 +254,8 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	//				TCP OUT 10.0.1.99:34520 -> 1.1.1.1:80 XLATE_SRC 10.0.2.15:34520
 
 	ctKey := &CtKey4Global{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{10, 23, 32, 45},
 				SourceAddr: types.IPv4{10, 23, 53, 48},
 				SourcePort: 0x50d6,
@@ -279,8 +275,8 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(err, IsNil)
 
 	natKey := &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				SourceAddr: types.IPv4{10, 23, 32, 45},
 				DestAddr:   types.IPv4{10, 23, 53, 48},
 				SourcePort: 0x50d6,
@@ -300,8 +296,8 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 		unsafe.Pointer(natVal), 0)
 	c.Assert(err, IsNil)
 	natKey = &nat.NatKey4{
-		tuple.TupleKey4Global{
-			tuple.TupleKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
 				DestAddr:   types.IPv4{10, 23, 32, 45},
 				SourceAddr: types.IPv4{10, 23, 53, 48},
 				DestPort:   0x51d6,
@@ -324,6 +320,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	stats := PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressAlive, Equals, uint32(1))
 	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(1))
 	c.Assert(stats.EgressDeleted, Equals, uint32(0))
 	// Check that both entries haven't removed
 	buf := make(map[string][]string)
@@ -338,6 +335,7 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
 	c.Assert(stats.IngressAlive, Equals, uint32(0))
 	c.Assert(stats.EgressDeleted, Equals, uint32(1))
+	c.Assert(stats.EgressAlive, Equals, uint32(0))
 	// Check that both orphan NAT entries have been removed
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
@@ -352,6 +350,82 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapAny)
 	c.Assert(stats.IngressDeleted, Equals, uint32(1))
 	c.Assert(stats.EgressDeleted, Equals, uint32(0))
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
+
+	// Test DSR
+	//
+	// Create the following entries and check that SNAT entries are NOT GC-ed
+	// (as we have the CT entry which they belong to):
+	//
+	//     CT:	TCP IN  10.0.2.10:50000  -> 10.20.30.40:1234
+	//     NAT:	TCP OUT 10.20.30.40:1234 -> 10.0.2.10:50000 XLATE_SRC 10.0.2.20:40000
+
+	ctKey = &CtKey4Global{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				DestAddr:   types.IPv4{10, 0, 2, 10},
+				SourceAddr: types.IPv4{10, 20, 30, 40},
+				SourcePort: 0x50c3,
+				DestPort:   0xd204,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_IN,
+			},
+		},
+	}
+	ctVal = &CtEntry{
+		TxPackets: 1,
+		TxBytes:   216,
+		Lifetime:  37459,
+	}
+	err = bpf.UpdateElement(ctMapTCP.Map.GetFd(), ctMapTCP.Map.Name(), unsafe.Pointer(ctKey),
+		unsafe.Pointer(ctVal), 0)
+	c.Assert(err, IsNil)
+
+	natKey = &nat.NatKey4{
+		TupleKey4Global: tuple.TupleKey4Global{
+			TupleKey4: tuple.TupleKey4{
+				SourceAddr: types.IPv4{10, 20, 30, 40},
+				DestAddr:   types.IPv4{10, 0, 2, 10},
+				SourcePort: 0xd204,
+				DestPort:   0x50c3,
+				NextHeader: u8proto.TCP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	natVal = &nat.NatEntry4{
+		Created:   37400,
+		HostLocal: 1,
+		Addr:      types.IPv4{10, 0, 2, 20},
+		Port:      0x409c,
+	}
+	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
+		unsafe.Pointer(natVal), 0)
+	c.Assert(err, IsNil)
+
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(1))
+	c.Assert(stats.EgressDeleted, Equals, uint32(0))
+	// Check that the entry hasn't been removed
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	// Now remove the CT entry which should remove the NAT entry
+	err = bpf.DeleteElement(ctMapTCP.Map.GetFd(), unsafe.Pointer(ctKey))
+	c.Assert(err, IsNil)
+	stats = PurgeOrphanNATEntries(ctMapTCP, ctMapTCP)
+	c.Assert(stats.IngressAlive, Equals, uint32(0))
+	c.Assert(stats.IngressDeleted, Equals, uint32(0))
+	c.Assert(stats.EgressAlive, Equals, uint32(0))
+	c.Assert(stats.EgressDeleted, Equals, uint32(1))
+	// Check that the orphan NAT entry has been removed
 	buf = make(map[string][]string)
 	err = natMap.Map.Dump(buf)
 	c.Assert(err, IsNil)
@@ -383,8 +457,8 @@ func (k *CTMapTestSuite) TestOrphanNatGC(c *C) {
 	defer ctMapTCPV6.Map.Unpin()
 
 	natKeyV6 := &nat.NatKey6{
-		tuple.TupleKey6Global{
-			tuple.TupleKey6{
+		TupleKey6Global: tuple.TupleKey6Global{
+			TupleKey6: tuple.TupleKey6{
 				SourceAddr: types.IPv6{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				DestAddr:   types.IPv6{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 				SourcePort: 0x50d6,

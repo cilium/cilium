@@ -34,10 +34,14 @@ coverage.out
 coverage-all.out
 coverage-all.html
 coverage-all-tmp.out
+bpf-coverage.html
+bpf-coverage.cover
 
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
 *.plist
 
 *_bash_completion
@@ -105,3 +109,6 @@ images/*/Dockerfile.dockerignore
 
 # Local Emacs files
 .dir-locals.el
+
+# Clangd cache for indexed bpf code
+bpf/.cache

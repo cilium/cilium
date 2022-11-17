@@ -16,7 +16,6 @@ import (
 
 // EndpointChangeRequest Structure which contains the mutable elements of an Endpoint.
 //
-//
 // swagger:model EndpointChangeRequest
 type EndpointChangeRequest struct {
 

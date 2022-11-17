@@ -4,18 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
-
-// ErrNotExist is returned when loading a non-existing map or program.
-//
-// Deprecated: use os.ErrNotExist instead.
-var ErrNotExist = os.ErrNotExist
 
 // invalidBPFObjNameChar returns true if char may not appear in
 // a BPF object name.
@@ -149,8 +143,8 @@ func wrapMapError(err error) error {
 		return sys.Error(ErrKeyExist, unix.EEXIST)
 	}
 
-	if errors.Is(err, unix.ENOTSUPP) {
-		return sys.Error(ErrNotSupported, unix.ENOTSUPP)
+	if errors.Is(err, sys.ENOTSUPP) {
+		return sys.Error(ErrNotSupported, sys.ENOTSUPP)
 	}
 
 	if errors.Is(err, unix.E2BIG) {

@@ -10,6 +10,7 @@ package daemon
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
@@ -42,13 +43,15 @@ type ClientService interface {
 
 	GetMapName(params *GetMapNameParams) (*GetMapNameOK, error)
 
+	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error)
+
 	PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  GetClusterNodes gets nodes information stored in the cilium agent
+GetClusterNodes gets nodes information stored in the cilium agent
 */
 func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error) {
 	// TODO: Validate the params before sending
@@ -82,10 +85,9 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNode
 }
 
 /*
-  GetConfig gets configuration of cilium daemon
+GetConfig gets configuration of cilium daemon
 
-  Returns the configuration of the Cilium daemon.
-
+Returns the configuration of the Cilium daemon.
 */
 func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 	// TODO: Validate the params before sending
@@ -119,7 +121,7 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 }
 
 /*
-  GetDebuginfo retrieves information about the agent and evironment for debugging
+GetDebuginfo retrieves information about the agent and evironment for debugging
 */
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
 	// TODO: Validate the params before sending
@@ -153,12 +155,12 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 }
 
 /*
-  GetHealthz gets health of cilium daemon
+	GetHealthz gets health of cilium daemon
 
-  Returns health and status information of the Cilium daemon and related
+	Returns health and status information of the Cilium daemon and related
+
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
-
 */
 func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending
@@ -192,7 +194,7 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 }
 
 /*
-  GetMap lists all open maps
+GetMap lists all open maps
 */
 func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 	// TODO: Validate the params before sending
@@ -226,7 +228,7 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 }
 
 /*
-  GetMapName retrieves contents of b p f map
+GetMapName retrieves contents of b p f map
 */
 func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 	// TODO: Validate the params before sending
@@ -260,12 +262,46 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 }
 
 /*
-  PatchConfig modifies daemon configuration
+GetMapNameEvents retrieves the recent event logs associated with this endpoint
+*/
+func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetMapNameEventsParams()
+	}
 
-  Updates the daemon configuration by applying the provided
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetMapNameEvents",
+		Method:             "GET",
+		PathPattern:        "/map/{name}/events",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetMapNameEventsReader{formats: a.formats, writer: writer},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*GetMapNameEventsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetMapNameEvents: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+	PatchConfig modifies daemon configuration
+
+	Updates the daemon configuration by applying the provided
+
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
-
 */
 func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) {
 	// TODO: Validate the params before sending

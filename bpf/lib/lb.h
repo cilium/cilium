@@ -246,6 +246,18 @@ bool lb6_svc_is_hostport(const struct lb6_service *svc __maybe_unused)
 }
 
 static __always_inline
+bool lb4_svc_is_loopback(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOOPBACK;
+}
+
+static __always_inline
+bool lb6_svc_is_loopback(const struct lb6_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOOPBACK;
+}
+
+static __always_inline
 bool lb4_svc_has_src_range_check(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_SRC_RANGE_CHECK
@@ -348,6 +360,9 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 #ifdef ENABLE_IPV4_FRAGMENTS
 		if (ip4) {
 			struct ipv4_frag_l4ports ports = { };
@@ -386,6 +401,9 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 	switch (nexthdr) {
 	case IPPROTO_TCP:
 	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 		if (port) {
 			__be16 old_port;
 			int ret;
@@ -396,6 +414,13 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 				return ret;
 
 			if (port != old_port) {
+#ifdef ENABLE_SCTP
+				/* This will change the SCTP checksum, which we cannot fix right now.
+				 * This will likely need kernel changes before we can remove this.
+				 */
+				if (nexthdr == IPPROTO_SCTP)
+					return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 				ret = l4_modify_port(ctx, l4_off, TCP_SPORT_OFF,
 						     csum_off, port, old_port);
 				if (IS_ERR(ret))
@@ -647,6 +672,18 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
         return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
+#elif LB_SELECTION == LB_SELECTION_FIRST
+/* Backend selection for tests that always chooses first slot. */
+static __always_inline __u32
+lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
+		      struct lb6_key *key __maybe_unused,
+		      const struct ipv6_ct_tuple *tuple,
+		      const struct lb6_service *svc)
+{
+	struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, 1);
+
+	return be ? be->backend_id : 0;
+}
 #else
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
@@ -673,6 +710,14 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 	}
 
 l4_xlate:
+#ifdef ENABLE_SCTP
+	/* This will change the SCTP checksum, which we cannot fix right now.
+	 * This will likely need kernel changes before we can remove this.
+	 */
+	if (likely(backend->port) && key->dport != backend->port &&
+	    nexthdr == IPPROTO_SCTP)
+		return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
@@ -887,7 +932,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb6_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+		/* Drain existing connections, but redirect new ones to only
+		 * active backends.
+		 */
+		if (backend && !state->syn)
+			goto update_state;
 		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
@@ -899,7 +949,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		ct_update6_backend_id(map, tuple, state);
 	}
-
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -908,7 +957,6 @@ update_state:
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
 	addr = &tuple->daddr;
 	state->rev_nat_index = svc->rev_nat_index;
-
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
@@ -1146,6 +1194,9 @@ static __always_inline int
 lb4_populate_ports(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off)
 {
 	if (tuple->nexthdr == IPPROTO_TCP ||
+#ifdef ENABLE_SCTP
+	    tuple->nexthdr == IPPROTO_SCTP ||
+#endif  /* ENABLE_SCTP */
 	    tuple->nexthdr == IPPROTO_UDP) {
 		struct {
 			__be16 sport;
@@ -1268,6 +1319,18 @@ lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
         return map_array_get_32(backend_ids, index, (LB_MAGLEV_LUT_SIZE - 1) << 2);
 }
+#elif LB_SELECTION == LB_SELECTION_FIRST
+/* Backend selection for tests that always chooses first slot. */
+static __always_inline __u32
+lb4_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct lb4_service *svc)
+{
+	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, 1);
+
+	return be ? be->backend_id : 0;
+}
 #else
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
@@ -1313,12 +1376,20 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 	}
 
 l4_xlate:
+#ifdef ENABLE_SCTP
+	/* This will change the SCTP checksum, which we cannot fix right now.
+	 * This will likely need kernel changes before we can remove this.
+	 */
+	if (likely(backend->port) && key->dport != backend->port &&
+	    nexthdr == IPPROTO_SCTP)
+		return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
 	if (likely(backend->port) && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
 	    has_l4_header) {
 		__be16 tmp = backend->port;
 
-		/* Port offsets for UDP and TCP are the same */
+		/* Port offsets for UDP, TCP, and SCTP are the same */
 		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
 				     tmp, key->dport);
 		if (IS_ERR(ret))
@@ -1543,7 +1614,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	backend = lb4_lookup_backend(ctx, state->backend_id);
-	if (!backend) {
+	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+		/* Drain existing connections, but redirect new ones to only
+		 * active backends.
+		 */
+		if (backend && !state->syn)
+			goto update_state;
 		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
@@ -1555,7 +1631,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		ct_update4_backend_id(map, tuple, state);
 	}
-
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -1563,13 +1638,11 @@ update_state:
 	tuple->flags = flags;
 	state->rev_nat_index = svc->rev_nat_index;
 	state->addr = new_daddr = backend->address;
-
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
 	 * service which is being translated back to the source. This would
@@ -1644,5 +1717,39 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 }
+
 #endif /* ENABLE_IPV4 */
+
+/* sock_local_cookie retrieves the socket cookie for the
+ * passed socket structure.
+ */
+static __always_inline __maybe_unused
+__sock_cookie sock_local_cookie(struct bpf_sock_addr *ctx)
+{
+#ifdef HAVE_SOCKET_COOKIE
+	/* prandom() breaks down on UDP, hence preference is on
+	 * socket cookie as built-in selector. On older kernels,
+	 * get_socket_cookie() provides a unique per netns cookie
+	 * for the life-time of the socket. For newer kernels this
+	 * is fixed to be a unique system _global_ cookie. Older
+	 * kernels could have a cookie collision when two pods with
+	 * different netns talk to same service backend, but that
+	 * is fine since we always reverse translate to the same
+	 * service IP/port pair. The only case that could happen
+	 * for older kernels is that we have a cookie collision
+	 * where one pod talks to the service IP/port and the
+	 * other pod talks to that same specific backend IP/port
+	 * directly _w/o_ going over service IP/port. Then the
+	 * reverse sock addr is translated to the service IP/port.
+	 * With a global socket cookie this collision cannot take
+	 * place. There, only the even more unlikely case could
+	 * happen where the same UDP socket talks first to the
+	 * service and then to the same selected backend IP/port
+	 * directly which can be considered negligible.
+	 */
+       return get_socket_cookie(ctx);
+#else
+       return ctx->protocol == IPPROTO_TCP ? get_prandom_u32() : 0;
+#endif
+}
 #endif /* __LB_H_ */

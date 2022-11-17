@@ -8,13 +8,16 @@ source $DIR/../backporting/common.sh
 
 VERSION_GLOB='v[0-9]*\.[0-9]*\.[0-9]*'
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
+BRANCH_REGEX='s/\(v[0-9]*\.[0-9]*\).*/\1/'
 ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
 usage() {
-    logecho "usage: $0 <VERSION> <GH-PROJECT>"
+    logecho "usage: $0 <VERSION> <GH-PROJECT> [OLD-BRANCH]"
     logecho "VERSION    Target release version (format: X.Y.Z)"
     logecho "GH-PROJECT Project Number for next (X.Y.Z+1) development release"
+    logecho "OLD-BRANCH Branch of the previous release version if VERSION is "
+    logecho "           a new minor version"
     logecho
     logecho "--help     Print this help message"
 }
@@ -32,7 +35,7 @@ version_is_prerelease() {
 }
 
 handle_args() {
-    if ! common::argc_validate 2; then
+    if [ "$#" -gt 3 ]; then
         usage 2>&1
         common::exit 1
     fi
@@ -52,6 +55,11 @@ handle_args() {
         common::exit 1 "Invalid GH-PROJECT ID argument. Expected [0-9]+"
     fi
 
+    if [ "$#" -eq 3 ] && ! echo "$3" | grep -q "[0-9]\+\.[0-9]\+"; then
+        usage 2>&1
+        common::exit 1 "Invalid OLD-BRANCH ARG \"$3\"; Expected X.Y"
+    fi
+
     if [[ ! -e VERSION ]]; then
         common::exit 1 "VERSION file not found. Is this directory a Cilium repository?"
     fi
@@ -69,6 +77,7 @@ main() {
     local version="v$ersion"
     local branch="$(get_branch_from_version $REMOTE $version)"
     local new_proj="$2"
+    local old_branch="$3"
     local old_version=""
 
     git fetch -q $REMOTE
@@ -97,13 +106,19 @@ main() {
         sed -i 's/\(projects\/\)[0-9]\+/\1'$new_proj'/g' $ACTS_YAML
     fi
 
-    $DIR/prep-changelog.sh "$old_version" "$version"
+    target_branch=$(echo "$version" | sed "$BRANCH_REGEX")
+    $DIR/../../Documentation/check-crd-compat-table.sh "$target_branch" --update
+    if [ "${old_branch}" != "" ]; then
+      $DIR/prep-changelog.sh "$old_version" "$version" "$old_branch"
+    else
+      $DIR/prep-changelog.sh "$old_version" "$version"
+    fi
+    git commit -a -s -m "Prepare for release $version"
 
     logecho "Next steps:"
-    logecho "* Check all changes and add to a new commit"
+    logecho "* Check the new release commit with 'git show'"
     logecho "  * If this is a prerelease, create a revert commit"
     logecho "* Push the PR to Github for review ('submit-release.sh')"
-    logecho "* Close https://github.com/cilium/cilium/projects/$old_proj"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"
 
     # Leave $version-changes.txt around for prep-release.sh usage later

@@ -6,7 +6,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -26,7 +25,7 @@ var _ = SkipDescribeIf(
 			// Test requests to the LB are going to be sent from the node which
 			// doesn't run Cilium.
 			helpers.DoesNotExistNodeWithoutCilium()
-	}, "K8sBGPTests", func() {
+	}, "K8sDatapathBGPTests", func() {
 		var (
 			kubectl        *helpers.Kubectl
 			ciliumFilename string
@@ -181,7 +180,7 @@ func applyFRRTemplate(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) string {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, content).ToNot(BeEmpty())
 
-	render, err := ioutil.TempFile(os.TempDir(), "frr-")
+	render, err := os.CreateTemp(os.TempDir(), "frr-")
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	defer render.Close()
 
@@ -206,7 +205,7 @@ func applyBGPCMTemplate(kubectl *helpers.Kubectl, ip string) string {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, content).ToNot(BeEmpty())
 
-	render, err := ioutil.TempFile(os.TempDir(), "bgp-cm-")
+	render, err := os.CreateTemp(os.TempDir(), "bgp-cm-")
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	defer render.Close()
 

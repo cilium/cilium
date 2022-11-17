@@ -19,7 +19,8 @@ import (
 // GetHealthzOKCode is the HTTP code returned for type GetHealthzOK
 const GetHealthzOKCode int = 200
 
-/*GetHealthzOK Success
+/*
+GetHealthzOK Success
 
 swagger:response getHealthzOK
 */
@@ -63,7 +64,8 @@ func (o *GetHealthzOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetHealthzFailedCode is the HTTP code returned for type GetHealthzFailed
 const GetHealthzFailedCode int = 500
 
-/*GetHealthzFailed Failed to contact local Cilium daemon
+/*
+GetHealthzFailed Failed to contact local Cilium daemon
 
 swagger:response getHealthzFailed
 */

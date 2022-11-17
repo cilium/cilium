@@ -56,6 +56,9 @@ const (
 	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
 	CIIntegrationGKE = "gke"
 
+	// CIIntegrationAKS contains the constants to be used when running tests on AKS.
+	CIIntegrationAKS = "aks"
+
 	// CIIntegrationKind contains the constant to be used when running tests on kind.
 	CIIntegrationKind = "kind"
 
@@ -147,10 +150,30 @@ var (
 		"cni.binPath":                 "/home/kubernetes/bin",
 		"gke.enabled":                 "true",
 		"loadBalancer.mode":           "snat",
-		"ipv4NativeRoutingCIDR":       GKENativeRoutingCIDR(),
+		"ipv4NativeRoutingCIDR":       NativeRoutingCIDR(),
 		"hostFirewall.enabled":        "false",
 		"ipam.mode":                   "kubernetes",
 		"devices":                     "", // Override "eth0 eth0\neth0"
+	}
+
+	aksHelmOverrides = map[string]string{
+		"ipam.mode":                           "delegated-plugin",
+		"tunnel":                              "disabled",
+		"endpointRoutes.enabled":              "true",
+		"extraArgs":                           "{--local-router-ipv4=169.254.23.0}",
+		"k8s.requireIPv4PodCIDR":              "false",
+		"ipv6.enabled":                        "false",
+		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
+		"enableIPv4Masquerade":                "false",
+		"install-no-conntrack-iptables-rules": "false",
+		"installIptablesRules":                "true",
+		"l7Proxy":                             "false",
+		"hubble.enabled":                      "false",
+		"kubeProxyReplacement":                "strict",
+		"endpointHealthChecking.enabled":      "false",
+		"cni.install":                         "true",
+		"cni.customConf":                      "true",
+		"cni.configMap":                       "cni-configuration",
 	}
 
 	microk8sHelmOverrides = map[string]string{
@@ -179,6 +202,7 @@ var (
 		CIIntegrationEKSChaining: eksChainingHelmOverrides,
 		CIIntegrationEKS:         eksHelmOverrides,
 		CIIntegrationGKE:         gkeHelmOverrides,
+		CIIntegrationAKS:         aksHelmOverrides,
 		CIIntegrationKind:        kindHelmOverrides,
 		CIIntegrationMicrok8s:    microk8sHelmOverrides,
 		CIIntegrationMinikube:    minikubeHelmOverrides,
@@ -1390,6 +1414,10 @@ func checkReady(pod v1.Pod) bool {
 		return false
 	}
 
+	if len(pod.Status.PodIPs) == 0 {
+		return false
+	}
+
 	for _, container := range pod.Status.ContainerStatuses {
 		if !container.Ready {
 			return false
@@ -1466,6 +1494,7 @@ func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace strin
 		//  - It is not scheduled for deletion when DeletionTimestamp is set
 		//  - All containers in the pod have passed the liveness check via
 		//  containerStatuses.Ready
+		//  - It has a pod IP set
 		currScheduled := 0
 		for _, pod := range podList.Items {
 			if checkStatus(pod) {
@@ -1963,12 +1992,12 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kubernetes DNS deployment has at least one replica
-//  - All replicas are up-to-date and ready
-//  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
-//  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
-//  - The service "default/kubernetes" can be resolved via the KubernetesDNS
-//    and the IP returned matches the ClusterIP in the service
+//   - The Kubernetes DNS deployment has at least one replica
+//   - All replicas are up-to-date and ready
+//   - All pods matching the deployment are represented by a CiliumEndpoint with an identity
+//   - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
+//   - The service "default/kubernetes" can be resolved via the KubernetesDNS
+//     and the IP returned matches the ClusterIP in the service
 func (kub *Kubectl) ValidateKubernetesDNS() error {
 	// The deployment is always validated first and not in parallel. There
 	// is no point in validating correct plumbing if the DNS is not even up
@@ -2455,6 +2484,11 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	if RunsOn419OrLaterKernel() {
+		// To enable SA for both cases when KPR is enabled and disabled
+		addIfNotOverwritten(options, "sessionAffinity", "true")
+	}
+
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
 	if DoesNotRunOn419OrLaterKernel() {
@@ -2856,7 +2890,7 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 	gomega.Expect(err).Should(gomega.BeNil(), "failed to retrieve Cilium pods")
 
 	for _, pod := range pods {
-		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription).
+		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
 	}
 }
@@ -3198,6 +3232,35 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 	}
 
 	return "", kub.waitNextPolicyRevisions(podRevisions, timeout)
+}
+
+// OutsideNodeReport collects command output on the outside node.
+func (kub *Kubectl) OutsideNodeReport(outsideNode string, commands ...string) {
+	if config.CiliumTestConfig.SkipLogGathering {
+		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
+		return
+	}
+
+	if kub == nil {
+		ginkgoext.GinkgoPrint("Skipped gathering logs due to kubectl not being initialized")
+		return
+	}
+
+	// Log gathering should take at most 10 minutes.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	results := make([]*CmdRes, 0, len(commands))
+	ginkgoext.GinkgoPrint("Fetching command output on outside node %s", outsideNode)
+	for _, cmd := range commands {
+		res := kub.ExecInHostNetNS(ctx, outsideNode, cmd)
+		results = append(results, res)
+	}
+
+	for _, res := range results {
+		res.WaitUntilFinish()
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+	}
 }
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
@@ -3603,6 +3666,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get pods --all-namespaces -o json":                          "pods.json",
 		"kubectl get services --all-namespaces -o json":                      "svc.json",
 		"kubectl get nodes -o json":                                          "nodes.json",
+		"kubectl get cn -o json":                                             "ciliumnodes.json",
 		"kubectl get ds --all-namespaces -o json":                            "ds.json",
 		"kubectl get cnp --all-namespaces -o json":                           "cnp.json",
 		"kubectl get cep --all-namespaces -o json":                           "cep.json",
@@ -3682,7 +3746,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 }
 
 // getCiliumPodOnNodeByName returns the name of the Cilium pod that is running on / in
-//the specified node / namespace.
+// the specified node / namespace.
 func (kub *Kubectl) getCiliumPodOnNodeByName(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
@@ -4680,8 +4744,28 @@ func (kub *Kubectl) CiliumOptions() map[string]string {
 	return kub.ciliumOptions
 }
 
+// WaitForServiceFrontend waits until the service frontend with the given ipAddr
+// appears in "cilium bpf lb list --frontends" on the given node.
+func (kub *Kubectl) WaitForServiceFrontend(node, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf lb list --frontends | grep -q %s`, ipAddr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("frontend entry for %s was not found in time", ipAddr),
+		&TimeoutConfig{Timeout: HelperTimeout})
+}
+
 // WaitForServiceBackend waits until the service backend with the given ipAddr
-// appears in "cilium bpf lb list" on the given node.
+// appears in "cilium bpf lb list --backends" on the given node.
 func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	ciliumPod, err := kub.GetCiliumPodOnNode(node)
 	if err != nil {
@@ -4691,7 +4775,7 @@ func (kub *Kubectl) WaitForServiceBackend(node, ipAddr string) error {
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf lb list | grep -q %s`, ipAddr)
+		cmd := fmt.Sprintf(`cilium bpf lb list --backends | grep -q %s`, ipAddr)
 		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
 	}
 

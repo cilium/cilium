@@ -6,6 +6,7 @@ package k8s
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,12 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/ip"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
@@ -35,7 +37,8 @@ type Endpoints struct {
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
 	// of ports for that backend IP, plus an additional optional node name.
-	Backends map[string]*Backend
+	// Backends map[cmtypes.AddrCluster]*Backend
+	Backends map[cmtypes.AddrCluster]*Backend
 }
 
 // DeepEqual returns true if both endpoints are deep equal.
@@ -47,6 +50,35 @@ func (e *Endpoints) DeepEqual(o *Endpoints) bool {
 		return true
 	}
 	return e.deepEqual(o)
+}
+
+func (in *Endpoints) DeepCopyInto(out *Endpoints) {
+	*out = *in
+	if in.Backends != nil {
+		in, out := &in.Backends, &out.Backends
+		*out = make(map[cmtypes.AddrCluster]*Backend, len(*in))
+		for key, val := range *in {
+			var outVal *Backend
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(Backend)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
+		}
+	}
+	return
+}
+
+func (in *Endpoints) DeepCopy() *Endpoints {
+	if in == nil {
+		return nil
+	}
+	out := new(Endpoints)
+	in.DeepCopyInto(out)
+	return out
 }
 
 // Backend contains all ports, terminating state, and the node name of a given backend
@@ -69,9 +101,9 @@ func (e *Endpoints) String() string {
 	}
 
 	backends := []string{}
-	for ip, be := range e.Backends {
+	for addrCluster, be := range e.Backends {
 		for _, port := range be.Ports {
-			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(ip, strconv.Itoa(int(port.Port))), port.Protocol))
+			backends = append(backends, fmt.Sprintf("%s/%s", net.JoinHostPort(addrCluster.Addr().String(), strconv.Itoa(int(port.Port))), port.Protocol))
 		}
 	}
 
@@ -83,25 +115,18 @@ func (e *Endpoints) String() string {
 // newEndpoints returns a new Endpoints
 func newEndpoints() *Endpoints {
 	return &Endpoints{
-		Backends: map[string]*Backend{},
+		Backends: map[cmtypes.AddrCluster]*Backend{},
 	}
 }
 
-// CIDRPrefixes returns the endpoint's backends as a slice of IPNets.
-func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
-	prefixes := make([]string, len(e.Backends))
-	index := 0
-	for ip := range e.Backends {
-		prefixes[index] = ip
-		index++
+// Prefixes returns the endpoint's backends as a slice of netip.Prefix.
+func (e *Endpoints) Prefixes() []netip.Prefix {
+	prefixes := make([]netip.Prefix, 0, len(e.Backends))
+	for addrCluster := range e.Backends {
+		addr := addrCluster.Addr()
+		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
-
-	valid, invalid := ip.ParseCIDRs(prefixes)
-	if len(invalid) > 0 {
-		return nil, fmt.Errorf("invalid IPs specified as backends: %+v", invalid)
-	}
-
-	return valid, nil
+	return prefixes
 }
 
 // ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
@@ -118,10 +143,10 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr.IP]
+			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr.IP)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr.IP] = backend
+				endpoints.Backends[cmtypes.MustParseAddrCluster(addr.IP)] = backend
 			}
 
 			if addr.NodeName != nil {
@@ -186,16 +211,17 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr]
+			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr] = backend
+				endpoints.Backends[cmtypes.MustParseAddrCluster(addr)] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
 				}
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
+						metrics.TerminatingEndpointsEvents.Inc()
 					}
 				}
 			}
@@ -222,6 +248,8 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 			proto = loadbalancer.TCP
 		case slim_corev1.ProtocolUDP:
 			proto = loadbalancer.UDP
+		case slim_corev1.ProtocolSCTP:
+			proto = loadbalancer.SCTP
 		default:
 			return "", nil
 		}
@@ -267,10 +295,10 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[addr]
+			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr)]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[addr] = backend
+				endpoints.Backends[cmtypes.MustParseAddrCluster(addr)] = backend
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
 				} else {
@@ -281,6 +309,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 				if option.Config.EnableK8sTerminatingEndpoint {
 					if sub.Conditions.Terminating != nil && *sub.Conditions.Terminating {
 						backend.Terminating = true
+						metrics.TerminatingEndpointsEvents.Inc()
 					}
 				}
 			}
@@ -314,6 +343,8 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 			proto = loadbalancer.TCP
 		case slim_corev1.ProtocolUDP:
 			proto = loadbalancer.UDP
+		case slim_corev1.ProtocolSCTP:
+			proto = loadbalancer.SCTP
 		default:
 			return "", nil
 		}

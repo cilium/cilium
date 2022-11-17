@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2017 The Kubernetes Authors.
 // Copyright Authors of Cilium
+
+// Copyright 2017 The Kubernetes Authors.
 
 // package v1beta1 is alpha objects from meta that will be introduced.
 package v1beta1

@@ -70,7 +70,7 @@ test -d kubernetes && rm -rfv kubernetes
 git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} --depth 1
 cd kubernetes
 
-GO_VERSION="1.18.3"
+GO_VERSION="1.19.3"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -83,8 +83,11 @@ export KUBE_MASTER_IP=192.168.56.11
 export KUBE_MASTER_URL="https://192.168.56.11:6443"
 
 echo "Running upstream services conformance tests"
+# We currently skip the following tests:
+# - HostPort validates that there is no conflict between pods with same hostPort but different hostIP and protocol
+#   - https://github.com/cilium/cilium/issues/21060
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
+  --test_args="--ginkgo.focus=HostPort.*\[Conformance\].* --ginkgo.skip=(HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol) --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 ${HOME}/go/bin/kubetest --provider=local --test \
   --test_args="--ginkgo.focus=Services.*\[Conformance\].* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL}"
 
@@ -100,12 +103,9 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 #   - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #     because it conflicts with the pod's security identity.
 #   - More info at https://github.com/cilium/cilium/issues/9209
-#   - Cilium does not distinguish between UDP and TCP
-#   - More info at https://github.com/cilium/cilium/issues/9207
-# - should enforce ingress policy allowing any port traffic to a server on a specific protocol
 # - should respect internalTrafficPolicy=Local Pod to Pod [Feature:ServiceInternalTrafficPolicy]
 #   - Cilium does not support internalTrafficPolicy as Local Redirect Policy allows user to enable node-local redirection.
 #   - More info at https://github.com/cilium/cilium/issues/17796
 echo "Running upstream NetworkPolicy tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.enforce.ingress.policy.allowing.any.port.traffic.to.a.server.on.a.specific.protocol)|(should.respect.internalTrafficPolicy.Local.Pod.*to.Pod.*.Feature.ServiceInternalTrafficPolicy.)|(should.properly.isolate.pods.that.are.selected.by.a.policy.allowing.SCTP..even.if.the.plugin.doesn.t.support.SCTP..Feature.NetworkPolicy.)"
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.respect.internalTrafficPolicy.Local.Pod.*to.Pod.*.Feature.ServiceInternalTrafficPolicy.)|(should.properly.isolate.pods.that.are.selected.by.a.policy.allowing.SCTP..even.if.the.plugin.doesn.t.support.SCTP..Feature.NetworkPolicy.)"

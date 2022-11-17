@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-dst_file="${dir}/concepts/kubernetes/compatibility-table.rst"
+dst_file="${PWD}/$(basename ${dir})/network/kubernetes/compatibility-table.rst"
 
 . "${dir}/../contrib/backporting/common.sh"
 remote="$(get_remote)"
 
+set -e
 set -o nounset
 set -o pipefail
 
@@ -15,17 +16,21 @@ export LC_ALL=C
 
 get_schema_of_tag(){
    tag="${1}"
+   set +o pipefail
    git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${tag} -- pkg/k8s | head -n1 | sed 's/.*=\ "//;s/"//'
+   set -o pipefail
 }
 
 get_line_of_schema_version(){
    tag="${1}"
-   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+"
+   git grep -H 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${tag} -- pkg/k8s | sed "s+${remote}/${tag}:++;s+.go:.*+.go+;s+^+${PWD}/+"
 }
 
 get_schema_of_branch(){
    stable_branch="${1}"
-   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq
+   set +o pipefail
+   git grep -o 'CustomResourceDefinitionSchemaVersion =.*' ${remote}/${stable_branch} -- pkg/k8s | sed 's/.*=\ "//;s/"//' | uniq  | head -n1
+   set -o pipefail
 }
 
 get_stable_branches(){
@@ -52,8 +57,29 @@ get_rc_tags_for_minor(){
        | sort -V
 }
 
+upstream_branches() {
+   git ls-remote --refs ${remote} ${@} \
+       | awk '{ print $2 }' \
+       | sed 's+refs/heads/++'
+}
+
+branch_or_master() {
+   echo "$(upstream_branches ${1}) master" \
+       | awk '{ print $1 }'
+}
+
 filter_out_oldest() {
     echo "${@}" | cut -d' ' -f2- -
+}
+
+target_version() {
+    stable_branch="${1}"
+    target_branch="${2}"
+    if [[ "$stable_branch" == "${target_branch}" ]]; then
+        echo $stable_branch
+    else
+        echo "v$(cat VERSION)"
+    fi
 }
 
 create_file(){
@@ -77,9 +103,11 @@ create_file(){
           printf "| %-15s | %-14s |\n" ${tag} ${schema_version} >> "${dst_file}"
           echo   "+-----------------+----------------+" >> "${dst_file}"
       done
-      schema_version=$(get_schema_of_branch "${stable_branch}")
+      branch=$(branch_or_master "${stable_branch}")
+      branch_version=$(target_version "${stable_branch}" "${branch}")
+      schema_version=$(get_schema_of_branch "${branch}")
       >&2 echo "${schema_version}"
-      printf "| %-15s | %-14s |\n" ${stable_branch} ${schema_version} >> "${dst_file}"
+      printf "| %-15s | %-14s |\n" ${branch_version} ${schema_version} >> "${dst_file}"
       echo   "+-----------------+----------------+" >> "${dst_file}"
   done
 
@@ -137,32 +165,47 @@ semverEQ() {
     return 0
 }
 
-if [[ "$#" -ne 1 ]]; then
-  echo "Usage: $0 <v1.X>"
+if [[ "$#" -lt 1 ]] || [[ "$#" -gt 2 ]]; then
+  echo "Usage: $0 <v1.X> [--update]"
   exit 1
 fi
 
 release_ersion="$(echo $1 | sed 's/^v//')"
 release_version="v$release_ersion"
+release_branch="$(branch_or_master $release_version)"
 
-create_file ${release_version} "${dst_file}"
+create_file ${release_version} "${dst_file}" "${release_branch}"
 
-last_cilium_release=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $2 }')
-last_release_version=$(egrep "[ ]${release_version}[ ]" -B2 "${dst_file}" | awk 'NR == 1 { print $4 }')
-current_release_version=$(egrep "[ ]${release_version}[ ]" "${dst_file}" | awk 'NR == 1 { print $4 }')
+# Offset of 2 lines above the release version will point to the previous schema
+# version, for example:
+# | v1.12.2         | 1.25.6         |
+# +-----------------+----------------+
+# | v1.12           | 1.25.6         |
+row_offset=2 # Gather 2 lines prior to the release branch
+if ! egrep "[ ]${release_version}[ ]" "${dst_file}"; then
+  # Unreleased RC with no upstream branch needs to go back 4 lines from 'master'
+  row_offset=4
+fi
+last_cilium_release=$(egrep "[ ]${release_branch}[ ]" -B${row_offset} "${dst_file}" | awk 'NR == 1 { print $2 }')
+last_release_version=$(egrep "[ ]${release_branch}[ ]" -B${row_offset} "${dst_file}" | awk 'NR == 1 { print $4 }')
+current_release_version=$(egrep "[ ]${release_branch}[ ]" -B$(( ${row_offset} - 2)) "${dst_file}" | awk 'NR == 1 { print $4 }')
 >&2 echo "Cilium ${last_cilium_release} schema: ${last_release_version}; Current: ${current_release_version}"
 
 # Cilium v1.9 or earlier used examples/crds, this dir was moved in v1.10.
 crd_path="$(realpath --relative-to . "examples/crds")"
 
-if ! git diff --quiet ${last_cilium_release}..${remote}/${release_version} $crd_path \
+if ! git diff --quiet ${last_cilium_release}..${remote}/${release_branch} $crd_path \
     && semverEQ "${current_release_version}" "${last_release_version}"; then
   semverParseInto ${last_release_version} last_major last_minor last_patch ignore
   expected_version="${last_major}.${last_minor}.$(( ${last_patch} + 1 ))"
-  if [[ "${current_release_version}" != "${expected_version}" ]]; then
-    >&2 echo "Current version for branch ${release_version} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
-    >&2 echo "git checkout ${remote}/${release_version} && \\"
-    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_version})"
+  if [[ "$#" -gt 1 ]] && [[ "$2" == "--update" ]]; then
+    >&2 echo "Current version for branch ${release_branch} should be ${expected_version}, not ${current_release_version}, updating in-place."
+    sed -i "s+${current_release_version}+${expected_version}+" $(get_line_of_schema_version ${release_branch} | tr '\n' ' ')
+    create_file ${release_version} "${dst_file}" "${release_branch}"
+  elif [[ "${current_release_version}" != "${expected_version}" ]]; then
+    >&2 echo "Current version for branch ${release_branch} should be ${expected_version}, not ${current_release_version}, please run the following command to fix it:"
+    >&2 echo "git checkout ${remote}/${release_branch} && \\"
+    >&2 echo "sed -i 's+${current_release_version}+${expected_version}+' $(get_line_of_schema_version ${release_branch} | tr '\n' ' ')"
     exit 1
   fi
 fi

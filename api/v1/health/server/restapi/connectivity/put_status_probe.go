@@ -32,14 +32,13 @@ func NewPutStatusProbe(ctx *middleware.Context, handler PutStatusProbeHandler) *
 	return &PutStatusProbe{Context: ctx, Handler: handler}
 }
 
-/*PutStatusProbe swagger:route PUT /status/probe connectivity putStatusProbe
+/*
+PutStatusProbe swagger:route PUT /status/probe connectivity putStatusProbe
 
-Run synchronous connectivity probe to determine status of the Cilium cluster
+# Run synchronous connectivity probe to determine status of the Cilium cluster
 
 Runs a synchronous probe to all other cilium-health instances and
 returns the connectivity status.
-
-
 */
 type PutStatusProbe struct {
 	Context *middleware.Context

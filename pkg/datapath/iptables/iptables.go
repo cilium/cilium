@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -80,7 +81,7 @@ type iptablesInterface interface {
 	getProg() string
 	getIpset() string
 	getVersion() (semver.Version, error)
-	runProgCombinedOutput(args []string) (string, error)
+	runProgOutput(args []string) (string, error)
 	runProg(args []string) error
 }
 
@@ -130,7 +131,7 @@ func (ipt *ipt) getVersion() (semver.Version, error) {
 	return versioncheck.Version(vString[1])
 }
 
-func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
+func (ipt *ipt) runProgOutput(args []string) (string, error) {
 	fullCommand := fmt.Sprintf("%s %s", ipt.getProg(), strings.Join(args, " "))
 
 	log.Debugf("Running '%s' command", fullCommand)
@@ -139,19 +140,16 @@ func (ipt *ipt) runProgCombinedOutput(args []string) (string, error) {
 	iptArgs := make([]string, 0, len(ipt.waitArgs)+len(args))
 	iptArgs = append(iptArgs, ipt.waitArgs...)
 	iptArgs = append(iptArgs, args...)
-	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).CombinedOutput(log, false)
-
-	outStr := string(out)
+	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).Output(log, false)
 
 	if err != nil {
-		return outStr, fmt.Errorf("unable to run '%s' iptables command: %s (%w)", fullCommand, outStr, err)
+		return "", fmt.Errorf("unable to run '%s' iptables command: %w", fullCommand, err)
 	}
-
-	return outStr, nil
+	return string(out), nil
 }
 
 func (ipt *ipt) runProg(args []string) error {
-	_, err := ipt.runProgCombinedOutput(args)
+	_, err := ipt.runProgOutput(args)
 	return err
 }
 
@@ -216,7 +214,7 @@ func isDisabledChain(chain string) bool {
 }
 
 func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface, match string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", table, "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
 	}
@@ -230,6 +228,17 @@ func (m *IptablesManager) removeCiliumRules(table string, prog iptablesInterface
 		// -A CILIUM_FORWARD -o cilium_host -m comment --comment "cilium: any->cluster on cilium_host forward accept" -j ACCEPT
 		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
 		if !strings.Contains(rule, match) {
+			continue
+		}
+
+		// Temporary fix while Iptables is upgraded to >= 1.8.5
+		// (See GH-20884).
+		//
+		// The version currently shipped with Cilium (1.8.4) does not
+		// support the deletion of NOTRACK rules, so we will just ignore
+		// them here and let the agent remove them when it deletes the
+		// entire chain.
+		if strings.Contains(rule, "-j NOTRACK") {
 			continue
 		}
 
@@ -297,6 +306,22 @@ func (m *IptablesManager) Init() {
 			"ip6tables kernel modules could not be loaded, so IPv6 cannot be used")
 		haveIp6tables = false
 	}
+
+	ipv6Disabled, err := os.ReadFile("/sys/module/ipv6/parameters/disable")
+	if err != nil {
+		if option.Config.EnableIPv6 {
+			log.WithError(err).Fatal(
+				"IPv6 is enabled but IPv6 kernel support could not be probed")
+		}
+		log.WithError(err).Warning(
+			"Unable to read /sys/module/ipv6/parameters/disable, disabling IPv6 iptables support")
+		haveIp6tables = false
+	} else if strings.TrimSuffix(string(ipv6Disabled), "\n") == "1" {
+		log.Debug(
+			"Kernel does not support IPv6, disabling IPv6 iptables support")
+		haveIp6tables = false
+	}
+
 	m.haveIp6tables = haveIp6tables
 
 	if err := modulesManager.FindOrLoadModules("xt_socket"); err != nil {
@@ -626,7 +651,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 }
 
 func (m *IptablesManager) doCopyProxyRules(prog iptablesInterface, table string, re *regexp.Regexp, match, oldChain, newChain string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", table, "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", table, "-S"})
 	if err != nil {
 		return err
 	}
@@ -679,7 +704,7 @@ func (m *IptablesManager) copyProxyRules(oldChain string, match string) error {
 // Redirect packets to the host proxy via TPROXY, as directed by the Cilium
 // datapath bpf programs via skb marks (egress) or DSCP (ingress).
 func (m *IptablesManager) addProxyRules(prog iptablesInterface, proxyPort uint16, ingress bool, name string) error {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-S"})
+	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-S"})
 	if err != nil {
 		return err
 	}
@@ -909,7 +934,7 @@ func (m *IptablesManager) GetProxyPort(name string) uint16 {
 }
 
 func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) uint16 {
-	rules, err := prog.runProgCombinedOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
+	rules, err := prog.runProgOutput([]string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain})
 	if err != nil {
 		return 0
 	}
@@ -931,11 +956,21 @@ func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) ui
 }
 
 func getDeliveryInterface(ifName string) string {
-	deliveryInterface := ifName
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud || option.Config.EnableEndpointRoutes {
-		deliveryInterface = "lxc+"
+	switch {
+	case option.Config.EnableEndpointRoutes:
+		// aws-cni creates container interfaces with names like eni621c0fc8425.
+		if option.Config.CNIChainingMode == "aws-cni" {
+			return "eni+"
+		}
+		return "lxc+"
+
+	case option.Config.IPAM == ipamOption.IPAMENI ||
+		option.Config.IPAM == ipamOption.IPAMAlibabaCloud:
+		return "lxc+"
+
+	default:
+		return ifName
 	}
-	return deliveryInterface
 }
 
 func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
@@ -1253,6 +1288,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 	matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchFromProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxy, linux_defaults.MagicMarkProxyMask)
 	matchFromProxyEPID := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsProxyEPID, linux_defaults.MagicMarkProxyMask)
+	matchFromDNSProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
 	markAsFromHost := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkHost, linux_defaults.MagicMarkHostMask)
 
 	return prog.runProg([]string{
@@ -1262,6 +1298,7 @@ func (m *IptablesManager) installHostTrafficMarkRule(prog iptablesInterface) err
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt, // Don't match ipsec traffic
 		"-m", "mark", "!", "--mark", matchFromProxy, // Don't match proxy traffic
 		"-m", "mark", "!", "--mark", matchFromProxyEPID, // Don't match proxy traffic
+		"-m", "mark", "!", "--mark", matchFromDNSProxy, // Don't match DNS proxy egress traffic
 		"-m", "comment", "--comment", "cilium: host->any mark as from host",
 		"-j", "MARK", "--set-xmark", markAsFromHost})
 }

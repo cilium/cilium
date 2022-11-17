@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.2
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: ciliumendpointslices.cilium.io
 spec:
@@ -66,7 +66,7 @@ spec:
                         description: Layer 4 port number
                         type: integer
                       protocol:
-                        description: 'Layer 4 protocol Enum: [TCP UDP ICMP ICMPV6
+                        description: 'Layer 4 protocol Enum: [TCP UDP SCTP ICMP ICMPV6
                           ANY]'
                         type: string
                     type: object

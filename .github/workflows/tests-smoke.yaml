@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.11.9
+  cilium_cli_version: v0.12.7
   KIND_VERSION: v0.11.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -26,19 +26,22 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
       - name: Check code changes
-        uses: dorny/paths-filter@b2feaf19c27470162a626bd6fa8438ae5b263721
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         id: tested-tree
         with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
           filters: |
             src:
               - '!(test|Documentation)/**'
@@ -46,26 +49,18 @@ jobs:
   preflight-clusterrole:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
 
       - name: Check pre-flight clusterrole
-        run: |
-          cd install/kubernetes/cilium/templates
-          echo "Checking for differences between preflight and agent clusterrole"
-          diff \
-             -I '^[ ]\{2\}name: cilium.*' \
-             -I '^Keep file in sync with.*' \
-             -I '{{- if.*' \
-             cilium-agent/clusterrole.yaml \
-             cilium-preflight/clusterrole.yaml
+        run: make check-k8s-clusterrole
 
   helm-charts:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
 
@@ -79,8 +74,16 @@ jobs:
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           persist-credentials: false
 
@@ -100,7 +103,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
 
       - name: Create kind cluster
-        uses: helm/kind-action@d08cf6ff1575077dee99962540d77ce91c62387d
+        uses: helm/kind-action@9e8295d178de23cbfbd8fa16cf844eec1d773a07
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -110,32 +113,31 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install cilium chart
         run: |
           helm install cilium ./install/kubernetes/cilium \
-             --wait \
              --namespace kube-system \
              --set nodeinit.enabled=true \
              --set kubeProxyReplacement=partial \
-             --set hostServices.enabled=false \
+             --set socketLB.enabled=false \
              --set externalIPs.enabled=true \
              --set nodePort.enabled=true \
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
              --set image.tag=${{ steps.vars.outputs.tag }} \
              --set image.pullPolicy=IfNotPresent \
              --set image.useDigest=false \
              --set hubble.relay.enabled=true \
-             --set hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+             --set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
              --set hubble.relay.image.tag=${{ steps.vars.outputs.tag }} \
              --set hubble.relay.image.pullPolicy=IfNotPresent \
              --set hubble.relay.image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
              --set operator.image.suffix=-ci \
              --set operator.image.tag=${{ steps.vars.outputs.tag }} \
              --set operator.image.pullPolicy=IfNotPresent \
@@ -198,12 +200,3 @@ jobs:
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
-
-      - name: Send slack notification
-        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
-        with:
-          status: ${{ job.status }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

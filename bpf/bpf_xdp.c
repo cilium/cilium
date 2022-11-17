@@ -26,6 +26,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 /* The XDP datapath does not take care of health probes from the local node,
  * thus do not compile it in.
  */
@@ -92,22 +96,8 @@ struct {
 static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 {
-	if (verdict == CTX_ACT_OK) {
-		__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
-
-		/* We transfer data from XFER_MARKER. This specifically
-		 * does not break packet trains in GRO.
-		 */
-		if (meta_xfer) {
-			if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
-				__u32 *data_meta = ctx_data_meta(ctx);
-				__u32 *data = ctx_data(ctx);
-
-				if (!ctx_no_room(data_meta + 1, data))
-					data_meta[0] = meta_xfer;
-			}
-		}
-	}
+	if (verdict == CTX_ACT_OK)
+		ctx_move_xfer(ctx);
 
 	return verdict;
 }
@@ -119,7 +109,7 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb4(ctx, 0);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
@@ -188,7 +178,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb6(ctx, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
@@ -253,7 +243,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 		return CTX_ACT_OK;
 
 	ctx_store_meta(ctx, XFER_MARKER, 0);
-	bpf_skip_nodeport_clear(ctx);
+	ctx_skip_nodeport_clear(ctx);
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
@@ -274,7 +264,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 }
 
 __section("from-netdev")
-int bpf_xdp_entry(struct __ctx_buff *ctx)
+int cil_xdp_entry(struct __ctx_buff *ctx)
 {
 	return check_filters(ctx);
 }

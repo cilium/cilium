@@ -32,10 +32,10 @@ func NewGetMap(ctx *middleware.Context, handler GetMapHandler) *GetMap {
 	return &GetMap{Context: ctx, Handler: handler}
 }
 
-/*GetMap swagger:route GET /map daemon getMap
+/*
+GetMap swagger:route GET /map daemon getMap
 
 List all open maps
-
 */
 type GetMap struct {
 	Context *middleware.Context

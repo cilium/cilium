@@ -32,10 +32,10 @@ func NewGetRecorder(ctx *middleware.Context, handler GetRecorderHandler) *GetRec
 	return &GetRecorder{Context: ctx, Handler: handler}
 }
 
-/*GetRecorder swagger:route GET /recorder recorder getRecorder
+/*
+GetRecorder swagger:route GET /recorder recorder getRecorder
 
 Retrieve list of all recorders
-
 */
 type GetRecorder struct {
 	Context *middleware.Context

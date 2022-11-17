@@ -48,7 +48,7 @@ func newMapInfoFromFd(fd *sys.FD) (*MapInfo, error) {
 		info.KeySize,
 		info.ValueSize,
 		info.MaxEntries,
-		info.MapFlags,
+		uint32(info.MapFlags),
 		unix.ByteSliceToString(info.Name[:]),
 	}, nil
 }
@@ -177,6 +177,7 @@ func (pi *ProgramInfo) ID() (ProgramID, bool) {
 
 // BTFID returns the BTF ID associated with the program.
 //
+// The ID is only valid as long as the associated program is kept alive.
 // Available from 5.0.
 //
 // The bool return value indicates whether this optional field is available and

@@ -6,21 +6,19 @@ package seven
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"sort"
-	"strings"
 	"time"
 
-	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -28,15 +26,24 @@ import (
 
 // Parser is a parser for L7 payloads
 type Parser struct {
-	log           logrus.FieldLogger
-	cache         *lru.Cache
-	dnsGetter     getters.DNSGetter
-	ipGetter      getters.IPGetter
-	serviceGetter getters.ServiceGetter
+	log               logrus.FieldLogger
+	timestampCache    *lru.Cache
+	traceContextCache *lru.Cache
+	dnsGetter         getters.DNSGetter
+	ipGetter          getters.IPGetter
+	serviceGetter     getters.ServiceGetter
+	endpointGetter    getters.EndpointGetter
 }
 
 // New returns a new L7 parser
-func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.IPGetter, serviceGetter getters.ServiceGetter, opts ...options.Option) (*Parser, error) {
+func New(
+	log logrus.FieldLogger,
+	dnsGetter getters.DNSGetter,
+	ipGetter getters.IPGetter,
+	serviceGetter getters.ServiceGetter,
+	endpointGetter getters.EndpointGetter,
+	opts ...options.Option,
+) (*Parser, error) {
 	args := &options.Options{
 		CacheSize: 10000,
 	}
@@ -45,22 +52,29 @@ func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.I
 		opt(args)
 	}
 
-	cache, err := lru.New(args.CacheSize)
+	timestampCache, err := lru.New(args.CacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize cache: %v", err)
+	}
+
+	traceIDCache, err := lru.New(args.CacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %v", err)
 	}
 
 	return &Parser{
-		log:           log,
-		cache:         cache,
-		dnsGetter:     dnsGetter,
-		ipGetter:      ipGetter,
-		serviceGetter: serviceGetter,
+		log:               log,
+		timestampCache:    timestampCache,
+		traceContextCache: traceIDCache,
+		dnsGetter:         dnsGetter,
+		ipGetter:          ipGetter,
+		serviceGetter:     serviceGetter,
+		endpointGetter:    endpointGetter,
 	}, nil
 }
 
 // Decode decodes the data from 'payload' into 'decoded'
-func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
+func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	// Safety: This function and all the helpers it invokes are not allowed to
 	// mutate r in any way. We only have read access to the LogRecord, as it
 	// may be shared with other consumers
@@ -91,9 +105,16 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 			destinationNamespace, destinationPod = meta.Namespace, meta.PodName
 		}
 	}
+	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
+	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
+
+	if p.endpointGetter != nil {
+		p.updateEndpointWorkloads(sourceIP, srcEndpoint)
+		p.updateEndpointWorkloads(destinationIP, dstEndpoint)
+	}
 
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
-	var sourceService, destinationService *pb.Service
+	var sourceService, destinationService *flowpb.Service
 	if p.serviceGetter != nil {
 		sourceService = p.serviceGetter.GetServiceByAddr(sourceIP, sourcePort)
 		destinationService = p.serviceGetter.GetServiceByAddr(destinationIP, destinationPort)
@@ -102,12 +123,12 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.Time = pbTimestamp
 	decoded.Verdict = decodeVerdict(r.Verdict)
 	decoded.DropReason = 0
-	decoded.DropReasonDesc = pb.DropReason_DROP_REASON_UNKNOWN
+	decoded.DropReasonDesc = flowpb.DropReason_DROP_REASON_UNKNOWN
 	decoded.IP = ip
 	decoded.L4 = l4
-	decoded.Source = decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod)
-	decoded.Destination = decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod)
-	decoded.Type = pb.FlowType_L7
+	decoded.Source = srcEndpoint
+	decoded.Destination = dstEndpoint
+	decoded.Type = flowpb.FlowType_L7
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames
 	decoded.L7 = decodeLayer7(r)
@@ -119,30 +140,66 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.DestinationService = destinationService
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
 	decoded.PolicyMatchType = 0
+	decoded.TraceContext = p.getTraceContext(r)
 	decoded.Summary = p.getSummary(r, decoded)
 
 	return nil
 }
 
-func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time) uint64 {
+func extractRequestID(r *accesslog.LogRecord) string {
 	var requestID string
 	if r.HTTP != nil {
 		requestID = r.HTTP.Headers.Get("X-Request-Id")
 	}
+	return requestID
+}
 
+func (p *Parser) getTraceContext(r *accesslog.LogRecord) *flowpb.TraceContext {
+	requestID := extractRequestID(r)
+	switch r.Type {
+	case accesslog.TypeRequest:
+		traceContext := extractTraceContext(r)
+		if traceContext == nil {
+			break
+		}
+		// Envoy should add a requestID to all requests it's managing, but  if it's
+		// missing for some reason, don't add to the cache without a requestID.
+		if requestID != "" {
+			p.traceContextCache.Add(requestID, traceContext)
+		}
+		return traceContext
+	case accesslog.TypeResponse:
+		if requestID == "" {
+			return nil
+		}
+		value, ok := p.traceContextCache.Get(requestID)
+		if !ok {
+			break
+		}
+		p.traceContextCache.Remove(requestID)
+		traceContext, ok := value.(*flowpb.TraceContext)
+		if !ok {
+			break
+		}
+		return traceContext
+	}
+	return nil
+}
+
+func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time) uint64 {
+	requestID := extractRequestID(r)
 	if requestID == "" {
 		return 0
 	}
-
 	switch r.Type {
 	case accesslog.TypeRequest:
-		p.cache.Add(requestID, timestamp)
+		p.timestampCache.Add(requestID, timestamp)
 	case accesslog.TypeResponse:
-		value, ok := p.cache.Get(requestID)
+		value, ok := p.timestampCache.Get(requestID)
 		if !ok {
 			return 0
 		}
-		p.cache.Remove(requestID)
+		p.timestampCache.Remove(requestID)
 		requestTimestamp, ok := value.(time.Time)
 		if !ok {
 			return 0
@@ -157,6 +214,17 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
+func (p *Parser) updateEndpointWorkloads(ip net.IP, endpoint *flowpb.Endpoint) {
+	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
+		if pod := ep.GetPod(); pod != nil {
+			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
+			if ok {
+				endpoint.Workloads = []*flowpb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+			}
+		}
+	}
+}
+
 func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timestamp, err error) {
 	goTime, err = time.Parse(time.RFC3339Nano, timestamp)
 	if err != nil {
@@ -168,66 +236,75 @@ func decodeTime(timestamp string) (goTime time.Time, pbTime *timestamppb.Timesta
 	return
 }
 
-func decodeVerdict(verdict accesslog.FlowVerdict) pb.Verdict {
+func decodeVerdict(verdict accesslog.FlowVerdict) flowpb.Verdict {
 	switch verdict {
 	case accesslog.VerdictDenied:
-		return pb.Verdict_DROPPED
+		return flowpb.Verdict_DROPPED
 	case accesslog.VerdictForwarded:
-		return pb.Verdict_FORWARDED
+		return flowpb.Verdict_FORWARDED
 	case accesslog.VerdictRedirected:
-		return pb.Verdict_REDIRECTED
+		return flowpb.Verdict_REDIRECTED
 	case accesslog.VerdictError:
-		return pb.Verdict_ERROR
+		return flowpb.Verdict_ERROR
 	default:
-		return pb.Verdict_VERDICT_UNKNOWN
+		return flowpb.Verdict_VERDICT_UNKNOWN
 	}
 }
 
-func decodeTrafficDirection(direction accesslog.ObservationPoint) pb.TrafficDirection {
+func decodeTrafficDirection(direction accesslog.ObservationPoint) flowpb.TrafficDirection {
 	switch direction {
 	case accesslog.Ingress:
-		return pb.TrafficDirection_INGRESS
+		return flowpb.TrafficDirection_INGRESS
 	case accesslog.Egress:
-		return pb.TrafficDirection_EGRESS
+		return flowpb.TrafficDirection_EGRESS
 	default:
-		return pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN
+		return flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN
 	}
 }
 
-func decodeIP(version accesslog.IPVersion, source, destination accesslog.EndpointInfo) *pb.IP {
+func decodeIP(version accesslog.IPVersion, source, destination accesslog.EndpointInfo) *flowpb.IP {
 	switch version {
 	case accesslog.VersionIPv4:
-		return &pb.IP{
+		return &flowpb.IP{
 			Source:      source.IPv4,
 			Destination: destination.IPv4,
-			IpVersion:   pb.IPVersion_IPv4,
+			IpVersion:   flowpb.IPVersion_IPv4,
 		}
 	case accesslog.VersionIPV6:
-		return &pb.IP{
+		return &flowpb.IP{
 			Source:      source.IPv6,
 			Destination: destination.IPv6,
-			IpVersion:   pb.IPVersion_IPv6,
+			IpVersion:   flowpb.IPVersion_IPv6,
 		}
 	default:
 		return nil
 	}
 }
 
-func decodeLayer4(protocol accesslog.TransportProtocol, source, destination accesslog.EndpointInfo) (l4 *pb.Layer4, srcPort, dstPort uint16) {
+func decodeLayer4(protocol accesslog.TransportProtocol, source, destination accesslog.EndpointInfo) (l4 *flowpb.Layer4, srcPort, dstPort uint16) {
 	switch u8proto.U8proto(protocol) {
 	case u8proto.TCP:
-		return &pb.Layer4{
-			Protocol: &pb.Layer4_TCP{
-				TCP: &pb.TCP{
+		return &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_TCP{
+				TCP: &flowpb.TCP{
 					SourcePort:      uint32(source.Port),
 					DestinationPort: uint32(destination.Port),
 				},
 			},
 		}, uint16(source.Port), uint16(destination.Port)
 	case u8proto.UDP:
-		return &pb.Layer4{
-			Protocol: &pb.Layer4_UDP{
-				UDP: &pb.UDP{
+		return &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_UDP{
+				UDP: &flowpb.UDP{
+					SourcePort:      uint32(source.Port),
+					DestinationPort: uint32(destination.Port),
+				},
+			},
+		}, uint16(source.Port), uint16(destination.Port)
+	case u8proto.SCTP:
+		return &flowpb.Layer4{
+			Protocol: &flowpb.Layer4_SCTP{
+				SCTP: &flowpb.SCTP{
 					SourcePort:      uint32(source.Port),
 					DestinationPort: uint32(destination.Port),
 				},
@@ -238,13 +315,13 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 	}
 }
 
-func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *pb.Endpoint {
+func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *flowpb.Endpoint {
 	// Safety: We only have read access to endpoint, therefore we need to create
 	// a copy of the label list before we can sort it
 	labels := make([]string, len(endpoint.Labels))
 	copy(labels, endpoint.Labels)
 	sort.Strings(labels)
-	return &pb.Endpoint{
+	return &flowpb.Endpoint{
 		ID:        uint32(endpoint.ID),
 		Identity:  uint32(endpoint.Identity),
 		Namespace: namespace,
@@ -253,117 +330,35 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 	}
 }
 
-func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) *pb.Layer7_Dns {
-	qtypes := make([]string, 0, len(dns.QTypes))
-	for _, qtype := range dns.QTypes {
-		qtypes = append(qtypes, layers.DNSType(qtype).String())
-	}
-	if flowType == accesslog.TypeRequest {
-		// Set only fields that are relevant for requests.
-		return &pb.Layer7_Dns{
-			Dns: &pb.DNS{
-				Query:             dns.Query,
-				ObservationSource: string(dns.ObservationSource),
-				Qtypes:            qtypes,
-			},
-		}
-	}
-	ips := make([]string, 0, len(dns.IPs))
-	for _, ip := range dns.IPs {
-		ips = append(ips, ip.String())
-	}
-	rtypes := make([]string, 0, len(dns.AnswerTypes))
-	for _, rtype := range dns.AnswerTypes {
-		rtypes = append(rtypes, layers.DNSType(rtype).String())
-	}
-	return &pb.Layer7_Dns{
-		Dns: &pb.DNS{
-			Query:             dns.Query,
-			Ips:               ips,
-			Ttl:               dns.TTL,
-			Cnames:            dns.CNAMEs,
-			ObservationSource: string(dns.ObservationSource),
-			Rcode:             uint32(dns.RCode),
-			Qtypes:            qtypes,
-			Rrtypes:           rtypes,
-		},
-	}
-}
-
-func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *pb.Layer7_Http {
-	var headers []*pb.HTTPHeader
-	keys := make([]string, 0, len(http.Headers))
-	for key := range http.Headers {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		for _, value := range http.Headers[key] {
-			headers = append(headers, &pb.HTTPHeader{Key: key, Value: value})
-		}
-	}
-	var urlString string
-	if http.URL != nil {
-		if http.URL.User != nil {
-			// Don't include the password in the flow.
-			if _, ok := http.URL.User.Password(); ok {
-				http.URL.User = url.UserPassword(http.URL.User.Username(), "HUBBLE_REDACTED")
-			}
-		}
-		urlString = http.URL.String()
-	}
-	if flowType == accesslog.TypeRequest {
-		// Set only fields that are relevant for requests.
-		return &pb.Layer7_Http{
-			Http: &pb.HTTP{
-				Method:   http.Method,
-				Protocol: http.Protocol,
-				Url:      urlString,
-				Headers:  headers,
-			},
-		}
-	}
-
-	return &pb.Layer7_Http{
-		Http: &pb.HTTP{
-			Code:     uint32(http.Code),
-			Method:   http.Method,
-			Protocol: http.Protocol,
-			Url:      urlString,
-			Headers:  headers,
-		},
-	}
-}
-
-func decodeLayer7(r *accesslog.LogRecord) *pb.Layer7 {
-	var flowType pb.L7FlowType
+func decodeLayer7(r *accesslog.LogRecord) *flowpb.Layer7 {
+	var flowType flowpb.L7FlowType
 	switch r.Type {
 	case accesslog.TypeRequest:
-		flowType = pb.L7FlowType_REQUEST
+		flowType = flowpb.L7FlowType_REQUEST
 	case accesslog.TypeResponse:
-		flowType = pb.L7FlowType_RESPONSE
+		flowType = flowpb.L7FlowType_RESPONSE
 	case accesslog.TypeSample:
-		flowType = pb.L7FlowType_SAMPLE
+		flowType = flowpb.L7FlowType_SAMPLE
 	}
 
 	switch {
 	case r.DNS != nil:
-		return &pb.Layer7{
+		return &flowpb.Layer7{
 			Type:   flowType,
 			Record: decodeDNS(r.Type, r.DNS),
 		}
 	case r.HTTP != nil:
-		return &pb.Layer7{
+		return &flowpb.Layer7{
 			Type:   flowType,
 			Record: decodeHTTP(r.Type, r.HTTP),
 		}
 	case r.Kafka != nil:
-		return &pb.Layer7{
+		return &flowpb.Layer7{
 			Type:   flowType,
 			Record: decodeKafka(r.Type, r.Kafka),
 		}
 	default:
-		return &pb.Layer7{
+		return &flowpb.Layer7{
 			Type: flowType,
 		}
 	}
@@ -375,93 +370,17 @@ func decodeIsReply(t accesslog.FlowType) *wrapperspb.BoolValue {
 	}
 }
 
-func decodeCiliumEventType(eventType uint8) *pb.CiliumEventType {
-	return &pb.CiliumEventType{
+func decodeCiliumEventType(eventType uint8) *flowpb.CiliumEventType {
+	return &flowpb.CiliumEventType{
 		Type: int32(eventType),
 	}
-}
-
-func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *pb.Flow) string {
-	httpRequest := fmt.Sprintf("%s %s", http.Method, http.URL)
-	switch flowType {
-	case accesslog.TypeRequest:
-		return fmt.Sprintf("%s %s", http.Protocol, httpRequest)
-	case accesslog.TypeResponse:
-		return fmt.Sprintf("%s %d %dms (%s)", http.Protocol, http.Code, uint64(time.Duration(flow.GetL7().LatencyNs)/time.Millisecond), httpRequest)
-	}
-	return ""
-}
-
-func kafkaSummary(flow *pb.Flow) string {
-	kafka := flow.GetL7().GetKafka()
-	if kafka == nil {
-		return ""
-	}
-	if flow.GetL7().Type == pb.L7FlowType_REQUEST {
-		return fmt.Sprintf("Kafka request %s correlation id %d topic '%s'",
-			kafka.ApiKey,
-			kafka.CorrelationId,
-			kafka.Topic)
-	}
-	// response
-	return fmt.Sprintf("Kafka response %s correlation id %d topic '%s' return code %d",
-		kafka.ApiKey,
-		kafka.CorrelationId,
-		kafka.Topic,
-		kafka.ErrorCode)
-}
-
-func dnsSummary(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) string {
-	types := []string{}
-	for _, t := range dns.QTypes {
-		types = append(types, layers.DNSType(t).String())
-	}
-	qTypeStr := strings.Join(types, ",")
-
-	switch flowType {
-	case accesslog.TypeRequest:
-		return fmt.Sprintf("DNS Query %s %s", dns.Query, qTypeStr)
-	case accesslog.TypeResponse:
-		rcode := layers.DNSResponseCode(dns.RCode)
-
-		var answer string
-		if rcode != layers.DNSResponseCodeNoErr {
-			answer = fmt.Sprintf("RCode: %s", rcode)
-		} else {
-			parts := make([]string, 0)
-
-			if len(dns.IPs) > 0 {
-				ips := make([]string, 0, len(dns.IPs))
-				for _, ip := range dns.IPs {
-					ips = append(ips, ip.String())
-				}
-				parts = append(parts, fmt.Sprintf("%q", strings.Join(ips, ",")))
-			}
-
-			if len(dns.CNAMEs) > 0 {
-				parts = append(parts, fmt.Sprintf("CNAMEs: %q", strings.Join(dns.CNAMEs, ",")))
-			}
-
-			answer = strings.Join(parts, " ")
-		}
-
-		sourceType := "Query"
-		switch dns.ObservationSource {
-		case accesslog.DNSSourceProxy:
-			sourceType = "Proxy"
-		}
-
-		return fmt.Sprintf("DNS Answer %s TTL: %d (%s %s %s)", answer, dns.TTL, sourceType, dns.Query, qTypeStr)
-	}
-
-	return ""
 }
 
 func genericSummary(l7 *accesslog.LogRecordL7) string {
 	return fmt.Sprintf("%s Fields: %s", l7.Proto, l7.Fields)
 }
 
-func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *pb.Flow) string {
+func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *flowpb.Flow) string {
 	if logRecord == nil {
 		return ""
 	}
@@ -476,26 +395,4 @@ func (p *Parser) getSummary(logRecord *accesslog.LogRecord, flow *pb.Flow) strin
 	}
 
 	return ""
-}
-
-func decodeKafka(flowType accesslog.FlowType, kafka *accesslog.LogRecordKafka) *pb.Layer7_Kafka {
-	if flowType == accesslog.TypeRequest {
-		return &pb.Layer7_Kafka{
-			Kafka: &pb.Kafka{
-				ApiVersion:    int32(kafka.APIVersion),
-				ApiKey:        kafka.APIKey,
-				CorrelationId: kafka.CorrelationID,
-				Topic:         kafka.Topic.Topic,
-			},
-		}
-	}
-	return &pb.Layer7_Kafka{
-		Kafka: &pb.Kafka{
-			ErrorCode:     int32(kafka.ErrorCode),
-			ApiVersion:    int32(kafka.APIVersion),
-			ApiKey:        kafka.APIKey,
-			CorrelationId: kafka.CorrelationID,
-			Topic:         kafka.Topic.Topic,
-		},
-	}
 }

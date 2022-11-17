@@ -81,9 +81,9 @@ type RunCommandRequest struct {
 	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
 	RepeatMode           string                 `position:"Query" name:"RepeatMode"`
 	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`
+	Tag                  *[]RunCommandTag       `position:"Query" name:"Tag"  type:"Repeated"`
 	KeepCommand          requests.Boolean       `position:"Query" name:"KeepCommand"`
 	Timed                requests.Boolean       `position:"Query" name:"Timed"`
-	DryRun               requests.Boolean       `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
@@ -92,6 +92,12 @@ type RunCommandRequest struct {
 	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
 	EnableParameter      requests.Boolean       `position:"Query" name:"EnableParameter"`
 	Username             string                 `position:"Query" name:"Username"`
+}
+
+// RunCommandTag is a repeated param struct in RunCommandRequest
+type RunCommandTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // RunCommandResponse is the response struct for api RunCommand

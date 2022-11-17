@@ -249,13 +249,17 @@ func (e *API) DeleteNetworkInterface(ctx context.Context, eniID string) error {
 		return err
 	}
 
-	delete(e.unattached, eniID)
+	if _, ok := e.unattached[eniID]; ok {
+		delete(e.unattached, eniID)
+		return nil
+	}
+
 	for _, enis := range e.enis {
 		if _, ok := enis[eniID]; ok {
-			delete(enis, eniID)
-			return nil
+			return fmt.Errorf("ENI ID %s is attached and cannot be deleted", eniID)
 		}
 	}
+
 	return fmt.Errorf("ENI ID %s not found", eniID)
 }
 
@@ -288,6 +292,21 @@ func (e *API) AttachNetworkInterface(ctx context.Context, index int32, instanceI
 	return "", nil
 }
 
+func (e *API) DetachNetworkInterface(ctx context.Context, instanceID, eniID string) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
+	if enis, ok := e.enis[instanceID]; ok {
+		if eni, ok := enis[eniID]; ok {
+			delete(e.enis[instanceID], eniID)
+			e.unattached[eniID] = eni
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ENI ID %s is not attached to instance %s", eniID, instanceID)
+}
+
 func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error {
 	e.rateLimit()
 	e.delaySim.Delay(ModifyNetworkInterface)
@@ -300,6 +319,20 @@ func (e *API) ModifyNetworkInterface(ctx context.Context, eniID, attachmentID st
 	}
 
 	return nil
+}
+
+func (e *API) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
+	result := make([]string, 0, int(maxResults))
+	for _, eni := range e.unattached {
+		if ipamTypes.Tags(eni.Tags).Match(tags) {
+			result = append(result, eni.ID)
+		}
+
+		if len(result) >= int(maxResults) {
+			break
+		}
+	}
+	return result, nil
 }
 
 func (e *API) AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) error {

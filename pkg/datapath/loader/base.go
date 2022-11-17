@@ -27,11 +27,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -163,16 +161,6 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 	routerIP := net.IPNet{
 		IP:   nodeAddressing.IPv4().Router(),
 		Mask: net.CIDRMask(32, 32),
-	}
-
-	cidrs2 := make([]*net.IPNet, 0, 0)
-	for i := range cidrs {
-		cidrs2 = append(cidrs2, &cidrs[i])
-	}
-	resultcidr, _ := iputil.CoalesceCIDRs(cidrs2)
-	cidrs = make([]net.IPNet, 0, len(resultcidr))
-	for _, cidr := range resultcidr {
-		cidrs = append(cidrs, *cidr)
 	}
 
 	for _, cidr := range cidrs {
@@ -321,7 +309,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		args[initArgHostReachableServices] = "true"
 		if option.Config.EnableHostServicesUDP {
 			args[initArgHostReachableServicesUDP] = "true"
@@ -339,16 +327,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgHostReachableServicesPeer] = "false"
 	}
 
-	devices := make([]netlink.Link, 0, len(option.Config.GetDevices()))
 	if len(option.Config.GetDevices()) != 0 {
-		for _, device := range option.Config.GetDevices() {
-			link, err := netlink.LinkByName(device)
-			if err != nil {
-				log.WithError(err).WithField("device", device).Warn("Link does not exist")
-				return err
-			}
-			devices = append(devices, link)
-		}
 		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
 	} else {
 		args[initArgDevices] = "<nil>"
@@ -360,8 +339,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	case option.Config.Tunnel != option.TunnelDisabled:
 		mode = tunnelMode
 		args[initArgTunnelMode] = option.Config.Tunnel
-	case option.Config.DatapathMode == datapathOption.DatapathModeIpvlan:
-		mode = ipvlanMode
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,
@@ -421,20 +398,20 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	sysctl.ApplySettings(sysSettings)
 
 	// Datapath initialization
-	hostDev1, hostDev2, err := setupBaseDevice(devices, mode, deviceMTU)
+	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
 	if err != nil {
 		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
 	}
 	args[initArgHostDev1] = hostDev1.Attrs().Name
 	args[initArgHostDev2] = hostDev2.Attrs().Name
 
-	if option.Config.InstallIptRules {
+	if option.Config.InstallIptRules && option.Config.EnableL7Proxy {
 		args[initArgProxyRule] = "true"
 	} else {
 		args[initArgProxyRule] = "false"
 	}
 
-	args[initTCFilterPriority] = strconv.Itoa(option.Config.TCFilterPriority)
+	args[initTCFilterPriority] = strconv.Itoa(int(option.Config.TCFilterPriority))
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
@@ -447,11 +424,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
 
-	extraArgs := []string{"-Dcapture_enabled=0"}
-	if err := l.reinitializeXDPLocked(ctx, extraArgs); err != nil {
-		log.WithError(err).Fatal("Failed to compile XDP program")
-	}
-
 	prog := filepath.Join(option.Config.BpfDir, "init.sh")
 	cmd := exec.CommandContext(ctx, prog, args...)
 	cmd.Env = bpf.Environment()
@@ -459,13 +431,18 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if l.canDisableDwarfRelocations {
-		// Validate alignments of C and Go equivalent structs
-		if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
-			log.WithError(err).Fatal("C and Go structs alignment check failed")
-		}
-	} else {
-		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
+	extraArgs := []string{"-Dcapture_enabled=0"}
+	if err := l.reinitializeXDPLocked(ctx, extraArgs); err != nil {
+		log.WithError(err).Fatal("Failed to compile XDP program")
+	}
+
+	// Compile alignchecker program
+	if err := Compile(ctx, "bpf_alignchecker.c", defaults.AlignCheckerName); err != nil {
+		log.WithError(err).Fatal("alignchecker compile failed")
+	}
+	// Validate alignments of C and Go equivalent structs
+	if err := alignchecker.CheckStructAlignments(defaults.AlignCheckerName); err != nil {
+		log.WithError(err).Fatal("C and Go structs alignment check failed")
 	}
 
 	if err := l.reinitializeIPSec(ctx); err != nil {

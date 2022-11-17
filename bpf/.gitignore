@@ -1,5 +1,4 @@
 # when updating this file, make sure to update `BPF_SRCFILES_IGNORE` in `Makefile.defs`
-cilium-probe-kernel-hz
 compile_commands.json
 *.i
 *.s

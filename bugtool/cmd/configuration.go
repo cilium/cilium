@@ -161,6 +161,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_throttle", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_encrypt_state", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_egress_gw_policy_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_vrf_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_policy_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v4", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_state_v6", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_srv6_sid", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services_v2", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_services", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lb4_backends_v2", bpffsMountpoint),
@@ -367,7 +374,10 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf lb list --revnat",
 		"cilium bpf lb list --frontends",
 		"cilium bpf lb list --backends",
+		"cilium bpf lb list --source-ranges",
+		"cilium bpf lb maglev list",
 		"cilium bpf egress list",
+		"cilium bpf vtep list",
 		"cilium bpf endpoint list",
 		"cilium bpf ct list global",
 		"cilium bpf nat list",
@@ -379,6 +389,11 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf recorder list",
 		"cilium ip list -n -o json",
 		"cilium map list --verbose",
+		"cilium map events cilium_ipcache -o json",
+		"cilium map events cilium_tunnel_map -o json",
+		"cilium map events cilium_lb4_services_v2 -o json",
+		"cilium map events cilium_lb4_backends_v2 -o json",
+		"cilium map events cilium_lxc -o json",
 		"cilium service list",
 		"cilium service list -o json",
 		"cilium recorder list",
@@ -407,7 +422,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	} else { // Found k8s pods
 		for _, pod := range k8sPods {
 			dst := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
+			kubectlArg := fmt.Sprintf("-c %s %s/%s:%s", ciliumAgentContainerName, k8sNamespace, pod, stateDir)
 			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
 			commands = append(commands, fmt.Sprintf("kubectl cp %s %s", kubectlArg, dst))
 			for _, cmd := range ciliumCommands {
@@ -442,7 +457,7 @@ func k8sCommands(allCommands []string, pods []string) []string {
 				cmd = fmt.Sprintf("%s -H %s", cmd, host)
 			}
 
-			if !strings.Contains(cmd, "kubectl exec") {
+			if !strings.Contains(cmd, "kubectl exec") && !strings.Contains(cmd, "kubectl cp") {
 				cmd = podPrefix(pod, cmd)
 			}
 			commands = append(commands, cmd)

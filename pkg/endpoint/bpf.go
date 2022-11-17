@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -73,11 +73,6 @@ func (e *Endpoint) callsMapPath() string {
 // endpoint.
 func (e *Endpoint) customCallsMapPath() string {
 	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
-}
-
-// BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
-func (e *Endpoint) BPFIpvlanMapPath() string {
-	return bpf.LocalMapPath(IpvlanMapName, e.ID)
 }
 
 // writeInformationalComments writes annotations to the specified writer,
@@ -558,7 +553,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // Must be called with endpoint.mutex not held and endpoint.buildMutex held.
 //
 // Returns the policy revision number when the regeneration has called,
-// Whether the new state dir is populated with all new BPF state files, and
+// Whether the new state dir is populated with all new BPF state files,
 // and an error if something failed.
 func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, stateDirComplete bool, reterr error) {
 	var (
@@ -698,7 +693,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			err = e.owner.Datapath().Loader().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
-			} else {
+			} else if !errors.Is(err, context.Canceled) {
 				e.getLogger().WithError(err).Error("Error while rewriting endpoint BPF program")
 			}
 			compilationExecuted = true
@@ -959,7 +954,6 @@ func (e *Endpoint) deleteMaps() []error {
 	maps := map[string]string{
 		"policy": e.policyMapPath(),
 		"calls":  e.callsMapPath(),
-		"egress": e.BPFIpvlanMapPath(),
 	}
 	if !e.isHost {
 		maps["custom"] = e.customCallsMapPath()
@@ -998,13 +992,6 @@ func (e *Endpoint) deleteMaps() []error {
 	return errors
 }
 
-// DeleteBPFProgramLocked delete the BPF program associated with the endpoint's
-// veth interface.
-func (e *Endpoint) DeleteBPFProgramLocked() error {
-	e.getLogger().Debug("deleting bpf program from endpoint")
-	return loader.RemoveTCFilters(e.ifName, netlink.HANDLE_MIN_INGRESS)
-}
-
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //
@@ -1036,9 +1023,9 @@ func (e *Endpoint) garbageCollectConntrack(filter *ctmap.GCFilter) {
 
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	e.garbageCollectConntrack(&ctmap.GCFilter{
-		MatchIPs: map[string]struct{}{
-			e.IPv4.String(): {},
-			e.IPv6.String(): {},
+		MatchIPs: map[netip.Addr]struct{}{
+			e.IPv4: {},
+			e.IPv6: {},
 		},
 	})
 }
@@ -1500,25 +1487,14 @@ func (e *Endpoint) GetPolicyVerdictLogFilter() uint32 {
 
 type linkCheckerFunc func(string) error
 
-// ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed
-// depending on if it is connected via veth or IPVLAN.
+// ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed.
 func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error {
-	if e.HasIpvlanDataPath() {
-		// FIXME: We cannot check whether ipvlan slave netdev exists,
-		// because it requires entering container netns which is not
-		// always accessible (e.g. in k8s case "/proc" has to be bind
-		// mounted). Instead, we check whether the tail call map exists.
-		if _, err := os.Stat(e.BPFIpvlanMapPath()); err != nil {
-			return fmt.Errorf("tail call map for IPvlan unavailable: %s", err)
-		}
-	} else {
-		if linkChecker == nil {
-			return fmt.Errorf("cannot check state of datapath; link checker is nil")
-		}
-		err := linkChecker(e.ifName)
-		if err != nil {
-			return fmt.Errorf("interface %s could not be found", e.ifName)
-		}
+	if linkChecker == nil {
+		return fmt.Errorf("cannot check state of datapath; link checker is nil")
+	}
+	err := linkChecker(e.ifName)
+	if err != nil {
+		return fmt.Errorf("interface %s could not be found", e.ifName)
 	}
 	return nil
 }

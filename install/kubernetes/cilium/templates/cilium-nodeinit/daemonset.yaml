@@ -7,6 +7,8 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: cilium-node-init
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-node-init
 spec:
   selector:
     matchLabels:
@@ -29,6 +31,8 @@ spec:
         {{- end }}
       labels:
         app: cilium-node-init
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-node-init
         {{- with .Values.nodeinit.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -37,26 +41,20 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      volumes:
-      # To access iptables concurrently with other processes (e.g. kube-proxy)
-      - hostPath:
-          path: /run/xtables.lock
-          type: FileOrCreate
-        name: xtables-lock
       containers:
         - name: node-init
           image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
-          volumeMounts:
-            # To access iptables concurrently with other processes (e.g. kube-proxy)
-            - mountPath: /run/xtables.lock
-              name: xtables-lock
           lifecycle:
             {{- if .Values.eni.enabled }}
             postStart:
               exec:
                 command:
-                  - "/bin/sh"
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
+                  - "/bin/bash"
                   - "-c"
                   - |
                     {{- tpl (.Files.Get "files/nodeinit/poststart-eni.bash") . | nindent 20 }}
@@ -69,7 +67,7 @@ spec:
                   - --target=1
                   - --mount
                   - --
-                  - /bin/sh
+                  - /bin/bash
                   - -c
                   - |
                     {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
@@ -93,6 +91,7 @@ spec:
           securityContext:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       {{- with .Values.nodeinit.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

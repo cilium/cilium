@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package flows_to_world
 
@@ -23,6 +23,7 @@ type flowsToWorldHandler struct {
 	worldLabel   string
 	anyDrop      bool
 	port         bool
+	synOnly      bool
 }
 
 func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Options) error {
@@ -37,6 +38,8 @@ func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Op
 			h.anyDrop = true
 		case "port":
 			h.port = true
+		case "syn-only":
+			h.synOnly = true
 		}
 	}
 	labels := []string{"protocol", "verdict"}
@@ -56,7 +59,17 @@ func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Op
 }
 
 func (h *flowsToWorldHandler) Status() string {
-	return h.context.Status()
+	var status []string
+	if h.anyDrop {
+		status = append(status, "any-drop")
+	}
+	if h.port {
+		status = append(status, "port")
+	}
+	if h.synOnly {
+		status = append(status, "syn-only")
+	}
+	return strings.Join(append(status, h.context.Status()), ",")
 }
 
 func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
@@ -68,23 +81,34 @@ func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
 	return false
 }
 
-func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) {
+func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) error {
 	l4 := flow.GetL4()
 	if flow.GetDestination() == nil ||
 		!h.isReservedWorld(flow.GetDestination()) ||
 		flow.GetEventType() == nil ||
 		l4 == nil {
-		return
+		return nil
 	}
 	// if "any-drop" option is not set, non-policy drops are ignored.
 	if flow.GetVerdict() == flowpb.Verdict_DROPPED && !h.anyDrop && flow.GetDropReasonDesc() != flowpb.DropReason_POLICY_DENIED {
-		return
+		return nil
 	}
 	// if this is potentially a forwarded reply packet, ignore it to avoid collecting statistics about ephemeral ports
 	isReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
-		return
+		return nil
 	}
+
+	// if "syn-only" option is set, only count non-reply SYN packets for TCP.
+	if h.synOnly && (!l4.GetTCP().GetFlags().GetSYN() || isReply) {
+		return nil
+	}
+
+	labelValues, err := h.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
+
 	labels := []string{v1.FlowProtocol(flow), flow.GetVerdict().String()}
 
 	// if "port" option is set, add port to the label.
@@ -97,6 +121,7 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		}
 		labels = append(labels, port)
 	}
-	labels = append(labels, h.context.GetLabelValues(flow)...)
+	labels = append(labels, labelValues...)
 	h.flowsToWorld.WithLabelValues(labels...).Inc()
+	return nil
 }

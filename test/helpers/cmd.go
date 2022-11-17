@@ -48,12 +48,13 @@ func (b *CmdStreamBuffer) ByLines() []string {
 // KVOutput returns a map of the stdout of res split based on
 // the separator '='.
 // For example, the following strings would be split as follows:
-//             a=1
-//             b=2
-//             c=3
-//             a=1
-//             b=2
-//             c=3
+//
+//	a=1
+//	b=2
+//	c=3
+//	a=1
+//	b=2
+//	c=3
 func (b *CmdStreamBuffer) KVOutput() map[string]string {
 	result := make(map[string]string)
 	for _, line := range b.ByLines() {
@@ -126,7 +127,6 @@ func (b *CmdStreamBuffer) FilterLines(filter string) ([]FilterBuffer, error) {
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
 	cmd      string          // Command to run
-	params   []string        // Parameters to provide to command
 	stdout   *Buffer         // Stdout from running cmd
 	stderr   *Buffer         // Stderr from running cmd
 	success  bool            // Whether command successfully executed
@@ -376,9 +376,10 @@ func (res *CmdRes) ByLines() []string {
 // KVOutput returns a map of the stdout of res split based on
 // the separator '='.
 // For example, the following strings would be split as follows:
-//		a=1
-//		b=2
-//		c=3
+//
+//	a=1
+//	b=2
+//	c=3
 func (res *CmdRes) KVOutput() map[string]string {
 	return res.GetStdOut().KVOutput()
 }

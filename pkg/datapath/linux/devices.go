@@ -12,12 +12,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -56,14 +57,14 @@ func NewDeviceManager() (*DeviceManager, error) {
 func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
 	handle, err := netlink.NewHandleAt(netns)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to setup device manager: %w", err)
 	}
 	return &DeviceManager{
 		devices: make(map[string]struct{}),
 		filter:  deviceFilter(option.Config.GetDevices()),
 		handle:  handle,
 		netns:   netns,
-	}, err
+	}, nil
 }
 
 // Detect tries to detect devices to which BPF programs may be loaded.
@@ -71,7 +72,7 @@ func NewDeviceManagerAt(netns netns.NsHandle) (*DeviceManager, error) {
 //
 // The devices are detected by looking at all the configured global unicast
 // routes in the system.
-func (dm *DeviceManager) Detect() ([]string, error) {
+func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 	dm.Lock()
 	defer dm.Unlock()
 	dm.devices = make(map[string]struct{})
@@ -85,7 +86,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 	}
 
 	l3DevOK := true
-	if !option.Config.EnableHostLegacyRouting {
+	if !option.Config.EnableHostLegacyRouting && !option.Config.DryMode {
 		// Probe whether BPF host routing is supported for L3 devices. This will
 		// invoke bpftool and requires root privileges, so we're only probing
 		// when necessary.
@@ -131,7 +132,7 @@ func (dm *DeviceManager) Detect() ([]string, error) {
 		if err == nil {
 			k8sNodeDev = k8sNodeLink.Attrs().Name
 			dm.devices[k8sNodeDev] = struct{}{}
-		} else if k8s.IsEnabled() {
+		} else if k8sEnabled {
 			return nil, fmt.Errorf("k8s is enabled, but still failed to find node IP: %w", err)
 		}
 
@@ -403,6 +404,10 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 }
 
 func (dm *DeviceManager) AreDevicesRequired() bool {
+	if option.Config.DryMode {
+		return false
+	}
+
 	return option.Config.EnableNodePort ||
 		option.Config.EnableHostFirewall ||
 		option.Config.EnableBandwidthManager
@@ -497,12 +502,7 @@ func findK8SNodeIPLink() (netlink.Link, error) {
 // supportL3Dev returns true if the kernel is new enough to support BPF host routing of
 // packets coming from L3 devices using bpf_skb_redirect_peer.
 func supportL3Dev() bool {
-	probesManager := probes.NewProbeManager()
-	if h := probesManager.GetHelpers("sched_cls"); h != nil {
-		_, found := h["bpf_skb_change_head"]
-		return found
-	}
-	return false
+	return probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbChangeHead) == nil
 }
 
 type deviceFilter []string

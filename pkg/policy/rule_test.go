@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package policy
 
 import (
@@ -90,6 +88,14 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		wildcard: wildcardCachedSelector,
+		L7RulesPerSelector: L7DataMap{
+			wildcardCachedSelector: nil,
+		},
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}
+	expected.Egress["3000/SCTP"] = &L4Filter{
+		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,
@@ -202,6 +208,14 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
+		wildcard: wildcardCachedSelector,
+		L7RulesPerSelector: L7DataMap{
+			wildcardCachedSelector: nil,
+		},
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}
+	expected.Egress["3000/SCTP"] = &L4Filter{
+		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: nil,

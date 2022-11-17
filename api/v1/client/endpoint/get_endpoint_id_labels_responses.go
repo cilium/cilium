@@ -55,7 +55,8 @@ func NewGetEndpointIDLabelsOK() *GetEndpointIDLabelsOK {
 	return &GetEndpointIDLabelsOK{}
 }
 
-/*GetEndpointIDLabelsOK handles this case with default header values.
+/*
+GetEndpointIDLabelsOK handles this case with default header values.
 
 Success
 */
@@ -88,7 +89,8 @@ func NewGetEndpointIDLabelsNotFound() *GetEndpointIDLabelsNotFound {
 	return &GetEndpointIDLabelsNotFound{}
 }
 
-/*GetEndpointIDLabelsNotFound handles this case with default header values.
+/*
+GetEndpointIDLabelsNotFound handles this case with default header values.
 
 Endpoint not found
 */
@@ -109,7 +111,8 @@ func NewGetEndpointIDLabelsTooManyRequests() *GetEndpointIDLabelsTooManyRequests
 	return &GetEndpointIDLabelsTooManyRequests{}
 }
 
-/*GetEndpointIDLabelsTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDLabelsTooManyRequests handles this case with default header values.
 
 Rate-limiting too many requests in the given time frame
 */

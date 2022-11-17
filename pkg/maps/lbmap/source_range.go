@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -47,7 +48,10 @@ type SourceRangeKey4 struct {
 
 func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
-func (k *SourceRangeKey4) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *SourceRangeKey4) String() string {
+	kHost := k.ToHost().(*SourceRangeKey4)
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+}
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -88,7 +92,10 @@ type SourceRangeKey6 struct {
 
 func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
-func (k *SourceRangeKey6) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *SourceRangeKey6) String() string {
+	kHost := k.ToHost().(*SourceRangeKey6)
+	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
+}
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -150,7 +157,8 @@ func initSourceRange(params InitParams) {
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(SourceRange4MapName))
 	}
 
 	if params.IPv6 {
@@ -162,7 +170,8 @@ func initSourceRange(params InitParams) {
 			SourceRangeMapMaxEntries,
 			bpf.BPF_F_NO_PREALLOC, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
 	}
 }
 

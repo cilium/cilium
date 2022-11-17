@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 Authors of Cilium
+// Copyright Authors of Cilium
 
 package flows_to_world
 
@@ -24,7 +24,8 @@ Options:
  any-drop - By default, this metric counts dropped flows if and only
             if the drop_reason is "Policy denied". Set this option to
             count any dropped flows to reserved:world.
- port     - Include destination port as a label.` +
+ port     - Include destination port as a label.
+ syn-only - Only count non-reply SYNs for TCP flows.` +
 		api.ContextOptionsHelp
 }
 

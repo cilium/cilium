@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -36,10 +37,6 @@ var (
 
 	isRecKernelVer = versioncheck.MustCompile(">=" + recKernelVer)
 	isRecClangVer  = versioncheck.MustCompile(">=" + recClangVer)
-
-	// LLVM/clang version which supports `-mattr=dwarfris`
-	isDwarfrisClangVer         = versioncheck.MustCompile(">=7.0.0")
-	canDisableDwarfRelocations bool
 )
 
 func getClangVersion(filePath string) (semver.Version, error) {
@@ -105,7 +102,6 @@ func CheckMinRequirements() {
 				"your kernel version to at least %s",
 				clangVersion, kernelVersion, recKernelVer)
 		}
-		canDisableDwarfRelocations = isDwarfrisClangVer(clangVersion)
 		log.Infof("clang (%s) and kernel (%s) versions: OK!", clangVersion, kernelVersion)
 	}
 
@@ -138,20 +134,18 @@ func CheckMinRequirements() {
 
 		// VTEP integration feature requires kernel 1m large instruction support
 		if option.Config.EnableVTEP {
-			supportedMisc := probeManager.GetMisc()
-			if !supportedMisc.HaveLargeInsnLimit {
+			if probes.HaveLargeInstructionLimit() != nil {
 				log.Fatalf("VXLAN Tunnel Endpoint (VTEP) Integration: requires support for large programs (Linux 5.2.0 or newer)")
 			}
 		}
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			errMsg := "BPF system config check: NOT OK."
-			// TODO(brb) warn after GH#14314 has been resolved
-			if !errors.Is(err, probes.ErrKernelConfigNotFound) {
-				log.WithError(err).Warn(errMsg)
-			}
+			// TODO(vincentmli): revisit log when GH#14314 has been resolved
+			// Warn missing required kernel config option
+			log.WithError(err).Warn(errMsg)
 		}
-		if err := probeManager.CreateHeadersFile(); err != nil {
-			log.WithError(err).Fatal("BPF check: NOT OK.")
+		if err := probes.CreateHeaderFiles(filepath.Join(option.Config.BpfDir, "include/bpf"), probes.ExecuteHeaderProbes()); err != nil {
+			log.WithError(err).Fatal("failed to create header files with feature macros")
 		}
 	}
 }

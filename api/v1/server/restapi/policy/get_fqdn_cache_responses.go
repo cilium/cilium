@@ -19,7 +19,8 @@ import (
 // GetFqdnCacheOKCode is the HTTP code returned for type GetFqdnCacheOK
 const GetFqdnCacheOKCode int = 200
 
-/*GetFqdnCacheOK Success
+/*
+GetFqdnCacheOK Success
 
 swagger:response getFqdnCacheOK
 */
@@ -66,7 +67,8 @@ func (o *GetFqdnCacheOK) WriteResponse(rw http.ResponseWriter, producer runtime.
 // GetFqdnCacheBadRequestCode is the HTTP code returned for type GetFqdnCacheBadRequest
 const GetFqdnCacheBadRequestCode int = 400
 
-/*GetFqdnCacheBadRequest Invalid request (error parsing parameters)
+/*
+GetFqdnCacheBadRequest Invalid request (error parsing parameters)
 
 swagger:response getFqdnCacheBadRequest
 */
@@ -108,7 +110,8 @@ func (o *GetFqdnCacheBadRequest) WriteResponse(rw http.ResponseWriter, producer 
 // GetFqdnCacheNotFoundCode is the HTTP code returned for type GetFqdnCacheNotFound
 const GetFqdnCacheNotFoundCode int = 404
 
-/*GetFqdnCacheNotFound No DNS data with provided parameters found
+/*
+GetFqdnCacheNotFound No DNS data with provided parameters found
 
 swagger:response getFqdnCacheNotFound
 */

@@ -4,11 +4,10 @@
 package ctmap
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math"
-	"net"
+	"net/netip"
 	"os"
 	"reflect"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -231,11 +229,10 @@ type GCFilter struct {
 
 	// ValidIPs is the list of valid IPs to scrub all entries for which the
 	// source or destination IP is *not* matching one of the valid IPs.
-	// The key is the IP in string form: net.IP.String()
-	ValidIPs map[string]struct{}
+	ValidIPs map[netip.Addr]struct{}
 
 	// MatchIPs is the list of IPs to remove from the conntrack table
-	MatchIPs map[string]struct{}
+	MatchIPs map[netip.Addr]struct{}
 
 	// EmitCTEntry is called, when non-nil, if filtering by ValidIPs and MatchIPs
 	// passes. It has no impact on CT GC, but can be used to iterate over valid
@@ -244,7 +241,7 @@ type GCFilter struct {
 }
 
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
-type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
+type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
@@ -343,8 +340,10 @@ func purgeCtEntry6(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC6(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -367,7 +366,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6Global.DestAddr.IP(), currentKey6Global.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey6Global.DestAddr.Addr(), currentKey6Global.SourceAddr.Addr(),
 				currentKey6Global.DestPort, currentKey6Global.SourcePort,
 				uint8(currentKey6Global.NextHeader), currentKey6Global.Flags, entry)
 
@@ -387,7 +386,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey6.DestAddr.IP(), currentKey6.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey6.DestAddr.Addr(), currentKey6.SourceAddr.Addr(),
 				currentKey6.DestPort, currentKey6.SourcePort,
 				uint8(currentKey6.NextHeader), currentKey6.Flags, entry)
 
@@ -426,8 +425,10 @@ func purgeCtEntry4(m *Map, key CtKey, natMap *nat.Map) error {
 // filter.
 func doGC4(m *Map, filter *GCFilter) gcStats {
 	ctMap := mapInfo[m.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	stats := statStartGc(m)
 	defer stats.finish()
@@ -449,7 +450,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4Global.DestAddr.IP(), currentKey4Global.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey4Global.DestAddr.Addr(), currentKey4Global.SourceAddr.Addr(),
 				currentKey4Global.DestPort, currentKey4Global.SourcePort,
 				uint8(currentKey4Global.NextHeader), currentKey4Global.Flags, entry)
 
@@ -469,7 +470,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 			// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
 			// the destination of the packet received, therefore it's the packet's
 			// destination IP
-			action := filter.doFiltering(currentKey4.DestAddr.IP(), currentKey4.SourceAddr.IP(),
+			action := filter.doFiltering(currentKey4.DestAddr.Addr(), currentKey4.SourceAddr.Addr(),
 				currentKey4.DestPort, currentKey4.SourcePort,
 				uint8(currentKey4.NextHeader), currentKey4.Flags, entry)
 
@@ -497,22 +498,21 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
+func (f *GCFilter) doFiltering(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}
-
 	if f.ValidIPs != nil {
-		_, srcIPExists := f.ValidIPs[srcIP.String()]
-		_, dstIPExists := f.ValidIPs[dstIP.String()]
+		_, srcIPExists := f.ValidIPs[srcIP]
+		_, dstIPExists := f.ValidIPs[dstIP]
 		if !srcIPExists && !dstIPExists {
 			return deleteEntry
 		}
 	}
 
 	if f.MatchIPs != nil {
-		_, srcIPExists := f.MatchIPs[srcIP.String()]
-		_, dstIPExists := f.MatchIPs[dstIP.String()]
+		_, srcIPExists := f.MatchIPs[srcIP]
+		_, dstIPExists := f.MatchIPs[dstIP]
 		if srcIPExists || dstIPExists {
 			return deleteEntry
 		}
@@ -564,30 +564,25 @@ func GC(m *Map, filter *GCFilter) int {
 // The consumer of the buffer invokes the function.
 //
 // The SNAT is being used for the following cases:
-// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//  1. By NodePort BPF on an intermediate node before fwd'ing request from outside
 //     to a destination node.
-// 2. A packet from local endpoint sent to outside (BPF-masq).
-// 3. A packet from a host local application (i.e. running in the host netns)
-//    This is needed to prevent SNAT from hijacking such connections.
-// 4. By DSR on a backend node to SNAT responses with service IP+port before
-//    sending to a client.
+//  2. A packet from local endpoint sent to outside (BPF-masq).
+//  3. A packet from a host local application (i.e. running in the host netns)
+//     This is needed to prevent SNAT from hijacking such connections.
+//  4. By DSR on a backend node to SNAT responses with service IP+port before
+//     sending to a client.
 //
 // In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries. In the case of 4, will create
 // CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
-//
-// The function only handles 1-3 cases, the 4. case is TODO(brb).
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
-	if option.Config.NodePortMode == option.NodePortModeDSR ||
-		option.Config.NodePortMode == option.NodePortModeHybrid {
-		return nil
-	}
-
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
 	ctMap := mapInfo[ctMapTCP.mapType]
-	ctMap.natMapLock.Lock()
-	defer ctMap.natMapLock.Unlock()
+	if ctMap.natMapLock != nil {
+		ctMap.natMapLock.Lock()
+		defer ctMap.natMapLock.Unlock()
+	}
 	natMap := ctMap.natMap
 	if natMap == nil {
 		return nil
@@ -609,20 +604,28 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			ctMap = ctMapTCP
 		}
 
-		if natKey.GetFlags()&tuple.TUPLE_F_IN == 1 { // natKey is r(everse)tuple
+		if natKey.GetFlags()&tuple.TUPLE_F_IN == tuple.TUPLE_F_IN { // natKey is r(everse)tuple
 			ctKey := egressCTKeyFromIngressNatKeyAndVal(natKey, natVal)
-			if _, err := ctMap.Lookup(ctKey); errors.Is(err, unix.ENOENT) {
-				// No CT entry is found, so delete SNAT for both original and
-				// reverse flows
-				oNatKey := oNatKeyFromReverse(natKey, natVal)
-				if deleted, _ := natMap.Delete(oNatKey); deleted {
-					stats.EgressDeleted += 1
-				}
+
+			if !ctEntryExist(ctMap, ctKey) {
+				// No egress CT entry is found, delete the orphan ingress SNAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.IngressDeleted += 1
 				}
 			} else {
 				stats.IngressAlive += 1
+			}
+		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
+			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
+			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
+
+			if !ctEntryExist(ctMap, ingressCTKey) && !ctEntryExist(ctMap, egressCTKey) {
+				// No ingress and egress CT entries were found, delete the orphan egress NAT entry
+				if deleted, _ := natMap.Delete(natKey); deleted {
+					stats.EgressDeleted += 1
+				}
+			} else {
+				stats.EgressAlive += 1
 			}
 		}
 	}

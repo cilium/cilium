@@ -32,13 +32,12 @@ func NewGetIdentity(ctx *middleware.Context, handler GetIdentityHandler) *GetIde
 	return &GetIdentity{Context: ctx, Handler: handler}
 }
 
-/*GetIdentity swagger:route GET /identity policy getIdentity
+/*
+GetIdentity swagger:route GET /identity policy getIdentity
 
 Retrieves a list of identities that have metadata matching the provided parameters.
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
-
-
 */
 type GetIdentity struct {
 	Context *middleware.Context

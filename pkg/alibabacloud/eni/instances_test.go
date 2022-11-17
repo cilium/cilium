@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package eni
 
 import (
@@ -99,6 +97,24 @@ var (
 				},
 				Type:       eniTypes.ENITypePrimary,
 				InstanceID: "i-2",
+				VSwitch:    eniTypes.VSwitch{VSwitchID: "vsw-2"},
+				VPC:        eniTypes.VPC{VPCID: "vpc-1"},
+				Tags:       map[string]string{},
+			},
+		},
+		"i-3": {
+			"eni-3": &eniTypes.ENI{
+				NetworkInterfaceID: "eni-3",
+				PrimaryIPAddress:   "1.1.1.2",
+				SecurityGroupIDs:   []string{"sg-2"},
+				PrivateIPSets: []eniTypes.PrivateIPSet{
+					{
+						Primary:          true,
+						PrivateIpAddress: "1.1.1.2",
+					},
+				},
+				Type:       eniTypes.ENITypePrimary,
+				InstanceID: "i-3",
 				VSwitch:    eniTypes.VSwitch{VSwitchID: "vsw-2"},
 				VPC:        eniTypes.VPC{VPCID: "vpc-1"},
 				Tags:       map[string]string{},

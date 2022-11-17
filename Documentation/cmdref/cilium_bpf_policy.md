@@ -23,5 +23,6 @@ Manage policy related BPF maps
 * [cilium bpf](cilium_bpf.md)	 - Direct access to local BPF maps
 * [cilium bpf policy add](cilium_bpf_policy_add.md)	 - Add/update policy entry
 * [cilium bpf policy delete](cilium_bpf_policy_delete.md)	 - Delete a policy entry
-* [cilium bpf policy get](cilium_bpf_policy_get.md)	 - List contents of a policy BPF map
+* [cilium bpf policy get](cilium_bpf_policy_get.md)	 - Get contents of a policy BPF map
+* [cilium bpf policy list](cilium_bpf_policy_list.md)	 - Dump all policy maps
 

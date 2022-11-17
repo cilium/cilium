@@ -19,6 +19,10 @@
  */
 #define SKIP_ICMPV6_ECHO_HANDLING
 
+/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
+ */
+#define SKIP_SRV6_HANDLING
+
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/edt.h"
@@ -53,7 +57,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		ret = nodeport_lb6(ctx, *identity);
 		if (ret < 0)
 			return ret;
@@ -123,7 +127,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 				  TRACE_PAYLOAD_LEN);
 
@@ -211,7 +215,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
+	if (!ctx_skip_nodeport(ctx)) {
 		int ret = nodeport_lb4(ctx, *identity);
 
 		if (ret < 0)
@@ -282,7 +286,7 @@ skip_vtep:
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 
-		send_trace_notify(ctx, TRACE_TO_STACK, 0, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
 				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 				  TRACE_PAYLOAD_LEN);
 
@@ -378,6 +382,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (info->tunnel_endpoint)
 		return __encap_and_redirect_with_nodeid(ctx,
 							info->tunnel_endpoint,
+							LOCAL_NODE_ID,
+							WORLD_ID,
 							WORLD_ID,
 							&trace);
 
@@ -427,13 +433,13 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
  * entering the node via the tunnel.
  */
 __section("from-overlay")
-int from_overlay(struct __ctx_buff *ctx)
+int cil_from_overlay(struct __ctx_buff *ctx)
 {
 	__u16 proto;
 	int ret;
 
 	bpf_clear_meta(ctx);
-	bpf_skip_nodeport_clear(ctx);
+	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
 		/* Pass unknown traffic to the stack */
@@ -525,7 +531,7 @@ out:
  * leaving the node via the tunnel.
  */
 __section("to-overlay")
-int to_overlay(struct __ctx_buff *ctx)
+int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	int ret;
 
@@ -550,7 +556,7 @@ int to_overlay(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE) {
+	if (ctx_snat_done(ctx)) {
 		ret = CTX_ACT_OK;
 		goto out;
 	}

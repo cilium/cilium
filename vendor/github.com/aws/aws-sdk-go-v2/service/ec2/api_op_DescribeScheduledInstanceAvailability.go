@@ -18,7 +18,11 @@ import (
 // daily schedule is 4 hours, the minimum weekly schedule is 24 hours, and the
 // minimum monthly schedule is 100 hours. After you find a schedule that meets your
 // needs, call PurchaseScheduledInstances to purchase Scheduled Instances with that
-// schedule.
+// schedule. We are retiring EC2-Classic on August 15, 2022. We recommend that you
+// migrate from EC2-Classic to a VPC. For more information, see Migrate from
+// EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeScheduledInstanceAvailability(ctx context.Context, params *DescribeScheduledInstanceAvailabilityInput, optFns ...func(*Options)) (*DescribeScheduledInstanceAvailabilityOutput, error) {
 	if params == nil {
 		params = &DescribeScheduledInstanceAvailabilityInput{}

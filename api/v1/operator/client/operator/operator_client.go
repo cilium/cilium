@@ -36,9 +36,9 @@ type ClientService interface {
 }
 
 /*
-  GetHealthz gets health of cilium operator
+GetHealthz gets health of cilium operator
 
-  This path will return the status of cilium operator instance.
+This path will return the status of cilium operator instance.
 */
 func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending

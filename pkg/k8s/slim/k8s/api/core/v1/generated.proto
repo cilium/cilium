@@ -91,6 +91,33 @@ message ContainerPort {
   optional string hostIP = 5;
 }
 
+// ContainerState holds a possible state of container.
+// Only one of its members may be specified.
+// If none of them is specified, the default one is ContainerStateWaiting.
+message ContainerState {
+  // Details about a running container
+  // +optional
+  optional ContainerStateRunning running = 2;
+}
+
+// ContainerStateRunning is a running state of a container.
+message ContainerStateRunning {
+  // Time at which the container was last (re-)started
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
+}
+
+// ContainerStatus represents the status of a container
+message ContainerStatus {
+  // Details about the container's current condition.
+  // +optional
+  optional ContainerState state = 2;
+
+  // Container's ID in the format '<type>://<container_id>'.
+  // +optional
+  optional string containerID = 8;
+}
+
 // EndpointAddress is a tuple that describes single IP address.
 // +structType=atomic
 message EndpointAddress {
@@ -130,13 +157,16 @@ message EndpointPort {
 // EndpointSubset is a group of addresses with a common set of ports. The
 // expanded set of endpoints is the Cartesian product of Addresses x Ports.
 // For example, given:
-//   {
-//     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//     Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//   }
+//
+// 	{
+// 	  Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+// 	  Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+// 	}
+//
 // The resulting set of endpoints can be viewed as:
-//     a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
-//     b: [ 10.10.1.1:309, 10.10.2.2:309 ]
+//
+// 	a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
+// 	b: [ 10.10.1.1:309, 10.10.2.2:309 ]
 message EndpointSubset {
   // IP addresses which offer the related ports that are marked as ready. These endpoints
   // should be considered safe for load balancers and clients to utilize.
@@ -149,17 +179,18 @@ message EndpointSubset {
 }
 
 // Endpoints is a collection of endpoints that implement the actual service. Example:
-//   Name: "mysvc",
-//   Subsets: [
-//     {
-//       Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
-//       Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
-//     },
-//     {
-//       Addresses: [{"ip": "10.10.3.3"}],
-//       Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
-//     },
-//  ]
+//
+// 	 Name: "mysvc",
+// 	 Subsets: [
+// 	   {
+// 	     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+// 	     Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+// 	   },
+// 	   {
+// 	     Addresses: [{"ip": "10.10.3.3"}],
+// 	     Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
+// 	   },
+// 	]
 message Endpoints {
   // Standard object's metadata.
   // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -382,7 +413,8 @@ message PodCondition {
 
 // IP address information for entries in the (plural) PodIPs field.
 // Each entry includes:
-//    IP: An IP address allocated to the pod. Routable at least within the cluster.
+//
+// 	IP: An IP address allocated to the pod. Routable at least within the cluster.
 message PodIP {
   // ip is an IP address (IPv4 or IPv6) assigned to the pod
   optional string ip = 1;
@@ -499,6 +531,18 @@ message PodStatus {
   // This is before the Kubelet pulled the container image(s) for the pod.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
+
+  // The list has one entry per container in the manifest.
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated ContainerStatus containerStatuses = 8;
+
+  // The Quality of Service (QOS) classification assigned to the pod based on resource requirements
+  // See PodQOSClass type for available QOS classes
+  // More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
+  // +optional
+  optional string qosClass = 9;
 }
 
 message PortStatus {

@@ -161,7 +161,7 @@ var netProtocols = []string{
 // If protocols is empty then all protocols are returned, otherwise
 // just the protocols in the list are returned.
 // Available protocols:
-//   ip,icmp,icmpmsg,tcp,udp,udplite
+// [ip,icmp,icmpmsg,tcp,udp,udplite]
 func ProtoCounters(protocols []string) ([]ProtoCountersStat, error) {
 	return ProtoCountersWithContext(context.Background(), protocols)
 }
@@ -721,9 +721,13 @@ func decodeAddressWithContext(ctx context.Context, family uint32, src string) (A
 		return Addr{}, fmt.Errorf("decode error, %w", err)
 	}
 	var ip net.IP
-	// Assumes this is little_endian
+
 	if family == syscall.AF_INET {
-		ip = net.IP(ReverseWithContext(ctx, decoded))
+		if common.IsLittleEndian() {
+			ip = net.IP(ReverseWithContext(ctx, decoded))
+		} else {
+			ip = net.IP(decoded)
+		}
 	} else { // IPv6
 		ip, err = parseIPv6HexStringWithContext(ctx, decoded)
 		if err != nil {

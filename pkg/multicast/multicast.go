@@ -5,11 +5,11 @@ package multicast
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/net/ipv6"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -72,7 +72,7 @@ func initSocket() error {
 }
 
 // JoinGroup joins the group address group on the interface ifc
-func JoinGroup(ifc string, ip string) error {
+func JoinGroup(ifc string, ip netip.Addr) error {
 	if err := initSocket(); err != nil {
 		return err
 	}
@@ -82,13 +82,11 @@ func JoinGroup(ifc string, ip string) error {
 		return err
 	}
 
-	group := net.ParseIP(ip)
-
-	return ipv6.NewPacketConn(v6Socket).JoinGroup(dev, &net.UDPAddr{IP: group})
+	return ipv6.NewPacketConn(v6Socket).JoinGroup(dev, &net.UDPAddr{IP: ip.AsSlice()})
 }
 
 // LeaveGroup leaves the group address group on the interface ifc
-func LeaveGroup(ifc string, ip string) error {
+func LeaveGroup(ifc string, ip netip.Addr) error {
 	if err := initSocket(); err != nil {
 		return err
 	}
@@ -98,9 +96,7 @@ func LeaveGroup(ifc string, ip string) error {
 		return err
 	}
 
-	group := net.ParseIP(ip)
-
-	return ipv6.NewPacketConn(v6Socket).LeaveGroup(dev, &net.UDPAddr{IP: group})
+	return ipv6.NewPacketConn(v6Socket).LeaveGroup(dev, &net.UDPAddr{IP: ip.AsSlice()})
 }
 
 // ListGroup lists multicast addresses on the interface ifc
@@ -114,14 +110,15 @@ func ListGroup(ifc string) ([]net.Addr, error) {
 }
 
 // IsInGroup tells if interface ifc belongs to group represented by maddr
-func IsInGroup(ifc string, maddr string) (bool, error) {
+func IsInGroup(ifc string, maddr netip.Addr) (bool, error) {
 	ips, err := ListGroup(ifc)
 	if err != nil {
 		return false, err
 	}
 
+	maddrStr := maddr.String()
 	for _, gip := range ips {
-		if gip.String() == maddr {
+		if gip.String() == maddrStr {
 			return true, nil
 		}
 	}
@@ -130,20 +127,19 @@ func IsInGroup(ifc string, maddr string) (bool, error) {
 }
 
 // Address encapsulates the functionality to generate solicated node multicast address
-type Address addressing.CiliumIPv6
+type Address netip.Addr
 
 // Key takes the last 3 bytes of endpoint's IPv6 address and compile them in to
 // an int32 value as key of the endpoint. It assumes the input is a valid IPv6 address.
 // Otherwise it returns 0 (https://tools.ietf.org/html/rfc4291#section-2.7.1)
 func (a Address) Key() int32 {
-	ipv6 := addressing.CiliumIPv6(a)
-
-	if !ipv6.IsSet() {
+	ipv6 := netip.Addr(a)
+	if !ipv6.IsValid() {
 		return 0
 	}
 
 	var key int32
-	for _, v := range ipv6[13:] {
+	for _, v := range ipv6.AsSlice()[13:] {
 		key <<= 8
 		key += int32(v)
 	}
@@ -152,18 +148,19 @@ func (a Address) Key() int32 {
 }
 
 // SolicitedNodeMaddr returns solicited node multicast address
-func (a Address) SolicitedNodeMaddr() addressing.CiliumIPv6 {
-	ipv6 := addressing.CiliumIPv6(a)
-
-	if !ipv6.IsSet() {
-		return nil
+func (a Address) SolicitedNodeMaddr() netip.Addr {
+	ipv6 := netip.Addr(a)
+	if !ipv6.IsValid() {
+		return netip.Addr{}
 	}
 
 	maddr := make([]byte, 16)
 	copy(maddr[:13], SolicitedNodeMaddrPrefix[:13])
-	copy(maddr[13:], ipv6[13:])
+	copy(maddr[13:], ipv6.AsSlice()[13:])
 
-	return maddr
+	// Use slice-to-array-pointer conversion, available since Go 1.17.
+	// TODO: use slice-to-array conversion when switching to Go 1.20
+	return netip.AddrFrom16(*(*[16]byte)(maddr))
 }
 
 // interfaceByName get *net.Interface by name using netlink.

@@ -27,9 +27,11 @@ ifdef ARCH
   endif
   DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
 else
-  ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
-    # ARCH and --push are not specified, build for the host platform without pushing, mimicking regular docker build
-    DOCKER_FLAGS += --load
+  ifeq ($(findstring --output,$(DOCKER_FLAGS)),)
+    ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+      # ARCH, --output, and --push are not specified, build for the host platform without pushing, mimicking regular docker build
+      DOCKER_FLAGS += --load
+    endif
   endif
 endif
 DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
@@ -74,12 +76,16 @@ endif
 # $(2) Dockerfile path
 # $(3) image name stem (e.g., cilium, cilium-operator, etc)
 # $(4) image tag
+# $(5) target
 #
 define DOCKER_IMAGE_TEMPLATE
 .PHONY: $(1)
 $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 	$(ECHO_DOCKER)$(2) $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4)
 	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3)))
+ifeq ($(5),debug)
+	@export NOSTRIP=1
+endif
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
@@ -91,12 +97,18 @@ $(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
-		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4) .
-ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
-	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
+		--target $(5) \
+		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4) .
+ifneq ($(KIND_LOAD),)
+	sleep 1
+	kind load docker-image $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4)
 else
+    ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
+    else
 	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
 	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
+    endif
 endif
 
 $(1)-unstripped: NOSTRIP=1
@@ -106,25 +118,28 @@ $(1)-unstripped: $(1)
 endef
 
 # docker-cilium-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,images/cilium/Dockerfile,cilium,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,images/cilium/Dockerfile,cilium,$(DOCKER_IMAGE_TAG),release))
 
 # dev-docker-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),release))
+
+# dev-docker-image-debug
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image-debug,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),debug))
 
 # docker-plugin-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG),release))
 
 # docker-hubble-relay-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG),release))
 
 # docker-clustermesh-apiserver-image
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/clustermesh-apiserver/Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/clustermesh-apiserver/Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG),release))
 
 # docker-operator-images.
 # We eat the ending of "operator" in to the stem ('%') to allow this pattern
 # to build also 'docker-operator-image', where the stem would be empty otherwise.
-$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
-$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG)))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
 
 #
 # docker-*-all targets are mainly used from the CI

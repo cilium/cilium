@@ -37,6 +37,8 @@ func FlowProtocol(flow *pb.Flow) string {
 				return "ICMPv4"
 			case l4.GetICMPv6() != nil:
 				return "ICMPv6"
+			case l4.GetSCTP() != nil:
+				return "SCTP"
 			}
 		}
 		return "Unknown L4"

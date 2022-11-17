@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/gomega"
@@ -18,7 +19,7 @@ import (
 
 var _ = SkipDescribeIf(func() bool {
 	return helpers.RunsOnEKS() || helpers.RunsOnGKE() || helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotExistNodeWithoutCilium() || helpers.DoesNotRunOn54OrLaterKernel()
-}, "K8sEgressGatewayTest", func() {
+}, "K8sDatapathEgressGatewayTest", func() {
 	const (
 		namespaceSelector = "ns=cilium-test"
 		testDS            = "zgroup=testDS"
@@ -31,10 +32,13 @@ var _ = SkipDescribeIf(func() bool {
 		ciliumFilename  string
 		randomNamespace string
 
-		egressIP  string
-		k8s1IP    string
-		k8s2IP    string
-		outsideIP string
+		egressIP    string
+		k8s1IP      string
+		k8s2IP      string
+		outsideIP   string
+		k8s1Name    string
+		k8s2Name    string
+		outsideName string
 
 		assignIPYAML string
 		echoPodYAML  string
@@ -73,15 +77,30 @@ var _ = SkipDescribeIf(func() bool {
 		res.ExpectSuccess()
 	}
 
-	BeforeAll(func() {
+	// ctEntriesOnNode returns the number of CT entries matching destination
+	// IP and port on a given node
+	ctEntriesOnNode := func(node, dstIP, dstPort string) int {
+		ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
+		Expect(err).Should(BeNil(), "Unable to determine cilium pod on node %s", node)
 
+		cmd := fmt.Sprintf("cilium bpf ct list global | grep '\\-> %s:%s\\b' | wc -l", dstIP, dstPort)
+		res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+		res.ExpectSuccess()
+
+		n, err := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+		Expect(err).Should(BeNil(), "Cannot parse output of '%s' command", cmd)
+
+		return n
+	}
+
+	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		_, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
-		_, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
-		_, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
+		k8s1Name, k8s1IP = kubectl.GetNodeInfo(helpers.K8s1)
+		k8s2Name, k8s2IP = kubectl.GetNodeInfo(helpers.K8s2)
+		outsideName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
 
-		egressIP = getEgressIP(k8s1IP)
+		egressIP = getEgressIP(k8s2IP)
 
 		deploymentManager.SetKubectl(kubectl)
 
@@ -105,6 +124,7 @@ var _ = SkipDescribeIf(func() bool {
 	AfterFailed(func() {
 		// Especially check if there are duplicated address allocated on cilium_host
 		kubectl.CiliumReport("ip addr")
+		kubectl.OutsideNodeReport(outsideName, "ip -d route")
 	})
 
 	testEgressGateway := func(fromGateway bool) {
@@ -123,9 +143,15 @@ var _ = SkipDescribeIf(func() bool {
 		srcPod2, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient2, hostIP, false, 1)
 
 		for _, src := range []string{srcPod, srcPod2} {
+			By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
+			ctEntriesBeforeConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
 			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
+
 			res.ExpectSuccess()
 			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
+
+			ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+			Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
 		}
 	}
 
@@ -135,8 +161,10 @@ var _ = SkipDescribeIf(func() bool {
 		} else {
 			By("Check connectivity from non-gateway node")
 		}
+		hostName := k8s1Name
 		hostIP := k8s1IP
 		if fromGateway {
+			hostName = k8s2Name
 			hostIP = k8s2IP
 		}
 		srcPod, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
@@ -144,68 +172,80 @@ var _ = SkipDescribeIf(func() bool {
 
 		for _, src := range []string{srcPod, srcPod2} {
 			// Pod-to-node connectivity should work
+			By("Testing pod-to-node connectivity from %s to %s", src, k8s1IP)
 			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s1IP, 1))
 			res.ExpectSuccess()
 
+			By("Testing pod-to-node connectivity from %s to %s", src, k8s2IP)
 			res = kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s2IP, 1))
 			res.ExpectSuccess()
 
 			// DNS query should work (pod-to-pod connectivity)
+			By("Testing pod-to-pod connectivity for %s", src)
 			res = kubectl.ExecPodCmd(randomNamespace, src, "dig kubernetes +time=2")
 			res.ExpectSuccess()
+		}
 
-			// When connecting from outside the cluster to a nodeport service whose pods are
-			// selected by an egress policy, the reply traffic should not be SNATed with the
-			// egress IP
-			var extIPsService v1.Service
-			err := kubectl.Get(randomNamespace, fmt.Sprintf("service %s", "test-external-ips")).Unmarshal(&extIPsService)
-			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %s", "test-external-ips")
+		// When connecting from outside the cluster to a nodeport service whose pods are
+		// selected by an egress policy, the reply traffic should not be SNATed with the
+		// egress IP
+		var extIPsService v1.Service
+		err := kubectl.Get(randomNamespace, fmt.Sprintf("service %s", "test-external-ips")).Unmarshal(&extIPsService)
+		ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %s", "test-external-ips")
 
-			res = kubectl.Patch(randomNamespace, "service", "test-external-ips",
-				fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
+		By("Patching service %s to use externalIP %s", "test-external-ips", hostIP)
+		res := kubectl.Patch(randomNamespace, "service", "test-external-ips",
+			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
+		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
-			outsideNodeName, outsideNodeIP := kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
+		By("Waiting for %s to expose service frontend %s", hostName, hostIP)
+		err = kubectl.WaitForServiceFrontend(hostName, hostIP)
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s frontend entry on %s", hostIP, hostName)
 
-			res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-				helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))
+		By("Testing that a service backend's reply to an outside HTTP request is not SNATed with the egressIP")
+		res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,
+			helpers.CurlFail("http://%s:%d", hostIP, extIPsService.Spec.Ports[0].Port))
+		res.ExpectSuccess()
+		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
+
+		if ciliumOpts["tunnel"] == "disabled" {
+			// When connecting from outside the cluster directly to a pod which is
+			// selected by an egress policy, the reply traffic should not be SNATed with
+			// the egress IP (only connections originating from these pods should go
+			// through egress gateway).
+			//
+			// This test is executed only when Cilium is running in direct routing mode,
+			// since we can simply add a route on the node outside the cluster to direct
+			// pod's traffic to the node where the pod is running (while in tunneling
+			// mode we would need the external node to send the traffic over the tunnel)
+			_, targetPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", testDS, hostIP, false, 1)
+
+			_targetPodHostIP, err := targetPodJSON.Filter("{.status.hostIP}")
+			Expect(err).Should(BeNil(), "Cannot get target pod host IP")
+			targetPodHostIP := _targetPodHostIP.String()
+
+			_targetPodIP, err := targetPodJSON.Filter("{.status.podIP}")
+			Expect(err).Should(BeNil(), "Cannot get target pod IP")
+			targetPodIP := _targetPodIP.String()
+
+			// Add a route for the target pod's IP on the node running without Cilium to
+			// allow reaching it from outside the cluster
+			By("Adding a IP route for %s via %s", targetPodIP, targetPodHostIP)
+			res = kubectl.AddIPRoute(outsideName, targetPodIP, targetPodHostIP, false)
+			Expect(res).Should(helpers.CMDSuccess(),
+				"Error adding IP route for %s via %s", targetPodIP, targetPodHostIP)
+
+			By("Testing that a pod's reply to an outside HTTP request is not SNATed with the egressIP")
+			res = kubectl.ExecInHostNetNS(context.TODO(), outsideName,
+				helpers.CurlFail("http://%s:80", targetPodIP))
+
+			By("Deleting the IP route for %s via %s", targetPodIP, targetPodHostIP)
+			res2 := kubectl.DelIPRoute(outsideName, targetPodIP, targetPodHostIP)
+			Expect(res2).Should(helpers.CMDSuccess(),
+				"Error removing IP route for %s via %s", targetPodIP, targetPodHostIP)
+
 			res.ExpectSuccess()
-			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideNodeIP))
-
-			if ciliumOpts["tunnel"] == "disabled" {
-				// When connecting from outside the cluster directly to a pod which is
-				// selected by an egress policy, the reply traffic should not be SNATed with
-				// the egress IP (only connections originating from these pods should go
-				// through egress gateway).
-				//
-				// This test is executed only when Cilium is running in direct routing mode,
-				// since we can simply add a route on the node outside the cluster to direct
-				// pod's traffic to the node where the pod is running (while in tunneling
-				// mode we would need the external node to send the traffic over the tunnel)
-				_, targetPodJSON := fetchPodsWithOffset(kubectl, randomNamespace, "server", testDS, hostIP, false, 1)
-
-				targetPodHostIP, err := targetPodJSON.Filter("{.status.hostIP}")
-				Expect(err).Should(BeNil(), "Cannot get target pod host IP")
-
-				targetPodIP, err := targetPodJSON.Filter("{.status.podIP}")
-				Expect(err).Should(BeNil(), "Cannot get target pod IP")
-
-				// Add a route for the target pod's IP on the node running without Cilium to
-				// allow reaching it from outside the cluster
-				res = kubectl.AddIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String(), false)
-				Expect(res).Should(helpers.CMDSuccess(),
-					"Error adding IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-
-				res = kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-					helpers.CurlFail("http://%s:80", targetPodIP.String()))
-
-				res2 := kubectl.DelIPRoute(outsideNodeName, targetPodIP.String(), targetPodHostIP.String())
-				Expect(res2).Should(helpers.CMDSuccess(),
-					"Error removing IP route for %s via %s", targetPodIP.String(), targetPodHostIP.String())
-
-				res.ExpectSuccess()
-				res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideNodeIP))
-			}
+			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", outsideIP))
 		}
 	}
 
@@ -343,6 +383,32 @@ var _ = SkipDescribeIf(func() bool {
 			"endpointRoutes.enabled":    "false",
 			"enableCiliumEndpointSlice": "false",
 			"l7Proxy":                   "false",
+		},
+	)
+
+	doContext("tunnel disabled with endpointRoutes enabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "true",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+		},
+	)
+
+	doContext("tunnel disabled with endpointRoutes disabled and XDP",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "true",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
 		},
 	)
 })

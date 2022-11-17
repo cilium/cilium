@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| master  | :white_check_mark: |
-| 1.11.x  | :white_check_mark: |
-| 1.10.x  | :white_check_mark: |
-| 1.9.x   | :white_check_mark: |
-| < 1.9.0 | :x:                |
+| Version   | Supported          |
+|-----------| ------------------ |
+| master    | :white_check_mark: |
+| 1.12.x    | :white_check_mark: |
+| 1.11.x    | :white_check_mark: |
+| 1.10.x    | :white_check_mark: |
+| < 1.10.0  | :x:                |
 
 ## Reporting a Vulnerability
 

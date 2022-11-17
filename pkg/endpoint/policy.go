@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -14,7 +16,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -176,7 +177,8 @@ func (e *Endpoint) setNextPolicyRevision(revision uint64) {
 // while it fails for other endpoints.
 //
 // Returns:
-//  - err: any error in obtaining information for computing policy, or if
+//   - err: any error in obtaining information for computing policy, or if
+//
 // policy could not be generated given the current set of rules in the
 // repository.
 // Must be called with endpoint mutex held.
@@ -294,23 +296,23 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 }
 
 // Called with e.mutex UNlocked
-func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
+func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	var revision uint64
 	var stateDirComplete bool
 	var err error
 
-	context.Stats = regenerationStatistics{}
-	stats := &context.Stats
+	ctx.Stats = regenerationStatistics{}
+	stats := &ctx.Stats
 	stats.totalTime.Start()
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.StartTime: time.Now(),
-		logfields.Reason:    context.Reason,
+		logfields.Reason:    ctx.Reason,
 	}).Debug("Regenerating endpoint")
 
 	defer func() {
 		// This has to be within a func(), not deferred directly, so that the
 		// value of retErr is passed in from when regenerate returns.
-		e.updateRegenerationStatistics(context, retErr)
+		e.updateRegenerationStatistics(ctx, retErr)
 	}()
 
 	e.buildMutex.Lock()
@@ -329,7 +331,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
 	if e.getState() != StateWaitingForIdentity &&
-		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+context.Reason) {
+		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
 		e.getLogger().WithField(logfields.EndpointState, e.state).Debug("Skipping build due to invalid state")
 		e.unlock()
 
@@ -338,8 +340,8 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	// Bump priority if higher priority event was skipped.
 	// This must be done in the same critical section as the state transition above.
-	if e.skippedRegenerationLevel > context.datapathRegenerationContext.regenerationLevel {
-		context.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
+	if e.skippedRegenerationLevel > ctx.datapathRegenerationContext.regenerationLevel {
+		ctx.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
 	}
 	// reset to the default lowest level
 	e.skippedRegenerationLevel = regeneration.Invalid
@@ -348,13 +350,13 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 	stats.prepareBuild.Start()
 	origDir := e.StateDirectoryPath()
-	context.datapathRegenerationContext.currentDir = origDir
+	ctx.datapathRegenerationContext.currentDir = origDir
 
 	// This is the temporary directory to store the generated headers,
 	// the original existing directory is not overwritten until the
 	// entire generation process has succeeded.
 	tmpDir := e.NextDirectoryPath()
-	context.datapathRegenerationContext.nextDir = tmpDir
+	ctx.datapathRegenerationContext.nextDir = tmpDir
 
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
@@ -395,12 +397,13 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
-	revision, stateDirComplete, err = e.regenerateBPF(context)
+	revision, stateDirComplete, err = e.regenerateBPF(ctx)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
-		e.getLogger().WithFields(logrus.Fields{
-			logfields.Path: failDir,
-		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
+		if !errors.Is(err, context.Canceled) {
+			e.getLogger().WithError(err).WithFields(logrus.Fields{logfields.Path: failDir}).
+				Info("generating BPF for endpoint failed, keeping stale directory")
+		}
 
 		// Remove an eventual existing previous failure directory
 		e.removeDirectory(failDir)
@@ -457,9 +460,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	return nil
 }
 
-func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, err error) {
+func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err error) {
 	success := err == nil
-	stats := &context.Stats
+	stats := &ctx.Stats
 
 	stats.totalTime.End(success)
 	stats.success = success
@@ -471,7 +474,7 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	stats.SendMetrics()
 
 	fields := logrus.Fields{
-		logfields.Reason: context.Reason,
+		logfields.Reason: ctx.Reason,
 	}
 	for field, stat := range stats.GetMap() {
 		fields[field] = stat.Total()
@@ -482,13 +485,15 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	scopedLog := e.getLogger().WithFields(fields)
 
 	if err != nil {
-		scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithError(err).Warn("Regeneration of endpoint failed")
+		}
 		e.LogStatus(BPF, Failure, "Error regenerating endpoint: "+err.Error())
 		return
 	}
 
 	scopedLog.Debug("Completed endpoint regeneration")
-	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
+	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+ctx.Reason+")")
 }
 
 // SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
@@ -531,9 +536,9 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
 // of the endpoint and returns a channel that is closed when the regeneration of
 // the endpoint is complete. The channel returns:
-//  - false if the regeneration failed
-//  - true if the regeneration succeed
-//  - nothing and the channel is closed if the regeneration did not happen
+//   - false if the regeneration failed
+//   - true if the regeneration succeed
+//   - nothing and the channel is closed if the regeneration did not happen
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
 	if err != nil {
@@ -602,7 +607,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 				regenError = regenResult.err
 				buildSuccess = regenError == nil
 
-				if regenError != nil {
+				if regenError != nil && !errors.Is(regenError, context.Canceled) {
 					e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
 				}
 			} else {
@@ -694,12 +699,15 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 
 // This synchronizes the key-value store with a mapping of the endpoint's IP
 // with the numerical ID representing its security identity.
-func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
-	if option.Config.KVStore == "" || !endpointIP.IsSet() || option.Config.JoinCluster {
+func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
+	if option.Config.KVStore == "" || !endpointIP.IsValid() || option.Config.JoinCluster {
 		return
 	}
 
-	addressFamily := endpointIP.GetFamilyString()
+	addressFamily := "IPv4"
+	if endpointIP.Is6() {
+		addressFamily = "IPv6"
+	}
 
 	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
@@ -713,7 +721,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 					return nil
 				}
 
-				IP := endpointIP.IP()
+				IP := net.IP(endpointIP.AsSlice())
 				ID := e.SecurityIdentity.ID
 				hostIP := node.GetIPv4()
 				key := node.GetIPsecKeyIdentity()
@@ -820,7 +828,12 @@ func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint notrack event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointNoTrackEvent event failed")
+	}
 }
 
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
@@ -837,7 +850,12 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy visibility event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyVisibilityEvent event failed")
+	}
 }
 
 // UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
@@ -851,7 +869,12 @@ func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")
 		return
 	}
-	<-ch
+
+	updateRes := <-ch
+	regenResult, ok := updateRes.(*EndpointRegenerationResult)
+	if ok && regenResult.err != nil {
+		e.getLogger().WithError(regenResult.err).Error("EndpointPolicyBandwidthEvent event failed")
+	}
 }
 
 // GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels

@@ -10,7 +10,6 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	identityApi "github.com/cilium/cilium/api/v1/client/policy"
 	"github.com/cilium/cilium/api/v1/models"
@@ -37,12 +36,12 @@ func init() {
 	command.AddOutputOption(identityListCmd)
 	flags := identityListCmd.Flags()
 	flags.Bool("endpoints", false, "list identities of locally managed endpoints")
-	viper.BindPFlags(flags)
+	vp.BindPFlags(flags)
 }
 
 func listIdentities(args []string) {
 	switch {
-	case viper.GetBool("endpoints"):
+	case vp.GetBool("endpoints"):
 		params := identityApi.NewGetIdentityEndpointsParams().WithTimeout(api.ClientTimeout)
 		identities, err := client.Policy.GetIdentityEndpoints(params)
 		if err != nil {

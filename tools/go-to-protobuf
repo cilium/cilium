@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
-
-GO111MODULE=off go run "${SCRIPTPATH}/../vendor/k8s.io/code-generator/cmd/go-to-protobuf" $@

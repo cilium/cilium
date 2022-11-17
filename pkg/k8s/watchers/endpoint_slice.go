@@ -4,31 +4,31 @@
 package watchers
 
 import (
+	"net/netip"
 	"sync"
 
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // endpointSlicesInit returns true if the cluster contains endpoint slices.
-func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) bool {
+func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup) bool {
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
-		esClient          rest.Interface
+		esLW              cache.ListerWatcher
 		objType           runtime.Object
 		addFunc, delFunc  func(obj interface{})
 		updateFunc        func(oldObj, newObj interface{})
@@ -37,7 +37,8 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 	if k8s.SupportsEndpointSliceV1() {
 		apiGroup = resources.K8sAPIGroupEndpointSliceV1Discovery
-		esClient = k8sClient.DiscoveryV1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1.EndpointSliceList](
+			slimClient.DiscoveryV1().EndpointSlices(""))
 		objType = &slim_discover_v1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -88,7 +89,8 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 		}
 	} else {
 		apiGroup = resources.K8sAPIGroupEndpointSliceV1Beta1Discovery
-		esClient = k8sClient.DiscoveryV1beta1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1beta1.EndpointSliceList](
+			slimClient.DiscoveryV1beta1().EndpointSlices(""))
 		objType = &slim_discover_v1beta1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -140,8 +142,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 	}
 
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(esClient,
-			"endpointslices", v1.NamespaceAll, fields.Everything()),
+		esLW,
 		objType,
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -162,6 +163,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 	// K8s is not running with endpoint slices enabled, stop the endpoint slice
 	// controller to avoid watching for unnecessary stuff in k8s.
+	k.cancelWaitGroupToSyncResources(apiGroup)
 	k.k8sAPIGroups.RemoveAPI(apiGroup)
 	close(ecr)
 	return false
@@ -194,14 +196,18 @@ func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1(eps *slim_discover_v1.Endp
 		return
 	}
 
-	desiredIPs := make(map[string]struct{})
+	resource := ipcacheTypes.NewResourceID(
+		ipcacheTypes.ResourceKindEndpointSlice,
+		eps.ObjectMeta.GetNamespace(),
+		eps.ObjectMeta.GetName(),
+	)
+	desiredIPs := make(map[netip.Prefix]struct{})
 	for _, e := range eps.Endpoints {
 		for _, addr := range e.Addresses {
-			desiredIPs[addr] = struct{}{}
+			insertK8sPrefix(desiredIPs, addr, resource)
 		}
 	}
-
-	k.handleKubeAPIServerServiceEPChanges(desiredIPs)
+	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }
 
 func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) {
@@ -211,31 +217,35 @@ func (k *K8sWatcher) addKubeAPIServerServiceEPSliceV1Beta1(eps *slim_discover_v1
 		return
 	}
 
-	desiredIPs := make(map[string]struct{})
+	resource := ipcacheTypes.NewResourceID(
+		ipcacheTypes.ResourceKindEndpointSlicev1beta1,
+		eps.ObjectMeta.GetNamespace(),
+		eps.ObjectMeta.GetName(),
+	)
+	desiredIPs := make(map[netip.Prefix]struct{})
 	for _, e := range eps.Endpoints {
 		for _, addr := range e.Addresses {
-			desiredIPs[addr] = struct{}{}
+			insertK8sPrefix(desiredIPs, addr, resource)
 		}
 	}
-
-	k.handleKubeAPIServerServiceEPChanges(desiredIPs)
+	k.handleKubeAPIServerServiceEPChanges(desiredIPs, resource)
 }
 
 // initEndpointsOrSlices initializes either the "Endpoints" or "EndpointSlice"
 // resources for Kubernetes service backends.
-func (k *K8sWatcher) initEndpointsOrSlices(k8sClient kubernetes.Interface, serviceOptModifier func(*v1meta.ListOptions)) {
+func (k *K8sWatcher) initEndpointsOrSlices(slimClient slimclientset.Interface, serviceOptModifier func(*v1meta.ListOptions)) {
 	swgEps := lock.NewStoppableWaitGroup()
 	switch {
 	case k8s.SupportsEndpointSlice():
 		// We don't add the service option modifier here, as endpointslices do not
 		// mirror service proxy name label present in the corresponding service.
-		connected := k.endpointSlicesInit(k8sClient, swgEps)
+		connected := k.endpointSlicesInit(slimClient, swgEps)
 		// The cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8sClient, swgEps, serviceOptModifier)
+		k.endpointsInit(slimClient, swgEps, serviceOptModifier)
 	}
 }

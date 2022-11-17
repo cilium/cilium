@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -158,7 +161,7 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 }
 
 func endParallelMapMode() {
-	ipcachemap.IPCache.EndParallelMode()
+	ipcachemap.IPCacheMap().EndParallelMode()
 }
 
 // syncEndpointsAndHostIPs adds local host enties to bpf lxcmap, as well as
@@ -256,7 +259,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		// ipcache. Until then, it is expected to succeed.
 		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
 			ID:     ipIDPair.ID,
-			Source: d.sourceByIP(ipIDPair.IP.String(), source.Local),
+			Source: d.sourceByIP(ipIDPair.IP, source.Local),
 		})
 	}
 
@@ -270,7 +273,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
 			}
 
-			d.ipcache.Delete(hostIP, d.sourceByIP(hostIP, source.Local))
+			d.ipcache.Delete(hostIP, d.sourceByIP(ip, source.Local))
 		}
 	}
 
@@ -289,11 +292,16 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	return nil
 }
 
-func (d *Daemon) sourceByIP(prefix string, defaultSrc source.Source) source.Source {
-	if lbls := d.ipcache.GetIDMetadataByIP(prefix); lbls.Has(
-		labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer],
-	) {
-		return source.KubeAPIServer
+func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
+	if addr, ok := ippkg.AddrFromIP(ip); ok {
+		lbls := d.ipcache.GetIDMetadataByIP(addr)
+		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+			return source.KubeAPIServer
+		}
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: ip,
+		}).Warning("BUG: Invalid addr detected in host stack. Please report this bug to the Cilium developers.")
 	}
 	return defaultSrc
 }
@@ -306,7 +314,7 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if _, err := lxcmap.LXCMap.OpenOrCreate(); err != nil {
+	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -320,7 +328,7 @@ func (d *Daemon) initMaps() error {
 	// updated with new identities. This is fine as any new identity
 	// appearing would require a regeneration of the endpoint anyway in
 	// order for the endpoint to gain the privilege of communication.
-	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
+	if _, err := ipcachemap.IPCacheMap().OpenParallel(); err != nil {
 		return err
 	}
 
@@ -328,8 +336,7 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	if option.Config.TunnelingEnabled() || option.Config.EnableIPv4EgressGateway {
-		// The IPv4 egress gateway feature also uses tunnel map
+	if option.Config.TunnelingEnabled() {
 		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
 			return err
 		}
@@ -341,16 +348,18 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	if option.Config.EnableSRv6 {
+		srv6map.CreateMaps()
+	}
+
 	if option.Config.EnableVTEP {
 		if _, err := vtep.VtepMAP.OpenOrCreate(); err != nil {
 			return err
 		}
 	}
 
-	pm := probes.NewProbeManager()
-	supportedMapTypes := pm.GetMapTypes()
-	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
-		option.Config.EnableHostServicesUDP && supportedMapTypes.HaveLruHashMapType
+	createSockRevNatMaps := option.Config.EnableSocketLB &&
+		option.Config.EnableHostServicesUDP && probes.HaveMapType(ebpf.LRUHash) == nil
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
 		createSockRevNatMaps, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
@@ -426,7 +435,7 @@ func (d *Daemon) initMaps() error {
 	})
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
-		if _, err := ipmasq.IPMasq4Map.OpenOrCreate(); err != nil {
+		if _, err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -443,7 +452,7 @@ func (d *Daemon) initMaps() error {
 	if !option.Config.RestoreState {
 		// If we are not restoring state, all endpoints can be
 		// deleted. Entries will be re-populated.
-		lxcmap.LXCMap.DeleteAll()
+		lxcmap.LXCMap().DeleteAll()
 	}
 
 	if option.Config.EnableSessionAffinity {
@@ -529,9 +538,6 @@ func setupRouteToVtepCidr() error {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
 	for _, rt := range routes {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: rt.Dst.String(),
-		}).Info("VTEP route")
 		rtCIDR, err := cidr.ParseCIDR(rt.Dst.String())
 		if err != nil {
 			return fmt.Errorf("Invalid VTEP Route CIDR: %w", err)

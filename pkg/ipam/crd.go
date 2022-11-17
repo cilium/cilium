@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,9 +26,10 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -74,13 +74,15 @@ type nodeStore struct {
 	restoreFinished  chan struct{}
 	restoreCloseOnce sync.Once
 
+	clientset client.Clientset
+
 	conf      Configuration
 	mtuConfig MtuConfiguration
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
+func newNodeStore(nodeName string, conf Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) *nodeStore {
 	log.WithField(fieldName, nodeName).Info("Subscribed to CiliumNode custom resource")
 
 	store := &nodeStore{
@@ -88,9 +90,9 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
 		mtuConfig:          mtuConfig,
+		clientset:          clientset,
 	}
 	store.restoreFinished = make(chan struct{})
-	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
 		Name:        "crd-allocator-node-refresher",
@@ -107,10 +109,10 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	owner.UpdateCiliumNodeResource()
 	apiGroup := "cilium/v2::CiliumNode"
 	ciliumNodeSelector := fields.ParseSelectorOrDie("metadata.name=" + nodeName)
-	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
-	ciliumNodeInformer := informer.NewInformerWithStore(
-		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			ciliumv2.CNPluralName, corev1.NamespaceAll, ciliumNodeSelector),
+	_, ciliumNodeInformer := informer.NewInformer(
+		utils.ListerWatcherWithFields(
+			utils.ListerWatcherFromTyped[*ciliumv2.CiliumNodeList](clientset.CiliumV2().CiliumNodes()),
+			ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -163,7 +165,6 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			},
 		},
 		nil,
-		ciliumNodeStore,
 	)
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
@@ -496,8 +497,7 @@ func (n *nodeStore) refreshNode() error {
 	}
 
 	var err error
-	ciliumClient := k8s.CiliumClient()
-	_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
+	_, err = n.clientset.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 
 	return err
 }
@@ -548,12 +548,32 @@ func (n *nodeStore) isIPInReleaseHandshake(ip string) bool {
 }
 
 // allocateNext allocates the next available IP or returns an error
-func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Family) (net.IP, *ipamTypes.AllocationIP, error) {
+func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Family, owner string) (net.IP, *ipamTypes.AllocationIP, error) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
 	if n.ownNode == nil {
 		return nil, nil, fmt.Errorf("CiliumNode for own node is not available")
+	}
+
+	// Check if IP has a custom owner (only supported in manual CRD mode)
+	if n.conf.IPAMMode() == ipamOption.IPAMCRD && len(owner) != 0 {
+		for ip, ipInfo := range n.ownNode.Spec.IPAM.Pool {
+			if ipInfo.Owner == owner {
+				parsedIP := net.ParseIP(ip)
+				if parsedIP == nil {
+					log.WithFields(logrus.Fields{
+						fieldName: n.ownNode.Name,
+						"ip":      ip,
+					}).Warning("Unable to parse IP in CiliumNode custom resource")
+					return nil, nil, fmt.Errorf("invalid custom ip %s for %s. ", ip, owner)
+				}
+				if DeriveFamily(parsedIP) != family {
+					continue
+				}
+				return parsedIP, &ipInfo, nil
+			}
+		}
 	}
 
 	// FIXME: This is currently using a brute-force method that can be
@@ -563,6 +583,9 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 
 			if n.isIPInReleaseHandshake(ip) {
 				continue // IP not available
+			}
+			if ipInfo.Owner != "" {
+				continue // IP is used by another
 			}
 			parsedIP := net.ParseIP(ip)
 			if parsedIP == nil {
@@ -603,9 +626,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
+func newCRDAllocator(family Family, c Configuration, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg, mtuConfig)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, clientset, k8sEventReg, mtuConfig)
 	})
 
 	allocator := &crdAllocator{
@@ -803,7 +826,7 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family)
+	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -827,7 +850,7 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*Allocatio
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family)
+	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family, owner)
 	if err != nil {
 		return nil, err
 	}

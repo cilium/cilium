@@ -49,7 +49,8 @@ func NewPutStatusProbeOK() *PutStatusProbeOK {
 	return &PutStatusProbeOK{}
 }
 
-/*PutStatusProbeOK handles this case with default header values.
+/*
+PutStatusProbeOK handles this case with default header values.
 
 Success
 */
@@ -82,7 +83,8 @@ func NewPutStatusProbeFailed() *PutStatusProbeFailed {
 	return &PutStatusProbeFailed{}
 }
 
-/*PutStatusProbeFailed handles this case with default header values.
+/*
+PutStatusProbeFailed handles this case with default header values.
 
 Internal error occurred while conducting connectivity probe
 */

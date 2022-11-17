@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -144,17 +145,15 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 // main routing table. Due to multiple routing CIDRs, there might be more than
 // one egress rule. Deletion of any rule only proceeds if the rule matches
 // the IP & priority. If more than one rule matches, then deletion is skipped.
-func Delete(ip net.IP, compat bool) error {
-	if ip.To4() == nil {
+func Delete(ip netip.Addr, compat bool) error {
+	if !ip.Is4() {
 		log.WithFields(logrus.Fields{
 			"endpointIP": ip,
 		}).Warning("Unable to delete rules because IP is not an IPv4 address")
 		return errors.New("IP not compatible")
 	}
-	ipWithMask := net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(32, 32),
-	}
+
+	ipWithMask := iputil.AddrToIPNet(ip)
 
 	scopedLog := log.WithFields(logrus.Fields{
 		"ip": ipWithMask.String(),
@@ -163,7 +162,7 @@ func Delete(ip net.IP, compat bool) error {
 	// Ingress rules
 	ingress := route.Rule{
 		Priority: linux_defaults.RulePriorityIngress,
-		To:       &ipWithMask,
+		To:       ipWithMask,
 		Table:    route.MainTable,
 	}
 	if err := deleteRule(ingress); err != nil {
@@ -193,7 +192,7 @@ func Delete(ip net.IP, compat bool) error {
 		for _, cidr := range routingCIDRs {
 			egress := route.Rule{
 				Priority: priority,
-				From:     &ipWithMask,
+				From:     ipWithMask,
 				To:       cidr,
 			}
 			if err := deleteRule(egress); err != nil {
@@ -204,7 +203,7 @@ func Delete(ip net.IP, compat bool) error {
 	} else {
 		egress := route.Rule{
 			Priority: priority,
-			From:     &ipWithMask,
+			From:     ipWithMask,
 		}
 		if err := deleteRule(egress); err != nil {
 			return fmt.Errorf("unable to delete egress rule with ip %s: %w", ipWithMask.String(), err)
@@ -220,7 +219,7 @@ func Delete(ip net.IP, compat bool) error {
 		// In CRD-based IPAM, when an IP is unassigned from the CiliumNode, we delete this route
 		// to avoid blackholing traffic to this IP if it gets reassigned to another node
 		if err := netlink.RouteReplace(&netlink.Route{
-			Dst:   &ipWithMask,
+			Dst:   ipWithMask,
 			Table: route.MainTable,
 			Type:  unix.RTN_UNREACHABLE,
 		}); err != nil {

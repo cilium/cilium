@@ -47,18 +47,20 @@ iproute2                 >= 5.9.0 [#iproute2_foot]_ yes
 .. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
-Linux Distribution Compatibility Matrix
-=======================================
+Linux Distribution Compatibility & Considerations 
+=================================================
 
 The following table lists Linux distributions that are known to work
-well with Cilium.
+well with Cilium. Some distributions require a few initial tweaks. Please make
+sure to read each distribution's specific notes below before attempting to
+run Cilium.
 
 ========================== ====================
 Distribution               Minimum Version
 ========================== ====================
 `Amazon Linux 2`_          all
 `Container-Optimized OS`_  all
-`CentOS`_                  >= 7.0 [#centos_foot]_
+`CentOS`_                  >= 7.0
 Debian_                    >= 9 Stretch
 `Fedora Atomic/Core`_      >= 25
 Flatcar_                   all
@@ -66,7 +68,6 @@ LinuxKit_                  all
 `RedHat Enterprise Linux`_ >= 8.0
 Ubuntu_                    >= 16.04.1 (Azure), >= 16.04.2 (Canonical), >= 16.10
 Opensuse_                  Tumbleweed, >=Leap 15.0
-RancherOS_                 >= 1.5.5
 ========================== ====================
 
 .. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
@@ -79,24 +80,65 @@ RancherOS_                 >= 1.5.5
 .. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
-.. _RancherOS: https://rancher.com/rancher-os/
-
-.. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
-    whereas CentOS 8 ships with a supported kernel.
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
           GitHub issue or by creating a pull request that updates this guide.
 
-.. note:: Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` setting
-          of Cilium network interfaces. This introduces connectivity issues
-          (see :gh-issue:`10645` for details). To avoid that, configure
-          ``rp_filter`` in systemd using the following commands:
 
-          .. code-block:: shell-session
+CentOS 7
+~~~~~~~~
 
-              echo 'net.ipv4.conf.lxc*.rp_filter = 0' > /etc/sysctl.d/99-override_cilium_rp_filter.conf
-              systemctl restart systemd-sysctl
+CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
+whereas CentOS 8 ships with a supported kernel. Note that some more advanced
+features may not be available on CentOS 7 even with a third-party kernel. For
+full details on which kernel config options must be enabled in order to use
+various features, see the section on :ref:`admin_kernel_version` requirements
+below.
+
+
+systemd-based distributions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some distributions need to be configured not to manage "foreign" routes. This
+is the case in Ubuntu 22.04, for example (see :gh-issue:`18706`). This can
+usually be done by setting
+
+.. code-block:: text
+
+   ManageForeignRoutes=no
+   ManageForeignRoutingPolicyRules=no
+
+in ``/etc/systemd/networkd.conf``, but please refer to your distribution's
+documentation for the right way to perform this override.
+
+
+Flatcar
+~~~~~~~
+
+Flatcar is known to manipulate network interfaces created and managed by
+Cilium. This is especially true in the official Flatcar image for AWS EKS, and
+causes connectivity issues and potentially prevents the Cilium agent from
+booting when Cilium is running in ENI mode. To avoid this, disable DHCP on
+these interfaces and mark them as unmanaged by adding
+
+.. code-block:: text
+
+        [Match]
+        Name=eth[1-9]*
+
+        [Network]
+        DHCP=no
+
+        [Link]
+        Unmanaged=yes
+
+to ``/etc/systemd/network/01-no-dhcp.network`` and then
+
+.. code-block:: shell-session
+
+        systemctl daemon-reload
+        systemctl restart systemd-networkd
 
 .. _admin_kernel_version:
 
@@ -229,24 +271,26 @@ additional kernel features continues to progress in the Linux community. Some
 of Cilium's features are dependent on newer kernel versions and are thus
 enabled by upgrading to more recent kernel versions as detailed below.
 
-=========================================== ===============================
-Cilium Feature                              Minimum Kernel Version
-=========================================== ===============================
-:ref:`concepts_fragmentation`               >= 4.10
-:ref:`cidr_limitations`                     >= 4.11
-:ref:`encryption_ipsec` in tunneling mode   >= 4.19
-:ref:`encryption_wg`                        >= 5.6
-:ref:`host-services`                        >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`kubeproxy-free`                       >= 4.19.57, >= 5.1.16,  >= 5.2
-:ref:`bandwidth-manager`                    >= 5.1
-:ref:`local-redirect-policy`                >= 4.19.57, >= 5.1.16,  >= 5.2
-Full support for :ref:`session-affinity`    >= 5.7
-BPF-based proxy redirection                 >= 5.7
-BPF-based host routing                      >= 5.10
-Socket-level LB bypass in pod netns         >= 5.7
-:ref:`egress-gateway`                       >= 5.2
-VXLAN Tunnel Endpoint (VTEP) Integration    >= 5.2
-=========================================== ===============================
+====================================================== 	===============================
+Cilium Feature                                          Minimum Kernel Version
+====================================================== 	===============================
+:ref:`concepts_fragmentation`				>= 4.10
+:ref:`cidr_limitations`                     		>= 4.11
+:ref:`encryption_ipsec` in tunneling mode   		>= 4.19
+:ref:`encryption_wg`                        		>= 5.6
+Socket-level LB                        		        >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`                       		>= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`bandwidth-manager`                    		>= 5.1
+:ref:`local-redirect-policy`				>= 4.19.57, >= 5.1.16,  >= 5.2
+Full support for :ref:`session-affinity`		>= 5.7
+:ref:`session-affinity` for kube-proxy ClusterIP	>= 4.10
+BPF-based proxy redirection				>= 5.7
+BPF-based host routing                      		>= 5.10
+Socket-level LB bypass in pod netns         		>= 5.7
+:ref:`egress-gateway`                       		>= 5.2
+VXLAN Tunnel Endpoint (VTEP) Integration    		>= 5.2
+IPv6 BIG TCP support                                    >= 5.19
+====================================================== 	===============================
 
 .. _req_kvstore:
 

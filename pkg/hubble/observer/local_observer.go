@@ -105,6 +105,11 @@ func NewLocalServer(
 
 // Start implements GRPCServer.Start.
 func (s *LocalObserverServer) Start() {
+	// We use a cancellation context here so that any Go routines spawned in the
+	// OnMonitorEvent/OnDecodedFlow/OnDecodedEvent hooks have a signal for cancellation.
+	// When Start() returns, the deferred cancel() will run and we expect hooks
+	// to stop any Go routines that may have spawned by listening to the
+	// ctx.Done() channel for the stop signal.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -122,12 +127,16 @@ nextEvent:
 
 		ev, err := s.payloadParser.Decode(monitorEvent)
 		if err != nil {
-			if !errors.Is(err, parserErrors.ErrUnknownEventType) {
-				// Debug event types MessageTypeDebug and MessageTypeCapture are treated as invalid type.
-				// To avoid spamming debug log, silence them until the parser for them is implemented.
-				if !parserErrors.IsErrInvalidType(err) {
-					s.log.WithError(err).WithField("event", monitorEvent).Debug("failed to decode payload")
-				}
+			switch {
+			case
+				// silently ignore unknown or skipped events
+				errors.Is(err, parserErrors.ErrUnknownEventType),
+				errors.Is(err, parserErrors.ErrEventSkipped),
+				// silently ignore perf ring buffer events with unknown types,
+				// since they are not intended for us (e.g. MessageTypeRecCapture)
+				parserErrors.IsErrInvalidType(err):
+			default:
+				s.log.WithError(err).WithField("event", monitorEvent).Debug("failed to decode payload")
 			}
 			continue
 		}

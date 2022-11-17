@@ -30,7 +30,7 @@ const (
 	// ErrorProxy is the value used to notify errors on Proxy.
 	ErrorProxy = "proxy"
 
-	//L7DNS is the value used to report DNS label on metrics
+	// L7DNS is the value used to report DNS label on metrics
 	L7DNS = "dns"
 
 	// SubsystemBPF is the subsystem to scope metrics related to the bpf syscalls.
@@ -42,6 +42,9 @@ const (
 
 	// SubsystemAgent is the subsystem to scope metrics related to the cilium agent itself.
 	SubsystemAgent = "agent"
+
+	// SubsystemFQDN is the subsystem to scope metrics related to the FQDN proxy.
+	SubsystemIPCache = "ipcache"
 
 	// SubsystemK8s is the subsystem to scope metrics related to Kubernetes
 	SubsystemK8s = "k8s"
@@ -414,6 +417,9 @@ var (
 	// complete a CNP status update
 	KubernetesCNPStatusCompletion = NoOpObserverVec
 
+	// TerminatingEndpointsEvents is the number of terminating endpoint events received from kubernetes.
+	TerminatingEndpointsEvents = NoOpCounter
+
 	// IPAM events
 
 	// IpamEvent is the number of IPAM events received labeled by action and
@@ -449,6 +455,19 @@ var (
 	// that have expired (by TTL) yet still associated with an active
 	// connection (aka zombie), per endpoint.
 	FQDNAliveZombieConnections = NoOpGaugeVec
+
+	// FQDNSemaphoreRejectedTotal is the total number of DNS requests rejected
+	// by the DNS proxy because too many requests were in flight, as enforced by
+	// the admission semaphore.
+	FQDNSemaphoreRejectedTotal = NoOpCounter
+
+	// IPCacheErrorsTotal is the total number of IPCache events handled in
+	// the IPCache subsystem that resulted in errors.
+	IPCacheErrorsTotal = NoOpCounterVec
+
+	// IPCacheEventsTotal is the total number of IPCache events handled in
+	// the IPCache subsystem.
+	IPCacheEventsTotal = NoOpCounterVec
 
 	// BPFSyscallDuration is the metric for bpf syscalls duration.
 	BPFSyscallDuration = NoOpObserverVec
@@ -554,7 +573,10 @@ type Configuration struct {
 	KubernetesAPIInteractionsEnabled        bool
 	KubernetesAPICallsEnabled               bool
 	KubernetesCNPStatusCompletionEnabled    bool
+	KubernetesTerminatingEndpointsEnabled   bool
 	IpamEventEnabled                        bool
+	IPCacheErrorsTotalEnabled               bool
+	IPCacheEventsTotalEnabled               bool
 	KVStoreOperationsDurationEnabled        bool
 	KVStoreEventsQueueDurationEnabled       bool
 	KVStoreQuorumErrorsEnabled              bool
@@ -562,6 +584,7 @@ type Configuration struct {
 	FQDNActiveNames                         bool
 	FQDNActiveIPs                           bool
 	FQDNActiveZombiesConnections            bool
+	FQDNSemaphoreRejectedTotal              bool
 	BPFSyscallDurationEnabled               bool
 	BPFMapOps                               bool
 	BPFMapPressure                          bool
@@ -624,10 +647,12 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemK8sClient + "_api_latency_time_seconds":           {},
 		Namespace + "_" + SubsystemK8sClient + "_api_calls_total":                    {},
 		Namespace + "_" + SubsystemK8s + "_cnp_status_completion_seconds":            {},
+		Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total":       {},
 		Namespace + "_ipam_events_total":                                             {},
 		Namespace + "_" + SubsystemKVStore + "_operations_duration_seconds":          {},
 		Namespace + "_" + SubsystemKVStore + "_events_queue_seconds":                 {},
 		Namespace + "_" + SubsystemKVStore + "_quorum_errors_total":                  {},
+		Namespace + "_" + SubsystemIPCache + "_errors_total":                         {},
 		Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":                      {},
 		Namespace + "_" + SubsystemBPF + "_map_ops_total":                            {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_total":                 {},
@@ -1105,6 +1130,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KubernetesCNPStatusCompletion)
 			c.KubernetesCNPStatusCompletionEnabled = true
 
+		case Namespace + "_" + SubsystemK8s + "_terminating_endpoints_events_total":
+			TerminatingEndpointsEvents = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemK8s,
+				Name:      "terminating_endpoints_events_total",
+				Help:      "Number of terminating endpoint events received from Kubernetes",
+			})
+
+			collectors = append(collectors, TerminatingEndpointsEvents)
+			c.KubernetesTerminatingEndpointsEnabled = true
+
 		case Namespace + "_ipam_events_total":
 			IpamEvent = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -1149,6 +1185,28 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, KVStoreQuorumErrors)
 			c.KVStoreQuorumErrorsEnabled = true
 
+		case Namespace + "_" + SubsystemIPCache + "_errors_total":
+			IPCacheErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemIPCache,
+				Name:      "errors_total",
+				Help:      "Number of errors interacting with the IP to Identity cache",
+			}, []string{LabelType, LabelError})
+
+			collectors = append(collectors, IPCacheErrorsTotal)
+			c.IPCacheErrorsTotalEnabled = true
+
+		case Namespace + "_" + SubsystemIPCache + "_events_total":
+			IPCacheEventsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemIPCache,
+				Name:      "events_total",
+				Help:      "Number of events interacting with the IP to Identity cache",
+			}, []string{LabelType})
+
+			collectors = append(collectors, IPCacheEventsTotal)
+			c.IPCacheEventsTotalEnabled = true
+
 		case Namespace + "_" + SubsystemFQDN + "_gc_deletions_total":
 			FQDNGarbageCollectorCleanedTotal = prometheus.NewCounter(prometheus.CounterOpts{
 				Namespace: Namespace,
@@ -1192,6 +1250,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, FQDNAliveZombieConnections)
 			c.FQDNActiveZombiesConnections = true
+
+		case Namespace + "_" + SubsystemFQDN + "_semaphore_rejected_total":
+			FQDNSemaphoreRejectedTotal = prometheus.NewCounter(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemFQDN,
+				Name:      "semaphore_rejected_total",
+				Help:      "Number of DNS request rejected by the DNS Proxy's admission semaphore",
+			})
+
+			collectors = append(collectors, FQDNSemaphoreRejectedTotal)
+			c.FQDNSemaphoreRejectedTotal = true
 
 		case Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds":
 			BPFSyscallDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -1462,10 +1531,19 @@ func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThresho
 }
 
 func init() {
+	ResetMetrics()
+}
+
+func registerDefaultMetrics() {
 	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
 	MustRegister(collectors.NewGoCollector())
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
+}
+
+func ResetMetrics() {
+	registry = prometheus.NewPedanticRegistry()
+	registerDefaultMetrics()
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

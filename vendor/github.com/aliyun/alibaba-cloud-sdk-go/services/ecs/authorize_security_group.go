@@ -71,27 +71,47 @@ func (client *Client) AuthorizeSecurityGroupWithCallback(request *AuthorizeSecur
 // AuthorizeSecurityGroupRequest is the request struct for api AuthorizeSecurityGroup
 type AuthorizeSecurityGroupRequest struct {
 	*requests.RpcRequest
-	NicType                 string           `position:"Query" name:"NicType"`
-	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	SourcePrefixListId      string           `position:"Query" name:"SourcePrefixListId"`
-	SourcePortRange         string           `position:"Query" name:"SourcePortRange"`
-	ClientToken             string           `position:"Query" name:"ClientToken"`
-	SecurityGroupId         string           `position:"Query" name:"SecurityGroupId"`
-	Description             string           `position:"Query" name:"Description"`
-	SourceGroupOwnerId      requests.Integer `position:"Query" name:"SourceGroupOwnerId"`
-	SourceGroupOwnerAccount string           `position:"Query" name:"SourceGroupOwnerAccount"`
-	Ipv6SourceCidrIp        string           `position:"Query" name:"Ipv6SourceCidrIp"`
-	Ipv6DestCidrIp          string           `position:"Query" name:"Ipv6DestCidrIp"`
-	Policy                  string           `position:"Query" name:"Policy"`
-	PortRange               string           `position:"Query" name:"PortRange"`
-	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
-	IpProtocol              string           `position:"Query" name:"IpProtocol"`
-	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
-	SourceCidrIp            string           `position:"Query" name:"SourceCidrIp"`
-	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
-	Priority                string           `position:"Query" name:"Priority"`
-	DestCidrIp              string           `position:"Query" name:"DestCidrIp"`
-	SourceGroupId           string           `position:"Query" name:"SourceGroupId"`
+	NicType                 string                               `position:"Query" name:"NicType"`
+	ResourceOwnerId         requests.Integer                     `position:"Query" name:"ResourceOwnerId"`
+	SourcePrefixListId      string                               `position:"Query" name:"SourcePrefixListId"`
+	SourcePortRange         string                               `position:"Query" name:"SourcePortRange"`
+	ClientToken             string                               `position:"Query" name:"ClientToken"`
+	SecurityGroupId         string                               `position:"Query" name:"SecurityGroupId"`
+	Description             string                               `position:"Query" name:"Description"`
+	SourceGroupOwnerId      requests.Integer                     `position:"Query" name:"SourceGroupOwnerId"`
+	SourceGroupOwnerAccount string                               `position:"Query" name:"SourceGroupOwnerAccount"`
+	Permissions             *[]AuthorizeSecurityGroupPermissions `position:"Query" name:"Permissions"  type:"Repeated"`
+	Policy                  string                               `position:"Query" name:"Policy"`
+	Ipv6SourceCidrIp        string                               `position:"Query" name:"Ipv6SourceCidrIp"`
+	Ipv6DestCidrIp          string                               `position:"Query" name:"Ipv6DestCidrIp"`
+	PortRange               string                               `position:"Query" name:"PortRange"`
+	ResourceOwnerAccount    string                               `position:"Query" name:"ResourceOwnerAccount"`
+	IpProtocol              string                               `position:"Query" name:"IpProtocol"`
+	OwnerAccount            string                               `position:"Query" name:"OwnerAccount"`
+	SourceCidrIp            string                               `position:"Query" name:"SourceCidrIp"`
+	OwnerId                 requests.Integer                     `position:"Query" name:"OwnerId"`
+	Priority                string                               `position:"Query" name:"Priority"`
+	DestCidrIp              string                               `position:"Query" name:"DestCidrIp"`
+	SourceGroupId           string                               `position:"Query" name:"SourceGroupId"`
+}
+
+// AuthorizeSecurityGroupPermissions is a repeated param struct in AuthorizeSecurityGroupRequest
+type AuthorizeSecurityGroupPermissions struct {
+	Policy                  string `name:"Policy"`
+	Priority                string `name:"Priority"`
+	IpProtocol              string `name:"IpProtocol"`
+	SourceCidrIp            string `name:"SourceCidrIp"`
+	Ipv6SourceCidrIp        string `name:"Ipv6SourceCidrIp"`
+	SourceGroupId           string `name:"SourceGroupId"`
+	SourcePrefixListId      string `name:"SourcePrefixListId"`
+	PortRange               string `name:"PortRange"`
+	DestCidrIp              string `name:"DestCidrIp"`
+	Ipv6DestCidrIp          string `name:"Ipv6DestCidrIp"`
+	SourcePortRange         string `name:"SourcePortRange"`
+	SourceGroupOwnerAccount string `name:"SourceGroupOwnerAccount"`
+	SourceGroupOwnerId      string `name:"SourceGroupOwnerId"`
+	NicType                 string `name:"NicType"`
+	Description             string `name:"Description"`
 }
 
 // AuthorizeSecurityGroupResponse is the response struct for api AuthorizeSecurityGroup

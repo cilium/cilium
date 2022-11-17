@@ -10,13 +10,14 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_entensions_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -25,20 +26,20 @@ const (
 	tlsCrtAttribute = "tls.crt"
 	tlsKeyAttribute = "tls.key"
 
-	tlsFieldSelector = "type=kubernetes.io/tls"
+	// Key for CA certificate is fixed as 'ca.crt' even though is not as "standard"
+	// as 'tls.crt' and 'tls.key' are via k8s tls secret type.
+	caCrtAttribute = "ca.crt"
 )
 
-func (k *K8sWatcher) tlsSecretInit(k8sClient kubernetes.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
-	secretOptsModifier := func(options *metav1.ListOptions) {
-		options.FieldSelector = tlsFieldSelector
-	}
+func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
+	// Watch for all Secret types
+	secretOptsModifier := func(options *metav1.ListOptions) {}
 
 	apiGroup := resources.K8sAPIGroupSecretV1Core
 	_, secretController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"secrets", namespace,
-			secretOptsModifier,
-		),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](slimClient.CoreV1().Secrets(namespace)),
+			secretOptsModifier),
 		&slim_corev1.Secret{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -126,9 +127,12 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 	if secret == nil {
 		return nil
 	}
-	return &envoy_entensions_tls_v3.Secret{
+	envoySecret := &envoy_entensions_tls_v3.Secret{
 		Name: getEnvoySecretName(secret.GetNamespace(), secret.GetName()),
-		Type: &envoy_entensions_tls_v3.Secret_TlsCertificate{
+	}
+
+	if len(secret.Data[tlsCrtAttribute]) > 0 || len(secret.Data[tlsKeyAttribute]) > 0 {
+		envoySecret.Type = &envoy_entensions_tls_v3.Secret_TlsCertificate{
 			TlsCertificate: &envoy_entensions_tls_v3.TlsCertificate{
 				CertificateChain: &envoy_config_core_v3.DataSource{
 					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
@@ -141,8 +145,21 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 					},
 				},
 			},
-		},
+		}
+	} else if len(secret.Data[caCrtAttribute]) > 0 {
+		envoySecret.Type = &envoy_entensions_tls_v3.Secret_ValidationContext{
+			ValidationContext: &envoy_entensions_tls_v3.CertificateValidationContext{
+				TrustedCa: &envoy_config_core_v3.DataSource{
+					Specifier: &envoy_config_core_v3.DataSource_InlineBytes{
+						InlineBytes: secret.Data[caCrtAttribute],
+					},
+				},
+				// TODO: Consider support for other ValidationContext config.
+			},
+		}
 	}
+
+	return envoySecret
 }
 
 func getEnvoySecretName(namespace, name string) string {

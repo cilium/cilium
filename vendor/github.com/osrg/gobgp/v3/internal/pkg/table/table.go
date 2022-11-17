@@ -212,10 +212,11 @@ func (t *Table) GetLongerPrefixDestinations(key string) ([]*Destination, error) 
 	switch t.routeFamily {
 	case bgp.RF_IPv4_UC, bgp.RF_IPv6_UC, bgp.RF_IPv4_MPLS, bgp.RF_IPv6_MPLS:
 		_, prefix, err := net.ParseCIDR(key)
-		ones, bits := prefix.Mask.Size()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error parsing cidr %s: %v", key, err)
 		}
+		ones, bits := prefix.Mask.Size()
+
 		r := critbitgo.NewNet()
 		for _, dst := range t.GetDestinations() {
 			r.Add(nlriToIPNet(dst.nlri), dst)

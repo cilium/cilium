@@ -6,6 +6,7 @@ package counter
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -34,12 +35,17 @@ func NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixL
 	}
 }
 
-// This is a bit ugly, but there's not a great way to define an IPNet without
-// parsing strings, etc.
-func createIPNet(ones, bits int) *net.IPNet {
-	return &net.IPNet{
-		Mask: net.CIDRMask(ones, bits),
+func createIPNet(ones, bits int) netip.Prefix {
+	var addr netip.Addr
+	switch bits {
+	case net.IPv4len * 8:
+		addr = netip.IPv4Unspecified()
+	case net.IPv6len * 8:
+		addr = netip.IPv6Unspecified()
+	default:
+		// fall through to default library error
 	}
+	return netip.PrefixFrom(addr, ones)
 }
 
 // DefaultPrefixLengthCounter creates a default prefix length counter that
@@ -49,7 +55,7 @@ func createIPNet(ones, bits int) *net.IPNet {
 func DefaultPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4 int) *PrefixLengthCounter {
 	counter := NewPrefixLengthCounter(maxUniquePrefixes6, maxUniquePrefixes4)
 
-	defaultPrefixes := []*net.IPNet{
+	defaultPrefixes := []netip.Prefix{
 		// IPv4
 		createIPNet(0, net.IPv4len*8),             // world
 		createIPNet(net.IPv4len*8, net.IPv4len*8), // hosts
@@ -82,7 +88,7 @@ func checkLimits(current, newCount, max int) error {
 //
 // Returns true if adding these prefixes results in an increase in the total
 // number of unique prefix lengths in the counter.
-func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
+func (p *PrefixLengthCounter) Add(prefixes []netip.Prefix) (bool, error) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -92,7 +98,8 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 	newV4Prefixes := false
 	newV6Prefixes := false
 	for _, prefix := range prefixes {
-		ones, bits := prefix.Mask.Size()
+		ones := prefix.Bits()
+		bits := prefix.Addr().BitLen()
 
 		switch bits {
 		case net.IPv4len * 8:
@@ -130,12 +137,13 @@ func (p *PrefixLengthCounter) Add(prefixes []*net.IPNet) (bool, error) {
 // the counter. Returns true if removing references to these prefix lengths
 // would result in a decrese in the total number of unique prefix lengths in
 // the counter.
-func (p *PrefixLengthCounter) Delete(prefixes []*net.IPNet) (changed bool) {
+func (p *PrefixLengthCounter) Delete(prefixes []netip.Prefix) (changed bool) {
 	p.Lock()
 	defer p.Unlock()
 
 	for _, prefix := range prefixes {
-		ones, bits := prefix.Mask.Size()
+		ones := prefix.Bits()
+		bits := prefix.Addr().BitLen()
 		switch bits {
 		case net.IPv4len * 8:
 			if p.v4.Delete(ones) {

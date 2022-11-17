@@ -4,38 +4,41 @@
 package ciliumio
 
 const (
+	// LabelPrefix is the prefix for all Cilium owned labels.
+	LabelPrefix = "io.cilium.k8s"
+
 	// PolicyLabelName is the name of the policy label which refers to the
 	// k8s policy name.
-	PolicyLabelName = "io.cilium.k8s.policy.name"
+	PolicyLabelName = LabelPrefix + ".policy.name"
 
 	// PolicyLabelUID is the uid of the policy label which refers to the
 	// k8s policy UID.
-	PolicyLabelUID = "io.cilium.k8s.policy.uid"
+	PolicyLabelUID = LabelPrefix + ".policy.uid"
 
 	// PolicyLabelNamespace is the policy's namespace set in k8s.
-	PolicyLabelNamespace = "io.cilium.k8s.policy.namespace"
+	PolicyLabelNamespace = LabelPrefix + ".policy.namespace"
 
 	// PolicyLabelDerivedFrom is the resource type which was used to
 	// derived the policy rule
-	PolicyLabelDerivedFrom = "io.cilium.k8s.policy.derived-from"
+	PolicyLabelDerivedFrom = LabelPrefix + ".policy.derived-from"
 
 	// PolicyLabelServiceAccount is the name of the label associated with
 	// an endpoint to represent the Kubernetes ServiceAccount name
-	PolicyLabelServiceAccount = "io.cilium.k8s.policy.serviceaccount"
+	PolicyLabelServiceAccount = LabelPrefix + ".policy.serviceaccount"
 
 	// PolicyLabelCluster is the name of the cluster the endpoint is
 	// running in
-	PolicyLabelCluster = "io.cilium.k8s.policy.cluster"
+	PolicyLabelCluster = LabelPrefix + ".policy.cluster"
 
 	// PolicyLabelIstioSidecarProxy is the label key added to the identity of
 	// any pod that has been injected by Istio with a Cilium-compatible sidecar
 	// proxy. The value of this label is expected to be a boolean, i.e. "true"
 	// or "false".
-	PolicyLabelIstioSidecarProxy = "io.cilium.k8s.policy.istiosidecarproxy"
+	PolicyLabelIstioSidecarProxy = LabelPrefix + ".policy.istiosidecarproxy"
 
 	// PodNamespaceMetaLabels is the label used to store the labels of the
 	// kubernetes namespace's labels.
-	PodNamespaceMetaLabels = "io.cilium.k8s.namespace.labels"
+	PodNamespaceMetaLabels = LabelPrefix + ".namespace.labels"
 
 	// PodNamespaceMetaNameLabel is the label that Kubernetes automatically adds
 	// to namespaces.
@@ -55,7 +58,7 @@ const (
 	PodNameLabel = "io.kubernetes.pod.name"
 
 	// AppKubernetes is the label which is recommended by the official k8s
-	// documentation ad the lablel for every resource object.
+	// documentation add the label for every resource object.
 	AppKubernetes = "app.kubernetes.io"
 
 	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up

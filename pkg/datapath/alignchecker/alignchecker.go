@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
+	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
@@ -30,8 +31,7 @@ import (
 // CheckStructAlignments checks whether size and offsets of the C and Go
 // structs for the datapath match.
 //
-// C struct size info is extracted from the given ELF object file debug section
-// encoded in DWARF.
+// C struct layout is extracted from the given ELF object file's BTF info.
 //
 // To find a matching C struct field, a Go field has to be tagged with
 // `align:"field_name_in_c_struct". In the case of unnamed union field, such
@@ -61,13 +61,17 @@ func CheckStructAlignments(path string) error {
 		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
 		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
 		"ipv6_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat6Value{})},
-		"v6addr":               {reflect.TypeOf(neighborsmap.Key6{})},
-		"macaddr":              {reflect.TypeOf(neighborsmap.Value{})},
-		"ipv4_frag_id":         {reflect.TypeOf(fragmap.FragmentKey{})},
-		"ipv4_frag_l4ports":    {reflect.TypeOf(fragmap.FragmentValue{})},
-		"capture4_wcard":       {reflect.TypeOf(recorder.CaptureWcard4{})},
-		"capture6_wcard":       {reflect.TypeOf(recorder.CaptureWcard6{})},
-		"capture_rule":         {reflect.TypeOf(recorder.CaptureRule4{})},
+		"v6addr": {
+			reflect.TypeOf(neighborsmap.Key6{}),
+			reflect.TypeOf(srv6map.PolicyValue{}),
+			reflect.TypeOf(srv6map.SIDKey{}),
+		},
+		"macaddr":           {reflect.TypeOf(neighborsmap.Value{})},
+		"ipv4_frag_id":      {reflect.TypeOf(fragmap.FragmentKey{})},
+		"ipv4_frag_l4ports": {reflect.TypeOf(fragmap.FragmentValue{})},
+		"capture4_wcard":    {reflect.TypeOf(recorder.CaptureWcard4{})},
+		"capture6_wcard":    {reflect.TypeOf(recorder.CaptureWcard6{})},
+		"capture_rule":      {reflect.TypeOf(recorder.CaptureRule4{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "capture_rule":      {reflect.TypeOf(recorder.CaptureRule6{})},
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
@@ -87,6 +91,10 @@ func CheckStructAlignments(path string) error {
 		"edt_info":               {reflect.TypeOf(bwmap.EdtInfo{})},
 		"egress_gw_policy_key":   {reflect.TypeOf(egressmap.EgressPolicyKey4{})},
 		"egress_gw_policy_entry": {reflect.TypeOf(egressmap.EgressPolicyVal4{})},
+		"srv6_vrf_key4":          {reflect.TypeOf(srv6map.VRFKey4{})},
+		"srv6_vrf_key6":          {reflect.TypeOf(srv6map.VRFKey6{})},
+		"srv6_policy_key4":       {reflect.TypeOf(srv6map.PolicyKey4{})},
+		"srv6_policy_key6":       {reflect.TypeOf(srv6map.PolicyKey6{})},
 		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
 		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
 	}
@@ -109,6 +117,8 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(eventsmap.Value{}),
 			reflect.TypeOf(policymap.CallKey{}),
 			reflect.TypeOf(policymap.CallValue{}),
+			reflect.TypeOf(srv6map.VRFValue{}),
+			reflect.TypeOf(srv6map.SIDValue{}),
 		},
 		"int": {
 			reflect.TypeOf(sockmap.SockmapValue{}),

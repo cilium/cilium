@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package ipam
 
 import (
@@ -11,7 +9,6 @@ import (
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -32,20 +29,7 @@ var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
-
-	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
-	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
-
-	for i := 0; i < 10; i++ {
-		_, err := addressing.NewCiliumIPv4(ipv4.String())
-		c.Assert(err, IsNil)
-		nextIP(ipv4)
-
-		_, err = addressing.NewCiliumIPv6(ipv6.String())
-		c.Assert(err, IsNil)
-		nextIP(ipv6)
-	}
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	allocv4, allocv6, status := ipam.Dump()
 	c.Assert(status, Not(Equals), "")
@@ -64,7 +48,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	err := ipam.AllocateIP(ip, "foo")
 	c.Assert(err, IsNil)
@@ -130,7 +114,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
 
 	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", timeout)
 	c.Assert(err, IsNil)
@@ -141,8 +125,9 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	// IPv6 address must be in use
 	err = ipam.AllocateIP(ipv6.IP, "foo")
 	c.Assert(err, Not(IsNil))
+
 	// Let expiration timer expire
-	time.Sleep(2 * timeout)
+	time.Sleep(time.Second)
 	// IPv4 address must be available again
 	err = ipam.AllocateIP(ipv4.IP, "foo")
 	c.Assert(err, IsNil)
@@ -164,8 +149,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Let expiration timer expire
-	time.Sleep(2 * timeout)
-
+	time.Sleep(time.Second)
 	// IPv4 address must be in use
 	err = ipam.AllocateIP(ipv4.IP, "foo")
 	c.Assert(err, Not(IsNil))

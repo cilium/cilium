@@ -94,6 +94,7 @@ enum Protocol {
     PROTOCOL_ANY = 0;
     PROTOCOL_TCP = 6;
     PROTOCOL_UDP = 17;
+    PROTOCOL_SCTP = 132;
 }
 
 message StopRecording {}

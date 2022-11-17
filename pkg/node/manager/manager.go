@@ -6,20 +6,23 @@ package manager
 import (
 	"context"
 	"errors"
-	"math"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -52,8 +55,7 @@ type nodeEntry struct {
 type IPCache interface {
 	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *ipcache.K8sMetadata, newIdentity ipcache.Identity) (bool, error)
 	Delete(IP string, source source.Source) bool
-	TriggerLabelInjection(source source.Source)
-	UpsertMetadata(string, labels.Labels)
+	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, rid ipcacheTypes.ResourceID)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -300,15 +302,7 @@ func (m *Manager) ClusterSizeDependantInterval(baseInterval time.Duration) time.
 	numNodes := len(m.nodes)
 	m.mutex.RUnlock()
 
-	// no nodes are being managed, no work will be performed, return
-	// baseInterval to check again in a reasonable timeframe
-	if numNodes == 0 {
-		return baseInterval
-	}
-
-	waitNanoseconds := float64(baseInterval.Nanoseconds()) * math.Log1p(float64(numNodes))
-	return time.Duration(int64(waitNanoseconds))
-
+	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
 }
 
 func (m *Manager) backgroundSyncInterval() time.Duration {
@@ -372,8 +366,8 @@ func (m *Manager) legacyNodeIpBehavior() bool {
 	if m.conf.NodeEncryptionEnabled() {
 		return false
 	}
-	// Needed to store the SPI for pod->remote node in the ipcache since
-	// that path goes through the tunnel.
+	// Needed to store the tunnel endpoint for pod->remote node in the
+	// ipcache so that this traffic goes through the tunnel.
 	if m.conf.EncryptionEnabled() && m.conf.TunnelingEnabled() {
 		return false
 	}
@@ -439,13 +433,19 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			key = 0
 		}
 
-		ipAddrStr := address.IP.String()
+		var prefix netip.Prefix
+		if v4 := address.IP.To4(); v4 != nil {
+			prefix = ip.IPToNetPrefix(v4)
+		} else {
+			prefix = ip.IPToNetPrefix(address.IP.To16())
+		}
+		ipAddrStr := prefix.String()
 		_, err := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
-
-		m.upsertIntoIDMD(ipAddrStr, remoteHostIdentity)
+		resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
+		m.upsertIntoIDMD(prefix, remoteHostIdentity, resource)
 
 		// Upsert() will return true if the ipcache entry is owned by
 		// the source of the node update that triggered this node
@@ -552,18 +552,16 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	}
-
-	m.ipcache.TriggerLabelInjection(n.Source)
 }
 
 // upsertIntoIDMD upserts the given CIDR into the ipcache.identityMetadata
 // (IDMD) map. The given node identity determines which labels are associated
 // with the CIDR.
-func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
+func (m *Manager) upsertIntoIDMD(prefix netip.Prefix, id identity.NumericIdentity, rid ipcacheTypes.ResourceID) {
 	if id == identity.ReservedIdentityHost {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelHost)
+		m.ipcache.UpsertLabels(prefix, labels.LabelHost, source.Local, rid)
 	} else {
-		m.ipcache.UpsertMetadata(prefix, labels.LabelRemoteNode)
+		m.ipcache.UpsertLabels(prefix, labels.LabelRemoteNode, source.CustomResource, rid)
 	}
 }
 

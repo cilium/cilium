@@ -43,7 +43,8 @@ func NewGetConfigOK() *GetConfigOK {
 	return &GetConfigOK{}
 }
 
-/*GetConfigOK handles this case with default header values.
+/*
+GetConfigOK handles this case with default header values.
 
 Success
 */

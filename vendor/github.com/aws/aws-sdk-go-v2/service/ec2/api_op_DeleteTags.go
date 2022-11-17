@@ -12,8 +12,8 @@ import (
 )
 
 // Deletes the specified set of tags from the specified set of resources. To list
-// the current tags, use DescribeTags. For more information about tags, see Tagging
-// Your Resources
+// the current tags, use DescribeTags. For more information about tags, see Tag
+// your Amazon EC2 resources
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DeleteTags(ctx context.Context, params *DeleteTagsInput, optFns ...func(*Options)) (*DeleteTagsOutput, error) {

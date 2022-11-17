@@ -103,9 +103,9 @@ func NewSubnetsFilters(tags map[string]string, ids []string) []ec2_types.Filter 
 	return filters
 }
 
-// NewInstancsFilters transforms a map of tags and values
-// into a slice of ec2.Filter adequate to filter AWS Instances.
-func NewInstancesFilters(tags map[string]string) []ec2_types.Filter {
+// NewTagsFilter transforms a map of tags and values
+// into a slice of ec2.Filter adequate to filter resources based on tags.
+func NewTagsFilter(tags map[string]string) []ec2_types.Filter {
 	filters := make([]ec2_types.Filter, 0, len(tags))
 
 	for k, v := range tags {
@@ -116,6 +116,18 @@ func NewInstancesFilters(tags map[string]string) []ec2_types.Filter {
 	}
 
 	return filters
+}
+
+// MergeTags merges all tags into a newly created map. Duplicate tags are
+// overwritten by rightmost argument.
+func MergeTags(tagMaps ...map[string]string) map[string]string {
+	merged := make(map[string]string)
+	for _, tagMap := range tagMaps {
+		for k, v := range tagMap {
+			merged[k] = v
+		}
+	}
+	return merged
 }
 
 // deriveStatus returns a status string based on the HTTP response provided by
@@ -132,6 +144,61 @@ func deriveStatus(err error) string {
 	}
 
 	return "OK"
+}
+
+func DetectEKSClusterName(ctx context.Context, cfg aws.Config) (string, error) {
+	instance, err := imds.NewFromConfig(cfg).GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve instance identity document: %w", err)
+	}
+
+	const eksClusterNameTag = "aws:eks:cluster-name"
+	tags, err := ec2.NewFromConfig(cfg).DescribeTags(ctx, &ec2.DescribeTagsInput{
+		Filters: []ec2_types.Filter{
+			{Name: aws.String("resource-type"), Values: []string{"instance"}},
+			{Name: aws.String("resource-id"), Values: []string{instance.InstanceID}},
+			{Name: aws.String("key"), Values: []string{eksClusterNameTag}},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("unable to retrieve instance identity document: %w", err)
+	}
+	if len(tags.Tags) == 0 || aws.ToString(tags.Tags[0].Key) != eksClusterNameTag {
+		return "", fmt.Errorf("tag not found: %s", eksClusterNameTag)
+	}
+
+	return aws.ToString(tags.Tags[0].Value), nil
+}
+
+func (c *Client) GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error) {
+	result := make([]string, 0, int(maxResults))
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters:    append(NewTagsFilter(tags), c.subnetsFilters...),
+		MaxResults: aws.Int32(maxResults),
+	}
+
+	input.Filters = append(input.Filters, ec2_types.Filter{
+		Name:   aws.String("status"),
+		Values: []string{"available"},
+	})
+
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		for _, eni := range output.NetworkInterfaces {
+			result = append(result, aws.ToString(eni.NetworkInterfaceId))
+		}
+		if len(result) >= int(maxResults) {
+			break
+		}
+	}
+	return result, nil
 }
 
 // describeNetworkInterfaces lists all ENIs
@@ -193,7 +260,7 @@ func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]
 		}
 	}
 
-	enisListFromInstances := []string{}
+	enisListFromInstances := make([]string, 0, len(enisFromInstances))
 	for k := range enisFromInstances {
 		enisListFromInstances = append(enisListFromInstances, k)
 	}

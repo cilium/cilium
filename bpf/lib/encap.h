@@ -9,7 +9,7 @@
 #include "trace.h"
 #include "l3.h"
 
-#ifdef ENCAP_IFINDEX
+#ifdef HAVE_ENCAP
 #ifdef ENABLE_IPSEC
 static __always_inline int
 encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
@@ -32,7 +32,7 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
 	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
 	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
-	return IPSEC_ENDPOINT;
+	return CTX_ACT_OK;
 }
 
 static __always_inline int
@@ -49,7 +49,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	set_encrypt_key_mark(ctx, key);
 	set_identity_mark(ctx, seclabel);
 	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
-	return IPSEC_ENDPOINT;
+	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */
 
@@ -114,9 +114,9 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		    __u32 seclabel, enum trace_reason ct_reason, __u32 monitor)
+		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
+		    enum trace_reason ct_reason, __u32 monitor, __u32 *ifindex)
 {
-	struct bpf_tunnel_key key = {};
 	__u32 node_id;
 	int ret;
 
@@ -128,90 +128,110 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		seclabel = LOCAL_NODE_ID;
 
 	node_id = bpf_htonl(tunnel_endpoint);
-	key.tunnel_id = seclabel;
-	key.remote_ipv4 = node_id;
-	key.tunnel_ttl = 64;
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
-	if (unlikely(ret < 0))
-		return DROP_WRITE_ERROR;
+	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni, ifindex);
+	if (ret == CTX_ACT_REDIRECT)
+		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
+				  ct_reason, monitor);
 
-	send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, 0, 0, ENCAP_IFINDEX,
-			  ct_reason, monitor);
-	return 0;
+	return ret;
 }
 
 static __always_inline int
 __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				 __u32 seclabel, const struct trace_ctx *trace)
+				 __u32 seclabel, __u32 dstid, __u32 vni,
+				 const struct trace_ctx *trace)
 {
-	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
-				      trace->reason, trace->monitor);
-	if (ret != 0)
+	__u32 ifindex;
+
+	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid,
+				      vni, trace->reason, trace->monitor,
+				      &ifindex);
+	if (ret != CTX_ACT_REDIRECT)
 		return ret;
 
-	return ctx_redirect(ctx, ENCAP_IFINDEX, 0);
+	return ctx_redirect(ctx, ifindex, 0);
 }
 
-/* encap_and_redirect_with_nodeid returns IPSEC_ENDPOINT after ctx meta-data is
- * set when IPSec is enabled. Caller should pass the ctx to the stack at this
- * point. Otherwise returns CTX_ACT_TX on successful redirect to tunnel device.
- * On error returns CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR.
+/* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
+ * set (eg. when IPSec is enabled). Caller should pass the ctx to the stack at this
+ * point. Otherwise returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
+ * On error returns CTX_ACT_DROP or DROP_WRITE_ERROR.
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			       __u8 key __maybe_unused, __u32 seclabel,
-			       const struct trace_ctx *trace)
+			       __u32 dstid, const struct trace_ctx *trace)
 {
 #ifdef ENABLE_IPSEC
 	if (key)
 		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
 #endif
-	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel,
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
 						trace);
 }
 
-/* encap_and_redirect based on ENABLE_IPSEC flag and from_host bool will decide
- * which version of code to call. With IPSec enabled and from_host set use the
- * IPSec branch which configures metadata for IPSec kernel stack. Otherwise
- * packet is redirected to output tunnel device and ctx will not be seen by
- * IP stack.
+/* __encap_and_redirect_lxc() is a variant of encap_and_redirect_lxc()
+ * that requires a valid tunnel_endpoint.
+ */
+static __always_inline int
+__encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
+			 __u32 dstid, const struct trace_ctx *trace)
+{
+	__u32 ifindex __maybe_unused;
+	int ret __maybe_unused;
+
+#ifdef ENABLE_IPSEC
+	if (encrypt_key)
+		return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
+						encrypt_key, seclabel);
+#endif
+
+#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
+	/* For IPSec and the host firewall, traffic from a pod to a remote node
+	 * is sent through the tunnel. In the case of node --> VIP@remote pod,
+	 * packets may be DNATed when they enter the remote node. If kube-proxy
+	 * is used, the response needs to go through the stack on the way to
+	 * the tunnel, to apply the correct reverse DNAT.
+	 * See #14674 for details.
+	 */
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, dstid, NOT_VTEP_DST,
+				  trace->reason, trace->monitor, &ifindex);
+	if (ret != CTX_ACT_REDIRECT)
+		return ret;
+
+	/* tell caller that this packet needs to go through the stack: */
+	return CTX_ACT_OK;
+#else
+	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
+						seclabel, dstid, NOT_VTEP_DST, trace);
+#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
+}
+
+#ifdef TUNNEL_MODE
+/* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
+ * so that it can be passed to the IP stack. Without IPSec the packet is
+ * typically redirected to the output tunnel device and ctx will not be seen by
+ * the IP stack.
  *
- * Returns IPSEC_ENDPOINT when ctx needs to be handed to IP stack for IPSec
- * handling, CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
- * and finally on successful redirect returns CTX_ACT_TX.
+ * Returns CTX_ACT_OK when ctx needs to be handed to IP stack (eg. for IPSec
+ * handling), CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
+ * and finally on successful redirect returns CTX_ACT_REDIRECT.
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		       __u8 encrypt_key __maybe_unused,
-		       struct endpoint_key *key, __u32 seclabel,
-		       const struct trace_ctx *trace)
+		       __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel,
+		       __u32 dstid, const struct trace_ctx *trace)
 {
 	struct endpoint_key *tunnel;
 
-	if (tunnel_endpoint) {
-#ifdef ENABLE_IPSEC
-		if (encrypt_key)
-			return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
-							encrypt_key, seclabel);
-#endif
-#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
-		/* For IPSec and the host firewall, traffic from a pod to a remote node
-		 * is sent through the tunnel. In the case of node --> VIP@remote pod,
-		 * packets may be DNATed when they enter the remote node. If kube-proxy
-		 * is used, the response needs to go through the stack on the way to
-		 * the tunnel, to apply the correct reverse DNAT.
-		 * See #14674 for details.
-		 */
-		return __encap_with_nodeid(ctx, tunnel_endpoint, seclabel,
-					   trace->reason, trace->monitor);
-#else
-		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint,
-							seclabel, trace);
-#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
-	}
+	if (tunnel_endpoint)
+		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
+						encrypt_key, seclabel,
+						dstid, trace);
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
 	if (!tunnel)
@@ -227,7 +247,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-						trace);
+						dstid, NOT_VTEP_DST, trace);
 }
 
 static __always_inline int
@@ -249,7 +269,9 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
-						trace);
+						0, NOT_VTEP_DST, trace);
 }
-#endif /* ENCAP_IFINDEX */
+#endif /* TUNNEL_MODE */
+
+#endif /* HAVE_ENCAP */
 #endif /* __LIB_ENCAP_H_ */

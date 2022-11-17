@@ -19,7 +19,8 @@ import (
 // GetRecorderOKCode is the HTTP code returned for type GetRecorderOK
 const GetRecorderOKCode int = 200
 
-/*GetRecorderOK Success
+/*
+GetRecorderOK Success
 
 swagger:response getRecorderOK
 */

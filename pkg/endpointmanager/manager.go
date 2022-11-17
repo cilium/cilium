@@ -8,13 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -248,6 +248,9 @@ func (mgr *EndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 		if err != nil {
 			return nil, err
 		}
+		if n > endpointid.MaxEndpointId {
+			return nil, fmt.Errorf("%d: endpoint ID too large", n)
+		}
 		return mgr.lookupCiliumID(uint16(n)), nil
 
 	case endpointid.CiliumGlobalIdPrefix:
@@ -361,8 +364,8 @@ func (mgr *EndpointManager) unexpose(ep *endpoint.Endpoint) {
 		if err = mgr.ReleaseID(ep); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"state":               previousState,
-				logfields.ContainerID: ep.GetShortContainerID(),
-				logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+				logfields.ContainerID: identifiers[endpointid.ContainerIdPrefix],
+				logfields.K8sPodName:  identifiers[endpointid.PodNamePrefix],
 			}).Warning("Unable to release endpoint ID")
 		}
 	}
@@ -489,12 +492,12 @@ func (mgr *EndpointManager) removeReferencesLocked(identifiers endpointid.Identi
 }
 
 // AddIPv6Address notifies an addition of an IPv6 address
-func (mgr *EndpointManager) AddIPv6Address(ipv6 addressing.CiliumIPv6) {
+func (mgr *EndpointManager) AddIPv6Address(ipv6 netip.Addr) {
 	mgr.mcastManager.AddAddress(ipv6)
 }
 
 // RemoveAIPv6ddress notifies a removal of an IPv6 address
-func (mgr *EndpointManager) RemoveIPv6Address(ipv6 addressing.CiliumIPv6) {
+func (mgr *EndpointManager) RemoveIPv6Address(ipv6 netip.Addr) {
 	mgr.mcastManager.RemoveAddress(ipv6)
 }
 

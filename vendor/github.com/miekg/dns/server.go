@@ -40,7 +40,7 @@ func (f HandlerFunc) ServeDNS(w ResponseWriter, r *Msg) {
 // A ResponseWriter interface is used by an DNS handler to
 // construct an DNS response.
 type ResponseWriter interface {
-	// LocalAddr returns the net.Addr of the server for the current request.
+	// LocalAddr returns the net.Addr of the server
 	LocalAddr() net.Addr
 	// RemoteAddr returns the net.Addr of the client that sent the current request.
 	RemoteAddr() net.Addr
@@ -71,14 +71,23 @@ type response struct {
 	tsigTimersOnly bool
 	tsigStatus     error
 	tsigRequestMAC string
-	tsigSecret     map[string]string // the tsig secrets
-	udp            *net.UDPConn      // i/o connection if UDP was used
-	tcp            net.Conn          // i/o connection if TCP was used
-	udpSession     *SessionUDP       // UDP request context to get egress interface right
-	writer         Writer            // writer to output the raw DNS bits
+	tsigProvider   TsigProvider
+	udp            net.PacketConn // i/o connection if UDP was used
+	tcp            net.Conn       // i/o connection if TCP was used
+	udpSession     *SessionUDP    // oob data to get egress interface right
+	pcSession      net.Addr       // address to use when writing to a generic net.PacketConn
+	writer         Writer         // writer to output the raw DNS bits
+}
+
+// handleRefused returns a HandlerFunc that returns REFUSED for every request it gets.
+func handleRefused(w ResponseWriter, r *Msg) {
+	m := new(Msg)
+	m.SetRcode(r, RcodeRefused)
+	w.WriteMsg(m)
 }
 
 // HandleFailed returns a HandlerFunc that returns SERVFAIL for every request it gets.
+// Deprecated: This function is going away.
 func HandleFailed(w ResponseWriter, r *Msg) {
 	m := new(Msg)
 	m.SetRcode(r, RcodeServerFailure)
@@ -136,15 +145,26 @@ type Reader interface {
 	ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error)
 	// ReadUDP reads a raw message from a UDP connection. Implementations may alter
 	// connection properties, for example the read-deadline.
-	// Returns a pointer to the SessionUDP interface for backwards compatibility
 	ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *SessionUDP, error)
 }
 
-// defaultReader is an adapter for the Server struct that implements the Reader interface
-// using the readTCP and readUDP func of the embedded Server.
+// PacketConnReader is an optional interface that Readers can implement to support using generic net.PacketConns.
+type PacketConnReader interface {
+	Reader
+
+	// ReadPacketConn reads a raw message from a generic net.PacketConn UDP connection. Implementations may
+	// alter connection properties, for example the read-deadline.
+	ReadPacketConn(conn net.PacketConn, timeout time.Duration) ([]byte, net.Addr, error)
+}
+
+// defaultReader is an adapter for the Server struct that implements the Reader and
+// PacketConnReader interfaces using the readTCP, readUDP and readPacketConn funcs
+// of the embedded Server.
 type defaultReader struct {
 	*Server
 }
+
+var _ PacketConnReader = defaultReader{}
 
 func (dr defaultReader) ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
 	return dr.readTCP(conn, timeout)
@@ -154,8 +174,14 @@ func (dr defaultReader) ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byt
 	return dr.readUDP(conn, timeout)
 }
 
+func (dr defaultReader) ReadPacketConn(conn net.PacketConn, timeout time.Duration) ([]byte, net.Addr, error) {
+	return dr.readPacketConn(conn, timeout)
+}
+
 // DecorateReader is a decorator hook for extending or supplanting the functionality of a Reader.
 // Implementations should never return a nil Reader.
+// Readers should also implement the optional PacketConnReader interface.
+// PacketConnReader is required to use a generic net.PacketConn.
 type DecorateReader func(Reader) Reader
 
 // DecorateWriter is a decorator hook for extending or supplanting the functionality of a Writer.
@@ -185,6 +211,8 @@ type Server struct {
 	WriteTimeout time.Duration
 	// TCP idle timeout for multiple queries, if nil, defaults to 8 * time.Second (RFC 5966).
 	IdleTimeout func() time.Duration
+	// An implementation of the TsigProvider interface. If defined it replaces TsigSecret and is used for all TSIG operations.
+	TsigProvider TsigProvider
 	// Secret(s) for Tsig map[<zonename>]<base64 secret>. The zonename must be in canonical form (lowercase, fqdn, see RFC 4034 Section 6.2).
 	TsigSecret map[string]string
 	// If NotifyStartedFunc is set it is called once the server has started listening.
@@ -210,6 +238,16 @@ type Server struct {
 	started  bool
 	shutdown chan struct{}
 	conns    map[net.Conn]struct{}
+}
+
+func (srv *Server) tsigProvider() TsigProvider {
+	if srv.TsigProvider != nil {
+		return srv.TsigProvider
+	}
+	if srv.TsigSecret != nil {
+		return tsigSecretProvider(srv.TsigSecret)
+	}
+	return nil
 }
 
 func (srv *Server) isStarted() bool {
@@ -292,6 +330,7 @@ func (srv *Server) ListenAndServe() error {
 		}
 		u := l.(*net.UDPConn)
 		if e := srv.SessionUDPFactory.SetSocketOptions(u); e != nil {
+			u.Close()
 			return e
 		}
 		srv.PacketConn = l
@@ -315,24 +354,22 @@ func (srv *Server) ActivateAndServe() error {
 
 	srv.init()
 
-	pConn := srv.PacketConn
-	l := srv.Listener
-	if pConn != nil {
+	if srv.PacketConn != nil {
 		// Check PacketConn interface's type is valid and value
 		// is not nil
-		if t, ok := pConn.(*net.UDPConn); ok && t != nil {
+		if t, ok := srv.PacketConn.(*net.UDPConn); ok && t != nil {
 			if e := srv.SessionUDPFactory.SetSocketOptions(t); e != nil {
 				return e
 			}
-			srv.started = true
-			unlock()
-			return srv.serveUDP(t)
 		}
-	}
-	if l != nil {
 		srv.started = true
 		unlock()
-		return srv.serveTCP(l)
+		return srv.serveUDP(srv.PacketConn)
+	}
+	if srv.Listener != nil {
+		srv.started = true
+		unlock()
+		return srv.serveTCP(srv.Listener)
 	}
 	return &Error{err: "bad listeners"}
 }
@@ -436,16 +473,22 @@ func (srv *Server) serveTCP(l net.Listener) error {
 }
 
 // serveUDP starts a UDP listener for the server.
-func (srv *Server) serveUDP(l *net.UDPConn) error {
+func (srv *Server) serveUDP(l net.PacketConn) error {
 	defer l.Close()
-
-	if srv.NotifyStartedFunc != nil {
-		srv.NotifyStartedFunc()
-	}
 
 	reader := Reader(defaultReader{srv})
 	if srv.DecorateReader != nil {
 		reader = srv.DecorateReader(reader)
+	}
+
+	lUDP, isUDP := l.(*net.UDPConn)
+	readerPC, canPacketConn := reader.(PacketConnReader)
+	if !isUDP && !canPacketConn {
+		return &Error{err: "PacketConnReader was not implemented on Reader returned from DecorateReader but is required for net.PacketConn"}
+	}
+
+	if srv.NotifyStartedFunc != nil {
+		srv.NotifyStartedFunc()
 	}
 
 	var wg sync.WaitGroup
@@ -457,7 +500,17 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 	rtimeout := srv.getReadTimeout()
 	// deadline is not used here
 	for srv.isStarted() {
-		m, s, err := reader.ReadUDP(l, rtimeout)
+		var (
+			m    []byte
+			sPC  net.Addr
+			sUDP *SessionUDP
+			err  error
+		)
+		if isUDP {
+			m, sUDP, err = reader.ReadUDP(lUDP, rtimeout)
+		} else {
+			m, sPC, err = readerPC.ReadPacketConn(l, rtimeout)
+		}
 		if err != nil {
 			if !srv.isStarted() {
 				return nil
@@ -468,16 +521,16 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 			return err
 		}
 		if len(m) < headerSize {
-			if s != nil {
-				(*s).Discard()
+			if sUDP != nil {
+				(*sUDP).Discard()
 			}
 			continue
 		}
 		wg.Add(1)
 		go func() {
-			srv.serveUDPPacket(&wg, m, l, s)
-			if s != nil {
-				(*s).Discard()
+			srv.serveUDPPacket(&wg, m, l, sUDP, sPC)
+			if sUDP != nil {
+				(*sUDP).Discard()
 			}
 		}()
 	}
@@ -487,7 +540,7 @@ func (srv *Server) serveUDP(l *net.UDPConn) error {
 
 // Serve a new TCP connection.
 func (srv *Server) serveTCPConn(wg *sync.WaitGroup, rw net.Conn) {
-	w := &response{tsigSecret: srv.TsigSecret, tcp: rw}
+	w := &response{tsigProvider: srv.tsigProvider(), tcp: rw}
 	if srv.DecorateWriter != nil {
 		w.writer = srv.DecorateWriter(w)
 	} else {
@@ -541,8 +594,8 @@ func (srv *Server) serveTCPConn(wg *sync.WaitGroup, rw net.Conn) {
 }
 
 // Serve a new UDP request.
-func (srv *Server) serveUDPPacket(wg *sync.WaitGroup, m []byte, u *net.UDPConn, s *SessionUDP) {
-	w := &response{tsigSecret: srv.TsigSecret, udp: u, udpSession: s}
+func (srv *Server) serveUDPPacket(wg *sync.WaitGroup, m []byte, u net.PacketConn, udpSession *SessionUDP, pcSession net.Addr) {
+	w := &response{tsigProvider: srv.tsigProvider(), udp: u, udpSession: udpSession, pcSession: pcSession}
 	if srv.DecorateWriter != nil {
 		w.writer = srv.DecorateWriter(w)
 	} else {
@@ -563,34 +616,37 @@ func (srv *Server) serveDNS(m []byte, w *response) {
 	req := new(Msg)
 	req.setHdr(dh)
 
-	switch srv.MsgAcceptFunc(dh) {
+	switch action := srv.MsgAcceptFunc(dh); action {
 	case MsgAccept:
 		if req.unpack(dh, m, off) == nil {
 			break
 		}
 
 		fallthrough
-	case MsgReject:
+	case MsgReject, MsgRejectNotImplemented:
+		opcode := req.Opcode
 		req.SetRcodeFormatError(req)
+		req.Zero = false
+		if action == MsgRejectNotImplemented {
+			req.Opcode = opcode
+			req.Rcode = RcodeNotImplemented
+		}
+
 		// Are we allowed to delete any OPT records here?
 		req.Ns, req.Answer, req.Extra = nil, nil, nil
 
 		w.WriteMsg(req)
-		return
+		fallthrough
 	case MsgIgnore:
 		return
 	}
 
 	w.tsigStatus = nil
-	if w.tsigSecret != nil {
+	if w.tsigProvider != nil {
 		if t := req.IsTsig(); t != nil {
-			if secret, ok := w.tsigSecret[t.Hdr.Name]; ok {
-				w.tsigStatus = TsigVerify(m, secret, "", false)
-			} else {
-				w.tsigStatus = ErrSecret
-			}
+			w.tsigStatus = TsigVerifyWithProvider(m, w.tsigProvider, "", false)
 			w.tsigTimersOnly = false
-			w.tsigRequestMAC = req.Extra[len(req.Extra)-1].(*TSIG).MAC
+			w.tsigRequestMAC = t.MAC
 		}
 	}
 
@@ -631,6 +687,18 @@ func (srv *Server) readUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *S
 
 	m, s, err := srv.SessionUDPFactory.ReadRequest(conn)
 	return m, &s, err
+
+}
+
+func (srv *Server) readPacketConn(conn net.PacketConn, timeout time.Duration) ([]byte, net.Addr, error) {
+	srv.lock.RLock()
+	if srv.started {
+		// See the comment in readTCP above.
+		conn.SetReadDeadline(time.Now().Add(timeout))
+	}
+	srv.lock.RUnlock()
+
+	return srv.SessionUDPFactory.ReadRequestConn(conn)
 }
 
 // WriteMsg implements the ResponseWriter.WriteMsg method.
@@ -640,9 +708,9 @@ func (w *response) WriteMsg(m *Msg) (err error) {
 	}
 
 	var data []byte
-	if w.tsigSecret != nil { // if no secrets, dont check for the tsig (which is a longer check)
+	if w.tsigProvider != nil { // if no provider, dont check for the tsig (which is a longer check)
 		if t := m.IsTsig(); t != nil {
-			data, w.tsigRequestMAC, err = TsigGenerate(m, w.tsigSecret[t.Hdr.Name], w.tsigRequestMAC, w.tsigTimersOnly)
+			data, w.tsigRequestMAC, err = TsigGenerateWithProvider(m, w.tsigProvider, w.tsigRequestMAC, w.tsigTimersOnly)
 			if err != nil {
 				return err
 			}
@@ -665,18 +733,20 @@ func (w *response) Write(m []byte) (int, error) {
 	}
 
 	switch {
-	case w.udpSession != nil:
-		return (*w.udpSession).WriteResponse(m)
+	case w.udp != nil:
+		if _, ok := w.udp.(*net.UDPConn); ok {
+			return (*w.udpSession).WriteResponse(m)
+		}
+		return w.udp.WriteTo(m, w.pcSession)
 	case w.tcp != nil:
 		if len(m) > MaxMsgSize {
 			return 0, &Error{err: "message too large"}
 		}
 
-		l := make([]byte, 2)
-		binary.BigEndian.PutUint16(l, uint16(len(m)))
-
-		n, err := (&net.Buffers{l, m}).WriteTo(w.tcp)
-		return int(n), err
+		msg := make([]byte, 2+len(m))
+		binary.BigEndian.PutUint16(msg, uint16(len(m)))
+		copy(msg[2:], m)
+		return w.tcp.Write(msg)
 	default:
 		panic("dns: internal error: udp and tcp both nil")
 	}
@@ -699,10 +769,12 @@ func (w *response) RemoteAddr() net.Addr {
 	switch {
 	case w.udpSession != nil:
 		return (*w.udpSession).RemoteAddr()
+	case w.pcSession != nil:
+		return w.pcSession
 	case w.tcp != nil:
 		return w.tcp.RemoteAddr()
 	default:
-		panic("dns: internal error: udpSession and tcp both nil")
+		panic("dns: internal error: udpSession, pcSession and tcp are all nil")
 	}
 }
 

@@ -55,7 +55,8 @@ func NewPutRecorderIDOK() *PutRecorderIDOK {
 	return &PutRecorderIDOK{}
 }
 
-/*PutRecorderIDOK handles this case with default header values.
+/*
+PutRecorderIDOK handles this case with default header values.
 
 Updated
 */
@@ -76,7 +77,8 @@ func NewPutRecorderIDCreated() *PutRecorderIDCreated {
 	return &PutRecorderIDCreated{}
 }
 
-/*PutRecorderIDCreated handles this case with default header values.
+/*
+PutRecorderIDCreated handles this case with default header values.
 
 Created
 */
@@ -97,7 +99,8 @@ func NewPutRecorderIDFailure() *PutRecorderIDFailure {
 	return &PutRecorderIDFailure{}
 }
 
-/*PutRecorderIDFailure handles this case with default header values.
+/*
+PutRecorderIDFailure handles this case with default header values.
 
 Error while creating recorder
 */

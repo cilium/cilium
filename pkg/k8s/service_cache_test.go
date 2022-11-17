@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package k8s
 
 import (
@@ -14,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/checker"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -30,8 +29,8 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	svcID2 := ServiceID{Name: "svc2", Namespace: "default"}
 
 	endpoints := Endpoints{
-		Backends: map[string]*Backend{
-			"3.3.3.3": {
+		Backends: map[cmtypes.AddrCluster]*Backend{
+			cmtypes.MustParseAddrCluster("3.3.3.3"): {
 				Ports: map[string]*loadbalancer.L4Addr{
 					"port": {
 						Protocol: loadbalancer.TCP,
@@ -92,25 +91,27 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		// Validate all frontends as exact matches
 		// These should match only for external scope
 		exact_match_ok := scope == loadbalancer.ScopeExternal
-		frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 10, scope)
+		addrCluster1 := cmtypes.MustParseAddrCluster("1.1.1.1")
+		addrCluster2 := cmtypes.MustParseAddrCluster("2.2.2.2")
+		frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 10, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 20, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster1, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, net.ParseIP("2.2.2.2"), 20, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, addrCluster2, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
 
 		// Validate protocol mismatch on exact match
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("2.2.2.2"), 20, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, addrCluster2, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, false)
 
 		// Validate protocol wildcard matching
 		// These should match only for external scope
 		wild_match_ok := scope == loadbalancer.ScopeExternal
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("2.2.2.2"), 20, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster2, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 10, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster1, 10, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 20, scope)
+		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster1, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
 	}
 }
@@ -436,7 +437,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.ID, check.Equals, svcID)
 
 		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
-		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
@@ -470,13 +471,13 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 
-		c.Assert(event.Endpoints.Backends["2.2.2.2"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},
 		})
 
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("3.3.3.3")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -567,7 +568,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 
-		c.Assert(event.Endpoints.Backends["4.4.4.4"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -581,7 +582,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
-		c.Assert(event.Endpoints.Backends["4.4.4.4"], check.IsNil)
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("4.4.4.4")], check.IsNil)
 		return true
 	}, 2*time.Second), check.IsNil)
 
@@ -602,7 +603,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
-		c.Assert(event.Endpoints.Backends["3.3.3.3"], checker.DeepEquals, &Backend{
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("3.3.3.3")], checker.DeepEquals, &Backend{
 			Ports: serviceStore.PortConfiguration{
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
@@ -612,7 +613,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 
 	k8sSvcID, _ := ParseService(k8sSvc, nil)
 	addresses := svcCache.GetServiceIP(k8sSvcID)
-	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80, loadbalancer.ScopeExternal))
+	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, cmtypes.MustParseAddrCluster("127.0.0.1"), 80, loadbalancer.ScopeExternal))
 
 	swgSvcs.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -991,7 +992,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID0)
 		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
-		_, found := event.Endpoints.Backends["10.0.0.2"]
+		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.2")]
 		c.Assert(found, check.Equals, true)
 		return true
 	}, 2*time.Second), check.IsNil)
@@ -1018,7 +1019,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID0)
 		c.Assert(len(event.Endpoints.Backends), check.Equals, 1)
-		_, found := event.Endpoints.Backends["10.0.0.1"]
+		_, found := event.Endpoints.Backends[cmtypes.MustParseAddrCluster("10.0.0.1")]
 		c.Assert(found, check.Equals, true)
 		return true
 	}, 2*time.Second), check.IsNil)

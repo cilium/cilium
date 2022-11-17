@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sBandwidthTest", func() {
+var _ = SkipDescribeIf(helpers.DoesNotRunOnNetNextKernel, "K8sDatapathBandwidthTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string

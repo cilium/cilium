@@ -31,7 +31,7 @@ func init() {
   "info": {
     "description": "Cilium",
     "title": "Cilium API",
-    "version": "v1beta"
+    "version": "v1beta1"
   },
   "basePath": "/v1",
   "paths": {
@@ -976,6 +976,34 @@ func init() {
         }
       }
     },
+    "/map/{name}/events": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieves the recent event logs associated with this endpoint.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/map-name"
+          },
+          {
+            "$ref": "#/parameters/follow"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/metrics/": {
       "get": {
         "tags": [
@@ -1625,6 +1653,12 @@ func init() {
             "quarantined",
             "maintenance"
           ]
+        },
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint16",
+          "x-nullable": true
         }
       }
     },
@@ -1954,6 +1988,14 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROMaxSize": {
+          "description": "Maximum GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOMaxSize": {
+          "description": "Maximum GSO size on workload facing devices",
+          "type": "integer"
+        },
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
@@ -1981,9 +2023,6 @@ func init() {
         "ipam-mode": {
           "description": "Configured IPAM mode",
           "type": "string"
-        },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
         },
         "k8s-configuration": {
           "type": "string"
@@ -2029,8 +2068,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -2835,6 +2873,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -2877,24 +2925,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },
@@ -3077,6 +3107,24 @@ func init() {
                   "type": "boolean"
                 }
               }
+            },
+            "socketLB": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "socketLBTracing": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -3212,6 +3260,46 @@ func init() {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "MapEvent": {
+      "description": "Event on Map",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action type for event",
+          "type": "string",
+          "enum": [
+            "update",
+            "delete"
+          ]
+        },
+        "desired-action": {
+          "description": "Desired action to be performed after this event",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "key": {
+          "description": "Map key on which the event occured",
+          "type": "string"
+        },
+        "last-error": {
+          "description": "Last error seen while performing desired action",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp when the event occurred",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Map value on which the event occured",
+          "type": "string"
+        }
       }
     },
     "Masquerading": {
@@ -3481,6 +3569,7 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "SCTP",
             "ICMP",
             "ICMPV6",
             "ANY"
@@ -3631,6 +3720,7 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "SCTP",
             "ANY"
           ]
         },
@@ -3975,6 +4065,10 @@ func init() {
           "description": "Status of CNI chaining",
           "$ref": "#/definitions/CNIChainingStatus"
         },
+        "cni-file": {
+          "description": "Status of the CNI configuration file",
+          "$ref": "#/definitions/Status"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -4006,6 +4100,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",
@@ -4177,6 +4275,12 @@ func init() {
       "in": "path",
       "required": true
     },
+    "follow": {
+      "type": "boolean",
+      "description": "Whether to follow streamed requests",
+      "name": "follow",
+      "in": "query"
+    },
     "identity-id": {
       "type": "string",
       "description": "Cluster wide unique identifier of a security identity.\n",
@@ -4333,7 +4437,7 @@ func init() {
   "info": {
     "description": "Cilium",
     "title": "Cilium API",
-    "version": "v1beta"
+    "version": "v1beta1"
   },
   "basePath": "/v1",
   "paths": {
@@ -5394,6 +5498,41 @@ func init() {
         }
       }
     },
+    "/map/{name}/events": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieves the recent event logs associated with this endpoint.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Name of map",
+            "name": "name",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "boolean",
+            "description": "Whether to follow streamed requests",
+            "name": "follow",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/metrics/": {
       "get": {
         "tags": [
@@ -6102,6 +6241,12 @@ func init() {
             "quarantined",
             "maintenance"
           ]
+        },
+        "weight": {
+          "description": "Backend weight",
+          "type": "integer",
+          "format": "uint16",
+          "x-nullable": true
         }
       }
     },
@@ -6483,6 +6628,14 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROMaxSize": {
+          "description": "Maximum GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOMaxSize": {
+          "description": "Maximum GSO size on workload facing devices",
+          "type": "integer"
+        },
         "addressing": {
           "$ref": "#/definitions/NodeAddressing"
         },
@@ -6510,9 +6663,6 @@ func init() {
         "ipam-mode": {
           "description": "Configured IPAM mode",
           "type": "string"
-        },
-        "ipvlanConfiguration": {
-          "$ref": "#/definitions/IpvlanConfiguration"
         },
         "k8s-configuration": {
           "type": "string"
@@ -6572,8 +6722,7 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth",
-        "ipvlan"
+        "veth"
       ]
     },
     "DebugInfo": {
@@ -7426,6 +7575,16 @@ func init() {
         }
       }
     },
+    "IPV6BigTCP": {
+      "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv6 BIG TCP enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "Identity": {
       "description": "Security identity",
       "type": "object",
@@ -7468,24 +7627,6 @@ func init() {
         "min-identity": {
           "description": "Minimum identity of the cluster",
           "type": "integer"
-        }
-      }
-    },
-    "IpvlanConfiguration": {
-      "description": "Setup for datapath when operating in ipvlan mode.",
-      "type": "object",
-      "properties": {
-        "masterDeviceIndex": {
-          "description": "Workload facing ipvlan master device ifindex.",
-          "type": "integer"
-        },
-        "operationMode": {
-          "description": "Mode in which ipvlan setup operates.",
-          "type": "string",
-          "enum": [
-            "L3",
-            "L3S"
-          ]
         }
       }
     },
@@ -7655,6 +7796,24 @@ func init() {
                   "type": "boolean"
                 }
               }
+            },
+            "socketLB": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "socketLBTracing": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -7789,6 +7948,24 @@ func init() {
               "type": "boolean"
             }
           }
+        },
+        "socketLB": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "socketLBTracing": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
         }
       }
     },
@@ -7885,6 +8062,24 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesSessionAffinity": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesSocketLB": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesSocketLBTracing": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
@@ -8014,6 +8209,46 @@ func init() {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "MapEvent": {
+      "description": "Event on Map",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action type for event",
+          "type": "string",
+          "enum": [
+            "update",
+            "delete"
+          ]
+        },
+        "desired-action": {
+          "description": "Desired action to be performed after this event",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "key": {
+          "description": "Map key on which the event occured",
+          "type": "string"
+        },
+        "last-error": {
+          "description": "Last error seen while performing desired action",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp when the event occurred",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Map value on which the event occured",
+          "type": "string"
+        }
       }
     },
     "Masquerading": {
@@ -8297,6 +8532,7 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "SCTP",
             "ICMP",
             "ICMPV6",
             "ANY"
@@ -8447,6 +8683,7 @@ func init() {
           "enum": [
             "TCP",
             "UDP",
+            "SCTP",
             "ANY"
           ]
         },
@@ -8839,6 +9076,10 @@ func init() {
           "description": "Status of CNI chaining",
           "$ref": "#/definitions/CNIChainingStatus"
         },
+        "cni-file": {
+          "description": "Status of the CNI configuration file",
+          "$ref": "#/definitions/Status"
+        },
         "container-runtime": {
           "description": "Status of local container runtime",
           "$ref": "#/definitions/Status"
@@ -8870,6 +9111,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv6-big-tcp": {
+          "description": "Status of IPv6 BIG TCP",
+          "$ref": "#/definitions/IPV6BigTCP"
         },
         "kube-proxy-replacement": {
           "description": "Status of kube-proxy replacement",
@@ -9040,6 +9285,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "follow": {
+      "type": "boolean",
+      "description": "Whether to follow streamed requests",
+      "name": "follow",
+      "in": "query"
     },
     "identity-id": {
       "type": "string",

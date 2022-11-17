@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package node
 
 import (
@@ -114,21 +112,8 @@ func (s *NodeSuite) Test_chooseHostIPsToRestore(c *C) {
 	for _, tt := range tests {
 		c.Log("Test: " + tt.name)
 		got, err := chooseHostIPsToRestore(tt.ipv6, tt.fromK8s, tt.fromFS, []*cidr.CIDR{tt.cidr})
-		if tt.expect == nil {
-			// If we don't expect to change it, set it to what's currently the
-			// router IP.
-			if tt.ipv6 {
-				tt.expect = GetIPv6Router()
-			} else {
-				tt.expect = GetInternalIPv4Router()
-			}
-		}
 		c.Assert(err, checker.DeepEquals, tt.err)
-		if tt.ipv6 {
-			c.Assert(got, checker.DeepEquals, tt.expect)
-		} else {
-			c.Assert(got, checker.DeepEquals, tt.expect)
-		}
+		c.Assert(got, checker.DeepEquals, tt.expect)
 	}
 }
 

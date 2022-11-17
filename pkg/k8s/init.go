@@ -7,22 +7,16 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilnet "k8s.io/apimachinery/pkg/util/net"
-	"k8s.io/client-go/rest"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/controller"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
-	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -34,11 +28,12 @@ const (
 	nodeRetrievalMaxRetries = 15
 )
 
-type nodeGetter interface {
+type k8sGetter interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*corev1.Node, error)
+	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
-func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName string) *nodeTypes.Node {
+func waitForNodeInformation(ctx context.Context, k8sGetter k8sGetter, nodeName string) *nodeTypes.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
 		Max:    2 * time.Minute,
@@ -47,7 +42,7 @@ func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName
 	}
 
 	for retry := 0; retry < nodeRetrievalMaxRetries; retry++ {
-		n, err := retrieveNodeInformation(ctx, nodeGetter, nodeName)
+		n, err := retrieveNodeInformation(ctx, k8sGetter, nodeName)
 		if err != nil {
 			log.WithError(err).Warning("Waiting for k8s node information")
 			backoff.Wait(ctx)
@@ -60,7 +55,7 @@ func waitForNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName
 	return nil
 }
 
-func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeName string) (*nodeTypes.Node, error) {
+func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName string) (*nodeTypes.Node, error) {
 	requireIPv4CIDR := option.Config.K8sRequireIPv4PodCIDR
 	requireIPv6CIDR := option.Config.K8sRequireIPv6PodCIDR
 	// At this point it's not clear whether the device auto-detection will
@@ -71,7 +66,7 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter nodeGetter, nodeNam
 	var n *nodeTypes.Node
 
 	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
-		ciliumNode, err := CiliumClient().CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
+		ciliumNode, err := nodeGetter.GetCiliumNode(ctx, nodeName)
 		if err != nil {
 			// If no CIDR is required, retrieving the node information is
 			// optional
@@ -134,94 +129,11 @@ func useNodeCIDR(n *nodeTypes.Node) {
 	}
 }
 
-// Init initializes the Kubernetes package. It is required to call Configure()
-// beforehand.
-func Init(conf k8sconfig.Configuration) error {
-	restConfig, err := CreateConfig()
-	if err != nil {
-		return fmt.Errorf("unable to create k8s client rest configuration: %s", err)
-	}
-
-	defaultCloseAllConns := setDialer(restConfig)
-
-	// Use the same http client for all k8s connections. It does not matter that
-	// we are using a restConfig for the HTTP client that differs from each
-	// individual client since the rest.HTTPClientFor only does not use fields
-	// that are specific for each client, for example:
-	// restConfig.ContentConfig.ContentType.
-	httpClient, err := rest.HTTPClientFor(restConfig)
-	if err != nil {
-		return fmt.Errorf("unable to create k8s REST client: %s", err)
-	}
-
-	k8sRestClient, err := createDefaultClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
-	err = createDefaultCiliumClient(restConfig, httpClient)
-	if err != nil {
-		return fmt.Errorf("unable to create cilium k8s client: %s", err)
-	}
-
-	if err := createAPIExtensionsClient(restConfig, httpClient); err != nil {
-		return fmt.Errorf("unable to create k8s apiextensions client: %s", err)
-	}
-
-	// We are implementing the same logic as Kubelet, see
-	// https://github.com/kubernetes/kubernetes/blob/v1.24.0-beta.0/cmd/kubelet/app/server.go#L852.
-	var closeAllConns func()
-	if s := os.Getenv("DISABLE_HTTP2"); len(s) > 0 {
-		closeAllConns = defaultCloseAllConns
-	} else {
-		closeAllConns = func() {
-			utilnet.CloseIdleConnectionsFor(restConfig.Transport)
-		}
-	}
-
-	heartBeat := func(ctx context.Context) error {
-		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
-		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
-		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
-		//
-		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
-		res := k8sRestClient.Get().Resource("healthz").Do(ctx)
-		return res.Error()
-	}
-
-	if option.Config.K8sHeartbeatTimeout != 0 {
-		controller.NewManager().UpdateController("k8s-heartbeat",
-			controller.ControllerParams{
-				DoFunc: func(context.Context) error {
-					runHeartbeat(
-						heartBeat,
-						option.Config.K8sHeartbeatTimeout,
-						closeAllConns,
-					)
-					return nil
-				},
-				RunInterval: option.Config.K8sHeartbeatTimeout,
-			},
-		)
-	}
-
-	if err := k8sversion.Update(Client(), conf); err != nil {
-		return err
-	}
-
-	if !k8sversion.Capabilities().MinimalVersionMet {
-		return fmt.Errorf("k8s version (%v) is not meeting the minimal requirement (%v)",
-			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
-	}
-
-	return nil
-}
-
 // WaitForNodeInformation retrieves the node information via the CiliumNode or
 // Kubernetes Node resource. This function will block until the information is
-// received. nodeGetter is a function used to retrieved the node from either
+// received. k8sGetter is a function used to retrieve the node from either
 // the kube-apiserver or a local cache, depending on the caller.
-func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
+func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()
@@ -235,7 +147,7 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 		return nil
 	}
 
-	if n := waitForNodeInformation(ctx, nodeGetter, nodeName); n != nil {
+	if n := waitForNodeInformation(ctx, k8sGetter, nodeName); n != nil {
 		nodeIP4 := n.GetNodeIP(false)
 		nodeIP6 := n.GetNodeIP(true)
 
@@ -271,9 +183,6 @@ func WaitForNodeInformation(ctx context.Context, nodeGetter nodeGetter) error {
 
 		node.SetK8sExternalIPv4(n.GetExternalIP(false))
 		node.SetK8sExternalIPv6(n.GetExternalIP(true))
-
-		// K8s Node IP is used by BPF NodePort devices auto-detection
-		node.SetK8sNodeIP(k8sNodeIP)
 
 		restoreRouterHostIPs(n)
 	} else {

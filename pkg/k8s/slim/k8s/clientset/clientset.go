@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright The Kubernetes Authors.
 // Copyright Authors of Cilium
+
+// Copyright The Kubernetes Authors.
 
 package clientset
 

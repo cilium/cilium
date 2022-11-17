@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package cmd
 
 import (
@@ -71,7 +69,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "create a client ID and store it locally",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -102,7 +100,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes diff from a client that was already present",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -155,7 +153,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes from an expired client, it should be ok because the clean up only happens when on insertion",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &clientIDs[0],
@@ -209,7 +207,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a new client, the expired client should be deleted",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -258,7 +256,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a new client, however the randomizer allocated an existing clientID, so we should return a empty clientID",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{
 						ClientID: &zero,
@@ -307,7 +305,7 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		{
 			name: "retrieve nodes for a client that does not want to have diffs, leave all other stored clients alone",
 			setupArgs: func() args {
-				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
+				nodeDiscovery := nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{})
 				return args{
 					params: GetClusterNodesParams{},
 					daemon: &Daemon{
@@ -416,7 +414,7 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 		h := &getNodes{
 			clients: args.clients,
 			d: &Daemon{
-				nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{}),
+				nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, 0, nil), &cnitypes.NetConf{}),
 			},
 		}
 		h.cleanupClients()

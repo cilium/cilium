@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package policy
 
 import (
@@ -126,12 +124,15 @@ func (ds *PolicyTestSuite) TestVisibilityPolicyCreation(c *C) {
 	anno = "<Egress/53/ANY/DNS>"
 	vp, err = NewVisibilityPolicy(anno)
 	c.Assert(err, IsNil)
-	c.Assert(vp.Egress, HasLen, 2)
+	c.Assert(vp.Egress, HasLen, 3)
 	udp, ok := vp.Egress["53/UDP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(udp.Proto, Equals, u8proto.UDP)
 	tcp, ok := vp.Egress["53/TCP"]
 	c.Assert(tcp.Proto, Equals, u8proto.TCP)
+	c.Assert(ok, Equals, true)
+	sctp, ok := vp.Egress["53/SCTP"]
+	c.Assert(sctp.Proto, Equals, u8proto.SCTP)
 	c.Assert(ok, Equals, true)
 
 }

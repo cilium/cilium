@@ -4,18 +4,15 @@
 package k8sTest
 
 import (
-	"fmt"
-	"strings"
-
 	. "github.com/onsi/gomega"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
 
-var _ = Describe("K8sCLI", func() {
+var _ = Describe("K8sDatapathCLI", func() {
 	SkipContextIf(func() bool {
-		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS()
+		return helpers.DoesNotRunOnGKE() && helpers.DoesNotRunOnEKS() && helpers.DoesNotRunOnAKS()
 	}, "CLI", func() {
 		var kubectl *helpers.Kubectl
 		var ciliumFilename string
@@ -37,70 +34,6 @@ var _ = Describe("K8sCLI", func() {
 		})
 
 		Context("Identity CLI testing", func() {
-			const (
-				manifestYAML = "test-cli.yaml"
-				fooID        = "foo"
-				fooNode      = "k8s1"
-				// These labels are automatically added to all pods in the default namespace.
-				defaultLabels = "k8s:io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name=default " +
-					"k8s:io.cilium.k8s.policy.cluster=default " +
-					"k8s:io.cilium.k8s.policy.serviceaccount=default " +
-					"k8s:io.kubernetes.pod.namespace=default"
-			)
-
-			var (
-				cliManifest string
-				ciliumPod   string
-				err         error
-				identity    int64
-			)
-
-			BeforeAll(func() {
-				cliManifest = helpers.ManifestGet(kubectl.BasePath(), manifestYAML)
-				res := kubectl.ApplyDefault(cliManifest)
-				res.ExpectSuccess("Unable to apply %s", cliManifest)
-				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id", helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "The pods were not ready after timeout")
-
-				ciliumPod, err = kubectl.GetCiliumPodOnNode(fooNode)
-				Expect(err).Should(BeNil())
-
-				err := kubectl.WaitForCEPIdentity(helpers.DefaultNamespace, fooID)
-				Expect(err).Should(BeNil())
-
-				ep, err := kubectl.GetCiliumEndpoint(helpers.DefaultNamespace, fooID)
-				Expect(err).Should(BeNil(), fmt.Sprintf("Unable to get CEP for pod %s", fooID))
-				identity = ep.Identity.ID
-			})
-
-			AfterAll(func() {
-				_ = kubectl.Delete(cliManifest)
-				ExpectAllPodsTerminated(kubectl)
-			})
-
-			It("Test identity list", func() {
-				By("Testing 'cilium identity list' for an endpoint's identity")
-				cmd := fmt.Sprintf("cilium identity list k8s:id=%s %s", fooID, defaultLabels)
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
-				res.ExpectSuccess(fmt.Sprintf("Unable to get identity list output for label k8s:id=%s %s", fooID, defaultLabels))
-
-				resSingleOut := res.SingleOut()
-				containsIdentity := strings.Contains(resSingleOut, fmt.Sprintf("%d", identity))
-				Expect(containsIdentity).To(BeTrue(), "Identity %d of endpoint %s not in 'cilium identity list' output", identity, resSingleOut)
-
-				By("Testing 'cilium identity list' for reserved identities")
-				res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium identity list")
-				res.ExpectSuccess("Unable to get identity list output")
-				resSingleOut = res.SingleOut()
-
-				reservedIdentities := []string{"health", "host", "world", "init"}
-				for _, id := range reservedIdentities {
-					By("Checking that reserved identity '%s' is in 'cilium identity list' output", id)
-					containsReservedIdentity := strings.Contains(resSingleOut, id)
-					Expect(containsReservedIdentity).To(BeTrue(), "Reserved identity '%s' not in 'cilium identity list' output", id)
-				}
-			})
-
 			It("Test cilium bpf metrics list", func() {
 				demoManifest := helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 				app1Service := "app1-service"
@@ -148,33 +81,6 @@ var _ = Describe("K8sCLI", func() {
 				Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
 
 				kubectl.NamespaceDelete(namespaceForTest)
-			})
-		})
-
-		Context("stdout/stderr testing", func() {
-			var (
-				ciliumPod string
-				err       error
-			)
-
-			BeforeAll(func() {
-				ciliumPod, err = kubectl.GetCiliumPodOnNode("k8s1")
-				Expect(err).Should(BeNil())
-			})
-
-			It("Root command help should print to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium help")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium [command] --help\" for more information about a command."))
-			})
-
-			It("Subcommand help should print to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium help bpf")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium bpf [command] --help\" for more information about a command."))
-			})
-
-			It("Failed subcommand should print help to stdout", func() {
-				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium endpoint confi 173")
-				Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium endpoint [command] --help\" for more information about a command."))
 			})
 		})
 	})

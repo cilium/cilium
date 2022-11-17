@@ -688,9 +688,9 @@ func (p *Process) fillSliceFromCmdlineWithContext(ctx context.Context) ([]string
 	if len(cmdline) == 0 {
 		return nil, nil
 	}
-	if cmdline[len(cmdline)-1] == 0 {
-		cmdline = cmdline[:len(cmdline)-1]
-	}
+
+	cmdline = bytes.TrimRight(cmdline, "\x00")
+
 	parts := bytes.Split(cmdline, []byte{0})
 	var strParts []string
 	for _, p := range parts {

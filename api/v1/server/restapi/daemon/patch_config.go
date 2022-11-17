@@ -32,15 +32,14 @@ func NewPatchConfig(ctx *middleware.Context, handler PatchConfigHandler) *PatchC
 	return &PatchConfig{Context: ctx, Handler: handler}
 }
 
-/*PatchConfig swagger:route PATCH /config daemon patchConfig
+/*
+PatchConfig swagger:route PATCH /config daemon patchConfig
 
-Modify daemon configuration
+# Modify daemon configuration
 
 Updates the daemon configuration by applying the provided
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
-
-
 */
 type PatchConfig struct {
 	Context *middleware.Context

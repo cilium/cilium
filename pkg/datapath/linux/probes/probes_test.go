@@ -1,27 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package probes
 
 import (
-	"errors"
+	"bytes"
+	"strings"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-type ProbesTestSuite struct{}
-
-var _ = Suite(&ProbesTestSuite{})
-
-func (s *ProbesTestSuite) TestSystemConfigProbes(c *C) {
+func TestSystemConfigProbes(t *testing.T) {
 	testCases := []struct {
 		systemConfig SystemConfig
 		expectErr    bool
@@ -244,13 +234,72 @@ func (s *ProbesTestSuite) TestSystemConfigProbes(c *C) {
 			features: Features{SystemConfig: tc.systemConfig},
 		}
 		err := manager.SystemConfigProbes()
-		if errors.Is(err, ErrKernelConfigNotFound) {
-			return
-		}
 		if tc.expectErr {
-			c.Assert(err, NotNil)
+			if err == nil {
+				t.Error("unexpected nil error")
+			}
 		} else {
-			c.Assert(err, IsNil)
+			if err != nil {
+				t.Error(err)
+			}
 		}
+	}
+}
+
+func TestWriteFeatureHeader(t *testing.T) {
+	testCases := []struct {
+		features      map[string]bool
+		common        bool
+		expectedLines []string
+	}{
+		{
+			features: map[string]bool{
+				"HAVE_LRU_HASH_MAP_TYPE": true,
+			},
+			common: true,
+			expectedLines: []string{
+				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+			},
+		},
+		{
+			features: map[string]bool{
+				"HAVE_LRU_HASH_MAP_TYPE": true,
+			},
+			common: false,
+			expectedLines: []string{
+				"#include \"features.h\"",
+				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		buf := new(bytes.Buffer)
+		if err := writeFeatureHeader(buf, tc.features, tc.common); err != nil {
+			t.Error(err)
+		}
+		str := buf.String()
+
+		for _, s := range tc.expectedLines {
+			if !strings.Contains(str, s) {
+				t.Errorf("expected %s to contain %s", str, s)
+			}
+		}
+	}
+}
+
+func TestExecuteSystemConfigProbes(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	if err := NewProbeManager().SystemConfigProbes(); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestExecuteHeaderProbes(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	if ExecuteHeaderProbes() == nil {
+		t.Error("expected probes to not be nil")
 	}
 }

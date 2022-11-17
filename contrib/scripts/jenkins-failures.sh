@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DIR=$(dirname $(readlink -ne $BASH_SOURCE))
+
 # This script checks Jenkins master Jobs and validated that the failed jobs has
 # been already triaged and upstream issue has been created if it's needed.
 # To clean the list of Jenkins builds, build description needs to be updated with a comment.
@@ -25,12 +27,15 @@ get_job_data () {
     do
         echo "${BOLD}BUILD ID: ${build}${NORMAL}"
         echo -e "${TAB}${BOLD}${BLUE}URL${NORMAL}: ${JOB}${build}"
-        RESULTS=$(curl -s "${JOB}/${build}/${TEST_RESULT}" --globoff)
+        RESULTS=$(curl -s "${JOB}/${build}/${TEST_RESULT}" --globoff | sed -e 's/<[/]*true>//g' -e 's/<name>//g' -e 's/<\/name>/\n\t/g')
         echo -e "${TAB}${BOLD}${BLUE}TEST_FAILURE${NORMAL}: \n \t${RESULTS}"
     done
 }
 
-get_job_data "https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/master/"
-get_job_data "https://jenkins.cilium.io/job/Ginkgo-CI-Tests-Pipeline/"
-get_job_data "https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/"
-get_job_data "https://jenkins.cilium.io/job/cilium-ginkgo/job/cilium/job/v1.0/"
+get_jobs() {
+    cat ${DIR}/../../.github/maintainers-little-helper.yaml | yq '.flake-tracker.jenkins-config.stable-jobs | .[]'
+}
+
+for job in $(get_jobs); do
+    get_job_data "https://jenkins.cilium.io/job/$job/"
+done

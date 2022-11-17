@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 // Copyright 2017 Lyft, Inc.
 
 package ipam
@@ -13,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -49,7 +51,7 @@ type NodeOperations interface {
 	// done if PrepareIPAllocation indicates that no more IPs are available
 	// (AllocationAction.AvailableForAllocation == 0) for allocation but
 	// interfaces are available for creation
-	// (AllocationAction.AvailableInterfaces > 0). This function must
+	// (AllocationAction.EmptyInterfaceSlots > 0). This function must
 	// create the interface *and* allocate up to
 	// AllocationAction.MaxIPsToAllocate.
 	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
@@ -58,7 +60,10 @@ type NodeOperations interface {
 	// interfaces and IPs associated with the node. This function is called
 	// sparingly as this information is kept in sync based on the success
 	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
-	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error)
+	// It returns all available ip in node and remaining available interfaces
+	// that can either be allocated or have not yet exhausted the instance specific quota of addresses
+	// and error occurred during execution.
+	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, int, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
@@ -112,15 +117,25 @@ type AllocationImplementation interface {
 	// chance to resync its own state with external APIs or systems. It is
 	// also called when the IPAM layer detects that state got out of sync.
 	Resync(ctx context.Context) time.Time
+
+	// HasInstance returns whether the instance is in instances
+	HasInstance(instanceID string) bool
+
+	// DeleteInstance deletes the instance from instances
+	DeleteInstance(instanceID string)
 }
 
 // MetricsAPI represents the metrics being maintained by a NodeManager
 type MetricsAPI interface {
-	IncAllocationAttempt(status, subnetID string)
+	AllocationAttempt(typ, status, subnetID string, observe float64)
+	ReleaseAttempt(typ, status, subnetID string, observe float64)
+	IncInterfaceAllocation(subnetID string)
 	AddIPAllocation(subnetID string, allocated int64)
 	AddIPRelease(subnetID string, released int64)
 	SetAllocatedIPs(typ string, allocated int)
 	SetAvailableInterfaces(available int)
+	SetInterfaceCandidates(interfaceCandidates int)
+	SetEmptyInterfaceSlots(emptyInterfaceSlots int)
 	SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int)
 	SetNodes(category string, nodes int)
 	IncResyncCount()
@@ -144,6 +159,14 @@ type NodeManager struct {
 	releaseExcessIPs   bool
 	stableInstancesAPI bool
 	prefixDelegation   bool
+}
+
+func (n *NodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	n.mutex.RLock()
+	numNodes := len(n.nodes)
+	n.mutex.RUnlock()
+
+	return backoff.ClusterSizeDependantInterval(baseInterval, numNodes)
 }
 
 // NewNodeManager returns a new NodeManager
@@ -274,17 +297,36 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 			logLimiter:          logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 		}
 
+		ctx, cancel := context.WithCancel(context.Background())
+		// InstanceAPI is stale and the instances API is stable then do resync instancesAPI to sync instances
+		if !n.instancesAPI.HasInstance(resource.InstanceID()) && n.stableInstancesAPI {
+			if syncTime := n.instancesAPI.Resync(ctx); syncTime.IsZero() {
+				node.logger().Warning("Failed to resync the instances from the API after new node was found")
+				n.stableInstancesAPI = false
+			} else {
+				n.stableInstancesAPI = true
+			}
+		}
+
 		node.ops = n.instancesAPI.CreateNode(resource, node)
 
+		backoff := &backoff.Exponential{
+			Max:         5 * time.Minute,
+			Jitter:      true,
+			NodeManager: n,
+			Name:        fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
+		}
 		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
 			MinInterval:     10 * time.Millisecond,
 			MetricsObserver: n.metricsAPI.PoolMaintainerTrigger(),
 			TriggerFunc: func(reasons []string) {
-				if err := node.MaintainIPPool(context.TODO()); err != nil {
+				if err := node.MaintainIPPool(ctx); err != nil {
 					node.logger().WithError(err).Warning("Unable to maintain ip pool of node")
+					backoff.Wait(ctx)
 				}
 			},
+			ShutdownFunc: cancel,
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
@@ -327,10 +369,10 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 
 // Delete is called after a CiliumNode resource has been deleted via the
 // Kubernetes apiserver
-func (n *NodeManager) Delete(nodeName string) {
+func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 	n.mutex.Lock()
 
-	if node, ok := n.nodes[nodeName]; ok {
+	if node, ok := n.nodes[resource.Name]; ok {
 		if node.poolMaintainer != nil {
 			node.poolMaintainer.Shutdown()
 		}
@@ -342,7 +384,15 @@ func (n *NodeManager) Delete(nodeName string) {
 		}
 	}
 
-	delete(n.nodes, nodeName)
+	// Delete the instance from instanceManager. This will cause Update() to
+	// invoke instancesAPIResync if this instance rejoins the cluster.
+	// This ensures that Node.recalculate() does not use stale data for
+	// instances which rejoin the cluster after their EC2 configuration has changed.
+	if resource.Spec.InstanceID != "" {
+		n.instancesAPI.DeleteInstance(resource.Spec.InstanceID)
+	}
+
+	delete(n.nodes, resource.Name)
 	n.mutex.Unlock()
 }
 
@@ -388,6 +438,8 @@ type resyncStats struct {
 	totalAvailable      int
 	totalNeeded         int
 	remainingInterfaces int
+	interfaceCandidates int
+	emptyInterfaceSlots int
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
@@ -411,6 +463,8 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	stats.totalAvailable += availableOnNode
 	stats.totalNeeded += nodeStats.NeededIPs
 	stats.remainingInterfaces += nodeStats.RemainingInterfaces
+	stats.interfaceCandidates += nodeStats.InterfaceCandidates
+	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
 	stats.nodes++
 
 	if allocationNeeded {
@@ -455,6 +509,8 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	n.metricsAPI.SetAllocatedIPs("available", stats.totalAvailable)
 	n.metricsAPI.SetAllocatedIPs("needed", stats.totalNeeded)
 	n.metricsAPI.SetAvailableInterfaces(stats.remainingInterfaces)
+	n.metricsAPI.SetInterfaceCandidates(stats.interfaceCandidates)
+	n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
 	n.metricsAPI.SetNodes("total", stats.nodes)
 	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
 	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)

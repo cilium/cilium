@@ -71,7 +71,7 @@ var (
 // privileged Pod (test-verifier) which mounts the bpffs and the Cilium source
 // directory. All test commands are executed in this privileged Pod after
 // uninstalling Cilium from the cluster.
-var _ = Describe("K8sVerifier", func() {
+var _ = Describe("K8sDatapathVerifier", func() {
 	var kubectl *helpers.Kubectl
 
 	collectObjectFiles := func() {
@@ -111,6 +111,7 @@ var _ = Describe("K8sVerifier", func() {
 
 	BeforeAll(func() {
 		SkipIfIntegration(helpers.CIIntegrationGKE)
+		SkipIfIntegration(helpers.CIIntegrationAKS)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		// We don't check the returned error because Cilium could

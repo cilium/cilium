@@ -6,7 +6,7 @@ package aws
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -27,8 +27,8 @@ func init() {
 }
 
 // GetIPsFromGroup will return the list of the ips for the given group filter
-func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error) {
-	result := []net.IP{}
+func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]netip.Addr, error) {
+	result := []netip.Addr{}
 	if group.AWS == nil {
 		return result, fmt.Errorf("no aws data available")
 	}
@@ -37,7 +37,7 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]net.IP, error)
 
 // getInstancesFromFilter returns the instances IPs in aws EC2 filter by the
 // given filter
-func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net.IP, error) {
+func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]netip.Addr, error) {
 	var result []ec2_types.Reservation
 	input := &ec2.DescribeInstancesInput{}
 
@@ -80,15 +80,23 @@ func getInstancesIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]net
 	return extractIPs(result), nil
 }
 
-func extractIPs(reservations []ec2_types.Reservation) []net.IP {
-	result := []net.IP{}
+func extractIPs(reservations []ec2_types.Reservation) []netip.Addr {
+	result := []netip.Addr{}
 	for _, reservation := range reservations {
 		for _, instance := range reservation.Instances {
 			for _, iface := range instance.NetworkInterfaces {
 				for _, ifaceIP := range iface.PrivateIpAddresses {
-					result = append(result, net.ParseIP(aws.ToString(ifaceIP.PrivateIpAddress)))
+					addr, err := netip.ParseAddr(aws.ToString(ifaceIP.PrivateIpAddress))
+					if err != nil {
+						continue
+					}
+					result = append(result, addr)
 					if ifaceIP.Association != nil {
-						result = append(result, net.ParseIP(aws.ToString(ifaceIP.Association.PublicIp)))
+						addr, err = netip.ParseAddr(aws.ToString(ifaceIP.Association.PublicIp))
+						if err != nil {
+							continue
+						}
+						result = append(result, addr)
 					}
 				}
 			}

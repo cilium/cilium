@@ -8,8 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -32,20 +37,25 @@ var (
 	// ErrNoServerTLSConfig is returned when no server TLS config is set unless
 	// WithInsecureServer() is provided.
 	ErrNoServerTLSConfig = errors.New("no server TLS config is set")
+
+	registry = prometheus.NewPedanticRegistry()
 )
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
 type Server struct {
-	server *grpc.Server
-	pm     *pool.PeerManager
-	opts   options
-	stop   chan struct{}
+	server        *grpc.Server
+	pm            *pool.PeerManager
+	healthServer  *health.Server
+	metricsServer *http.Server
+	opts          options
+	stop          chan struct{}
 }
 
 // New creates a new Server.
 func New(options ...Option) (*Server, error) {
-	opts := defaultOptions
+	opts := defaultOptions // start with defaults
+	options = append(options, DefaultOptions...)
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -87,10 +97,57 @@ func New(options ...Option) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var serverOpts []grpc.ServerOption
+
+	for _, interceptor := range opts.grpcUnaryInterceptors {
+		serverOpts = append(serverOpts, grpc.UnaryInterceptor(interceptor))
+	}
+	for _, interceptor := range opts.grpcStreamInterceptors {
+		serverOpts = append(serverOpts, grpc.StreamInterceptor(interceptor))
+	}
+
+	if opts.serverTLSConfig != nil {
+		tlsConfig := opts.serverTLSConfig.ServerConfig(&tls.Config{
+			MinVersion: MinTLSVersion,
+		})
+		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
+
+	observerOptions := copyObserverOptionsWithLogger(opts.log, opts.observerOptions)
+	observerSrv, err := observer.NewServer(pm, observerOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create observer server: %v", err)
+	}
+	healthSrv := health.NewServer()
+
+	observerpb.RegisterObserverServer(grpcServer, observerSrv)
+	healthpb.RegisterHealthServer(grpcServer, healthSrv)
+	reflection.Register(grpcServer)
+
+	if opts.grpcMetrics != nil {
+		registry.MustRegister(opts.grpcMetrics)
+		opts.grpcMetrics.InitializeMetrics(grpcServer)
+	}
+
+	var metricsServer *http.Server
+	if opts.metricsListenAddress != "" {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		metricsServer = &http.Server{
+			Addr:    opts.metricsListenAddress,
+			Handler: mux,
+		}
+	}
+
 	return &Server{
-		pm:   pm,
-		stop: make(chan struct{}),
-		opts: opts,
+		pm:            pm,
+		stop:          make(chan struct{}),
+		server:        grpcServer,
+		metricsServer: metricsServer,
+		healthServer:  healthSrv,
+		opts:          opts,
 	}, nil
 }
 
@@ -98,41 +155,27 @@ func New(options ...Option) (*Server, error) {
 // listening fails with fatal errors. Serve will return a non-nil error if
 // Stop() is not called.
 func (s *Server) Serve() error {
-	s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
-
-	switch {
-	case s.opts.insecureServer:
-		s.server = grpc.NewServer()
-	case s.opts.serverTLSConfig != nil:
-		tlsConfig := s.opts.serverTLSConfig.ServerConfig(&tls.Config{
-			MinVersion: MinTLSVersion,
+	var eg errgroup.Group
+	if s.metricsServer != nil {
+		eg.Go(func() error {
+			s.opts.log.WithField("address", s.opts.metricsListenAddress).Info("Starting metrics server...")
+			return s.metricsServer.ListenAndServe()
 		})
-		creds := credentials.NewTLS(tlsConfig)
-		s.server = grpc.NewServer(grpc.Creds(creds))
-	default:
-		return ErrNoServerTLSConfig
 	}
 
-	s.pm.Start()
-	observerOptions := s.observerOptions()
-	observerSrv, err := observer.NewServer(s.pm, observerOptions...)
-	if err != nil {
-		return fmt.Errorf("failed to create observer server: %v", err)
-	}
+	eg.Go(func() error {
+		s.opts.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting gRPC server...")
+		s.pm.Start()
+		socket, err := net.Listen("tcp", s.opts.listenAddress)
+		if err != nil {
+			return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
+		}
 
-	healthSrv := health.NewServer()
-	healthSrv.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
+		return s.server.Serve(socket)
+	})
 
-	socket, err := net.Listen("tcp", s.opts.listenAddress)
-	if err != nil {
-		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
-	}
-
-	healthpb.RegisterHealthServer(s.server, healthSrv)
-	observerpb.RegisterObserverServer(s.server, observerSrv)
-
-	reflection.Register(s.server)
-	return s.server.Serve(socket)
+	return eg.Wait()
 }
 
 // Stop terminates the hubble-relay server.
@@ -146,9 +189,9 @@ func (s *Server) Stop() {
 
 // observerOptions returns the configured hubble-relay observer options along
 // with the hubble-relay logger.
-func (s *Server) observerOptions() []observer.Option {
-	observerOptions := make([]observer.Option, len(s.opts.observerOptions), len(s.opts.observerOptions)+1)
-	copy(observerOptions, s.opts.observerOptions)
-	observerOptions = append(observerOptions, observer.WithLogger(s.opts.log))
-	return observerOptions
+func copyObserverOptionsWithLogger(log logrus.FieldLogger, options []observer.Option) []observer.Option {
+	newOptions := make([]observer.Option, len(options), len(options)+1)
+	copy(newOptions, options)
+	newOptions = append(newOptions, observer.WithLogger(log))
+	return newOptions
 }

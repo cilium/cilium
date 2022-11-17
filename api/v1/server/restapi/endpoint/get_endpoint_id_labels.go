@@ -32,10 +32,10 @@ func NewGetEndpointIDLabels(ctx *middleware.Context, handler GetEndpointIDLabels
 	return &GetEndpointIDLabels{Context: ctx, Handler: handler}
 }
 
-/*GetEndpointIDLabels swagger:route GET /endpoint/{id}/labels endpoint getEndpointIdLabels
+/*
+GetEndpointIDLabels swagger:route GET /endpoint/{id}/labels endpoint getEndpointIdLabels
 
 Retrieves the list of labels associated with an endpoint.
-
 */
 type GetEndpointIDLabels struct {
 	Context *middleware.Context

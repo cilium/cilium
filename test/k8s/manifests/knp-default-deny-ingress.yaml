@@ -1,8 +1,0 @@
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: "knp-default-deny-ingress"
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress

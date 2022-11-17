@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -87,6 +86,10 @@ var (
 	// discovery was introduced in K8s version 1.21.
 	isGEThanAPIDiscoveryV1 = versioncheck.MustCompile(">=1.21.0")
 
+	// Constraint to check support for discovery/v1beta1 types. Support for
+	// v1beta1 discovery was introduced in K8s version 1.17.
+	isGEThanAPIDiscoveryV1Beta1 = versioncheck.MustCompile(">=1.17.0")
+
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
 	isGEThanMinimalVersionConstraint = versioncheck.MustCompile(">=" + MinimalVersionConstraint)
@@ -108,6 +111,12 @@ func Capabilities() ServerCapabilities {
 	return c
 }
 
+func DisableLeasesResourceLock() {
+	cached.mutex.Lock()
+	defer cached.mutex.Unlock()
+	cached.capabilities.LeasesResourceLock = false
+}
+
 func updateVersion(version semver.Version) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
@@ -117,6 +126,7 @@ func updateVersion(version semver.Version) {
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
 	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 	cached.capabilities.EndpointSliceV1 = isGEThanAPIDiscoveryV1(version)
+	cached.capabilities.EndpointSlice = isGEThanAPIDiscoveryV1Beta1(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
@@ -205,12 +215,12 @@ func endpointSlicesFallbackDiscovery(client kubernetes.Interface) error {
 	return fmt.Errorf("unable to validate EndpointSlices support: %s", err)
 }
 
-func leasesFallbackDiscovery(client kubernetes.Interface, conf k8sconfig.Configuration) error {
-	// K8sEnableLeasesFallbackDiscovery is used to fallback leases discovery to directly
+func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bool) error {
+	// apiDiscoveryEnabled is used to fallback leases discovery to directly
 	// probing the API when we cannot discover API groups.
 	// We require to check for Leases capabilities in operator only, which uses Leases
 	// for leader election purposes in HA mode.
-	if !conf.K8sLeasesFallbackDiscoveryEnabled() {
+	if !apiDiscoveryEnabled {
 		log.Debugf("Skipping Leases support fallback discovery")
 		return nil
 	}
@@ -282,13 +292,13 @@ func updateK8sServerVersion(client kubernetes.Interface) error {
 // Discovery of capabilities only works if the discovery API of the apiserver
 // is functional. If it is not available, a warning is logged and the discovery
 // falls back to probing individual API endpoints.
-func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
+func Update(client kubernetes.Interface, apiDiscoveryEnabled bool) error {
 	err := updateK8sServerVersion(client)
 	if err != nil {
 		return err
 	}
 
-	if conf.K8sAPIDiscoveryEnabled() {
+	if apiDiscoveryEnabled {
 		// Discovery of API groups requires the API services of the
 		// apiserver to be healthy. Such API services can depend on the
 		// readiness of regular pods which require Cilium to function
@@ -307,7 +317,7 @@ func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
 				return err
 			}
 
-			return leasesFallbackDiscovery(client, conf)
+			return leasesFallbackDiscovery(client, apiDiscoveryEnabled)
 		}
 
 		updateServerGroupsAndResources(apiResourceLists)
@@ -316,7 +326,7 @@ func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
 			return err
 		}
 
-		return leasesFallbackDiscovery(client, conf)
+		return leasesFallbackDiscovery(client, apiDiscoveryEnabled)
 	}
 
 	return nil

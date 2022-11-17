@@ -44,7 +44,7 @@ Name                 Purpose
 ==================== ==========================================================
 
 You can join the following channels if you are looking to contribute to
-Cilium:
+Cilium code, documentation, or website:
 
 ==================== ==========================================================
 Name                 Purpose
@@ -54,6 +54,7 @@ Name                 Purpose
 #git                 GitHub notifications
 #sig-*               SIG-specific discussions (see below)
 #testing             Testing and CI discussions
+#cilium-website      Development discussions around cilium.io
 ==================== ==========================================================
 
 If you are interested in eBPF, then the following channels are for you:
@@ -64,11 +65,12 @@ Name                 Purpose
 #ebpf                General eBPF questions
 #ebpf-go             Questions on the `eBPF Go library`_
 #ebpf-lsm            Questions on BPF Linux Security Modules (LSM)
-#ebpf-news           Contributions to the `eBPF Updates`_
+#echo-news           Contributions to `eCHO News`_
+#ebpf-for-windows    Discussions around eBPF for Windows
 ==================== ==========================================================
 
 .. _eBPF Go library: https://github.com/cilium/ebpf
-.. _eBPF Updates: https://ebpf.io/blog
+.. _eCHO News: https://cilium.io/newsletter/
 
 
 Special Interest Groups

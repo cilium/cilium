@@ -1017,10 +1017,6 @@ func (s *SSHMeta) SetUpCiliumWithHubble() error {
 	return s.SetUpCiliumWithOptions("--enable-hubble")
 }
 
-func (s *SSHMeta) SetUpCiliumWithSockops() error {
-	return s.SetUpCiliumWithOptions("--sockops-enable")
-}
-
 // WaitUntilReady waits until the output of `cilium status` returns with code
 // zero. Returns an error if the output of `cilium status` returns a nonzero
 // return code after the specified timeout duration has elapsed.

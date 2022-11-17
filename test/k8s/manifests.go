@@ -13,28 +13,10 @@ var (
 	DemoDaemonSet = helpers.Manifest{
 		Filename:        "demo_ds.yaml",
 		Alternate:       "demo_ds_local.yaml",
-		DaemonSetNames:  []string{"testds", "testclient"},
+		DaemonSetNames:  []string{"testds", "testclient", "testclient-2"},
 		DeploymentNames: []string{"test-k8s2"},
 		NumPods:         1,
 		Singleton:       true,
-	}
-
-	NetperfPods = helpers.Manifest{
-		Filename:      "netperf-deployment.yaml",
-		NumPods:       2,
-		LabelSelector: "zgroup=testapp",
-	}
-
-	HttpServer = helpers.Manifest{
-		Filename:      "http-deployment.yaml",
-		NumPods:       2,
-		LabelSelector: "zgroup=http-server",
-	}
-
-	HttpClients = helpers.Manifest{
-		Filename:      "http-clients.yaml",
-		NumPods:       2,
-		LabelSelector: "zgroup=http-clients",
 	}
 
 	DemoHostFirewall = helpers.Manifest{
@@ -51,12 +33,5 @@ var (
 		Filename:      "etcd-deployment.yaml",
 		NumPods:       1,
 		LabelSelector: "name=stateless-etcd",
-	}
-
-	ConnectivityCheck = helpers.Manifest{
-		Filename:      "policy-stress-test.yaml",
-		NumPods:       14,
-		LabelSelector: "manifest=policy-stress-test",
-		Singleton:     true,
 	}
 )

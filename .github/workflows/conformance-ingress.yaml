@@ -1,4 +1,4 @@
-name: ConformanceIngress
+name: ConformanceIngress (Dedicated LB)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -21,8 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  minikube_version: 1.25.2
-  cilium_cli_version: v0.11.9
+  cilium_cli_version: v0.12.7
   timeout: 5m
 
 jobs:
@@ -30,6 +29,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
         run: |
@@ -50,7 +56,7 @@ jobs:
           echo ::set-output name=sha::${SHA}
 
       - name: Checkout
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -60,7 +66,7 @@ jobs:
           # Use at least 3 nodes, so that at least 2 worker nodes are available for scheduling
           minikube start --network-plugin=cni --cni=false \
             --docker-opt="default-ulimit=nofile=102400:102400" \
-            --nodes 3 \
+            --nodes 3
 
       # Start minikube tunnel
       - name: Setup minikube
@@ -72,11 +78,11 @@ jobs:
           ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           repository: kubernetes-sigs/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: cec7cf25b0291933426e256065ef4afc981ea1fa
+          ref: a38bfcddfc7b10a7b479c1f274b87380c7390c96
           persist-credentials: false
 
       - name: Install Ingress conformance test tool
@@ -90,7 +96,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci ; do
-            until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium
@@ -101,19 +107,18 @@ jobs:
             --set kubeProxyReplacement=strict \
             --set nodeinit.enabled=true \
             --set ipam.mode=kubernetes \
-            --set image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --set image.tag=${{ steps.vars.outputs.sha }} \
             --set image.pullPolicy=IfNotPresent \
             --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
             --set operator.image.suffix=-ci \
             --set operator.image.tag=${{ steps.vars.outputs.sha }} \
             --set operator.image.pullPolicy=IfNotPresent \
             --set operator.image.useDigest=false \
-            --set debug.enabled=true \
-            --set debug.verbose=flow \
             --set securityContext.privileged=true \
-            --set ingressController.enabled=true
+            --set ingressController.enabled=true \
+            --set ingressController.loadbalancerMode=dedicated
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
@@ -154,12 +159,3 @@ jobs:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
           retention-days: 5
-
-      - name: Send slack notification
-        if: ${{ !success() && (github.event_name == 'schedule' || github.event_name == 'push') }}
-        uses: 8398a7/action-slack@a74b761b4089b5d730d813fbedcd2ec5d394f3af
-        with:
-          status: ${{ job.status }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took # selectable (default: repo,message)
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

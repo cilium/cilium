@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strconv"
@@ -19,15 +19,12 @@ import (
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -98,9 +95,6 @@ const (
 	// StateInvalid is used when an endpoint failed during creation due to
 	// invalid data.
 	StateInvalid = State(models.EndpointStateInvalid)
-
-	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
-	IpvlanMapName = "cilium_lxc_ipve_"
 )
 
 // compile time interface check
@@ -145,9 +139,6 @@ type Endpoint struct {
 	// libnetwork
 	dockerEndpointID string
 
-	// Corresponding BPF map identifier for tail call map of ipvlan datapath
-	datapathMapID int
-
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
 	ifName string
@@ -172,10 +163,10 @@ type Endpoint struct {
 	mac mac.MAC // Container MAC address.
 
 	// IPv6 is the IPv6 address of the endpoint
-	IPv6 addressing.CiliumIPv6
+	IPv6 netip.Addr
 
 	// IPv4 is the IPv4 address of the endpoint
-	IPv4 addressing.CiliumIPv4
+	IPv4 netip.Addr
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
@@ -413,14 +404,6 @@ func (e *Endpoint) bpfProgramInstalled() bool {
 	}
 }
 
-// HasIpvlanDataPath returns whether the daemon is running in ipvlan mode.
-func (e *Endpoint) HasIpvlanDataPath() bool {
-	if e.datapathMapID > 0 {
-		return true
-	}
-	return false
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
@@ -561,9 +544,6 @@ func (e *Endpoint) GetID16() uint16 {
 // In some datapath modes, it may return an empty string as there is no unique
 // host netns network interface for this endpoint.
 func (e *Endpoint) HostInterface() string {
-	if e.HasIpvlanDataPath() {
-		return ""
-	}
 	return e.ifName
 }
 
@@ -581,21 +561,27 @@ func (e *Endpoint) GetOptions() *option.IntOptions {
 
 // GetIPv4Address returns the IPv4 address of the endpoint as a string
 func (e *Endpoint) GetIPv4Address() string {
+	if !e.IPv4.IsValid() {
+		return ""
+	}
 	return e.IPv4.String()
 }
 
 // GetIPv6Address returns the IPv6 address of the endpoint as a string
 func (e *Endpoint) GetIPv6Address() string {
+	if !e.IPv6.IsValid() {
+		return ""
+	}
 	return e.IPv6.String()
 }
 
 // IPv4Address returns the IPv4 address of the endpoint
-func (e *Endpoint) IPv4Address() addressing.CiliumIPv4 {
+func (e *Endpoint) IPv4Address() netip.Addr {
 	return e.IPv4
 }
 
 // IPv6Address returns the IPv6 address of the endpoint
-func (e *Endpoint) IPv6Address() addressing.CiliumIPv6 {
+func (e *Endpoint) IPv6Address() netip.Addr {
 	return e.IPv6
 }
 
@@ -813,7 +799,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, bEp []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, bEp []byte) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	epSlice := bytes.Split(bEp, []byte{':'})
@@ -821,8 +807,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("invalid format %q. Should contain a single ':'", bEp)
 	}
 	ep := Endpoint{
-		owner:        owner,
-		policyGetter: policyGetter,
+		owner:            owner,
+		namedPortsGetter: namedPortsGetter,
+		policyGetter:     policyGetter,
 	}
 
 	if err := parseBase64ToEndpoint(epSlice[1], &ep); err != nil {
@@ -2064,8 +2051,9 @@ type policySignal struct {
 
 // WaitForPolicyRevision returns a channel that is closed when one or more of
 // the following conditions have met:
-//  - the endpoint is disconnected state
-//  - the endpoint's policy revision reaches the wanted revision
+//   - the endpoint is disconnected state
+//   - the endpoint's policy revision reaches the wanted revision
+//
 // When the done callback is non-nil it will be called just before the channel is closed.
 func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done func(ts time.Time)) <-chan struct{} {
 	// NOTE: unconditionalLock is used here because this method handles endpoint in disconnected state on its own
@@ -2095,18 +2083,6 @@ func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done f
 	return ch
 }
 
-// IPs returns the slice of valid IPs for this endpoint.
-func (e *Endpoint) IPs() []net.IP {
-	ips := []net.IP{}
-	if e.IPv4.IsSet() {
-		ips = append(ips, e.IPv4.IP())
-	}
-	if e.IPv6.IsSet() {
-		ips = append(ips, e.IPv6.IP())
-	}
-	return ips
-}
-
 // IsDisconnecting returns true if the endpoint is being disconnected or
 // already disconnected
 //
@@ -2116,32 +2092,6 @@ func (e *Endpoint) IPs() []net.IP {
 // endpoint.mutex must be held in read mode at least
 func (e *Endpoint) IsDisconnecting() bool {
 	return e.state == StateDisconnected || e.state == StateDisconnecting
-}
-
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) PinDatapathMap() error {
-	if err := e.lockAlive(); err != nil {
-		return err
-	}
-	defer e.unlock()
-	return e.pinDatapathMap()
-}
-
-// PinDatapathMap retrieves a file descriptor from the map ID from the API call
-// and pins the corresponding map into the BPF file system.
-func (e *Endpoint) pinDatapathMap() error {
-	if e.datapathMapID == 0 {
-		return nil
-	}
-
-	mapFd, err := bpf.MapFdFromID(e.datapathMapID)
-	if err != nil {
-		return err
-	}
-	defer unix.Close(mapFd)
-
-	return bpf.ObjPin(mapFd, e.BPFIpvlanMapPath())
 }
 
 func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
@@ -2212,7 +2162,7 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		// ingress rule and multiple egress rules. If we find more rules than
 		// expected, then the rules will be left as-is because there was
 		// likely manual intervention.
-		if err := linuxrouting.Delete(e.IPv4.IP(), option.Config.EgressMultiHomeIPRuleCompat); err != nil {
+		if err := linuxrouting.Delete(e.IPv4, option.Config.EgressMultiHomeIPRuleCompat); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
 		}
 	}
@@ -2223,12 +2173,12 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 			"ipAddr": e.GetIPv4Address(),
 		}).Debug("Deleting endpoint NOTRACK rules")
 
-		if e.IPv4.IsSet() {
+		if e.IPv4.IsValid() {
 			if err := e.owner.Datapath().RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv4 rules: %s", err))
 			}
 		}
-		if e.IPv6.IsSet() {
+		if e.IPv6.IsValid() {
 			if err := e.owner.Datapath().RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
 				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv6 rules: %s", err))
 			}

@@ -5,15 +5,16 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/cilium/ebpf/rlimit"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -31,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
@@ -47,11 +50,14 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -105,7 +111,7 @@ const (
 // monitoring when a LXC starts.
 type Daemon struct {
 	ctx              context.Context
-	cancel           context.CancelFunc
+	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
 	svc              *service.Service
@@ -182,6 +188,8 @@ type Daemon struct {
 
 	egressGatewayManager *egressgateway.Manager
 
+	cgroupManager *manager.CgroupManager
+
 	apiLimiterSet *rate.APILimiterSet
 
 	// event queue for serializing configuration updates to the daemon.
@@ -195,6 +203,9 @@ type Daemon struct {
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
+
+	// BIG-TCP config values
+	bigTCPConfig bigtcp.Configuration
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -267,7 +278,7 @@ func (d *Daemon) init() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	max6, max4 := ipcachemap.IPCache.GetMaxPrefixLengths()
+	max6, max4 := ipcachemap.IPCacheMap().GetMaxPrefixLengths()
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
@@ -307,7 +318,7 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	}
 
 	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	if err := removeOldRouterState(restoredIP); err != nil {
+	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
 		log.WithError(err).Warnf(
 			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
 			restoredIP,
@@ -318,27 +329,37 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 // removeOldRouterState will try to ensure that the only IP assigned to the
 // `cilium_host` interface is the given restored IP. If the given IP is nil,
 // then it attempts to clear all IPs from the interface.
-func removeOldRouterState(restoredIP net.IP) error {
+func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	l, err := netlink.LinkByName(defaults.HostDevice)
-	if err != nil {
+	if errors.As(err, &netlink.LinkNotFoundError{}) && restoredIP == nil {
+		// There's no old state remove as the host device doesn't exist and
+		// there's no restored IP anyway.
+		return nil
+	} else if err != nil {
 		return err
 	}
 
-	family := netlink.FAMILY_V6
-	if restoredIP.To4() != nil {
-		family = netlink.FAMILY_V4
+	family := netlink.FAMILY_V4
+	if ipv6 {
+		family = netlink.FAMILY_V6
 	}
 	addrs, err := netlink.AddrList(l, family)
 	if err != nil {
 		return err
 	}
-	if len(addrs) > 1 {
-		log.Info("More than one router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
+
+	isRestoredIP := func(a netlink.Addr) bool {
+		return restoredIP != nil && restoredIP.Equal(a.IP)
 	}
+	if len(addrs) == 0 || (len(addrs) == 1 && isRestoredIP(addrs[0])) {
+		return nil // nothing to clean up
+	}
+
+	log.Info("More than one stale router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
 
 	var errs []error
 	for _, a := range addrs {
-		if restoredIP != nil && restoredIP.Equal(a.IP) {
+		if isRestoredIP(a) {
 			continue
 		}
 		if err := netlink.AddrDel(l, &a); err != nil {
@@ -352,12 +373,12 @@ func removeOldRouterState(restoredIP net.IP) error {
 	return nil
 }
 
-// NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
-
-	// Pass the cancel to our signal handler directly so that it's canceled
-	// before we run the cleanup functions (see `cleanup.go` for implementation).
-	cleaner.SetCancelFunc(cancel)
+// newDaemon creates and returns a new Daemon with the parameters set in c.
+func newDaemon(ctx context.Context, cleaner *daemonCleanup,
+	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	wgAgent *wg.Agent,
+	clientset k8sClient.Clientset,
+) (*Daemon, *endpointRestoreState, error) {
 
 	var (
 		err           error
@@ -368,8 +389,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.daemonInit.Start()
 
 	// Validate the daemon-specific global options.
-	if err := option.Config.Validate(); err != nil {
+	if err := option.Config.Validate(Vp); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+
+	// Validate configuration options that depend on other cells.
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
+		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
 	if option.Config.ReadCNIConfiguration != "" {
@@ -443,13 +470,6 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	lbmap.Init(lbmapInitParams)
 
-	if option.Config.DryMode == false {
-		if err := rlimit.RemoveMemlock(); err != nil {
-			log.WithError(err).Error("unable to set memory resource limits")
-			return nil, nil, fmt.Errorf("unable to set memory resource limits: %w", err)
-		}
-	}
-
 	authKeySize, encryptKeyID, err := setupIPSec()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
@@ -464,7 +484,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
 		option.Config.EnableIPSec,
-		option.Config.TunnelingEnabled(),
+		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
 		configuredMTU,
 		externalIP,
@@ -484,7 +504,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
+	nd := nodediscovery.NewNodeDiscovery(nodeMngr, clientset, mtuConfig, netConf)
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -493,7 +513,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	d := Daemon{
 		ctx:               ctx,
-		cancel:            cancel,
+		clientset:         clientset,
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
@@ -502,7 +522,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		datapath:          dp,
 		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
-		endpointCreations: newEndpointCreationManager(),
+		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
 	}
@@ -524,7 +544,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	var oldNIDs []identity.NumericIdentity
 	var oldIngressIPs []*net.IPNet
 	if option.Config.RestoreState && !option.Config.DryMode {
-		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
 			v := value.(*ipcachemap.RemoteEndpointInfo)
 			nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -545,7 +565,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 		// DumpWithCallback() leaves the ipcache map open, must close before opened for
 		// parallel mode in Daemon.initMaps()
-		ipcachemap.IPCache.Close()
+		ipcachemap.IPCacheMap().Close()
 	}
 
 	// Propagate identity allocator down to packages which themselves do not
@@ -562,6 +582,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
 		IdentityAllocator: d.identityAllocator,
 		PolicyHandler:     d.policy.GetSelectorCache(),
 		DatapathHandler:   epMgr,
@@ -575,10 +596,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
 	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
 	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
-	restoredCIDRidentities := make(map[string]*identity.Identity)
+	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
 	if len(d.restoredCIDRs) > 0 {
 		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
+		prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
+		for _, c := range d.restoredCIDRs {
+			prefixes = append(prefixes, ip.IPNetToPrefix(c))
+		}
+		_, err = d.ipcache.AllocateCIDRs(prefixes, oldNIDs, restoredCIDRidentities)
 		if err != nil {
 			log.WithError(err).Error("Error allocating old CIDR identities")
 		}
@@ -586,7 +611,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// same numeric identity as before the restart. This can only happen if we have
 		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
 		for i, prefix := range d.restoredCIDRs {
-			id, exists := restoredCIDRidentities[prefix.String()]
+			id, exists := restoredCIDRidentities[ip.IPNetToPrefix(prefix)]
 			if !exists || id.ID != oldNIDs[i] {
 				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
 				break
@@ -620,11 +645,11 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	bootstrapStats.proxyStart.End(true)
 
 	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
-	d.svc = service.NewService(&d, d.l7Proxy)
+	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
-		d.bgpSpeaker, err = speaker.New(ctx, speaker.Opts{
+		d.bgpSpeaker, err = speaker.New(ctx, clientset, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
 		})
@@ -634,11 +659,14 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 
+	d.cgroupManager = manager.NewCgroupManager()
+
 	if option.Config.EnableIPv4EgressGateway {
 		d.egressGatewayManager = egressgateway.NewEgressGatewayManager(&d, d.identityAllocator)
 	}
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
+		clientset,
 		d.endpointManager,
 		d.nodeDiscovery,
 		&d,
@@ -651,8 +679,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,
+		d.cgroupManager,
 	)
-	nd.RegisterK8sNodeGetter(d.k8sWatcher)
+	nd.RegisterK8sGetters(d.k8sWatcher)
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
@@ -668,7 +697,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
 	}
 
-	d.k8sWatcher.NodeChain.Register(watchers.NewCiliumNodeUpdater(d.k8sWatcher, d.nodeDiscovery))
+	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
+	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
 	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
@@ -707,7 +737,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities)
+		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
 	}
 	// Upsert restored local Ingress IPs
 	restoredIngressIPs := []string{}
@@ -832,15 +862,24 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
 	}
+	if proxy.DefaultDNSProxy != nil {
+		// This is done in preCleanup so that proxy stops serving DNS traffic before shutdown
+		cleaner.preCleanupFuncs.Add(func() {
+			proxy.DefaultDNSProxy.Cleanup()
+		})
+	}
+
 	bootstrapStats.fqdn.End(true)
 
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
 		// context deadline or if the context has been cancelled, the context's
 		// error will be returned. Otherwise, it succeeded.
-		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
-			return nil, restoredEndpoints, err
+		if !option.Config.DryMode {
+			if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+				return nil, restoredEndpoints, err
+			}
 		}
 
 		// Launch the K8s node watcher so we can start receiving node events.
@@ -848,7 +887,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// from performing Gets directly into kube-apiserver to get the most up
 		// to date version of the k8s node. This allows for better scalability
 		// in large clusters.
-		d.k8sWatcher.NodesInit(k8s.Client())
+		d.k8sWatcher.NodesInit(d.clientset)
 
 		if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
 			// Create the CiliumNode custom resource. This call will block until
@@ -873,8 +912,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
+	if wgAgent != nil && option.Config.EnableWireguard {
+		if err := wgAgent.Init(d.ipcache, d.mtuConfig); err != nil {
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
@@ -890,7 +929,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	if _, err := d.deviceManager.Detect(); err != nil {
+	if _, err := d.deviceManager.Detect(clientset.IsEnabled()); err != nil {
 		if d.deviceManager.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
@@ -906,36 +945,39 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
-	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" || !option.Config.EnableRemoteNodeIdentity ||
-			(option.Config.TunnelingEnabled() && !hasFullHostReachableServices())) {
+	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 
-		var msg string
+		var err error
 		switch {
 		case !option.Config.EnableNodePort:
-			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
+			err = fmt.Errorf("BPF masquerade requires NodePort (--%s=\"true\")",
 				option.EnableNodePort)
 		case !option.Config.EnableRemoteNodeIdentity:
-			msg = fmt.Sprintf("BPF masquerade requires remote node identities (--%s=\"true\").",
+			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
 				option.EnableRemoteNodeIdentity)
 		case option.Config.EgressMasqueradeInterfaces != "":
-			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
+			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.EgressMasqueradeInterfaces, option.Devices)
+		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
+			err = fmt.Errorf("BPF masquerade requires full host reachable services enabled in tunnel mode (--%s=\"false\")",
+				option.EnableSocketLB)
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
-		option.Config.EnableBPFMasquerade = false
-		log.Warn(msg + " Falling back to iptables-based masquerading.")
-		// Too bad, if we need to revert to iptables-based MASQ, we also cannot
-		// use BPF host routing since we need the upper stack.
-		if !option.Config.EnableHostLegacyRouting {
-			option.Config.EnableHostLegacyRouting = true
-			log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
-				option.EnableHostLegacyRouting)
+		if err != nil {
+			option.Config.EnableBPFMasquerade = false
+			log.WithError(err).Warn("Falling back to iptables-based masquerading.")
+			// Too bad, if we need to revert to iptables-based MASQ, we also cannot
+			// use BPF host routing since we need the upper stack.
+			if !option.Config.EnableHostLegacyRouting {
+				option.Config.EnableHostLegacyRouting = true
+				log.Infof("BPF masquerade could not be enabled. Falling back to legacy host routing (--%s=\"true\").",
+					option.EnableHostLegacyRouting)
+			}
 		}
 	}
 	if option.Config.EnableIPv4EgressGateway {
-		if !probes.NewProbeManager().GetMisc().HaveLargeInsnLimit {
+		if probes.HaveLargeInstructionLimit() != nil {
 			log.WithError(err).Error("egress gateway needs kernel 5.2 or newer")
 			return nil, nil, fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 		}
@@ -956,11 +998,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		}
 	}
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
-		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-			log.WithError(err).Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-			return nil, nil, fmt.Errorf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-		}
+		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
 		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
 			log.WithError(err).Error("failed to determine BPF masquerade IPv4 addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade IPv4 addrs: %w", err)
@@ -992,11 +1030,19 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		log.WithError(err).Errorf(msg, option.Devices)
 		return nil, nil, fmt.Errorf(msg, option.Devices)
 	}
+	if option.Config.EnableSCTP {
+		if probes.HaveLargeInstructionLimit() != nil {
+			log.WithError(err).Error("SCTP support needs kernel 5.2 or newer")
+			return nil, nil, fmt.Errorf("SCTP support needs kernel 5.2 or newer")
+		}
+	}
+
+	bigtcp.InitBIGTCP(&d.bigTCPConfig)
 
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
 	// are set.
-	if k8s.IsEnabled() {
+	if clientset.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 
 		// Initialize d.k8sCachesSynced before any k8s watchers are alive, as they may
@@ -1037,7 +1083,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 	d.configureIPAM()
 
 	if option.Config.JoinCluster {
-		if k8s.IsEnabled() {
+		if clientset.IsEnabled() {
 			log.WithError(err).Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 			return nil, nil, fmt.Errorf("cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
 		}
@@ -1094,7 +1140,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 	// Annotation of the k8s node must happen after discovery of the
 	// PodCIDR range and allocation of the health IPs.
-	if k8s.IsEnabled() && option.Config.AnnotateK8sNode {
+	if clientset.IsEnabled() && option.Config.AnnotateK8sNode {
 		bootstrapStats.k8sInit.Start()
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix:       node.GetIPv4AllocRange(),
@@ -1107,7 +1153,9 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
-		err := k8s.Client().AnnotateNode(nodeTypes.GetName(),
+		err := k8s.AnnotateNode(
+			clientset,
+			nodeTypes.GetName(),
 			encryptKeyID,
 			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
 			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
@@ -1140,7 +1188,7 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		// Ignore the channel returned by this function, as we want the global
 		// identity allocator to run asynchronously.
 		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+		realIdentityAllocator.InitIdentityAllocator(clientset, nil)
 
 		d.bootstrapClusterMesh(nodeMngr)
 	}
@@ -1242,8 +1290,8 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 
 // WithDefaultEndpointManager creates the default endpoint manager with a
 // functional endpoint synchronizer.
-func WithDefaultEndpointManager(ctx context.Context, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
-	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+func WithDefaultEndpointManager(ctx context.Context, clientset client.Clientset, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
+	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{Clientset: clientset})
 	if option.Config.EndpointGCInterval > 0 {
 		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
 	}
@@ -1325,6 +1373,9 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
+	if err := d.ipcache.Shutdown(); err != nil {
+		log.WithError(err).Debug("Failure during ipcache shutdown")
+	}
 	if d.policyUpdater != nil {
 		d.policyUpdater.Shutdown()
 	}
@@ -1332,6 +1383,7 @@ func (d *Daemon) Close() {
 		d.datapathRegenTrigger.Shutdown()
 	}
 	d.nodeDiscovery.Close()
+	d.cgroupManager.Close()
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
@@ -1432,7 +1484,7 @@ func (d *Daemon) GetNodeSuffix() string {
 // K8sCacheIsSynced returns true if the agent has fully synced its k8s cache
 // with the API server
 func (d *Daemon) K8sCacheIsSynced() bool {
-	if !k8s.IsEnabled() {
+	if !d.clientset.IsEnabled() {
 		return true
 	}
 	select {

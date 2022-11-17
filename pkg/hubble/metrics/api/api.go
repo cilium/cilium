@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/multierr"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/logging"
@@ -52,6 +53,14 @@ type Plugin interface {
 	HelpText() string
 }
 
+// PluginConflicts is an optional interface that plugins can implement to
+// declare other plugins they conflict with.
+type PluginConflicts interface {
+	// ConflictingPlugin returns a list of other plugin names that this plugin
+	// conflicts with.
+	ConflictingPlugins() []string
+}
+
 // Handler is a metric handler. It is called upon receival of raw event data
 // and is responsible to perform metrics accounting according to the scope of
 // the metrics plugin.
@@ -63,7 +72,7 @@ type Handler interface {
 
 	// ProcessFlow must processes a flow event and perform metrics
 	// accounting
-	ProcessFlow(ctx context.Context, flow *pb.Flow)
+	ProcessFlow(ctx context.Context, flow *pb.Flow) error
 
 	// Status returns the configuration status of the metric handler
 	Status() string
@@ -71,10 +80,15 @@ type Handler interface {
 
 // ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
 // metric handlers
-func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) {
+func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
+	var processingErr error
 	for _, mh := range h {
-		mh.ProcessFlow(ctx, flow)
+		err := mh.ProcessFlow(ctx, flow)
+		// Continue running the remaining metrics handlers, since one failing
+		// shouldn't impact the other metrics handlers.
+		processingErr = multierr.Append(processingErr, err)
 	}
+	return processingErr
 }
 
 var registry = NewRegistry(

@@ -67,7 +67,8 @@ func NewPatchEndpointIDConfigOK() *PatchEndpointIDConfigOK {
 	return &PatchEndpointIDConfigOK{}
 }
 
-/*PatchEndpointIDConfigOK handles this case with default header values.
+/*
+PatchEndpointIDConfigOK handles this case with default header values.
 
 Success
 */
@@ -88,7 +89,8 @@ func NewPatchEndpointIDConfigInvalid() *PatchEndpointIDConfigInvalid {
 	return &PatchEndpointIDConfigInvalid{}
 }
 
-/*PatchEndpointIDConfigInvalid handles this case with default header values.
+/*
+PatchEndpointIDConfigInvalid handles this case with default header values.
 
 Invalid configuration request
 */
@@ -109,7 +111,8 @@ func NewPatchEndpointIDConfigNotFound() *PatchEndpointIDConfigNotFound {
 	return &PatchEndpointIDConfigNotFound{}
 }
 
-/*PatchEndpointIDConfigNotFound handles this case with default header values.
+/*
+PatchEndpointIDConfigNotFound handles this case with default header values.
 
 Endpoint not found
 */
@@ -130,7 +133,8 @@ func NewPatchEndpointIDConfigTooManyRequests() *PatchEndpointIDConfigTooManyRequ
 	return &PatchEndpointIDConfigTooManyRequests{}
 }
 
-/*PatchEndpointIDConfigTooManyRequests handles this case with default header values.
+/*
+PatchEndpointIDConfigTooManyRequests handles this case with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
@@ -151,7 +155,8 @@ func NewPatchEndpointIDConfigFailed() *PatchEndpointIDConfigFailed {
 	return &PatchEndpointIDConfigFailed{}
 }
 
-/*PatchEndpointIDConfigFailed handles this case with default header values.
+/*
+PatchEndpointIDConfigFailed handles this case with default header values.
 
 Update failed. Details in message.
 */

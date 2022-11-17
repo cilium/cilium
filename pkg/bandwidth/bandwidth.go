@@ -4,6 +4,8 @@
 package bandwidth
 
 import (
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -40,15 +42,10 @@ func ProbeBandwidthManager() {
 		return
 	}
 
-	kernelGood := false
-	if h := probes.NewProbeManager().GetHelpers("sched_cls"); h != nil {
-		// We at least need 5.1 kernel for native TCP EDT integration
-		// and writable queue_mapping that we use. Below helper is
-		// available for 5.1 kernels and onwards.
-		if _, ok := h["bpf_skb_ecn_set_ce"]; ok {
-			kernelGood = true
-		}
-	}
+	// We at least need 5.1 kernel for native TCP EDT integration
+	// and writable queue_mapping that we use. Below helper is
+	// available for 5.1 kernels and onwards.
+	kernelGood := probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbEcnSetCe) == nil
 	option.Config.ResetQueueMapping = kernelGood
 	if !option.Config.EnableBandwidthManager {
 		return
@@ -64,19 +61,14 @@ func ProbeBandwidthManager() {
 		return
 	}
 	if option.Config.EnableBBR {
-		if h := probes.NewProbeManager().GetHelpers("sched_cls"); h != nil {
-			// We at least need 5.18 kernel for Pod-based BBR TCP congestion
-			// control since earlier kernels just clear the skb->tstamp upon
-			// netns traversal. See also:
-			//
-			// - https://lpc.events/event/11/contributions/953/
-			// - https://lore.kernel.org/bpf/20220302195519.3479274-1-kafai@fb.com/
-			if _, ok := h["bpf_skb_set_tstamp"]; !ok {
-				log.Fatalf("Cannot enable --%s, needs kernel 5.18 or newer.",
-					option.EnableBBR)
-			}
-		} else {
-			log.Fatalf("Cannot enable --%s. Unable to probe underlying kernel.",
+		// We at least need 5.18 kernel for Pod-based BBR TCP congestion
+		// control since earlier kernels just clear the skb->tstamp upon
+		// netns traversal. See also:
+		//
+		// - https://lpc.events/event/11/contributions/953/
+		// - https://lore.kernel.org/bpf/20220302195519.3479274-1-kafai@fb.com/
+		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnSkbSetTstamp) != nil {
+			log.Fatalf("Cannot enable --%s, needs kernel 5.18 or newer.",
 				option.EnableBBR)
 		}
 	}
@@ -118,6 +110,9 @@ func InitBandwidthManager() {
 		{"net.ipv4.tcp_max_syn_backlog", "4096"},
 		{"net.ipv4.tcp_congestion_control", congctl},
 	}
+	extraSettings := []setting{
+		{"net.ipv4.tcp_slow_start_after_idle", "0"},
+	}
 	for _, s := range baseSettings {
 		log.WithFields(logrus.Fields{
 			logfields.SysParamName:  s.name,
@@ -130,7 +125,22 @@ func InitBandwidthManager() {
 			}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
 		}
 	}
-
+	// Few extra knobs which can be turned on along with pacing. EnableBBR
+	// also provides the right kernel dependency implicitly as well.
+	if option.Config.EnableBBR {
+		for _, s := range extraSettings {
+			log.WithFields(logrus.Fields{
+				logfields.SysParamName:  s.name,
+				logfields.SysParamValue: s.val,
+			}).Info("Setting sysctl")
+			if err := sysctl.Write(s.name, s.val); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.SysParamName:  s.name,
+					logfields.SysParamValue: s.val,
+				}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
+			}
+		}
+	}
 	for _, device := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(device)
 		if err != nil {

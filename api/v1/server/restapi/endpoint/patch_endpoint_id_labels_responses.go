@@ -19,7 +19,8 @@ import (
 // PatchEndpointIDLabelsOKCode is the HTTP code returned for type PatchEndpointIDLabelsOK
 const PatchEndpointIDLabelsOKCode int = 200
 
-/*PatchEndpointIDLabelsOK Success
+/*
+PatchEndpointIDLabelsOK Success
 
 swagger:response patchEndpointIdLabelsOK
 */
@@ -43,7 +44,8 @@ func (o *PatchEndpointIDLabelsOK) WriteResponse(rw http.ResponseWriter, producer
 // PatchEndpointIDLabelsNotFoundCode is the HTTP code returned for type PatchEndpointIDLabelsNotFound
 const PatchEndpointIDLabelsNotFoundCode int = 404
 
-/*PatchEndpointIDLabelsNotFound Endpoint not found
+/*
+PatchEndpointIDLabelsNotFound Endpoint not found
 
 swagger:response patchEndpointIdLabelsNotFound
 */
@@ -67,7 +69,8 @@ func (o *PatchEndpointIDLabelsNotFound) WriteResponse(rw http.ResponseWriter, pr
 // PatchEndpointIDLabelsTooManyRequestsCode is the HTTP code returned for type PatchEndpointIDLabelsTooManyRequests
 const PatchEndpointIDLabelsTooManyRequestsCode int = 429
 
-/*PatchEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
+/*
+PatchEndpointIDLabelsTooManyRequests Rate-limiting too many requests in the given time frame
 
 swagger:response patchEndpointIdLabelsTooManyRequests
 */
@@ -91,7 +94,8 @@ func (o *PatchEndpointIDLabelsTooManyRequests) WriteResponse(rw http.ResponseWri
 // PatchEndpointIDLabelsUpdateFailedCode is the HTTP code returned for type PatchEndpointIDLabelsUpdateFailed
 const PatchEndpointIDLabelsUpdateFailedCode int = 500
 
-/*PatchEndpointIDLabelsUpdateFailed Error while updating labels
+/*
+PatchEndpointIDLabelsUpdateFailed Error while updating labels
 
 swagger:response patchEndpointIdLabelsUpdateFailed
 */

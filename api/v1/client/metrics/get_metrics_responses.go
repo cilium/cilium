@@ -49,7 +49,8 @@ func NewGetMetricsOK() *GetMetricsOK {
 	return &GetMetricsOK{}
 }
 
-/*GetMetricsOK handles this case with default header values.
+/*
+GetMetricsOK handles this case with default header values.
 
 Success
 */
@@ -80,7 +81,8 @@ func NewGetMetricsInternalServerError() *GetMetricsInternalServerError {
 	return &GetMetricsInternalServerError{}
 }
 
-/*GetMetricsInternalServerError handles this case with default header values.
+/*
+GetMetricsInternalServerError handles this case with default header values.
 
 Metrics cannot be retrieved
 */

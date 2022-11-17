@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         zgroup: testServer
+        test: hostfw
     spec:
       containers:
       - name: web
@@ -49,6 +50,7 @@ spec:
     metadata:
       labels:
         zgroup: testClient
+        test: hostfw
     spec:
       terminationGracePeriodSeconds: 0
       containers:
@@ -71,6 +73,7 @@ spec:
     metadata:
       labels:
         zgroup: testServerHost
+        test: hostfw
     spec:
       hostNetwork: true
       containers:
@@ -109,6 +112,7 @@ spec:
     metadata:
       labels:
         zgroup: testClientHost
+        test: hostfw
     spec:
       hostNetwork: true
       terminationGracePeriodSeconds: 0

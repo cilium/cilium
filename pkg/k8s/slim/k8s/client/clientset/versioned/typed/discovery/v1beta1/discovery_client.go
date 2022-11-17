@@ -18,7 +18,7 @@ type DiscoveryV1beta1Interface interface {
 	EndpointSlicesGetter
 }
 
-// DiscoveryV1beta1Client is used to interact with features provided by the discovery group.
+// DiscoveryV1beta1Client is used to interact with features provided by the discovery.k8s.io group.
 type DiscoveryV1beta1Client struct {
 	restClient rest.Interface
 }

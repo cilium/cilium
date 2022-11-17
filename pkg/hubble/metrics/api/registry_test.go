@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-//go:build !privileged_tests
-
 package api
 
 import (
@@ -41,8 +39,9 @@ func (t *testHandler) Status() string {
 	return ""
 }
 
-func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) {
+func (t *testHandler) ProcessFlow(ctx context.Context, p *pb.Flow) error {
 	t.ProcessCalled++
+	return nil
 }
 
 func TestRegister(t *testing.T) {

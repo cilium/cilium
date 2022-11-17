@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package ec2
 
 import (
@@ -103,7 +101,7 @@ func TestNewSubnetsFilters(t *testing.T) {
 	}
 }
 
-func TestNewInstancesFilters(t *testing.T) {
+func TestNewTagsFilters(t *testing.T) {
 	type args struct {
 		tags map[string]string
 	}
@@ -140,11 +138,11 @@ func TestNewInstancesFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewInstancesFilters(tt.args.tags)
+			got := NewTagsFilter(tt.args.tags)
 			sort.Sort(Filters(got))
 			sort.Sort(Filters(tt.want))
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewInstancesFilters() = %v, want %v", got, tt.want)
+				t.Errorf("NewTagsFilter() = %v, want %v", got, tt.want)
 			}
 		})
 	}

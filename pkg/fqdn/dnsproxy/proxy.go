@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -32,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -111,6 +114,7 @@ type DNSProxy struct {
 	// ConcurrencyGracePeriod is the grace period for waiting on
 	// ConcurrencyLimit before timing out
 	ConcurrencyGracePeriod time.Duration
+
 	// logLimiter limits log msgs that could be bursty and too verbose.
 	// Currently used when ConcurrencyLimit is set.
 	logLimiter logging.Limiter
@@ -149,6 +153,9 @@ type DNSProxy struct {
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int32
+
+	// UnbindAddress unbinds dns servers from socket in order to stop serving DNS traffic before proxy shutdown
+	unbindAddress func()
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -237,10 +244,10 @@ func (p *DNSProxy) GetRules(endpointID uint16) (restore.DNSRules, error) {
 func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
-	if ep.IPv4.IsSet() {
+	if ep.IPv4.IsValid() {
 		p.restoredEPs[ep.IPv4.String()] = ep
 	}
-	if ep.IPv6.IsSet() {
+	if ep.IPv6.IsValid() {
 		p.restoredEPs[ep.IPv6.String()] = ep
 	}
 	p.restored[uint64(ep.ID)] = ep.DNSRules
@@ -344,38 +351,47 @@ type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverID identity.NumericIdentity, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
 
-// errFailedAcquireSemaphore is an an error representing the DNS proxy's
+// ErrFailedAcquireSemaphore is an an error representing the DNS proxy's
 // failure to acquire the semaphore. This is error is treated like a timeout.
-type errFailedAcquireSemaphore struct {
+type ErrFailedAcquireSemaphore struct {
 	parallel int
 }
 
-func (e errFailedAcquireSemaphore) Timeout() bool { return true }
+func (e ErrFailedAcquireSemaphore) Timeout() bool { return true }
 
 // Temporary is deprecated. Return false.
-func (e errFailedAcquireSemaphore) Temporary() bool { return false }
-func (e errFailedAcquireSemaphore) Error() string {
+func (e ErrFailedAcquireSemaphore) Temporary() bool { return false }
+func (e ErrFailedAcquireSemaphore) Error() string {
 	return fmt.Sprintf(
 		"failed to acquire DNS proxy semaphore, %d parallel requests already in-flight",
 		e.parallel,
 	)
 }
 
-// errTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
+// ErrTimedOutAcquireSemaphore is an an error representing the DNS proxy timing
 // out when acquiring the semaphore. It is treated the same as
-// errTimedOutAcquireSemaphore.
-type errTimedOutAcquireSemaphore struct {
-	errFailedAcquireSemaphore
+// ErrTimedOutAcquireSemaphore.
+type ErrTimedOutAcquireSemaphore struct {
+	ErrFailedAcquireSemaphore
 
 	gracePeriod time.Duration
 }
 
-func (e errTimedOutAcquireSemaphore) Error() string {
+func (e ErrTimedOutAcquireSemaphore) Error() string {
 	return fmt.Sprintf(
 		"timed out after %v acquiring DNS proxy semaphore, %d parallel requests already in-flight",
 		e.gracePeriod,
 		e.parallel,
 	)
+}
+
+// ErrDNSRequestNoEndpoint represents an error when the local daemon cannot
+// find the corresponding endpoint that triggered a DNS request processed by
+// the local DNS proxy (FQDN proxy).
+type ErrDNSRequestNoEndpoint struct{}
+
+func (ErrDNSRequestNoEndpoint) Error() string {
+	return "DNS request cannot be associated with an existing endpoint"
 }
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
@@ -388,6 +404,7 @@ type ProxyRequestContext struct {
 	DataplaneTime        spanstat.SpanStat
 	Success              bool
 	Err                  error
+	DataSource           accesslog.DNSDataSource
 }
 
 // IsTimeout return true if the ProxyRequest timeout
@@ -410,7 +427,14 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc, concurrencyLimit int) (*DNSProxy, error) {
+func StartDNSProxy(
+	address string, port uint16, enableDNSCompression bool, maxRestoreDNSIPs int,
+	lookupEPFunc LookupEndpointIDByIPFunc,
+	lookupSecIDFunc LookupSecIDByIPFunc,
+	lookupIPsFunc LookupIPsBySecIDFunc,
+	notifyFunc NotifyOnDNSMsgFunc,
+	concurrencyLimit int, concurrencyGracePeriod time.Duration,
+) (*DNSProxy, error) {
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return nil, fmt.Errorf("failed to start DNS proxy: %w", err)
 	}
@@ -439,7 +463,7 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 	}
 	if concurrencyLimit > 0 {
 		p.ConcurrencyLimit = semaphore.NewWeighted(int64(concurrencyLimit))
-		p.ConcurrencyGracePeriod = option.Config.DNSProxyConcurrencyProcessingGracePeriod
+		p.ConcurrencyGracePeriod = concurrencyGracePeriod
 	}
 	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
@@ -451,6 +475,12 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 
 		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
+
+	// Bind the DNS forwarding clients on UDP and TCP
+	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
+	// retries into the previous lookup, suppressing them.
+	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
@@ -488,11 +518,11 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		}(s)
 	}
 
-	// Bind the DNS forwarding clients on UDP and TCP
-	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
+	// This function is called in proxy.Cleanup, which is added to Daemon cleanup module in bootstrapFQDN
+	p.unbindAddress = func() {
+		UDPConn.Close()
+		TCPListener.Close()
+	}
 
 	return p, nil
 }
@@ -560,17 +590,44 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 	return false, nil
 }
 
+func configureConnection(conn *net.Conn, secId identity.NumericIdentity) error {
+	var file *os.File
+	var err error
+
+	switch l4conn := (*conn).(type) {
+	case *net.UDPConn:
+		if file, err = l4conn.File(); err != nil {
+			return fmt.Errorf("can't get file from %v: %w", l4conn, err)
+		}
+	case *net.TCPConn:
+		if file, err = l4conn.File(); err != nil {
+			return fmt.Errorf("can't get file from %v: %w", l4conn, err)
+		}
+	default:
+		return fmt.Errorf("unsupported type %T", l4conn)
+	}
+
+	defer file.Close()
+
+	mark := int(uint32(secId)<<16 | uint32(linux_defaults.MagicMarkIdentity))
+	err = unix.SetsockoptInt(int(file.Fd()), unix.SOL_SOCKET, unix.SO_MARK, mark)
+	if err != nil {
+		return fmt.Errorf("error setting SO_MARK: %w", err)
+	}
+	return nil
+}
+
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
 // the dns.Handler interface.
 // It will:
-//  - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
-//  - Look up the Sec ID of the destination server, via LookupSecIDByIP.
-//  - Check that the endpoint ID, destination Sec ID, destination port and the
-//  qname all match a rule. If not, the request is dropped.
-//  - The allowed request is forwarded to the originally intended DNS server IP
-//  - The response is shared via NotifyOnDNSMsg (this will go to a
-//  fqdn/NameManager instance).
-//  - Write the response to the endpoint.
+//   - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
+//   - Look up the Sec ID of the destination server, via LookupSecIDByIP.
+//   - Check that the endpoint ID, destination Sec ID, destination port and the
+//     qname all match a rule. If not, the request is dropped.
+//   - The allowed request is forwarded to the originally intended DNS server IP
+//   - The response is shared via NotifyOnDNSMsg (this will go to a
+//     fqdn/NameManager instance).
+//   - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
@@ -582,7 +639,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.DNSRequestID: requestID,
 	})
 
-	var stat ProxyRequestContext
+	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
 	if p.ConcurrencyLimit != nil {
 		// TODO: Consider plumbing the daemon context here.
 		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
@@ -694,8 +751,28 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.ProcessingTime.End(true)
 	stat.UpstreamTime.Start()
 
+	conn, err := client.Dial(targetServerAddr)
+	if err != nil {
+		err := fmt.Errorf("failed to dial connection to %v: %w", targetServerAddr, err)
+		stat.Err = err
+		scopedLog.WithError(err).Error("Failed to dial connection to the upstream DNS server, cannot service DNS request")
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+	defer conn.Close()
+
+	if err = configureConnection(&conn.Conn, ep.GetIdentity()); err != nil {
+		err := fmt.Errorf("failed to set socket options: %w", err)
+		stat.Err = err
+		scopedLog.WithError(err).Error("Failed to configure connection to the upstream DNS server, cannot service DNS request")
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
+		return
+	}
+
 	request.Id = dns.Id() // force a random new ID for this request
-	response, _, err := client.Exchange(request, targetServerAddr)
+	response, _, err := client.ExchangeWithConn(request, conn)
 	stat.UpstreamTime.End(err == nil)
 	if err != nil {
 		stat.Err = err
@@ -739,7 +816,7 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// No grace time configured. Failing to acquire semaphore means
 		// immediately give up.
 		if !p.ConcurrencyLimit.TryAcquire(1) {
-			return errFailedAcquireSemaphore{
+			return ErrFailedAcquireSemaphore{
 				parallel: option.Config.DNSProxyConcurrencyLimit,
 			}
 		}
@@ -747,8 +824,8 @@ func (p *DNSProxy) enforceConcurrencyLimit(ctx context.Context) error {
 		// We ignore err because errTimedOutAcquireSemaphore implements the
 		// net.Error interface deeming it a timeout error which will be
 		// treated the same as context.DeadlineExceeded.
-		return errTimedOutAcquireSemaphore{
-			errFailedAcquireSemaphore: errFailedAcquireSemaphore{
+		return ErrTimedOutAcquireSemaphore{
+			ErrFailedAcquireSemaphore: ErrFailedAcquireSemaphore{
 				parallel: option.Config.DNSProxyConcurrencyLimit,
 			},
 			gracePeriod: p.ConcurrencyGracePeriod,
@@ -929,4 +1006,10 @@ func GetSelectorRegexMap(l7 policy.L7DataMap) (CachedSelectorREEntry, error) {
 	}
 
 	return newRE, nil
+}
+
+func (p *DNSProxy) Cleanup() {
+	if p.unbindAddress != nil {
+		p.unbindAddress()
+	}
 }

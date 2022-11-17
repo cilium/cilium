@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-//go:build !privileged_tests
-
 package threefour
 
 import (
@@ -22,6 +20,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -30,7 +29,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/monitor"
-	"github.com/cilium/cilium/pkg/monitor/api"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
@@ -173,12 +172,17 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, "default", f.GetDestinationService().GetNamespace())
 	assert.Equal(t, uint32(5678), f.GetDestination().GetIdentity())
 
-	assert.Equal(t, int32(api.MessageTypeTrace), f.GetEventType().GetType())
-	assert.Equal(t, int32(api.TraceFromHost), f.GetEventType().GetSubType())
+	assert.Equal(t, int32(monitorAPI.MessageTypeTrace), f.GetEventType().GetType())
+	assert.Equal(t, int32(monitorAPI.TraceFromHost), f.GetEventType().GetSubType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, &flowpb.TCPFlags{ACK: true}, f.L4.GetTCP().GetFlags())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
+
+	nilParser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	err = nilParser.Decode(d, f)
+	require.NoError(t, err)
 
 	// ICMP packet so no ports until that support is merged into master
 	//
@@ -234,12 +238,15 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, "", f.GetDestination().GetPodName())
 	assert.Equal(t, "", f.GetDestination().GetNamespace())
 
-	assert.Equal(t, int32(api.MessageTypeTrace), f.GetEventType().GetType())
-	assert.Equal(t, int32(api.TraceFromLxc), f.GetEventType().GetSubType())
+	assert.Equal(t, int32(monitorAPI.MessageTypeTrace), f.GetEventType().GetType())
+	assert.Equal(t, int32(monitorAPI.TraceFromLxc), f.GetEventType().GetSubType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, (*flowpb.TCPFlags)(nil), f.L4.GetTCP().GetFlags())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_ENDPOINT, f.GetTraceObservationPoint())
+
+	err = nilParser.Decode(d, f)
+	require.NoError(t, err)
 }
 
 func BenchmarkL34Decode(b *testing.B) {
@@ -269,7 +276,7 @@ func BenchmarkL34Decode(b *testing.B) {
 func TestDecodeTraceNotify(t *testing.T) {
 	buf := &bytes.Buffer{}
 	tn := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		SrcLabel: 123,
 		DstLabel: 456,
 	}
@@ -312,7 +319,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 func TestDecodeDropNotify(t *testing.T) {
 	buf := &bytes.Buffer{}
 	dn := monitor.DropNotify{
-		Type:     byte(api.MessageTypeDrop),
+		Type:     byte(monitorAPI.MessageTypeDrop),
 		SrcLabel: 123,
 		DstLabel: 456,
 	}
@@ -370,10 +377,10 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 	// PolicyVerdictNotify for forwarded flow
 	var flags uint8
-	flags |= api.PolicyEgress
-	flags |= api.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	flags |= monitorAPI.PolicyEgress
+	flags |= monitorAPI.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
 	pvn := monitor.PolicyVerdictNotify{
-		Type:        byte(api.MessageTypePolicyVerdict),
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
 		RemoteLabel: remoteLabel,
@@ -386,16 +393,16 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
+	assert.Equal(t, int32(monitorAPI.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint32(api.PolicyMatchL3L4), f.GetPolicyMatchType())
+	assert.Equal(t, uint32(monitorAPI.PolicyMatchL3L4), f.GetPolicyMatchType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 
 	// PolicyVerdictNotify for dropped flow
-	flags = api.PolicyIngress
+	flags = monitorAPI.PolicyIngress
 	pvn = monitor.PolicyVerdictNotify{
-		Type:        byte(api.MessageTypePolicyVerdict),
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
 		RemoteLabel: remoteLabel,
@@ -408,7 +415,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
+	assert.Equal(t, int32(monitorAPI.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(151), f.GetDropReason())
 	assert.Equal(t, flowpb.DropReason(151), f.GetDropReasonDesc())
@@ -419,7 +426,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 func TestDecodeDropReason(t *testing.T) {
 	reason := uint8(130)
 	dn := monitor.DropNotify{
-		Type:    byte(api.MessageTypeDrop),
+		Type:    byte(monitorAPI.MessageTypeDrop),
 		SubType: reason,
 	}
 	data, err := testutils.CreateL3L4Payload(dn)
@@ -438,7 +445,7 @@ func TestDecodeDropReason(t *testing.T) {
 
 func TestDecodeLocalIdentity(t *testing.T) {
 	tn := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		SrcLabel: 123 | identity.LocalIdentityFlag,
 		DstLabel: 456 | identity.LocalIdentityFlag,
 	}
@@ -526,7 +533,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP at unknown endpoint
 	dn := monitor.DropNotify{
-		Type: byte(api.MessageTypeDrop),
+		Type: byte(monitorAPI.MessageTypeDrop),
 	}
 	f := parseFlow(dn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -534,7 +541,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP Egress
 	dn = monitor.DropNotify{
-		Type:   byte(api.MessageTypeDrop),
+		Type:   byte(monitorAPI.MessageTypeDrop),
 		Source: localEP,
 	}
 	f = parseFlow(dn, localIP, remoteIP)
@@ -543,7 +550,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// DROP Ingress
 	dn = monitor.DropNotify{
-		Type:   byte(api.MessageTypeDrop),
+		Type:   byte(monitorAPI.MessageTypeDrop),
 		Source: localEP,
 	}
 	f = parseFlow(dn, remoteIP, localIP)
@@ -552,8 +559,8 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC at unknown endpoint
 	tn := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
-		ObsPoint: api.TraceToLxc,
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		ObsPoint: monitorAPI.TraceToLxc,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN, f.GetTrafficDirection())
@@ -561,9 +568,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC Egress
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
-		ObsPoint: api.TraceToLxc,
+		ObsPoint: monitorAPI.TraceToLxc,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
@@ -571,9 +578,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_LXC Egress, reversed by CT_REPLY
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
-		ObsPoint: api.TraceToLxc,
+		ObsPoint: monitorAPI.TraceToLxc,
 		Reason:   monitor.TraceReasonCtReply,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
@@ -582,9 +589,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_HOST Ingress
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
-		ObsPoint: api.TraceToHost,
+		ObsPoint: monitorAPI.TraceToHost,
 	}
 	f = parseFlow(tn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -592,9 +599,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_TO_HOST Ingress, reversed by CT_REPLY
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
-		ObsPoint: api.TraceToHost,
+		ObsPoint: monitorAPI.TraceToHost,
 		Reason:   monitor.TraceReasonCtReply,
 	}
 	f = parseFlow(tn, remoteIP, localIP)
@@ -603,9 +610,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// TRACE_FROM_LXC unknown
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Source:   localEP,
-		ObsPoint: api.TraceFromLxc,
+		ObsPoint: monitorAPI.TraceFromLxc,
 		Reason:   monitor.TraceReasonUnknown,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
@@ -614,9 +621,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// PolicyVerdictNotify Egress
 	pvn := monitor.PolicyVerdictNotify{
-		Type:        byte(api.MessageTypePolicyVerdict),
+		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		Source:      localEP,
-		Flags:       api.PolicyEgress,
+		Flags:       monitorAPI.PolicyEgress,
 		RemoteLabel: identity.NumericIdentity(remoteID),
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
@@ -635,9 +642,9 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	// PolicyVerdictNotify Ingress
 	pvn = monitor.PolicyVerdictNotify{
-		Type:   byte(api.MessageTypePolicyVerdict),
+		Type:   byte(monitorAPI.MessageTypePolicyVerdict),
 		Source: localEP,
-		Flags:  api.PolicyIngress,
+		Flags:  monitorAPI.PolicyIngress,
 	}
 	f = parseFlow(pvn, remoteIP, localIP)
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
@@ -667,8 +674,8 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_TO_LXC
 	tn := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
-		ObsPoint: api.TraceToLxc,
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		ObsPoint: monitorAPI.TraceToLxc,
 		Reason:   monitor.TraceReasonCtReply,
 	}
 	f := parseFlow(tn, localIP, remoteIP)
@@ -678,8 +685,8 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// TRACE_FROM_LXC
 	tn = monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
-		ObsPoint: api.TraceFromLxc,
+		Type:     byte(monitorAPI.MessageTypeTrace),
+		ObsPoint: monitorAPI.TraceFromLxc,
 		Reason:   monitor.TraceReasonUnknown,
 	}
 	f = parseFlow(tn, localIP, remoteIP)
@@ -688,7 +695,7 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// PolicyVerdictNotify forward statically assumes is_reply=false
 	pvn := monitor.PolicyVerdictNotify{
-		Type:    byte(api.MessageTypePolicyVerdict),
+		Type:    byte(monitorAPI.MessageTypePolicyVerdict),
 		Verdict: 0,
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
@@ -698,7 +705,7 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// PolicyVerdictNotify drop statically assumes is_reply=unknown
 	pvn = monitor.PolicyVerdictNotify{
-		Type:    byte(api.MessageTypePolicyVerdict),
+		Type:    byte(monitorAPI.MessageTypePolicyVerdict),
 		Verdict: -151, // drop reason: Stale or unroutable IP
 	}
 	f = parseFlow(pvn, localIP, remoteIP)
@@ -707,7 +714,7 @@ func TestDecodeIsReply(t *testing.T) {
 
 	// DropNotify statically assumes is_reply=unknown
 	dn := monitor.DropNotify{
-		Type: byte(api.MessageTypeDrop),
+		Type: byte(monitorAPI.MessageTypeDrop),
 	}
 	f = parseFlow(dn, localIP, remoteIP)
 	assert.Nil(t, f.GetIsReply())
@@ -783,7 +790,7 @@ func Test_filterCIDRLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterCIDRLabels(log, tt.args.labels)
+			got := common.FilterCIDRLabels(log, tt.args.labels)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -795,7 +802,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotifyV0{
-		Type:    byte(api.MessageTypeTrace),
+		Type:    byte(monitorAPI.MessageTypeTrace),
 		Version: monitor.TraceNotifyVersion0,
 	}
 	eth := layers.Ethernet{
@@ -816,7 +823,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
-			Type:    byte(api.MessageTypeTrace),
+			Type:    byte(monitorAPI.MessageTypeTrace),
 			Version: monitor.TraceNotifyVersion1,
 		},
 		OrigIP: [16]byte{1, 1, 1, 1},
@@ -833,7 +840,7 @@ func TestICMP(t *testing.T) {
 	require.NoError(t, err)
 	message := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
-			Type:    byte(api.MessageTypeTrace),
+			Type:    byte(monitorAPI.MessageTypeTrace),
 			Version: monitor.TraceNotifyVersion1,
 		},
 	}
@@ -905,7 +912,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		SrcLabel: 456, // takes precedence over ep.Identity
 		Version:  monitor.TraceNotifyVersion0,
 	}
@@ -946,7 +953,7 @@ func TestDebugCapture(t *testing.T) {
 	loIfIndex := uint32(1)
 
 	dbg := monitor.DebugCapture{
-		Type:    api.MessageTypeCapture,
+		Type:    monitorAPI.MessageTypeCapture,
 		SubType: monitor.DbgCaptureDelivery,
 		Arg1:    loIfIndex,
 	}
@@ -979,8 +986,13 @@ func TestDebugCapture(t *testing.T) {
 		Name:  loIfName,
 	}, f.Interface)
 
+	nilParser, err := New(log, nil, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	err = nilParser.Decode(data, f)
+	require.NoError(t, err)
+
 	dbg = monitor.DebugCapture{
-		Type:    api.MessageTypeCapture,
+		Type:    monitorAPI.MessageTypeCapture,
 		SubType: monitor.DbgCaptureProxyPost,
 		Arg1:    byteorder.HostToNetwork32(1234),
 	}
@@ -994,6 +1006,9 @@ func TestDebugCapture(t *testing.T) {
 	assert.Equal(t, int32(dbg.SubType), f.EventType.SubType)
 	assert.Equal(t, flowpb.DebugCapturePoint_DBG_CAPTURE_PROXY_POST, f.DebugCapturePoint)
 	assert.Equal(t, uint32(1234), f.ProxyPort)
+
+	err = nilParser.Decode(data, f)
+	require.NoError(t, err)
 }
 
 func TestTraceNotifyProxyPort(t *testing.T) {
@@ -1002,9 +1017,9 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotifyV0{
-		Type:     byte(api.MessageTypeTrace),
+		Type:     byte(monitorAPI.MessageTypeTrace),
 		Version:  monitor.TraceNotifyVersion0,
-		ObsPoint: api.TraceToProxy,
+		ObsPoint: monitorAPI.TraceToProxy,
 		DstID:    uint16(1234),
 	}
 	eth := layers.Ethernet{
@@ -1025,9 +1040,9 @@ func TestTraceNotifyProxyPort(t *testing.T) {
 
 	v1 := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
-			Type:     byte(api.MessageTypeTrace),
+			Type:     byte(monitorAPI.MessageTypeTrace),
 			Version:  monitor.TraceNotifyVersion1,
-			ObsPoint: api.TraceToProxy,
+			ObsPoint: monitorAPI.TraceToProxy,
 			DstID:    uint16(4321),
 		},
 		OrigIP: [16]byte{1, 1, 1, 1},

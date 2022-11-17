@@ -19,7 +19,8 @@ import (
 // GetMapNameOKCode is the HTTP code returned for type GetMapNameOK
 const GetMapNameOKCode int = 200
 
-/*GetMapNameOK Success
+/*
+GetMapNameOK Success
 
 swagger:response getMapNameOK
 */
@@ -63,7 +64,8 @@ func (o *GetMapNameOK) WriteResponse(rw http.ResponseWriter, producer runtime.Pr
 // GetMapNameNotFoundCode is the HTTP code returned for type GetMapNameNotFound
 const GetMapNameNotFoundCode int = 404
 
-/*GetMapNameNotFound Map not found
+/*
+GetMapNameNotFound Map not found
 
 swagger:response getMapNameNotFound
 */

@@ -547,6 +547,8 @@ func ModelToRecorder(mo *models.RecorderSpec) (*RecInfo, error) {
 			f.Proto = u8proto.TCP
 		case models.RecorderFilterProtocolUDP:
 			f.Proto = u8proto.UDP
+		case models.RecorderFilterProtocolSCTP:
+			f.Proto = u8proto.SCTP
 		case models.RecorderFilterProtocolANY:
 			f.Proto = u8proto.ANY
 		default:
@@ -576,6 +578,8 @@ func RecorderToModel(ri *RecInfo) (*models.RecorderSpec, error) {
 			mf.Protocol = models.RecorderFilterProtocolTCP
 		case u8proto.UDP:
 			mf.Protocol = models.RecorderFilterProtocolUDP
+		case u8proto.SCTP:
+			mf.Protocol = models.RecorderFilterProtocolSCTP
 		case u8proto.ANY:
 			mf.Protocol = models.RecorderFilterProtocolANY
 		default:

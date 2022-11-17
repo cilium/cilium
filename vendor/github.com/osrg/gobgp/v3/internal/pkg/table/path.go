@@ -70,9 +70,7 @@ func (b *Bitmap) FindandSetZeroBit() (uint, error) {
 func (b *Bitmap) Expand() {
 	old := b.bitmap
 	new := make([]uint64, len(old)+1)
-	for i := 0; i < len(old); i++ {
-		new[i] = old[i]
-	}
+	copy(new, old)
 	b.bitmap = new
 }
 

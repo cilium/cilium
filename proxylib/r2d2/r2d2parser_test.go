@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package r2d2
 
 import (
@@ -36,12 +34,6 @@ func (s *R2d2Suite) SetUpSuite(c *C) {
 	c.Assert(s.logServer, Not(IsNil))
 	s.ins = proxylib.NewInstance("node1", accesslog.NewClient(s.logServer.Path))
 	c.Assert(s.ins, Not(IsNil))
-}
-
-func (s *R2d2Suite) checkAccessLogs(c *C, expPasses, expDrops int) {
-	passes, drops := s.logServer.Clear()
-	c.Check(passes, Equals, expPasses, Commentf("Unxpected number of passed access log messages"))
-	c.Check(drops, Equals, expDrops, Commentf("Unxpected number of passed access log messages"))
 }
 
 func (s *R2d2Suite) TearDownTest(c *C) {

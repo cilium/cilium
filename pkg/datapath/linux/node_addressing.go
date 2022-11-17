@@ -32,7 +32,7 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 		if addr.Scope > option.Config.AddressScopeMax {
 			continue
 		}
-		if ip.IsExcluded(ipsToExclude, addr.IP) {
+		if ip.ListContainsIP(ipsToExclude, addr.IP) {
 			continue
 		}
 		if addr.IP.IsLoopback() || addr.IP.IsLinkLocalUnicast() {

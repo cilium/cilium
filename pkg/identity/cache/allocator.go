@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"path"
 	"strings"
 
@@ -153,7 +154,7 @@ type IdentityAllocator interface {
 	// be released via a subsequent call to ReleaseCIDRIdentitiesByID().
 	//
 	// The implementation for this function currently lives in pkg/ipcache.
-	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[string]*identity.Identity) ([]*identity.Identity, error)
+	AllocateCIDRsForIPs(ips []net.IP, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
 
 	// ReleaseCIDRIdentitiesByID() is a wrapper for ReleaseSlice() that
 	// also handles ipcache entries.
@@ -183,6 +184,12 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
+
+	log.WithFields(map[string]interface{}{
+		"min":        minID,
+		"max":        maxID,
+		"cluster-id": option.Config.ClusterID,
+	}).Info("Allocating identities between range")
 
 	// Asynchronously set up the global identity allocator since it connects
 	// to the kvstore.
@@ -265,7 +272,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
-	m.localIdentities = newLocalIdentityCache(1, 0xFFFFFF, m.events)
+	m.localIdentities = newLocalIdentityCache(identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
 
 	return m
 }

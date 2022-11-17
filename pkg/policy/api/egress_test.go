@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package api
 
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	. "gopkg.in/check.v1"
 
@@ -48,8 +46,8 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithToGroupsWitInvalidRegisterCallback(c *C) {
-	cb := func(ctx context.Context, group *ToGroups) ([]net.IP, error) {
-		return []net.IP{}, fmt.Errorf("Invalid error")
+	cb := func(ctx context.Context, group *ToGroups) ([]netip.Addr, error) {
+		return []netip.Addr{}, fmt.Errorf("Invalid error")
 	}
 	RegisterToGroupsProvider(AWSProvider, cb)
 

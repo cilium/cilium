@@ -20,9 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -623,8 +623,8 @@ func (p defaultPoll) Poll(
 }
 
 // RegisterCRDs registers all CRDs with the K8s apiserver.
-func RegisterCRDs() error {
-	if err := CreateCustomResourceDefinitions(k8s.APIExtClient()); err != nil {
+func RegisterCRDs(clientset client.Clientset) error {
+	if err := CreateCustomResourceDefinitions(clientset); err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}
 

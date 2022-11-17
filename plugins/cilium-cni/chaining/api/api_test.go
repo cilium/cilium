@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package api
 
 import (
@@ -37,6 +35,10 @@ func (p *pluginTest) Delete(ctx context.Context, pluginContext PluginContext) (e
 
 func (p *pluginTest) ImplementsDelete() bool {
 	return true
+}
+
+func (p *pluginTest) Check(ctx context.Context, pluginContext PluginContext) error {
+	return nil
 }
 
 func (a *APISuite) TestRegistration(c *check.C) {

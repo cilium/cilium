@@ -12,7 +12,7 @@ MODE=${7}
 TUNNEL_MODE=${8}
 # Only set if TUNNEL_MODE = "vxlan", "geneve"
 TUNNEL_PORT=${9}
-# Only set if MODE = "direct", "ipvlan"
+# Only set if MODE = "direct"
 NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
@@ -110,10 +110,6 @@ function move_local_rules()
 
 function setup_proxy_rules()
 {
-	if [ "$MODE" = "ipvlan" ]; then
-		return
-	fi
-
 	# Any packet from an ingress proxy uses a separate routing table that routes
 	# the packet back to the cilium host device.
 	from_ingress_rulespec="fwmark 0xA00/0xF00 pref 10 lookup $PROXY_RT_TABLE"
@@ -221,7 +217,7 @@ function bpf_compile()
 	      -DENABLE_ARP_RESPONDER=1				\
 	      $EXTRA_OPTS					\
 	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
 }
 
 function bpf_unload()
@@ -425,7 +421,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_DEV="cilium_${TUNNEL_MODE}"
 
 	ip link show $ENCAP_DEV || create_encap_dev
-	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
 	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
 		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
@@ -434,6 +429,7 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 		}
 	fi
 
+	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 	setup_dev $ENCAP_DEV || encap_fail
 
 	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
@@ -457,7 +453,7 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then
+if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
 	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
@@ -489,12 +485,10 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev.*[.]o"; then
-			echo "Removing bpf_netdev.o from $where of $iface"
-			tc filter del dev "$iface" "$where" || true
-		fi
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_host.o"; then
-			echo "Removing bpf_host.o from $where of $iface"
+		# Filters created Go bpf loader are of format 'cilium-<iface>'.
+		# iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
+		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev\|bpf_host\|cilium"; then
+			echo "Removing $where TC filter from interface $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi
 	done
@@ -574,7 +568,3 @@ fi
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
-
-# Compile dummy BPF file containing all shared struct definitions used by
-# pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""

@@ -88,6 +88,7 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 		}
 	}
 
+	selectorsMissingIPs = make([]api.FQDNSelector, 0, len(missing))
 	for dnsName := range missing {
 		selectorsMissingIPs = append(selectorsMissingIPs, dnsName)
 	}

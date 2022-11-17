@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package labels
 
 import (
 	"sort"
+	"testing"
 
 	. "gopkg.in/check.v1"
 
@@ -274,5 +273,23 @@ func (s *LabelsSuite) TestOutputConversions(c *C) {
 	c.Assert(len(mp), Equals, len(expectMap))
 	for k, v := range mp {
 		c.Assert(v, Equals, expectMap[k])
+	}
+}
+
+func BenchmarkLabelArray_GetModel(b *testing.B) {
+	l := NewLabelArrayFromSortedList("a;b;c;d;e;f;g;h;i;j;k;l;m;n;o;p;q;r;s;t;u;v;w;x;y;z")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.GetModel()
+	}
+}
+
+func BenchmarkLabelArray_String(b *testing.B) {
+	l := NewLabelArrayFromSortedList("a;b;c;d;e;f;g;h;i;j;k;l;m;n;o;p;q;r;s;t;u;v;w;x;y;z")
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = l.String()
 	}
 }

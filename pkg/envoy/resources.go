@@ -54,10 +54,14 @@ const (
 type NPHDSCache struct {
 	*xds.Cache
 
-	ipcache *ipcache.IPCache
+	ipcache IPCacheEventSource
 }
 
-func newNPHDSCache(ipcache *ipcache.IPCache) NPHDSCache {
+type IPCacheEventSource interface {
+	AddListener(ipcache.IPIdentityMappingListener)
+}
+
+func newNPHDSCache(ipcache IPCacheEventSource) NPHDSCache {
 	return NPHDSCache{Cache: xds.NewCache(), ipcache: ipcache}
 }
 

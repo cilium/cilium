@@ -50,6 +50,8 @@ contribute to Cilium:
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + python3-pip                                                  | latest                       | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
++ `helm <https://helm.sh/docs/intro/install/>`_                | >= v3.6.0                    | N/A (OS-specific)                                               |
++--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 
 For `integration_testing`, you will need to run ``docker`` without privileges.
 You can usually achieve this by adding your current user to the ``docker``
@@ -65,17 +67,11 @@ Finally, in order to run Cilium locally on VMs, you need:
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_  | >= 5.2                | N/A (OS-specific)                                                              |
 +------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
-You should start with the `gs_guide`, which walks you through the set-up, such
-as installing Vagrant, getting the Cilium sources, and going through some
-Cilium basics.
-
-
 Vagrant Setup
 ~~~~~~~~~~~~~
 
-While the `gs_guide` uses a Vagrantfile tuned for the basic walk through, the
-setup for the Vagrantfile in the root of the Cilium tree depends on a number of
-environment variables and network setup that are managed via
+The setup for the Vagrantfile in the root of the Cilium tree depends on a
+number of environment variables and network setup that are managed via
 ``contrib/vagrant/start.sh``.
 
 Option 1 - Using the Provided Vagrantfiles (Recommended)
@@ -155,8 +151,8 @@ brought up by vagrant:
   test/bpf/verifier-test.sh``.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
-  cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
-  set, it defaults to ``docker``.
+  cluster. Valid options are: ``containerd`` and ``crio``. If not
+  set, it defaults to ``containerd``.
 * ``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``.
 * ``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only
   useful when the installation was interrupted.
@@ -319,6 +315,15 @@ to enable NFS.
       # vers2=n
       # vers3=y
       ...
+
+.. note::
+
+   Linux 5.18 on newer Intel CPUs which support Intel CET (11th and
+   12th gen) has a bug that prevents the VMs from starting. If you see
+   a stacktrace with ``kernel BUG at arch/x86/kernel/traps.c`` and
+   ``traps: Missing ENDBR`` messages in dmesg, that means you are
+   affected. A workaround for now is to pass ``ibt=off`` to the kernel
+   command line.
 
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 

@@ -12,21 +12,20 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 )
 
-func New(l *logrus.Logger) *Client {
+func New(l *logrus.Logger, cs client.Clientset) *Client {
 	return &Client{
-		K8sClient: k8s.Client(),
-
-		log: l,
+		Clientset: cs,
+		log:       l,
 	}
 }
 
 // Client wraps the K8s client so that it can conform to the client from
 // MetalLB.
 type Client struct {
-	*k8s.K8sClient
+	client.Clientset
 
 	log *logrus.Logger
 }

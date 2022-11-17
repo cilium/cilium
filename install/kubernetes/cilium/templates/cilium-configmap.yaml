@@ -6,14 +6,13 @@
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "cluster-pool" -}}
-{{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
 {{- $crdWaitTimeout := "5m" -}}
-{{- $defaultKubeProxyReplacement := "probe" -}}
+{{- $defaultKubeProxyReplacement := "disabled" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
@@ -23,7 +22,6 @@
   {{- $defaultBpfMasquerade = "true" -}}
   {{- $defaultBpfClockProbe = "true" -}}
   {{- $defaultIPAM = "cluster-pool" -}}
-  {{- $defaultSessionAffinity = "true" -}}
   {{- if .Values.ipv4.enabled }}
     {{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
   {{- else -}}
@@ -31,11 +29,16 @@
   {{- end }}
   {{- $defaultBpfCtTcpMax = 0 -}}
   {{- $defaultBpfCtAnyMax = 0 -}}
+  {{- $defaultKubeProxyReplacement = "probe" -}}
+{{- end -}}
+
+{{- /* Default values when 1.9 was initially deployed */ -}}
+{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
+  {{- $defaultKubeProxyReplacement = "probe" -}}
 {{- end -}}
 
 {{- /* Default values when 1.10 was initially deployed */ -}}
 {{- if semverCompare ">=1.10" (default "1.10" .Values.upgradeCompatibility) -}}
-  {{- $defaultKubeProxyReplacement = "disabled" -}}
   {{- /* Needs to be explicitly disabled because it was enabled on all versions >=v1.8 above. */ -}}
   {{- $defaultBpfMasquerade = "false" -}}
 {{- end -}}
@@ -45,13 +48,15 @@
   {{- if .Values.azure.enabled }}
       {{- $azureUsePrimaryAddress = "false" -}}
   {{- end }}
+  {{- $defaultKubeProxyReplacement = "disabled" -}}
 {{- end -}}
 
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-{{- $azureUsePrimaryAddress := (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
+{{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
+{{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -108,19 +113,10 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: {{ .Values.identityAllocationMode }}
-{{- if hasKey .Values "identityHeartbeatTimeout" }}
-  identity-heartbeat-timeout: "{{ .Values.identityHeartbeatTimeout }}"
-{{- end }}
-{{- if hasKey .Values "identityGCInterval" }}
-  identity-gc-interval: "{{ .Values.identityGCInterval }}"
-{{- end }}
-{{- if hasKey .Values.operator "endpointGCInterval" }}
-  cilium-endpoint-gc-interval: "{{ .Values.operator.endpointGCInterval }}"
-{{- end }}
-
-{{- if hasKey .Values.operator "nodeGCInterval" }}
-  nodes-gc-interval: "{{ .Values.operator.nodeGCInterval | default "0s" }}"
-{{- end }}
+  identity-heartbeat-timeout: {{ include "validateDuration" .Values.operator.identityHeartbeatTimeout | quote }}
+  identity-gc-interval: {{ include "validateDuration" .Values.operator.identityGCInterval | quote }}
+  cilium-endpoint-gc-interval: {{ include "validateDuration" .Values.operator.endpointGCInterval | quote }}
+  nodes-gc-interval: {{ include "validateDuration" .Values.operator.nodeGCInterval | quote }}
 
 {{- if hasKey .Values "disableEndpointCRD" }}
   # Disable the usage of CiliumEndpoint CRD
@@ -208,6 +204,16 @@ data:
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
+  ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
+  ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
+{{- end }}
+
+{{- if .Values.gatewayAPI.enabled }}
+  enable-gateway-api: "true"
+  enable-envoy-config: "true"
+  enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
+  gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
 
   # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
@@ -250,7 +256,7 @@ data:
   enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "tproxy" }}
+{{- if (not (kindIs "invalid" .Values.bpf.tproxy)) }}
   enable-bpf-tproxy: {{ .Values.bpf.tproxy | quote }}
 {{- else if eq $defaultBpfTProxy "true" }}
   enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
@@ -264,7 +270,7 @@ data:
   # notification events for each allowed connection.
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
-  monitor-aggregation-interval: {{ .Values.bpf.monitorInterval }}
+  monitor-aggregation-interval: {{ include "validateDuration" .Values.bpf.monitorInterval | quote }}
 
   # The monitor aggregation flags determine which TCP flags which, upon the
   # first observation, cause monitor notifications to be generated.
@@ -285,11 +291,12 @@ data:
   bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "hostLegacyRouting" }}
+{{- if (not (kindIs "invalid" .Values.bpf.hostLegacyRouting)) }}
   enable-host-legacy-routing: {{ .Values.bpf.hostLegacyRouting | quote }}
-{{- else if hasKey .Values.bpf "hostRouting" }}
-  # DEPRECATED: this block should be removed in 1.13
-  enable-host-legacy-routing: {{ .Values.bpf.hostRouting | quote }}
+{{- else if ne .Values.cni.chainingMode "none" }}
+  # In cni chaining mode, the other chained plugin is responsible for underlying connectivity,
+  # so cilium eBPF host routing shoud not work, and let it fall back to the legacy routing mode
+  enable-host-legacy-routing: "true"
 {{- end }}
 
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
@@ -312,12 +319,12 @@ data:
   bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
 {{- end }}
 {{- end }}
-{{- if hasKey .Values.bpf "natMax" }}
+{{- if .Values.bpf.natMax }}
   # bpf-nat-global-max specified the maximum number of entries in the
   # BPF NAT table.
   bpf-nat-global-max: "{{ .Values.bpf.natMax }}"
 {{- end }}
-{{- if hasKey .Values.bpf "neighMax" }}
+{{- if .Values.bpf.neighMax }}
   # bpf-neigh-global-max specified the maximum number of entries in the
   # BPF neighbor table.
   bpf-neigh-global-max: "{{ .Values.bpf.neighMax }}"
@@ -331,11 +338,6 @@ data:
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
   bpf-lb-map-max: "{{ .Values.bpf.lbMapMax }}"
-{{- end }}
-  # bpf-lb-bypass-fib-lookup instructs Cilium to enable the FIB lookup bypass
-  # optimization for nodeport reverse NAT handling.
-{{- if hasKey .Values.bpf "lbBypassFIBLookup" }}
-  bpf-lb-bypass-fib-lookup: {{ .Values.bpf.lbBypassFIBLookup | quote }}
 {{- end }}
 {{- if hasKey .Values.bpf "lbExternalClusterIP" }}
   bpf-lb-external-clusterip: {{ .Values.bpf.lbExternalClusterIP | quote }}
@@ -386,8 +388,12 @@ data:
   tunnel: {{ .Values.tunnel | quote }}
 {{- end }}
 
-{{- if hasKey .Values "tunnelPort" }}
+{{- if .Values.tunnelPort }}
   tunnel-port: "{{ .Values.tunnelPort }}"
+{{- end }}
+
+{{- if .Values.MTU }}
+  mtu: "{{ .Values.MTU }}"
 {{- end }}
 
 {{- if .Values.eni.enabled }}
@@ -404,9 +410,21 @@ data:
 {{- end }}
   ec2-api-endpoint: {{ .Values.eni.ec2APIEndpoint | quote }}
   eni-tags: {{ .Values.eni.eniTags | toRawJson | quote }}
-  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | quote }}
-  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter | quote }}
-  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | quote }}
+{{- if .Values.eni.subnetIDsFilter }}
+  subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}
+{{- end }}
+{{- if .Values.eni.subnetTagsFilter }}
+  subnet-tags-filter: {{ .Values.eni.subnetTagsFilter |  join " " | quote }}
+{{- end }}
+{{- if .Values.eni.instanceTagsFilter }}
+  instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join " " | quote }}
+{{- end }}
+{{- end }}
+{{ if .Values.eni.gcInterval }}
+  eni-gc-interval: {{ .Values.eni.gcInterval | quote }}
+{{- end }}
+{{ if .Values.eni.gcTags }}
+  eni-gc-tags: {{ .Values.eni.gcTags | toRawJson | quote }}
 {{- end }}
 
 {{- if .Values.azure.enabled }}
@@ -454,9 +472,10 @@ data:
 {{- end }}
 
   enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+  enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
 
-{{- if hasKey .Values.bpf "masquerade" }}
+{{- if (not (kindIs "invalid" .Values.bpf.masquerade)) }}
   enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
 {{- else if eq $defaultBpfMasquerade "true" }}
   enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
@@ -494,13 +513,6 @@ data:
   {{- end }}
 {{- end }}
 
-{{- if hasKey .Values "datapathMode" }}
-{{- if eq .Values.datapathMode "ipvlan" }}
-  datapath-mode: ipvlan
-  ipvlan-master-device: {{ .Values.ipvlan.masterDevice }}
-{{- end }}
-{{- end }}
-
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.installIptablesRules | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
@@ -535,11 +547,11 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
-{{- if hasKey .Values "ipv4NativeRoutingCIDR" }}
+{{- if .Values.ipv4NativeRoutingCIDR }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 
-{{- if hasKey .Values "ipv6NativeRoutingCIDR" }}
+{{- if .Values.ipv6NativeRoutingCIDR }}
   ipv6-native-routing-cidr: {{ .Values.ipv6NativeRoutingCIDR }}
 {{- end }}
 
@@ -547,6 +559,10 @@ data:
   enable-ipv4-fragment-tracking: {{ .Values.fragmentTracking | quote }}
 {{- else if (ne $fragmentTracking "true") }}
   enable-ipv4-fragment-tracking: "false"
+{{- end }}
+
+{{- if .Values.statelessNat46x64.enabled }}
+  enable-stateless-nat46x64: {{ .Values.statelessNat46x64.enabled | quote }}
 {{- end }}
 
 {{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
@@ -569,15 +585,18 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
-{{- if hasKey .Values "hostServices" }}
-{{- if .Values.hostServices.enabled }}
-  enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
+{{- if $socketLB }}
+{{- if hasKey $socketLB "enabled" }}
+  bpf-lb-sock: {{ $socketLB.enabled | quote }}
 {{- end }}
+{{- if hasKey $socketLB "hostNamespaceOnly" }}
+  bpf-lb-sock-hostns-only: {{ $socketLB.hostNamespaceOnly | quote }}
+{{- end }}
+{{- end }}
+
+{{- if hasKey .Values "hostServices" }}
 {{- if ne .Values.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.hostServices.protocols }}
-{{- end }}
-{{- if hasKey .Values.hostServices "hostNamespaceOnly" }}
-  bpf-lb-sock-hostns-only: {{ .Values.hostServices.hostNamespaceOnly | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}
@@ -635,8 +654,6 @@ data:
 {{- end }}
 {{- if .Values.sessionAffinity }}
   enable-session-affinity: {{ .Values.sessionAffinity | quote }}
-{{- else if eq $defaultSessionAffinity "true" }}
-  enable-session-affinity: {{ $defaultSessionAffinity | quote }}
 {{- end }}
 {{- if .Values.svcSourceRangeCheck }}
   enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
@@ -646,9 +663,7 @@ data:
 {{- if hasKey .Values.l2NeighDiscovery "enabled" }}
   enable-l2-neigh-discovery: {{ .Values.l2NeighDiscovery.enabled | quote }}
 {{- end }}
-{{- if hasKey .Values.l2NeighDiscovery "refreshPeriod" }}
-  arping-refresh-period: {{ .Values.l2NeighDiscovery.refreshPeriod | quote }}
-{{- end }}
+  arping-refresh-period: {{ include "validateDuration" .Values.l2NeighDiscovery.refreshPeriod | quote }}
 {{- end }}
 
 {{- if and .Values.pprof .Values.pprof.enabled }}
@@ -670,7 +685,7 @@ data:
   k8s-require-ipv6-pod-cidr: {{ .Values.k8s.requireIPv6PodCIDR | quote }}
 {{- end }}
 {{- if .Values.endpointStatus.enabled }}
-  endpoint-status: {{ required "endpointStatus.status required: policy, health, controllers, logs and / or state. For 2 or more options use a comma: \"policy, health\"" .Values.endpointStatus.status | quote }}
+  endpoint-status: {{ required "endpointStatus.status required: policy, health, controllers, log and / or state. For 2 or more options use a space: \"policy health\"" .Values.endpointStatus.status | quote }}
 {{- end }}
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
@@ -740,6 +755,7 @@ data:
   hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
     {{.}}
 {{- end }}
+  enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
@@ -752,6 +768,12 @@ data:
 {{- else }}
   hubble-disable-tls: "true"
 {{- end }}
+{{- end }}
+{{- if .Values.hubble.preferIpv6 }}
+  hubble-prefer-ipv6: "true"
+{{- end }}
+{{- if (not (kindIs "invalid" .Values.hubble.skipUnknownCGroupIDs)) }}
+  hubble-skip-unknown-cgroup-ids: {{ .Values.hubble.skipUnknownCGroupIDs | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "disableIptablesFeederRules" }}
@@ -781,6 +803,13 @@ data:
   {{- end }}
   cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
 {{- end }}
+{{- end }}
+
+{{- if .Values.ipam.operator.externalAPILimitBurstSize }}
+  limit-ipam-api-burst: {{ .Values.ipam.operator.externalAPILimitBurstSize | quote }}
+{{- end }}
+{{- if .Values.ipam.operator.externalAPILimitQPS }}
+  limit-ipam-api-qps: {{ .Values.ipam.operator.externalAPILimitQPS | quote }}
 {{- end }}
 
 {{- if .Values.enableCnpStatusUpdates }}
@@ -854,6 +883,10 @@ data:
   enable-bgp-control-plane: "false"
 {{- end }}
 
+{{- if .Values.pmtuDiscovery.enabled }}
+  enable-pmtu-discovery: "true"
+{{- end }}
+
 {{- if not .Values.securityContext.privileged }}
   procfs: "/host/proc"
 {{- end }}
@@ -866,7 +899,7 @@ data:
   cgroup-root: {{ .Values.cgroup.hostRoot | quote }}
 {{- end }}
 
-{{- if hasKey .Values.bpf "vlanBypass" }}
+{{- if .Values.bpf.vlanBypass }}
   # A space separated list of explicitly allowed vlan id's
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
@@ -877,6 +910,10 @@ data:
 
 {{- if hasKey .Values "enableK8sTerminatingEndpoint" }}
   enable-k8s-terminating-endpoint: {{ .Values.enableK8sTerminatingEndpoint | quote }}
+{{- end }}
+
+{{- if hasKey .Values.sctp "enabled" }}
+  enable-sctp: {{ .Values.sctp.enabled | quote }}
 {{- end }}
 
 {{- if hasKey .Values "dnsPolicyUnloadOnShutdown" }}
@@ -939,4 +976,16 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+{{- end }}
+
+---
+{{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ip-masq-agent
+  namespace: {{ .Release.Namespace }}
+data:
+  config: |-
+{{ toJson .Values.ipMasqAgent.config | indent 4 }}
 {{- end }}

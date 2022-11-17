@@ -19,7 +19,8 @@ import (
 // DeleteServiceIDOKCode is the HTTP code returned for type DeleteServiceIDOK
 const DeleteServiceIDOKCode int = 200
 
-/*DeleteServiceIDOK Success
+/*
+DeleteServiceIDOK Success
 
 swagger:response deleteServiceIdOK
 */
@@ -43,7 +44,8 @@ func (o *DeleteServiceIDOK) WriteResponse(rw http.ResponseWriter, producer runti
 // DeleteServiceIDNotFoundCode is the HTTP code returned for type DeleteServiceIDNotFound
 const DeleteServiceIDNotFoundCode int = 404
 
-/*DeleteServiceIDNotFound Service not found
+/*
+DeleteServiceIDNotFound Service not found
 
 swagger:response deleteServiceIdNotFound
 */
@@ -67,7 +69,8 @@ func (o *DeleteServiceIDNotFound) WriteResponse(rw http.ResponseWriter, producer
 // DeleteServiceIDFailureCode is the HTTP code returned for type DeleteServiceIDFailure
 const DeleteServiceIDFailureCode int = 500
 
-/*DeleteServiceIDFailure Service deletion failed
+/*
+DeleteServiceIDFailure Service deletion failed
 
 swagger:response deleteServiceIdFailure
 */

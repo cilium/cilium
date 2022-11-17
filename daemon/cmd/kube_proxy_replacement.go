@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -50,22 +52,31 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		return false, fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe {
+		log.Warnf("The option --%s=%s is deprecated and it will be removed in v1.13",
+			option.KubeProxyReplacement, option.KubeProxyReplacementProbe)
+	}
+
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q, %q features and falling back to %q",
+		log.Infof("Auto-disabling %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
-			option.EnableSessionAffinity, option.EnableHostLegacyRouting)
+			option.EnableSocketLB, option.EnableHostPort,
+			option.EnableHostLegacyRouting)
 
 		disableNodePort()
-		option.Config.EnableHostReachableServices = false
+		option.Config.EnableSocketLB = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
-		option.Config.EnableSessionAffinity = false
+		option.Config.EnableSocketLBTracing = false
+
+		if option.Config.EnableSessionAffinity {
+			if err := disableSessionAffinityIfNeeded(true); err != nil {
+				return false, err
+			}
+		}
 
 		return false, nil
 	}
-
-	probesManager := probes.NewProbeManager()
 
 	// strict denotes to panic if any to-be enabled feature cannot be enabled
 	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
@@ -75,13 +86,13 @@ func initKubeProxyReplacementOptions() (bool, error) {
 
 		log.Infof("Trying to auto-enable %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
+			option.EnableSocketLB, option.EnableHostPort,
 			option.EnableSessionAffinity)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
-		option.Config.EnableHostReachableServices = true
+		option.Config.EnableSocketLB = true
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
@@ -205,13 +216,57 @@ func initKubeProxyReplacementOptions() (bool, error) {
 	}
 
 	if option.Config.EnableNodePort {
-		found := false
-		if h := probesManager.GetHelpers("sched_act"); h != nil {
-			if _, ok := h["bpf_fib_lookup"]; ok {
-				found = true
+		if option.Config.TunnelingEnabled() &&
+			option.Config.NodePortMode != option.NodePortModeSNAT {
+			return false, fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
+		}
+
+		if option.Config.NodePortMode == option.NodePortModeDSR &&
+			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
+			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+				return false, fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
+			}
+			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
+				return false, fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
 			}
 		}
-		if !found {
+
+		option.Config.EnableHealthDatapath =
+			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
+				option.Config.NodePortMode == option.NodePortModeDSR &&
+				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+	}
+
+	if option.Config.InstallNoConntrackIptRules {
+		// InstallNoConntrackIptRules can only be enabled when Cilium is
+		// running in full KPR mode as otherwise conntrack would be
+		// required for NAT operations
+		if !option.Config.KubeProxyReplacementFullyEnabled() {
+			return false, fmt.Errorf("%s requires the agent to run with %s=%s.",
+				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
+		}
+
+		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
+			return false, fmt.Errorf("%s requires the agent to run with %s.",
+				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
+		}
+	}
+	if option.Config.BPFSocketLBHostnsOnly {
+		option.Config.EnableSocketLBTracing = false
+	}
+
+	if option.Config.DryMode {
+		return strict, nil
+	}
+
+	return probeKubeProxyReplacementOptions(strict)
+}
+
+// probeKubeProxyReplacementOptions checks whether the requested KPR options can be enabled with
+// the running kernel.
+func probeKubeProxyReplacementOptions(strict bool) (bool, error) {
+	if option.Config.EnableNodePort {
+		if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnFibLookup) != nil {
 			msg := "BPF NodePort services needs kernel 4.17.0 or newer."
 			if strict {
 				return false, fmt.Errorf(msg)
@@ -229,25 +284,29 @@ func initKubeProxyReplacementOptions() (bool, error) {
 				log.WithError(err).Warn("Disabling BPF NodePort.")
 			}
 		}
+
+		if option.Config.EnableRecorder {
+			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
+				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
+			}
+		}
+
+		if option.Config.EnableHealthDatapath {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetsockopt) != nil {
+				option.Config.EnableHealthDatapath = false
+				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
+			}
+		}
 	}
 
-	if option.Config.EnableHostReachableServices {
+	if option.Config.EnableSocketLB {
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
 
 		if option.Config.EnableMKE {
-			foundClassid := false
-			foundCookie := false
-			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-				if _, ok := h["bpf_get_cgroup_classid"]; ok {
-					foundClassid = true
-				}
-				if _, ok := h["bpf_get_netns_cookie"]; ok {
-					foundCookie = true
-				}
-			}
-			if !foundClassid || !foundCookie {
+			if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetCgroupClassid) != nil ||
+				probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 				if strict {
 					log.Fatalf("BPF kube-proxy replacement under MKE with --%s needs kernel 5.7 or newer", option.EnableMKE)
 				} else {
@@ -294,129 +353,81 @@ func initKubeProxyReplacementOptions() (bool, error) {
 			}
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
-			option.Config.EnableHostReachableServices = false
+			option.Config.EnableSocketLB = false
+			option.Config.EnableSocketLBTracing = false
+		}
+		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
+			option.Config.EnableSocketLBTracing = false
+			log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 		}
 	} else {
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
+		option.Config.EnableSocketLBTracing = false
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				return false, fmt.Errorf(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
-
-		}
+	if err := disableSessionAffinityIfNeeded(strict); err != nil {
+		return false, err
 	}
-	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
-		found1, found2 := false, false
-		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
-			_, found1 = h["bpf_get_netns_cookie"]
-		}
-		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-			_, found2 = h["bpf_get_netns_cookie"]
-		}
-		if !(found1 && found2) {
+
+	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
+		if probes.HaveProgramHelper(ebpf.CGroupSock, asm.FnGetNetnsCookie) != nil ||
+			probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
 			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
 				"to work properly when accessed from inside cluster: the same service endpoint " +
 				"will be selected from all network namespaces on the host.")
 		}
 	}
 
-	if option.Config.EnableNodePort {
-		if option.Config.TunnelingEnabled() &&
-			option.Config.NodePortMode != option.NodePortModeSNAT {
-
-			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
-				option.Config.NodePortMode)
-			option.Config.NodePortMode = option.NodePortModeSNAT
-		}
-
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
-			option.Config.TunnelingEnabled() {
-
-			return false, fmt.Errorf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
-		}
-
-		if option.Config.NodePortMode == option.NodePortModeDSR &&
-			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP {
-			if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-				return false, fmt.Errorf("DSR dispatch mode %s only supported for --%s=%s", option.Config.LoadBalancerDSRDispatch, option.DatapathMode, datapathOption.DatapathModeLBOnly)
-			}
-			if option.Config.NodePortAcceleration == option.NodePortAccelerationDisabled {
-				return false, fmt.Errorf("DSR dispatch mode %s currently only available under XDP acceleration", option.Config.LoadBalancerDSRDispatch)
-			}
-		}
-
-		if option.Config.EnableRecorder {
-			found := false
-			if h := probesManager.GetHelpers("xdp"); h != nil {
-				if _, ok := h["bpf_ktime_get_boot_ns"]; ok {
-					found = true
-				}
-			}
-			if !found {
-				return false, fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
-			}
-		}
-
-		option.Config.EnableHealthDatapath =
-			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
-				option.Config.NodePortMode == option.NodePortModeDSR &&
-				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
-		if option.Config.EnableHealthDatapath {
-			found := false
-			if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-				if _, ok := h["bpf_getsockopt"]; ok {
-					found = true
-				}
-			}
-			if !found {
-				option.Config.EnableHealthDatapath = false
-				log.Info("BPF load-balancer health check datapath needs kernel 5.12.0 or newer. Disabling BPF load-balancer health check datapath.")
-			}
+	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
+		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
+			option.EnableSVCSourceRangeCheck)
+		if strict {
+			return strict, fmt.Errorf(msg)
+		} else {
+			log.Warnf(msg + " Disabling the check.")
+			option.Config.EnableSVCSourceRangeCheck = false
 		}
 	}
 
-	if option.Config.InstallNoConntrackIptRules {
-		// InstallNoConntrackIptRules can only be enabled when Cilium is
-		// running in full KPR mode as otherwise conntrack would be
-		// required for NAT operations
-		if !option.Config.KubeProxyReplacementFullyEnabled() {
-			return false, fmt.Errorf("%s requires the agent to run with %s=%s.",
-				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
+	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		// Needs host stack for packet handling.
+		case option.Config.EnableIPSec:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.IptablesMasqueradingEnabled():
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// All cases below still need to be implemented ...
+		case option.Config.EnableEndpointRoutes:
+			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
+		case !mac.HaveMACAddrs(option.Config.GetDevices()):
+			msg = "BPF host routing is currently not supported with devices without L2 addr."
+		case option.Config.EnableWireguard:
+			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
+		default:
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
+			}
 		}
-
-		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
-			return false, fmt.Errorf("%s requires the agent to run with %s.",
-				option.InstallNoConntrackIptRules, option.EnableBPFMasquerade)
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
 		}
 	}
 
 	if option.Config.BPFSocketLBHostnsOnly {
-		if !option.Config.EnableHostReachableServices {
+		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
-			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableHostReachableServices)
-		} else {
-			found := false
-			if helpers := probesManager.GetHelpers("cgroup_sock_addr"); helpers != nil {
-				if _, ok := helpers["bpf_get_netns_cookie"]; ok {
-					found = true
-				}
-			}
-			if !found {
-				option.Config.BPFSocketLBHostnsOnly = false
-				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
-					"cannot distinguish root and non-root namespace, skipping socket-level " +
-					"loadbalancing will not work. Istio routing chains will be missed. " +
-					"Needs kernel version >= 5.7")
-			}
+			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableSocketLB)
+		} else if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnGetNetnsCookie) != nil {
+			option.Config.BPFSocketLBHostnsOnly = false
+			log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
+				"cannot distinguish root and non-root namespace, skipping socket-level " +
+				"loadbalancing will not work. Istio routing chains will be missed. " +
+				"Needs kernel version >= 5.7")
 		}
 	}
 
@@ -428,19 +439,12 @@ func probeManagedNeighborSupport() {
 		return
 	}
 
-	probesManager := probes.NewProbeManager()
-	found := false
 	// Probes for kernel commit:
 	//   856c02dbce4f ("bpf: Introduce helper bpf_get_branch_snapshot")
 	// This is a bit of a workaround given feature probing for netlink
 	// neighboring subsystem is cumbersome. The commit was added in the
 	// same release as managed neighbors, that is, 5.16+.
-	if h := probesManager.GetHelpers("kprobe"); h != nil {
-		if _, ok := h["bpf_get_branch_snapshot"]; ok {
-			found = true
-		}
-	}
-	if found {
+	if probes.HaveProgramHelper(ebpf.Kprobe, asm.FnGetBranchSnapshot) == nil {
 		log.Info("Using Managed Neighbor Kernel support")
 		option.Config.ARPPingKernelManaged = true
 	}
@@ -498,32 +502,23 @@ func probeCgroupSupportUDP(strict, ipv4 bool) error {
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
 func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
-	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
-			msg := "failed to initialize NodePort addrs."
-			if isKubeProxyReplacementStrict {
-				return fmt.Errorf(msg+" : %w", err)
-			} else {
-				disableNodePort()
-				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
-			}
-		}
-	}
-
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return nil
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
-		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
-			option.EnableSVCSourceRangeCheck)
+	if option.Config.DryMode {
+		return nil
+	}
+
+	if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
+		msg := "failed to initialize NodePort addrs."
 		if isKubeProxyReplacementStrict {
-			return fmt.Errorf(msg)
+			return fmt.Errorf(msg+" : %w", err)
 		} else {
-			log.Warnf(msg + " Disabling the check.")
-			option.Config.EnableSVCSourceRangeCheck = false
+			disableNodePort()
+			log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
 		}
 	}
 
@@ -533,42 +528,8 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
-	if option.Config.EnableMKE && option.Config.EnableHostReachableServices {
+	if option.Config.EnableMKE && option.Config.EnableSocketLB {
 		markHostExtension()
-	}
-
-	if !option.Config.EnableHostLegacyRouting {
-		msg := ""
-		switch {
-		// Needs host stack for packet handling.
-		case option.Config.EnableIPSec:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
-		// Non-BPF masquerade requires netfilter and hence CT.
-		case option.Config.IptablesMasqueradingEnabled():
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
-		// All cases below still need to be implemented ...
-		case option.Config.EnableEndpointRoutes:
-			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.GetDevices()):
-			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
-		default:
-			probesManager := probes.NewProbeManager()
-			foundNeigh := false
-			foundPeer := false
-			if h := probesManager.GetHelpers("sched_cls"); h != nil {
-				_, foundNeigh = h["bpf_redirect_neigh"]
-				_, foundPeer = h["bpf_redirect_peer"]
-			}
-			if !foundNeigh || !foundPeer {
-				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
-			}
-		}
-		if msg != "" {
-			option.Config.EnableHostLegacyRouting = true
-			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
-		}
 	}
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
@@ -579,7 +540,7 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) error {
 
 	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
-		probes.NewProbeManager().GetMisc().HaveLargeInsnLimit
+		probes.HaveLargeInstructionLimit() == nil
 
 	for _, iface := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(iface)
@@ -795,7 +756,22 @@ func checkNodePortAndEphemeralPortRanges() error {
 }
 
 func hasFullHostReachableServices() bool {
-	return option.Config.EnableHostReachableServices &&
+	return option.Config.EnableSocketLB &&
 		option.Config.EnableHostServicesTCP &&
 		option.Config.EnableHostServicesUDP
+}
+
+func disableSessionAffinityIfNeeded(strict bool) error {
+	if option.Config.EnableSessionAffinity {
+		if !option.Config.DryMode && probes.HaveMapType(ebpf.LRUHash) != nil {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			if strict {
+				return fmt.Errorf(msg)
+			} else {
+				log.Warnf("%s. Disabling the feature.", msg)
+				option.Config.EnableSessionAffinity = false
+			}
+		}
+	}
+	return nil
 }

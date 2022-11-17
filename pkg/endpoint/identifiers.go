@@ -146,11 +146,11 @@ func (e *Endpoint) IdentifiersLocked() id.Identifiers {
 		refs[id.DockerEndpointPrefix] = e.dockerEndpointID
 	}
 
-	if e.IPv4.IsSet() {
+	if e.IPv4.IsValid() {
 		refs[id.IPv4Prefix] = e.IPv4.String()
 	}
 
-	if e.IPv6.IsSet() {
+	if e.IPv6.IsValid() {
 		refs[id.IPv6Prefix] = e.IPv6.String()
 	}
 

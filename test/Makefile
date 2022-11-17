@@ -20,7 +20,7 @@ GINKGO = $(QUIET) ginkgo
 
 REGISTRY_CREDENTIALS ?= "${DOCKER_LOGIN}:${DOCKER_PASSWORD}"
 
-.PHONY = all build test run k8s-test k8s-kind nightly clean run_bpf_tests
+.PHONY = all build test run k8s-test k8s-kind clean run_bpf_tests
 
 all: build
 
@@ -60,19 +60,29 @@ k8s-kind:
 			-cilium.operator-suffix="-ci" \
 			-cilium.holdEnvironment=$(HOLD_ENVIRONMENT)
 
-nightly:
-	ginkgo --focus "Nightly" -v --tags integration_tests -- --cilium.provision=$(PROVISION) --cilium.registryCredentials=$(REGISTRY_CREDENTIALS)
-
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET) rm -rf $(TEST_ARTIFACTS)
 	-$(QUIET) rm -f .vagrant/*.box
+	-$(QUIET)$(MAKE) -C bpf/ clean
 
 BPF_TEST_FLAGS:=
-ifneq ($(V),0)
+ifeq ($(V),1)
     BPF_TEST_FLAGS += -test.v
+endif
+ifeq ($(COVER),1)
+	ifndef COVERFORMAT
+		COVERFORMAT:=html
+	endif
+    BPF_TEST_FLAGS += -coverage-report $(ROOT_DIR)/bpf-coverage.$(COVERFORMAT) -coverage-format $(COVERFORMAT)
+endif
+ifeq ($(INSTRLOG),1)
+    BPF_TEST_FLAGS += -instrumentation-log $(ROOT_DIR)/test/bpf-instrumentation.log
+endif
+ifdef RUN
+    BPF_TEST_FLAGS += -run $(RUN)
 endif
 
 run_bpf_tests:
 	$(QUIET)$(MAKE) -C ../bpf/tests all
-	$(QUIET)$(GO) test bpf_tests/*.go -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)
+	$(QUIET)$(GO) test ./bpf_tests -exec sudo -bpf-test-path $(ROOT_DIR)/bpf/tests $(BPF_TEST_FLAGS)

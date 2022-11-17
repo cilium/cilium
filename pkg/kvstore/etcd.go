@@ -571,7 +571,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
 	sessionSuccess <- true
-	log.Infof("Got new lease ID %x", newSession.Lease())
+	log.Infof("Got new lease ID %x and the session TTL is %s", newSession.Lease(), option.Config.KVstoreLeaseTTL)
 
 	e.session = newSession
 	e.sessionCancel = sessionCancel
@@ -724,7 +724,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		ls = *lockSession
 		ec.RWMutex.Unlock()
 
-		log.Infof("Got lease ID %x", s.Lease())
+		log.Infof("Got lease ID %x and the session TTL is %s", s.Lease(), option.Config.KVstoreLeaseTTL)
 		log.Infof("Got lock lease ID %x", ls.Lease())
 		close(errorChan)
 	}()
@@ -1400,9 +1400,7 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 	}
 
 	if lease {
-		e.RWMutex.RLock()
-		leaseID := e.session.Lease()
-		e.RWMutex.RUnlock()
+		leaseID := e.GetSessionLeaseID()
 		if getR.Kvs[0].Lease != int64(leaseID) {
 			return true, e.UpdateIfLocked(ctx, key, value, lease, lock)
 		}
@@ -1434,9 +1432,7 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 		return true, e.Update(ctx, key, value, lease)
 	}
 	if lease {
-		e.RWMutex.RLock()
-		leaseID := e.session.Lease()
-		e.RWMutex.RUnlock()
+		leaseID := e.GetSessionLeaseID()
 		if getR.Kvs[0].Lease != int64(leaseID) {
 			return true, e.Update(ctx, key, value, lease)
 		}

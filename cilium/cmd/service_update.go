@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -28,6 +30,7 @@ var (
 	frontend           string
 	backends           []string
 	backendStates      []string
+	backendWeights     []uint
 )
 
 // serviceUpdateCmd represents the service_update command
@@ -52,6 +55,7 @@ func init() {
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backendStates, "states", "", []string{}, "Backend state(s) as {active(default),terminating,quarantined,maintenance}")
+	serviceUpdateCmd.Flags().UintSliceVarP(&backendWeights, "backend-weights", "", []uint{}, "Backend weights (100 default, 0 means maintenance state, only for maglev mode)")
 }
 
 func parseFrontendAddress(address string) *models.FrontendAddress {
@@ -152,6 +156,23 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	if len(backendWeights) > 0 {
+		resp, err := client.ConfigGet()
+		if err != nil {
+			Fatalf("Unable to retrieve cilium configuration: %s", err)
+		}
+		if resp.Status == nil {
+			Fatalf("Unable to retrieve cilium configuration: empty response")
+		}
+
+		if resp.Status.DatapathMode != datapathOption.DatapathModeLBOnly {
+			Fatalf("Backend weights are supported currently only in lb-only mode")
+		}
+		if len(backendWeights) != len(backends) {
+			Fatalf("Mismatch between number of backend weights and number of backends")
+		}
+	}
+
 	spec.BackendAddresses = nil
 	backendState, _ := loadbalancer.BackendStateActive.String()
 
@@ -173,7 +194,7 @@ func updateService(cmd *cobra.Command, args []string) {
 		}
 
 		// Backend ID will be set by the daemon
-		be := loadbalancer.NewBackend(0, loadbalancer.TCP, beAddr.IP, uint16(beAddr.Port))
+		be := loadbalancer.NewBackend(0, loadbalancer.TCP, cmtypes.MustAddrClusterFromIP(beAddr.IP), uint16(beAddr.Port))
 
 		if !skipFrontendCheck && fa.Port == 0 && beAddr.Port != 0 {
 			Fatalf("L4 backend found (%v) with L3 frontend", beAddr)
@@ -188,6 +209,11 @@ func updateService(cmd *cobra.Command, args []string) {
 			ba.State = backendStates[i]
 		} else {
 			ba.State = backendState
+		}
+
+		if i < len(backendWeights) {
+			w := uint16(backendWeights[i])
+			ba.Weight = &w
 		}
 
 		spec.BackendAddresses = append(spec.BackendAddresses, ba)

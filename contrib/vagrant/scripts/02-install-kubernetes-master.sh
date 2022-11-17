@@ -74,7 +74,6 @@ ExecStart=/usr/bin/kube-apiserver \\
   --etcd-certfile='/var/lib/kubernetes/etcd-k8s-api-server.pem' \\
   --etcd-keyfile='/var/lib/kubernetes/etcd-k8s-api-server-key.pem' \\
   --etcd-servers=https://${controllers_ips[0]}:2379 \\
-  --feature-gates=EndpointSlice=true \\
   --feature-gates=EndpointSliceTerminatingCondition=true \\
   --kubelet-certificate-authority='/var/lib/kubernetes/ca-kubelet.pem' \\
   --kubelet-client-certificate='/var/lib/kubernetes/k8s-api-server.pem' \\

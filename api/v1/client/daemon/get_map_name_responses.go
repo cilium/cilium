@@ -49,7 +49,8 @@ func NewGetMapNameOK() *GetMapNameOK {
 	return &GetMapNameOK{}
 }
 
-/*GetMapNameOK handles this case with default header values.
+/*
+GetMapNameOK handles this case with default header values.
 
 Success
 */
@@ -82,7 +83,8 @@ func NewGetMapNameNotFound() *GetMapNameNotFound {
 	return &GetMapNameNotFound{}
 }
 
-/*GetMapNameNotFound handles this case with default header values.
+/*
+GetMapNameNotFound handles this case with default header values.
 
 Map not found
 */

@@ -53,6 +53,10 @@ type ChainingPlugin interface {
 	// ImplementsDelete returns true if the chaining plugin implements its
 	// own delete logic
 	ImplementsDelete() bool
+
+	// Check is called on CNI CHECK. The plugin should verify (to the best of its
+	// ability) that everything is reasonably configured, else return error.
+	Check(ctx context.Context, pluginContext PluginContext) error
 }
 
 // Register is called by chaining plugins to register themselves. After

@@ -12,10 +12,6 @@ run:
   # include test files or not, default is true
   tests: true
 
-  # list of build tags, all linters use it. Default is empty list.
-  build-tags:
-    - !privileged_tests
-
   # default is true. Enables skipping of directories:
   #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
   skip-dirs-use-default: true
@@ -53,17 +49,17 @@ linters-settings:
       - nilness
   goimports:
     local-prefixes: github.com/cilium/cilium
-  misspell:
-    # Correct spellings using locale preferences for US or UK.
-    # Default is to use a neutral variety of English.
-    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
-    # locale: US
-    ignore-words:
-      - rela # This is for elf.SHT_RELA
   staticcheck:
-    go: "1.18"
+    go: "1.19"
   unused:
-    go: "1.18"
+    go: "1.19"
+  goheader:
+    values:
+      regexp:
+        PROJECT: 'Cilium|Hubble'
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of {{ PROJECT }}
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -76,15 +72,6 @@ issues:
       text: "SA2001: empty critical section"
     - linters: [goerr113]
       text: "do not define dynamic errors, use wrapped static errors instead" # This rule to avoid opinionated check fmt.Errorf("text")
-    # Skip 1.13 errors check and unused for test files
-    - path: _test\.go
-      linters:
-        - goerr113
-        - unused
-    # Skip unused check for /test directory
-    - path: test/
-      linters:
-        - unused
     # Skip goimports check on generated files
     - path: \\.(generated\\.deepcopy|pb)\\.go$
       linters:
@@ -101,6 +88,7 @@ linters:
     - staticcheck
     - unused
     - varcheck
+    - goheader
 
 # To enable later if makes sense
 #    - deadcode

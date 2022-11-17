@@ -9,20 +9,19 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -111,7 +110,7 @@ type ServiceSyncConfiguration interface {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(clientset k8sClient.Clientset, shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 	sharedOnly = shared
 
@@ -124,11 +123,15 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 
 	go func() {
 		store, err := store.JoinSharedStore(store.Configuration{
-			Prefix: serviceStore.ServiceStorePrefix,
+			Prefix:                  serviceStore.ServiceStorePrefix,
+			SynchronizationInterval: 5 * time.Minute,
+			SharedKeyDeleteDelay:    0,
 			KeyCreator: func() store.Key {
 				return &serviceStore.ClusterService{}
 			},
-			SynchronizationInterval: 5 * time.Minute,
+			Backend:  nil,
+			Observer: nil,
+			Context:  nil,
 		})
 
 		if err != nil {
@@ -144,7 +147,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 
 	serviceSubscribers.Register(newServiceCacheSubscriber(swgSvcs, swgEps))
 
-	InitServiceWatcher(cfg, swgSvcs, swgEps, serviceOptsModifier)
+	InitServiceWatcher(cfg, clientset, swgSvcs, swgEps, serviceOptsModifier)
 
 	var (
 		endpointController cache.Controller
@@ -154,7 +157,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherClient(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(clientset.Slim(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			// endpointController has been kicked off already inside
@@ -169,7 +172,7 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.WatcherClient(), swgEps, serviceOptsModifier)
+		endpointController = endpointsInit(clientset.Slim(), swgEps, serviceOptsModifier)
 		go endpointController.Run(wait.NeverStop)
 	}
 
@@ -189,14 +192,16 @@ func StartSynchronizingServices(shared bool, cfg ServiceSyncConfiguration) {
 // changes and push changes into ServiceCache.
 func InitServiceWatcher(
 	cfg ServiceSyncConfiguration,
+	clientset k8sClient.Clientset,
 	swgSvcs, swgEps *lock.StoppableWaitGroup,
 	optsModifier func(options *v1meta.ListOptions),
 ) {
 	serviceInitOnce.Do(func() {
 		// Watch for v1.Service changes and push changes into ServiceCache.
 		serviceIndexer, serviceController = informer.NewInformer(
-			cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
-				"services", v1.NamespaceAll, optsModifier),
+			utils.ListerWatcherWithModifier(
+				utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](clientset.Slim().CoreV1().Services("")),
+				optsModifier),
 			&slim_corev1.Service{},
 			0,
 			cache.ResourceEventHandlerFuncs{
@@ -240,7 +245,7 @@ func InitServiceWatcher(
 	})
 }
 
-func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
+func endpointsInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
 	epOptsModifier := func(options *v1meta.ListOptions) {
 		// Don't get any events from kubernetes endpoints.
 		options.FieldSelector = fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager").String()
@@ -249,10 +254,9 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
 	_, endpointController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"endpoints", v1.NamespaceAll,
-			epOptsModifier,
-		),
+		utils.ListerWatcherWithModifier(
+			utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](slimClient.CoreV1().Endpoints("")),
+			epOptsModifier),
 		&slim_corev1.Endpoints{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -287,18 +291,18 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 	return endpointController
 }
 
-func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
+func endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
-		esClient          rest.Interface
+		esLW              cache.ListerWatcher
 		objType           runtime.Object
 		addFunc, delFunc  func(obj interface{})
 		updateFunc        func(oldObj, newObj interface{})
 	)
 
 	if k8s.SupportsEndpointSliceV1() {
-		esClient = k8sClient.DiscoveryV1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1.EndpointSliceList](slimClient.DiscoveryV1().EndpointSlices(""))
 		objType = &slim_discover_v1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -331,7 +335,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 			K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 		}
 	} else {
-		esClient = k8sClient.DiscoveryV1beta1().RESTClient()
+		esLW = utils.ListerWatcherFromTyped[*slim_discover_v1beta1.EndpointSliceList](slimClient.DiscoveryV1beta1().EndpointSlices(""))
 		objType = &slim_discover_v1beta1.EndpointSlice{}
 		addFunc = func(obj interface{}) {
 			once.Do(func() {
@@ -366,8 +370,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 	}
 
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(esClient,
-			"endpointslices", v1.NamespaceAll, fields.Everything()),
+		esLW,
 		objType,
 		0,
 		cache.ResourceEventHandlerFuncs{

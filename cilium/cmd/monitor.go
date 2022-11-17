@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -63,8 +62,8 @@ func init() {
 	monitorCmd.Flags().BoolVarP(&printer.JSONOutput, "json", "j", false, "Enable json output. Shadows -v flag")
 	monitorCmd.Flags().BoolVarP(&printer.Numeric, "numeric", "n", false, "Display all security identities as numeric values")
 	monitorCmd.Flags().StringVar(&socketPath, "monitor-socket", "", "Configure monitor socket path")
-	viper.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
-	viper.BindPFlags(monitorCmd.Flags())
+	vp.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
+	vp.BindPFlags(monitorCmd.Flags())
 }
 
 func setVerbosity() {
@@ -247,7 +246,7 @@ func runMonitor(args []string) {
 	// On other errors, exit
 	// always wait connTimeout when retrying
 	for ; ; time.Sleep(connTimeout) {
-		conn, version, err := openMonitorSock(viper.GetString("monitor-socket"))
+		conn, version, err := openMonitorSock(vp.GetString("monitor-socket"))
 		if err != nil {
 			log.WithError(err).Error("Cannot open monitor socket")
 			return

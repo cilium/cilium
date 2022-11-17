@@ -72,8 +72,9 @@ type DescribeImageAttributeOutput struct {
 
 	// The date and time, in ISO 8601 date-time format
 	// (http://www.iso.org/iso/iso8601), when the AMI was last used to launch an EC2
-	// instance. When the AMI is used, there is a 24-hour delay before that usage is
-	// reported. lastLaunchedTime data is available starting April 2017.
+	// instance. When the AMI is used to launch an instance, there is a 24-hour delay
+	// before that usage is reported. lastLaunchedTime data is available starting April
+	// 2017.
 	LastLaunchedTime *types.AttributeValue
 
 	// The launch permissions.

@@ -7,12 +7,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"sync"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -157,22 +160,20 @@ var (
 func GetBPFCPU() string {
 	probeCPUOnce.Do(func() {
 		if !option.Config.DryMode {
-			manager := probes.NewProbeManager()
 			// We can probe the availability of BPF instructions indirectly
 			// based on what kernel helpers are available when both were
 			// added in the same release.
 			// We want to enable v3 only on kernels 5.10+ where we have
 			// tested it and need it to work around complexity issues.
-			h := manager.GetHelpers("sched_cls")
-			if manager.GetMisc().HaveV3ISAExtension && h != nil {
-				if _, ok := h["bpf_redirect_neigh"]; ok {
+			if probes.HaveV3ISA() == nil {
+				if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) == nil {
 					nameBPFCPU = "v3"
 					return
 				}
 			}
 			// We want to enable v2 on all kernels that support it, that is,
 			// kernels 4.14+.
-			if manager.GetMisc().HaveV2ISAExtension {
+			if probes.HaveV2ISA() == nil {
 				nameBPFCPU = "v2"
 			}
 		}
@@ -225,9 +226,6 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	}
 
 	linkArgs := make([]string, 0, 8)
-	if debug {
-		linkArgs = append(linkArgs, "-mattr=dwarfris")
-	}
 	linkArgs = append(linkArgs, standardLDFlags...)
 	linkArgs = append(linkArgs, "-mcpu="+GetBPFCPU())
 	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
@@ -248,11 +246,15 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 		cancelCompile()
 	}
 	if err != nil {
-		err = fmt.Errorf("Failed to compile %s: %s", prog.Output, err)
-		log.WithFields(logrus.Fields{
-			"compiler-pid": pidFromProcess(compileCmd.Process),
-			"linker-pid":   pidFromProcess(linkCmd.Process),
-		}).Error(err)
+		err = fmt.Errorf("Failed to compile %s: %w", prog.Output, err)
+
+		if !errors.Is(err, context.Canceled) {
+			log.WithFields(logrus.Fields{
+				"compiler-pid": pidFromProcess(compileCmd.Process),
+				"linker-pid":   pidFromProcess(linkCmd.Process),
+			}).Error(err)
+		}
+
 		if compileOut != nil {
 			scopedLog := log.Warn
 			if debug {
@@ -308,18 +310,16 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 		"target": compiler,
 		"args":   args,
 	}).Debug("Launching compiler")
-	if prog.OutputType == outputSource {
+	switch prog.OutputType {
+	case outputSource:
 		compileCmd := exec.CommandContext(ctx, compiler, args...)
 		_, err = compileCmd.CombinedOutput(log, true)
-	} else {
-		switch prog.OutputType {
-		case outputObject:
-			err = compileAndLink(ctx, prog, dir, true, args...)
-		case outputAssembly:
-			err = compileAndLink(ctx, prog, dir, false, args...)
-		default:
-			log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
-		}
+	case outputObject:
+		err = compileAndLink(ctx, prog, dir, true, args...)
+	case outputAssembly:
+		err = compileAndLink(ctx, prog, dir, false, args...)
+	default:
+		log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
 	}
 
 	return err
@@ -357,12 +357,10 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	}
 	for _, p := range progs {
 		if err := compile(ctx, p, dirs); err != nil {
-			// Only log an error here if the context was not canceled or not
-			// timed out; this log message should only represent failures
-			// with respect to compiling the program.
-			if ctx.Err() == nil {
-				scopedLog.WithField(logfields.Params, logfields.Repr(p)).
-					WithError(err).Debug("JoinEP: Failed to compile")
+			// Only log an error here if the context was not canceled. This log message
+			// should only represent failures with respect to compiling the program.
+			if !errors.Is(err, context.Canceled) {
+				scopedLog.WithField(logfields.Params, logfields.Repr(p)).WithError(err).Debug("JoinEP: Failed to compile")
 			}
 			return err
 		}
@@ -374,12 +372,10 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		prog = hostEpProg
 	}
 	if err := compile(ctx, prog, dirs); err != nil {
-		// Only log an error here if the context was not canceled or not timed
-		// out; this log message should only represent failures with respect to
-		// compiling the program.
-		if ctx.Err() == nil {
-			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
-				WithError(err).Warn("JoinEP: Failed to compile")
+		// Only log an error here if the context was not canceled. This log message
+		// should only represent failures with respect to compiling the program.
+		if !errors.Is(err, context.Canceled) {
+			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).WithError(err).Warn("JoinEP: Failed to compile")
 		}
 		return err
 	}

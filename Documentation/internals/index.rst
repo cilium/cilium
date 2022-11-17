@@ -12,6 +12,7 @@ Internals
 .. toctree::
    :maxdepth: 1
 
+   ../contributing/development/codeoverview
    hubble
    cilium_operator
    security-identities

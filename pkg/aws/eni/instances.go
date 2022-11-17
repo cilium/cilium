@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
+
 // Copyright 2017 Lyft, Inc.
 
 package eni
@@ -24,6 +25,7 @@ type EC2API interface {
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
+	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
 	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes bool) (string, *eniTypes.ENI, error)
 	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
@@ -57,6 +59,13 @@ func NewInstancesManager(api EC2API) *InstancesManager {
 // allocation implementation for the new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *ipam.Node) ipam.NodeOperations {
 	return NewNode(n, obj, m)
+}
+
+// HasInstance returns whether the instance is in instances
+func (m *InstancesManager) HasInstance(instanceID string) bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.instances.Exists(instanceID)
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
@@ -228,4 +237,11 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	m.instances.ForeachInterface(instanceID, fn)
+}
+
+// DeleteInstance delete instance from m.instances
+func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.instances.Delete(instanceID)
 }

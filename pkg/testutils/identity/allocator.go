@@ -6,6 +6,7 @@ package testidentity
 import (
 	"context"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -143,7 +144,7 @@ func (f *MockIdentityAllocator) LookupIdentityByID(ctx context.Context, id ident
 
 // AllocateCIDRsForIPs allocates CIDR identities for the given IPs. It is meant
 // to generally mock the CIDR identity allocator logic.
-func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[string]*identity.Identity) ([]*identity.Identity, error) {
+func (f *MockIdentityAllocator) AllocateCIDRsForIPs(IPs []net.IP, _ map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error) {
 	result := make([]*identity.Identity, 0, len(IPs))
 	for _, ip := range IPs {
 		id, ok := f.ipToIdentity[ip.String()]

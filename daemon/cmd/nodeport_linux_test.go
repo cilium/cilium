@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build linux && privileged_tests
+//go:build linux
 
 package cmd
 
@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 type NodePortSuite struct {
@@ -20,6 +21,10 @@ type NodePortSuite struct {
 }
 
 var _ = Suite(&NodePortSuite{})
+
+func (s *NodePortSuite) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
+}
 
 func (s *NodePortSuite) SetUpTest(c *C) {
 	prevEphemeralPortRange, err := sysctl.Read("net.ipv4.ip_local_port_range")

@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build privileged_tests
-
 package route
 
 import (
 	"net"
-	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -19,16 +16,12 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-// Hook up gocheck into the "go test" runner.
-func Test(t *testing.T) { TestingT(t) }
-
 type RouteSuitePrivileged struct{}
 
 var _ = Suite(&RouteSuitePrivileged{})
 
-func parseIP(ip string) *net.IP {
-	result := net.ParseIP(ip)
-	return &result
+func (s *RouteSuitePrivileged) SetUpSuite(c *C) {
+	testutils.PrivilegedCheck(c)
 }
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
