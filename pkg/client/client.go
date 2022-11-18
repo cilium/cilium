@@ -603,10 +603,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			socketLB = "Enabled"
 		}
 
-		protocols := ""
-		if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
-			protocols = strings.Join(hs.Protocols, ", ")
-		}
 		socketLBTracing := "Disabled"
 		if st := sr.KubeProxyReplacement.Features.SocketLBTracing; st.Enabled {
 			socketLBTracing = "Enabled"
@@ -626,9 +622,6 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
-		if protocols != "" {
-			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
-		}
 		fmt.Fprintf(tab, "  Socket LB Tracing:\t%s\n", socketLBTracing)
 		if kubeProxyDevices != "" {
 			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)

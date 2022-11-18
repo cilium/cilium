@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
@@ -242,6 +243,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"operator.image.repository":              "quay.io/cilium/operator",
 			"hubble.relay.image.repository":          "quay.io/cilium/hubble-relay-ci",
 			"clustermesh.apiserver.image.repository": "quay.io/cilium/clustermesh-apiserver-ci",
+		}
+
+		hasNewHelmValues := versioncheck.MustCompile(">=1.12.90")
+		if hasNewHelmValues(versioncheck.MustVersion(newHelmChartVersion)) {
+			opts["bandwidthManager.enabled"] = "false "
+		} else {
+			opts["bandwidthManager"] = "false "
 		}
 
 		// Eventually allows multiple return values, and performs the assertion

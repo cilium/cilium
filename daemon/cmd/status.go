@@ -217,8 +217,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeStrict
 	case option.KubeProxyReplacementPartial:
 		mode = models.KubeProxyReplacementModePartial
-	case option.KubeProxyReplacementProbe:
-		mode = models.KubeProxyReplacementModeProbe
 	case option.KubeProxyReplacementDisabled:
 		mode = models.KubeProxyReplacementModeDisabled
 	}
@@ -242,15 +240,14 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
-		NodePort:              &models.KubeProxyReplacementFeaturesNodePort{},
-		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
-		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
-		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
-		SocketLB:              &models.KubeProxyReplacementFeaturesSocketLB{},
-		SocketLBTracing:       &models.KubeProxyReplacementFeaturesSocketLBTracing{},
-		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
-		GracefulTermination:   &models.KubeProxyReplacementFeaturesGracefulTermination{},
-		Nat46X64:              &models.KubeProxyReplacementFeaturesNat46X64{},
+		NodePort:            &models.KubeProxyReplacementFeaturesNodePort{},
+		HostPort:            &models.KubeProxyReplacementFeaturesHostPort{},
+		ExternalIPs:         &models.KubeProxyReplacementFeaturesExternalIPs{},
+		SocketLB:            &models.KubeProxyReplacementFeaturesSocketLB{},
+		SocketLBTracing:     &models.KubeProxyReplacementFeaturesSocketLBTracing{},
+		SessionAffinity:     &models.KubeProxyReplacementFeaturesSessionAffinity{},
+		GracefulTermination: &models.KubeProxyReplacementFeaturesGracefulTermination{},
+		Nat46X64:            &models.KubeProxyReplacementFeaturesNat46X64{},
 	}
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
@@ -279,18 +276,6 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 	if option.Config.EnableSocketLB {
 		features.SocketLB.Enabled = true
-
-		features.HostReachableServices.Enabled = true
-
-		protocols := []string{}
-		if option.Config.EnableHostServicesTCP {
-			protocols = append(protocols, "TCP")
-		}
-		if option.Config.EnableHostServicesUDP {
-			protocols = append(protocols, "UDP")
-		}
-		features.HostReachableServices.Protocols = protocols
-
 		features.SocketLBTracing.Enabled = true
 	}
 	if option.Config.EnableSessionAffinity {

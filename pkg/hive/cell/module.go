@@ -70,11 +70,10 @@ func (m *module) Apply(c container) error {
 	return nil
 }
 
-func (m *module) Info() Info {
+func (m *module) Info(c container) Info {
 	n := NewInfoNode("Ⓜ️ " + m.id + " (" + m.title + ")")
 	for _, cell := range m.cells {
-		n.Add(cell.Info())
+		n.Add(cell.Info(c))
 	}
-	n.AddBreak()
 	return n
 }

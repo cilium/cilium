@@ -2497,7 +2497,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		addIfNotOverwritten(options, "sessionAffinity", "false")
 	}
 	if DoesNotRunOnNetNextKernel() {
-		addIfNotOverwritten(options, "bandwidthManager", "false")
+		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")
 	}
 
 	if RunsWithHostFirewall() {

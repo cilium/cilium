@@ -428,10 +428,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
-	if err != nil {
-		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
-		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
+	if err := initKubeProxyReplacementOptions(); err != nil {
+		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
+		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
@@ -937,13 +936,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+	if err := finishKubeProxyReplacementInit(); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
-	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
-	// be fully enabled in the tunneling mode, so the following checks should
+	// BPF masquerade depends on BPF NodePort and require socket-LB to
+	// be enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 
@@ -958,8 +957,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		case option.Config.EgressMasqueradeInterfaces != "":
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.EgressMasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
-			err = fmt.Errorf("BPF masquerade requires full host reachable services enabled in tunnel mode (--%s=\"false\")",
+		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
+			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than

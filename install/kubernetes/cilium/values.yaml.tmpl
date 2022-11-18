@@ -17,9 +17,13 @@ rbac:
 imagePullSecrets:
 # - name: "image-pull-secret"
 
-# kubeConfigPath: ~/.kube/config
-# k8sServiceHost:
-# k8sServicePort:
+# -- (string) Kubernetes config path
+# @default -- `"~/.kube/config"`
+kubeConfigPath: ""
+# -- (string) Kubernetes service host
+k8sServiceHost: ""
+# -- (string) Kubernetes service port
+k8sServicePort: ""
 
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh.
@@ -284,12 +288,6 @@ alibabacloud:
   # -- Enable AlibabaCloud ENI integration
   enabled: false
 
-# -- Deprecated in favor of bandwidthManager.enabled. To be removed in 1.13.
-# Optimize TCP and UDP workloads and enable rate-limiting traffic from
-# individual Pods with EDT (Earliest Departure Time) through the
-# "kubernetes.io/egress-bandwidth" Pod annotation.
-#bandwidthManager: false
-
 # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
 # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
 # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
@@ -368,9 +366,10 @@ bpf:
   # -- Configure the maximum number of entries in endpoint policy map (per endpoint).
   policyMapMax: 16384
 
-  # -- Configure auto-sizing for all BPF maps based on available memory.
+  # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
   # ref: https://docs.cilium.io/en/stable/concepts/ebpf/maps/#ebpf-maps
-  #mapDynamicSizeRatio: 0.0025
+  # @default -- `0.0025`
+  mapDynamicSizeRatio: ~
 
   # -- Configure the level of aggregation for monitor notifications.
   # Valid options are none, low, medium, maximum.
