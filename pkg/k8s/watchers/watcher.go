@@ -448,7 +448,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sAPIGroupNodeV1Core,
 	}
 
-	if k.cfg.K8sIngressControllerEnabled() {
+	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
 		// While Ingress controller is part of operator, we need to watch
 		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
 		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
@@ -520,6 +520,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	utils.ServiceConfiguration
 	utils.IngressConfiguration
+	utils.GatewayAPIConfiguration
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -564,8 +565,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.initEndpointsOrSlices(k.clientset.Slim(), serviceOptModifier)
 		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch secrets in cilium-secrets namespace
-			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespace, swgSecret)
+			// only watch secrets in specific namespaces
+			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2:
 			k.ciliumNetworkPoliciesInit(k.clientset)
