@@ -9,8 +9,6 @@ import (
 	"net"
 	"testing"
 
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
-
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -66,7 +64,7 @@ func TestControllerSanity(t *testing.T) {
 		annotations func() (map[string]string, error)
 		podCIDRs    func() ([]string, error)
 		// a mock List method for the controller's PolicyLister
-		plist func(k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error)
+		plist func() []*v2alpha1api.CiliumBGPPeeringPolicy
 		// a mock ConfigurePeers method for the controller's BGPRouterManager
 		configurePeers func(context.Context, *v2alpha1api.CiliumBGPPeeringPolicy, *agent.ControlPlaneState) error
 		// error nil or not
@@ -86,8 +84,8 @@ func TestControllerSanity(t *testing.T) {
 			podCIDRs: func() ([]string, error) {
 				return []string{}, nil
 			},
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() []*v2alpha1api.CiliumBGPPeeringPolicy {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
 				// pointer check, not deep equal
@@ -108,8 +106,8 @@ func TestControllerSanity(t *testing.T) {
 		// was called erroneously
 		{
 			name: "podcidr listing error",
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() []*v2alpha1api.CiliumBGPPeeringPolicy {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}
 			},
 			labels: func() (map[string]string, error) {
 				return map[string]string{
@@ -126,8 +124,8 @@ func TestControllerSanity(t *testing.T) {
 		},
 		{
 			name: "annotations listing error",
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() []*v2alpha1api.CiliumBGPPeeringPolicy {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}
 			},
 			labels: func() (map[string]string, error) {
 				return map[string]string{
@@ -144,8 +142,8 @@ func TestControllerSanity(t *testing.T) {
 		},
 		{
 			name: "label listening error",
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() []*v2alpha1api.CiliumBGPPeeringPolicy {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}
 			},
 			labels: func() (map[string]string, error) {
 				return map[string]string{
@@ -161,26 +159,9 @@ func TestControllerSanity(t *testing.T) {
 			err: errors.New(""),
 		},
 		{
-			name: "policy list error",
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return nil, errors.New("")
-			},
-			labels: func() (map[string]string, error) {
-				return map[string]string{
-					"bgp-policy": "a",
-				}, nil
-			},
-			annotations: func() (map[string]string, error) {
-				return map[string]string{}, nil
-			},
-			podCIDRs: func() ([]string, error) {
-				return []string{}, nil
-			},
-			err: errors.New(""),
-		}, {
 			name: "configure peers error",
-			plist: func(_ k8sLabels.Selector) (ret []*v2alpha1api.CiliumBGPPeeringPolicy, err error) {
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
+			plist: func() []*v2alpha1api.CiliumBGPPeeringPolicy {
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}
 			},
 			labels: func() (map[string]string, error) {
 				return map[string]string{
@@ -208,7 +189,7 @@ func TestControllerSanity(t *testing.T) {
 				Labels_:      tt.labels,
 				PodCIDRs_:    tt.podCIDRs,
 			}
-			policyLister := &mock.MockCiliumBGPPeeringPolicyLister{
+			policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
 				List_: tt.plist,
 			}
 			rtmgr := &mock.MockBGPRouterManager{
