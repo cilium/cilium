@@ -377,6 +377,12 @@ Users (Alphabetically)
       L: https://planetscale.com/
       Q: @dctrwatson
 
+    * N: Polverio
+      D: Polverio KubeLift is a single-node Kubernetes distribution optimized for Azure, using Cilium as the CNI.
+      U: CNI, IPAM
+      L: https://polverio.com
+      Q: @polverio @stuartpreston
+
     * N: Poseidon Laboratories
       D: Poseidon's Typhoon Kubernetes distro uses Cilium as the default CNI and its used internally
       U: Networking, policies, service load balancing
