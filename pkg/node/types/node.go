@@ -43,6 +43,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		ClusterID:       option.Config.ClusterID,
 		Source:          source.CustomResource,
 		Labels:          n.ObjectMeta.Labels,
+		Annotations:     n.ObjectMeta.Annotations,
 		NodeIdentity:    uint32(n.Spec.NodeIdentity),
 		WireguardPubKey: n.ObjectMeta.Annotations[annotation.WireguardPubKey],
 	}
@@ -226,6 +227,9 @@ type Node struct {
 
 	// Node labels
 	Labels map[string]string
+
+	// Node annotations
+	Annotations map[string]string
 
 	// NodeIdentity is the numeric identity allocated for the node
 	NodeIdentity uint32
