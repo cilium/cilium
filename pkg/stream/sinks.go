@@ -89,10 +89,30 @@ func ToSlice[T any](ctx context.Context, src Observable[T]) (items []T, err erro
 	return items, <-errs
 }
 
+type ToChannelOpt func(o *toChannelOpts)
+
+type toChannelOpts struct {
+	bufSize int
+}
+
+func (o toChannelOpts) apply(opts []ToChannelOpt) toChannelOpts {
+	return o
+}
+
+func BufferSize(bufSize int) ToChannelOpt {
+	return func(o *toChannelOpts) {
+		o.bufSize = bufSize
+	}
+}
+
 // ToChannel converts an observable into an item of channels. Error, or nil if normal
 // completion, is delivered to the supplied error channel.
-func ToChannel[T any](ctx context.Context, errs chan<- error, src Observable[T]) <-chan T {
-	items := make(chan T)
+func ToChannel[T any](ctx context.Context, errs chan<- error, src Observable[T], opts ...ToChannelOpt) <-chan T {
+	var options toChannelOpts
+	for _, opt := range opts {
+		opt(&options)
+	}
+	items := make(chan T, options.bufSize)
 	src.Observe(
 		ctx,
 		func(item T) { items <- item },
