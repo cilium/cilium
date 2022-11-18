@@ -109,6 +109,10 @@
      - Configure the maximum number of service entries in the load balancer maps.
      - int
      - ``65536``
+   * - bpf.mapDynamicSizeRatio
+     - Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/stable/concepts/ebpf/maps/#ebpf-maps
+     - float64
+     - ``0.0025``
    * - bpf.masquerade
      - Enable native IP masquerade support in eBPF
      - bool
@@ -993,6 +997,10 @@
      - hubble-relay update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}``
+   * - hubble.skipUnknownCGroupIDs
+     - Skip Hubble events with unknown cgroup ids
+     - bool
+     - ``true``
    * - hubble.socketPath
      - Unix domain socket path to listen to when Hubble is enabled.
      - string
@@ -1301,6 +1309,14 @@
      - Configure Kubernetes specific configuration
      - object
      - ``{}``
+   * - k8sServiceHost
+     - Kubernetes service host
+     - string
+     - ``""``
+   * - k8sServicePort
+     - Kubernetes service port
+     - string
+     - ``""``
    * - keepDeprecatedLabels
      - Keep the deprecated selector labels when deploying Cilium DaemonSet.
      - bool
@@ -1309,6 +1325,10 @@
      - Keep the deprecated probes when deploying Cilium DaemonSet
      - bool
      - ``false``
+   * - kubeConfigPath
+     - Kubernetes config path
+     - string
+     - ``"~/.kube/config"``
    * - kubeProxyReplacementHealthzBindAddr
      - healthz server bind address for the kube-proxy replacement. To enable set the value to '0.0.0.0:10256' for all ipv4 addresses and this '[::]:10256' for all ipv6 addresses. By default it is disabled.
      - string

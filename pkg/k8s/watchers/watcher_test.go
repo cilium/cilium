@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -188,7 +188,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -510,7 +510,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -661,7 +661,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -1141,7 +1141,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -1455,7 +1455,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -1762,7 +1762,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()
@@ -2683,7 +2683,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		nil,
 		nil,
 		&fakeWatcherConfiguration{},
-		ipcache.NewIPCache(nil),
+		testipcache.NewMockIPCache(),
 		nil,
 	)
 	go w.k8sServiceHandler()

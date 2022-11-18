@@ -103,6 +103,18 @@ type ClusterMesh struct {
 	// metricTotalRemoteClusters is gauge metric keeping track of total number
 	// of remote clusters.
 	metricTotalRemoteClusters *prometheus.GaugeVec
+
+	// metricLastFailureTimestamp is a gauge metric tracking the last failure timestamp
+	metricLastFailureTimestamp *prometheus.GaugeVec
+
+	// metricReadinessStatus is a gauge metric tracking the readiness status of a remote cluster
+	metricReadinessStatus *prometheus.GaugeVec
+
+	// metricTotalFailure is a gauge metric tracking the number of failures when connecting to a remote cluster
+	metricTotalFailures *prometheus.GaugeVec
+
+	// metricTotalNodes is a gauge metric tracking the number of total nodes in a remote cluster
+	metricTotalNodes *prometheus.GaugeVec
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -119,50 +131,6 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 			Name:      "remote_clusters",
 			Help:      "The total number of remote clusters meshed with the local cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
-		ipcache: c.IPCache,
-	}
-
-	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create config directory watcher: %s", err)
-	}
-
-	cm.configWatcher = w
-
-	if err := cm.configWatcher.watch(); err != nil {
-		return nil, err
-	}
-
-	_ = metrics.RegisterList([]prometheus.Collector{cm.metricTotalRemoteClusters})
-	return cm, nil
-}
-
-// Close stops watching for remote cluster configuration files to appear and
-// will close all connections to remote clusters
-func (cm *ClusterMesh) Close() {
-	cm.mutex.Lock()
-	defer cm.mutex.Unlock()
-
-	if cm.configWatcher != nil {
-		cm.configWatcher.close()
-	}
-
-	for name, cluster := range cm.clusters {
-		cluster.onRemove()
-		delete(cm.clusters, name)
-	}
-	cm.controllers.RemoveAllAndWait()
-	metrics.Unregister(cm.metricTotalRemoteClusters)
-}
-
-func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
-	rc := &remoteCluster{
-		name:        name,
-		configPath:  path,
-		mesh:        cm,
-		changed:     make(chan bool, configNotificationsChannelSize),
-		controllers: controller.NewManager(),
-		swg:         lock.NewStoppableWaitGroup(),
 
 		metricLastFailureTimestamp: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: metrics.Namespace,
@@ -191,9 +159,62 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 			Name:      "remote_cluster_nodes",
 			Help:      "The total number of nodes in the remote cluster",
 		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		ipcache: c.IPCache,
 	}
 
-	_ = metrics.RegisterList([]prometheus.Collector{rc.metricLastFailureTimestamp, rc.metricReadinessStatus, rc.metricTotalFailures, rc.metricTotalNodes})
+	w, err := createConfigDirectoryWatcher(c.ConfigDirectory, cm)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create config directory watcher: %s", err)
+	}
+
+	cm.configWatcher = w
+
+	if err := cm.configWatcher.watch(); err != nil {
+		return nil, err
+	}
+
+	_ = metrics.RegisterList([]prometheus.Collector{
+		cm.metricTotalRemoteClusters,
+		cm.metricLastFailureTimestamp,
+		cm.metricReadinessStatus,
+		cm.metricTotalFailures,
+		cm.metricTotalNodes,
+	})
+	return cm, nil
+}
+
+// Close stops watching for remote cluster configuration files to appear and
+// will close all connections to remote clusters
+func (cm *ClusterMesh) Close() {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	if cm.configWatcher != nil {
+		cm.configWatcher.close()
+	}
+
+	for name, cluster := range cm.clusters {
+		cluster.onRemove()
+		delete(cm.clusters, name)
+	}
+	cm.controllers.RemoveAllAndWait()
+	metrics.Unregister(cm.metricTotalRemoteClusters)
+	metrics.Unregister(cm.metricLastFailureTimestamp)
+	metrics.Unregister(cm.metricReadinessStatus)
+	metrics.Unregister(cm.metricTotalFailures)
+	metrics.Unregister(cm.metricTotalNodes)
+}
+
+func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
+	rc := &remoteCluster{
+		name:        name,
+		configPath:  path,
+		mesh:        cm,
+		changed:     make(chan bool, configNotificationsChannelSize),
+		controllers: controller.NewManager(),
+		swg:         lock.NewStoppableWaitGroup(),
+	}
+
 	return rc
 }
 

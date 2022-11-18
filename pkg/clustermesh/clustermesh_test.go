@@ -112,13 +112,19 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context: ctx,
+	})
+	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test2",
 		ConfigDirectory:       dir,
 		NodeKeyCreator:        testNodeCreator,
 		nodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
-		IPCache:               ipcache.NewIPCache(nil),
+		IPCache:               ipc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

@@ -389,6 +389,11 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf recorder list",
 		"cilium ip list -n -o json",
 		"cilium map list --verbose",
+		"cilium map events cilium_ipcache -o json",
+		"cilium map events cilium_tunnel_map -o json",
+		"cilium map events cilium_lb4_services_v2 -o json",
+		"cilium map events cilium_lb4_backends_v2 -o json",
+		"cilium map events cilium_lxc -o json",
 		"cilium service list",
 		"cilium service list -o json",
 		"cilium recorder list",
@@ -417,7 +422,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 	} else { // Found k8s pods
 		for _, pod := range k8sPods {
 			dst := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
-			kubectlArg := fmt.Sprintf("%s/%s:%s", k8sNamespace, pod, stateDir)
+			kubectlArg := fmt.Sprintf("-c %s %s/%s:%s", ciliumAgentContainerName, k8sNamespace, pod, stateDir)
 			// kubectl cp kube-system/cilium-xrzwr:/var/run/cilium/state cilium-xrzwr-state
 			commands = append(commands, fmt.Sprintf("kubectl cp %s %s", kubectlArg, dst))
 			for _, cmd := range ciliumCommands {
@@ -452,7 +457,7 @@ func k8sCommands(allCommands []string, pods []string) []string {
 				cmd = fmt.Sprintf("%s -H %s", cmd, host)
 			}
 
-			if !strings.Contains(cmd, "kubectl exec") {
+			if !strings.Contains(cmd, "kubectl exec") && !strings.Contains(cmd, "kubectl cp") {
 				cmd = podPrefix(pod, cmd)
 			}
 			commands = append(commands, cmd)

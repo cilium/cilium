@@ -306,6 +306,8 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
+	config.QPS = qps
+	config.Burst = burst
 	return config, nil
 }
 
@@ -420,6 +422,8 @@ type FakeClientset struct {
 	clientsetGetters
 
 	SlimFakeClientset *SlimFakeClientset
+
+	enabled bool
 }
 
 var _ Clientset = &FakeClientset{}
@@ -450,6 +454,7 @@ func NewFakeClientset() (*FakeClientset, Clientset) {
 		CiliumFakeClientset:     cilium_fake.NewSimpleClientset(),
 		APIExtFakeClientset:     apiext_fake.NewSimpleClientset(),
 		KubernetesFakeClientset: fake.NewSimpleClientset(),
+		enabled:                 true,
 	}
 	client.clientsetGetters = clientsetGetters{&client}
 	return &client, &client

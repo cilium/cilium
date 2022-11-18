@@ -4,6 +4,10 @@
 package cell
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/hive/internal"
@@ -12,26 +16,46 @@ import (
 // provider is a set of constructors
 type provider struct {
 	ctors  []any
+	infos  []dig.ProvideInfo
 	export bool
 }
 
 func (p *provider) Apply(c container) error {
-	for _, ctor := range p.ctors {
-		if err := c.Provide(ctor, dig.Export(p.export)); err != nil {
+	p.infos = make([]dig.ProvideInfo, len(p.ctors))
+	for i, ctor := range p.ctors {
+		if err := c.Provide(ctor, dig.Export(p.export), dig.FillProvideInfo(&p.infos[i])); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *provider) Info() Info {
+func (p *provider) Info(container) Info {
 	n := &InfoNode{}
-	for _, ctor := range p.ctors {
+	for i, ctor := range p.ctors {
+		info := p.infos[i]
 		privateSymbol := ""
 		if !p.export {
 			privateSymbol = "🔒️"
 		}
-		n.AddLeaf("🚧%s %s: %T", privateSymbol, internal.FuncNameAndLocation(ctor), ctor)
+
+		ctorNode := NewInfoNode(fmt.Sprintf("🚧%s %s", privateSymbol, internal.FuncNameAndLocation(ctor)))
+		ctorNode.condensed = true
+
+		var ins, outs []string
+		for _, input := range info.Inputs {
+			ins = append(ins, internal.TrimName(input.String()))
+		}
+		sort.Strings(ins)
+		for _, output := range info.Outputs {
+			outs = append(outs, internal.TrimName(output.String()))
+		}
+		sort.Strings(outs)
+		if len(ins) > 0 {
+			ctorNode.AddLeaf("⇨ %s", strings.Join(ins, ", "))
+		}
+		ctorNode.AddLeaf("⇦ %s", strings.Join(outs, ", "))
+		n.Add(ctorNode)
 	}
 	return n
 }

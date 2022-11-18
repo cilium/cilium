@@ -278,7 +278,7 @@ func (d *Daemon) init() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	max6, max4 := ipcachemap.IPCache.GetMaxPrefixLengths()
+	max6, max4 := ipcachemap.IPCacheMap().GetMaxPrefixLengths()
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
@@ -373,9 +373,10 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	return nil
 }
 
-// NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
+// newDaemon creates and returns a new Daemon with the parameters set in c.
+func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 ) (*Daemon, *endpointRestoreState, error) {
 
@@ -390,6 +391,12 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// Validate the daemon-specific global options.
 	if err := option.Config.Validate(Vp); err != nil {
 		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
+	}
+
+	// Validate configuration options that depend on other cells.
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
+		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
 	if option.Config.ReadCNIConfiguration != "" {
@@ -421,10 +428,9 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// detection, might disable BPF NodePort and friends. But this is fine, as
 	// the feature does not influence the decision which BPF maps should be
 	// created.
-	isKubeProxyReplacementStrict, err := initKubeProxyReplacementOptions()
-	if err != nil {
-		log.WithError(err).Error("unable to initialize Kube proxy replacement options")
-		return nil, nil, fmt.Errorf("unable to initialize Kube proxy replacement options: %w", err)
+	if err := initKubeProxyReplacementOptions(); err != nil {
+		log.WithError(err).Error("unable to initialize kube-proxy replacement options")
+		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
@@ -537,7 +543,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 	var oldNIDs []identity.NumericIdentity
 	var oldIngressIPs []*net.IPNet
 	if option.Config.RestoreState && !option.Config.DryMode {
-		if err := ipcachemap.IPCache.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
 			k := key.(*ipcachemap.Key)
 			v := value.(*ipcachemap.RemoteEndpointInfo)
 			nid := identity.NumericIdentity(v.SecurityIdentity)
@@ -558,7 +564,7 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		}
 		// DumpWithCallback() leaves the ipcache map open, must close before opened for
 		// parallel mode in Daemon.initMaps()
-		ipcachemap.IPCache.Close()
+		ipcachemap.IPCacheMap().Close()
 	}
 
 	// Propagate identity allocator down to packages which themselves do not
@@ -905,8 +911,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	if wgAgent := dp.WireguardAgent(); option.Config.EnableWireguard {
-		if err := wgAgent.(*wg.Agent).Init(d.ipcache, mtuConfig); err != nil {
+	if wgAgent != nil && option.Config.EnableWireguard {
+		if err := wgAgent.Init(d.ipcache, d.mtuConfig); err != nil {
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
@@ -930,13 +936,13 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	if err := finishKubeProxyReplacementInit(isKubeProxyReplacementStrict); err != nil {
+	if err := finishKubeProxyReplacementInit(); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
 
-	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
-	// be fully enabled in the tunneling mode, so the following checks should
+	// BPF masquerade depends on BPF NodePort and require socket-LB to
+	// be enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
 
@@ -951,8 +957,8 @@ func NewDaemon(ctx context.Context, cleaner *daemonCleanup,
 		case option.Config.EgressMasqueradeInterfaces != "":
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
 				option.EgressMasqueradeInterfaces, option.Devices)
-		case option.Config.TunnelingEnabled() && !hasFullHostReachableServices():
-			err = fmt.Errorf("BPF masquerade requires full host reachable services enabled in tunnel mode (--%s=\"false\")",
+		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
+			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
 		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than

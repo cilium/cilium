@@ -417,19 +417,19 @@ func (n *NodesPodCIDRManager) update(node *v2.CiliumNode) bool {
 
 // Delete deletes the node from the allocator and releases the associated
 // CIDRs of that node.
-func (n *NodesPodCIDRManager) Delete(nodeName string) {
+func (n *NodesPodCIDRManager) Delete(node *v2.CiliumNode) {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 	if !n.canAllocatePodCIDRs {
-		delete(n.nodesToAllocate, nodeName)
+		delete(n.nodesToAllocate, node.Name)
 	}
 
-	found := n.releaseIPNets(nodeName)
+	found := n.releaseIPNets(node.Name)
 	if !found {
 		return
 	}
 	// Mark the node to be deleted in k8s.
-	n.ciliumNodesToK8s[nodeName] = &ciliumNodeK8sOp{
+	n.ciliumNodesToK8s[node.Name] = &ciliumNodeK8sOp{
 		op: k8sOpDelete,
 	}
 	n.k8sReSync.Trigger()

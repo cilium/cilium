@@ -203,8 +203,18 @@ To expose any metrics, invoke ``cilium-agent`` with the
 passing an empty IP (e.g. ``:9962``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
-Exported Metrics
-^^^^^^^^^^^^^^^^
+To customize ``cilium-agent`` metrics, configure the ``--metrics`` option with
+``"+metric_a -metric_b -metric_c"``, where ``+/-`` means to enable/disable
+the metric. For example, for really large clusters, users may consider to
+disable the following two metrics as they generate too much data:
+
+- ``cilium_node_connectivity_status``
+- ``cilium_node_connectivity_latency_seconds``
+
+You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
+
+Exported Metrics by Default
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Endpoint
 ~~~~~~~~

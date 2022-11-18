@@ -18,20 +18,18 @@ var _ = Suite(&KPRSuite{})
 type kprConfig struct {
 	kubeProxyReplacement string
 
-	enableSocketLB                               bool
-	enableNodePort                               bool
-	enableHostPort                               bool
-	enableExternalIPs                            bool
-	enableHostServicesTCP, enableHostServicesUDP bool
-	enableSessionAffinity                        bool
-	enableIPSec                                  bool
-	enableHostLegacyRouting                      bool
-	installNoConntrackIptRules                   bool
-	enableBPFMasquerade                          bool
-	enableIPv4Masquerade                         bool
-	enableSocketLBTracing                        bool
+	enableSocketLB             bool
+	enableNodePort             bool
+	enableHostPort             bool
+	enableExternalIPs          bool
+	enableSessionAffinity      bool
+	enableIPSec                bool
+	enableHostLegacyRouting    bool
+	installNoConntrackIptRules bool
+	enableBPFMasquerade        bool
+	enableIPv4Masquerade       bool
+	enableSocketLBTracing      bool
 
-	expectedStrict     bool
 	expectedErrorRegex string
 
 	tunnelingEnabled bool
@@ -44,8 +42,6 @@ func (cfg *kprConfig) set() {
 	option.Config.EnableNodePort = cfg.enableNodePort
 	option.Config.EnableHostPort = cfg.enableHostPort
 	option.Config.EnableExternalIPs = cfg.enableExternalIPs
-	option.Config.EnableHostServicesTCP = cfg.enableHostServicesTCP
-	option.Config.EnableHostServicesUDP = cfg.enableHostServicesUDP
 	option.Config.EnableSessionAffinity = cfg.enableSessionAffinity
 	option.Config.EnableIPSec = cfg.enableIPSec
 	option.Config.EnableHostLegacyRouting = cfg.enableHostLegacyRouting
@@ -64,22 +60,18 @@ func (cfg *kprConfig) set() {
 }
 
 func (cfg *kprConfig) verify(c *C) {
-	strict, err := initKubeProxyReplacementOptions()
-
+	err := initKubeProxyReplacementOptions()
 	if err != nil || cfg.expectedErrorRegex != "" {
 		c.Assert(err, ErrorMatches, cfg.expectedErrorRegex)
 		if strings.Contains(cfg.expectedErrorRegex, "Invalid") {
 			return
 		}
 	}
-	c.Assert(strict, Equals, cfg.expectedStrict)
 
 	c.Assert(option.Config.EnableSocketLB, Equals, cfg.enableSocketLB)
 	c.Assert(option.Config.EnableNodePort, Equals, cfg.enableNodePort)
 	c.Assert(option.Config.EnableHostPort, Equals, cfg.enableHostPort)
 	c.Assert(option.Config.EnableExternalIPs, Equals, cfg.enableExternalIPs)
-	c.Assert(option.Config.EnableHostServicesTCP, Equals, cfg.enableHostServicesTCP)
-	c.Assert(option.Config.EnableHostServicesUDP, Equals, cfg.enableHostServicesUDP)
 	c.Assert(option.Config.EnableSessionAffinity, Equals, cfg.enableSessionAffinity)
 	c.Assert(option.Config.EnableIPSec, Equals, cfg.enableIPSec)
 	c.Assert(option.Config.EnableHostLegacyRouting, Equals, cfg.enableHostLegacyRouting)
@@ -123,13 +115,10 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableNodePort:          false,
 				enableHostPort:          false,
 				enableExternalIPs:       false,
-				enableHostServicesTCP:   false,
-				enableHostServicesUDP:   false,
 				enableSessionAffinity:   false,
 				enableIPSec:             false,
 				enableHostLegacyRouting: true,
 				enableSocketLBTracing:   false,
-				expectedStrict:          false,
 				expectedErrorRegex:      "",
 			},
 		},
@@ -141,13 +130,10 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.kubeProxyReplacement = option.KubeProxyReplacementStrict
 			},
 			kprConfig{
-				expectedStrict:          true,
 				enableSocketLB:          true,
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableHostServicesTCP:   true,
-				enableHostServicesUDP:   true,
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,
@@ -168,31 +154,8 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableHostServicesTCP:   true,
-				enableHostServicesUDP:   true,
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
-				enableIPSec:             true,
-				enableSocketLBTracing:   true,
-			},
-		},
-
-		// KPR probe + IPsec: nodeport gets disabled
-		{
-			"kpr-probe+ipsec",
-			func(cfg *kprConfig) {
-				cfg.kubeProxyReplacement = option.KubeProxyReplacementProbe
-				cfg.enableIPSec = true
-			},
-			kprConfig{
-				enableSocketLB:          true,
-				enableNodePort:          false,
-				enableHostPort:          false,
-				enableExternalIPs:       false,
-				enableHostServicesTCP:   true,
-				enableHostServicesUDP:   true,
-				enableSessionAffinity:   true,
-				enableHostLegacyRouting: true,
 				enableIPSec:             true,
 				enableSocketLBTracing:   true,
 			},
@@ -208,13 +171,10 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				cfg.enableIPv4Masquerade = true
 			},
 			kprConfig{
-				expectedStrict:             true,
 				enableSocketLB:             true,
 				enableNodePort:             true,
 				enableHostPort:             true,
 				enableExternalIPs:          true,
-				enableHostServicesTCP:      true,
-				enableHostServicesUDP:      true,
 				enableSessionAffinity:      true,
 				enableHostLegacyRouting:    false,
 				enableBPFMasquerade:        true,
@@ -238,8 +198,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableNodePort:             true,
 				enableHostPort:             true,
 				enableExternalIPs:          true,
-				enableHostServicesTCP:      true,
-				enableHostServicesUDP:      true,
 				enableSessionAffinity:      true,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
@@ -261,8 +219,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableNodePort:             true,
 				enableHostPort:             false,
 				enableExternalIPs:          false,
-				enableHostServicesTCP:      false,
-				enableHostServicesUDP:      false,
 				enableSessionAffinity:      false,
 				enableHostLegacyRouting:    false,
 				installNoConntrackIptRules: true,
@@ -283,8 +239,6 @@ func (s *KPRSuite) TestInitKubeProxyReplacementOptions(c *C) {
 				enableNodePort:          true,
 				enableHostPort:          true,
 				enableExternalIPs:       true,
-				enableHostServicesTCP:   true,
-				enableHostServicesUDP:   true,
 				enableSessionAffinity:   true,
 				enableHostLegacyRouting: false,
 				enableSocketLBTracing:   true,

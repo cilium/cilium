@@ -427,7 +427,6 @@ filenames
 filesystem
 filesystems
 firewalling
-flowBufferSize
 followup
 foobar
 foundational
@@ -589,6 +588,7 @@ kprobe
 kprobes
 kretprobes
 kube
+kubeConfigPath
 kubeProxyReplacement
 kubeProxyReplacementHealthzBindAddr
 kubeadm
@@ -901,6 +901,7 @@ sidecarImageRegex
 sig
 skb
 skipCRDCreation
+skipUnknownCGroupIDs
 skipteardown
 sleepAfterInit
 snat

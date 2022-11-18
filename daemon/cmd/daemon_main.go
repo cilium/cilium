@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -77,8 +79,10 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
+	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -131,6 +135,18 @@ func initializeFlags() {
 			return "", fmt.Errorf(`invalid source %q for label: %s`, labels.LabelSourceReserved, lblStr)
 		}
 		return val, nil
+	})
+
+	option.Config.BPFMapEventBuffersValidator = option.Validator(func(val string) (string, error) {
+		vals := strings.Split(val, "=")
+		if len(vals) != 2 {
+			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>,<max_size>,<ttl>" got %q`, val)
+		}
+		_, err := option.ParseEventBufferTupleString(vals[1])
+		if err != nil {
+			return "", fmt.Errorf(`invalid bpf map event config: expecting "<map_name>=<enabled>,<max_size>,<ttl>" got %q`, val)
+		}
+		return "", nil
 	})
 
 	// Env bindings
@@ -294,15 +310,6 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
 	option.BindEnv(Vp, option.EnableSocketLBTracing)
-
-	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
-	option.BindEnv(Vp, option.EnableHostReachableServices)
-	flags.MarkDeprecated(option.EnableHostReachableServices,
-		fmt.Sprintf("This option will be removed in v1.13. Use --%s instead", option.EnableSocketLB))
-
-	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
-	option.BindEnv(Vp, option.HostReachableServicesProtos)
-	flags.MarkDeprecated(option.HostReachableServicesProtos, "This option will be removed in v1.13")
 
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(Vp, option.EnableAutoDirectRoutingName)
@@ -812,7 +819,7 @@ func initializeFlags() {
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
 	option.BindEnv(Vp, option.SockRevNatEntriesName)
 
-	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0, "Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)")
+	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0025, "Ratio (0.0-1.0] of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps")
 	option.BindEnv(Vp, option.MapEntriesGlobalDynamicSizeRatioName)
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
@@ -942,6 +949,9 @@ func initializeFlags() {
 	flags.Int(option.HubbleRecorderSinkQueueSize, defaults.HubbleRecorderSinkQueueSize, "Queue size of each Hubble recorder sink")
 	option.BindEnv(Vp, option.HubbleRecorderSinkQueueSize)
 
+	flags.Bool(option.HubbleSkipUnknownCGroupIDs, true, "Skip Hubble events with unknown cgroup ids")
+	option.BindEnv(Vp, option.HubbleSkipUnknownCGroupIDs)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
 
@@ -989,6 +999,9 @@ func initializeFlags() {
 
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 	option.BindEnv(Vp, option.APIRateLimitName)
+
+	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
+	flags.MarkHidden(option.BPFMapEventBuffers)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(Vp, option.CRDWaitTimeout)
@@ -1088,9 +1101,17 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 	return err
 }
 
-func initEnv(clientset k8sClient.Clientset) {
-	var debugDatapath bool
+func initLogging() {
+	// add hooks after setting up metrics in the option.Config
+	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
 
+	// Logging should always be bootstrapped first. Do not add any code above this!
+	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func initDaemonConfig() {
 	option.Config.SetMapElementSizes(
 		// for the conntrack and NAT element size we assume the largest possible
 		// key size, i.e. IPv6 keys
@@ -1099,16 +1120,17 @@ func initEnv(clientset k8sClient.Clientset) {
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
 		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
-	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(Vp)
+}
 
-	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
+func initEnv() {
+	bootstrapStats.earlyInit.Start()
+	defer bootstrapStats.earlyInit.End(true)
 
-	// Logging should always be bootstrapped first. Do not add any code above this!
-	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
-		log.Fatal(err)
-	}
+	var debugDatapath bool
+
+	// Not running tests -> enable the monitor agent.
+	option.Config.RunMonitorAgent = true
 
 	option.LogRegisteredOptions(Vp, log)
 
@@ -1167,13 +1189,6 @@ func initEnv(clientset k8sClient.Clientset) {
 		}
 	}
 
-	// This check is here instead of in DaemonConfig.Populate (invoked at the
-	// start of this function as option.Config.Populate) to avoid an import loop.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !clientset.IsEnabled() &&
-		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
-	}
-
 	if option.Config.PProf {
 		pprof.Enable(option.Config.PProfPort)
 	}
@@ -1218,10 +1233,8 @@ func initEnv(clientset k8sClient.Clientset) {
 	}
 
 	// set rlimit Memlock to INFINITY before creating any bpf resources.
-	if !option.Config.DryMode {
-		if err := rlimit.RemoveMemlock(); err != nil {
-			log.WithError(err).Fatal("unable to set memory resource limits")
-		}
+	if err := rlimit.RemoveMemlock(); err != nil {
+		log.WithError(err).Fatal("unable to set memory resource limits")
 	}
 	linuxdatapath.CheckMinRequirements()
 
@@ -1376,6 +1389,7 @@ func initEnv(clientset k8sClient.Clientset) {
 	// allocation prefixes
 	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
+	// Initialize node IP addresses from configuration.
 	if option.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv6NodeAddr).Fatal("Invalid IPv6 node address")
@@ -1383,11 +1397,9 @@ func initEnv(clientset k8sClient.Clientset) {
 			if !ip.IsGlobalUnicast() {
 				log.WithField(logfields.IPAddr, ip).Fatal("Invalid IPv6 node address: not a global unicast address")
 			}
-
 			node.SetIPv6(ip)
 		}
 	}
-
 	if option.Config.IPv4NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv4NodeAddr); ip == nil {
 			log.WithField(logfields.IPAddr, option.Config.IPv4NodeAddr).Fatal("Invalid IPv4 node address")
@@ -1549,85 +1561,7 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-type daemonParams struct {
-	cell.In
-
-	Lifecycle      hive.Lifecycle
-	Shutdowner     hive.Shutdowner
-	Config         DaemonCellConfig
-	LocalNodeStore node.LocalNodeStore
-	Clientset      k8sClient.Clientset
-}
-
-// registerDaemonHooks registers the lifecycle hooks for the part of the cilium-agent that has
-// not yet been modularized.
-//
-// The Daemon struct and objects referred to from there are not supplied to the graph as
-// object creation in Daemon is intertwined with side-effectful initialization. This stops
-// us from constructing and inspecting the dependency graph, so instead the daemon is constructed
-// and started via an OnStart hook.
-//
-// If an object still owned by Daemon is required in a module, it should be provided indirectly, e.g. via
-// a callback.
-func registerDaemonHooks(params daemonParams) error {
-	if params.Config.SkipDaemon {
-		return nil
-	}
-
-	// daemonCtx is the daemon-wide context cancelled when stopping.
-	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
-	cleaner := NewDaemonCleanup()
-
-	if Vp.GetString(option.DatapathMode) == datapathOption.DatapathModeLBOnly {
-		// In lb-only mode the k8s client is not used, even if its configuration
-		// is available, so disable it here before it starts. Using GetString
-		// directly as option.Config not populated yet.
-		params.Clientset.Disable()
-	}
-
-	// Set the global LocalNodeStore. This is to retain the API of getters and setters
-	// defined in pkg/node/address.go until uses of them have been converted to use
-	// LocalNodeStore directly.
-	node.SetLocalNodeStore(params.LocalNodeStore)
-
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			bootstrapStats.earlyInit.Start()
-			initEnv(params.Clientset)
-			bootstrapStats.earlyInit.End(true)
-
-			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
-			// of the start hooks to run.
-			go runDaemon(daemonCtx, cleaner, params.Shutdowner, params.Clientset)
-			return nil
-		},
-		OnStop: func(hive.HookContext) error {
-			cancelDaemonCtx()
-			cleaner.Clean()
-			return nil
-		},
-	})
-	return nil
-}
-
-// runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shutdowner, clientset k8sClient.Clientset) {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
-	}
-
-	log.Info("Initializing daemon")
-
-	option.Config.RunMonitorAgent = true
-
-	if err := enableIPForwarding(); err != nil {
-		log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-	}
-
-	iptablesManager := &iptables.IptablesManager{}
-	iptablesManager.Init()
-
+func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	var wgAgent *wireguard.Agent
 	if option.Config.EnableWireguard {
 		switch {
@@ -1646,21 +1580,118 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 			log.Fatalf("failed to initialize wireguard: %s", err)
 		}
 
-		cleaner.cleanupFuncs.Add(func() {
-			_ = wgAgent.Close()
+		lc.Append(hive.Hook{
+			OnStop: func(hive.HookContext) error {
+				wgAgent.Close()
+				return nil
+			},
 		})
 	} else {
 		// Delete wireguard device from previous run (if such exists)
 		link.DeleteByName(wireguardTypes.IfaceName)
 	}
+	return wgAgent
+}
 
-	d, restoredEndpoints, err := NewDaemon(ctx, cleaner,
-		WithDefaultEndpointManager(ctx, clientset, endpoint.CheckHealth),
-		linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent),
-		clientset)
-	if err != nil {
-		log.Fatalf("daemon creation failed: %s", err)
+func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
+	datapathConfig := linuxdatapath.DatapathConfiguration{
+		HostDevice: defaults.HostDevice,
+		ProcFs:     option.Config.ProcFs,
 	}
+
+	iptablesManager := &iptables.IptablesManager{}
+
+	lc.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			if err := enableIPForwarding(); err != nil {
+				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
+			}
+
+			iptablesManager.Init()
+			return nil
+		}})
+
+	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+}
+
+// daemonCell wraps the existing implementation of the cilium-agent that has
+// not yet been converted into a cell. Provides *Daemon as a Promise that is
+// resolved once daemon has been started to facilitate conversion into modules.
+var daemonCell = cell.Module(
+	"daemon",
+	"Legacy Daemon",
+
+	cell.Provide(newDaemonPromise),
+	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+)
+
+type daemonParams struct {
+	cell.In
+
+	Lifecycle      hive.Lifecycle
+	Clientset      k8sClient.Clientset
+	Datapath       datapath.Datapath
+	WGAgent        *wg.Agent `optional:"true"`
+	LocalNodeStore node.LocalNodeStore
+	Shutdowner     hive.Shutdowner
+}
+
+func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
+	daemonResolver, daemonPromise := promise.New[*Daemon]()
+
+	// daemonCtx is the daemon-wide context cancelled when stopping.
+	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
+	cleaner := NewDaemonCleanup()
+
+	if Vp.GetString(option.DatapathMode) == datapathOption.DatapathModeLBOnly {
+		// In lb-only mode the k8s client is not used, even if its configuration
+		// is available, so disable it here before it starts. Using GetString
+		// directly as option.Config not populated yet.
+		params.Clientset.Disable()
+	}
+
+	var daemon *Daemon
+	var wg sync.WaitGroup
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			d, restoredEndpoints, err := newDaemon(
+				daemonCtx, cleaner,
+				WithDefaultEndpointManager(daemonCtx, params.Clientset, endpoint.CheckHealth),
+				params.Datapath,
+				params.WGAgent,
+				params.Clientset)
+			if err != nil {
+				return fmt.Errorf("daemon creation failed: %w", err)
+			}
+			daemon = d
+
+			daemonResolver.Resolve(daemon)
+
+			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
+			// of the start hooks to run.
+			if !option.Config.DryMode {
+				wg.Add(1)
+				go func() {
+					runDaemon(daemon, restoredEndpoints, cleaner, params)
+					wg.Done()
+				}()
+			}
+			return nil
+		},
+		OnStop: func(hive.HookContext) error {
+			cancelDaemonCtx()
+			cleaner.Clean()
+			wg.Wait()
+			return nil
+		},
+	})
+	return daemonPromise
+}
+
+// runDaemon runs the old unmodular part of the cilium-agent.
+func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
+	log.Info("Initializing daemon")
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
@@ -1677,15 +1708,16 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
-	if clientset.IsEnabled() {
+	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		<-d.k8sCachesSynced
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
-	if wgAgent != nil {
-		if err := wgAgent.RestoreFinished(); err != nil {
+
+	if params.WGAgent != nil {
+		if err := params.WGAgent.RestoreFinished(); err != nil {
 			log.WithError(err).Error("Failed to set up wireguard peers")
 		}
 	}
@@ -1710,44 +1742,42 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 		ipmasqAgent.Start()
 	}
 
-	if !option.Config.DryMode {
-		go func() {
-			if restoreComplete != nil {
-				<-restoreComplete
+	go func() {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
+		d.dnsNameManager.CompleteBootstrap()
+
+		ms := maps.NewMapSweeper(&EndpointMapManager{
+			EndpointManager: d.endpointManager,
+		})
+		ms.CollectStaleMapGarbage()
+		ms.RemoveDisabledMaps()
+
+		if len(d.restoredCIDRs) > 0 {
+			// Release restored CIDR identities after a grace period (default 10
+			// minutes).  Any identities actually in use will still exist after
+			// this.
+			//
+			// This grace period is needed when running on an external workload
+			// where policy synchronization is not done via k8s. Also in k8s
+			// case it is prudent to allow concurrent endpoint regenerations to
+			// (re-)allocate the restored identities before we release them.
+			time.Sleep(option.Config.IdentityRestoreGracePeriod)
+			log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
+
+			prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
+			for _, c := range d.restoredCIDRs {
+				prefixes = append(prefixes, ip.IPNetToPrefix(c))
 			}
-			d.dnsNameManager.CompleteBootstrap()
-
-			ms := maps.NewMapSweeper(&EndpointMapManager{
-				EndpointManager: d.endpointManager,
-			})
-			ms.CollectStaleMapGarbage()
-			ms.RemoveDisabledMaps()
-
-			if len(d.restoredCIDRs) > 0 {
-				// Release restored CIDR identities after a grace period (default 10
-				// minutes).  Any identities actually in use will still exist after
-				// this.
-				//
-				// This grace period is needed when running on an external workload
-				// where policy synchronization is not done via k8s. Also in k8s
-				// case it is prudent to allow concurrent endpoint regenerations to
-				// (re-)allocate the restored identities before we release them.
-				time.Sleep(option.Config.IdentityRestoreGracePeriod)
-				log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
-
-				prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
-				for _, c := range d.restoredCIDRs {
-					prefixes = append(prefixes, ip.IPNetToPrefix(c))
-				}
-				d.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
-				// release the memory held by restored CIDRs
-				d.restoredCIDRs = nil
-			}
-		}()
-		d.endpointManager.Subscribe(d)
-		// Add the endpoint manager unsubscribe as the last step in cleanup
-		defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
-	}
+			d.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
+			// release the memory held by restored CIDRs
+			d.restoredCIDRs = nil
+		}
+	}()
+	d.endpointManager.Subscribe(d)
+	// Add the endpoint manager unsubscribe as the last step in cleanup
+	defer cleaner.cleanupFuncs.Add(func() { d.endpointManager.Unsubscribe(d) })
 
 	// Migrating the ENI datapath must happen before the API is served to
 	// prevent endpoints from being created. It also must be before the health
@@ -1756,7 +1786,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	// logic runs before any endpoint creates.
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		migrated, failed := linuxrouting.NewMigrator(
-			&eni.InterfaceDB{Clientset: clientset},
+			&eni.InterfaceDB{Clientset: params.Clientset},
 		).MigrateENIDatapath(option.Config.EgressMultiHomeIPRuleCompat)
 		switch {
 		case failed == -1:
@@ -1786,7 +1816,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 		err := <-errs
 		if err != nil {
 			log.WithError(err).Error("Cannot start metrics server")
-			shutdowner.Shutdown(hive.ShutdownWithError(err))
+			params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 		}
 	}(initMetrics())
 
@@ -1808,7 +1838,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
 
-	err = d.SendNotification(monitorAPI.StartMessage(time.Now()))
+	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))
 	if err != nil {
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
@@ -1862,7 +1892,7 @@ func runDaemon(ctx context.Context, cleaner *daemonCleanup, shutdowner hive.Shut
 	err = srv.Serve()
 	if err != nil {
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
-		shutdowner.Shutdown(hive.ShutdownWithError(err))
+		params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
 }
 
@@ -1980,6 +2010,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// /map
 	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)
 	restAPI.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
+	restAPI.DaemonGetMapNameEventsHandler = NewGetMapNameEventsHandler(d, mapGetterImpl{})
 
 	// metrics
 	restAPI.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
@@ -2014,21 +2045,19 @@ func initSockmapOption() {
 func initClockSourceOption() {
 	option.Config.ClockSource = option.ClockSourceKtime
 	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
-	if !option.Config.DryMode {
-		hz, err := probes.KernelHZ()
-		if err != nil {
-			log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined", option.EnableBPFClockProbe)
-			option.Config.EnableBPFClockProbe = false
-		} else {
-			option.Config.KernelHz = int(hz)
-		}
+	hz, err := probes.KernelHZ()
+	if err != nil {
+		log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined", option.EnableBPFClockProbe)
+		option.Config.EnableBPFClockProbe = false
+	} else {
+		option.Config.KernelHz = int(hz)
+	}
 
-		if option.Config.EnableBPFClockProbe {
-			if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
-				t, err := bpf.GetJtime()
-				if err == nil && t > 0 {
-					option.Config.ClockSource = option.ClockSourceJiffies
-				}
+	if option.Config.EnableBPFClockProbe {
+		if probes.HaveProgramHelper(ebpf.XDP, asm.FnJiffies64) == nil {
+			t, err := bpf.GetJtime()
+			if err == nil && t > 0 {
+				option.Config.ClockSource = option.ClockSourceJiffies
 			}
 		}
 	}

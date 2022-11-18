@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 )
@@ -81,11 +82,12 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 
 		// Download the stable helm chart from GitHub
-		versionPath := filepath.Join(kubectl.BasePath(), "../old-charts/%s", helpers.CiliumStableVersion)
+		versionPath := filepath.Join(kubectl.BasePath(), "../old-charts", helpers.CiliumStableVersion)
 		stableChartPath = filepath.Join(versionPath, fmt.Sprintf("cilium-%s/install/kubernetes/cilium", helpers.CiliumStableHelmChartVersion))
 
-		cmd := kubectl.ExecMiddle(fmt.Sprintf("mkdir -p %s && "+
-			"cd %s &&"+
+		cmd := kubectl.Exec(fmt.Sprintf("mkdir -p %s && "+
+			"cd %s && "+
+			"rm -rf * && "+
 			"wget https://github.com/cilium/cilium/archive/refs/heads/%s.zip &&"+
 			"unzip %s.zip",
 			versionPath,
@@ -241,6 +243,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"operator.image.repository":              "quay.io/cilium/operator",
 			"hubble.relay.image.repository":          "quay.io/cilium/hubble-relay-ci",
 			"clustermesh.apiserver.image.repository": "quay.io/cilium/clustermesh-apiserver-ci",
+		}
+
+		hasNewHelmValues := versioncheck.MustCompile(">=1.12.90")
+		if hasNewHelmValues(versioncheck.MustVersion(newHelmChartVersion)) {
+			opts["bandwidthManager.enabled"] = "false "
+		} else {
+			opts["bandwidthManager"] = "false "
 		}
 
 		// Eventually allows multiple return values, and performs the assertion

@@ -124,11 +124,7 @@ func NewIPCache(c *Configuration) *IPCache {
 		metadata:          newMetadata(),
 		Configuration:     c,
 	}
-	ctx := context.Background()
-	if c != nil && c.Context != nil {
-		ctx = c.Context
-	}
-	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(ctx, ipc, 1*time.Millisecond)
+	ipc.deferredPrefixRelease = newAsyncPrefixReleaser(c.Context, ipc, 1*time.Millisecond)
 	return ipc
 }
 

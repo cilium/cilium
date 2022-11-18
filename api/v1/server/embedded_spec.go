@@ -976,6 +976,34 @@ func init() {
         }
       }
     },
+    "/map/{name}/events": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieves the recent event logs associated with this endpoint.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/map-name"
+          },
+          {
+            "$ref": "#/parameters/follow"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
     "/metrics/": {
       "get": {
         "tags": [
@@ -3234,6 +3262,46 @@ func init() {
         "type": "string"
       }
     },
+    "MapEvent": {
+      "description": "Event on Map",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action type for event",
+          "type": "string",
+          "enum": [
+            "update",
+            "delete"
+          ]
+        },
+        "desired-action": {
+          "description": "Desired action to be performed after this event",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "key": {
+          "description": "Map key on which the event occured",
+          "type": "string"
+        },
+        "last-error": {
+          "description": "Last error seen while performing desired action",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp when the event occurred",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Map value on which the event occured",
+          "type": "string"
+        }
+      }
+    },
     "Masquerading": {
       "description": "Status of masquerading\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -4206,6 +4274,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "follow": {
+      "type": "boolean",
+      "description": "Whether to follow streamed requests",
+      "name": "follow",
+      "in": "query"
     },
     "identity-id": {
       "type": "string",
@@ -5416,6 +5490,41 @@ func init() {
             "description": "Success",
             "schema": {
               "$ref": "#/definitions/BPFMap"
+            }
+          },
+          "404": {
+            "description": "Map not found"
+          }
+        }
+      }
+    },
+    "/map/{name}/events": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieves the recent event logs associated with this endpoint.",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "Name of map",
+            "name": "name",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "boolean",
+            "description": "Whether to follow streamed requests",
+            "name": "follow",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
             }
           },
           "404": {
@@ -8102,6 +8211,46 @@ func init() {
         "type": "string"
       }
     },
+    "MapEvent": {
+      "description": "Event on Map",
+      "type": "object",
+      "properties": {
+        "action": {
+          "description": "Action type for event",
+          "type": "string",
+          "enum": [
+            "update",
+            "delete"
+          ]
+        },
+        "desired-action": {
+          "description": "Desired action to be performed after this event",
+          "type": "string",
+          "enum": [
+            "ok",
+            "insert",
+            "delete"
+          ]
+        },
+        "key": {
+          "description": "Map key on which the event occured",
+          "type": "string"
+        },
+        "last-error": {
+          "description": "Last error seen while performing desired action",
+          "type": "string"
+        },
+        "timestamp": {
+          "description": "Timestamp when the event occurred",
+          "type": "string",
+          "format": "date-time"
+        },
+        "value": {
+          "description": "Map value on which the event occured",
+          "type": "string"
+        }
+      }
+    },
     "Masquerading": {
       "description": "Status of masquerading\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -9136,6 +9285,12 @@ func init() {
       "name": "id",
       "in": "path",
       "required": true
+    },
+    "follow": {
+      "type": "boolean",
+      "description": "Whether to follow streamed requests",
+      "name": "follow",
+      "in": "query"
     },
     "identity-id": {
       "type": "string",

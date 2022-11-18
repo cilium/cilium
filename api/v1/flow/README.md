@@ -50,6 +50,7 @@
     - [IPVersion](#flow-IPVersion)
     - [L7FlowType](#flow-L7FlowType)
     - [LostEventSource](#flow-LostEventSource)
+    - [SocketTranslationPoint](#flow-SocketTranslationPoint)
     - [TraceObservationPoint](#flow-TraceObservationPoint)
     - [TrafficDirection](#flow-TrafficDirection)
     - [Verdict](#flow-Verdict)
@@ -288,6 +289,9 @@ EventTypeFilter is a filter describing a particular event type
 | interface | [NetworkInterface](#flow-NetworkInterface) |  | interface is the network interface on which this flow was observed |
 | proxy_port | [uint32](#uint32) |  | proxy_port indicates the port of the proxy to which the flow was forwarded |
 | trace_context | [TraceContext](#flow-TraceContext) |  | trace_context contains information about a trace related to the flow, if any. |
+| sock_xlate_point | [SocketTranslationPoint](#flow-SocketTranslationPoint) |  | sock_xlate_point is the socket translation point. Only applicable to TraceSock notifications, blank for other types |
+| socket_cookie | [uint64](#uint64) |  | socket_cookie is the Linux kernel socket cookie for this flow. Only applicable to TraceSock notifications, zero for other types |
+| cgroup_id | [uint64](#uint64) |  | cgroup_id of the process which emitted this event. Only applicable to TraceSock notifications, zero for other types |
 | Summary | [string](#string) |  | **Deprecated.** This is a temporary workaround to support summary field for pb.Flow without duplicating logic from the old parser. This field will be removed once we fully migrate to the new parser. |
 
 
@@ -971,6 +975,7 @@ EventType are constants are based on the ones from &lt;linux/perf_event.h&gt;.
 | UNKNOWN_TYPE | 0 |  |
 | L3_L4 | 1 | not sure about the underscore here, but `L34` also reads strange |
 | L7 | 2 |  |
+| SOCK | 3 |  |
 
 
 
@@ -1013,6 +1018,21 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 | PERF_EVENT_RING_BUFFER | 1 | PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF perf event ring buffer, indicating that userspace agent did not keep up with the events produced by the datapath. |
 | OBSERVER_EVENTS_QUEUE | 2 | OBSERVER_EVENTS_QUEUE indicates that events were dropped because the Hubble events queue was full, indicating that the Hubble observer did not keep up. |
 | HUBBLE_RING_BUFFER | 3 | HUBBLE_RING_BUFFER indicates that the event was dropped because it could not be read from Hubble&#39;s ring buffer in time before being overwritten. |
+
+
+
+<a name="flow-SocketTranslationPoint"></a>
+
+### SocketTranslationPoint
+This mirrors enum xlate_point in bpf/lib/trace_sock.h
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| SOCK_XLATE_POINT_UNKNOWN | 0 |  |
+| SOCK_XLATE_POINT_PRE_DIRECTION_FWD | 1 | Pre service translation |
+| SOCK_XLATE_POINT_POST_DIRECTION_FWD | 2 | Post service translation |
+| SOCK_XLATE_POINT_PRE_DIRECTION_REV | 3 | Pre reverse service translation |
+| SOCK_XLATE_POINT_POST_DIRECTION_REV | 4 | Post reverse service translation |
 
 
 
@@ -1059,12 +1079,14 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| VERDICT_UNKNOWN | 0 |  |
-| FORWARDED | 1 |  |
-| DROPPED | 2 |  |
-| ERROR | 3 |  |
-| AUDIT | 4 |  |
-| REDIRECTED | 5 |  |
+| VERDICT_UNKNOWN | 0 | UNKNOWN is used if there is no verdict for this flow event |
+| FORWARDED | 1 | FORWARDED is used for flow events where the trace point has forwarded this packet or connection to the next processing entity. |
+| DROPPED | 2 | DROPPED is used for flow events where the connection or packet has been dropped (e.g. due to a malformed packet, it being rejected by a network policy etc). The exact drop reason may be found in drop_reason_desc. |
+| ERROR | 3 | ERROR is used for flow events where an error occurred during processing |
+| AUDIT | 4 | AUDIT is used on policy verdict events in policy audit mode, to denominate flows that would have been dropped by policy if audit mode was turned off |
+| REDIRECTED | 5 | REDIRECTED is used for flow events which have been redirected to the proxy |
+| TRACED | 6 | TRACED is used for flow events which have been observed at a trace point, but no particular verdict has been reached yet |
+| TRANSLATED | 7 | TRANSLATED is used for flow events where an address has been translated |
 
 
  

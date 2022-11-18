@@ -270,7 +270,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - 1.1.1.1
+            - https://1.1.1.1
         livenessProbe:
           timeoutSeconds: 7
           exec:
@@ -282,7 +282,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - 1.1.1.1
+            - https://1.1.1.1
   selector:
     matchLabels:
       name: pod-to-external-1111

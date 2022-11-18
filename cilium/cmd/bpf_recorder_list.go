@@ -20,12 +20,11 @@ var bpfRecorderListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
 	Short:   "List PCAP recorder entries",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		common.RequireRootPrivilege("cilium bpf recorder list")
-		maps := make([]interface{}, 2)
-		maps[0] = recorder.CaptureMap4
+		maps := []recorder.CaptureMap{recorder.CaptureMap4()}
 		if getIpv6EnableStatus() {
-			maps[1] = recorder.CaptureMap6
+			maps = append(maps, recorder.CaptureMap6())
 		}
 		dumpRecorderEntries(maps)
 	},
@@ -36,16 +35,16 @@ func init() {
 	command.AddOutputOption(bpfRecorderListCmd)
 }
 
-func dumpRecorderEntries(maps []interface{}, args ...interface{}) {
+func dumpRecorderEntries(maps []recorder.CaptureMap) {
 	entries := make([]recorder.MapRecord, 0)
 
 	for _, m := range maps {
 		if m == nil {
 			continue
 		}
-		path, err := m.(recorder.CaptureMap).Path()
+		path, err := m.Path()
 		if err == nil {
-			err = m.(recorder.CaptureMap).Open()
+			err = m.Open()
 		}
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -54,17 +53,17 @@ func dumpRecorderEntries(maps []interface{}, args ...interface{}) {
 			}
 			Fatalf("Unable to open %s: %s", path, err)
 		}
-		defer m.(recorder.CaptureMap).Close()
+		defer m.Close()
 		if command.OutputOption() {
 			callback := func(key bpf.MapKey, value bpf.MapValue) {
 				record := recorder.MapRecord{Key: key.(recorder.RecorderKey), Value: value.(recorder.RecorderEntry)}
 				entries = append(entries, record)
 			}
-			if err = m.(recorder.CaptureMap).DumpWithCallback(callback); err != nil {
+			if err = m.DumpWithCallback(callback); err != nil {
 				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {
-			out, err := m.(recorder.CaptureMap).DumpEntries()
+			out, err := m.DumpEntries()
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}

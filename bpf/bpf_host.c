@@ -760,100 +760,15 @@ drop_err:
 	return ret;
 }
 
-static __always_inline int
-do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
-		      __u16 proto __maybe_unused,
-		      int *encrypt_iface __maybe_unused,
-		      int *ext_err __maybe_unused)
-{
-	int ret = 0;
-	/* Only do FIB lookup if both the BPF helper is supported and we know
-	 * the egress ineterface. If we don't have an egress interface,
-	 * typically in an environment with many egress devs than we have
-	 * to let the stack decide how to egress the packet. EKS is the
-	 * example of an environment with multiple egress interfaces.
-	 */
-#if defined(HAVE_FIB_LOOKUP) && defined(ENCRYPT_IFACE)
-	struct bpf_fib_lookup fib_params = {};
-	void *data, *data_end;
-	int err;
-
-	if (proto ==  bpf_htons(ETH_P_IP)) {
-		struct iphdr *ip4;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
-			ret = DROP_INVALID;
-			goto drop_err_fib;
-		}
-
-		fib_params.family = AF_INET;
-		fib_params.ipv4_src = ip4->saddr;
-		fib_params.ipv4_dst = ip4->daddr;
-	} else {
-		struct ipv6hdr *ip6;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-			ret = DROP_INVALID;
-			goto drop_err_fib;
-		}
-
-		fib_params.family = AF_INET6;
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
-		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
-	}
-
-	fib_params.ifindex = *encrypt_iface;
-
-	err = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-		    BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (err != 0) {
-		*ext_err = err;
-		ret = DROP_NO_FIB;
-		goto drop_err_fib;
-	}
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err_fib;
-	}
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err_fib;
-	}
-	*encrypt_iface = fib_params.ifindex;
-drop_err_fib:
-#endif /* HAVE_FIB_LOOKUP */
-	return ret;
-}
-
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto,
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 					     __u32 src_id)
 {
-	int encrypt_iface = 0;
-	int ext_err = 0;
-	int ret = 0;
-#if defined(ENCRYPT_IFACE) && defined(HAVE_FIB_LOOKUP)
-	encrypt_iface = ENCRYPT_IFACE;
-#endif
+	int ret;
+
 	ret = do_netdev_encrypt_pools(ctx);
 	if (ret)
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	ret = do_netdev_encrypt_fib(ctx, proto, &encrypt_iface, &ext_err);
-	if (ret)
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
-
-	bpf_clear_meta(ctx);
-#ifdef HAVE_FIB_LOOKUP
-	/* Redirect only works if we have a fib lookup to set the MAC
-	 * addresses. Otherwise let the stack do the routing and fib
-	 * Note, without FIB lookup implemented the packet may have
-	 * incorrect dmac leaving bpf_host so will need to mark as
-	 * PACKET_HOST or otherwise fixup MAC addresses.
-	 */
-	if (encrypt_iface)
-		return ctx_redirect(ctx, encrypt_iface, 0);
-#endif
 	return CTX_ACT_OK;
 }
 
@@ -874,7 +789,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 						0, NOT_VTEP_DST, &trace);
 }
 
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto __maybe_unused,
+static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 					     __u32 src_id)
 {
 	return do_netdev_encrypt_encap(ctx, src_id);
@@ -921,7 +836,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
 					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 					  TRACE_PAYLOAD_LEN);
-			return do_netdev_encrypt(ctx, proto, identity);
+			return do_netdev_encrypt(ctx, identity);
 		}
 #endif
 

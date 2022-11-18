@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type probeKey struct {
@@ -41,10 +42,12 @@ func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Valu
 // with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.
 func HaveFullLPM() bool {
 	haveFullLPMOnce.Do(func() {
-		m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
+		mapName := "cilium_test"
+		m := bpf.NewMap(mapName, bpf.MapTypeLPMTrie,
 			&probeKey{}, int(unsafe.Sizeof(probeKey{})),
 			&probeValue{}, int(unsafe.Sizeof(probeValue{})),
-			1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
+			1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache().
+			WithEvents(option.Config.GetEventBufferConfig(mapName))
 		err := m.CreateUnpinned()
 		defer m.Close()
 		if err != nil {

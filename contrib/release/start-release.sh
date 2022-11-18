@@ -113,12 +113,12 @@ main() {
     else
       $DIR/prep-changelog.sh "$old_version" "$version"
     fi
+    git commit -a -s -m "Prepare for release $version"
 
     logecho "Next steps:"
-    logecho "* Check all changes and add to a new commit"
+    logecho "* Check the new release commit with 'git show'"
     logecho "  * If this is a prerelease, create a revert commit"
     logecho "* Push the PR to Github for review ('submit-release.sh')"
-    logecho "* Close https://github.com/cilium/cilium/projects/$old_proj"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"
 
     # Leave $version-changes.txt around for prep-release.sh usage later
