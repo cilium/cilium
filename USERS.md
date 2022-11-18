@@ -402,6 +402,13 @@ Users (Alphabetically)
       D: Rapyuta is using cilium as their main CNI plugin. (self hosted k8s)
       U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
       Q: @Gowtham
+      
+    * N: Rafay Systems
+      D: Rafay's Kubernetes Operations Platform uses Cilium for centralized network visibility and network policy enforcement
+      U: NetworkPolicy, Visibility via Prometheus metrics & Hubble
+      L: https://rafay.co/platform/network-policy-manager/
+      Q: @cloudnativeboy @mohanatreya
+
 
     * N: SAP
       D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
