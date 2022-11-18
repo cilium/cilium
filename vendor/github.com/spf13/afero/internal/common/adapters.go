@@ -1,4 +1,4 @@
-// Copyright © 2016 Steve Francia <spf@spf13.com>.
+// Copyright © 2022 Steve Francia <spf@spf13.com>.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -10,13 +10,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:build !darwin && !openbsd && !freebsd && !dragonfly && !netbsd && !aix
-// +build !darwin,!openbsd,!freebsd,!dragonfly,!netbsd,!aix
 
-package afero
+package common
 
-import (
-	"syscall"
-)
+import "io/fs"
 
-const BADFD = syscall.EBADFD
+// FileInfoDirEntry provides an adapter from os.FileInfo to fs.DirEntry
+type FileInfoDirEntry struct {
+	fs.FileInfo
+}
+
+var _ fs.DirEntry = FileInfoDirEntry{}
+
+func (d FileInfoDirEntry) Type() fs.FileMode { return d.FileInfo.Mode().Type() }
+
+func (d FileInfoDirEntry) Info() (fs.FileInfo, error) { return d.FileInfo, nil }

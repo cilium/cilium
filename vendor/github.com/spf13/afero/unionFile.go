@@ -65,7 +65,7 @@ func (f *UnionFile) ReadAt(s []byte, o int64) (int, error) {
 	if f.Layer != nil {
 		n, err := f.Layer.ReadAt(s, o)
 		if (err == nil || err == io.EOF) && f.Base != nil {
-			_, err = f.Base.Seek(o+int64(n), os.SEEK_SET)
+			_, err = f.Base.Seek(o+int64(n), io.SeekStart)
 		}
 		return n, err
 	}
