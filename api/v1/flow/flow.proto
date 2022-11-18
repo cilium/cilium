@@ -412,6 +412,7 @@ message FlowFilter {
     repeated Verdict verdict = 5;
     // event_type is the list of event types to filter on
     repeated EventTypeFilter event_type = 6;
+    
     // http_status_code is a list of string prefixes (e.g. "4+", "404", "5+")
     // to filter on the HTTP status code
     repeated string http_status_code = 9;
@@ -435,6 +436,7 @@ message FlowFilter {
     // GET, POST, PUT, etc. methods. This type of field is well suited for an
     // enum but every single existing place is using a string already.
     repeated string http_method = 21;
+    
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
 
@@ -450,6 +452,9 @@ message FlowFilter {
 
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
+
+    //http_header filters flows based on HTTPheader
+    repeated HTTPHeader http_header=29;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.

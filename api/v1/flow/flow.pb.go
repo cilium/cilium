@@ -79,7 +79,7 @@ type TraceObservationPoint int32
 const (
 	// Cilium treats 0 as TO_LXC, but its's something we should work to remove.
 	// This is intentionally set as unknown, so proto API can guarantee the
-	// observation point is always going to be present on trace events.
+	// observatfion point is always going to be present on trace events.
 	TraceObservationPoint_UNKNOWN_POINT TraceObservationPoint = 0
 	TraceObservationPoint_TO_PROXY      TraceObservationPoint = 1
 	TraceObservationPoint_TO_HOST       TraceObservationPoint = 2
@@ -2589,6 +2589,8 @@ type FlowFilter struct {
 	IpVersion []IPVersion `protobuf:"varint,25,rep,packed,name=ip_version,json=ipVersion,proto3,enum=flow.IPVersion" json:"ip_version,omitempty"`
 	// trace_id filters flows by trace ID
 	TraceId []string `protobuf:"bytes,28,rep,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+
+	HttpHeader []*HTTPHeader `protobuf:"bytes,29,rep,name=http_header,json=httpHeader,proto3" json:"http_header,omitempty"`
 }
 
 func (x *FlowFilter) Reset() {
@@ -2672,7 +2674,7 @@ func (x *FlowFilter) GetDestinationIp() []string {
 	return nil
 }
 
-func (x *FlowFilter) GetDestinationPod() []string {
+func (x *FlowFilter) GetDestinationPod() []string 
 	if x != nil {
 		return x.DestinationPod
 	}
@@ -2815,6 +2817,13 @@ func (x *FlowFilter) GetIpVersion() []IPVersion {
 func (x *FlowFilter) GetTraceId() []string {
 	if x != nil {
 		return x.TraceId
+	}
+	return nil
+}
+
+func (x *FlowFilter) GetHttpHeader() []string {
+	if x != nil {
+		return x.HttpHeader
 	}
 	return nil
 }

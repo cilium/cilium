@@ -137,6 +137,7 @@ var DefaultFilters = []OnBuildFilter{
 	&LabelsFilter{},
 	&PortFilter{},
 	&HTTPFilter{},
+	&HTTPHeaderFilter{},
 	&TCPFilter{},
 	&NodeNameFilter{},
 	&IPVersionFilter{},
