@@ -1634,3 +1634,87 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	c.Assert(found, Equals, true)
 
 }
+
+func (m *ManagerTestSuite) TestTrafficPolicy(c *C) {
+	internalIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeInternal, 0)
+	externalIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
+
+	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
+	localBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.2"), 8080)
+	localBackend1.NodeName = nodeTypes.GetName()
+	localBackend2.NodeName = nodeTypes.GetName()
+	localBackends := []*lb.Backend{localBackend1, localBackend2}
+
+	remoteBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.3"), 8080)
+	remoteBackend2 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.4"), 8080)
+	remoteBackend3 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.5"), 8080)
+	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
+	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
+	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()
+	remoteBackends := []*lb.Backend{remoteBackend1, remoteBackend2, remoteBackend3}
+
+	allBackends := make([]*lb.Backend, 0, len(remoteBackends)+len(remoteBackends))
+	allBackends = append(allBackends, localBackends...)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:         internalIP,
+		Backends:         allBackends,
+		Type:             lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
+		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+	created, id1, err := m.svc.UpsertService(p1)
+	c.Assert(created, Equals, true)
+	c.Assert(err, IsNil)
+
+	p2 := &lb.SVC{
+		Frontend:         externalIP,
+		Backends:         allBackends,
+		Type:             lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
+		Name:             lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+	created, id2, err := m.svc.UpsertService(p2)
+	c.Assert(created, Equals, true)
+	c.Assert(err, IsNil)
+
+	svcFromLbMap1, ok := m.lbmap.ServiceByID[uint16(id1)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap1.Backends), Equals, len(localBackends))
+
+	svcFromLbMap2, ok := m.lbmap.ServiceByID[uint16(id2)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap2.Backends), Equals, len(allBackends))
+
+	p1.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
+	p1.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
+	created, id3, err := m.svc.UpsertService(p1)
+	c.Assert(created, Equals, false)
+	c.Assert(err, IsNil)
+	c.Assert(id3, Equals, id1)
+
+	svcFromLbMap3, ok := m.lbmap.ServiceByID[uint16(id1)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap3.Backends), Equals, len(allBackends))
+
+	p2.ExtTrafficPolicy = lb.SVCTrafficPolicyLocal
+	p2.IntTrafficPolicy = lb.SVCTrafficPolicyCluster
+	created, id4, err := m.svc.UpsertService(p2)
+	c.Assert(created, Equals, false)
+	c.Assert(err, IsNil)
+	c.Assert(id4, Equals, id2)
+
+	svcFromLbMap4, ok := m.lbmap.ServiceByID[uint16(id2)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap4.Backends), Equals, len(localBackends))
+
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+}
