@@ -373,6 +373,9 @@ const (
 	// EnableIngressController enables Ingress Controller
 	EnableIngressController = "enable-ingress-controller"
 
+	// EnableGatewayAPI enables Gateway API support
+	EnableGatewayAPI = "enable-gateway-api"
+
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
@@ -1089,6 +1092,9 @@ const (
 	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
 
+	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
+	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -1634,6 +1640,7 @@ type DaemonConfig struct {
 	InstallEgressGatewayRoutes bool
 	EnableEnvoyConfig          bool
 	EnableIngressController    bool
+	EnableGatewayAPI           bool
 	EnvoyConfigTimeout         time.Duration
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
@@ -2251,8 +2258,8 @@ type DaemonConfig struct {
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
-	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
-	EnvoySecretNamespace string
+	// EnvoySecretNamespaces for TLS secrets. Used by CiliumEnvoyConfig via SDS.
+	EnvoySecretNamespaces []string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
@@ -2549,6 +2556,11 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 	return c.EnableIngressController
+}
+
+// K8sGatewayAPIEnabled returns true if Gateway API feature is enabled in Cilium
+func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
+	return c.EnableGatewayAPI
 }
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
@@ -2886,6 +2898,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.InstallEgressGatewayRoutes = vp.GetBool(InstallEgressGatewayRoutes)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
+	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnvoyConfigTimeout = vp.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
@@ -3269,8 +3282,16 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
-	// Envoy secrets namespace to watch
-	c.EnvoySecretNamespace = vp.GetString(IngressSecretsNamespace)
+	// Envoy secrets namespaces to watch
+	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace}
+	var nsList = make([]string, 0, len(params))
+	for _, param := range params {
+		ns := vp.GetString(param)
+		if ns != "" {
+			nsList = append(nsList, ns)
+		}
+	}
+	c.EnvoySecretNamespaces = nsList
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {
