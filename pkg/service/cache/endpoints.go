@@ -7,11 +7,22 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+// TODO: Move these types.go?
+
 // newEndpoints returns a new Endpoints
 func newEndpoints() *Endpoints {
 	return &Endpoints{
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{},
 	}
+}
+
+// externalEndpoints is the collection of external endpoints in all remote
+// clusters. The map key is the name of the remote cluster.
+type externalEndpoints map[string]*Endpoints
+
+// newExternalEndpoints returns a new ExternalEndpoints
+func newExternalEndpoints() externalEndpoints {
+	return externalEndpoints(map[string]*Endpoints{})
 }
 
 // filterEndpoints filters local endpoints by using k8s service heuristics.
@@ -82,6 +93,8 @@ func (sc *serviceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 
 	localEndpoints := sc.endpoints[id].GetEndpoints()
 	svc, svcFound := sc.services[id]
+
+	sc.Log.Infof("correlateEndpoints(%s) -> %v", id, localEndpoints)
 
 	hasLocalEndpoints := localEndpoints != nil
 	if hasLocalEndpoints {

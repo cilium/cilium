@@ -33,6 +33,10 @@ func New(ctx context.Context, clientset client.Clientset, indexer cache.Store) (
 	}
 	go mgr.run()
 
+	// We can mark the controller as synced right away since the store we got
+	// is already synced.
+	ctrl.MarkSynced()
+
 	return mgr, nil
 }
 
@@ -58,8 +62,4 @@ type Manager struct {
 	// by the watcher. This is used in order to handle delete events. See
 	// comment inside (*Manager).run().
 	indexer cache.Store
-}
-
-func (m *Manager) MarkSynced() {
-	m.controller.MarkSynced()
 }

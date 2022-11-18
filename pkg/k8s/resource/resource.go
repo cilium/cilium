@@ -141,6 +141,8 @@ type resource[T k8sRuntime.Object] struct {
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
+
+	transform cache.TransformFunc
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}

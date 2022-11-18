@@ -68,12 +68,12 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	}
 	cache.endpoints = map[ServiceID]*EndpointSlices{
 		svcID1: {
-			epSlices: map[string]*Endpoints{
+			EpSlices: map[string]*Endpoints{
 				"": &endpoints,
 			},
 		},
 		svcID2: {
-			epSlices: map[string]*Endpoints{
+			EpSlices: map[string]*Endpoints{
 				"": &endpoints,
 			},
 		},
@@ -136,10 +136,10 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 		},
 	}
 
-	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	updateEndpoints := func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup) {
 		svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
 	}
-	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	deleteEndpoints := func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup) {
 		svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
 	}
 
@@ -172,10 +172,10 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 		},
 	}
 
-	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	updateEndpoints := func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup) {
 		svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swgEps)
 	}
-	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
+	deleteEndpoints := func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup) {
 		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
 	}
 
@@ -183,7 +183,7 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 }
 
 func testServiceCache(c *check.C,
-	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup)) {
+	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup)) {
 
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 

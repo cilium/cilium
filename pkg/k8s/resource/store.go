@@ -35,6 +35,10 @@ type typedStore[T k8sRuntime.Object] struct {
 
 var _ Store[*corev1.Node] = &typedStore[*corev1.Node]{}
 
+func (s *typedStore[T]) CacheStore() cache.Store {
+	return s.store
+}
+
 func (s *typedStore[T]) List() []T {
 	items := s.store.List()
 	result := make([]T, len(items))
@@ -59,10 +63,6 @@ func (s *typedStore[T]) GetByKey(key Key) (item T, exists bool, err error) {
 		item = itemAny.(T)
 	}
 	return
-}
-
-func (s *typedStore[T]) CacheStore() cache.Store {
-	return s.store
 }
 
 type KeyIter interface {

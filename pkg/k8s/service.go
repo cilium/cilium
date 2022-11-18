@@ -66,16 +66,6 @@ func getAnnotationTopologyAwareHints(svc *slim_corev1.Service) bool {
 	return false
 }
 
-// isValidServiceFrontendIP returns true if the provided service frontend IP address type
-// is supported in cilium configuration.
-func isValidServiceFrontendIP(netIP net.IP) bool {
-	if (option.Config.EnableIPv4 && ip.IsIPv4(netIP)) || (option.Config.EnableIPv6 && ip.IsIPv6(netIP)) {
-		return true
-	}
-
-	return false
-}
-
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
 func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 	return ServiceID{

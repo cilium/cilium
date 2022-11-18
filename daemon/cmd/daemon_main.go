@@ -78,6 +78,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
+	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -454,10 +455,6 @@ func initializeFlags() {
 
 	flags.Bool(option.K8sRequireIPv6PodCIDRName, false, "Require IPv6 PodCIDR to be specified in node resource")
 	option.BindEnv(Vp, option.K8sRequireIPv6PodCIDRName)
-
-	flags.Uint(option.K8sServiceCacheSize, defaults.K8sServiceCacheSize, "Cilium service cache size for kubernetes")
-	option.BindEnv(Vp, option.K8sServiceCacheSize)
-	flags.MarkHidden(option.K8sServiceCacheSize)
 
 	flags.String(option.K8sWatcherEndpointSelector, defaults.K8sWatcherEndpointSelector, "K8s endpoint watcher will watch for these k8s endpoints")
 	option.BindEnv(Vp, option.K8sWatcherEndpointSelector)
@@ -1549,7 +1546,7 @@ func (d *Daemon) initKVStore() {
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
-			grpc.WithContextDialer(k8s.CreateCustomDialer(&d.k8sWatcher.K8sSvcCache, log)),
+			grpc.WithContextDialer(k8s.CreateCustomDialer(d.k8sWatcher.K8sSvcCache, log)),
 		}
 	}
 
@@ -1638,6 +1635,7 @@ type daemonParams struct {
 	LocalNodeStore  node.LocalNodeStore
 	Shutdowner      hive.Shutdowner
 	SharedResources k8s.SharedResources
+	ServiceCache    serviceCache.ServiceCache
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1665,7 +1663,9 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Datapath,
 				params.WGAgent,
 				params.Clientset,
-				params.SharedResources)
+				params.SharedResources,
+				params.ServiceCache,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

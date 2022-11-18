@@ -73,8 +73,8 @@ func (in *EndpointSlices) DeepEqual(other *EndpointSlices) bool {
 		return false
 	}
 
-	if ((in.epSlices != nil) && (other.epSlices != nil)) || ((in.epSlices == nil) != (other.epSlices == nil)) {
-		in, other := &in.epSlices, &other.epSlices
+	if ((in.EpSlices != nil) && (other.EpSlices != nil)) || ((in.EpSlices == nil) != (other.EpSlices == nil)) {
+		in, other := &in.EpSlices, &other.EpSlices
 		if other == nil {
 			return false
 		}

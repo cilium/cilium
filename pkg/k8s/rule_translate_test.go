@@ -328,7 +328,7 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 
 	cache.endpoints = map[ServiceID]*EndpointSlices{
 		serviceInfo: {
-			epSlices: map[string]*Endpoints{
+			EpSlices: map[string]*Endpoints{
 				"": &endpointInfo,
 			},
 		},

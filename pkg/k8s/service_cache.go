@@ -3,78 +3,10 @@
 
 package k8s
 
-import (
-	"net"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/sirupsen/logrus"
-	core_v1 "k8s.io/api/core/v1"
-
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/ip"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
-	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
-)
-
-// CacheAction is the type of action that was performed on the cache
-type CacheAction int
-
-const (
-	// UpdateService reflects that the service was updated or added
-	UpdateService CacheAction = iota
-
-	// DeleteService reflects that the service was deleted
-	DeleteService
-)
-
-// Used to implement the topology aware hints.
-const LabelTopologyZone = "topology.kubernetes.io/zone"
-
-// String returns the cache action as a string
-func (c CacheAction) String() string {
-	switch c {
-	case UpdateService:
-		return "service-updated"
-	case DeleteService:
-		return "service-deleted"
-	default:
-		return "unknown"
-	}
-}
-
-// ServiceEvent is emitted via the Events channel of ServiceCache and describes
-// the change that occurred in the cache
-type ServiceEvent struct {
-	// Action is the action that was performed in the cache
-	Action CacheAction
-
-	// ID is the identified of the service
-	ID ServiceID
-
-	// Service is the service structure
-	Service *Service
-
-	// OldService is the service structure
-	OldService *Service
-
-	// Endpoints is the endpoints structured correlated with the service
-	Endpoints *Endpoints
-
-	// SWG provides a mechanism to detect if a service was synchronized with
-	// the datapath.
-	SWG *lock.StoppableWaitGroup
-}
-
-// ServiceCache is a list of services correlated with the matching endpoints.
+/*
+// ServiceCacheOLD is a list of services correlated with the matching endpoints.
 // The Events member will receive events as services.
-type ServiceCache struct {
+type ServiceCacheOLD struct {
 	Events chan ServiceEvent
 
 	// mutex protects the maps below including the concurrent access of each
@@ -95,8 +27,8 @@ type ServiceCache struct {
 }
 
 // NewServiceCache returns a new ServiceCache
-func NewServiceCache(nodeAddressing types.NodeAddressing) ServiceCache {
-	return ServiceCache{
+func NewServiceCache(nodeAddressing types.NodeAddressing) ServiceCacheOLD {
+	return ServiceCacheOLD{
 		services:          map[ServiceID]*Service{},
 		endpoints:         map[ServiceID]*EndpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
@@ -108,7 +40,7 @@ func NewServiceCache(nodeAddressing types.NodeAddressing) ServiceCache {
 // GetServiceIP returns a random L3n4Addr that is backing the given Service ID.
 // The returned IP is with external scope since its string representation might
 // be used for net Dialer.
-func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
+func (s *ServiceCacheOLD) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
@@ -129,7 +61,7 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 }
 
 // GetServiceFrontendIP returns the frontend IP (aka clusterIP) for the given service with type.
-func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) net.IP {
+func (s *ServiceCacheOLD) GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) net.IP {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	svc := s.services[svcID]
@@ -143,7 +75,7 @@ func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalance
 // GetServiceAddrsWithType returns a map of all the ports and slice of L3n4Addr that are backing the
 // given Service ID with given type. It also returns the number of frontend IPs associated with the service.
 // Note: The returned IPs are with External scope.
-func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
+func (s *ServiceCacheOLD) GetServiceAddrsWithType(svcID ServiceID,
 	svcType loadbalancer.SVCType) (map[loadbalancer.FEPortName][]*loadbalancer.L3n4Addr, int) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -169,7 +101,7 @@ func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID,
 
 // GetEndpointsOfService returns all the endpoints that correlate with a
 // service given a ServiceID.
-func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
+func (s *ServiceCacheOLD) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	eps, ok := s.endpoints[svcID]
@@ -180,7 +112,7 @@ func (s *ServiceCache) GetEndpointsOfService(svcID ServiceID) *Endpoints {
 }
 
 // GetNodeAddressing returns the registered node addresses to this service cache.
-func (s *ServiceCache) GetNodeAddressing() types.NodeAddressing {
+func (s *ServiceCacheOLD) GetNodeAddressing() types.NodeAddressing {
 	return s.nodeAddressing
 }
 
@@ -188,7 +120,7 @@ func (s *ServiceCache) GetNodeAddressing() types.NodeAddressing {
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCacheOLD) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID, newService := ParseService(k8sSvc, s.nodeAddressing)
 	if newService == nil {
 		return svcID
@@ -223,7 +155,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	return svcID
 }
 
-func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGroup) bool {
+func (s *ServiceCacheOLD) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGroup) bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	if svc, found := s.services[svcID]; found {
@@ -245,7 +177,7 @@ func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGro
 
 // DeleteService parses a Kubernetes service and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
 	svcID := ParseServiceID(k8sSvc)
 
 	s.mutex.Lock()
@@ -267,13 +199,13 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	}
 }
 
-func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCacheOLD) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	eps, ok := s.endpoints[esID.ServiceID]
 	if ok {
-		if eps.epSlices[esID.EndpointSliceName].DeepEqual(newEndpoints) {
+		if eps.EpSlices[esID.EndpointSliceName].DeepEqual(newEndpoints) {
 			return esID.ServiceID, newEndpoints
 		}
 	} else {
@@ -304,23 +236,23 @@ func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpo
 // ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
 // be parsed and a bool to indicate whether the endpoints was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCacheOLD) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	epSliceID, newEndpoints := ParseEndpoints(k8sEndpoints)
 	return s.updateEndpoints(epSliceID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCacheOLD) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	epSliceID, newEndpoints := ParseEndpointSliceV1(epSlice)
 	return s.updateEndpoints(epSliceID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCacheOLD) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCacheOLD) deleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -349,12 +281,12 @@ func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCacheOLD) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
 	epSliceID := ParseEndpointsID(k8sEndpoints)
 	return s.deleteEndpoints(epSliceID, swg)
 }
 
-func (s *ServiceCache) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCacheOLD) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointSliceID(epSlice)
 	return s.deleteEndpoints(svcID, swg)
 }
@@ -387,7 +319,7 @@ func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
 // UniqueServiceFrontends returns all externally scoped services known to
 // the service cache as a map, indexed by the string representation of a
 // loadbalancer.L3n4Addr. This helper is only used in unit tests.
-func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
+func (s *ServiceCacheOLD) UniqueServiceFrontends() FrontendList {
 	uniqueFrontends := FrontendList{}
 
 	s.mutex.RLock()
@@ -419,7 +351,7 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 
 // filterEndpoints filters local endpoints by using k8s service heuristics.
 // For now it only implements the topology aware hints.
-func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
+func (s *ServiceCacheOLD) filterEndpoints(localEndpoints *Endpoints, svc *Service) *Endpoints {
 	if !option.Config.EnableServiceTopology || svc == nil || !svc.TopologyAware {
 		return localEndpoints
 	}
@@ -473,7 +405,7 @@ func (s *ServiceCache) filterEndpoints(localEndpoints *Endpoints, svc *Service) 
 //	endpoints resource contains actual backends or not.
 //
 // OR Remote endpoints exist which correlate to the service.
-func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
+func (s *ServiceCacheOLD) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()
 
 	localEndpoints := s.endpoints[id].GetEndpoints()
@@ -521,7 +453,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
 // the local service cache. The service endpoints are stored as external endpoints
 // and are correlated on demand with local services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	// Ignore updates of own cluster
 	if service.Cluster == option.Config.ClusterName {
 		return
@@ -533,7 +465,7 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *serviceStore.ClusterS
 	s.mergeServiceUpdateLocked(service, nil, swg)
 }
 
-func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterService, oldService *Service, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) mergeServiceUpdateLocked(service *serviceStore.ClusterService, oldService *Service, swg *lock.StoppableWaitGroup) {
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 
@@ -580,7 +512,7 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 // remote cluster into the local service cache. The service endpoints are
 // stored as external endpoints and are correlated on demand with local
 // services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 
@@ -629,7 +561,7 @@ func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterS
 // the local service cache. The service endpoints are stored as external endpoints
 // and are correlated on demand with local services via correlateEndpoints().
 // Local service is created and/or updated if needed.
-func (s *ServiceCache) MergeClusterServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) MergeClusterServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 
@@ -649,7 +581,7 @@ func (s *ServiceCache) MergeClusterServiceUpdate(service *serviceStore.ClusterSe
 
 // MergeClusterServiceDelete merges the deletion of a cluster service in a
 // remote cluster into the local service cache, deleting the local service.
-func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCacheOLD) MergeClusterServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 
@@ -680,7 +612,7 @@ func (s *ServiceCache) MergeClusterServiceDelete(service *serviceStore.ClusterSe
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
 // ability
-func (s *ServiceCache) DebugStatus() string {
+func (s *ServiceCacheOLD) DebugStatus() string {
 	s.mutex.RLock()
 	str := spew.Sdump(s)
 	s.mutex.RUnlock()
@@ -689,13 +621,13 @@ func (s *ServiceCache) DebugStatus() string {
 
 // Implementation of subscriber.Node
 
-func (s *ServiceCache) OnAddNode(node *core_v1.Node, swg *lock.StoppableWaitGroup) error {
+func (s *ServiceCacheOLD) OnAddNode(node *core_v1.Node, swg *lock.StoppableWaitGroup) error {
 	s.updateSelfNodeLabels(node.GetLabels(), swg)
 
 	return nil
 }
 
-func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
+func (s *ServiceCacheOLD) OnUpdateNode(oldNode, newNode *core_v1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	s.updateSelfNodeLabels(newNode.GetLabels(), swg)
@@ -703,13 +635,13 @@ func (s *ServiceCache) OnUpdateNode(oldNode, newNode *core_v1.Node,
 	return nil
 }
 
-func (s *ServiceCache) OnDeleteNode(node *core_v1.Node,
+func (s *ServiceCacheOLD) OnDeleteNode(node *core_v1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	return nil
 }
 
-func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
+func (s *ServiceCacheOLD) updateSelfNodeLabels(labels map[string]string,
 	swg *lock.StoppableWaitGroup) {
 
 	if !option.Config.EnableServiceTopology {
@@ -744,4 +676,4 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
 			}
 		}
 	}
-}
+}*/

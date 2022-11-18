@@ -84,7 +84,6 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 				return
 			}
 			valid = true
-			k.K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			k.K8sEventProcessed(resources.MetricEndpointSlice, resources.MetricDelete, true)
 		}
 	} else {
@@ -136,7 +135,6 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 				return
 			}
 			valid = true
-			k.K8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			k.K8sEventProcessed(resources.MetricEndpointSlice, resources.MetricDelete, true)
 		}
 	}
@@ -170,8 +168,6 @@ func (k *K8sWatcher) endpointSlicesInit(slimClient slimclientset.Interface, swgE
 }
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
-	k.K8sSvcCache.UpdateEndpointSlicesV1(eps, swgEps)
-
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1(eps)
 	}
@@ -180,8 +176,6 @@ func (k *K8sWatcher) updateK8sEndpointSliceV1(eps *slim_discover_v1.EndpointSlic
 }
 
 func (k *K8sWatcher) updateK8sEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice, swgEps *lock.StoppableWaitGroup) {
-	k.K8sSvcCache.UpdateEndpointSlicesV1Beta1(eps, swgEps)
-
 	if option.Config.BGPAnnounceLBIP {
 		k.bgpSpeakerManager.OnUpdateEndpointSliceV1Beta1(eps)
 	}

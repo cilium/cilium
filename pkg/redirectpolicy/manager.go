@@ -41,7 +41,7 @@ type svcManager interface {
 }
 
 type svcCache interface {
-	EnsureService(svcID k8s.ServiceID, swg *lock.StoppableWaitGroup) bool
+	EnsureService(svcID k8s.ServiceID) bool
 	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) (map[lb.FEPortName][]*lb.L3n4Addr, int)
 	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
 }
@@ -467,7 +467,7 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
 		}
 		if config.lrpType == lrpConfigTypeSvc {
-			if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
+			if restored := rpm.svcCache.EnsureService(*config.serviceID); restored {
 				log.WithFields(logrus.Fields{
 					logfields.K8sSvcID: *config.serviceID,
 				}).Info("Restored service")
@@ -492,9 +492,8 @@ func (rpm *Manager) deletePolicyService(config *LRPConfig) {
 		}
 	}
 	// Retores the svc backends if there's still such a k8s svc.
-	swg := lock.NewStoppableWaitGroup()
 	svcID := *config.serviceID
-	if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
+	if restored := rpm.svcCache.EnsureService(svcID); restored {
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcID: svcID,
 		}).Debug("Restored service")

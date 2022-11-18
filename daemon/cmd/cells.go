@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -53,8 +55,8 @@ var (
 		// read-only stores.
 		k8s.SharedResourcesCell,
 
-		// ServiceCache provides the 'Services' interface for accessing k8s services
-		// merged with the associated endpoints.
+		// ServiceCache provides an API for accessing services and their associated
+		// endpoints.
 		serviceCache.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
@@ -70,6 +72,12 @@ var (
 		cell.Provide(
 			newWireguardAgent,
 			newDatapath,
+		),
+
+		cell.Provide(
+			func(dp datapath.Datapath) types.NodeAddressing {
+				return dp.LocalNodeAddressing()
+			},
 		),
 	)
 )

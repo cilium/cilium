@@ -212,7 +212,6 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		mesh:        cm,
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
-		swg:         lock.NewStoppableWaitGroup(),
 	}
 
 	return rc

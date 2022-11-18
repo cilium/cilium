@@ -222,33 +222,38 @@ func (k RuleTranslator) deleteToCidrFromEndpoint(
 }
 
 // PreprocessRules translates rules that apply to headless services
-func PreprocessRules(r api.Rules, cache *ServiceCache) error {
+func PreprocessRules(r api.Rules, cache interface{}) error {
+	// FIXME figure out where to stick this into and how it would
+	// interact with service cache. Perhaps exposing an iterator makes sense.
+	panic("TBD")
+	/*
+	   cache.mutex.Lock()
+	   defer cache.mutex.Unlock()
 
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
+	   	for _, rule := range r {
+	   		// Translate only handles egress rules
+	   		if rule.Egress == nil {
+	   			continue
+	   		}
+	   		for ns, ep := range cache.endpoints {
+	   			svc, ok := cache.services[ns]
+	   			if ok && svc.IsExternal() {
+	   				eps := ep.GetEndpoints()
+	   				if eps != nil {
+	   					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
+	   					// We don't need to check the translation result here because the k8s
+	   					// RuleTranslator above sets allocatePrefixes to be false.
+	   					err := t.Translate(rule, &policy.TranslationResult{})
+	   					if err != nil {
+	   						return err
+	   					}
+	   				}
+	   			}
+	   		}
+	   	}
 
-	for _, rule := range r {
-		// Translate only handles egress rules
-		if rule.Egress == nil {
-			continue
-		}
-		for ns, ep := range cache.endpoints {
-			svc, ok := cache.services[ns]
-			if ok && svc.IsExternal() {
-				eps := ep.GetEndpoints()
-				if eps != nil {
-					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
-					// We don't need to check the translation result here because the k8s
-					// RuleTranslator above sets allocatePrefixes to be false.
-					err := t.Translate(rule, &policy.TranslationResult{})
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	return nil
+	   return nil
+	*/
 }
 
 // NewK8sTranslator returns RuleTranslator.

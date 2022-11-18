@@ -383,24 +383,24 @@ func parseEndpointPortV1(port slim_discovery_v1.EndpointPort) (string, *loadbala
 //
 // +deepequal-gen=true
 type EndpointSlices struct {
-	epSlices map[string]*Endpoints
+	EpSlices map[string]*Endpoints
 }
 
 // newEndpointsSlices returns a new EndpointSlices
 func newEndpointsSlices() *EndpointSlices {
 	return &EndpointSlices{
-		epSlices: map[string]*Endpoints{},
+		EpSlices: map[string]*Endpoints{},
 	}
 }
 
 // GetEndpoints returns a read only a single *Endpoints structure with all
 // Endpoints' backends joined.
 func (es *EndpointSlices) GetEndpoints() *Endpoints {
-	if es == nil || len(es.epSlices) == 0 {
+	if es == nil || len(es.EpSlices) == 0 {
 		return nil
 	}
 	allEps := newEndpoints()
-	for _, eps := range es.epSlices {
+	for _, eps := range es.EpSlices {
 		for backend, ep := range eps.Backends {
 			allEps.Backends[backend] = ep
 		}
@@ -415,17 +415,17 @@ func (es *EndpointSlices) Upsert(esName string, e *Endpoints) {
 	if es == nil {
 		panic("BUG: EndpointSlices is nil")
 	}
-	es.epSlices[esName] = e
+	es.EpSlices[esName] = e
 }
 
 // Delete deletes the endpoint slice in the internal map. Returns true if there
 // are not any more endpoints available in the map.
 func (es *EndpointSlices) Delete(esName string) bool {
-	if es == nil || len(es.epSlices) == 0 {
+	if es == nil || len(es.EpSlices) == 0 {
 		return true
 	}
-	delete(es.epSlices, esName)
-	return len(es.epSlices) == 0
+	delete(es.EpSlices, esName)
+	return len(es.EpSlices) == 0
 }
 
 // externalEndpoints is the collection of external endpoints in all remote

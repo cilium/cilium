@@ -206,9 +206,6 @@ const (
 	// K8sKubeConfigPath is the absolute path of the kubernetes kubeconfig file
 	K8sKubeConfigPath = "k8s-kubeconfig-path"
 
-	// K8sServiceCacheSize is service cache size for cilium k8s package.
-	K8sServiceCacheSize = "k8s-service-cache-size"
-
 	// K8sSyncTimeout is the timeout since last event was received to synchronize all resources with k8s.
 	K8sSyncTimeoutName = "k8s-sync-timeout"
 
@@ -1384,9 +1381,6 @@ type DaemonConfig struct {
 	// is available.
 	K8sRequireIPv6PodCIDR bool
 
-	// K8sServiceCacheSize is the service cache size for cilium k8s package.
-	K8sServiceCacheSize uint
-
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
 
@@ -2305,7 +2299,6 @@ var (
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
@@ -2870,7 +2863,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.K8sEnableK8sEndpointSlice = vp.GetBool(K8sEnableEndpointSlice)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
-	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
 	c.K8sEventHandover = vp.GetBool(K8sEventHandover)
 	c.K8sSyncTimeout = vp.GetDuration(K8sSyncTimeoutName)
 	c.AllocatorListTimeout = vp.GetDuration(AllocatorListTimeoutName)

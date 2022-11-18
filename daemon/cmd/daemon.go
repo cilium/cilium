@@ -86,6 +86,7 @@ import (
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
+	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/source"
@@ -378,6 +379,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
+	serviceCache serviceCache.ServiceCache,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -676,6 +678,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.ipcache,
 		d.cgroupManager,
 		sharedResources,
+		serviceCache,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 
@@ -690,17 +693,19 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			d.k8sWatcher.RegisterCiliumNodeSubscriber(d.bgpSpeaker)
 		}
 	}
+
+	/* FIXME: double check EnableServiceTopology handling in pkg/service/cache.
 	if option.Config.EnableServiceTopology {
-		d.k8sWatcher.RegisterNodeSubscriber(&d.k8sWatcher.K8sSvcCache)
-	}
+		d.k8sWatcher.RegisterNodeSubscriber(d.k8sWatcher.K8sSvcCache)
+	}*/
 
 	// watchers.NewCiliumNodeUpdater needs to be registered *after* d.endpointManager
 	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
-	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 	if option.Config.BGPAnnounceLBIP {
-		d.bgpSpeaker.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+		d.bgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	}
 
 	bootstrapStats.daemonInit.End(true)
@@ -767,7 +772,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		bootstrapStats.restore.End(true)
 	}
 
-	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
+	debug.RegisterStatusObject("k8s-service-cache", d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
 	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
@@ -1102,7 +1107,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache, option.Config)
+		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config)
 	}
 
 	// Start IPAM
@@ -1314,7 +1319,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
 				NodeName:              nodeTypes.GetName(),
 				ConfigDirectory:       path,
 				NodeKeyCreator:        nodeStore.KeyCreator,
-				ServiceMerger:         &d.k8sWatcher.K8sSvcCache,
+				ServiceMerger:         d.k8sWatcher.K8sSvcCache,
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
 				IPCache:               d.ipcache,

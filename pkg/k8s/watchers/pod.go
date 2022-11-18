@@ -573,8 +573,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				}
 			} else {
 				nodeAddrAll = [][]net.IP{
-					k.K8sSvcCache.GetNodeAddressing().IPv4().LoadBalancerNodeAddresses(),
-					k.K8sSvcCache.GetNodeAddressing().IPv6().LoadBalancerNodeAddresses(),
+					k.datapath.LocalNodeAddressing().IPv4().LoadBalancerNodeAddresses(),
+					k.datapath.LocalNodeAddressing().IPv6().LoadBalancerNodeAddresses(),
 				}
 			}
 			for _, addrs := range nodeAddrAll {
