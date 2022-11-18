@@ -27,11 +27,11 @@ var (
 	// PodStoreSynced is closed once the PodStore is synced with k8s.
 	PodStoreSynced = make(chan struct{})
 
-	// UnmanagedKubeDNSPodStore has a minimal copy of the unmanaged kube-dns pods running
+	// UnmanagedPodStore has a minimal copy of the unmanaged kube-dns pods running
 	// in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
 	// operations in k8s as some of its fields are not populated.
-	UnmanagedKubeDNSPodStore cache.Store
+	UnmanagedPodStore cache.Store
 
 	// UnmanagedPodStoreSynced is closed once the UnmanagedKubeDNSPodStore is synced
 	// with k8s.
@@ -120,13 +120,12 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedKubeDNSPodsInit(clientset k8sClient.Clientset) {
+func UnmanagedPodsInit(clientset k8sClient.Clientset) {
 	var unmanagedPodInformer cache.Controller
-	UnmanagedKubeDNSPodStore, unmanagedPodInformer = informer.NewInformer(
+	UnmanagedPodStore, unmanagedPodInformer = informer.NewInformer(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](clientset.Slim().CoreV1().Pods("")),
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = "k8s-app=kube-dns"
 				options.FieldSelector = "status.phase=Running"
 			}),
 		&slim_corev1.Pod{},
