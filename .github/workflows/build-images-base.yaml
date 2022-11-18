@@ -183,10 +183,14 @@ jobs:
           path: image-digest
           retention-days: 1
 
-      - name: Update Runtime and Builder Images
-        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' || steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
+      - name: Update Runtime Images
+        if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+
+      - name: Update Builder Images
+        if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
+        run: |
           images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
 
       - name: Commit changes by amending previous commit
