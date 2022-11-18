@@ -63,9 +63,6 @@ concurrency:
     }}
   cancel-in-progress: true
 
-env:
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
 jobs:
   check_changes:
     name: Deduce required tests from code changes
@@ -136,16 +133,6 @@ jobs:
           fi
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Cilium Datapath Conformance test in progress...
-          state: pending
-          target_url: ${{ env.check_url }}
 
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
@@ -222,36 +209,3 @@ jobs:
           name: cilium-sysdumps
           path: ./cilium-sysdumps
           retention-days: 5
-
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Datapath tests successful
-          state: success
-          target_url: ${{ env.check_url }}
-
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Datapath tests failed
-          state: failure
-          target_url: ${{ env.check_url }}
-
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Datapath tests cancelled
-          state: error
-          target_url: ${{ env.check_url }}
