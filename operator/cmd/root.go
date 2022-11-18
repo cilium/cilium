@@ -415,11 +415,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	// If this logic is modified, make sure the operator's clusterrole logic for
 	// pods/delete is also up-to-date.
 	if !legacy.clientset.IsEnabled() {
-		log.Infof("KubeDNS unmanaged pods controller disabled due to kubernetes support not enabled")
+		log.Infof("Unmanaged pods controller disabled due to kubernetes support not enabled")
 	} else if option.Config.DisableCiliumEndpointCRD {
-		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
+		log.Infof("Unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		go enableUnmanagedKubeDNSController(legacy.clientset)
+		go enableUnmanagedPodController(legacy.clientset)
 	}
 
 	var (
