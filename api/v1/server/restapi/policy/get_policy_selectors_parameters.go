@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetPolicySelectorsParams creates a new GetPolicySelectorsParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetPolicySelectorsParams() GetPolicySelectorsParams {
 
 	return GetPolicySelectorsParams{}

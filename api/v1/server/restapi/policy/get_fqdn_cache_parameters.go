@@ -18,7 +18,8 @@ import (
 )
 
 // NewGetFqdnCacheParams creates a new GetFqdnCacheParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetFqdnCacheParams() GetFqdnCacheParams {
 
 	return GetFqdnCacheParams{}
@@ -72,7 +73,6 @@ func (o *GetFqdnCacheParams) BindRequest(r *http.Request, route *middleware.Matc
 	if err := o.bindSource(qSource, qhkSource, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -88,10 +88,10 @@ func (o *GetFqdnCacheParams) bindCidr(rawData []string, hasKey bool, formats str
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Cidr = &raw
 
 	return nil
@@ -106,10 +106,10 @@ func (o *GetFqdnCacheParams) bindMatchpattern(rawData []string, hasKey bool, for
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Matchpattern = &raw
 
 	return nil
@@ -124,10 +124,10 @@ func (o *GetFqdnCacheParams) bindSource(rawData []string, hasKey bool, formats s
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Source = &raw
 
 	return nil

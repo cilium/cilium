@@ -29,10 +29,17 @@ type agentHandle struct {
 }
 
 func (h *agentHandle) tearDown() {
-	if err := h.hive.Stop(context.TODO()); err != nil {
-		h.t.Fatalf("Failed to stop the agent: %s", err)
+	// If hive is nil, we have not yet started.
+	if h.hive != nil {
+		if err := h.hive.Stop(context.TODO()); err != nil {
+			h.t.Fatalf("Failed to stop the agent: %s", err)
+		}
 	}
-	h.d.Close()
+
+	if h.d != nil {
+		h.d.Close()
+	}
+
 	os.RemoveAll(h.tempDir)
 	node.Uninitialize()
 }

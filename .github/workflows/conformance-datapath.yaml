@@ -168,6 +168,23 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
+      - name: Derive kube-proxy requirements
+        shell: bash
+        run: |
+            if [[ ${{ matrix.kernel }} == "4.19-"* ]]; then
+              # Only kube-proxy
+              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
+              echo 'KPR=disabled' >> $GITHUB_ENV
+            elif [[ ${{ matrix.kernel }} == "5.4-"* ]]; then
+              # Mixed mode
+              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
+              echo 'KPR=strict' >> $GITHUB_ENV
+            else
+              # Only kube-proxy-replacement
+              echo 'KUBE_PROXY=none' >> $GITHUB_ENV
+              echo 'KPR=strict' >> $GITHUB_ENV
+            fi
+
       - name: Run tests
         uses: cilium/little-vm-helper@9bb7d6016e00968adff49dae192a0be87d9c3aef
         with:
@@ -183,7 +200,8 @@ jobs:
 
             cd /host/
 
-            ./contrib/scripts/kind.sh "" 3 "" "" "none"
+
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ env.KUBE_PROXY }}"
             ./cilium-cli install --wait \
             --chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
@@ -197,7 +215,7 @@ jobs:
             --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
             --rollback=false \
             --config monitor-aggregation=none \
-            --nodes-without-cilium=kind-worker3 --kube-proxy-replacement=strict --helm-set-string="k8sServiceHost=kind-control-plane,k8sServicePort=6443"
+            --nodes-without-cilium=kind-worker3 --helm-set-string="kubeProxyReplacement=${{ env.KPR }}"
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath

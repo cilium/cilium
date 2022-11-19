@@ -560,10 +560,12 @@ func NewPatchEndpointIDHandler(d *Daemon) PatchEndpointIDHandler {
 // validPatchTransitionState checks whether the state to which the provided
 // model specifies is one to which an Endpoint can transition as part of a
 // call to PATCH on an Endpoint.
-func validPatchTransitionState(state models.EndpointState) bool {
-	switch endpoint.State(state) {
-	case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
-		return true
+func validPatchTransitionState(state *models.EndpointState) bool {
+	if state != nil {
+		switch endpoint.State(*state) {
+		case "", endpoint.StateWaitingForIdentity, endpoint.StateReady:
+			return true
+		}
 	}
 	return false
 }
@@ -606,7 +608,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	// Log invalid state transitions, but do not error out for backwards
 	// compatibility.
 	if !validPatchTransitionState(epTemplate.State) {
-		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", epTemplate.State)
+		scopedLog.Debugf("PATCH /endpoint/{id} to invalid state '%s'", *epTemplate.State)
 	} else {
 		validStateTransition = true
 	}

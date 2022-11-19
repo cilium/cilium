@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 
@@ -67,7 +68,6 @@ func (m *KubeProxyReplacement) Validate(formats strfmt.Registry) error {
 }
 
 func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.DeviceList) { // not required
 		return nil
 	}
@@ -81,6 +81,8 @@ func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error
 			if err := m.DeviceList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("deviceList" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -92,7 +94,6 @@ func (m *KubeProxyReplacement) validateDeviceList(formats strfmt.Registry) error
 }
 
 func (m *KubeProxyReplacement) validateFeatures(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Features) { // not required
 		return nil
 	}
@@ -101,6 +102,8 @@ func (m *KubeProxyReplacement) validateFeatures(formats strfmt.Registry) error {
 		if err := m.Features.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features")
 			}
 			return err
 		}
@@ -145,7 +148,6 @@ func (m *KubeProxyReplacement) validateModeEnum(path, location string, value str
 }
 
 func (m *KubeProxyReplacement) validateMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Mode) { // not required
 		return nil
 	}
@@ -153,6 +155,60 @@ func (m *KubeProxyReplacement) validateMode(formats strfmt.Registry) error {
 	// value enum
 	if err := m.validateModeEnum("mode", "body", m.Mode); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this kube proxy replacement based on the context it is used
+func (m *KubeProxyReplacement) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateDeviceList(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateFeatures(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.DeviceList); i++ {
+
+		if m.DeviceList[i] != nil {
+			if err := m.DeviceList[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("deviceList" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("deviceList" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacement) contextValidateFeatures(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Features != nil {
+		if err := m.Features.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features")
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -194,6 +250,11 @@ type KubeProxyReplacementDeviceListItems0 struct {
 
 // Validate validates this kube proxy replacement device list items0
 func (m *KubeProxyReplacementDeviceListItems0) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement device list items0 based on context it is used
+func (m *KubeProxyReplacementDeviceListItems0) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -297,7 +358,6 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 }
 
 func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ExternalIPs) { // not required
 		return nil
 	}
@@ -306,6 +366,8 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 		if err := m.ExternalIPs.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "externalIPs")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "externalIPs")
 			}
 			return err
 		}
@@ -315,7 +377,6 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 }
 
 func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.GracefulTermination) { // not required
 		return nil
 	}
@@ -324,6 +385,8 @@ func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfm
 		if err := m.GracefulTermination.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "gracefulTermination")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "gracefulTermination")
 			}
 			return err
 		}
@@ -333,7 +396,6 @@ func (m *KubeProxyReplacementFeatures) validateGracefulTermination(formats strfm
 }
 
 func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HostPort) { // not required
 		return nil
 	}
@@ -342,6 +404,8 @@ func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry)
 		if err := m.HostPort.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "hostPort")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "hostPort")
 			}
 			return err
 		}
@@ -351,7 +415,6 @@ func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HostReachableServices) { // not required
 		return nil
 	}
@@ -360,6 +423,8 @@ func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats str
 		if err := m.HostReachableServices.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "hostReachableServices")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "hostReachableServices")
 			}
 			return err
 		}
@@ -369,7 +434,6 @@ func (m *KubeProxyReplacementFeatures) validateHostReachableServices(formats str
 }
 
 func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Nat46X64) { // not required
 		return nil
 	}
@@ -378,6 +442,8 @@ func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry)
 		if err := m.Nat46X64.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nat46X64")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64")
 			}
 			return err
 		}
@@ -387,7 +453,6 @@ func (m *KubeProxyReplacementFeatures) validateNat46X64(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NodePort) { // not required
 		return nil
 	}
@@ -396,6 +461,8 @@ func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry)
 		if err := m.NodePort.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "nodePort")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nodePort")
 			}
 			return err
 		}
@@ -405,7 +472,6 @@ func (m *KubeProxyReplacementFeatures) validateNodePort(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.SessionAffinity) { // not required
 		return nil
 	}
@@ -414,6 +480,8 @@ func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Re
 		if err := m.SessionAffinity.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "sessionAffinity")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "sessionAffinity")
 			}
 			return err
 		}
@@ -423,7 +491,6 @@ func (m *KubeProxyReplacementFeatures) validateSessionAffinity(formats strfmt.Re
 }
 
 func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.SocketLB) { // not required
 		return nil
 	}
@@ -432,6 +499,8 @@ func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry)
 		if err := m.SocketLB.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "socketLB")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "socketLB")
 			}
 			return err
 		}
@@ -441,7 +510,6 @@ func (m *KubeProxyReplacementFeatures) validateSocketLB(formats strfmt.Registry)
 }
 
 func (m *KubeProxyReplacementFeatures) validateSocketLBTracing(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.SocketLBTracing) { // not required
 		return nil
 	}
@@ -450,6 +518,198 @@ func (m *KubeProxyReplacementFeatures) validateSocketLBTracing(formats strfmt.Re
 		if err := m.SocketLBTracing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "socketLBTracing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "socketLBTracing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this kube proxy replacement features based on the context it is used
+func (m *KubeProxyReplacementFeatures) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateExternalIPs(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateGracefulTermination(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHostPort(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHostReachableServices(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNat46X64(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNodePort(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSessionAffinity(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSocketLB(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSocketLBTracing(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateExternalIPs(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ExternalIPs != nil {
+		if err := m.ExternalIPs.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "externalIPs")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "externalIPs")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateGracefulTermination(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.GracefulTermination != nil {
+		if err := m.GracefulTermination.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "gracefulTermination")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "gracefulTermination")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateHostPort(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HostPort != nil {
+		if err := m.HostPort.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "hostPort")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "hostPort")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateHostReachableServices(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HostReachableServices != nil {
+		if err := m.HostReachableServices.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "hostReachableServices")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "hostReachableServices")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateNat46X64(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Nat46X64 != nil {
+		if err := m.Nat46X64.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nat46X64")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateNodePort(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NodePort != nil {
+		if err := m.NodePort.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nodePort")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nodePort")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateSessionAffinity(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.SessionAffinity != nil {
+		if err := m.SessionAffinity.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "sessionAffinity")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "sessionAffinity")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateSocketLB(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.SocketLB != nil {
+		if err := m.SocketLB.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "socketLB")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "socketLB")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) contextValidateSocketLBTracing(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.SocketLBTracing != nil {
+		if err := m.SocketLBTracing.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "socketLBTracing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "socketLBTracing")
 			}
 			return err
 		}
@@ -492,6 +752,11 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) Validate(formats strfmt.Regist
 	return nil
 }
 
+// ContextValidate validates this kube proxy replacement features external i ps based on context it is used
+func (m *KubeProxyReplacementFeaturesExternalIPs) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
 // MarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesExternalIPs) MarshalBinary() ([]byte, error) {
 	if m == nil {
@@ -526,6 +791,11 @@ func (m *KubeProxyReplacementFeaturesGracefulTermination) Validate(formats strfm
 	return nil
 }
 
+// ContextValidate validates this kube proxy replacement features graceful termination based on context it is used
+func (m *KubeProxyReplacementFeaturesGracefulTermination) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
 // MarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesGracefulTermination) MarshalBinary() ([]byte, error) {
 	if m == nil {
@@ -557,6 +827,11 @@ type KubeProxyReplacementFeaturesHostPort struct {
 
 // Validate validates this kube proxy replacement features host port
 func (m *KubeProxyReplacementFeaturesHostPort) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features host port based on context it is used
+func (m *KubeProxyReplacementFeaturesHostPort) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -597,6 +872,11 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) Validate(formats str
 	return nil
 }
 
+// ContextValidate validates this kube proxy replacement features host reachable services based on context it is used
+func (m *KubeProxyReplacementFeaturesHostReachableServices) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
 // MarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesHostReachableServices) MarshalBinary() ([]byte, error) {
 	if m == nil {
@@ -628,6 +908,11 @@ type KubeProxyReplacementFeaturesNat46X64 struct {
 
 // Validate validates this kube proxy replacement features nat46 x64
 func (m *KubeProxyReplacementFeaturesNat46X64) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features nat46 x64 based on context it is used
+func (m *KubeProxyReplacementFeaturesNat46X64) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -736,7 +1021,6 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAccelerationEnum(path, lo
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Acceleration) { // not required
 		return nil
 	}
@@ -779,7 +1063,6 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithmEnum(path, locat
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithm(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Algorithm) { // not required
 		return nil
 	}
@@ -825,7 +1108,6 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateModeEnum(path, location s
 }
 
 func (m *KubeProxyReplacementFeaturesNodePort) validateMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Mode) { // not required
 		return nil
 	}
@@ -835,6 +1117,11 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateMode(formats strfmt.Regis
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features node port based on context it is used
+func (m *KubeProxyReplacementFeaturesNodePort) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -872,6 +1159,11 @@ func (m *KubeProxyReplacementFeaturesSessionAffinity) Validate(formats strfmt.Re
 	return nil
 }
 
+// ContextValidate validates this kube proxy replacement features session affinity based on context it is used
+func (m *KubeProxyReplacementFeaturesSessionAffinity) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
 // MarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSessionAffinity) MarshalBinary() ([]byte, error) {
 	if m == nil {
@@ -906,6 +1198,11 @@ func (m *KubeProxyReplacementFeaturesSocketLB) Validate(formats strfmt.Registry)
 	return nil
 }
 
+// ContextValidate validates this kube proxy replacement features socket l b based on context it is used
+func (m *KubeProxyReplacementFeaturesSocketLB) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
 // MarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesSocketLB) MarshalBinary() ([]byte, error) {
 	if m == nil {
@@ -937,6 +1234,11 @@ type KubeProxyReplacementFeaturesSocketLBTracing struct {
 
 // Validate validates this kube proxy replacement features socket l b tracing
 func (m *KubeProxyReplacementFeaturesSocketLBTracing) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features socket l b tracing based on context it is used
+func (m *KubeProxyReplacementFeaturesSocketLBTracing) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

@@ -17,7 +17,8 @@ import (
 )
 
 // NewDeleteIpamIPParams creates a new DeleteIpamIPParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewDeleteIpamIPParams() DeleteIpamIPParams {
 
 	return DeleteIpamIPParams{}
@@ -52,7 +53,6 @@ func (o *DeleteIpamIPParams) BindRequest(r *http.Request, route *middleware.Matc
 	if err := o.bindIP(rIP, rhkIP, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -68,7 +68,6 @@ func (o *DeleteIpamIPParams) bindIP(rawData []string, hasKey bool, formats strfm
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.IP = raw
 
 	return nil

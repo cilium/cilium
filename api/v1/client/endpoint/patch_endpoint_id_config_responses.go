@@ -56,7 +56,6 @@ func (o *PatchEndpointIDConfigReader) ReadResponse(response runtime.ClientRespon
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -68,14 +67,43 @@ func NewPatchEndpointIDConfigOK() *PatchEndpointIDConfigOK {
 }
 
 /*
-PatchEndpointIDConfigOK handles this case with default header values.
+PatchEndpointIDConfigOK describes a response with status code 200, with default header values.
 
 Success
 */
 type PatchEndpointIDConfigOK struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id config o k response has a 2xx status code
+func (o *PatchEndpointIDConfigOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this patch endpoint Id config o k response has a 3xx status code
+func (o *PatchEndpointIDConfigOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config o k response has a 4xx status code
+func (o *PatchEndpointIDConfigOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id config o k response has a 5xx status code
+func (o *PatchEndpointIDConfigOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id config o k response a status code equal to that given
+func (o *PatchEndpointIDConfigOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PatchEndpointIDConfigOK) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigOK ", 200)
+}
+
+func (o *PatchEndpointIDConfigOK) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigOK ", 200)
 }
 
@@ -90,14 +118,43 @@ func NewPatchEndpointIDConfigInvalid() *PatchEndpointIDConfigInvalid {
 }
 
 /*
-PatchEndpointIDConfigInvalid handles this case with default header values.
+PatchEndpointIDConfigInvalid describes a response with status code 400, with default header values.
 
 Invalid configuration request
 */
 type PatchEndpointIDConfigInvalid struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id config invalid response has a 2xx status code
+func (o *PatchEndpointIDConfigInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config invalid response has a 3xx status code
+func (o *PatchEndpointIDConfigInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config invalid response has a 4xx status code
+func (o *PatchEndpointIDConfigInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id config invalid response has a 5xx status code
+func (o *PatchEndpointIDConfigInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id config invalid response a status code equal to that given
+func (o *PatchEndpointIDConfigInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PatchEndpointIDConfigInvalid) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigInvalid ", 400)
+}
+
+func (o *PatchEndpointIDConfigInvalid) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigInvalid ", 400)
 }
 
@@ -112,14 +169,43 @@ func NewPatchEndpointIDConfigNotFound() *PatchEndpointIDConfigNotFound {
 }
 
 /*
-PatchEndpointIDConfigNotFound handles this case with default header values.
+PatchEndpointIDConfigNotFound describes a response with status code 404, with default header values.
 
 Endpoint not found
 */
 type PatchEndpointIDConfigNotFound struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id config not found response has a 2xx status code
+func (o *PatchEndpointIDConfigNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config not found response has a 3xx status code
+func (o *PatchEndpointIDConfigNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config not found response has a 4xx status code
+func (o *PatchEndpointIDConfigNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id config not found response has a 5xx status code
+func (o *PatchEndpointIDConfigNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id config not found response a status code equal to that given
+func (o *PatchEndpointIDConfigNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *PatchEndpointIDConfigNotFound) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigNotFound ", 404)
+}
+
+func (o *PatchEndpointIDConfigNotFound) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigNotFound ", 404)
 }
 
@@ -134,14 +220,43 @@ func NewPatchEndpointIDConfigTooManyRequests() *PatchEndpointIDConfigTooManyRequ
 }
 
 /*
-PatchEndpointIDConfigTooManyRequests handles this case with default header values.
+PatchEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type PatchEndpointIDConfigTooManyRequests struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id config too many requests response has a 2xx status code
+func (o *PatchEndpointIDConfigTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config too many requests response has a 3xx status code
+func (o *PatchEndpointIDConfigTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config too many requests response has a 4xx status code
+func (o *PatchEndpointIDConfigTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id config too many requests response has a 5xx status code
+func (o *PatchEndpointIDConfigTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id config too many requests response a status code equal to that given
+func (o *PatchEndpointIDConfigTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *PatchEndpointIDConfigTooManyRequests) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigTooManyRequests ", 429)
+}
+
+func (o *PatchEndpointIDConfigTooManyRequests) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigTooManyRequests ", 429)
 }
 
@@ -156,7 +271,7 @@ func NewPatchEndpointIDConfigFailed() *PatchEndpointIDConfigFailed {
 }
 
 /*
-PatchEndpointIDConfigFailed handles this case with default header values.
+PatchEndpointIDConfigFailed describes a response with status code 500, with default header values.
 
 Update failed. Details in message.
 */
@@ -164,7 +279,36 @@ type PatchEndpointIDConfigFailed struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch endpoint Id config failed response has a 2xx status code
+func (o *PatchEndpointIDConfigFailed) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id config failed response has a 3xx status code
+func (o *PatchEndpointIDConfigFailed) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id config failed response has a 4xx status code
+func (o *PatchEndpointIDConfigFailed) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id config failed response has a 5xx status code
+func (o *PatchEndpointIDConfigFailed) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch endpoint Id config failed response a status code equal to that given
+func (o *PatchEndpointIDConfigFailed) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PatchEndpointIDConfigFailed) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigFailed  %+v", 500, o.Payload)
+}
+
+func (o *PatchEndpointIDConfigFailed) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}/config][%d] patchEndpointIdConfigFailed  %+v", 500, o.Payload)
 }
 

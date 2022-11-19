@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -47,7 +49,6 @@ func (m *NodeAddressing) Validate(formats strfmt.Registry) error {
 }
 
 func (m *NodeAddressing) validateIPV4(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.IPV4) { // not required
 		return nil
 	}
@@ -56,6 +57,8 @@ func (m *NodeAddressing) validateIPV4(formats strfmt.Registry) error {
 		if err := m.IPV4.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv4")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv4")
 			}
 			return err
 		}
@@ -65,7 +68,6 @@ func (m *NodeAddressing) validateIPV4(formats strfmt.Registry) error {
 }
 
 func (m *NodeAddressing) validateIPV6(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.IPV6) { // not required
 		return nil
 	}
@@ -74,6 +76,58 @@ func (m *NodeAddressing) validateIPV6(formats strfmt.Registry) error {
 		if err := m.IPV6.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipv6")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv6")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this node addressing based on the context it is used
+func (m *NodeAddressing) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateIPV4(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIPV6(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *NodeAddressing) contextValidateIPV4(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.IPV4 != nil {
+		if err := m.IPV4.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv4")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv4")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeAddressing) contextValidateIPV6(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.IPV6 != nil {
+		if err := m.IPV6.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv6")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv6")
 			}
 			return err
 		}

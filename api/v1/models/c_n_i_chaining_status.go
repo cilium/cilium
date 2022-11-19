@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -60,14 +61,14 @@ const (
 	// CNIChainingStatusModeNone captures enum value "none"
 	CNIChainingStatusModeNone string = "none"
 
-	// CNIChainingStatusModeAwsCni captures enum value "aws-cni"
-	CNIChainingStatusModeAwsCni string = "aws-cni"
+	// CNIChainingStatusModeAwsDashCni captures enum value "aws-cni"
+	CNIChainingStatusModeAwsDashCni string = "aws-cni"
 
 	// CNIChainingStatusModeFlannel captures enum value "flannel"
 	CNIChainingStatusModeFlannel string = "flannel"
 
-	// CNIChainingStatusModeGenericVeth captures enum value "generic-veth"
-	CNIChainingStatusModeGenericVeth string = "generic-veth"
+	// CNIChainingStatusModeGenericDashVeth captures enum value "generic-veth"
+	CNIChainingStatusModeGenericDashVeth string = "generic-veth"
 
 	// CNIChainingStatusModePortmap captures enum value "portmap"
 	CNIChainingStatusModePortmap string = "portmap"
@@ -82,7 +83,6 @@ func (m *CNIChainingStatus) validateModeEnum(path, location string, value string
 }
 
 func (m *CNIChainingStatus) validateMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Mode) { // not required
 		return nil
 	}
@@ -92,6 +92,11 @@ func (m *CNIChainingStatus) validateMode(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this c n i chaining status based on context it is used
+func (m *CNIChainingStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

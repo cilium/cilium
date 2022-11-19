@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -57,7 +59,6 @@ func (m *NodeStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *NodeStatus) validateEndpoint(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Endpoint) { // not required
 		return nil
 	}
@@ -66,6 +67,8 @@ func (m *NodeStatus) validateEndpoint(formats strfmt.Registry) error {
 		if err := m.Endpoint.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("endpoint")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("endpoint")
 			}
 			return err
 		}
@@ -75,7 +78,6 @@ func (m *NodeStatus) validateEndpoint(formats strfmt.Registry) error {
 }
 
 func (m *NodeStatus) validateHealthEndpoint(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HealthEndpoint) { // not required
 		return nil
 	}
@@ -84,6 +86,8 @@ func (m *NodeStatus) validateHealthEndpoint(formats strfmt.Registry) error {
 		if err := m.HealthEndpoint.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health-endpoint")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("health-endpoint")
 			}
 			return err
 		}
@@ -93,7 +97,6 @@ func (m *NodeStatus) validateHealthEndpoint(formats strfmt.Registry) error {
 }
 
 func (m *NodeStatus) validateHost(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Host) { // not required
 		return nil
 	}
@@ -102,6 +105,78 @@ func (m *NodeStatus) validateHost(formats strfmt.Registry) error {
 		if err := m.Host.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this node status based on the context it is used
+func (m *NodeStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateEndpoint(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHealthEndpoint(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHost(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *NodeStatus) contextValidateEndpoint(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Endpoint != nil {
+		if err := m.Endpoint.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("endpoint")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("endpoint")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeStatus) contextValidateHealthEndpoint(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HealthEndpoint != nil {
+		if err := m.HealthEndpoint.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("health-endpoint")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("health-endpoint")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *NodeStatus) contextValidateHost(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Host != nil {
+		if err := m.Host.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host")
 			}
 			return err
 		}

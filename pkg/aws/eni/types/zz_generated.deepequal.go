@@ -272,6 +272,9 @@ func (in *ENISpec) DeepEqual(other *ENISpec) bool {
 		}
 	}
 
+	if in.NodeSubnetID != other.NodeSubnetID {
+		return false
+	}
 	if in.VpcID != other.VpcID {
 		return false
 	}

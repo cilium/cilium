@@ -16,12 +16,14 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/validate"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchEndpointIDConfigParams creates a new PatchEndpointIDConfigParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPatchEndpointIDConfigParams() PatchEndpointIDConfigParams {
 
 	return PatchEndpointIDConfigParams{}
@@ -84,6 +86,11 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 				res = append(res, err)
 			}
 
+			ctx := validate.WithOperationRequest(r.Context())
+			if err := body.ContextValidate(ctx, route.Formats); err != nil {
+				res = append(res, err)
+			}
+
 			if len(res) == 0 {
 				o.EndpointConfiguration = &body
 			}
@@ -91,11 +98,11 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 	} else {
 		res = append(res, errors.Required("endpointConfiguration", "body", ""))
 	}
+
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -111,7 +118,6 @@ func (o *PatchEndpointIDConfigParams) bindID(rawData []string, hasKey bool, form
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil
