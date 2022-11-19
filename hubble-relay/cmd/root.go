@@ -22,8 +22,8 @@ const configFilePath = "/etc/hubble-relay/config.yaml"
 func New() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "hubble-relay",
-		Short:        "hubble-relay is a proxy server for the hubble API",
-		Long:         "hubble-relay is a proxy server for the hubble API.",
+		Short:        "Hubble Relay is a proxy server for the hubble API",
+		Long:         "Hubble Relay is a proxy server for the hubble API.",
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 	}
