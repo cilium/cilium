@@ -26,8 +26,8 @@ var (
 
 func init() {
 	flags := rootCmd.Flags()
-	backportingChecks = flags.Bool("backporting", false, "run backporting checks")
-	nfsFirewallChecks = flags.Bool("nfs-firewall", false, "run extra NFS firewall checks, requires root privileges")
+	backportingChecks = flags.Bool("backporting", false, "Run backporting checks")
+	nfsFirewallChecks = flags.Bool("nfs-firewall", false, "Run extra NFS firewall checks, requires root privileges")
 }
 
 func rootCmdRun(cmd *cobra.Command, args []string) {

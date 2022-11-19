@@ -26,7 +26,7 @@ var fqdnCmd = &cobra.Command{
 
 var fqdnNames = &cobra.Command{
 	Use:   "names",
-	Short: "show internal state Cilium has for DNS names / regexes",
+	Short: "Show internal state Cilium has for DNS names / regexes",
 	Run: func(cmd *cobra.Command, args []string) {
 		listFQDNNames()
 	},

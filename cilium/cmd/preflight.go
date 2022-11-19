@@ -31,7 +31,7 @@ var (
 // preflightCmd is the command used to manage preflight tasks for upgrades
 var preflightCmd = &cobra.Command{
 	Use:   "preflight",
-	Short: "cilium upgrade helper",
+	Short: "Cilium upgrade helper",
 	Long:  `CLI to help upgrade cilium`,
 }
 

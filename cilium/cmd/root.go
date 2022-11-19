@@ -48,7 +48,7 @@ func init() {
 
 	cobra.OnInitialize(initConfig)
 	flags := rootCmd.PersistentFlags()
-	flags.StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cilium.yaml)")
+	flags.StringVar(&cfgFile, "config", "", "Config file (default is $HOME/.cilium.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to server-side API")
 	vp.BindPFlags(flags)
