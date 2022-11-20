@@ -70,6 +70,7 @@ var (
 	enableMarkdown           bool
 	archivePrefix            string
 	getPProf                 bool
+	pprofDebug               int
 	envoyDump                bool
 	pprofPort                int
 	traceSeconds             int
@@ -81,6 +82,7 @@ var (
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
+	BugtoolRootCmd.Flags().IntVar(&pprofDebug, "pprof-debug", 1, "Debug pprof args")
 	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
 		"pprof-port", defaults.PprofPortAgent,
@@ -203,7 +205,7 @@ func runTool() {
 	}
 
 	if getPProf {
-		err := pprofTraces(cmdDir)
+		err := pprofTraces(cmdDir, pprofDebug)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
 			os.Exit(1)
@@ -504,7 +506,7 @@ func dumpEnvoy(rootDir string) error {
 	return downloadToFile(c, "http://admin/config_dump?include_eds", filepath.Join(rootDir, "envoy-config.json"))
 }
 
-func pprofTraces(rootDir string) error {
+func pprofTraces(rootDir string, pprofDebug int) error {
 	var wg sync.WaitGroup
 	var profileErr error
 	pprofHost := fmt.Sprintf("localhost:%d", pprofPort)
@@ -524,7 +526,7 @@ func pprofTraces(rootDir string) error {
 		return err
 	}
 
-	url = fmt.Sprintf("http://%s/debug/pprof/heap?debug=1", pprofHost)
+	url = fmt.Sprintf("http://%s/debug/pprof/heap?debug=%d", pprofHost, pprofDebug)
 	dir = filepath.Join(rootDir, "pprof-heap")
 	err = downloadToFile(httpClient, url, dir)
 	if err != nil {
