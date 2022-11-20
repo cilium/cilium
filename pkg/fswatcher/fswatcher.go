@@ -216,10 +216,10 @@ func (w *Watcher) loop() {
 			scopedLog.Debug("Received fsnotify event")
 
 			eventPath := event.Name
-			removed := event.Op&fsnotify.Remove == fsnotify.Remove
-			renamed := event.Op&fsnotify.Rename == fsnotify.Rename
-			created := event.Op&fsnotify.Create == fsnotify.Create
-			written := event.Op&fsnotify.Write == fsnotify.Write
+			removed := event.Has(fsnotify.Remove)
+			renamed := event.Has(fsnotify.Rename)
+			created := event.Has(fsnotify.Create)
+			written := event.Has(fsnotify.Write)
 
 			// If a the eventPath has been removed or renamed, it can no longer
 			// be a valid watchPath. This is needed such that each trackedPath

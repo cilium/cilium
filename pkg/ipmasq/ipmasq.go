@@ -145,11 +145,11 @@ func (a *IPMasqAgent) Start() {
 				log.Debugf("Received fsnotify event: %+v", event)
 
 				switch {
-				case event.Op&fsnotify.Create == fsnotify.Create,
-					event.Op&fsnotify.Write == fsnotify.Write,
-					event.Op&fsnotify.Chmod == fsnotify.Chmod,
-					event.Op&fsnotify.Remove == fsnotify.Remove,
-					event.Op&fsnotify.Rename == fsnotify.Rename:
+				case event.Has(fsnotify.Create),
+					event.Has(fsnotify.Write),
+					event.Has(fsnotify.Chmod),
+					event.Has(fsnotify.Remove),
+					event.Has(fsnotify.Rename):
 					if err := a.Update(); err != nil {
 						log.WithError(err).Warn("Failed to update")
 					}
