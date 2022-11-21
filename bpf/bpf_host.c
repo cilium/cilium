@@ -767,7 +767,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 
 	ret = do_netdev_encrypt_pools(ctx);
 	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
 	return CTX_ACT_OK;
 }
