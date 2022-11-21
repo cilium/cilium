@@ -453,15 +453,14 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 }
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
-	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
+handle_ipv4_from_host(struct __ctx_buff *ctx, __u32 secctx,
+		      __u32 ipcache_srcid __maybe_unused)
 {
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	struct remote_endpoint_info *info = NULL;
-	__u32 __maybe_unused remote_id = 0;
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -479,76 +478,20 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		return DROP_FRAG_NOSUPPORT;
 #endif
 
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
-		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !ctx_skip_nodeport(ctx)) {
-			ret = nodeport_lb4(ctx, secctx);
-			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
-				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-				return send_drop_notify_error(ctx, secctx,
-							      DROP_MISSED_TAIL_CALL,
-							      CTX_ACT_DROP,
-							      METRIC_INGRESS);
-			}
-
-			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
-			 * traffic to L7 LB. Policy enforcement needs to take
-			 * place after L7 LB has processed the packet, so we
-			 * return to stack immediately here with
-			 * TC_ACT_REDIRECT.
-			 */
-			if (ret < 0 || ret == TC_ACT_REDIRECT)
-				return ret;
-		}
-		/* Verifier workaround: modified ctx access. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-	}
-#endif /* ENABLE_NODEPORT */
-
 #ifdef ENABLE_HOST_FIREWALL
-	if (from_host) {
-		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid,
-					      &trace);
-		if (IS_ERR(ret))
-			return ret;
-	} else if (!ctx_skip_host_fw(ctx)) {
-		/* We're on the ingress path of the native device. */
-		ret = ipv4_host_policy_ingress(ctx, &remote_id, &trace);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid, &trace);
+	if (IS_ERR(ret))
+		return ret;
 #endif /* ENABLE_HOST_FIREWALL */
 
-#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
-	/* Without bpf_redirect_neigh() helper, we cannot redirect a
-	 * packet to a local endpoint in the direct routing mode, as
-	 * the redirect bypasses nf_conntrack table. This makes a
-	 * second reply from the endpoint to be MASQUERADEd or to be
-	 * DROP-ed by k8s's "--ctstate INVALID -j DROP" depending via
-	 * which interface it was inputed. With bpf_redirect_neigh()
-	 * we bypass request and reply path in the host namespace and
-	 * do not run into this issue.
-	 */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+	/* Rewrite the destination MAC address to the MAC of cilium_net. */
+	ret = rewrite_dmac_to_host(ctx, secctx);
+	/* DIRECT PACKET READ INVALID */
+	if (IS_ERR(ret))
+		return ret;
 
-	if (from_host) {
-		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination MAC address to the MAC of cilium_net.
-		 */
-		ret = rewrite_dmac_to_host(ctx, secctx);
-		/* DIRECT PACKET READ INVALID */
-		if (IS_ERR(ret))
-			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-	}
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
@@ -560,14 +503,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return CTX_ACT_OK;
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
-					   METRIC_INGRESS, from_host);
+					   METRIC_INGRESS, true);
 	}
-
-	/* Below remainder is only relevant when traffic is pushed via cilium_host.
-	 * For traffic coming from external, we're done here.
-	 */
-	if (!from_host)
-		return CTX_ACT_OK;
 
 	/* Handle VTEP integration in bpf_host to support pod L7 PROXY.
 	 * It requires route setup to VTEP CIDR via dev cilium_host scope link.
@@ -642,37 +579,128 @@ skip_vtep:
 }
 
 static __always_inline int
-tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
+handle_ipv4_from_netdev(struct __ctx_buff *ctx, __u32 secctx)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
-	int ret;
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+	__u32 __maybe_unused remote_id = 0;
+	struct endpoint_info *ep;
+	int __maybe_unused ret;
+	void *data, *data_end;
+	struct iphdr *ip4;
 
-	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
-	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host);
-	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, proxy_identity,
-					      ret, CTX_ACT_DROP, METRIC_INGRESS);
-	return ret;
+/* If IPv4 fragmentation is disabled
+ * AND a IPv4 fragmented packet is received,
+ * then drop the packet.
+ */
+#ifndef ENABLE_IPV4_FRAGMENTS
+	if (ipv4_is_fragment(ip4))
+		return DROP_FRAG_NOSUPPORT;
+#endif
+
+#ifdef ENABLE_NODEPORT
+	if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
+	    !ctx_skip_nodeport(ctx)) {
+		ret = nodeport_lb4(ctx, secctx);
+		if (ret == NAT_46X64_RECIRC) {
+			ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+			return send_drop_notify_error(ctx, secctx,
+						      DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP,
+						      METRIC_INGRESS);
+		}
+
+		/* nodeport_lb4() returns with TC_ACT_REDIRECT for
+		 * traffic to L7 LB. Policy enforcement needs to take
+		 * place after L7 LB has processed the packet, so we
+		 * return to stack immediately here with
+		 * TC_ACT_REDIRECT.
+		 */
+		if (ret < 0 || ret == TC_ACT_REDIRECT)
+			return ret;
+	}
+	/* Verifier workaround: modified ctx access. */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+#endif /* ENABLE_NODEPORT */
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (!ctx_skip_host_fw(ctx)) {
+		ret = ipv4_host_policy_ingress(ctx, &remote_id, &trace);
+		if (IS_ERR(ret))
+			return ret;
+	}
+#endif /* ENABLE_HOST_FIREWALL */
+
+#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
+	/* Without bpf_redirect_neigh() helper, we cannot redirect a
+	 * packet to a local endpoint in the direct routing mode, as
+	 * the redirect bypasses nf_conntrack table. This makes a
+	 * second reply from the endpoint to be MASQUERADEd or to be
+	 * DROP-ed by k8s's "--ctstate INVALID -j DROP" depending via
+	 * which interface it was inputed. With bpf_redirect_neigh()
+	 * we bypass request and reply path in the host namespace and
+	 * do not run into this issue.
+	 */
+	return CTX_ACT_OK;
+#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+
+	/* Lookup IPv4 address in list of local endpoints and host IPs */
+	ep = lookup_ip4_endpoint(ip4);
+	if (ep) {
+		/* Let through packets to the node-ip so they are processed by
+		 * the local ip stack.
+		 */
+		if (ep->flags & ENDPOINT_F_HOST)
+			return CTX_ACT_OK;
+
+		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
+					   METRIC_INGRESS, false);
+	}
+
+	return CTX_ACT_OK;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_HOST)
 int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 {
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	__u32 ipcache_srcid = 0;
+	int ret;
+
+	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
 	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
 	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
 #endif
 
-	return tail_handle_ipv4(ctx, ipcache_srcid, true);
+	ret = handle_ipv4_from_host(ctx, proxy_identity, ipcache_srcid);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, proxy_identity,
+					      ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return ret;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv4(ctx, 0, false);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	int ret;
+
+	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+
+	ret = handle_ipv4_from_netdev(ctx, proxy_identity);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, proxy_identity,
+					      ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return ret;
 }
 
 #ifdef ENABLE_HOST_FIREWALL
