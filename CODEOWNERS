@@ -11,13 +11,13 @@
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
 /api/ @cilium/api
 /pkg/api/ @cilium/api
-/pkg/byteorder/ @cilium/bpf @cilium/api
+/pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/client @cilium/api
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api
 /pkg/datapath/linux/ipsec/xfrm_collector* @cilium/metrics
 /pkg/k8s/client/clientset/versioned/ @cilium/api
 /pkg/k8s/client/informers/ @cilium/api
-/pkg/labels @cilium/policy @cilium/api
+/pkg/labels @cilium/sig-policy @cilium/api
 /pkg/monitor/api @cilium/api
 /pkg/monitor/payload @cilium/api
 /pkg/policy/api/ @cilium/api
