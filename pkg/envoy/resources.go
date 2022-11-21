@@ -90,6 +90,9 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 
 // OnIPIdentityCacheChange pushes modifications to the IP<->Identity mapping
 // into the Network Policy Host Discovery Service (NPHDS).
+//
+// Note that the caller is responsible for passing 'oldID' when 'cidr' has been associated with a
+// different ID before, as this function does not search for conflicting IP/ID mappings.
 func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
@@ -116,13 +119,9 @@ func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModificati
 
 	switch modType {
 	case ipcache.Upsert:
-		// An upsert where an existing pair exists should translate into a
-		// delete (for the old Identity) followed by an upsert (for the new).
-		if oldID != nil {
-			// Skip update if identity is identical
-			if oldID.ID == newID.ID {
-				return
-			}
+		// Delete ID to IP mapping before adding the new mapping,
+		// but only if the old ID is different.
+		if oldID != nil && oldID.ID != newID.ID {
 			// Recursive call to delete the 'cidr' from the 'oldID'
 			cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, k8sMeta)
 		}
@@ -143,14 +142,21 @@ func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, ide
 	var hostAddresses []string
 	if npHost == nil {
 		hostAddresses = make([]string, 0, 1)
+		hostAddresses = append(hostAddresses, cidrStr)
 	} else {
-		// If the resource already exists, create a copy of it and insert
-		// the new IP address into its HostAddresses list.
+		// Resource already exists, create a copy of it and insert
+		// the new IP address into its HostAddresses list, if not already there.
+		for _, addr := range npHost.HostAddresses {
+			if addr == cidrStr {
+				// IP already exists, nothing to add
+				return nil
+			}
+		}
 		hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 		hostAddresses = append(hostAddresses, npHost.HostAddresses...)
+		hostAddresses = append(hostAddresses, cidrStr)
+		sort.Strings(hostAddresses)
 	}
-	hostAddresses = append(hostAddresses, cidrStr)
-	sort.Strings(hostAddresses)
 
 	newNpHost := envoyAPI.NetworkPolicyHosts{
 		Policy:        uint64(newID),
