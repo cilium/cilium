@@ -332,14 +332,14 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	if err != nil {
+		return err
+	}
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
 		// Try locate old DNS proxy port number from the datapath
 		port = d.datapath.GetProxyPort(proxy.DNSProxyName)
-	}
-	if err != nil {
-		return err
 	}
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
 		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
