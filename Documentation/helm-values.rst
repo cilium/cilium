@@ -700,7 +700,7 @@
    * - hubble.metrics
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - hubble.metrics.enabled
      - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:   enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http You can specify the list of metrics from the helm CLI:   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
@@ -727,6 +727,10 @@
      - ``{}``
    * - hubble.metrics.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor hubble
+     - string
+     - ``nil``
+   * - hubble.metrics.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor hubble
      - string
      - ``nil``
    * - hubble.peerService.clusterDomain
@@ -800,7 +804,7 @@
    * - hubble.relay.prometheus
      - Enable prometheus metrics for hubble-relay on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - hubble.relay.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor hubble-relay
      - object
@@ -819,6 +823,10 @@
      - ``{}``
    * - hubble.relay.prometheus.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor hubble-relay
+     - string
+     - ``nil``
+   * - hubble.relay.prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor hubble-relay
      - string
      - ``nil``
    * - hubble.relay.replicas
@@ -1376,7 +1384,7 @@
    * - operator.prometheus
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - operator.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -1391,6 +1399,10 @@
      - ``{}``
    * - operator.prometheus.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor cilium-operator
+     - string
+     - ``nil``
+   * - operator.prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor cilium-operator
      - string
      - ``nil``
    * - operator.removeNodeTaints
@@ -1536,7 +1548,7 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
      - string
@@ -1555,6 +1567,10 @@
      - ``{}``
    * - prometheus.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor cilium-agent
+     - string
+     - ``nil``
+   * - prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor cilium-agent
      - string
      - ``nil``
    * - proxy
