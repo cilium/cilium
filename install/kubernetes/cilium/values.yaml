@@ -814,6 +814,8 @@ hubble:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Relabeling configs for the ServiceMonitor hubble
+      relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
     dashboards:
@@ -1064,6 +1066,8 @@ hubble:
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
+        # -- Relabeling configs for the ServiceMonitor hubble-relay
+        relabelings: ~
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
         metricRelabelings: ~
 
@@ -1510,6 +1514,8 @@ prometheus:
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
+    # -- Relabeling configs for the ServiceMonitor cilium-agent
+    relabelings: ~
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
@@ -1851,6 +1857,8 @@ operator:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Relabeling configs for the ServiceMonitor cilium-operator
+      relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
       metricRelabelings: ~
 
