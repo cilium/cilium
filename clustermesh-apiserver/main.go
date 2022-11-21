@@ -124,7 +124,6 @@ func newSvcResource(lc hive.Lifecycle, c k8sClient.Clientset) (resource.Resource
 		utils.ListerWatcherWithModifier(
 			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](c.Slim().CoreV1().Services("")),
 			optsModifier),
-		resource.WithErrorHandler(resource.AlwaysRetry),
 	), nil
 }
 
