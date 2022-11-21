@@ -1424,7 +1424,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
 
-		if (l4_load_tcp_flags(ctx, ETH_HLEN + sizeof(*ip4), &tcp_flags) < 0)
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + ipv4_hdrlen(ip4), &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		/* Setting the option is required only for the first packet
@@ -1475,7 +1475,7 @@ handle_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4, bool *dsr)
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
-	if (ip4->ihl == 0x7) {
+	if (ip4->ihl >= 0x7) {
 		struct dsr_opt_v4 opt;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
