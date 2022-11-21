@@ -116,6 +116,13 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
           done
 
+      - name: Curl 1.1.1.1
+        shell: bash
+        run: |
+          for i in $(seq 1 1000); do
+            curl -sS --fail --connect-timeout "5" -o /dev/null https://1.1.1.1
+          done
+
       - name: Install cilium chart
         run: |
           helm install cilium ./install/kubernetes/cilium \
