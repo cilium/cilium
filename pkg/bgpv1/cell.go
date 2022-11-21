@@ -4,8 +4,6 @@
 package bgpv1
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/hive"
@@ -18,8 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sutils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
-
-	"k8s.io/client-go/util/workqueue"
 )
 
 var Cell = cell.Module(
@@ -83,13 +79,6 @@ func newSlimServiceResource(lc hive.Lifecycle, c k8sClient.Clientset, dc *option
 		k8sutils.ListerWatcherWithModifier(
 			k8sutils.ListerWatcherFromTyped[*slim_core_v1.ServiceList](c.Slim().CoreV1().Services("")),
 			optsModifier),
-		resource.WithErrorHandler(resource.AlwaysRetry),
-		resource.WithRateLimiter(newErrorRateLimiter),
 	), nil
 }
 
-func newErrorRateLimiter() workqueue.RateLimiter {
-	// This rate limiter will retry in the following pattern
-	// 250ms, 500ms, 1s, 2s, 4s, 8s, 16s, 32s, .... max 5m
-	return workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute)
-}

@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/stream"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -32,10 +31,9 @@ var _ DiffStore[*k8sRuntime.Unknown] = (*diffStore[*k8sRuntime.Unknown])(nil)
 type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
-	Lifecycle  hive.Lifecycle
-	Shutdowner hive.Shutdowner
-	Resource   resource.Resource[T]
-	Signaler   agent.Signaler
+	Lifecycle hive.Lifecycle
+	Resource  resource.Resource[T]
+	Signaler  agent.Signaler
 }
 
 // diffStore takes a resource.Resource[T] and watches for events, it stores all of the keys that have been changed.
@@ -44,9 +42,8 @@ type diffStoreParams[T k8sRuntime.Object] struct {
 type diffStore[T k8sRuntime.Object] struct {
 	resource.Store[T]
 
-	shutdowner hive.Shutdowner
-	resource   resource.Resource[T]
-	signaler   agent.Signaler
+	resource resource.Resource[T]
+	signaler agent.Signaler
 
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -64,9 +61,8 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 	}
 
 	ds := &diffStore[T]{
-		shutdowner: params.Shutdowner,
-		resource:   params.Resource,
-		signaler:   params.Signaler,
+		resource: params.Resource,
+		signaler: params.Signaler,
 
 		updatedKeys: make(map[resource.Key]bool),
 		doneChan:    make(chan struct{}),
@@ -106,23 +102,13 @@ func (ds *diffStore[T]) Stop(stopCtx hive.HookContext) error {
 func (ds *diffStore[T]) run() {
 	defer close(ds.doneChan)
 
-	errChan := make(chan error, 2)
-	updateChan := stream.ToChannel[resource.Event[T]](ds.ctx, errChan, ds.resource)
-
-	for event := range updateChan {
+	for event := range ds.resource.Events(ds.ctx) {
 		ds.handleEvent(event)
 	}
-
-	if err := <-errChan; err != nil {
-		// handle stream completion error, if there was one
-		ds.shutdowner.Shutdown(hive.ShutdownWithError(err))
-	}
-
-	close(errChan)
 }
 
 func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
-	update := func(k resource.Key, _ T) error {
+	update := func(k resource.Key) {
 		ds.mu.Lock()
 		ds.updatedKeys[k] = true
 		ds.mu.Unlock()
@@ -131,18 +117,17 @@ func (ds *diffStore[T]) handleEvent(event resource.Event[T]) {
 		if ds.initialSync {
 			ds.signaler.Event(struct{}{})
 		}
-		return nil
 	}
 
-	event.Handle(
-		func() error {
-			ds.initialSync = true
-			ds.signaler.Event(struct{}{})
-			return nil
-		},
-		update,
-		update,
-	)
+	switch event.Kind {
+	case resource.Sync:
+		ds.initialSync = true
+		ds.signaler.Event(struct{}{})
+	case resource.Upsert, resource.Delete:
+		update(event.Key)
+	}
+
+	event.Done(nil)
 }
 
 // Diff returns a list of items that have been upserted(updated or inserted) and deleted since the last call to Diff.

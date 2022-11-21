@@ -125,9 +125,6 @@ type Controller struct {
 	BGPMgr BGPRouterManager
 
 	workerpool *workerpool.WorkerPool
-
-	// Shutdowner can be used to trigger a shutdown of hive
-	Shutdowner hive.Shutdowner
 }
 
 // ControllerParams contains all parameters needed to construct a Controller
@@ -135,7 +132,6 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle      hive.Lifecycle
-	Shutdowner     hive.Shutdowner
 	Sig            Signaler
 	RouteMgr       BGPRouterManager
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
@@ -163,7 +159,6 @@ func NewController(params ControllerParams) (*Controller, error) {
 		BGPMgr:         params.RouteMgr,
 		PolicyResource: params.PolicyResource,
 		NodeSpec:       params.NodeSpec,
-		Shutdowner:     params.Shutdowner,
 	}
 
 	params.Lifecycle.Append(&c)
@@ -184,16 +179,14 @@ func (c *Controller) Start(startCtx hive.HookContext) error {
 	c.workerpool = workerpool.New(2)
 
 	c.workerpool.Submit("policy-observer", func(ctx context.Context) error {
-		c.PolicyResource.Observe(ctx, func(e resource.Event[*v2alpha1api.CiliumBGPPeeringPolicy]) {
-			// Always mark the event as done since we have no way to retry on errors as of yet.
-			e.Done(nil)
-			// Signal the reconciliation logic.
-			c.Sig.Event(struct{}{})
-		}, func(err error) {
-			if err != nil {
-				c.Shutdowner.Shutdown(hive.ShutdownWithError(err))
+		for ev := range c.PolicyResource.Events(ctx) {
+			switch ev.Kind {
+			case resource.Upsert, resource.Delete:
+				// Signal the reconciliation logic.
+				c.Sig.Event(struct{}{})
 			}
-		})
+			ev.Done(nil)
+		}
 		return nil
 	})
 
