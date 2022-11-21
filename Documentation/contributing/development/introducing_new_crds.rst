@@ -210,7 +210,6 @@ scheme.
     
     // SchemeGroupVersion is group version used to register these objects
    @@ -102,6 +130,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
-                   &CiliumEgressNATPolicyList{},
                    &CiliumEndpointSlice{},
                    &CiliumEndpointSliceList{},
    +               &CiliumBGPPeeringPolicy{},
@@ -256,7 +255,6 @@ client.
     var (
    @@ -86,6 +92,7 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
                    synced.CRDResourceName(k8sconstv2.CLRPName):       createCLRPCRD,
-                   synced.CRDResourceName(k8sconstv2alpha1.CENPName): createCENPCRD,
                    synced.CRDResourceName(k8sconstv2alpha1.CESName):  createCESCRD,
    +               synced.CRDResourceName(k8sconstv2alpha1.BGPPName): createCESCRD,
            }
@@ -360,7 +358,6 @@ our new BGP CRDs:
    +++ b/install/kubernetes/cilium/templates/cilium-agent/clusterrole.yaml
    @@ -102,6 +102,8 @@ rules:
       - ciliumlocalredirectpolicies/finalizers
-      - ciliumegressnatpolicies
       - ciliumendpointslices
    +  - ciliumbgppeeringpolicies
    +  - ciliumbgploadbalancerippools

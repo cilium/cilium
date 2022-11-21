@@ -28,20 +28,6 @@ const (
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
 
-	// Cilium Egress NAT Policy (CENP)
-
-	// CENPSingularName is the singular name of Cilium Egress NAT Policy
-	CENPSingularName = "ciliumegressnatpolicy"
-
-	// CENPPluralName is the plural name of Cilium Egress NAT Policy
-	CENPPluralName = "ciliumegressnatpolicies"
-
-	// CENPKindDefinition is the kind name of Cilium Egress NAT Policy
-	CENPKindDefinition = "CiliumEgressNATPolicy"
-
-	// CENPName is the full name of Cilium Egress NAT Policy
-	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium Endpoint Slice (CES)
 
 	// CESSingularName is the singular name of Cilium Endpoint Slice
@@ -126,8 +112,6 @@ func init() {
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&CiliumEgressNATPolicy{},
-		&CiliumEgressNATPolicyList{},
 		&CiliumEndpointSlice{},
 		&CiliumEndpointSliceList{},
 		&CiliumBGPPeeringPolicy{},

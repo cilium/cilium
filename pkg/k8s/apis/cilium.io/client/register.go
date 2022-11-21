@@ -58,9 +58,6 @@ const (
 	// CEGPCRDName is the full name of the CEGP CRD.
 	CEGPCRDName = k8sconstv2.CEGPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
-	// CENPCRDName is the full name of the CENP CRD.
-	CENPCRDName = k8sconstv2alpha1.CENPKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
-
 	// CESCRDName is the full name of the CES CRD.
 	CESCRDName = k8sconstv2alpha1.CESKindDefinition + "/" + k8sconstv2alpha1.CustomResourceDefinitionVersion
 
@@ -100,7 +97,6 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		synced.CRDResourceName(k8sconstv2.CEWName):            createCEWCRD,
 		synced.CRDResourceName(k8sconstv2.CLRPName):           createCLRPCRD,
 		synced.CRDResourceName(k8sconstv2.CEGPName):           createCEGPCRD,
-		synced.CRDResourceName(k8sconstv2alpha1.CENPName):     createCENPCRD,
 		synced.CRDResourceName(k8sconstv2alpha1.CESName):      createCESCRD,
 		synced.CRDResourceName(k8sconstv2.CCECName):           createCCECCRD,
 		synced.CRDResourceName(k8sconstv2.CECName):            createCECCRD,
@@ -144,9 +140,6 @@ var (
 
 	//go:embed crds/v2/ciliumegressgatewaypolicies.yaml
 	crdsv2Ciliumegressgatewaypolicies []byte
-
-	//go:embed crds/v2alpha1/ciliumegressnatpolicies.yaml
-	crdsv2Alpha1Ciliumegressnatpolicies []byte
 
 	//go:embed crds/v2alpha1/ciliumendpointslices.yaml
 	crdsv2Alpha1Ciliumendpointslices []byte
@@ -193,8 +186,6 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes = crdsCiliumlocalredirectpolicies
 	case CEGPCRDName:
 		crdBytes = crdsv2Ciliumegressgatewaypolicies
-	case CENPCRDName:
-		crdBytes = crdsv2Alpha1Ciliumegressnatpolicies
 	case CESCRDName:
 		crdBytes = crdsv2Alpha1Ciliumendpointslices
 	case CCECCRDName:
@@ -314,17 +305,6 @@ func createCEGPCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CEGPCRDName,
 		constructV1CRD(k8sconstv2.CEGPName, ciliumCRD),
-		newDefaultPoller(),
-	)
-}
-
-func createCENPCRD(clientset apiextensionsclient.Interface) error {
-	ciliumCRD := GetPregeneratedCRD(CENPCRDName)
-
-	return createUpdateCRD(
-		clientset,
-		CENPCRDName,
-		constructV1CRD(k8sconstv2alpha1.CENPName, ciliumCRD),
 		newDefaultPoller(),
 	)
 }
