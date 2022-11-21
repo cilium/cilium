@@ -153,6 +153,7 @@ jobs:
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
+            --config debug=true \
             --base-version=v1.10.12"
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --relay-version=${SHA}"
