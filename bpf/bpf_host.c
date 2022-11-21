@@ -798,57 +798,11 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 #endif /* ENABLE_IPSEC */
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
+do_netdev(struct __ctx_buff *ctx, __u16 proto, __u32 __maybe_unused identity,
+	  const bool __maybe_unused from_host)
 {
-	__u32 __maybe_unused identity = 0;
 	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
-
-#if defined(ENABLE_L7_LB)
-	if (from_host) {
-		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-
-		if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
-			__u32 lxc_id = get_epid(ctx);
-
-			ctx->mark = 0;
-			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-			return DROP_MISSED_TAIL_CALL;
-		}
-	}
-#endif
-
-#ifdef ENABLE_IPSEC
-	if (!from_host && !do_decrypt(ctx, proto))
-		return CTX_ACT_OK;
-#endif
-
-	if (from_host) {
-		__u32 magic;
-		enum trace_point trace = TRACE_FROM_HOST;
-
-		magic = inherit_identity_from_host(ctx, &identity);
-		if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
-			trace = TRACE_FROM_PROXY;
-
-#ifdef ENABLE_IPSEC
-		if (magic == MARK_MAGIC_ENCRYPT) {
-			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
-					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-					  TRACE_PAYLOAD_LEN);
-			return do_netdev_encrypt(ctx, identity);
-		}
-#endif
-
-		send_trace_notify(ctx, trace, identity, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-	} else {
-		ctx_skip_nodeport_clear(ctx);
-		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-	}
 
 	bpf_clear_meta(ctx);
 
@@ -907,35 +861,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	}
 
 	return ret;
-}
-
-/**
- * handle_netdev
- * @ctx		The packet context for this program
- * @from_host	True if the packet is from the local host
- *
- * Handle netdev traffic coming towards the Cilium-managed network.
- */
-static __always_inline int
-handle_netdev(struct __ctx_buff *ctx, const bool from_host)
-{
-	__u16 proto;
-
-	if (!validate_ethertype(ctx, &proto)) {
-#ifdef ENABLE_HOST_FIREWALL
-		int ret = DROP_UNSUPPORTED_L2;
-
-		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
-#else
-		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
-				  TRACE_REASON_UNKNOWN, 0);
-		/* Pass unknown traffic to the stack */
-		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
-	}
-
-	return do_netdev(ctx, proto, from_host);
 }
 
 #ifdef ENABLE_SRV6
@@ -1038,6 +963,7 @@ __section("from-netdev")
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
 	__u32 __maybe_unused vlan_id;
+	__u16 proto;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 #ifdef HAVE_ENCAP
@@ -1072,7 +998,31 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		}
 	}
 
-	return handle_netdev(ctx, false);
+	if (!validate_ethertype(ctx, &proto)) {
+#ifdef ENABLE_HOST_FIREWALL
+		int ret = DROP_UNSUPPORTED_L2;
+
+		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+#else
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
+				  TRACE_REASON_UNKNOWN, 0);
+		/* Pass unknown traffic to the stack */
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
+	}
+
+#ifdef ENABLE_IPSEC
+	if (!do_decrypt(ctx, proto))
+		return CTX_ACT_OK;
+#endif
+
+	ctx_skip_nodeport_clear(ctx);
+	send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
+			  ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+
+	return do_netdev(ctx, proto, 0, false);
 }
 
 /*
@@ -1082,11 +1032,60 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 __section("from-host")
 int cil_from_host(struct __ctx_buff *ctx)
 {
+	enum trace_point trace = TRACE_FROM_HOST;
+	__u32 identity = 0;
+	__u32 magic;
+	__u16 proto;
+
 	/* Traffic from the host ns going through cilium_host device must
 	 * not be subject to EDT rate-limiting.
 	 */
 	edt_set_aggregate(ctx, 0);
-	return handle_netdev(ctx, true);
+
+	if (!validate_ethertype(ctx, &proto)) {
+#ifdef ENABLE_HOST_FIREWALL
+		int ret = DROP_UNSUPPORTED_L2;
+
+		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+#else
+		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
+				  TRACE_REASON_UNKNOWN, 0);
+		/* Pass unknown traffic to the stack */
+		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
+	}
+
+#if defined(ENABLE_L7_LB)
+	magic = ctx->mark & MARK_MAGIC_HOST_MASK;
+
+	if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
+		__u32 lxc_id = get_epid(ctx);
+
+		ctx->mark = 0;
+		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif
+
+	magic = inherit_identity_from_host(ctx, &identity);
+	if (magic == MARK_MAGIC_PROXY_INGRESS ||  magic == MARK_MAGIC_PROXY_EGRESS)
+		trace = TRACE_FROM_PROXY;
+
+#ifdef ENABLE_IPSEC
+	if (magic == MARK_MAGIC_ENCRYPT) {
+		send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
+				  TRACE_PAYLOAD_LEN);
+		return do_netdev_encrypt(ctx, identity);
+	}
+#endif
+
+	send_trace_notify(ctx, trace, identity, 0, 0,
+			  ctx->ingress_ifindex,
+			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+
+	return do_netdev(ctx, proto, identity, true);
 }
 
 /*
