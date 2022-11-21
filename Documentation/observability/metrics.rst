@@ -449,17 +449,17 @@ Name                               Labels                           Default     
 API Rate Limiting
 ~~~~~~~~~~~~~~~~~
 
-===================================================== ================================ ========== ========================================================
-Name                                                  Labels                           Default    Description
-===================================================== ================================ ========== ========================================================
-``cilium_api_limiter_adjustment_factor``              ``api_call``                     Enabled    Most recent adjustment factor for automatic adjustment
-``cilium_api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Enabled    Total number of API requests processed
-``cilium_api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Enabled    Mean and estimated processing duration in seconds
-``cilium_api_limiter_rate_limit``                     ``api_call``, ``value``          Enabled    Current rate limiting configuration (limit and burst)
-``cilium_api_limiter_requests_in_flight``             ``api_call``  ``value``          Enabled    Current and maximum allowed number of requests in flight
-``cilium_api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Enabled    Mean, min, and max wait duration
-``cilium_api_limiter_wait_history_duration_seconds``  ``api_call``                     Disabled   Histogram of wait duration per API call processed
-===================================================== ================================ ========== ========================================================
+============================================== ================================ ========== ========================================================
+Name                                           Labels                           Default    Description
+============================================== ================================ ========== ========================================================
+``api_limiter_adjustment_factor``              ``api_call``                     Enabled    Most recent adjustment factor for automatic adjustment
+``api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Enabled    Total number of API requests processed
+``api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Enabled    Mean and estimated processing duration in seconds
+``api_limiter_rate_limit``                     ``api_call``, ``value``          Enabled    Current rate limiting configuration (limit and burst)
+``api_limiter_requests_in_flight``             ``api_call``  ``value``          Enabled    Current and maximum allowed number of requests in flight
+``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Enabled    Mean, min, and max wait duration
+``api_limiter_wait_history_duration_seconds``  ``api_call``                     Disabled   Histogram of wait duration per API call processed
+============================================== ================================ ========== ========================================================
 
 cilium-operator
 ---------------
