@@ -176,7 +176,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 }
 
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
+handle_ipv6_from_host(struct __ctx_buff *ctx, __u32 secctx)
 {
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -186,7 +186,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	__u32 __maybe_unused remote_id = WORLD_ID;
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
@@ -207,69 +206,21 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 			return ret;
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
-		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !ctx_skip_nodeport(ctx)) {
-			ret = nodeport_lb6(ctx, secctx);
-			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
-			 * traffic to L7 LB. Policy enforcement needs to take
-			 * place after L7 LB has processed the packet, so we
-			 * return to stack immediately here with
-			 * TC_ACT_REDIRECT.
-			 */
-			if (ret < 0 || ret == TC_ACT_REDIRECT)
-				return ret;
-		}
-		/* Verifier workaround: modified ctx access. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
-#endif /* ENABLE_NODEPORT */
-
 #ifdef ENABLE_HOST_FIREWALL
-	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, &trace);
-		if (IS_ERR(ret))
-			return ret;
-	} else if (!ctx_skip_host_fw(ctx)) {
-		ret = ipv6_host_policy_ingress(ctx, &remote_id, &trace);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	ret = ipv6_host_policy_egress(ctx, secctx, &trace);
+	if (IS_ERR(ret))
+		return ret;
 #endif /* ENABLE_HOST_FIREWALL */
 
 skip_host_firewall:
-#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
-	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+	/* Rewrite the destination MAC address to the MAC of cilium_net. */
+	ret = rewrite_dmac_to_host(ctx, secctx);
+	/* DIRECT PACKET READ INVALID */
+	if (IS_ERR(ret))
+		return ret;
 
-#ifdef ENABLE_SRV6
-	if (!from_host) {
-		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
-			/* This packet is destined to an SID so we need to decapsulate it
-			 * and forward it.
-			 */
-			ep_tail_call(ctx, CILIUM_CALL_SRV6_DECAP);
-			return DROP_MISSED_TAIL_CALL;
-		}
-	}
-#endif /* ENABLE_SRV6 */
-
-	if (from_host) {
-		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination MAC address to the MAC of cilium_net.
-		 */
-		ret = rewrite_dmac_to_host(ctx, secctx);
-		/* DIRECT PACKET READ INVALID */
-		if (IS_ERR(ret))
-			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
@@ -281,14 +232,8 @@ skip_host_firewall:
 			return CTX_ACT_OK;
 
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
-					   METRIC_INGRESS, from_host);
+					   METRIC_INGRESS, true);
 	}
-
-	/* Below remainder is only relevant when traffic is pushed via cilium_host.
-	 * For traffic coming from external, we're done here.
-	 */
-	if (!from_host)
-		return CTX_ACT_OK;
 
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
@@ -341,30 +286,121 @@ skip_host_firewall:
 }
 
 static __always_inline int
-tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
+handle_ipv6_from_netdev(struct __ctx_buff *ctx, __u32 secctx)
+{
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+	__u32 __maybe_unused remote_id = WORLD_ID;
+	int ret, l3_off = ETH_HLEN, hdrlen;
+	struct endpoint_info *ep;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__u8 nexthdr;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	if (likely(nexthdr == IPPROTO_ICMPV6)) {
+		ret = icmp6_host_handle(ctx);
+		if (ret == SKIP_HOST_FIREWALL)
+			goto skip_host_firewall;
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+#ifdef ENABLE_NODEPORT
+	if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
+	    !ctx_skip_nodeport(ctx)) {
+		ret = nodeport_lb6(ctx, secctx);
+		/* nodeport_lb6() returns with TC_ACT_REDIRECT for
+		 * traffic to L7 LB. Policy enforcement needs to take
+		 * place after L7 LB has processed the packet, so we
+		 * return to stack immediately here with
+		 * TC_ACT_REDIRECT.
+		 */
+		if (ret < 0 || ret == TC_ACT_REDIRECT)
+			return ret;
+	}
+	/* Verifier workaround: modified ctx access. */
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#endif /* ENABLE_NODEPORT */
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (!ctx_skip_host_fw(ctx)) {
+		ret = ipv6_host_policy_ingress(ctx, &remote_id, &trace);
+		if (IS_ERR(ret))
+			return ret;
+	}
+#endif /* ENABLE_HOST_FIREWALL */
+
+skip_host_firewall:
+#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
+	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
+	return CTX_ACT_OK;
+#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+
+#ifdef ENABLE_SRV6
+	if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
+		/* This packet is destined to an SID so we need to decapsulate it
+		 * and forward it.
+		 */
+		ep_tail_call(ctx, CILIUM_CALL_SRV6_DECAP);
+		return DROP_MISSED_TAIL_CALL;
+	}
+#endif /* ENABLE_SRV6 */
+
+	/* Lookup IPv6 address in list of local endpoints */
+	ep = lookup_ip6_endpoint(ip6);
+	if (ep) {
+		/* Let through packets to the node-ip so they are
+		 * processed by the local ip stack.
+		 */
+		if (ep->flags & ENDPOINT_F_HOST)
+			return CTX_ACT_OK;
+
+		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
+					   METRIC_INGRESS, false);
+	}
+
+	return CTX_ACT_OK;
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_HOST)
+int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
 
 	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
 
-	ret = handle_ipv6(ctx, proxy_identity, from_host);
+	ret = handle_ipv6_from_host(ctx, proxy_identity);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, proxy_identity, ret,
 					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_HOST)
-int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
-{
-	return tail_handle_ipv6(ctx, true);
-}
-
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv6(ctx, false);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	int ret;
+
+	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+
+	ret = handle_ipv6_from_netdev(ctx, proxy_identity);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, proxy_identity, ret,
+					      CTX_ACT_DROP, METRIC_INGRESS);
+	return ret;
 }
 
 # ifdef ENABLE_HOST_FIREWALL
