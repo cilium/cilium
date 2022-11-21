@@ -12,57 +12,48 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
-// ConfigReconcilerFunc is a function signature for reconciling a particular aspect
+// ConfigReconciler is a interface for reconciling a particular aspect
 // of an old and new *v2alpha1api.CiliumBGPVirtualRouter
-//
-// If the `Config` field in `sc` is nil the reconciler should unconditionally
-// perform the reconciliation actions, as no previous configuration is present.
-type ConfigReconcilerFunc func(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error
-
-// ConfigReconcilers is an array of ConfigReconcilerFunc(s) which should be ran
-// in the defined order.
-//
-// Before adding ConfigReconcilerFunc consider the order in which they run and
-// ensure any dependencies are reconciled first.
-var ConfigReconcilers = [...]ConfigReconcilerFunc{
-	preflightReconciler,
-	neighborReconciler,
-	exportPodCIDRReconciler,
+type ConfigReconciler interface {
+	// Priority is used to determine the order in which reconcilers are called. Reconcilers are called from lowest to
+	// highest.
+	Priority() int
+	// If the `Config` field in `sc` is nil the reconciler should unconditionally
+	// perform the reconciliation actions, as no previous configuration is present.
+	Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error
 }
 
-// ReconcileBGPConfig will utilize the current set of ConfigReconcilerFunc(s)
-// to push a BgpServer to its desired configuration.
-//
-// If any ConfigReconcilerFunc fails so will ReconcileBGPConfig and the caller
-// is left to decide how to handle the possible inconsistent state of the
-// BgpServer left over.
-//
-// Providing a ServerWithConfig that has a nil `Config` field indicates that
-// this is the first time this BgpServer is being configured, each
-// ConfigReconcilerFunc must be prepared to handle this.
-//
-// The two CiliumBGPVirtualRouter(s) being compared must have the same local
-// ASN, unless `sc.Config` is nil, or else an error is returned.
-//
-// On success the provided `newc` will be written to `sc.Config`. The caller
-// should then store `sc` until next reconciliation.
-func ReconcileBGPConfig(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
-	if sc.Config != nil {
-		if sc.Config.LocalASN != newc.LocalASN {
-			return fmt.Errorf("cannot reconcile two BgpServers with different local ASNs")
-		}
+// ConfigReconcilers bundles all reconcilers under one Cell
+var ConfigReconcilers = cell.ProvidePrivate(
+	NewPreflightReconciler,
+	NewNeighborReconciler,
+	NewExportPodCIDRReconciler,
+)
+
+type preflightReconcilerOut struct {
+	cell.Out
+
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
+}
+
+type PreflightReconciler struct{}
+
+func NewPreflightReconciler() preflightReconcilerOut {
+	return preflightReconcilerOut{
+		Reconciler: &PreflightReconciler{},
 	}
-	for _, r := range ConfigReconcilers {
-		if err := r(ctx, m, sc, newc, cstate); err != nil {
-			return fmt.Errorf("reconciliation of virtual router with local ASN %v failed: %w", newc.LocalASN, err)
-		}
-	}
-	// all reconcilers succeeded so update Server's config with new peering config.
-	sc.Config = newc
-	return nil
+}
+
+func (r *PreflightReconciler) Priority() int {
+	return 10
+}
+
+func (r *PreflightReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	return preflightReconciler(ctx, m, sc, newc, cstate)
 }
 
 // preflightReconciler is a preflight task before any other reconciliation should
@@ -175,6 +166,28 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	return nil
 }
 
+type neighborReconcilerOut struct {
+	cell.Out
+
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
+}
+
+type NeighborReconciler struct{}
+
+func NewNeighborReconciler() neighborReconcilerOut {
+	return neighborReconcilerOut{
+		Reconciler: &NeighborReconciler{},
+	}
+}
+
+func (r *NeighborReconciler) Priority() int {
+	return 20
+}
+
+func (r *NeighborReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	return neighborReconciler(ctx, m, sc, newc, cstate)
+}
+
 // neighborReconciler is a ConfigReconcilerFunc which reconciles the peers of
 // the provided BGP server with the provided CiliumBGPVirtualRouter.
 func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, _ *agent.ControlPlaneState) error {
@@ -280,6 +293,28 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 
 	l.Infof("Done reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 	return nil
+}
+
+type exportPodCIDRReconcilerOut struct {
+	cell.Out
+
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
+}
+
+type ExportPodCIDRReconciler struct{}
+
+func NewExportPodCIDRReconciler() exportPodCIDRReconcilerOut {
+	return exportPodCIDRReconcilerOut{
+		Reconciler: &ExportPodCIDRReconciler{},
+	}
+}
+
+func (r *ExportPodCIDRReconciler) Priority() int {
+	return 30
+}
+
+func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	return exportPodCIDRReconciler(ctx, m, sc, newc, cstate)
 }
 
 // exportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the

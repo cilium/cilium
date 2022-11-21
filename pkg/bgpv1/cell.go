@@ -30,6 +30,8 @@ var Cell = cell.Module(
 	// goBGP is currently the only supported RouterManager, if more are
 	// implemented, provide the manager via a Cell that pics implementation based on configuration.
 	cell.ProvidePrivate(gobgp.NewBGPRouterManager),
+	// Provides the reconcilers used by the route manager to update the config
+	gobgp.ConfigReconcilers,
 )
 
 func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {
