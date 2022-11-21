@@ -222,9 +222,26 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	struct dsr_opt_v6 opt __align_stack_8 = {};
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(opt);
 	__u16 total_len = bpf_ntohs(ip6->payload_len) + sizeof(struct ipv6hdr) + sizeof(opt);
+	__u8 nexthdr = ip6->nexthdr;
+	int hdrlen;
 
 	/* The IPv6 extension should be 8-bytes aligned */
 	build_bug_on((sizeof(struct dsr_opt_v6) % 8) != 0);
+
+	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	/* See dsr_set_opt4(): */
+	if (nexthdr == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = { .value = 0 };
+
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + hdrlen, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+			return 0;
+	}
 
 	if (dsr_is_too_big(ctx, total_len)) {
 		*ohead = sizeof(opt);
