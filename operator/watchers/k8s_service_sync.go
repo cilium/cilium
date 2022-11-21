@@ -135,32 +135,24 @@ func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clients
 	swgEps := lock.NewStoppableWaitGroup()
 
 	// Start populating the service cache
-	services.Observe(
-		ctx,
-		func(ev resource.Event[*slim_corev1.Service]) {
-			ev.Handle(
-				func() error {
-					// Wait until service cache updates have been fully processed.
-					swgSvcs.Stop()
-					swgSvcs.Wait()
-					close(k8sSvcCacheSynced)
-					return nil
-				},
-				func(key resource.Key, svc *slim_corev1.Service) error {
-					k8sEventMetric(resources.MetricService, resources.MetricUpdate)
-					K8sSvcCache.UpdateService(svc, swgSvcs)
-					return nil
-				},
-				func(_ resource.Key, deletedSvc *slim_corev1.Service) error {
-					k8sEventMetric(resources.MetricService, resources.MetricDelete)
-					K8sSvcCache.DeleteService(deletedSvc, swgSvcs)
-					return nil
-				},
-			)
-
-		},
-		func(error) { /* only completes when stopping */ },
-	)
+	go func() {
+		for ev := range services.Events(ctx) {
+			switch ev.Kind {
+			case resource.Sync:
+				// Wait until service cache updates have been fully processed.
+				swgSvcs.Stop()
+				swgSvcs.Wait()
+				close(k8sSvcCacheSynced)
+			case resource.Upsert:
+				k8sEventMetric(resources.MetricService, resources.MetricUpdate)
+				K8sSvcCache.UpdateService(ev.Object, swgSvcs)
+			case resource.Delete:
+				k8sEventMetric(resources.MetricService, resources.MetricDelete)
+				K8sSvcCache.DeleteService(ev.Object, swgSvcs)
+			}
+			ev.Done(nil)
+		}
+	}()
 
 	var (
 		endpointController cache.Controller

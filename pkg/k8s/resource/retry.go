@@ -14,10 +14,12 @@ var (
 	ErrorActionIgnore ErrorAction = "ignore"
 
 	// ErrorActionStop instructs to stop the processing for this subscriber.
-	// The stream is completed with the error leading to this action.
 	ErrorActionStop ErrorAction = "stop"
 )
 
+// ErrorHandler is a function that takes the key of the failing object (zero key if event
+// was sync), the number of times the key has been retried and the error that occurred.
+// The function returns the action that should be taken.
 type ErrorHandler func(key Key, numRetries int, err error) ErrorAction
 
 // AlwaysRetry is an error handler that always retries the error.
