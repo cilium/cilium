@@ -1003,7 +1003,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		int ret = DROP_UNSUPPORTED_L2;
 
 		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
-					CTX_ACT_DROP, METRIC_EGRESS);
+					CTX_ACT_DROP, METRIC_INGRESS);
 #else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
 				  TRACE_REASON_UNKNOWN, 0);
