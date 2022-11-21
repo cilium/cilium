@@ -21,6 +21,26 @@ spec:
 apiVersion: cilium.io/v2
 kind: CiliumEgressGatewayPolicy
 metadata:
+  name: cegp-sample2
+spec:
+  egress:
+  - podSelector:
+      matchLabels:
+        zgroup: testDSClient2
+    namespaceSelector:
+      matchLabels:
+        ns: cilium-test
+  destinationCIDRs:
+  - INPUT_OUTSIDE_NODE_IP/32
+  egressGateway:
+    nodeSelector:
+      matchLabels:
+        cilium.io/ci-node: k8s2
+    egressIP: INPUT_EGRESS_IP
+---
+apiVersion: cilium.io/v2
+kind: CiliumEgressGatewayPolicy
+metadata:
   name: egress-to-black-hole
 spec:
   selectors:
