@@ -332,6 +332,8 @@ Removed Options
   has been removed. Users of the ``probe`` option are advised either to use
   ``strict`` or ``partial`` with individual options configured. Please refer to
   :ref:`kubeproxy-free` for more info.
+* The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
+  by the ``CiliumEgressGatewayPolicy`` CRD.
 
 
 Deprecated Options

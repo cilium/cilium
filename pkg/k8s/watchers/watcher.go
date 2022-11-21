@@ -71,7 +71,6 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
-	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
@@ -83,7 +82,6 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCEGP           = "CiliumEgressGatewayPolicy"
-	metricCENP           = "CiliumEgressNATPolicy"
 	metricCCEC           = "CiliumClusterwideEnvoyConfig"
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
@@ -416,7 +414,6 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CLRPName):           {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
 	synced.CRDResourceName(v2.CEWName):            {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(v2.CEGPName):           {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
-	synced.CRDResourceName(v2alpha1.CENPName):     {start, k8sAPIGroupCiliumEgressNATPolicyV2},
 	synced.CRDResourceName(v2alpha1.CESName):      {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(v2.CCECName):           {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):            {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
@@ -579,8 +576,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
 			k.ciliumEgressGatewayPolicyInit(k.clientset)
-		case k8sAPIGroupCiliumEgressNATPolicyV2:
-			k.ciliumEgressNATPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:

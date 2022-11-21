@@ -834,30 +834,6 @@ func ConvertToCiliumEgressGatewayPolicy(obj interface{}) interface{} {
 	}
 }
 
-// ConvertToCiliumEgressNATPolicy converts a *cilium_v2.CiliumEgressNATPolicy into a
-// *cilium_v2.CiliumEgressNATPolicy or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumEgressNATPolicy in its Obj.
-// If the given obj can't be cast into either *cilium_v2.CiliumEgressNATPolicy
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToCiliumEgressNATPolicy(obj interface{}) interface{} {
-	// TODO create a slim type of the CiliumEgressNATPolicy
-	switch concreteObj := obj.(type) {
-	case *cilium_v2alpha1.CiliumEgressNATPolicy:
-		return concreteObj
-	case cache.DeletedFinalStateUnknown:
-		ciliumEgressNATPolicy, ok := concreteObj.Obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: ciliumEgressNATPolicy,
-		}
-	default:
-		return obj
-	}
-}
-
 // ConvertToCiliumClusterwideEnvoyConfig converts a *cilium_v2.CiliumClusterwideEnvoyConfig into a
 // *cilium_v2.CiliumClusterwideEnvoyConfig or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumClusterwideEnvoyConfig in its Obj.
@@ -1054,28 +1030,6 @@ func ObjToCEGP(obj interface{}) *cilium_v2.CiliumEgressGatewayPolicy {
 		// removed from kube-apiserver. This is the last
 		// known state and the object no longer exists.
 		cn, ok := deletedObj.Obj.(*cilium_v2.CiliumEgressGatewayPolicy)
-		if ok {
-			return cn
-		}
-	}
-	log.WithField(logfields.Object, logfields.Repr(obj)).
-		Warn("Ignoring invalid v2 Cilium Egress Gateway Policy")
-	return nil
-}
-
-// ObjToCENP attempts to cast object to a CENP object and
-// returns the CENP object if the cast succeeds. Otherwise, nil is returned.
-func ObjToCENP(obj interface{}) *cilium_v2alpha1.CiliumEgressNATPolicy {
-	cENP, ok := obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
-	if ok {
-		return cENP
-	}
-	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-	if ok {
-		// Delete was not observed by the watcher but is
-		// removed from kube-apiserver. This is the last
-		// known state and the object no longer exists.
-		cn, ok := deletedObj.Obj.(*cilium_v2alpha1.CiliumEgressNATPolicy)
 		if ok {
 			return cn
 		}

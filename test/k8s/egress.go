@@ -304,37 +304,6 @@ var _ = SkipDescribeIf(func() bool {
 					testConnectivity(true, ciliumOpts)
 				})
 			})
-
-			Context("egress gw policy upgrade", func() {
-				BeforeAll(func() {
-					applyEgressPolicy("egress-gateway-policy-upgrade.yaml")
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
-				})
-				AfterAll(func() {
-					kubectl.Delete(policyYAML)
-				})
-
-				AfterFailed(func() {
-					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
-				})
-
-				It("both egress gw and basic connectivity work", func() {
-					testEgressGateway(false)
-					testEgressGateway(true)
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
-
-					// see if things still work after ripping out the
-					// duplicated policy:
-					kubectl.DeleteResource("cenp", "cenp-sample-upgrade")
-					testEgressGateway(false)
-					testEgressGateway(true)
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
-				})
-			})
-
 		})
 	}
 

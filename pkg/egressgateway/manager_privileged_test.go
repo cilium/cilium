@@ -49,8 +49,6 @@ const (
 	egressIP1   = "192.168.101.1"
 	egressCIDR1 = "192.168.101.1/24"
 
-	egressIP2 = "192.168.102.1"
-
 	zeroIP4 = "0.0.0.0"
 )
 
@@ -149,7 +147,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	egressGatewayManager.OnUpdateNode(node2)
 
 	// Create a new policy
-	policy1 := newEgressPolicyConfig("policy-1", ep1Labels, destCIDR, egressIP1)
+	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, nodeGroup1Selector, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, []egressRule{})
@@ -157,84 +155,6 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	// Add a new endpoint & ID which matches policy-1
 	ep1, id1 := newEndpointAndIdentity("ep-1", ep1IP, ep1Labels)
-	egressGatewayManager.OnUpdateEndpoint(&ep1)
-
-	assertEgressRules(c, []egressRule{
-		{ep1IP, destCIDR, egressIP1, egressIP1},
-	})
-	assertIPRules(c, []ipRule{})
-
-	// Update the labels for ep1 in order for it to NOT be a match
-	id1 = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	egressGatewayManager.OnUpdateEndpoint(&ep1)
-
-	assertEgressRules(c, []egressRule{})
-	assertIPRules(c, []ipRule{})
-
-	// Restore the old ep1 lables in order for it to be a match
-	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
-	egressGatewayManager.OnUpdateEndpoint(&ep1)
-
-	assertEgressRules(c, []egressRule{
-		{ep1IP, destCIDR, egressIP1, egressIP1},
-	})
-	assertIPRules(c, []ipRule{})
-
-	// Create a new policy
-	policy2 := newEgressPolicyConfig("policy-2", ep2Labels, destCIDR, egressIP2)
-	egressGatewayManager.OnAddEgressPolicy(policy2)
-
-	assertEgressRules(c, []egressRule{
-		{ep1IP, destCIDR, egressIP1, egressIP1},
-	})
-	assertIPRules(c, []ipRule{})
-
-	// Add a new endpoint and ID which matches policy-2
-	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2Labels)
-	egressGatewayManager.OnUpdateEndpoint(&ep2)
-
-	assertEgressRules(c, []egressRule{
-		{ep1IP, destCIDR, egressIP1, egressIP1},
-		{ep2IP, destCIDR, egressIP2, egressIP2},
-	})
-
-	// Update the endpoint labels for policy-1 in order for it to NOT be a match
-	updateEndpointAndIdentity(&ep1, id1, map[string]string{})
-	egressGatewayManager.OnUpdateEndpoint(&ep1)
-
-	assertEgressRules(c, []egressRule{
-		{ep2IP, destCIDR, egressIP2, egressIP2},
-	})
-	assertIPRules(c, []ipRule{})
-
-	// Restore the old endpoint lables in order for it to be a match
-	id1 = updateEndpointAndIdentity(&ep1, id1, ep1Labels)
-	egressGatewayManager.OnUpdateEndpoint(&ep1)
-
-	assertEgressRules(c, []egressRule{
-		{ep1IP, destCIDR, egressIP1, egressIP1},
-		{ep2IP, destCIDR, egressIP2, egressIP2},
-	})
-
-	// Delete policy-1 and policy-2 policies
-	egressGatewayManager.OnDeleteEgressPolicy(policy1.id)
-	egressGatewayManager.OnDeleteEgressPolicy(policy2.id)
-
-	// As well as ep-1 and ep-2 endpoints
-	egressGatewayManager.OnDeleteEndpoint(&ep1)
-	egressGatewayManager.OnDeleteEndpoint(&ep2)
-
-	assertEgressRules(c, []egressRule{})
-	assertIPRules(c, []ipRule{})
-
-	// Create a new policy
-	policy3 := newEgressPolicyConfigWithNodeSelector("policy-3", ep1Labels, destCIDR, nodeGroup1Selector, testInterface1)
-	egressGatewayManager.OnAddEgressPolicy(policy3)
-
-	assertEgressRules(c, []egressRule{})
-	assertIPRules(c, []ipRule{})
-
-	// Add back ep-1 endpoint which matches policy-3
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
 
 	assertEgressRules(c, []egressRule{
@@ -263,8 +183,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Create a new policy
-	policy4 := newEgressPolicyConfigWithNodeSelector("policy-4", ep2Labels, destCIDR, nodeGroup2Selector, testInterface1)
-	egressGatewayManager.OnAddEgressPolicy(policy4)
+	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, nodeGroup2Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy2)
 
 	assertEgressRules(c, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
@@ -273,7 +193,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
 
-	// Add back ep-2 endpoint which matches policy-4
+	// Add a new endpoint and ID which matches policy-2
+	ep2, _ := newEndpointAndIdentity("ep-2", ep2IP, ep2Labels)
 	egressGatewayManager.OnUpdateEndpoint(&ep2)
 
 	assertEgressRules(c, []egressRule{
@@ -347,26 +268,6 @@ func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.
 				IP:   net.ParseIP(nodeIP),
 			},
 		},
-	}
-}
-
-func newEgressPolicyConfig(policyName string, labels map[string]string, destinationCIDR, egressIP string) PolicyConfig {
-	_, destCIDR, _ := net.ParseCIDR(destinationCIDR)
-	eip := net.ParseIP(egressIP)
-
-	return PolicyConfig{
-		id: types.NamespacedName{
-			Name: policyName,
-		},
-		endpointSelectors: []api.EndpointSelector{
-			{
-				LabelSelector: &slimv1.LabelSelector{
-					MatchLabels: labels,
-				},
-			},
-		},
-		dstCIDRs: []*net.IPNet{destCIDR},
-		egressIP: eip,
 	}
 }
 
