@@ -808,6 +808,7 @@ refreshPeriod
 regenerations
 regex
 regexes
+relabelings
 relocations
 remoteNodeIdentity
 removeNodeTaints

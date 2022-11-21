@@ -698,6 +698,8 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Relabeling configs for the ServiceMonitor hubble
+      relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
 
@@ -930,6 +932,8 @@ hubble:
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
+        # -- Relabeling configs for the ServiceMonitor hubble-relay
+        relabelings: ~
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
         metricRelabelings: ~
 
@@ -1352,6 +1356,8 @@ prometheus:
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
+    # -- Relabeling configs for the ServiceMonitor cilium-agent
+    relabelings: ~
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
@@ -1669,6 +1675,8 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Relabeling configs for the ServiceMonitor cilium-operator
+      relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
       metricRelabelings: ~
 
