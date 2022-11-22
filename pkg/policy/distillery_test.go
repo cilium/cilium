@@ -1165,8 +1165,14 @@ var (
 				FromEntities: api.EntitySlice{api.EntityWorld},
 			},
 		}}).
+		WithEgressDenyRules([]api.EgressDenyRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEntities: api.EntitySlice{api.EntityWorld},
+			},
+		}}).
 		WithEndpointSelector(api.WildcardEndpointSelector)
 	mapKeyL3L4__DenyWorldIngress = Key{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress.Uint8()}
+	mapKeyL3L4__DenyWorldEgress  = Key{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Egress.Uint8()}
 	mapEntryL3L4__DenyWorld      = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
@@ -1181,6 +1187,11 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{
 				FromCIDR: api.CIDRSlice{worldCIDR},
+			},
+		}}).
+		WithEgressRules([]api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToCIDR: api.CIDRSlice{worldCIDR},
 			},
 		}}).
 		WithEndpointSelector(api.WildcardEndpointSelector)
@@ -1202,6 +1213,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 
 		{0, api.Rules{ruleL3L4__DenyWorld, ruleL3L4__AllowWorldIP}, MapState{
 			mapKeyL3L4__DenyWorldIngress: mapEntryL3L4__DenyWorld,
+			mapKeyL3L4__DenyWorldEgress:  mapEntryL3L4__DenyWorld,
 		}},
 	}
 	for _, tt := range tests {
