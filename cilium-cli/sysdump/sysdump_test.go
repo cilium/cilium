@@ -296,6 +296,10 @@ func (c *fakeClient) ListCiliumEgressNATPolicies(ctx context.Context, opts metav
 	panic("implement me")
 }
 
+func (c *fakeClient) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error) {
 	panic("implement me")
 }
