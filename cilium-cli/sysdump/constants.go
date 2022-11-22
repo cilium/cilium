@@ -38,6 +38,7 @@ const (
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
 	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
+	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
 	ciliumEndpointsFileName                  = "ciliumendpoints-<ts>.yaml"
 	ciliumEnvoyConfigsFileName               = "ciliumenvoyconfigs-<ts>.yaml"
 	ciliumEtcdSecretFileName                 = "cilium-etcd-secrets-secret-<ts>.yaml"
