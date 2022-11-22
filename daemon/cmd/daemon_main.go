@@ -1072,6 +1072,10 @@ func initializeFlags() {
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(Vp, option.EnablePMTUDiscovery)
 
+	flags.Bool(option.EnableStaleCiliumEndpointCleanup, true, "Enable running cleanup init procedure of local CiliumEndpoints which are not being managed.")
+	flags.MarkHidden(option.EnableStaleCiliumEndpointCleanup)
+	option.BindEnv(Vp, option.EnableStaleCiliumEndpointCleanup)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1746,6 +1750,23 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		if restoreComplete != nil {
 			<-restoreComplete
 		}
+
+		if params.Clientset.IsEnabled() {
+			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
+			// This will clear out any CiliumEndpoints that may be stale.
+			// Likely causes for this are Pods having their init container restarted or the node being restarted.
+			// This must wait for both K8s watcher caches to be synced and local endpoint restoration to be complete.
+			// Note: Synchronization of endpoints to their CEPs may not be complete at this point, but we only have to
+			// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
+			if err := d.cleanStaleCEPs(context.Background(), d.endpointManager, params.Clientset.CiliumV2(), option.Config.EnableCiliumEndpointSlice); err != nil {
+				log.WithError(err).Error("Failed to clean up stale CEPs")
+			}
+		}
+	}()
+	go func() {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
 		d.dnsNameManager.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(&EndpointMapManager{
@@ -1823,7 +1844,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			d.startKubeProxyHealthzHTTPService(fmt.Sprintf("%s", option.Config.KubeProxyReplacementHealthzBindAddr))
+			d.startKubeProxyHealthzHTTPService(option.Config.KubeProxyReplacementHealthzBindAddr)
 		}
 	}
 

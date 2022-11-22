@@ -61,9 +61,7 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 			func() k8sClient.Clientset { return clientset },
 			func() datapath.Datapath { return fdp },
 		),
-
 		cmd.ControlPlane,
-
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
 			daemonPromise = p
 		}),
