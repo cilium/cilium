@@ -42,6 +42,7 @@ type KubernetesClient interface {
 	ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error)
 	ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error)
 	ListCiliumEgressNATPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumEgressNATPolicyList, error)
+	ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	ListCiliumEnvoyConfigs(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEnvoyConfigList, error)
 	ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error)
