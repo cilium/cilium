@@ -815,7 +815,11 @@ hubble:
       # -- Interval for scrape metrics.
       interval: "10s"
       # -- Relabeling configs for the ServiceMonitor hubble
-      relabelings: ~
+      relabelings:
+        - sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node
+          replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
     dashboards:
@@ -1515,7 +1519,11 @@ prometheus:
     # service monitors configured.
     # namespace: ""
     # -- Relabeling configs for the ServiceMonitor cilium-agent
-    relabelings: ~
+    relabelings:
+      - sourceLabels:
+          - __meta_kubernetes_pod_node_name
+        targetLabel: node
+        replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
