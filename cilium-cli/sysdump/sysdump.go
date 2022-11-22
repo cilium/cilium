@@ -429,6 +429,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Cilium Egress Gateway policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumEgressGatewayPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium Egress Gateway policies: %w", err)
+				}
+				if err := c.WriteYAML(ciliumEgressGatewayPoliciesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium Egress Gateway policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Cilium local redirect policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
