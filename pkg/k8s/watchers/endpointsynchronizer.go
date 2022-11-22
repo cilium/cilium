@@ -46,7 +46,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	var (
 		endpointID     = e.ID
 		controllerName = endpoint.EndpointSyncControllerName(endpointID)
-		scopedLog      = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
+		scopedLog      = e.Logger(subsysEndpointSync).WithFields(logrus.Fields{
+			"controller": controllerName,
+			"endpointID": e.ID,
+		})
 	)
 
 	if option.Config.DisableCiliumEndpointCRD {
@@ -243,6 +246,14 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// If it fails it means the test from the previous patch failed
 				// so we can safely replace this node in the CNP status.
 				replaceCEPStatus := []k8s.JSONPatch{
+					// If the stored UID matches the one in the ciliumendpoint then
+					// this first patch is a no-op, otherwise the entire patch will
+					// not be applied as uid is immutable.
+					{
+						OP:    "test",
+						Path:  "/metadata/uid",
+						Value: e.GetCiliumEndpointUID(),
+					},
 					{
 						OP:    "replace",
 						Path:  "/status",
@@ -260,6 +271,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					k8stypes.JSONPatchType,
 					createStatusPatch,
 					meta_v1.PatchOptions{})
+				if err != nil {
+					scopedLog.WithError(err).Error("failed to update ciliumendpoint status")
+					return err
+				}
+				scopedLog.Info("patched ciliumendpoint status with local mdl")
 
 				// Handle Update errors or return successfully
 				switch {
