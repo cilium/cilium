@@ -263,11 +263,11 @@ func (e *EgressCommonRule) SetAggregatedSelectors() {
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 dst selectors of the egress rule
-func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement, worldDeny bool) EndpointSelectorSlice {
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
-	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements, worldDeny)
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
@@ -276,13 +276,14 @@ func (e *EgressDenyRule) GetDestinationEndpointSelectorsWithRequirements(require
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
-	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements, false)
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 	requirements []slim_metav1.LabelSelectorRequirement,
+	worldDeny bool,
 ) EndpointSelectorSlice {
 
 	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors))
@@ -300,7 +301,18 @@ func (e *EgressCommonRule) getDestinationEndpointSelectorsWithRequirements(
 	} else {
 		res = append(res, e.ToEndpoints...)
 	}
-	return append(res, e.aggregatedSelectors...)
+
+	if worldDeny {
+		for _, es := range e.aggregatedSelectors {
+			if !es.omitOnWorldDeny {
+				res = append(res, es)
+			}
+		}
+	} else {
+		res = append(res, e.aggregatedSelectors...)
+	}
+
+	return res
 }
 
 // AllowsWildcarding returns true if wildcarding should be performed upon

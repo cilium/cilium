@@ -113,17 +113,6 @@ func (s CIDRSlice) String() string {
 	return "[" + strings.Join(s.StringSlice(), ",") + "]"
 }
 
-// AnyMatchesAll returns true if any of the CIDRs
-// matches "World"/"All"
-func (s CIDRSlice) AnyMatchesAll() bool {
-	for _, c := range s {
-		if c.MatchesAll() {
-			return true
-		}
-	}
-	return false
-}
-
 // CIDRRuleSlice is a slice of CIDRRules. It allows receiver methods to be
 // defined for transforming the slice into other convenient forms such as
 // EndpointSelectorSlice.
@@ -143,17 +132,6 @@ func (s CIDRRuleSlice) StringSlice() []string {
 		result = append(result, c.String())
 	}
 	return result
-}
-
-// AnyMatchesAll returns true if any of the CIDRs
-// matches "World"/"All"
-func (s CIDRRuleSlice) AnyMatchesAll() bool {
-	for _, c := range ComputeResultantCIDRSet(s) {
-		if c.MatchesAll() {
-			return true
-		}
-	}
-	return false
 }
 
 // ComputeResultantCIDRSet converts a slice of CIDRRules into a slice of

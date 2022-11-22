@@ -552,7 +552,6 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 
 func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPorts, icmp api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	found := 0
-
 	if ctx.To != nil && len(toEndpoints) > 0 {
 		if ctx.TraceEnabled() {
 			traceL3(ctx, toEndpoints, "to", policyCtx.IsDeny())
@@ -690,6 +689,7 @@ func (r *rule) resolveEgressPolicy(
 	state *traceState,
 	result L4PolicyMap,
 	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
+	worldDeny bool,
 ) (
 	L4PolicyMap, error,
 ) {
@@ -707,7 +707,7 @@ func (r *rule) resolveEgressPolicy(
 		ctx.PolicyTrace("    No egress rules\n")
 	}
 	for _, egressRule := range r.Egress {
-		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements)
+		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirements, worldDeny)
 		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, egressRule.ToFQDNs)
 		if err != nil {
 			return nil, err

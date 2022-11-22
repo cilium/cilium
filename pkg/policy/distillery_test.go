@@ -416,12 +416,11 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	if err != nil {
 		return nil, err
 	}
-
-	// Handle L4 ingress from each identity in the cache to the endpoint.
-	io.WriteString(d.log, "[distill] Producing L4 filter keys egress\n")
+	// Handle L4 gress from each identity in the cache to the endpoint.
+	io.WriteString(d.log, "[distill] Producing L4 filter keys egress \n")
 	for _, l4 := range l4EgressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter egress (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
-		for key, entry := range l4.ToMapState(owner, 0) {
+		for key, entry := range l4.ToMapState(owner, 1) {
 			var policyStr string
 			if entry.IsDeny {
 				policyStr = "deny"
@@ -1180,24 +1179,36 @@ var (
 		owners:           map[MapStateOwner]struct{}{},
 	}
 
-	worldIPIdentity        = identity.NumericIdentity(16324)
-	worldCIDR              = api.CIDR("192.0.2.3/32")
+	worldIPIdentity = identity.NumericIdentity(16324)
+	worldCIDR       = api.CIDR("192.0.2.3/32")
+	worldCIDRRule   = api.CIDRRule{
+		Cidr:        api.CIDR("192.0.0.0/16"),
+		ExceptCIDRs: []api.CIDR{api.CIDR("192.0.2.0/24")},
+	}
 	lblWorldIP             = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
 	ruleL3L4__AllowWorldIP = api.NewRule().
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{
 				FromCIDR: api.CIDRSlice{worldCIDR},
 			},
+		}, {
+			IngressCommonRule: api.IngressCommonRule{
+				FromCIDRSet: api.CIDRRuleSlice{worldCIDRRule},
+			},
 		}}).
 		WithEgressRules([]api.EgressRule{{
 			EgressCommonRule: api.EgressCommonRule{
 				ToCIDR: api.CIDRSlice{worldCIDR},
 			},
+		}, {
+			EgressCommonRule: api.EgressCommonRule{
+				ToCIDRSet: api.CIDRRuleSlice{worldCIDRRule},
+			},
 		}}).
 		WithEndpointSelector(api.WildcardEndpointSelector)
 )
 
-func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
+func Test_EnsureDeniesPrecedeAllowsForDenyWorld(t *testing.T) {
 	identityCache := cache.IdentityCache{
 		identity.NumericIdentity(identityFoo): labelsFoo,
 		identity.ReservedIdentityWorld:        labels.LabelWorld.LabelArray(),
