@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
@@ -397,6 +398,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		K8sPodName:            e.K8sPodName,
 		K8sNamespace:          e.K8sNamespace,
 		DatapathConfiguration: e.DatapathConfiguration,
+		CiliumEndpointUID:     e.ciliumEndpointUID,
 	}
 }
 
@@ -483,6 +485,12 @@ type serializableEndpoint struct {
 	// plugin which performed the plumbing will enable certain datapath
 	// features according to the mode selected.
 	DatapathConfiguration models.EndpointDatapathConfiguration
+
+	// CiliumEndpointUID contains the unique identifier ref for the CiliumEndpoint
+	// that this Endpoint was managing.
+	// This is used to avoid overwriting/deleting ciliumendpoints that are managed
+	// by other endpoints.
+	CiliumEndpointUID types.UID
 }
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
@@ -530,4 +538,5 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.K8sNamespace = r.K8sNamespace
 	ep.DatapathConfiguration = r.DatapathConfiguration
 	ep.Options = r.Options
+	ep.ciliumEndpointUID = r.CiliumEndpointUID
 }
