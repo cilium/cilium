@@ -1245,41 +1245,6 @@ Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
-Limitations and known issues
-----------------------------
-
-The current known limitation is a deny policy with ``toEntities`` "world" for
-which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
-considered external to the cluster.
-
-.. code-block:: yaml
-
-  apiVersion: "cilium.io/v2"
-  kind: CiliumNetworkPolicy
-  metadata:
-    name: "deny-egress-to-world"
-  spec:
-    endpointSelector:
-      matchLabels:
-        k8s-app.guestbook: web
-    egressDeny:
-    - toEntities:
-      - "world"
-    egress:
-      - toEndpoints:
-        - matchLabels:
-            "k8s:io.kubernetes.pod.namespace": kube-system
-            "k8s:k8s-app": kube-dns
-        toPorts:
-          - ports:
-             - port: "53"
-               protocol: ANY
-            rules:
-              dns:
-                - matchPattern: "*"
-      - toFQDNs:
-          - matchName: "www.google.com"
-
 .. _HostPolicies:
 
 Host Policies
