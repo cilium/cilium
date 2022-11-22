@@ -25,6 +25,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -149,7 +150,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// Backfill the CEP UID as we need to do if the CEP was
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
-						updateCEPUIDIfNeeded(scopedLog, e, localCEP)
+						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
+							scopedLog.WithError(err).Warn("could not take ownership of existing ciliumendpoint")
+							return err
+						}
 					case k8serrors.IsNotFound(err):
 						pod := e.GetPod()
 						if pod == nil {
@@ -219,7 +223,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						// Backfill the CEP UID as we need to do if the CEP was
 						// created on an agent version that did not yet store the
 						// UID at CEP create time.
-						updateCEPUIDIfNeeded(scopedLog, e, localCEP)
+						if err := updateCEPUID(scopedLog, e, localCEP); err != nil {
+							scopedLog.WithError(err).Warn("could not take ownership of existing ciliumendpoint")
+							return err
+						}
 
 					// The CEP doesn't exist in k8s. This is unexpetected but may occur
 					// if the endpoint was removed from k8s but not yet within the agent.
@@ -274,11 +281,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					k8stypes.JSONPatchType,
 					createStatusPatch,
 					meta_v1.PatchOptions{})
-				if err != nil {
-					scopedLog.WithError(err).Error("failed to update ciliumendpoint status")
-					return err
-				}
-				scopedLog.Info("patched ciliumendpoint status with local mdl")
 
 				// Handle Update errors or return successfully
 				switch {
@@ -314,18 +316,44 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		})
 }
 
-// updateCEPUIDIfNeeded updates the endpoint's CEP UID from the local CEP if the
-// CEP UID is different (i.e., has never been set on the endpoint or has
-// changed).
-func updateCEPUIDIfNeeded(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) {
-	if cepUID := e.GetCiliumEndpointUID(); cepUID != localCEP.UID {
+// updateCEPUID attempts to update the endpoints UID to be that of localCEP.
+// This in effect takes ownership of the referenced CEP, thus we can only
+// do this if it is safe to do so. Otherwise an error is returned.
+//
+// One caveat is that, although endpoints are now restored to reference their
+// previous CEP, this has to handle cases where agent was upgraded from a version
+// that did not store CEP UIDs in the restore state header.
+// It is only safe to do so if the CEP is local.
+func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
+	var nodeIP string
+	if netStatus := localCEP.Status.Networking; netStatus == nil {
+		return fmt.Errorf("endpoint sync cannot take ownership of CEP that has no nodeIP status")
+	} else {
+		nodeIP = netStatus.NodeIP
+	}
+
+	// We do not want to take ownership of CEPs created on other Nodes.
+	if nodeIP != node.GetCiliumEndpointNodeIP() {
+		return fmt.Errorf("endpoint sync cannot take ownership of CEP that is not local (%q)", nodeIP)
+	}
+
+	// If the endpoint has a CEP UID, which does not match the current CEP, we cannot take
+	// ownership.
+	if epUID := e.GetCiliumEndpointUID(); epUID != "" && epUID != localCEP.GetUID() {
+		return fmt.Errorf("endpoint sync could not take ownership of CEP %q, endpoint UID (%q) did not match CEP UID: %q",
+			localCEP.GetNamespace()+"/"+localCEP.GetName(), epUID, localCEP.GetUID())
+	}
+
+	if cepUID := e.GetCiliumEndpointUID(); cepUID == "" {
 		scopedLog.WithFields(logrus.Fields{
 			logfields.Node:           types.GetName(),
 			"old" + logfields.CEPUID: cepUID,
 			logfields.CEPUID:         localCEP.UID,
-		}).Debug("updating CEP UID")
+		}).Debug("updating CEP UID and syncing endpoint header file")
 		e.SetCiliumEndpointUID(localCEP.UID)
+		e.SyncEndpointHeaderFile()
 	}
+	return nil
 }
 
 // DeleteK8sCiliumEndpointSync replaces the endpoint controller to remove the
