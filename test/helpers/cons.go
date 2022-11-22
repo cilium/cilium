@@ -242,6 +242,7 @@ const (
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
 	localIDRestoreFail  = "Could not restore all CIDR identities"                    // from https://github.com/cilium/cilium/pull/19556
 	missingIptablesWait = "Missing iptables wait arg (-w):"
+	routerIPMismatch    = "Mismatch of router IPs found during restoration"
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -308,6 +309,7 @@ var badLogMessages = map[string][]string{
 	removeTransientRule: nil,
 	localIDRestoreFail:  nil,
 	missingIptablesWait: nil,
+	routerIPMismatch:    nil,
 	"DATA RACE":         nil,
 }
 
