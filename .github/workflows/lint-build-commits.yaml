@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build_commits:
     name: Check if build works for every commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - name: Configure git
@@ -31,6 +31,11 @@ jobs:
         with:
           path: $HOME/.clang
           key: llvm-10.0
+
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@665aaf9d6fba342a852f55fecc5688e7f00e6663
