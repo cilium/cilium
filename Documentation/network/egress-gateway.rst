@@ -247,7 +247,7 @@ There are 3 different ways this can be achieved:
        nodeSelector:
          matchLabels:
            testLabel: testVal
-         egressIP: a.b.c.d
+       egressIP: a.b.c.d
 
    .. warning::
 
