@@ -181,7 +181,7 @@ func (i *IngressCommonRule) SetAggregatedSelectors() {
 
 // GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
-func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement, worldDeny bool) EndpointSelectorSlice {
 	if i.aggregatedSelectors == nil {
 		i.SetAggregatedSelectors()
 	}
@@ -199,8 +199,17 @@ func (i *IngressCommonRule) GetSourceEndpointSelectorsWithRequirements(requireme
 	} else {
 		res = append(res, i.FromEndpoints...)
 	}
+	if worldDeny {
+		for _, es := range i.aggregatedSelectors {
+			if !es.omitOnWorldDeny {
+				res = append(res, es)
+			}
+		}
+	} else {
+		res = append(res, i.aggregatedSelectors...)
+	}
 
-	return append(res, i.aggregatedSelectors...)
+	return res
 }
 
 // AllowsWildcarding returns true if wildcarding should be performed upon

@@ -22,7 +22,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	state := traceState{}
 	var matchedRules ruleSlice
 	var requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement
-
+	var worldDeny bool
 	// Iterate over all FromRequires which select ctx.To. These requirements
 	// will be appended to each EndpointSelector's MatchExpressions in
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
@@ -39,6 +39,15 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 				for _, requirement := range ingressRule.FromRequires {
 					requirementsDeny = append(requirementsDeny, requirement.ConvertToLabelSelectorRequirementSlice()...)
 				}
+				if !worldDeny {
+					worldDeny = ingressRule.FromEntities.HasWorld()
+				}
+				if !worldDeny {
+					worldDeny = ingressRule.FromCIDR.AnyMatchesAll()
+				}
+				if !worldDeny {
+					worldDeny = ingressRule.FromCIDRSet.AnyMatchesAll()
+				}
 			}
 		}
 	}
@@ -48,7 +57,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	ctx.rulesSelect = true
 
 	for _, r := range matchedRules {
-		_, err := r.resolveIngressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny)
+		_, err := r.resolveIngressPolicy(policyCtx, ctx, &state, result, requirements, requirementsDeny, worldDeny)
 		if err != nil {
 			return nil, err
 		}

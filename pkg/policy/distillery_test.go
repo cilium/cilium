@@ -381,16 +381,16 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 		Trace: TRACE_VERBOSE,
 	}
 	ingressL4.Logging = stdlog.New(d.log, "", 0)
-	io.WriteString(d.log, fmt.Sprintf("[distill] Evaluating L4 -> %s", epLabels))
+	io.WriteString(d.log, fmt.Sprintf("[distill] Evaluating L4 ingress -> %s", epLabels))
 	l4IngressPolicy, err := d.Repository.ResolveL4IngressPolicy(&ingressL4)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle L4 ingress from each identity in the cache to the endpoint.
-	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
+	io.WriteString(d.log, "[distill] Producing L4 filter keys for ingress\n")
 	for _, l4 := range l4IngressPolicy {
-		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
+		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter ingress (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
 		for key, entry := range l4.ToMapState(owner, 0) {
 			var policyStr string
 			if entry.IsDeny {
@@ -403,6 +403,36 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 		}
 	}
 	l4IngressPolicy.Detach(d.Repository.GetSelectorCache())
+	result.clearOwners()
+
+	// Prepare the L4 policy so we know whether L4 policy may apply
+	egressL4 := SearchContext{
+		From:  epLabels,
+		Trace: TRACE_VERBOSE,
+	}
+	egressL4.Logging = stdlog.New(d.log, "", 0)
+	io.WriteString(d.log, fmt.Sprintf("[distill] Evaluating L4 egress -> %s", epLabels))
+	l4EgressPolicy, err := d.Repository.ResolveL4EgressPolicy(&egressL4)
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle L4 ingress from each identity in the cache to the endpoint.
+	io.WriteString(d.log, "[distill] Producing L4 filter keys egress\n")
+	for _, l4 := range l4EgressPolicy {
+		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter egress (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
+		for key, entry := range l4.ToMapState(owner, 0) {
+			var policyStr string
+			if entry.IsDeny {
+				policyStr = "deny"
+			} else {
+				policyStr = "allow"
+			}
+			io.WriteString(d.log, fmt.Sprintf("[distill] L4 egress %s %+v (parser=%s, redirect=%t)\n", policyStr, key, l4.L7Parser, entry.IsRedirectEntry()))
+			result.DenyPreferredInsert(key, entry)
+		}
+	}
+	l4EgressPolicy.Detach(d.Repository.GetSelectorCache())
 	result.clearOwners()
 	return result, nil
 }
@@ -1136,8 +1166,8 @@ var (
 			},
 		}}).
 		WithEndpointSelector(api.WildcardEndpointSelector)
-	mapKeyL3L4__DenyWorld   = Key{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress.Uint8()}
-	mapEntryL3L4__DenyWorld = MapStateEntry{
+	mapKeyL3L4__DenyWorldIngress = Key{uint32(identity.ReservedIdentityWorld), 0, 0, trafficdirection.Ingress.Uint8()}
+	mapEntryL3L4__DenyWorld      = MapStateEntry{
 		ProxyPort:        0,
 		DerivedFromRules: labels.LabelArrayList{nil},
 		IsDeny:           true,
@@ -1170,7 +1200,9 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		result MapState
 	}{
 
-		{0, api.Rules{ruleL3L4__DenyWorld, ruleL3L4__AllowWorldIP}, MapState{mapKeyL3L4__DenyWorld: mapEntryL3L4__DenyWorld}},
+		{0, api.Rules{ruleL3L4__DenyWorld, ruleL3L4__AllowWorldIP}, MapState{
+			mapKeyL3L4__DenyWorldIngress: mapEntryL3L4__DenyWorld,
+		}},
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
@@ -1186,8 +1218,6 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			t.Logf("mapstate obtained: %+v", mapstate)
-			t.Logf("mapstate expected: %+v", tt.result)
 			if equal, err := checker.DeepEqual(mapstate, tt.result); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())

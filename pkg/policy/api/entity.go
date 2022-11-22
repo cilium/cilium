@@ -113,6 +113,17 @@ func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	return slice
 }
 
+// HasWorld returns true if the entity slice contains
+// the "world" entity.
+func (s EntitySlice) HasWorld() bool {
+	for _, e := range s {
+		if e == EntityWorld {
+			return true
+		}
+	}
+	return false
+}
+
 // InitEntities is called to initialize the policy API layer
 func InitEntities(clusterName string, treatRemoteNodeAsHost bool) {
 	EntitySelectorMapping[EntityCluster] = EndpointSelectorSlice{

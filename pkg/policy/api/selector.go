@@ -34,6 +34,10 @@ type EndpointSelector struct {
 	// EndpointSelectors are created via `NewESFromMatchRequirements`. It is
 	// immutable after its creation.
 	cachedLabelSelectorString string `json:"-"`
+
+	// omitOnWorldDeny indicates that the EndpointSelector should be
+	// omitted from a policy selection if there is world-deny policy.
+	omitOnWorldDeny bool `json:"-"`
 }
 
 // LabelSelectorString returns a user-friendly string representation of
@@ -152,6 +156,12 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 		}
 	}
 	return nil, false
+}
+
+// OmitOnWorldDeny returns true if this EndpointSelector should be omittied
+// from a set of policies that include a world-deny policy
+func (n EndpointSelector) OmitOnWorldDeny() bool {
+	return n.omitOnWorldDeny
 }
 
 // labelSelectorToRequirements turns a kubernetes Selector into a slice of

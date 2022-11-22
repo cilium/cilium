@@ -468,6 +468,7 @@ func (r *rule) resolveIngressPolicy(
 	state *traceState,
 	result L4PolicyMap,
 	requirements, requirementsDeny []slim_metav1.LabelSelectorRequirement,
+	worldDeny bool,
 ) (
 	L4PolicyMap, error,
 ) {
@@ -485,7 +486,7 @@ func (r *rule) resolveIngressPolicy(
 		ctx.PolicyTrace("    No ingress rules\n")
 	}
 	for _, ingressRule := range r.Ingress {
-		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements)
+		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirements, worldDeny)
 		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
 		if err != nil {
 			return nil, err
@@ -500,7 +501,7 @@ func (r *rule) resolveIngressPolicy(
 		policyCtx.SetDeny(oldDeny)
 	}()
 	for _, ingressRule := range r.IngressDeny {
-		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny)
+		fromEndpoints := ingressRule.GetSourceEndpointSelectorsWithRequirements(requirementsDeny, false)
 		cnt, err := mergeIngress(policyCtx, ctx, fromEndpoints, ingressRule.ToPorts, ingressRule.ICMPs, r.Rule.Labels.DeepCopy(), result)
 		if err != nil {
 			return nil, err
