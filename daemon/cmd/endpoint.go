@@ -695,12 +695,18 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 		switch containerID := ep.GetShortContainerID(); containerID {
 		case "":
 			log.WithFields(logrus.Fields{
-				logfields.IPv4: ep.GetIPv4Address(),
-				logfields.IPv6: ep.GetIPv6Address(),
+				logfields.IPv4:         ep.GetIPv4Address(),
+				logfields.IPv6:         ep.GetIPv6Address(),
+				logfields.EndpointID:   ep.ID,
+				logfields.K8sPodName:   ep.GetK8sPodName(),
+				logfields.K8sNamespace: ep.GetK8sPodName(),
 			}).Info(msg)
 		default:
 			log.WithFields(logrus.Fields{
-				logfields.ContainerID: containerID,
+				logfields.ContainerID:  containerID,
+				logfields.EndpointID:   ep.ID,
+				logfields.K8sPodName:   ep.GetK8sPodName(),
+				logfields.K8sNamespace: ep.GetK8sPodName(),
 			}).Info(msg)
 		}
 		return d.deleteEndpoint(ep), nil
