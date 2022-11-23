@@ -10,3 +10,7 @@ const (
 	// ClusterIDMax is the maximum value of the cluster ID
 	ClusterIDMax = 255
 )
+
+type CiliumClusterConfig struct {
+	ID uint32 `json:"id,omitempty"`
+}
