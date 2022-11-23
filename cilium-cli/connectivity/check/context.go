@@ -35,6 +35,8 @@ type ConnectivityTest struct {
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
 
+	version string
+
 	// Clients for source and destination clusters.
 	clients *deploymentClients
 
@@ -155,7 +157,7 @@ func (ct *ConnectivityTest) failedActions() []*Action {
 }
 
 // NewConnectivityTest returns a new ConnectivityTest.
-func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, error) {
+func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*ConnectivityTest, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
 	}
@@ -163,6 +165,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters) (*ConnectivityTest, e
 	k := &ConnectivityTest{
 		client:              client,
 		params:              p,
+		version:             version,
 		ciliumPods:          make(map[string]Pod),
 		echoPods:            make(map[string]Pod),
 		clientPods:          make(map[string]Pod),
