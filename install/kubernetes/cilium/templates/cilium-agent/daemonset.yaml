@@ -286,13 +286,6 @@ spec:
         - mountPath: /host/proc/sys/kernel
           name: host-proc-sys-kernel
         {{- end}}
-        {{- if .Values.bpf.mountHostBoot }}
-        # Required to run 'bpftool -j feature probe'
-        # during kernel feature probing
-        - mountPath: /boot
-          name: host-boot
-          readOnly: true
-        {{- end}}
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
         {{- if not (eq .Values.containerRuntime.integration "crio") }}
         - name: bpf-maps
@@ -792,12 +785,6 @@ spec:
       - name: host-proc-sys-kernel
         hostPath:
           path: /proc/sys/kernel
-          type: Directory
-      {{- end }}
-      {{- if .Values.bpf.mountHostBoot }}
-      - name: host-boot
-        hostPath:
-          path: {{ .Values.bpf.hostBoot }}
           type: Directory
       {{- end }}
       {{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}

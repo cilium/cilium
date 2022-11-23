@@ -483,7 +483,6 @@ herokuapp
 hexData
 hoc
 hostAliases
-hostBoot
 hostConfDirMountPath
 hostFirewall
 hostLegacyRouting
@@ -685,7 +684,6 @@ monitorAggregation
 monitorFlags
 monitorInterval
 mountCgroup
-mountHostBoot
 mountPath
 mov
 mul
