@@ -93,10 +93,6 @@
      - Configure the maximum number of entries in the TCP connection tracking table.
      - int
      - ``524288``
-   * - bpf.hostBoot
-     - Configure the path to the host boot directory
-     - string
-     - ``"/boot"``
    * - bpf.hostLegacyRouting
      - Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace.
      - bool
@@ -129,10 +125,6 @@
      - Configure the typical time between monitor notifications for active connections.
      - string
      - ``"5s"``
-   * - bpf.mountHostBoot
-     - Enable host boot directory mount for BPF clock source probing
-     - bool
-     - ``true``
    * - bpf.natMax
      - Configure the maximum number of entries for the NAT table.
      - int
