@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -41,11 +40,6 @@ var (
 
 	registry = prometheus.NewPedanticRegistry()
 )
-
-func init() {
-	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	prometheus.MustRegister(collectors.NewGoCollector())
-}
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
