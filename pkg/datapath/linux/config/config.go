@@ -766,6 +766,10 @@ func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 		}
 		fmt.Fprint(w, "\n")
 	}
+
+	if option.Config.EnableEndpointRoutes {
+		fmt.Fprint(w, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
+	}
 }
 
 // WriteNetdevConfig writes the BPF configuration for the endpoint to a writer.
