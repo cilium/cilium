@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/sysdump"
 )
 
 // Action represents an individual action (e.g. a curl call) in a Scenario
@@ -178,9 +179,15 @@ func (a *Action) Run(f func(*Action)) {
 		a.printFlows(a.Source())
 		a.printFlows(a.Destination())
 	}
-	if a.failed && a.test.ctx.params.PauseOnFail {
-		a.Log("Pausing after action failure, press the Enter key to continue:")
-		fmt.Scanln()
+	if a.failed {
+		if a.test.ctx.params.PauseOnFail {
+			a.Log("Pausing after action failure, press the Enter key to continue:")
+			fmt.Scanln()
+		}
+
+		if a.test.ctx.params.CollectSysdumpOnFailure {
+			a.collectSysdump()
+		}
 	}
 }
 
@@ -879,4 +886,16 @@ r:
 	}
 
 	a.Log()
+}
+
+func (a *Action) collectSysdump() {
+	collector, err := sysdump.NewCollector(a.test.ctx.K8sClient(), a.test.ctx.params.SysdumpOptions, time.Now(), a.test.ctx.version)
+	if err != nil {
+		a.Failf("Failed to create sysdump collector: %v", err)
+		return
+	}
+
+	if err = collector.Run(); err != nil {
+		a.Failf("Failed to collect sysdump: %v", err)
+	}
 }
