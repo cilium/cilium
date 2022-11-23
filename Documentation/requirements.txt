@@ -21,7 +21,7 @@ snowballstemmer==2.2.0
 Sphinx==4.5.0
 sphinx-autobuild==2021.3.14
 # forked read the docs themez
-git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0
+git+https://github.com/cilium/sphinx_rtd_theme.git@3bd69f33e7b2af2d0173fd997ec7ad21ce19ae3b
 sphinxcontrib-httpdomain==1.8.0
 # Fork openapi until it uses something newer than unmaintained m2r
 # (See git logs for details)
