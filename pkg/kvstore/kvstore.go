@@ -39,6 +39,9 @@ const (
 	// the heartbeat
 	HeartbeatPath = BaseKeyPrefix + "/.heartbeat"
 
+	// ClusterConfigPrefix is the kvstore prefix to cluster configuration
+	ClusterConfigPrefix = BaseKeyPrefix + "/cluster-config"
+
 	// HeartbeatWriteInterval is the interval in which the heartbeat key at
 	// HeartbeatPath is updated
 	HeartbeatWriteInterval = time.Minute
