@@ -43,81 +43,85 @@ func newCmdSysdump() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumLabelSelector,
-		"cilium-label-selector", sysdump.DefaultCiliumLabelSelector,
-		"The labels used to target Cilium pods")
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumNamespace,
-		"cilium-namespace", "",
-		"The namespace Cilium is running in")
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorNamespace,
-		"cilium-operator-namespace", "",
-		"The namespace Cilium operator is running in")
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumDaemonSetSelector,
-		"cilium-daemon-set-label-selector", sysdump.DefaultCiliumLabelSelector,
-		"The labels used to target Cilium daemon set")
-	cmd.Flags().StringVar(&sysdumpOptions.CiliumOperatorLabelSelector,
-		"cilium-operator-label-selector", sysdump.DefaultCiliumOperatorLabelSelector,
-		"The labels used to target Cilium operator pods")
-	cmd.Flags().StringVar(&sysdumpOptions.ClustermeshApiserverLabelSelector,
-		"clustermesh-apiserver-label-selector", sysdump.DefaultClustermeshApiserverLabelSelector,
-		"The labels used to target 'clustermesh-apiserver' pods")
-	cmd.Flags().BoolVar(&sysdumpOptions.Debug,
-		"debug", sysdump.DefaultDebug,
-		"Whether to enable debug logging")
-	cmd.Flags().StringArrayVar(&sysdumpOptions.ExtraLabelSelectors,
-		"extra-label-selectors", nil,
-		"Optional set of labels selectors used to target additional pods for log collection.")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleLabelSelector,
-		"hubble-label-selector", sysdump.DefaultHubbleLabelSelector,
-		"The labels used to target Hubble pods")
-	cmd.Flags().Int64Var(&sysdumpOptions.HubbleFlowsCount,
-		"hubble-flows-count", sysdump.DefaultHubbleFlowsCount,
-		"Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows.")
-	cmd.Flags().DurationVar(&sysdumpOptions.HubbleFlowsTimeout,
-		"hubble-flows-timeout", sysdump.DefaultHubbleFlowsTimeout,
-		"Timeout for collecting Hubble flows")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleRelayLabelSelector,
-		"hubble-relay-labels", sysdump.DefaultHubbleRelayLabelSelector,
-		"The labels used to target Hubble Relay pods")
-	cmd.Flags().StringVar(&sysdumpOptions.HubbleUILabelSelector,
-		"hubble-ui-labels", sysdump.DefaultHubbleUILabelSelector,
-		"The labels used to target Hubble UI pods")
-	cmd.Flags().Int64Var(&sysdumpOptions.LogsLimitBytes,
-		"logs-limit-bytes", sysdump.DefaultLogsLimitBytes,
-		"The limit on the number of bytes to retrieve when collecting logs")
-	cmd.Flags().DurationVar(&sysdumpOptions.LogsSinceTime,
-		"logs-since-time", sysdump.DefaultLogsSinceTime,
-		"How far back in time to go when collecting logs")
-	cmd.Flags().StringVar(&sysdumpOptions.NodeList,
-		"node-list", sysdump.DefaultNodeList,
-		"Comma-separated list of node IPs or names to filter pods for which to collect gops and logs")
-	cmd.Flags().StringVar(&sysdumpOptions.OutputFileName,
-		"output-filename", sysdump.DefaultOutputFileName,
-		"The name of the resulting file (without extension)\n'<ts>' can be used as the placeholder for the timestamp")
-	cmd.Flags().BoolVar(&sysdumpOptions.Quick,
-		"quick", sysdump.DefaultQuick,
-		"Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)")
-	cmd.Flags().IntVar(&sysdumpOptions.WorkerCount,
-		"worker-count", sysdump.DefaultWorkerCount,
-		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards.")
-	cmd.Flags().StringArrayVar(&sysdumpOptions.CiliumBugtoolFlags,
-		"cilium-bugtool-flags", nil,
-		"Optional set of flags to pass to cilium-bugtool command.")
-	cmd.Flags().BoolVar(&sysdumpOptions.DetectGopsPID,
-		"detect-gops-pid", false,
-		"Whether to automatically detect the gops agent PID.")
-	cmd.Flags().StringVar(&sysdumpOptions.CNIConfigDirectory,
-		"cni-config-directory", sysdump.DefaultCNIConfigDirectory,
-		"Directory where CNI configs are located")
-	cmd.Flags().StringVar(&sysdumpOptions.CNIConfigMapName,
-		"cni-configmap-name", sysdump.DefaultCNIConfigMapName,
-		"The name of the CNI config map")
-	cmd.Flags().StringVar(&sysdumpOptions.TetragonNamespace,
-		"tetragon-namespace", sysdump.DefaultTetragonNamespace,
-		"The namespace Tetragon is running in")
-	cmd.Flags().StringVar(&sysdumpOptions.TetragonLabelSelector,
-		"tetragon-label-selector", sysdump.DefaultTetragonLabelSelector,
-		"The labels used to target Tetragon pods")
+	initSysdumpFlags(cmd, &sysdumpOptions, "")
 
 	return cmd
+}
+
+func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix string) {
+	cmd.Flags().StringVar(&options.CiliumLabelSelector,
+		optionPrefix+"cilium-label-selector", sysdump.DefaultCiliumLabelSelector,
+		"The labels used to target Cilium pods")
+	cmd.Flags().StringVar(&options.CiliumNamespace,
+		optionPrefix+"cilium-namespace", "",
+		"The namespace Cilium is running in")
+	cmd.Flags().StringVar(&options.CiliumOperatorNamespace,
+		optionPrefix+"cilium-operator-namespace", "",
+		"The namespace Cilium operator is running in")
+	cmd.Flags().StringVar(&options.CiliumDaemonSetSelector,
+		optionPrefix+"cilium-daemon-set-label-selector", sysdump.DefaultCiliumLabelSelector,
+		"The labels used to target Cilium daemon set")
+	cmd.Flags().StringVar(&options.CiliumOperatorLabelSelector,
+		optionPrefix+"cilium-operator-label-selector", sysdump.DefaultCiliumOperatorLabelSelector,
+		"The labels used to target Cilium operator pods")
+	cmd.Flags().StringVar(&options.ClustermeshApiserverLabelSelector,
+		optionPrefix+"clustermesh-apiserver-label-selector", sysdump.DefaultClustermeshApiserverLabelSelector,
+		"The labels used to target 'clustermesh-apiserver' pods")
+	cmd.Flags().BoolVar(&options.Debug,
+		optionPrefix+"debug", sysdump.DefaultDebug,
+		"Whether to enable debug logging")
+	cmd.Flags().StringArrayVar(&options.ExtraLabelSelectors,
+		optionPrefix+"extra-label-selectors", nil,
+		"Optional set of labels selectors used to target additional pods for log collection.")
+	cmd.Flags().StringVar(&options.HubbleLabelSelector,
+		optionPrefix+"hubble-label-selector", sysdump.DefaultHubbleLabelSelector,
+		"The labels used to target Hubble pods")
+	cmd.Flags().Int64Var(&options.HubbleFlowsCount,
+		optionPrefix+"hubble-flows-count", sysdump.DefaultHubbleFlowsCount,
+		"Number of Hubble flows to collect. Setting to zero disables collecting Hubble flows.")
+	cmd.Flags().DurationVar(&options.HubbleFlowsTimeout,
+		optionPrefix+"hubble-flows-timeout", sysdump.DefaultHubbleFlowsTimeout,
+		"Timeout for collecting Hubble flows")
+	cmd.Flags().StringVar(&options.HubbleRelayLabelSelector,
+		optionPrefix+"hubble-relay-labels", sysdump.DefaultHubbleRelayLabelSelector,
+		"The labels used to target Hubble Relay pods")
+	cmd.Flags().StringVar(&options.HubbleUILabelSelector,
+		optionPrefix+"hubble-ui-labels", sysdump.DefaultHubbleUILabelSelector,
+		"The labels used to target Hubble UI pods")
+	cmd.Flags().Int64Var(&options.LogsLimitBytes,
+		optionPrefix+"logs-limit-bytes", sysdump.DefaultLogsLimitBytes,
+		"The limit on the number of bytes to retrieve when collecting logs")
+	cmd.Flags().DurationVar(&options.LogsSinceTime,
+		optionPrefix+"logs-since-time", sysdump.DefaultLogsSinceTime,
+		"How far back in time to go when collecting logs")
+	cmd.Flags().StringVar(&options.NodeList,
+		optionPrefix+"node-list", sysdump.DefaultNodeList,
+		"Comma-separated list of node IPs or names to filter pods for which to collect gops and logs")
+	cmd.Flags().StringVar(&options.OutputFileName,
+		optionPrefix+"output-filename", sysdump.DefaultOutputFileName,
+		"The name of the resulting file (without extension)\n'<ts>' can be used as the placeholder for the timestamp")
+	cmd.Flags().BoolVar(&options.Quick,
+		optionPrefix+"quick", sysdump.DefaultQuick,
+		"Whether to enable quick mode (i.e. skip collection of 'cilium-bugtool' output and logs)")
+	cmd.Flags().IntVar(&options.WorkerCount,
+		optionPrefix+"worker-count", sysdump.DefaultWorkerCount,
+		"The number of workers to use\nNOTE: There is a lower bound requirement on the number of workers for the sysdump operation to be effective. Therefore, for low values, the actual number of workers may be adjusted upwards.")
+	cmd.Flags().StringArrayVar(&options.CiliumBugtoolFlags,
+		optionPrefix+"cilium-bugtool-flags", nil,
+		"Optional set of flags to pass to cilium-bugtool command.")
+	cmd.Flags().BoolVar(&options.DetectGopsPID,
+		optionPrefix+"detect-gops-pid", false,
+		"Whether to automatically detect the gops agent PID.")
+	cmd.Flags().StringVar(&options.CNIConfigDirectory,
+		optionPrefix+"cni-config-directory", sysdump.DefaultCNIConfigDirectory,
+		"Directory where CNI configs are located")
+	cmd.Flags().StringVar(&options.CNIConfigMapName,
+		optionPrefix+"cni-configmap-name", sysdump.DefaultCNIConfigMapName,
+		"The name of the CNI config map")
+	cmd.Flags().StringVar(&options.TetragonNamespace,
+		optionPrefix+"tetragon-namespace", sysdump.DefaultTetragonNamespace,
+		"The namespace Tetragon is running in")
+	cmd.Flags().StringVar(&options.TetragonLabelSelector,
+		optionPrefix+"tetragon-label-selector", sysdump.DefaultTetragonLabelSelector,
+		"The labels used to target Tetragon pods")
 }
