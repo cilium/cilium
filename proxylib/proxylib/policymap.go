@@ -190,7 +190,7 @@ func newPortNetworkPolicies(config []*cilium.PortNetworkPolicy, dir string) Port
 		rules, ok := newPortNetworkPolicyRules(rule.GetRules(), port)
 		if ok {
 			if flowdebug.Enabled() {
-				logrus.Debugf("NPDS::PortNetworkPolicies(): installed %s TCP policy for port %d from rule %s", dir, port, rule.String())
+				logrus.Debugf("NPDS::PortNetworkPolicies(): installed %s TCP policy for port %d", dir, port)
 			}
 			policy.Rules[port] = rules
 		} else if flowdebug.Enabled() {
@@ -242,7 +242,7 @@ type PolicyInstance struct {
 
 func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 	if flowdebug.Enabled() {
-		logrus.Debugf("NPDS::PolicyInstance: Inserting policy %s", config.String())
+		logrus.Debugf("NPDS::PolicyInstance: Inserting policy for %v", config.EndpointIps)
 	}
 	return &PolicyInstance{
 		protobuf: config,

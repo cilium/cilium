@@ -164,7 +164,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_discovery.DiscoveryRespons
 		}
 	}()
 
-	logrus.Debugf("NPDS: Updating policy from %v", resp)
+	logrus.Debugf("NPDS: Updating policy for version %s", resp.VersionInfo)
 
 	oldMap := ins.getPolicyMap()
 	newMap := newPolicyMap()
