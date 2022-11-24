@@ -136,6 +136,11 @@ const (
 	// still considered alive
 	ToFQDNsIdleConnectionGracePeriod = 0 * time.Second
 
+	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
+	// DNS response before sending it along. Responses are sent as soon as the
+	//datapath is updated with the new IP information.
+	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
+
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.
 	// The file is not re-read after agent start.
