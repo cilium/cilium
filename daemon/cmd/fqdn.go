@@ -518,23 +518,6 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
 
-	record := logger.NewLogRecord(flowType, false,
-		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
-		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(addrInfo),
-		logger.LogTags.DNS(&accesslog.LogRecordDNS{
-			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
-			ObservationSource: stat.DataSource,
-			RCode:             rcode,
-			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
-		}),
-	)
-	record.Log()
-
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
 		// Create a critical section especially for when multiple DNS requests
@@ -645,6 +628,26 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 
 	stat.ProcessingTime.End(true)
+
+	// Ensure that there are no early returns from this function before the
+	// code below, otherwise the log record will not be made.
+	record := logger.NewLogRecord(flowType, false,
+		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+		logger.LogTags.Verdict(verdict, reason),
+		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.DNS(&accesslog.LogRecordDNS{
+			Query:             qname,
+			IPs:               responseIPs,
+			TTL:               TTL,
+			CNAMEs:            CNAMEs,
+			ObservationSource: stat.DataSource,
+			RCode:             rcode,
+			QTypes:            qTypes,
+			AnswerTypes:       recordTypes,
+		}),
+	)
+	record.Log()
+
 	return nil
 }
 
