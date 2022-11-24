@@ -401,6 +401,10 @@
      - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
      - string
      - ``"/var/run/cilium/cilium-cni.log"``
+   * - conntrackGCInterval
+     - Configure how frequently garbage collection should occur for the datapath connection tracking table.
+     - string
+     - ``"0s"``
    * - containerRuntime
      - Configure container runtime specific integration.
      - object
@@ -409,6 +413,10 @@
      - Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime)
      - string
      - ``"none"``
+   * - crdWaitTimeout
+     - Configure timeout in which Cilium will exit if CRDs are not available
+     - string
+     - ``"5m"``
    * - customCalls
      - Tail call hooks for custom eBPF programs.
      - object
@@ -1201,6 +1209,10 @@
      - Method to use for identity allocation (\ ``crd`` or ``kvstore``\ ).
      - string
      - ``"crd"``
+   * - identityChangeGracePeriod
+     - Time to wait before using new identity on endpoint identity change.
+     - string
+     - ``"5s"``
    * - image
      - Agent container image.
      - object

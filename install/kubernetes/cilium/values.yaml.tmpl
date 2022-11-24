@@ -479,9 +479,10 @@ cni:
   # inside the agent pod.
   hostConfDirMountPath: /host/etc/cni/net.d
 
-# -- Configure how frequently garbage collection should occur for the datapath
+# -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
-# conntrackGCInterval: "0s"
+# @default -- `"0s"`
+conntrackGCInterval: ""
 
 # -- Configure container runtime specific integration.
 containerRuntime:
@@ -496,7 +497,9 @@ containerRuntime:
   # -- Configure the path to the container runtime control socket.
   # socketPath: /path/to/runtime.sock
 
-# crdWaitTimeout: ""
+# -- (string) Configure timeout in which Cilium will exit if CRDs are not available
+# @default -- `"5m"`
+crdWaitTimeout: ""
 
 # -- Tail call hooks for custom eBPF programs.
 customCalls:
@@ -1238,8 +1241,9 @@ hubble:
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 
-# -- Time to wait before using new identity on endpoint identity change.
-# identityChangeGracePeriod: "5s"
+# -- (string) Time to wait before using new identity on endpoint identity change.
+# @default -- `"5s"`
+identityChangeGracePeriod: ""
 
 # -- GC interval for security identities.
 # identityGCInterval: "15m0s"
