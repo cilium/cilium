@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
@@ -198,19 +199,30 @@ type IPIdentityWatcher struct {
 	stopOnce   sync.Once
 	syncedOnce sync.Once
 
+	clusterID uint32
+
 	ipcache *IPCache
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
-// kvstore backend
+// kvstore backend.
 func NewIPIdentityWatcher(ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
-	watcher := &IPIdentityWatcher{
-		backend: backend,
-		stop:    make(chan struct{}),
-		synced:  make(chan struct{}),
-		ipcache: ipc,
-	}
+	return NewClusterIPIdentityWatcher(0, ipc, backend)
+}
 
+// NewClusterIPIdentityWatcher creates a new IPIdentityWatcher using the specified
+// kvstore backend. The difference between the watcher created by NewIPIdentityWatcher
+// is that each IP <=> Identity mapping will be annotated with ClusterID. Thus, it
+// can be used for watching the kvstore of the remote cluster with overlapping PodCIDR.
+// Calling this function with clusterID = 0 is identical to calling NewIPIdentityWatcher.
+func NewClusterIPIdentityWatcher(clusterID uint32, ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
+	watcher := &IPIdentityWatcher{
+		clusterID: clusterID,
+		backend:   backend,
+		stop:      make(chan struct{}),
+		synced:    make(chan struct{}),
+		ipcache:   ipc,
+	}
 	return watcher
 }
 
@@ -316,6 +328,13 @@ restart:
 					peerIdentity = identity.ReservedIdentityRemoteNode
 				}
 
+				if iw.clusterID != 0 {
+					// Annotate IP/Prefix string with ClusterID. So that we can distinguish
+					// the two network endpoints that have the same IP adddress, but belogs
+					// to the different clusters.
+					ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
+				}
+
 				// There is no need to delete the "old" IP addresses from this
 				// ip ID pair. The only places where the ip ID pair are created
 				// is the clustermesh, where it sends a delete to the KVStore,
@@ -355,6 +374,11 @@ restart:
 					globalMap.Unlock()
 				} else {
 					globalMap.Unlock()
+
+					if iw.clusterID != 0 {
+						// See equivalent logic in the kvstore.EventTypeUpdate case
+						ip = cmtypes.AnnotateIPCacheKeyWithClusterID(ip, iw.clusterID)
+					}
 
 					// The key no longer exists in the
 					// local cache, it is safe to remove
