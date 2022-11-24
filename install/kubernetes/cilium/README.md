@@ -150,8 +150,10 @@ contributors across the globe, there is almost always someone available to help.
 | cni.hostConfDirMountPath | string | `"/host/etc/cni/net.d"` | Configure the path to where the CNI configuration directory is mounted inside the agent pod. |
 | cni.install | bool | `true` | Install the CNI configuration and binary files into the filesystem. |
 | cni.logFile | string | `"/var/run/cilium/cilium-cni.log"` | Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly. |
+| conntrackGCInterval | string | `"0s"` | Configure how frequently garbage collection should occur for the datapath connection tracking table. |
 | containerRuntime | object | `{"integration":"none"}` | Configure container runtime specific integration. |
 | containerRuntime.integration | string | `"none"` | Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime) |
+| crdWaitTimeout | string | `"5m"` | Configure timeout in which Cilium will exit if CRDs are not available |
 | customCalls | object | `{"enabled":false}` | Tail call hooks for custom eBPF programs. |
 | customCalls.enabled | bool | `false` | Enable tail call hooks for custom eBPF programs. |
 | daemon.runPath | string | `"/var/run/cilium"` | Configure where Cilium runtime state should be stored. |
@@ -350,6 +352,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.topologySpreadConstraints | list | `[]` | Pod topology spread constraints for hubble-ui |
 | hubble.ui.updateStrategy | object | `{"rollingUpdate":{"maxUnavailable":1},"type":"RollingUpdate"}` | hubble-ui update strategy. |
 | identityAllocationMode | string | `"crd"` | Method to use for identity allocation (`crd` or `kvstore`). |
+| identityChangeGracePeriod | string | `"5s"` | Time to wait before using new identity on endpoint identity change. |
 | image | object | `{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-ci","tag":"latest","useDigest":false}` | Agent container image. |
 | imagePullSecrets | string | `nil` | Configure image pull secrets for pulling container images |
 | ingressController.enabled | bool | `false` | Enable cilium ingress controller This will automatically set enable-envoy-config as well. |
