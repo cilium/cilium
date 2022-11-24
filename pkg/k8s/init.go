@@ -186,6 +186,12 @@ func Init(conf k8sconfig.Configuration) error {
 		//
 		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
 		res := k8sRestClient.Get().Resource("healthz").Do(ctx)
+		raw, _ := res.Raw()
+		log.WithFields(logrus.Fields{
+			"res": res,
+			"raw": string(raw),
+			"err": err.Error(),
+		}).Debug("k8s-heartbeat-debug")
 		return res.Error()
 	}
 
