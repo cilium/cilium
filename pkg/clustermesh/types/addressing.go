@@ -347,3 +347,16 @@ func (pc PrefixCluster) AsIPNet() net.IPNet {
 		Mask: net.CIDRMask(pc.prefix.Bits(), addr.BitLen()),
 	}
 }
+
+// This function is solely exists for annotating IPCache's key string with ClusterID.
+// IPCache's key string is IP address or Prefix string (10.0.0.1 and 10.0.0.0/32 are
+// different entry). This function assumes given string is one of those format and
+// just put @<ClusterID> suffix and there's no format check for performance reason.
+// User must make sure the input is a valid IP or Prefix string.
+//
+// We should eventually remove this function once we finish refactoring IPCache and
+// stop using string as a key. At that point, we should consider using PrefixCluster
+// type for IPCache's key.
+func AnnotateIPCacheKeyWithClusterID(key string, clusterID uint32) string {
+	return key + "@" + strconv.FormatUint(uint64(clusterID), 10)
+}
