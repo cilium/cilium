@@ -540,7 +540,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithFields(logrus.Fields{
 			"qname": qname,
 			"ips":   responseIPs,
-		}).Debug("Updating DNS name in cache from response to to query")
+		}).Debug("Updating DNS name in cache from response to query")
 
 		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
