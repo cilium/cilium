@@ -35,8 +35,8 @@ func init() {
 	}
 }
 
-// enableCNPWatcher waits for the CiliumNetowrkPolicy CRD availability and then
-// garbage collects stale CiliumNetowrkPolicy status field entries.
+// enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
+// garbage collects stale CiliumNetworkPolicy status field entries.
 func enableCNPWatcher(clientset k8sClient.Clientset) error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
