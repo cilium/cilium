@@ -64,6 +64,10 @@ type ControllerParams struct {
 	// returned last
 	RunInterval time.Duration
 
+	// If set to any other value than 0, will cap the error retry interval
+	// to the specified interval.
+	MaxRetryInterval time.Duration
+
 	// ErrorRetryBaseDuration is the initial time to wait to run DoFunc
 	// again on return of an error. On each consecutive error, this value
 	// is multiplied by the number of consecutive errors to provide a
@@ -194,6 +198,7 @@ func (c *Controller) runController() {
 	c.mutex.RUnlock()
 	runFunc := true
 	interval := 10 * time.Minute
+	maxRetryInterval := params.MaxRetryInterval
 	runTimer, timerDone := inctimer.New()
 	defer timerDone()
 
@@ -234,6 +239,14 @@ func (c *Controller) runController() {
 							interval = time.Duration(errorRetries) * params.ErrorRetryBaseDuration
 						} else {
 							interval = time.Duration(errorRetries) * time.Second
+						}
+
+						if maxRetryInterval > 0 && interval > maxRetryInterval {
+							c.getLogger().WithFields(logrus.Fields{
+								"calculatedInterval": interval,
+								"maxAllowedInterval": maxRetryInterval,
+							}).Debug("Cap retry interval to max allowed value")
+							interval = maxRetryInterval
 						}
 
 						errorRetries++

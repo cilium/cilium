@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -524,6 +525,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 
 				return err
 			},
+			MaxRetryInterval: 1 * time.Minute,
 		},
 	)
 }
