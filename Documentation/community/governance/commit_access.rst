@@ -383,7 +383,8 @@ Vote Results for Grant of Commit Access
 
     ABSTAIN: *[count of abstentions]* (*[% of voters]*)
 
-    Based on these results commit access *[is/is NOT]* granted.
+    Based on these results committer status *[is/is NOT]* granted and *[she/he]* 
+    *[will/will NOT]* be added to the list of Cilium maintainers at the CNCF.
 
 Invitation to Accepted Committer
 --------------------------------
@@ -422,7 +423,8 @@ Notification of Commit Removal for Inactivity
 
     Committer *[candidate]* has been inactive for *[duration]*. *[He/she]*
     *[stated no commit access is required/failed to respond]* to the formal
-    proposal to remove access on *[date]*. Commit access has now been removed.
+    proposal to remove access on *[date]*. Commit access has now been removed 
+    and *[she/he]* is being removed from the CNCF's list of Cilium maintainers.
 
 Proposal to Revoke Commit Access for Detrimental Behavior
 ---------------------------------------------------------
@@ -505,7 +507,8 @@ Notification of Commit Revocation for Detrimental Behavior
     After private discussion with you and careful consideration of the
     situation, the other committers to the Cilium project have
     concluded that it is in the best interest of the project that your commit
-    access to the project repositories be revoked and this has now occurred.
+    access to the project repositories be revoked and this has now occurred. 
+    Your address is also being removed from the CNCF's list of Cilium maintainers.
 
     The reasons for this decision are:
 
