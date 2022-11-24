@@ -27,8 +27,21 @@ func (v4 IPv4) String() string {
 	return v4.IP().String()
 }
 
+func (v4 IPv4) MarshalText() ([]byte, error) {
+	return []byte(v4.String()), nil
+}
+
+func (v4 *IPv4) UnmarshalText(text []byte) error {
+	addr, err := netip.ParseAddr(string(text))
+	if err != nil {
+		return err
+	}
+	ip := addr.As4()
+	copy(v4[:], ip[:])
+	return nil
+}
+
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
 func (v4 *IPv4) DeepCopyInto(out *IPv4) {
 	copy(out[:], v4[:])
-	return
 }

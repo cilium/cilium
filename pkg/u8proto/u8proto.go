@@ -50,6 +50,10 @@ func (p U8proto) String() string {
 	return strconv.Itoa(int(p))
 }
 
+func (p U8proto) MarshalText() (string, error) {
+	return p.String(), nil
+}
+
 func ParseProtocol(proto string) (U8proto, error) {
 	if u, ok := ProtoIDs[strings.ToLower(proto)]; ok {
 		return u, nil

@@ -13,6 +13,8 @@ import (
 
 var testMACAddress MACAddr = [6]byte{1, 2, 3, 4, 5, 6}
 
+const expectedMACStr = "01:02:03:04:05:06"
+
 type MACAddrSuite struct{}
 
 var _ = check.Suite(&MACAddrSuite{})
@@ -26,8 +28,24 @@ func (s *MACAddrSuite) TestHardwareAddr(c *check.C) {
 }
 
 func (s *MACAddrSuite) TestString(c *check.C) {
-	expectedStr := "01:02:03:04:05:06"
 	result := testMACAddress.String()
 
-	c.Assert(result, check.Equals, expectedStr)
+	c.Assert(result, check.Equals, expectedMACStr)
+
+	md, err := testMACAddress.MarshalText()
+	c.Assert(err, check.Equals, nil)
+	c.Assert(string(md), check.Equals, expectedMACStr)
+}
+
+func (s *MACAddrSuite) TestMarshalText(c *check.C) {
+	md, err := testMACAddress.MarshalText()
+	c.Assert(err, check.Equals, nil)
+	c.Assert(string(md), check.Equals, expectedMACStr)
+}
+
+func (s *MACAddrSuite) TestUnmarshalText(c *check.C) {
+	mac := &MACAddr{}
+	err := mac.UnmarshalText([]byte(expectedMACStr))
+	c.Assert(err, check.Equals, nil)
+	c.Assert(string(mac.String()), check.Equals, expectedMACStr)
 }
