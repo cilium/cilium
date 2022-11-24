@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -243,6 +244,10 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 	// Don't even perform a health check if we have received a successful
 	// k8s event in the last 'timeout' duration
 	if k8smetrics.LastSuccessInteraction.Time().After(expireDate) {
+		log.WithFields(logrus.Fields{
+			"expireDate":  expireDate,
+			"lastSuccess": k8smetrics.LastSuccessInteraction.Time(),
+		}).Debug("k8s-heartbeat-debug skipping health check, LastSuccessInteraction after expireDate")
 		return
 	}
 
