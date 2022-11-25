@@ -1512,25 +1512,55 @@ void snat_v6_delete_tuples(struct ipv6_ct_tuple *tuple __maybe_unused)
 }
 #endif
 
-static __always_inline bool
-snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
-{
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
+static __always_inline int
+snat_remap_rfc8215(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
+{
+	union v6addr src6, dst6;
+
+	build_v4_in_v6_rfc8215(&src6, ip4->saddr);
+	build_v4_in_v6(&dst6, ip4->daddr);
+	return ipv4_to_ipv6(ctx, l3_off, &src6, &dst6);
+}
+
+static __always_inline bool
+__snat_v6_has_v4_complete(struct ipv6_ct_tuple *tuple6,
+			  const struct ipv4_ct_tuple *tuple4)
+{
+	build_v4_in_v6(&tuple6->daddr, tuple4->daddr);
+	tuple6->nexthdr = tuple4->nexthdr;
+	tuple6->sport = tuple4->sport;
+	tuple6->dport = tuple4->dport;
+	tuple6->flags = NAT_DIR_INGRESS;
+	return snat_v6_lookup(tuple6);
+}
+
+static __always_inline bool
+snat_v6_has_v4_match_rfc8215(const struct ipv4_ct_tuple *tuple4)
+{
 	struct ipv6_ct_tuple tuple6;
 
 	memset(&tuple6, 0, sizeof(tuple6));
-	tuple6.nexthdr = tuple4->nexthdr;
-	build_v4_in_v6(&tuple6.saddr, tuple4->saddr);
-	build_v4_in_v6(&tuple6.daddr, tuple4->daddr);
-	tuple6.sport = tuple4->sport;
-	tuple6.dport = tuple4->dport;
-	tuple6.flags = NAT_DIR_INGRESS;
-
-	return snat_v6_lookup(&tuple6);
-#else
-	return false;
-#endif
+	build_v4_in_v6_rfc8215(&tuple6.saddr, tuple4->saddr);
+	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
+
+static __always_inline bool
+snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
+{
+	struct ipv6_ct_tuple tuple6;
+
+	memset(&tuple6, 0, sizeof(tuple6));
+	build_v4_in_v6(&tuple6.saddr, tuple4->saddr);
+	return __snat_v6_has_v4_complete(&tuple6, tuple4);
+}
+#else
+static __always_inline bool
+snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
+{
+	return false;
+}
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
 
 static __always_inline __maybe_unused void
 ct_delete4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx)
