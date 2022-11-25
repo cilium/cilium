@@ -578,9 +578,9 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
 			k.ciliumEgressGatewayPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
-			k.ciliumClusterwideEnvoyConfigInit(k.clientset)
+			k.ciliumClusterwideEnvoyConfigInit(ctx, k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:
-			k.ciliumEnvoyConfigInit(k.clientset)
+			k.ciliumEnvoyConfigInit(ctx, k.clientset)
 		default:
 			log.WithFields(logrus.Fields{
 				logfields.Resource: r,

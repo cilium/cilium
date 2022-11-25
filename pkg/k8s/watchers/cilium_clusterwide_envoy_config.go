@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(clientset client.Clientset) {
+func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clientset client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumClusterwideEnvoyConfigV2
 	_, ccecController := informer.NewInformer(
 		utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideEnvoyConfigList](k.clientset.CiliumV2().CiliumClusterwideEnvoyConfigs()),
@@ -76,7 +76,7 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(clientset client.Clientset
 		apiGroup,
 	)
 
-	go ccecController.Run(wait.NeverStop)
+	go ccecController.Run(ctx.Done())
 	k.k8sAPIGroups.AddAPI(apiGroup)
 }
 
