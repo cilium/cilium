@@ -1718,6 +1718,16 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		// (Check Daemon.InitK8sSubsystem() for more info)
 		<-d.k8sCachesSynced
 	}
+
+	// Wait for ServiceCache to synchronize and its subscribers
+	// to receive sync event. This makes sure we won't proceed
+	// before services have been applied to datapath.
+	// FIXME: This relies on ServiceCache Events() channel being unbuffered
+	// and on completely synchronous handling in pkg/service. Preferably we'd
+	// have more explicit (and modular) mechanism for datapath readiness rather
+	// than hacking it around k8s store synchronization.
+	params.ServiceCache.WaitForSync(d.ctx)
+
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
 
