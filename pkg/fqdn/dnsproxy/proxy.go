@@ -604,7 +604,8 @@ func configureConnection(conn *net.Conn, secId identity.NumericIdentity) error {
 
 	defer file.Close()
 
-	mark := int(uint32(secId)<<16 | uint32(linux_defaults.MagicMarkIdentity))
+	mark := linux_defaults.MagicMarkIdentity
+	mark |= int(uint32(secId&0xFFFF)<<16 | uint32((secId&0xFF0000)>>16))
 	err = unix.SetsockoptInt(int(file.Fd()), unix.SOL_SOCKET, unix.SO_MARK, mark)
 	if err != nil {
 		return fmt.Errorf("error setting SO_MARK: %w", err)
@@ -679,7 +680,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	scopedLog = scopedLog.WithField(logfields.EndpointID, ep.StringID())
+	scopedLog = scopedLog.WithFields(logrus.Fields{
+		logfields.EndpointID: ep.StringID(),
+		logfields.Identity:   ep.GetIdentity(),
+	})
 
 	targetServerIP, targetServerPort, targetServerAddr, err := p.lookupTargetDNSServer(w)
 	if err != nil {
