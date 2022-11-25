@@ -100,7 +100,19 @@ func TestGetStringMapString(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "valid kv format with comma in value",
+			name: "valid kv format with a single key and commas in value",
+			args: args{
+				key:   "API_RATE_LIMIT",
+				value: "endpoint-create=rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
+			},
+			want: map[string]string{
+				"endpoint-create": "rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
+			},
+			wantErr: assert.NoError,
+		},
+
+		{
+			name: "valid kv format with multiple keys with commas in value",
 			args: args{
 				key:   "API_RATE_LIMIT",
 				value: "endpoint-create=rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true,endpoint-delete=rate-limit:10/s,rate-burst:10,parallel-requests:10,auto-adjust:true",
