@@ -326,7 +326,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			}
 		}
 		if option.Config.EnableStatelessNat46X64 {
-			cDefinesMap["ENABLE_NAT_46X64_STATELESS"] = "1"
+			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
 		}
 		if option.Config.NodePortNat46X64 {
 			cDefinesMap["ENABLE_NAT_46X64"] = "1"
