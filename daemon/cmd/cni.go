@@ -6,9 +6,12 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -16,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/containernetworking/cni/libcni"
 	"github.com/google/renameio"
 	"github.com/tidwall/sjson"
 )
@@ -121,7 +125,9 @@ func (d *Daemon) startCNIConfWriter(opts *option.DaemonConfig, cleaner *daemonCl
 
 	// We used to disable CNI generation with this environment variable
 	// It's no longer documented, but we need to still support it.
-	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" {
+	// If CILIUM_CUSTOM_CNI_CONF == true, we want that cni-install.sh will not generate the 05-cilium.conf or 05-cilium.conflist
+	// But we want cilium-agent can install cni according to opts.ReadCNIConfiguration
+	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" && opts.ReadCNIConfiguration == "" {
 		return
 	}
 
@@ -158,15 +164,66 @@ func installCNIConfFile(opts *option.DaemonConfig) error {
 
 	var contents []byte
 	var err error
+	originalConfFile := ""
 
 	// generate CNI config, either by reading a user-supplied
 	// template file or rendering our own.
 	if opts.ReadCNIConfiguration != "" {
+		originalConfContents := make([]byte, 0)
 		contents, err = os.ReadFile(opts.ReadCNIConfiguration)
 		if err != nil {
-			return fmt.Errorf("failed to read source CNI config file at %s: %w", opts.ReadCNIConfiguration, err)
+			return fmt.Errorf("unable to read CNI configuration file %s: %s", opts.ReadCNIConfiguration, err)
 		}
 		log.Infof("Reading CNI configuration file from %s", opts.ReadCNIConfiguration)
+		if opts.WriteCNIConfigurationChainingMode {
+			if !strings.HasSuffix(opts.WriteCNIConfigurationWhenReady, ".conflist") {
+				return fmt.Errorf("the CNI configuration file %s should be suffixed with .conflist when %v is true", opts.WriteCNIConfigurationWhenReady, opts.WriteCNIConfigurationChainingMode)
+			}
+			readCniConfContents, err := getCNINetworkListFromFile(opts.ReadCNIConfiguration)
+			if err != nil {
+				return fmt.Errorf("failed to read the CNI configuration from %s: %s", opts.ReadCNIConfiguration, err.Error())
+			}
+			if opts.DefaultCNIConfiguration != "" && exists(opts.DefaultCNIConfiguration) {
+				// opts.DefaultCNIConfiguration exists
+				originalConfFile = opts.DefaultCNIConfiguration
+				originalConfContents, err = getCNINetworkListFromFile(opts.DefaultCNIConfiguration)
+				if err != nil {
+					return fmt.Errorf("unable to read CNI configurations from the file %s", opts.DefaultCNIConfiguration)
+				}
+			} else if exists(opts.WriteCNIConfigurationWhenReady) {
+				// opts.DefaultCNIConfiguration doesn't exist and opts.WriteCNIConfigurationWhenReady exists
+				// opts.DefaultCNIConfiguration is empty and opts.WriteCNIConfigurationWhenReady exists
+				originalConfFile = opts.WriteCNIConfigurationWhenReady
+				originalConfContents, err = getCNINetworkListFromFile(opts.WriteCNIConfigurationWhenReady)
+				if err != nil {
+					return fmt.Errorf("unable to read the CNI configurations from %s: %s", opts.WriteCNIConfigurationWhenReady, err.Error())
+				}
+			} else if opts.DefaultCNIConfiguration == "" {
+				// opts.DefaultCNIConfiguration is empty and opts.WriteCNIConfigurationWhenReady doesn't exist
+				// read the default CNI configuration
+				cniPath := filepath.Dir(opts.WriteCNIConfigurationWhenReady)
+				log.Infof("The default CNI configuration file is not specified, read the default CNI configuration from %s", cniPath)
+				originalConfFile, originalConfContents, err = getDefaultCNINetworkList(cniPath)
+				if err != nil {
+					log.Warnf("unable to read the original CNI configurations files under %s: %s. Will write the contents of %s directly into %s", cniPath, err.Error(), opts.ReadCNIConfiguration, opts.WriteCNIConfigurationWhenReady)
+				}
+			}
+
+			if originalConfContents != nil && len(originalConfContents) != 0 {
+				// Insert the opts.ReadCNIConfiguration into the original CNI conf file found out above
+				log.Infof("Insert the configurations %s into %s and write it into the file %s", opts.ReadCNIConfiguration, originalConfFile, opts.WriteCNIConfigurationWhenReady)
+				contents, err = insertConfList(opts.CNIChainingMode, originalConfContents, readCniConfContents)
+				if err != nil {
+					return fmt.Errorf("unable to combine CNI configuraion %s with %s: %s", opts.ReadCNIConfiguration, originalConfFile, err.Error())
+				}
+			} else {
+				// write opts.ReadCNIConfiguration directly into opts.WriteCNIConfigurationWhenReady
+				contents, err = marshalCNIConfigFromBytes(opts.CNIChainingMode, readCniConfContents)
+				if err != nil {
+					return fmt.Errorf("unable to mashal %s to chained CNI configuration format: %s", opts.ReadCNIConfiguration, err.Error())
+				}
+			}
+		}
 	} else {
 		contents, err = renderCNIConf(opts, confDir)
 		if err != nil {
@@ -180,6 +237,14 @@ func installCNIConfFile(opts *option.DaemonConfig) error {
 	}
 	log.Infof("Wrote CNI configuration file to %s", opts.WriteCNIConfigurationWhenReady)
 
+	// Remove the original CNI Configuration file
+	if originalConfFile != "" && originalConfFile != opts.WriteCNIConfigurationWhenReady {
+		log.Infof("Rename CNI configuration file %s to %s", originalConfFile, originalConfFile+".cilium_bak")
+		err = os.Rename(originalConfFile, originalConfFile+".cilium_bak")
+		if err != nil {
+			return fmt.Errorf("unable to rename the original CNI configurations file %s: %s", originalConfFile, err.Error())
+		}
+	}
 	// Remove the old non-conflist cilium file
 	if filename != "05-cilium.conf" {
 		_ = os.Remove(path.Join(confDir, "05-cilium.conf"))
@@ -328,4 +393,210 @@ func findFile(basedir string, paths []string) (string, error) {
 	}
 
 	return "", os.ErrNotExist
+}
+
+// Get the default CNI configuration under some directory
+func getDefaultCNINetworkList(confDir string) (string, []byte, error) {
+	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
+	switch {
+	case err != nil:
+		return "", nil, err
+	case len(files) == 0:
+		return "", nil, fmt.Errorf("no networks found in %s", confDir)
+	}
+
+	sort.Strings(files)
+	for _, confFile := range files {
+		confList, err := getCNINetworkListFromFile(confFile)
+		if err != nil {
+			continue
+		}
+		return confFile, confList, nil
+	}
+
+	return "", nil, fmt.Errorf("no valid networks found in %s", confDir)
+}
+
+// Get the CNI network list from the file.
+// Try to load CNI network list assuming that it is a chained CNI conf file
+// If it is failed, try to load CNI network list assuming it is a single CNI conf file
+func getCNINetworkListFromFile(name string) ([]byte, error) {
+	var confList *libcni.NetworkConfigList
+	var err error
+
+	confList, err = libcni.ConfListFromFile(name)
+	if err == nil {
+		if len(confList.Plugins) == 0 {
+			log.Warnf("CNI config list %s has no networks, skipping", confList.Name)
+			return nil, err
+		}
+		return confList.Bytes, nil
+	}
+
+	log.Warnf("Failed to loading CNI config list from the file %s: %v. Try to load CNI config.", name, err)
+	conf, err := libcni.ConfFromFile(name)
+	if err != nil {
+		log.Warnf("Error loading CNI config file %s: %v", name, err)
+		return nil, err
+	}
+	// Ensure the config has a "type" so we know what plugin to run.
+	// Also catches the case where somebody put a conflist into a conf file.
+	if conf.Network.Type == "" {
+		log.Warnf("Error loading CNI config file %s: no 'type'; perhaps this is a .conflist?", name)
+		return nil, err
+	}
+
+	confList, err = libcni.ConfListFromConf(conf)
+	if err != nil {
+		log.Warnf("Error converting CNI config file %s to list: %v", name, err)
+		return nil, err
+	}
+
+	if len(confList.Plugins) == 0 {
+		log.Warnf("CNI config list %s has no networks, skipping", confList.Name)
+		return nil, err
+	}
+
+	return confList.Bytes, nil
+}
+
+// Append the new CNI configuration into the original CNI configuration
+func insertConfList(cniChainMode string, original []byte, inserted []byte) ([]byte, error) {
+	var originalMap map[string]interface{}
+	err := json.Unmarshal(original, &originalMap)
+	if err != nil {
+		return nil, fmt.Errorf("error loading existing CNI config (JSON error): %v", err)
+	}
+
+	var insertedMap map[string]interface{}
+	err = json.Unmarshal(inserted, &insertedMap)
+	if err != nil {
+		return nil, fmt.Errorf("error loading inserted CNI config (JSON error): %v", err)
+	}
+
+	newMap := make(map[string]interface{}, 0)
+	newMap["name"] = cniChainMode
+
+	if insertedCniVersion, ok := insertedMap["cniVersion"]; ok {
+		newMap["cniVersion"] = insertedCniVersion
+	} else {
+		if existingCniVersion, ok := originalMap["cniVersion"]; ok {
+			newMap["cniVersion"] = existingCniVersion
+		} else {
+			newMap["cniVersion"] = "0.3.1"
+		}
+	}
+
+	delete(insertedMap, "cniVersion")
+	delete(originalMap, "cniVersion")
+
+	originalPlugins, err := getPluginsFromCNIConfigMap(originalMap)
+	if err != nil {
+		return nil, fmt.Errorf("error loading CNI config plugin: %v", err)
+	}
+
+	insertedPlugins, err := getPluginsFromCNIConfigMap(insertedMap)
+	if err != nil {
+		return nil, fmt.Errorf("error loading CNI config plugin: %v", err)
+	}
+
+	for _, insertedPlugin := range insertedPlugins {
+		iPlugin, err := getPlugin(insertedPlugin)
+		if err != nil {
+			return nil, fmt.Errorf("error loading CNI config plugin: %v", err)
+		}
+		for i, originalPlugin := range originalPlugins {
+			oPlugin, err := getPlugin(originalPlugin)
+			delete(originalPlugins[i].(map[string]interface{}), "cniVersion")
+			if err != nil {
+				return nil, fmt.Errorf("error loading CNI config plugin: %v", err)
+			}
+			if oPlugin["type"] == iPlugin["type"] {
+				originalPlugins = append(originalPlugins[:i], originalPlugins[i+1:]...)
+				break
+			}
+		}
+		delete(iPlugin, "cniVersion")
+		originalPlugins = append(originalPlugins, iPlugin)
+	}
+	newMap["plugins"] = originalPlugins
+	return marshalCNIConfig(newMap)
+}
+
+// Get the plugins form CNI config map
+func getPluginsFromCNIConfigMap(cniConfigMap map[string]interface{}) ([]interface{}, error) {
+	var plugins []interface{}
+	var err error
+	if _, ok := cniConfigMap["type"]; ok {
+		// Assume it is a regular network conf file
+		plugins = []interface{}{cniConfigMap}
+	} else {
+		plugins, err = getPlugins(cniConfigMap)
+		if err != nil {
+			return nil, fmt.Errorf("error loading CNI config plugins from the existing file: %v", err)
+		}
+	}
+	return plugins, nil
+}
+
+// Given the raw plugin interface, return the plugin asserted as a map[string]interface{}
+func getPlugin(rawPlugin interface{}) (map[string]interface{}, error) {
+	plugin, ok := rawPlugin.(map[string]interface{})
+	if !ok {
+		err := fmt.Errorf("error reading plugin from CNI config plugin list")
+		return plugin, err
+	}
+	return plugin, nil
+}
+
+// Given an unmarshalled CNI config JSON map, return the plugin list asserted as a []interface{}
+func getPlugins(cniConfigMap map[string]interface{}) ([]interface{}, error) {
+	plugins, ok := cniConfigMap["plugins"].([]interface{})
+	if !ok {
+		err := fmt.Errorf("error reading plugin list from CNI config")
+		return plugins, err
+	}
+	return plugins, nil
+}
+
+// Marshal the CNI config map and append a new line
+func marshalCNIConfigFromBytes(cniChainMode string, cniConfigBytes []byte) ([]byte, error) {
+	var cniMap map[string]interface{}
+	err := json.Unmarshal(cniConfigBytes, &cniMap)
+	if err != nil {
+		return nil, err
+	}
+	cniMap["name"] = cniChainMode
+	plugins, err := getPluginsFromCNIConfigMap(cniMap)
+	if err != nil {
+		return nil, fmt.Errorf("error loading CNI config plugin: %v", err)
+	}
+
+	newPlugins := make([]interface{}, 0)
+	for _, plugin := range plugins {
+		iPlugin, err := getPlugin(plugin)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get the plugin: %s", err.Error())
+		}
+		delete(iPlugin, "cniVersion")
+		newPlugins = append(newPlugins, iPlugin)
+	}
+	cniMap["plugins"] = newPlugins
+	return marshalCNIConfig(cniMap)
+}
+
+// Marshal the CNI config map and append a new line
+func marshalCNIConfig(cniConfigMap map[string]interface{}) ([]byte, error) {
+	cniConfig, err := json.MarshalIndent(cniConfigMap, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	cniConfig = append(cniConfig, "\n"...)
+	return cniConfig, nil
+}
+
+// Check whether the file exists
+func exists(name string) bool {
+	_, err := os.Stat(name)
+	return err == nil
 }

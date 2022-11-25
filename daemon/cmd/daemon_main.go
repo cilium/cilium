@@ -721,6 +721,9 @@ func initializeFlags() {
 	flags.String(option.ReadCNIConfiguration, "", fmt.Sprintf("CNI configuration file to use as a source for --%s. If not supplied, a suitable one will be generated.", option.WriteCNIConfigurationWhenReady))
 	option.BindEnv(Vp, option.ReadCNIConfiguration)
 
+	flags.String(option.DefaultCNIConfiguration, "", "location of the default CNI configuration file")
+	option.BindEnv(Vp, option.DefaultCNIConfiguration)
+
 	flags.Bool(option.Restore, true, "Restores state, if possible, from previous daemon")
 	option.BindEnv(Vp, option.Restore)
 
@@ -880,6 +883,9 @@ func initializeFlags() {
 
 	flags.String(option.WriteCNIConfigurationWhenReady, "", "Write the CNI configuration to the specified path when agent is ready")
 	option.BindEnv(Vp, option.WriteCNIConfigurationWhenReady)
+
+	flags.Bool(option.WriteCNIConfigurationChainingMode, false, fmt.Sprintf("Allow writing the CNI configuration from %s with the default CNI configuration using chaining mode into %s", option.ReadCNIConfiguration, option.WriteCNIConfigurationWhenReady))
+	option.BindEnv(Vp, option.WriteCNIConfigurationChainingMode)
 
 	flags.Duration(option.PolicyTriggerInterval, defaults.PolicyTriggerInterval, "Time between triggers of policy updates (regenerations for all endpoints)")
 	flags.MarkHidden(option.PolicyTriggerInterval)

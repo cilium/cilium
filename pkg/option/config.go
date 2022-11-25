@@ -1175,6 +1175,17 @@ const (
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady = "write-cni-conf-when-ready"
 
+	// DefaultCNIConfiguration is an original default CNI configuration file. If
+	// WriteCNIConfigurationChainingMode is true, its content will be appended
+	// with ReadCNIConfiguration and be written into WriteCNIConfigurationWhenReady
+	DefaultCNIConfiguration = "default-cni-conf"
+
+	// WriteCNIConfigurationChainingMode means writing the CNI configuration
+	// of ReadCNIConfiguration into the file WriteCNIConfigurationWhenReady with the configurations
+	// of DefaultCNIConfiguration in a chaining mode.
+	// If false, it will write the CNI configuration of ReadCNIConfiguration into a single file
+	WriteCNIConfigurationChainingMode = "write-cni-conf-chaining-mode"
+
 	// CNIExclusive tells the agent to remove other CNI configuration files
 	CNIExclusive = "cni-exclusive"
 
@@ -1828,6 +1839,16 @@ type DaemonConfig struct {
 	// allows to keep a Kubernetes node NotReady until Cilium is up and
 	// running and able to schedule endpoints.
 	WriteCNIConfigurationWhenReady string
+
+	// DefaultCNIConfiguration is an original CNI configuration file. If
+	// WriteCNIConfigurationChainingMode is true, its content will be appened
+	// with ReadCNIConfiguration and be written into WriteCNIConfigurationWhenReady
+	DefaultCNIConfiguration string
+
+	// WriteCNIConfigurationChainingMode means writing the CNI configuration
+	// of ReadCNIConfiguration into a chained cni configuration file. If false, it will write
+	// the CNI configuration into a single file
+	WriteCNIConfigurationChainingMode bool
 
 	// CNIExclusive, if true, directs the agent to remove all other CNI configuration files
 	CNIExclusive bool
@@ -2919,6 +2940,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = vp.GetString(WriteCNIConfigurationWhenReady)
+	c.WriteCNIConfigurationChainingMode = vp.GetBool(WriteCNIConfigurationChainingMode)
+	c.DefaultCNIConfiguration = vp.GetString(DefaultCNIConfiguration)
 	c.CNIExclusive = vp.GetBool(CNIExclusive)
 	c.CNILogFile = vp.GetString(CNILogFile)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
