@@ -1,11 +1,14 @@
 package cache
 
 import (
+	"github.com/sirupsen/logrus"
+
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/store"
-	"github.com/sirupsen/logrus"
 )
 
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
@@ -38,11 +41,11 @@ func (sc *serviceCache) mergeServiceUpdateLocked(service *store.ClusterService, 
 		delete(externalEndpoints, service.Cluster)
 	} else {
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
-		backends := map[cmtypes.AddrCluster]*Backend{}
+		backends := map[cmtypes.AddrCluster]*k8s.Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
+			backends[cmtypes.MustParseAddrCluster(ipString)] = &k8s.Backend{Ports: portConfig}
 		}
-		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
+		externalEndpoints[service.Cluster] = &Endpoints{
 			Backends: backends,
 		}
 	}
@@ -62,7 +65,7 @@ func (sc *serviceCache) mergeServiceUpdateLocked(service *store.ClusterService, 
 	}
 }
 
-func (sc *serviceCache) MergeExternalServiceDelete(service *store.ClusterService, swg *lock.StoppableWaitGroup) {
+func (sc *serviceCache) MergeExternalServiceDelete(service *store.ClusterService) {
 	panic("TBD")
 }
 

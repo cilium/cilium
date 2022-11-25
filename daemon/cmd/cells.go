@@ -59,6 +59,13 @@ var (
 		// endpoints.
 		serviceCache.Cell,
 
+		// Provide NodeAddressing for ServiceCache.
+		cell.Provide(
+			func(dp datapath.Datapath) types.NodeAddressing {
+				return dp.LocalNodeAddressing()
+			},
+		),
+
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 	)
@@ -72,12 +79,6 @@ var (
 		cell.Provide(
 			newWireguardAgent,
 			newDatapath,
-		),
-
-		cell.Provide(
-			func(dp datapath.Datapath) types.NodeAddressing {
-				return dp.LocalNodeAddressing()
-			},
 		),
 	)
 )

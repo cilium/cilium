@@ -249,7 +249,8 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 		}
 	}
 
-	return ParseEndpointSliceID(ep), endpoints
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
+	return endpoints.EndpointSliceID, endpoints
 }
 
 // parseEndpointPortV1Beta1 returns the port name and the port parsed as a
@@ -345,7 +346,8 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 		}
 	}
 
-	return ParseEndpointSliceID(ep), endpoints
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
+	return endpoints.EndpointSliceID, endpoints
 }
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from

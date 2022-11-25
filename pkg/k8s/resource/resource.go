@@ -112,14 +112,16 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 
 type options struct {
 	transform cache.TransformFunc
+	fromObject k8sRuntime.Object
 }
 
 type ResourceOption func(o *options)
 
 // WithTransform sets the function to transform the object before storing it.
 // The returned object must implement k8sRuntime.Object.
-func WithTransform(transform cache.TransformFunc) ResourceOption {
+func WithTransform(fromObj k8sRuntime.Object, transform cache.TransformFunc) ResourceOption {
 	return func(o *options) {
+		o.fromObject = fromObj
 		o.transform = transform
 	}
 }
@@ -141,8 +143,6 @@ type resource[T k8sRuntime.Object] struct {
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
-
-	transform cache.TransformFunc
 }
 
 var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
@@ -214,13 +214,21 @@ func (r *resource[T]) startWhenNeeded() {
 	}
 
 	// Construct the informer and run it.
-	var objType T
 	handlerFuncs :=
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj)) },
 			UpdateFunc: func(old any, new any) { r.pushUpdate(NewKey(new)) },
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
+
+	var objType k8sRuntime.Object
+	if r.opts.transform != nil {
+		// If transform was given, then T is not the type returned by the lister watcher.
+		objType = r.opts.fromObject
+	} else {
+		var t T
+		objType = t
+	}
 
 	store, informer := cache.NewTransformingInformer(r.lw, objType, 0, handlerFuncs, r.opts.transform)
 	r.storeResolver.Resolve(&typedStore[T]{store})

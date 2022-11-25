@@ -29,8 +29,6 @@ func StartBGPBetaLBIPAllocator(ctx context.Context, clientset client.Clientset, 
 
 		for ev := range services.Events(ctx) {
 			switch ev.Kind {
-			case resource.Sync:
-				m.MarkSynced()
 			case resource.Upsert:
 				m.OnUpdateService(nil, ev.Object)
 			case resource.Delete:

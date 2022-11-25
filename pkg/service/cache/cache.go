@@ -128,6 +128,7 @@ type serviceCache struct {
 }
 
 var _ ServiceCache = &serviceCache{}
+var _ k8s.ServiceIPGetter = &serviceCache{}
 
 type serviceCacheParams struct {
 	cell.In
@@ -140,7 +141,7 @@ type serviceCacheParams struct {
 
 	// FIXME: This should not be here. It's used by k8s.ParseService() to expand
 	// the nodeport frontends. That should be performed by datapath.
-	NodeAddressing datapathTypes.NodeAddressing
+	NodeAddressing datapathTypes.NodeAddressing `optional:"true"`
 }
 
 const (
@@ -363,8 +364,6 @@ func (sc *serviceCache) updateService(key resource.Key, k8sSvc *slim_corev1.Serv
 			Endpoints:  endpoints,
 		})
 	}
-
-	return
 }
 
 func (sc *serviceCache) deleteService(key resource.Key, svc *slim_corev1.Service) {
@@ -385,8 +384,6 @@ func (sc *serviceCache) deleteService(key resource.Key, svc *slim_corev1.Service
 			Endpoints: endpoints,
 		})
 	}
-
-	return
 }
 
 func newEndpointSlices() *EndpointSlices {
@@ -401,6 +398,9 @@ func (sc *serviceCache) updateEndpoints(key resource.Key, newEps *Endpoints) {
 
 	esName := newEps.EndpointSliceID.EndpointSliceName
 	svcID := newEps.EndpointSliceID.ServiceID
+
+	sc.Log.Infof("updateEndpoints(%s): svcID=%s, esName=%s",
+	             key, svcID, esName)
 
 	eps, ok := sc.endpoints[svcID]
 	if ok {
@@ -428,7 +428,27 @@ func (sc *serviceCache) updateEndpoints(key resource.Key, newEps *Endpoints) {
 }
 
 func (sc *serviceCache) deleteEndpoints(key resource.Key, eps *Endpoints) {
-	// TODO
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+
+	esName := eps.EndpointSliceID.EndpointSliceName
+	svcID := eps.EndpointSliceID.ServiceID
+
+	svc, serviceOK := sc.services[svcID]
+	isEmpty := sc.endpoints[svcID].Delete(esName)
+	if isEmpty {
+		delete(sc.endpoints, svcID)
+	}
+	endpoints, _ := sc.correlateEndpoints(svcID)
+
+	if serviceOK {
+		sc.mcast.emit(&ServiceEvent{
+			Action:    UpdateService,
+			ID:        svcID,
+			Service:   svc,
+			Endpoints: endpoints,
+		})
+	}
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection

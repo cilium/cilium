@@ -106,7 +106,8 @@ type endpointsListerWatcher struct {
 	cachedListerWatcher cache.ListerWatcher
 }
 
-func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
+func (lw *endpointsListerWatcher) getListerWatcher() (k8sRuntime.Object, cache.ListerWatcher) {
+	var obj k8sRuntime.Object
 	lw.once.Do(func() {
 		if SupportsEndpointSlice() {
 			if SupportsEndpointSliceV1() {
@@ -114,28 +115,33 @@ func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
 				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
 					lw.cs.Slim().DiscoveryV1().EndpointSlices(""),
 				)
+				obj = &slim_discoveryv1.EndpointSlice{}
 			} else {
 				log.Infof("Using discoveryv1beta1.EndpointSlice")
 				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1beta1.EndpointSliceList](
 					lw.cs.Slim().DiscoveryV1beta1().EndpointSlices(""),
 				)
+				obj = &slim_discoveryv1beta1.EndpointSlice{}
 			}
 		} else {
 			log.Infof("Using v1.Endpoints")
 			lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](
 				lw.cs.Slim().CoreV1().Endpoints(""),
 			)
+			obj = &slim_corev1.Endpoints{}
 		}
 	})
-	return lw.cachedListerWatcher
+	return obj, lw.cachedListerWatcher
 }
 
-func (lw *endpointsListerWatcher) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
-	return lw.getListerWatcher().List(opts)
+func (elw *endpointsListerWatcher) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
+	_, lw := elw.getListerWatcher()
+	return lw.List(opts)
 }
 
-func (lw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interface, error) {
-	return lw.getListerWatcher().Watch(opts)
+func (elw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	_, lw := elw.getListerWatcher()
+	return lw.Watch(opts)
 }
 
 func transformEndpoint(obj any) (any, error) {
@@ -158,9 +164,12 @@ func endpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
+	elw := &endpointsListerWatcher{cs: cs}
+	obj, _ := elw.getListerWatcher() // FIXME clean this up
+
 	return resource.New[*Endpoints](
 		lc,
-		&endpointsListerWatcher{cs: cs},
-		resource.WithTransform(transformEndpoint),
+		elw,
+		resource.WithTransform(obj, transformEndpoint),
 	), nil
 }
