@@ -548,7 +548,7 @@ drop_err:
 }
 #endif /* ENABLE_DSR */
 
-#ifdef ENABLE_NAT_46X64_STATELESS
+#ifdef ENABLE_NAT_46X64_GATEWAY
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
@@ -669,7 +669,7 @@ out_send:
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
-#endif /* ENABLE_NAT_46X64_STATELESS */
+#endif /* ENABLE_NAT_46X64_GATEWAY */
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
@@ -899,10 +899,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return DROP_IS_CLUSTER_IP;
 	} else {
 skip_service_lookup:
-#ifdef ENABLE_NAT_46X64_STATELESS
-		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr) &&
-		    is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
-			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
+#ifdef ENABLE_NAT_46X64_GATEWAY
+		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+			if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr)) {
+				ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
+			} else {
+				ctx_store_meta(ctx, CB_NAT_46X64, 1);
+				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS);
+			}
 			return DROP_MISSED_TAIL_CALL;
 		}
 #endif
@@ -1786,7 +1790,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	bool backend_local;
+	bool backend_local, l4_ports;
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
@@ -1842,7 +1846,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return DROP_IS_CLUSTER_IP;
 	} else {
 skip_service_lookup:
-#ifdef ENABLE_NAT_46X64_STATELESS
+#ifdef ENABLE_NAT_46X64_GATEWAY
 		if (ip4->daddr != IPV4_DIRECT_ROUTING) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV46_RFC8215);
 			return DROP_MISSED_TAIL_CALL;
@@ -1862,12 +1866,20 @@ skip_service_lookup:
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
 		 */
-		if (!lb4_populate_ports(ctx, &tuple, l4_off) &&
-		    snat_v6_has_v4_match(&tuple)) {
+		l4_ports = !lb4_populate_ports(ctx, &tuple, l4_off);
+		if (l4_ports && snat_v6_has_v4_match(&tuple)) {
 			ret = lb4_to_lb6(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
+#ifdef ENABLE_NAT_46X64_GATEWAY
+		} else if (l4_ports &&
+			   snat_v6_has_v4_match_rfc8215(&tuple)) {
+			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
+			if (ret)
+				return ret;
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
+#endif
 		} else {
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS);
 		}
