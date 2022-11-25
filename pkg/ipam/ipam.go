@@ -175,9 +175,11 @@ func (ipam *IPAM) BlacklistIP(ip net.IP, owner string) {
 // to BlacklistIP.
 func (ipam *IPAM) BlacklistIPNet(ipNet net.IPNet, owner string) {
 	ipam.allocatorMutex.Lock()
-	ipam.blacklist.ipNets = append(ipam.blacklist.ipNets, &IPNetWithOwner{
-		ipNet: ipNet,
-		owner: owner,
-	})
+	if !ipam.blacklist.Contains(ipNet.IP) {
+		ipam.blacklist.ipNets = append(ipam.blacklist.ipNets, &IPNetWithOwner{
+			ipNet: ipNet,
+			owner: owner,
+		})
+	}
 	ipam.allocatorMutex.Unlock()
 }
