@@ -63,8 +63,6 @@ var (
 		Short: "Run " + binaryName,
 	}
 
-	shutdownSignal = make(chan struct{})
-
 	leaderElectionResourceLockName = "cilium-operator-resource-lock"
 
 	// Use a Go context so we can tell the leaderelection code when we
@@ -125,10 +123,11 @@ func Execute() {
 }
 
 func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+	apiServerShutdownSignal := make(chan struct{})
 
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			go runOperator(llc, clientset, shutdowner)
+			go runOperator(llc, clientset, shutdowner, apiServerShutdownSignal)
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
@@ -136,6 +135,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 				return err
 			}
 			doCleanup()
+			close(apiServerShutdownSignal)
 			return nil
 		},
 	})
@@ -194,7 +194,6 @@ func initEnv() {
 
 func doCleanup() {
 	IsLeader.Store(false)
-	close(shutdownSignal)
 
 	// Cancelling this conext here makes sure that if the operator hold the
 	// leader lease, it will be released.
@@ -236,14 +235,14 @@ func checkStatus(clientset k8sClient.Clientset) error {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, apiServerShutdownSignal chan struct{}) {
 	log.Infof("Cilium Operator %s", version.Version)
 
 	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
 
 	// Configure API server for the operator.
-	srv, err := api.NewServer(shutdownSignal, allSystemsGo, getAPIServerAddr()...)
+	srv, err := api.NewServer(apiServerShutdownSignal, allSystemsGo, getAPIServerAddr()...)
 	if err != nil {
 		log.WithError(err).Fatalf("Unable to create operator apiserver")
 	}
