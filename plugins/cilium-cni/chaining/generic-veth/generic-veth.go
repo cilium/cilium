@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	ciliumcniutils "github.com/cilium/cilium/plugins/cilium-cni/utils"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	cniVersion "github.com/containernetworking/cni/pkg/version"
@@ -51,10 +52,16 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 	}()
 	var (
 		hostMac, vethHostName, vethLXCMac, vethIP, vethIPv6 string
+		routes                                              []netlink.Route
 		vethHostIdx, peerIndex                              int
 		peer                                                netlink.Link
 		netNs                                               ns.NetNS
 	)
+
+	conf, err := ciliumcniutils.GetConfigFromCiliumAgent(pluginCtx.Client)
+	if err != nil {
+		return
+	}
 
 	netNs, err = ns.GetNS(pluginCtx.Args.Netns)
 	if err != nil {
@@ -69,6 +76,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			return err
 		}
 
+		linkFound := false
 		for _, link := range links {
 			pluginCtx.Logger.Debugf("Found interface in container %+v", link.Attrs())
 
@@ -104,10 +112,33 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 					logfields.Interface: link.Attrs().Name}).Warn("No valid IPv6 address found")
 			}
 
-			return nil
+			linkFound = true
+			break
 		}
 
-		return fmt.Errorf("no link found inside container")
+		if !linkFound {
+			return fmt.Errorf("no link found inside container")
+		}
+
+		if pluginCtx.NetConf.ChainingMode.ConfigRouteMTU {
+			routes, err = netlink.RouteList(nil, netlink.FAMILY_V4)
+			if err != nil {
+				err = fmt.Errorf("unable to list the routes: %s", err.Error())
+				return err
+			}
+			for _, rt := range routes {
+				if rt.MTU != int(conf.RouteMTU) {
+					rt.MTU = int(conf.RouteMTU)
+					err = netlink.RouteReplace(&rt)
+					if err != nil {
+						err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
+						return err
+					}
+				}
+			}
+		}
+
+		return nil
 	}); err != nil {
 		return
 	}

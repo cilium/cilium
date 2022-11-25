@@ -50,6 +50,7 @@ import (
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/generic-veth"
 	_ "github.com/cilium/cilium/plugins/cilium-cni/chaining/portmap"
 	"github.com/cilium/cilium/plugins/cilium-cni/types"
+	ciliumcniutils "github.com/cilium/cilium/plugins/cilium-cni/utils"
 )
 
 const (
@@ -106,19 +107,6 @@ func ipv4IsEnabled(ipam *models.IPAMResponse) bool {
 	}
 
 	return true
-}
-
-func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfigurationStatus, error) {
-	configResult, err := client.ConfigGet()
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve configuration from cilium-agent: %w", err)
-	}
-
-	if configResult == nil || configResult.Status == nil {
-		return nil, fmt.Errorf("received empty configuration object from cilium-agent")
-	}
-
-	return configResult.Status, nil
 }
 
 func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
@@ -445,7 +433,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	addLabels := models.Labels{}
 
-	conf, err = getConfigFromCiliumAgent(c)
+	conf, err = ciliumcniutils.GetConfigFromCiliumAgent(c)
 	if err != nil {
 		return
 	}
@@ -650,7 +638,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
-	conf, err := getConfigFromCiliumAgent(c)
+	conf, err := ciliumcniutils.GetConfigFromCiliumAgent(c)
 	if err != nil {
 		return err
 	}

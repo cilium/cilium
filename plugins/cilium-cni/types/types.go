@@ -24,6 +24,7 @@ type NetConf struct {
 	cniTypes.NetConf
 	MTU          int                    `json:"mtu"`
 	Args         Args                   `json:"args"`
+	ChainingMode ChainingMode           `json:"chaining-mode,omitempty"`
 	ENI          eniTypes.ENISpec       `json:"eni,omitempty"`
 	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
 	IPAM         IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
@@ -31,6 +32,10 @@ type NetConf struct {
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
 	LogFile      string                 `json:"log-file"`
+}
+
+type ChainingMode struct {
+	ConfigRouteMTU bool `json:"config-route-mtu,omitempty"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration
