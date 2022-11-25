@@ -900,7 +900,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	} else {
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_STATELESS
-		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr) &&
+		    is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
 			return DROP_MISSED_TAIL_CALL;
 		}
