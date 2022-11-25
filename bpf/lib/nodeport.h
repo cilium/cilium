@@ -899,13 +899,13 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (!lb6_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
 	} else {
+skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_STATELESS
 		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
 			return DROP_MISSED_TAIL_CALL;
 		}
 #endif
-skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 		if (nodeport_uses_dsr6(&tuple))
@@ -1837,6 +1837,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (!lb4_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
 	} else {
+skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_STATELESS
 		if (ip4->daddr != IPV4_DIRECT_ROUTING) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV46_RFC8215);
@@ -1847,7 +1848,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		 * packet from a remote backend, in which case we need to perform
 		 * the reverse NAT.
 		 */
-skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifndef ENABLE_MASQUERADE
