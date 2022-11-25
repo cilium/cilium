@@ -57,23 +57,24 @@ for sensitive information.
 )
 
 var (
-	archive         bool
-	archiveType     string
-	k8s             bool
-	dumpPath        string
-	host            string
-	k8sNamespace    string
-	k8sLabel        string
-	execTimeout     time.Duration
-	configPath      string
-	dryRunMode      bool
-	enableMarkdown  bool
-	archivePrefix   string
-	getPProf        bool
-	envoyDump       bool
-	pprofPort       int
-	traceSeconds    int
-	parallelWorkers int
+	archive            bool
+	archiveType        string
+	k8s                bool
+	dumpPath           string
+	host               string
+	k8sNamespace       string
+	k8sLabel           string
+	execTimeout        time.Duration
+	configPath         string
+	dryRunMode         bool
+	enableMarkdown     bool
+	archivePrefix      string
+	getPProf           bool
+	envoyDump          bool
+	pprofPort          int
+	traceSeconds       int
+	parallelWorkers    int
+	excludeObjectFiles bool
 )
 
 func init() {
@@ -100,6 +101,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&enableMarkdown, "enable-markdown", false, "Dump output of commands in markdown format")
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 	BugtoolRootCmd.Flags().IntVar(&parallelWorkers, "parallel-workers", 0, "Maximum number of parallel worker tasks, use 0 for number of CPUs")
+	BugtoolRootCmd.Flags().BoolVar(&excludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
 }
 
 func getVerifyCiliumPods() (k8sPods []string) {
@@ -223,6 +225,10 @@ func runTool() {
 		defer printDisclaimer()
 
 		runAll(commands, cmdDir, k8sPods)
+
+		if excludeObjectFiles {
+			removeObjectFiles(cmdDir, k8sPods)
+		}
 	}
 
 	removeIfEmpty(cmdDir)
@@ -342,6 +348,33 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 	err = wp.Close()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to close worker pool: %v\n", err)
+	}
+}
+
+func removeObjectFiles(cmdDir string, k8sPods []string) {
+	// Remove object files for each endpoint. Endpoints directories are in the
+	// state directory and have numerical names.
+	rmFunc := func(path string) {
+		matches, err := filepath.Glob(filepath.Join(path, "[0-9]*", "*.o"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to exclude object files: %s\n", err)
+		}
+		for _, m := range matches {
+			err = os.Remove(m)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to remove object file: %s\n", err)
+			}
+		}
+	}
+
+	if k8s {
+		for _, pod := range k8sPods {
+			path := filepath.Join(cmdDir, fmt.Sprintf("%s-%s", pod, defaults.StateDir))
+			rmFunc(path)
+		}
+	} else {
+		path := filepath.Join(cmdDir, defaults.StateDir)
+		rmFunc(path)
 	}
 }
 
