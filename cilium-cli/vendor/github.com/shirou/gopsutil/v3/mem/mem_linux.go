@@ -292,6 +292,18 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 				return ret, retEx, err
 			}
 			ret.HugePagesFree = t
+		case "HugePages_Rsvd":
+			t, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				return ret, retEx, err
+			}
+			ret.HugePagesRsvd = t
+		case "HugePages_Surp":
+			t, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				return ret, retEx, err
+			}
+			ret.HugePagesSurp = t
 		case "Hugepagesize":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {

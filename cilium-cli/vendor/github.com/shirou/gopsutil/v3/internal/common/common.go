@@ -114,8 +114,8 @@ func ReadLines(filename string) ([]string, error) {
 // ReadLinesOffsetN reads contents from file and splits them by new line.
 // The offset tells at which line number to start.
 // The count determines the number of lines to read (starting from offset):
-//   n >= 0: at most n lines
-//   n < 0: whole file
+// n >= 0: at most n lines
+// n < 0: whole file
 func ReadLinesOffsetN(filename string, offset uint, n int) ([]string, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -309,6 +309,15 @@ func PathExists(filename string) bool {
 		return true
 	}
 	return false
+}
+
+// PathExistsWithContents returns the filename exists and it is not empty
+func PathExistsWithContents(filename string) bool {
+	info, err := os.Stat(filename)
+	if err != nil {
+		return false
+	}
+	return info.Size() > 4 // at least 4 bytes
 }
 
 // GetEnv retrieves the environment variable key. If it does not exist it returns the default.
