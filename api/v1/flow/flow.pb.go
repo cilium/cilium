@@ -2783,7 +2783,7 @@ func (x *FlowFilter) GetDestinationIp() []string {
 	return nil
 }
 
-func (x *FlowFilter) GetDestinationPod() []string 
+func (x *FlowFilter) GetDestinationPod() []string{
 	if x != nil {
 		return x.DestinationPod
 	}
