@@ -1128,8 +1128,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
-				AutoSni:           true,
-				AutoSanValidation: true,
+				//	Setting AutoSni or AutoSanValidation options here may crash
+				//	Envoy, when Cilium Network filter already passes these from
+				//	downstream to upstream.
 			},
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
 				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
