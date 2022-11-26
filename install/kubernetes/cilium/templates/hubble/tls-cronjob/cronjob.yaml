@@ -8,6 +8,10 @@ metadata:
     k8s-app: hubble-generate-certs
     app.kubernetes.io/name: hubble-generate-certs
     app.kubernetes.io/part-of: cilium
+  annotations:
+    {{- with .Values.certgen.annotations.cronJob }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   schedule: {{ .Values.hubble.tls.auto.schedule | quote }}
   concurrencyPolicy: Forbid

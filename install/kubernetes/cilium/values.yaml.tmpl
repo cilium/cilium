@@ -755,6 +755,10 @@ certgen:
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
+  # -- Annotations to be added to the hubble-certgen initial Job and CronJob
+  annotations:
+    job: {}
+    cronJob: {}
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations: []
