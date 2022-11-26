@@ -19,7 +19,7 @@ It also includes a deathstar-service, which load-balances traffic to all pods wi
 
     $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
     service/deathstar created
-    deployment.extensions/deathstar created
+    deployment.apps/deathstar created
     pod/tiefighter created
     pod/xwing created
 

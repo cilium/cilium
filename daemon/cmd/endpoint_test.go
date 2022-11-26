@@ -31,7 +31,7 @@ func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {
 
 	return &models.EndpointChangeRequest{
 		ContainerName: "foo",
-		State:         models.EndpointStateWaitingForIdentity,
+		State:         models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		Addressing: &models.AddressPair{
 			IPV6: ip6.IP.String(),
 			IPV4: ip4.IP.String(),
@@ -40,7 +40,7 @@ func getEPTemplate(c *C, d *Daemon) *models.EndpointChangeRequest {
 }
 
 func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:world"}
@@ -50,7 +50,7 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 
 	// Endpoint was created with invalid data; should transition from
 	// WaitingForIdentity -> Invalid.
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 
 	// Endpoint is created with initial label as well as disallowed
@@ -62,12 +62,12 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 
 	// Endpoint was created with invalid data; should transition from
 	// WaitingForIdentity -> Invalid.
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 }
 
 func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:foo"}
@@ -77,12 +77,12 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 
 	// Endpoint was created with invalid data; should transition from
 	// WaitingForIdentity -> Invalid.
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 }
 
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
-	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
+	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
 	// For this test case, we want to allow the endpoint controllers to rebuild
 	// the endpoint after getting new labels.

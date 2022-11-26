@@ -36,7 +36,6 @@ func (o *GetHealthzReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -48,7 +47,7 @@ func NewGetHealthzOK() *GetHealthzOK {
 }
 
 /*
-GetHealthzOK handles this case with default header values.
+GetHealthzOK describes a response with status code 200, with default header values.
 
 Cilium operator is healthy
 */
@@ -56,7 +55,36 @@ type GetHealthzOK struct {
 	Payload string
 }
 
+// IsSuccess returns true when this get healthz o k response has a 2xx status code
+func (o *GetHealthzOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get healthz o k response has a 3xx status code
+func (o *GetHealthzOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get healthz o k response has a 4xx status code
+func (o *GetHealthzOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get healthz o k response has a 5xx status code
+func (o *GetHealthzOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get healthz o k response a status code equal to that given
+func (o *GetHealthzOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetHealthzOK) Error() string {
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
+}
+
+func (o *GetHealthzOK) String() string {
 	return fmt.Sprintf("[GET /healthz][%d] getHealthzOK  %+v", 200, o.Payload)
 }
 
@@ -80,7 +108,7 @@ func NewGetHealthzInternalServerError() *GetHealthzInternalServerError {
 }
 
 /*
-GetHealthzInternalServerError handles this case with default header values.
+GetHealthzInternalServerError describes a response with status code 500, with default header values.
 
 Cilium operator is not healthy
 */
@@ -88,7 +116,36 @@ type GetHealthzInternalServerError struct {
 	Payload string
 }
 
+// IsSuccess returns true when this get healthz internal server error response has a 2xx status code
+func (o *GetHealthzInternalServerError) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get healthz internal server error response has a 3xx status code
+func (o *GetHealthzInternalServerError) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get healthz internal server error response has a 4xx status code
+func (o *GetHealthzInternalServerError) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get healthz internal server error response has a 5xx status code
+func (o *GetHealthzInternalServerError) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get healthz internal server error response a status code equal to that given
+func (o *GetHealthzInternalServerError) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *GetHealthzInternalServerError) Error() string {
+	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError  %+v", 500, o.Payload)
+}
+
+func (o *GetHealthzInternalServerError) String() string {
 	return fmt.Sprintf("[GET /healthz][%d] getHealthzInternalServerError  %+v", 500, o.Payload)
 }
 

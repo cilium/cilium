@@ -32,6 +32,8 @@ cilium-operator [flags]
       --cluster-pool-ipv6-cidr strings            IPv6 CIDR Range for Pods in cluster. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true'
       --cluster-pool-ipv6-mask-size int           Mask size for each IPv6 podCIDR per node. Requires 'ipam=cluster-pool|cluster-pool-v2beta' and 'enable-ipv6=true' (default 112)
       --cnp-node-status-gc-interval duration      GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
+      --cnp-status-cleanup-burst int              Maximum burst of requests to clean up status nodes updates in CNPs (default 20)
+      --cnp-status-cleanup-qps float              Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps (default 10)
       --cnp-status-update-interval duration       Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                             Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                         Configuration directory that contains a file for each option
@@ -83,6 +85,7 @@ cilium-operator [flags]
       --pprof-port int                            Port that the pprof listens on (default 6061)
       --remove-cilium-node-taints                 Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
+      --skip-cnp-status-startup-clean             If set to true, the operator will not clean up CNP node status updates at startup
       --skip-crd-creation                         When true, Kubernetes Custom Resource Definitions will not be created
       --subnet-ids-filter strings                 Subnets IDs (separated by commas)
       --subnet-tags-filter map                    Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag

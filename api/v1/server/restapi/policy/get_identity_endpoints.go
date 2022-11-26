@@ -33,7 +33,7 @@ func NewGetIdentityEndpoints(ctx *middleware.Context, handler GetIdentityEndpoin
 }
 
 /*
-GetIdentityEndpoints swagger:route GET /identity/endpoints policy getIdentityEndpoints
+	GetIdentityEndpoints swagger:route GET /identity/endpoints policy getIdentityEndpoints
 
 Retrieve identities which are being used by local endpoints
 */
@@ -45,17 +45,15 @@ type GetIdentityEndpoints struct {
 func (o *GetIdentityEndpoints) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetIdentityEndpointsParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

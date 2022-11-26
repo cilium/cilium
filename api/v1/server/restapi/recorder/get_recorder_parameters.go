@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetRecorderParams creates a new GetRecorderParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetRecorderParams() GetRecorderParams {
 
 	return GetRecorderParams{}

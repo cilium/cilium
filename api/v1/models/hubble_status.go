@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -61,7 +62,6 @@ func (m *HubbleStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HubbleStatus) validateMetrics(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Metrics) { // not required
 		return nil
 	}
@@ -70,6 +70,8 @@ func (m *HubbleStatus) validateMetrics(formats strfmt.Registry) error {
 		if err := m.Metrics.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("metrics")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("metrics")
 			}
 			return err
 		}
@@ -79,7 +81,6 @@ func (m *HubbleStatus) validateMetrics(formats strfmt.Registry) error {
 }
 
 func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Observer) { // not required
 		return nil
 	}
@@ -88,6 +89,8 @@ func (m *HubbleStatus) validateObserver(formats strfmt.Registry) error {
 		if err := m.Observer.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("observer")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("observer")
 			}
 			return err
 		}
@@ -132,7 +135,6 @@ func (m *HubbleStatus) validateStateEnum(path, location string, value string) er
 }
 
 func (m *HubbleStatus) validateState(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.State) { // not required
 		return nil
 	}
@@ -140,6 +142,56 @@ func (m *HubbleStatus) validateState(formats strfmt.Registry) error {
 	// value enum
 	if err := m.validateStateEnum("state", "body", m.State); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this hubble status based on the context it is used
+func (m *HubbleStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateMetrics(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateObserver(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *HubbleStatus) contextValidateMetrics(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Metrics != nil {
+		if err := m.Metrics.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("metrics")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("metrics")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *HubbleStatus) contextValidateObserver(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Observer != nil {
+		if err := m.Observer.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("observer")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("observer")
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -223,7 +275,6 @@ func (m *HubbleStatusMetrics) validateStateEnum(path, location string, value str
 }
 
 func (m *HubbleStatusMetrics) validateState(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.State) { // not required
 		return nil
 	}
@@ -233,6 +284,11 @@ func (m *HubbleStatusMetrics) validateState(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this hubble status metrics based on context it is used
+func (m *HubbleStatusMetrics) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -290,7 +346,6 @@ func (m *HubbleStatusObserver) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HubbleStatusObserver) validateUptime(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Uptime) { // not required
 		return nil
 	}
@@ -299,6 +354,11 @@ func (m *HubbleStatusObserver) validateUptime(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this hubble status observer based on context it is used
+func (m *HubbleStatusObserver) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

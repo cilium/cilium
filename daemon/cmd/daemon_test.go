@@ -147,9 +147,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 		),
-
 		ControlPlane,
-
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
@@ -173,8 +171,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
 		string(models.EndpointStateReady),
-		string(models.EndpointStateWaitingForIdentity),
-		string(models.EndpointStateWaitingToRegenerate)} {
+		string(models.EndpointStateWaitingDashForDashIdentity),
+		string(models.EndpointStateWaitingDashToDashRegenerate)} {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
 }

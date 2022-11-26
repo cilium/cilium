@@ -33,7 +33,7 @@ func NewGetMapNameEvents(ctx *middleware.Context, handler GetMapNameEventsHandle
 }
 
 /*
-GetMapNameEvents swagger:route GET /map/{name}/events daemon getMapNameEvents
+	GetMapNameEvents swagger:route GET /map/{name}/events daemon getMapNameEvents
 
 Retrieves the recent event logs associated with this endpoint.
 */
@@ -45,17 +45,15 @@ type GetMapNameEvents struct {
 func (o *GetMapNameEvents) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetMapNameEventsParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

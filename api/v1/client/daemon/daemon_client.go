@@ -29,23 +29,26 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error)
+	GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error)
 
-	GetConfig(params *GetConfigParams) (*GetConfigOK, error)
+	GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error)
 
-	GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error)
+	GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error)
 
-	GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error)
+	GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
 
-	GetMap(params *GetMapParams) (*GetMapOK, error)
+	GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, error)
 
-	GetMapName(params *GetMapNameParams) (*GetMapNameOK, error)
+	GetMapName(params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error)
 
-	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error)
+	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error)
 
-	PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error)
+	PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -53,13 +56,12 @@ type ClientService interface {
 /*
 GetClusterNodes gets nodes information stored in the cilium agent
 */
-func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error) {
+func (a *Client) GetClusterNodes(params *GetClusterNodesParams, opts ...ClientOption) (*GetClusterNodesOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetClusterNodesParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetClusterNodes",
 		Method:             "GET",
 		PathPattern:        "/cluster/nodes",
@@ -70,7 +72,12 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNode
 		Reader:             &GetClusterNodesReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +96,12 @@ GetConfig gets configuration of cilium daemon
 
 Returns the configuration of the Cilium daemon.
 */
-func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
+func (a *Client) GetConfig(params *GetConfigParams, opts ...ClientOption) (*GetConfigOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetConfigParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetConfig",
 		Method:             "GET",
 		PathPattern:        "/config",
@@ -106,7 +112,12 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 		Reader:             &GetConfigReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +134,12 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 /*
 GetDebuginfo retrieves information about the agent and evironment for debugging
 */
-func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
+func (a *Client) GetDebuginfo(params *GetDebuginfoParams, opts ...ClientOption) (*GetDebuginfoOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetDebuginfoParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetDebuginfo",
 		Method:             "GET",
 		PathPattern:        "/debuginfo",
@@ -140,7 +150,12 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 		Reader:             &GetDebuginfoReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +177,12 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
 */
-func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
+func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetHealthzParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetHealthz",
 		Method:             "GET",
 		PathPattern:        "/healthz",
@@ -179,7 +193,12 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 		Reader:             &GetHealthzReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -196,13 +215,12 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 /*
 GetMap lists all open maps
 */
-func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
+func (a *Client) GetMap(params *GetMapParams, opts ...ClientOption) (*GetMapOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetMapParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetMap",
 		Method:             "GET",
 		PathPattern:        "/map",
@@ -213,7 +231,12 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 		Reader:             &GetMapReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -230,13 +253,12 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 /*
 GetMapName retrieves contents of b p f map
 */
-func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
+func (a *Client) GetMapName(params *GetMapNameParams, opts ...ClientOption) (*GetMapNameOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetMapNameParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetMapName",
 		Method:             "GET",
 		PathPattern:        "/map/{name}",
@@ -247,7 +269,12 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 		Reader:             &GetMapNameReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -264,13 +291,12 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 /*
 GetMapNameEvents retrieves the recent event logs associated with this endpoint
 */
-func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer) (*GetMapNameEventsOK, error) {
+func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetMapNameEventsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetMapNameEvents",
 		Method:             "GET",
 		PathPattern:        "/map/{name}/events",
@@ -281,7 +307,12 @@ func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writ
 		Reader:             &GetMapNameEventsReader{formats: a.formats, writer: writer},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -303,13 +334,12 @@ func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writ
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
 */
-func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) {
+func (a *Client) PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPatchConfigParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PatchConfig",
 		Method:             "PATCH",
 		PathPattern:        "/config",
@@ -320,7 +350,12 @@ func (a *Client) PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error) 
 		Reader:             &PatchConfigReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

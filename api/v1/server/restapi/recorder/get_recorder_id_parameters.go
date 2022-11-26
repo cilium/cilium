@@ -18,7 +18,8 @@ import (
 )
 
 // NewGetRecorderIDParams creates a new GetRecorderIDParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetRecorderIDParams() GetRecorderIDParams {
 
 	return GetRecorderIDParams{}
@@ -53,7 +54,6 @@ func (o *GetRecorderIDParams) BindRequest(r *http.Request, route *middleware.Mat
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

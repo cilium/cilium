@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetHealthzParams creates a new GetHealthzParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetHealthzParams() GetHealthzParams {
 
 	return GetHealthzParams{}

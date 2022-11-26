@@ -221,9 +221,22 @@ different value and then proceed with the steps below.
    to approve the build that was created by GitHub Actions `here <https://github.com/cilium/cilium/actions?query=workflow:%22Base+Image+Release+Build%22>`__.
    Note that at this step cilium-builder build failure is expected since we have yet to update the runtime digest.
 
-#. Wait for build to complete. The build will automatically generate one commit
-   and push it to your branch with all the necessary changes across files in the
-   repository. Once this is done the CI can be executed.
+#. Wait for build to complete. If the PR was opened from an external fork the
+   build will fail while trying to push the changes, this is expected.
+
+#. If the PR was opened from an external fork, run the following commands and
+   re-push the changes to your branch. Once this is done the CI can be executed.
+
+   .. code-block:: shell-session
+
+       $ make -C images/ update-runtime-image
+       $ git commit -sam "images: update cilium-{runtime,builder}" --amend
+       $ make -C images/ update-builder-image
+       $ git commit -sam "images: update cilium-{runtime,builder}" --amend
+
+#. If the PR was opened from the main repository, the build will automatically
+   generate one commit and push it to your branch with all the necessary changes
+   across files in the repository. Once this is done the CI can be executed.
 
 #. Update the versions of the images that are pulled into the CI VMs.
 

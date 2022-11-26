@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/netip"
 	"os"
 	"path"
 	"path/filepath"
@@ -52,7 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -361,6 +359,7 @@ func initializeFlags() {
 
 	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
 	option.BindEnv(Vp, option.ForceLocalPolicyEvalAtSource)
+	flags.MarkDeprecated(option.ForceLocalPolicyEvalAtSource, "This option will be removed in v1.14")
 
 	flags.Bool(option.HTTPNormalizePath, true, "Use Envoy HTTP path normalization options, which currently includes RFC 3986 path normalization, Envoy merge slashes option, and unescaping and redirecting for paths that contain escaped slashes. These are necessary to keep path based access control functional, and should not interfere with normal operation. Set this to false only with caution.")
 	option.BindEnv(Vp, option.HTTPNormalizePath)
@@ -1072,6 +1071,10 @@ func initializeFlags() {
 	flags.Bool(option.EnablePMTUDiscovery, false, "Enable path MTU discovery to send ICMP fragmentation-needed replies to the client")
 	option.BindEnv(Vp, option.EnablePMTUDiscovery)
 
+	flags.Bool(option.EnableStaleCiliumEndpointCleanup, true, "Enable running cleanup init procedure of local CiliumEndpoints which are not being managed.")
+	flags.MarkHidden(option.EnableStaleCiliumEndpointCleanup)
+	option.BindEnv(Vp, option.EnableStaleCiliumEndpointCleanup)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1746,6 +1749,23 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		if restoreComplete != nil {
 			<-restoreComplete
 		}
+
+		if params.Clientset.IsEnabled() {
+			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
+			// This will clear out any CiliumEndpoints that may be stale.
+			// Likely causes for this are Pods having their init container restarted or the node being restarted.
+			// This must wait for both K8s watcher caches to be synced and local endpoint restoration to be complete.
+			// Note: Synchronization of endpoints to their CEPs may not be complete at this point, but we only have to
+			// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
+			if err := d.cleanStaleCEPs(context.Background(), d.endpointManager, params.Clientset.CiliumV2(), option.Config.EnableCiliumEndpointSlice); err != nil {
+				log.WithError(err).Error("Failed to clean up stale CEPs")
+			}
+		}
+	}()
+	go func() {
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
 		d.dnsNameManager.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(&EndpointMapManager{
@@ -1765,12 +1785,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			// (re-)allocate the restored identities before we release them.
 			time.Sleep(option.Config.IdentityRestoreGracePeriod)
 			log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
-
-			prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
-			for _, c := range d.restoredCIDRs {
-				prefixes = append(prefixes, ip.IPNetToPrefix(c))
-			}
-			d.ipcache.ReleaseCIDRIdentitiesByCIDR(prefixes)
+			d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
 			// release the memory held by restored CIDRs
 			d.restoredCIDRs = nil
 		}
@@ -1823,7 +1838,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			d.startKubeProxyHealthzHTTPService(fmt.Sprintf("%s", option.Config.KubeProxyReplacementHealthzBindAddr))
+			d.startKubeProxyHealthzHTTPService(option.Config.KubeProxyReplacementHealthzBindAddr)
 		}
 	}
 

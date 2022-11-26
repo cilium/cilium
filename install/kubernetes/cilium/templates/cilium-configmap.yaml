@@ -118,6 +118,10 @@ data:
   cilium-endpoint-gc-interval: {{ include "validateDuration" .Values.operator.endpointGCInterval | quote }}
   nodes-gc-interval: {{ include "validateDuration" .Values.operator.nodeGCInterval | quote }}
 
+{{- if hasKey .Values.operator "skipCNPStatusStartupClean" }}
+  skip-cnp-status-startup-clean: "{{ .Values.operator.skipCNPStatusStartupClean }}"
+{{- end }}
+
 {{- if hasKey .Values "disableEndpointCRD" }}
   # Disable the usage of CiliumEndpoint CRD
   disable-endpoint-crd: "{{ .Values.disableEndpointCRD }}"
@@ -158,7 +162,7 @@ data:
 {{- if hasKey .Values "policyEnforcementMode" }}
   # The agent can be put into the following three policy enforcement modes
   # default, always and never.
-  # https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
+  # https://docs.cilium.io/en/latest/security/policy/intro/#policy-enforcement-modes
   enable-policy: "{{ lower .Values.policyEnforcementMode }}"
 {{- end }}
 

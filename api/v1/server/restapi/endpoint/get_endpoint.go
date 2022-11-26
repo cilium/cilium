@@ -33,7 +33,7 @@ func NewGetEndpoint(ctx *middleware.Context, handler GetEndpointHandler) *GetEnd
 }
 
 /*
-GetEndpoint swagger:route GET /endpoint endpoint getEndpoint
+	GetEndpoint swagger:route GET /endpoint endpoint getEndpoint
 
 Retrieves a list of endpoints that have metadata matching the provided parameters.
 
@@ -47,17 +47,15 @@ type GetEndpoint struct {
 func (o *GetEndpoint) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetEndpointParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

@@ -18,7 +18,8 @@ import (
 )
 
 // NewPostIpamIPParams creates a new PostIpamIPParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPostIpamIPParams() PostIpamIPParams {
 
 	return PostIpamIPParams{}
@@ -64,7 +65,6 @@ func (o *PostIpamIPParams) BindRequest(r *http.Request, route *middleware.Matche
 	if err := o.bindOwner(qOwner, qhkOwner, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -80,7 +80,6 @@ func (o *PostIpamIPParams) bindIP(rawData []string, hasKey bool, formats strfmt.
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.IP = raw
 
 	return nil
@@ -95,10 +94,10 @@ func (o *PostIpamIPParams) bindOwner(rawData []string, hasKey bool, formats strf
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Owner = &raw
 
 	return nil

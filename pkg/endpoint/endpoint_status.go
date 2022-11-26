@@ -127,11 +127,7 @@ func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking
 		Addressing: make(cilium_v2.AddressPairList, len(mdlNetworking.Addressing)),
 	}
 
-	if option.Config.EnableIPv4 {
-		networking.NodeIP = node.GetIPv4().String()
-	} else {
-		networking.NodeIP = node.GetIPv6().String()
-	}
+	networking.NodeIP = node.GetCiliumEndpointNodeIP()
 
 	for i, pair := range mdlNetworking.Addressing {
 		networking.Addressing[i] = &cilium_v2.AddressPair{
@@ -337,7 +333,7 @@ type EndpointStatusConfiguration interface {
 
 func compressEndpointState(state models.EndpointState) string {
 	switch state {
-	case models.EndpointStateRestoring, models.EndpointStateWaitingToRegenerate,
+	case models.EndpointStateRestoring, models.EndpointStateWaitingDashToDashRegenerate,
 		models.EndpointStateRegenerating, models.EndpointStateReady,
 		models.EndpointStateDisconnecting, models.EndpointStateDisconnected:
 		return string(models.EndpointStateReady)
