@@ -14,7 +14,7 @@ import (
 	"go/types"
 	"strings"
 
-	"golang.org/x/tools/go/internal/pkgbits"
+	"golang.org/x/tools/internal/pkgbits"
 )
 
 // A pkgReader holds the shared state for reading a unified IR package
@@ -487,6 +487,11 @@ func (pr *pkgReader) objIdx(idx pkgbits.Index) (*types.Package, string) {
 
 	if tag == pkgbits.ObjStub {
 		assert(objPkg == nil || objPkg == types.Unsafe)
+		return objPkg, objName
+	}
+
+	// Ignore local types promoted to global scope (#55110).
+	if _, suffix := splitVargenSuffix(objName); suffix != "" {
 		return objPkg, objName
 	}
 
