@@ -201,6 +201,7 @@ func toBackend(be gatewayv1beta1.HTTPBackendRef, defaultNamespace string) model.
 		Name:      string(be.Name),
 		Namespace: ns,
 		Port:      port,
+		Weight:    be.Weight,
 	}
 }
 
