@@ -9,8 +9,12 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"encoding/json"
+
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // Srv6 Status of SRv6 support
@@ -19,6 +23,10 @@ import (
 //
 // swagger:model Srv6
 type Srv6 struct {
+
+	// s rv6 encap mode
+	// Enum: [SRH Reduced]
+	SRv6EncapMode string `json:"SRv6EncapMode,omitempty"`
 
 	// devices
 	Devices []string `json:"devices"`
@@ -29,6 +37,58 @@ type Srv6 struct {
 
 // Validate validates this srv6
 func (m *Srv6) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateSRv6EncapMode(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+var srv6TypeSRv6EncapModePropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["SRH","Reduced"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		srv6TypeSRv6EncapModePropEnum = append(srv6TypeSRv6EncapModePropEnum, v)
+	}
+}
+
+const (
+
+	// Srv6SRv6EncapModeSRH captures enum value "SRH"
+	Srv6SRv6EncapModeSRH string = "SRH"
+
+	// Srv6SRv6EncapModeReduced captures enum value "Reduced"
+	Srv6SRv6EncapModeReduced string = "Reduced"
+)
+
+// prop value enum
+func (m *Srv6) validateSRv6EncapModeEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, srv6TypeSRv6EncapModePropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Srv6) validateSRv6EncapMode(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.SRv6EncapMode) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateSRv6EncapModeEnum("SRv6EncapMode", "body", m.SRv6EncapMode); err != nil {
+		return err
+	}
+
 	return nil
 }
 

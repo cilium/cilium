@@ -3945,6 +3945,13 @@ func init() {
       "description": "Status of SRv6 support\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "SRv6EncapMode": {
+          "type": "string",
+          "enum": [
+            "SRH",
+            "Reduced"
+          ]
+        },
         "devices": {
           "type": "array",
           "items": {
@@ -8894,6 +8901,13 @@ func init() {
       "description": "Status of SRv6 support\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "SRv6EncapMode": {
+          "type": "string",
+          "enum": [
+            "SRH",
+            "Reduced"
+          ]
+        },
         "devices": {
           "type": "array",
           "items": {
