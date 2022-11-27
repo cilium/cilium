@@ -56,6 +56,7 @@ get started and experiment with Cilium.
    gettingstarted/hubble-configuration
    gettingstarted/hubble
    gettingstarted/hubble_cli.rst
+   gettingstarted/demo
    gettingstarted/terminology
    gettingstarted/gettinghelp
 
