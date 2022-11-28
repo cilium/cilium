@@ -183,11 +183,14 @@ func (t *Test) Run(ctx context.Context) error {
 	// Store start time of the Test.
 	t.startTime = time.Now()
 
-	t.ctx.Log()
 	t.ctx.Logf("[=] Test [%s]", t.Name())
 
 	if err := t.setup(ctx); err != nil {
 		return fmt.Errorf("setting up test: %w", err)
+	}
+
+	if t.logBuf != nil {
+		t.ctx.Timestamp()
 	}
 
 	for s := range t.scenarios {
@@ -203,6 +206,10 @@ func (t *Test) Run(ctx context.Context) error {
 		t.Logf("[-] Scenario [%s]", t.scenarioName(s))
 
 		s.Run(ctx, t)
+	}
+
+	if t.logBuf != nil {
+		fmt.Fprintln(t.ctx.params.Writer)
 	}
 
 	// Don't add any more code here, as Scenario.Run() can call Fatal() and
