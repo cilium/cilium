@@ -29,6 +29,10 @@ type agentHandle struct {
 }
 
 func (h *agentHandle) tearDown() {
+	if h == nil {
+		return
+	}
+
 	// If hive is nil, we have not yet started.
 	if h.hive != nil {
 		if err := h.hive.Stop(context.TODO()); err != nil {
