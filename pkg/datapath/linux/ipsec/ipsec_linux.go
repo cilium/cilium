@@ -212,11 +212,12 @@ func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
 	state := netlink.XfrmState{
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Proto: netlink.XFRM_PROTO_ESP,
-		ESN:   false,
-		Spi:   int(keys.Spi),
-		Reqid: keys.ReqID,
+		Mode:         netlink.XFRM_MODE_TUNNEL,
+		Proto:        netlink.XFRM_PROTO_ESP,
+		ESN:          true,
+		ReplayWindow: 1024,
+		Spi:          int(keys.Spi),
+		Reqid:        keys.ReqID,
 	}
 	if keys.Aead != nil {
 		state.Aead = keys.Aead
