@@ -529,6 +529,9 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 
 // UninstallResources deletes all k8s resources created by the connectivity tests.
 func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
+	ct.Logf("🔥 Deleting pods in %s namespace...", ct.params.TestNamespace)
+	ct.client.DeletePodCollection(ctx, ct.params.TestNamespace, metav1.DeleteOptions{}, metav1.ListOptions{})
+
 	ct.Logf("🔥 Deleting %s namespace...", ct.params.TestNamespace)
 	ct.client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
 
