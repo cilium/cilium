@@ -178,7 +178,7 @@ func (k *K8sStatusCollector) podCount(ctx context.Context, status *Status) error
 
 	if pods != nil && len(pods.Items) != 0 {
 		for _, pod := range pods.Items {
-			if !pod.Spec.HostNetwork {
+			if !pod.Spec.HostNetwork && pod.Status.Phase == corev1.PodRunning {
 				numberAllPod++
 			}
 		}
