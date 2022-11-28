@@ -2119,6 +2119,25 @@ clustermesh:
         tag: "${ETCD_VERSION}"
         pullPolicy: "${PULL_POLICY}"
 
+      # -- Specifies the resources for etcd container in the apiserver
+      resources: {}
+      #   requests:
+      #     cpu: 200m
+      #     memory: 256Mi
+      #   limits:
+      #     cpu: 1000m
+      #     memory: 256Mi
+
+      init:
+        # -- Specifies the resources for etcd init container in the apiserver
+        resources: {}
+        #   requests:
+        #     cpu: 100m
+        #     memory: 100Mi
+        #   limits:
+        #     cpu: 100m
+        #     memory: 100Mi
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort

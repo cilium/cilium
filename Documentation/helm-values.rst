@@ -213,6 +213,14 @@
      - Clustermesh API server etcd image.
      - object
      - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}``
+   * - clustermesh.apiserver.etcd.init.resources
+     - Specifies the resources for etcd init container in the apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.etcd.resources
+     - Specifies the resources for etcd container in the apiserver
+     - object
+     - ``{}``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
      - list
