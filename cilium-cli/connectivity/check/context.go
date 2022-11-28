@@ -303,6 +303,9 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 			if err := t.Run(ctx); err != nil {
 				// We know for sure we're inside a separate goroutine, so Fatal()
 				// is safe and will properly record failure statistics.
+				if t.ctx.params.CollectSysdumpOnFailure {
+					t.collectSysdump()
+				}
 				t.Fatalf("Running test %s: %s", t.Name(), err)
 			}
 

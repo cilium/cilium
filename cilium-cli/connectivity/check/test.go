@@ -15,6 +15,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/sysdump"
 )
 
 const (
@@ -322,4 +323,16 @@ func (t *Test) failedActions() []*Action {
 
 func (t *Test) NodesWithoutCilium() []string {
 	return t.ctx.NodesWithoutCilium()
+}
+
+func (t *Test) collectSysdump() {
+	collector, err := sysdump.NewCollector(t.ctx.K8sClient(), t.ctx.params.SysdumpOptions, time.Now(), t.ctx.version)
+	if err != nil {
+		t.Failf("Failed to create sysdump collector: %v", err)
+		return
+	}
+
+	if err = collector.Run(); err != nil {
+		t.Failf("Failed to collect sysdump: %v", err)
+	}
 }
