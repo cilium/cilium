@@ -315,6 +315,7 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
 			Jitter:      true,
 			NodeManager: n,
 			Name:        fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
+			ResetAfter:  10 * time.Minute,
 		}
 		poolMaintainer, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("ipam-pool-maintainer-%s", resource.Name),
