@@ -151,9 +151,6 @@ var _ = SkipDescribeIf(func() bool {
 			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
 			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
 
-			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App3], TLSCaCerts, "/cacert.pem")
-			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App3])
-
 			_, err := kubectl.CiliumPolicyAction(
 				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
@@ -169,15 +166,6 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
 				appPods[helpers.App2])
-
-			By("Testing L7 Policy with TLS without HTTP rules")
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App3],
-				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
-				appPods[helpers.App3])
-
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
