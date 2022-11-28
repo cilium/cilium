@@ -6,6 +6,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -268,6 +269,9 @@ func WithErrorHandler(h ErrorHandler) EventsOpt {
 // By default all errors are retried, the default rate limiter of workqueue
 // package is used and the channel is unbuffered.
 func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T] {
+	_, callerFile, callerLine, _ := runtime.Caller(1)
+	debugInfo := fmt.Sprintf("%T.Events() called from %s:%d", r, callerFile, callerLine)
+
 	options := eventsOpts{
 		errorHandler: AlwaysRetry, // Default error handling is to always retry.
 		rateLimiter:  workqueue.DefaultControllerRateLimiter(),
@@ -329,7 +333,23 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		}
 		r.mu.Unlock()
 
-		loop: for {
+		doneFinalizer := func(done *bool) {
+			if !*done {
+				// If you get here it is because an Event[T] was handed to a subscriber
+				// that forgot to call Event[T].Done().
+				//
+				// Calling Done() is needed to mark the event as handled. This allows
+				// the next event for the same key to be handled and is used to clear
+				// rate limiting and retry counts of prior failures.
+				panic(fmt.Sprintf(
+					"%s has a broken event handler that did not call Done() "+
+						"before event was garbage collected",
+					debugInfo))
+			}
+		}
+
+	loop:
+		for {
 			// Retrieve an item from the subscribers queue and then fetch the object
 			// from the store.
 			raw, shutdown := queue.Get()
@@ -338,9 +358,17 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			}
 			entry := raw.(queueEntry)
 
-			event := Event[T]{
-				Done: func(err error) { queue.eventDone(entry, err) },
+			var (
+				eventDone = new(bool)
+				event     Event[T]
+			)
+			event.Done = func(err error) {
+				*eventDone = true
+				queue.eventDone(entry, err)
 			}
+
+			// Add a finalizer to catch forgotten calls to Done().
+			runtime.SetFinalizer(eventDone, doneFinalizer)
 
 			switch entry := entry.(type) {
 			case syncEntry:
