@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/hubble"
 	"github.com/cilium/cilium-cli/install"
@@ -147,6 +148,18 @@ func newCmdUninstall() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
 			ctx := context.Background()
+
+			cc, err := check.NewConnectivityTest(k8sClient, check.Parameters{
+				CiliumNamespace: namespace,
+				TestNamespace:   params.TestNamespace,
+				FlowValidation:  check.FlowValidationModeDisabled,
+				Writer:          os.Stdout,
+			}, Version)
+			if err != nil {
+				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
+			} else {
+				cc.UninstallResources(ctx, params.Wait)
+			}
 
 			h, err := hubble.NewK8sHubble(ctx,
 				k8sClient, hubble.Parameters{
