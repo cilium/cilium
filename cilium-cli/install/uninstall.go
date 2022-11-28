@@ -48,25 +48,8 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.autodetect(ctx)
 
-	for _, n := range []string{k.params.TestNamespace, defaults.IngressSecretsNamespace} {
-		k.Log("🔥 Deleting %s namespace...", n)
-		k.client.DeleteNamespace(ctx, n, metav1.DeleteOptions{})
-	}
-
-	// To avoid cases where test pods are stuck in terminating state because
-	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
-	// before moving onto deleting cilium pods.
-	if k.params.Wait {
-		k.Log("⌛ Waiting for %s namespace to be terminated...", k.params.TestNamespace)
-	retryNamespace:
-		// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
-		// if the test namespace is in Terminating state.
-		_, err := k.client.GetNamespace(ctx, k.params.TestNamespace, metav1.GetOptions{})
-		if err == nil {
-			time.Sleep(defaults.WaitRetryInterval)
-			goto retryNamespace
-		}
-	}
+	k.Log("🔥 Deleting %s namespace...", defaults.IngressSecretsNamespace)
+	k.client.DeleteNamespace(ctx, defaults.IngressSecretsNamespace, metav1.DeleteOptions{})
 
 	k.Log("🔥 Deleting Service accounts...")
 	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{})
