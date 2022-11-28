@@ -56,6 +56,13 @@ type Exponential struct {
 	// for logging purposes.
 	Name string
 
+	// ResetAfter will reset the exponential back-off if no attempt is made for the amount of time specified here.
+	// Needs to be larger than the Max duration, otherwise it will be ignored to avoid accidental resets.
+	// If unspecified, no reset is performed.
+	ResetAfter time.Duration
+
+	lastBackoffStart time.Time
+
 	attempt int
 }
 
@@ -77,8 +84,22 @@ func CalculateDuration(min, max time.Duration, factor float64, jitter bool, fail
 	return time.Duration(t)
 }
 
+// Reset backoff attempt counter
+func (b *Exponential) Reset() {
+	b.attempt = 0
+}
+
 // Wait waits for the required time using an exponential backoff
 func (b *Exponential) Wait(ctx context.Context) error {
+	if resetDuration := b.ResetAfter; resetDuration != time.Duration(0) && resetDuration > b.Max {
+		if !b.lastBackoffStart.IsZero() {
+			if time.Since(b.lastBackoffStart) > resetDuration {
+				b.Reset()
+			}
+		}
+	}
+
+	b.lastBackoffStart = time.Now()
 	b.attempt++
 	t := b.Duration(b.attempt)
 
