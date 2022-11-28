@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
@@ -1482,7 +1483,7 @@ endpoints:
 - https://clustermesh-apiserver.cilium.io:$CLUSTER_PORT
 EOF
 
-CILIUM_OPTS=" --join-cluster --bpf-lb-sock --enable-endpoint-health-checking=false"
+CILIUM_OPTS=" --join-cluster %[8]s --enable-endpoint-health-checking=false"
 CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml"
 if [ -n "$HOST_IP" ] ; then
     CILIUM_OPTS+=" --ipv4-node $HOST_IP"
@@ -1623,12 +1624,38 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		k.params.Retries = 1
 	}
 
+	vsn, err := k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	if err != nil {
+		return err
+	}
+	sockLBOpt, err := getSockLBOpt(vsn)
+	if err != nil {
+		return err
+	}
+
 	fmt.Fprintf(writer, installScriptFmt,
 		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
 		configOverwrites,
 		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey),
-		strconv.Itoa(k.params.Retries))
+		strconv.Itoa(k.params.Retries), sockLBOpt)
 	return nil
+}
+
+func getSockLBOpt(ciliumVSN string) (string, error) {
+	sockLBOpt := "--bpf-lb-sock"
+
+	vsn, err := semver.Parse(strings.TrimLeft(ciliumVSN, "v"))
+	if err != nil {
+		return "", err
+	}
+
+	vsn112 := semver.MustParse("1.12.0")
+	// Before 1.12, the socket LB was enabled via --enable-host-reachable-services flag
+	if vsn.LT(vsn112) {
+		sockLBOpt = "--enable-host-reachable-services"
+	}
+
+	return sockLBOpt, nil
 }
 
 func formatCEW(cew ciliumv2.CiliumExternalWorkload) string {
