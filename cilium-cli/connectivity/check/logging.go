@@ -37,28 +37,29 @@ func (ct *ConnectivityTest) Headerf(format string, a ...interface{}) {
 	fmt.Fprintf(ct.params.Writer, "\n"+format+"\n", a...)
 }
 
-// Log logs a message.
-func (ct *ConnectivityTest) Log(a ...interface{}) {
+// Timestamps logs the current timestamp.
+func (ct *ConnectivityTest) Timestamp() {
 	if ct.timestamp() {
 		fmt.Fprint(ct.params.Writer, timestamp())
 	}
+}
+
+// Log logs a message.
+func (ct *ConnectivityTest) Log(a ...interface{}) {
+	ct.Timestamp()
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Logf logs a formatted message.
 func (ct *ConnectivityTest) Logf(format string, a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Debug logs a debug message.
 func (ct *ConnectivityTest) Debug(a ...interface{}) {
 	if ct.debug() {
-		if ct.timestamp() {
-			fmt.Fprint(ct.params.Writer, timestamp())
-		}
+		ct.Timestamp()
 		fmt.Fprint(ct.params.Writer, debug+" ")
 		fmt.Fprintln(ct.params.Writer, a...)
 	}
@@ -67,9 +68,7 @@ func (ct *ConnectivityTest) Debug(a ...interface{}) {
 // Debugf logs a formatted debug message.
 func (ct *ConnectivityTest) Debugf(format string, a ...interface{}) {
 	if ct.debug() {
-		if ct.timestamp() {
-			fmt.Fprint(ct.params.Writer, timestamp())
-		}
+		ct.Timestamp()
 		fmt.Fprint(ct.params.Writer, debug+" ")
 		fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 	}
@@ -77,72 +76,56 @@ func (ct *ConnectivityTest) Debugf(format string, a ...interface{}) {
 
 // Info logs an informational message.
 func (ct *ConnectivityTest) Info(a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, info+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Infof logs a formatted informational message.
 func (ct *ConnectivityTest) Infof(format string, a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, info+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Warn logs a warning message.
 func (ct *ConnectivityTest) Warn(a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, warn+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Warnf logs a formatted warning message.
 func (ct *ConnectivityTest) Warnf(format string, a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, warn+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fail logs a failure message.
 func (ct *ConnectivityTest) Fail(a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fail+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Failf logs a formatted failure message.
 func (ct *ConnectivityTest) Failf(format string, a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fail+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
 // Fatal logs an error.
 func (ct *ConnectivityTest) Fatal(a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fatal+" ")
 	fmt.Fprintln(ct.params.Writer, a...)
 }
 
 // Fatalf logs a formatted error.
 func (ct *ConnectivityTest) Fatalf(format string, a ...interface{}) {
-	if ct.timestamp() {
-		fmt.Fprint(ct.params.Writer, timestamp())
-	}
+	ct.Timestamp()
 	fmt.Fprint(ct.params.Writer, fatal+" ")
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
