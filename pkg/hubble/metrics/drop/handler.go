@@ -11,7 +11,6 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 type dropHandler struct {
@@ -53,7 +52,7 @@ func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return err
 	}
 
-	labels := append(contextLabels, monitorAPI.DropReason(uint8(flow.GetDropReason())), v1.FlowProtocol(flow))
+	labels := append(contextLabels, flow.GetDropReasonDesc().String(), v1.FlowProtocol(flow))
 
 	d.drops.WithLabelValues(labels...).Inc()
 	return nil

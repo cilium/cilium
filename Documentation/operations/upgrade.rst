@@ -370,6 +370,9 @@ Modified Metrics
 
 * ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>``
   after the detected L7 protocol of the flow (for example: ``l7/http``).
+* Values for the ``reason`` label have been updated in  ``hubble_drop_total`` metric.
+  Please see `the API documentation <https://github.com/cilium/cilium/tree/master/api/v1/flow#flow-DropReason>`_
+  for the complete list of drop reasons.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
