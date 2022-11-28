@@ -1736,7 +1736,7 @@ definitions:
       host-firewall:
         description: Status of the host firewall
         "$ref": "#/definitions/HostFirewall"
-      Srv6:
+      srv6:
         description: Status of the SRv6 support
         "$ref": "#/definitions/Srv6"
       hubble:
@@ -1837,7 +1837,7 @@ definitions:
         type: array
         items:
           type: string
-  Srv6:
+  srv6:
     description: |-
       Status of SRv6 support
 
@@ -1850,7 +1850,7 @@ definitions:
         type: array
         items:
           type: string
-      SRv6EncapMode:
+      srv6EncapMode:
         type: string
         enum:
           - SRH
