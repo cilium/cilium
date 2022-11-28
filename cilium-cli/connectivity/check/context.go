@@ -527,6 +527,29 @@ func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*se
 	return minVersion, nil
 }
 
+// UninstallResources deletes all k8s resources created by the connectivity tests.
+func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
+	ct.Logf("🔥 Deleting %s namespace...", ct.params.TestNamespace)
+	ct.client.DeleteNamespace(ctx, ct.params.TestNamespace, metav1.DeleteOptions{})
+
+	// To avoid cases where test pods are stuck in terminating state because
+	// cni (cilium) pods were deleted sooner, wait until test pods are deleted
+	// before moving onto deleting cilium pods.
+	if wait {
+		ct.Logf("⌛ Waiting for %s namespace to be terminated...", ct.params.TestNamespace)
+		for {
+			// Wait for the test namespace to be terminated. Subsequent connectivity checks would fail
+			// if the test namespace is in Terminating state.
+			_, err := ct.client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
+			if err == nil {
+				time.Sleep(defaults.WaitRetryInterval)
+			} else {
+				break
+			}
+		}
+	}
+}
+
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
 	for _, p := range ct.clientPods {
 		return &p
