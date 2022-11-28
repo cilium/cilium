@@ -48,7 +48,6 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
@@ -105,33 +104,11 @@ var (
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 )
 
-var resources = cell.Module(
-	"resources",
-	"Resources",
-
-	cell.Provide(
-		newSvcResource,
-	),
-)
-
-func newSvcResource(lc hive.Lifecycle, c k8sClient.Clientset) (resource.Resource[*slim_corev1.Service], error) {
-	optsModifier, err := utils.GetServiceListOptionsModifier(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return resource.New[*slim_corev1.Service](
-		lc,
-		utils.ListerWatcherWithModifier(
-			utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](c.Slim().CoreV1().Services("")),
-			optsModifier),
-	), nil
-}
-
 func init() {
 	rootHive = hive.New(
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
-		resources,
+		k8s.SharedResourcesCell,
 		healthAPIServerCell,
 
 		cell.Invoke(registerHooks),

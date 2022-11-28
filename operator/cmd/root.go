@@ -104,7 +104,7 @@ var (
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
-			resourcesCell,
+			k8s.SharedResourcesCell,
 			lbipam.Cell,
 
 			legacyCell,
@@ -373,7 +373,7 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources SharedResources) {
+func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources k8s.SharedResources) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:       ctx,
@@ -391,9 +391,8 @@ type legacyOnLeader struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	clientset k8sClient.Clientset
-	resources SharedResources
-
-	wg sync.WaitGroup
+	wg        sync.WaitGroup
+	resources k8s.SharedResources
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {

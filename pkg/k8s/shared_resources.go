@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -31,6 +32,7 @@ var (
 			serviceResource,
 			localNodeResource,
 			namespaceResource,
+			lbIPPoolsResource,
 		),
 	)
 )
@@ -40,6 +42,7 @@ type SharedResources struct {
 	LocalNode  resource.Resource[*corev1.Node]
 	Services   resource.Resource[*slim_corev1.Service]
 	Namespaces resource.Resource[*slim_corev1.Namespace]
+	LBIPPools  resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -70,4 +73,14 @@ func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 	}
 	lw := utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces())
 	return resource.New[*slim_corev1.Namespace](lc, lw), nil
+}
+
+func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](
+		cs.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
+	)
+	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw), nil
 }
