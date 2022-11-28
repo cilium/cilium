@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -31,7 +32,12 @@ import (
 const testTimeout = time.Minute
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	cleanup := func(exitCode int) {
+		// Force garbage-collection to force finalizers to run and catch
+		// missing Event.Done() calls.
+		runtime.GC()
+	}
+	goleak.VerifyTestMain(m, goleak.Cleanup(cleanup))
 }
 
 func testStore(t *testing.T, node *corev1.Node, store resource.Store[*corev1.Node]) {
@@ -249,6 +255,7 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	// We should only see a sync event
 	ev := <-xs
 	assert.Equal(t, resource.Sync, ev.Kind)
+	ev.Done(nil)
 
 	// After sync Store() should not block and should be empty.
 	store, err := nodes.Store(ctx)
@@ -300,7 +307,7 @@ func TestResource_Retries(t *testing.T) {
 			nodes = r
 		}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	err := hive.Start(ctx)
@@ -481,13 +488,67 @@ func BenchmarkResource(b *testing.B) {
 	}
 
 	cancel()
-	for range events {
+	for ev := range events {
+		ev.Done(nil)
 	}
 
 	err = hive.Stop(context.TODO())
 	assert.NoError(b, err)
 
 	wg.Wait()
+}
+
+func TestResource_SkippedDonePanics(t *testing.T) {
+	t.Skip("This test can be only done manually as it tests finalizer panicing")
+
+	var (
+		node = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "some-node",
+				ResourceVersion: "0",
+			},
+			Status: corev1.NodeStatus{
+				Phase: "init",
+			},
+		}
+		nodes          resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+		events         <-chan resource.Event[*corev1.Node]
+	)
+
+	// Create the initial version of the node. Do this before anything
+	// starts watching the resources to avoid a race.
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		nodesResource,
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodes = r
+
+			// Subscribe prior to starting as it's allowed. Sync event
+			// for early subscribers will be emitted when informer has
+			// synchronized.
+			events = nodes.Events(ctx)
+		}))
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	// First event should be the node (initial set)
+	ev := <-events
+	assert.Equal(t, resource.Upsert, ev.Kind)
+	// Skipping the Done() call:
+	// ev.Done(nil)
+
+	// Finalizer will now panic.
+	<-events
 }
 
 //
