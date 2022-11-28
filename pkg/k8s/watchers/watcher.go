@@ -294,9 +294,8 @@ func (*k8sMetrics) Increment(_ context.Context, code string, method string, host
 	// more info:
 	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
 	if code != "<error>" {
-		// Consider success if status code is 2xx or 4xx
-		if strings.HasPrefix(code, "2") ||
-			strings.HasPrefix(code, "4") {
+		// Consider success only if status code is 2xx
+		if strings.HasPrefix(code, "2") {
 			k8smetrics.LastSuccessInteraction.Reset()
 		}
 	}
