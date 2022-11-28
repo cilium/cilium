@@ -5,6 +5,8 @@ package resource
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -267,6 +269,9 @@ func WithErrorHandler(h ErrorHandler) EventsOpt {
 // By default all errors are retried, the default rate limiter of workqueue
 // package is used and the channel is unbuffered.
 func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T] {
+	_, callerFile, callerLine, _ := runtime.Caller(1)
+	debugInfo := fmt.Sprintf("%T.Events() called from %s:%d", r, callerFile, callerLine)
+
 	options := eventsOpts{
 		errorHandler: AlwaysRetry, // Default error handling is to always retry.
 		rateLimiter:  workqueue.DefaultControllerRateLimiter(),
@@ -327,6 +332,19 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		}
 		r.mu.Unlock()
 
+		eventFinalizer := func(done *bool) {
+			// If you get here it is because an Event[T] was handed to a subscriber
+			// that forgot to call Event[T].Done().
+			//
+			// Calling Done() is needed to mark the event as handled. This allows
+			// the next event for the same key to be handled and is used to clear
+			// rate limiting and retry counts of prior failures.
+			panic(fmt.Sprintf(
+				"%s has a broken event handler that did not call Done() "+
+					"before event was garbage collected",
+				debugInfo))
+		}
+
 		for {
 			// Retrieve an item from the subscribers queue and then fetch the object
 			// from the store.
@@ -336,9 +354,16 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			}
 			entry := raw.(queueEntry)
 
-			event := Event[T]{
-				Done: func(err error) { queue.eventDone(entry, err) },
+			var (
+				doneSurrogate = new(bool)
+				event         Event[T]
+			)
+			event.Done = func(err error) {
+				runtime.SetFinalizer(doneSurrogate, nil)
+				queue.eventDone(entry, err)
 			}
+			// Add a finalizer to catch forgotten calls to Done().
+			runtime.SetFinalizer(doneSurrogate, eventFinalizer)
 
 			switch entry := entry.(type) {
 			case syncEntry:
@@ -352,11 +377,13 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			case upsertEntry:
 				obj, exists, err := store.GetByKey(entry.key)
 				if err != nil {
+					event.Done(nil)
 					break
 				}
 				// If the item didn't exist, then it's been deleted and a delete event will
 				// follow soon.
 				if !exists {
+					event.Done(nil)
 					break
 				}
 				event.Kind = Upsert
@@ -426,6 +453,8 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 			action = kq.errorHandler(entry.key, numRequeues, err)
 		case deleteEntry:
 			action = kq.errorHandler(entry.key, numRequeues, err)
+		default:
+			panic(fmt.Sprintf("Unhandled entry type %T", entry))
 		}
 
 		switch action {
@@ -435,6 +464,8 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 			kq.ShutDown()
 		case ErrorActionIgnore:
 			kq.Forget(entry)
+		default:
+			panic("Unknown error action: " + action)
 		}
 	} else {
 		// As the object was processed successfully we can "forget" it.
