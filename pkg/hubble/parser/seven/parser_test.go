@@ -101,3 +101,39 @@ func Test_decodeVerdict(t *testing.T) {
 	assert.Equal(t, flowpb.Verdict_REDIRECTED, decodeVerdict(accesslog.VerdictRedirected))
 	assert.Equal(t, flowpb.Verdict_VERDICT_UNKNOWN, decodeVerdict("bad"))
 }
+
+func Test_dropReason(t *testing.T) {
+	requestPath, err := url.Parse("http://myhost/some/path")
+	require.NoError(t, err)
+	lr := &accesslog.LogRecord{
+		Type:                accesslog.TypeRequest,
+		Timestamp:           fakeTimestamp,
+		NodeAddressInfo:     fakeNodeInfo,
+		ObservationPoint:    accesslog.Egress,
+		SourceEndpoint:      fakeDestinationEndpoint,
+		DestinationEndpoint: fakeSourceEndpoint,
+		IPVersion:           accesslog.VersionIPv4,
+		Verdict:             accesslog.VerdictDenied,
+		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+		HTTP: &accesslog.LogRecordHTTP{
+			Method:   "POST",
+			URL:      requestPath,
+			Protocol: "HTTP/1.1",
+		},
+	}
+	dnsGetter := &testutils.NoopDNSGetter
+	ipGetter := &testutils.NoopIPGetter
+	serviceGetter := &testutils.NoopServiceGetter
+	endpointGetter := &testutils.NoopEndpointGetter
+	parser, err := New(log, dnsGetter, ipGetter, serviceGetter, endpointGetter)
+	require.NoError(t, err)
+	f := &flowpb.Flow{}
+	assert.NoError(t, parser.Decode(lr, f))
+	assert.Equal(t, uint32(flowpb.DropReason_POLICY_DENIED), f.DropReason)
+	assert.Equal(t, flowpb.DropReason_POLICY_DENIED, f.DropReasonDesc)
+
+	lr.Verdict = accesslog.VerdictForwarded
+	assert.NoError(t, parser.Decode(lr, f))
+	assert.Equal(t, uint32(flowpb.DropReason_DROP_REASON_UNKNOWN), f.DropReason)
+	assert.Equal(t, flowpb.DropReason_DROP_REASON_UNKNOWN, f.DropReasonDesc)
+}

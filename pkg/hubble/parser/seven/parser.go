@@ -122,8 +122,13 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 
 	decoded.Time = pbTimestamp
 	decoded.Verdict = decodeVerdict(r.Verdict)
-	decoded.DropReason = 0
-	decoded.DropReasonDesc = flowpb.DropReason_DROP_REASON_UNKNOWN
+	if decoded.Verdict == flowpb.Verdict_DROPPED {
+		decoded.DropReason = uint32(flowpb.DropReason_POLICY_DENIED)
+		decoded.DropReasonDesc = flowpb.DropReason_POLICY_DENIED
+	} else {
+		decoded.DropReason = uint32(flowpb.DropReason_DROP_REASON_UNKNOWN)
+		decoded.DropReasonDesc = flowpb.DropReason_DROP_REASON_UNKNOWN
+	}
 	decoded.IP = ip
 	decoded.L4 = l4
 	decoded.Source = srcEndpoint
