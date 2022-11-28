@@ -433,6 +433,10 @@ spec:
           value: {{ .Values.cgroup.hostRoot }}
         - name: BIN_PATH
           value: {{ .Values.cni.binPath }}
+        {{- with .Values.cgroup.autoMount.resources }}
+        resources:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         command:
         - sh
         - -ec
