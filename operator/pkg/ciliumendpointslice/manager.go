@@ -288,10 +288,11 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 	// check the given cep is already exists in any of the CES.
 	// if yes, Update a ces with the given cep object.
 	if cesName, exists := c.desiredCESs.getCESName(GetCEPNameFromCCEP(cep, ns)); exists {
-		ces := c.desiredCESs.getCESTrackerOnly(cesName)
-		// add a cep into the ces
-		c.addCEPtoCES(cep, ces)
-		return cesName
+		if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
+			// add a cep into the ces
+			c.addCEPtoCES(cep, ces)
+			return cesName
+		}
 	}
 
 	// If given cep object isn't packed in any of the CES. find a new ces
@@ -434,7 +435,7 @@ func (c *cesMgr) getAllCEPNames() []string {
 // Returns the list of removed Core CEPs
 func (c *cesMgr) getRemovedCEPs(cesName string) map[string]struct{} {
 	cepNames := make(map[string]struct{})
-	if ces := c.desiredCESs.getCESTrackerOnly(cesName); ces != nil {
+	if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
 		ces.backendMutex.RLock()
 		for cepName := range ces.removedCEPs {
 			cepNames[cepName] = struct{}{}
@@ -546,10 +547,11 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 		if c.cesToIdentity[cesName] != cep.IdentityID {
 			c.RemoveCEPFromCache(GetCEPNameFromCCEP(cep, ns), DelayedCESSyncTime)
 		} else {
-			ces := c.desiredCESs.getCESTrackerOnly(cesName)
-			// add a cep into the ces
-			c.addCEPtoCES(cep, ces)
-			return cesName
+			if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
+				// add a cep into the ces
+				c.addCEPtoCES(cep, ces)
+				return cesName
+			}
 		}
 	}
 
