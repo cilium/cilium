@@ -186,20 +186,13 @@ jobs:
             fi
 
       - name: Run tests
-        uses: cilium/little-vm-helper@76cb7b131c9fa60f697af29106b529c0a423a17e
+        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
         with:
           test-name: datapath-conformance
-          image: kind
-          lvh-version: 'v0.0.1'
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cmd: |
-            set -eux
-
-            echo 'nameserver 1.1.1.1' > /etc/resolv.conf
-
             cd /host/
-
 
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ env.KUBE_PROXY }}"
             ./cilium-cli install --wait \
@@ -225,7 +218,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@76cb7b131c9fa60f697af29106b529c0a423a17e
+        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
         with:
           provision: 'false'
           cmd: |
