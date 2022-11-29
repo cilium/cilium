@@ -59,6 +59,8 @@ type ServiceLookup interface {
 	// set of readiness signals". This way we define an explicit signal rather than rely on the ordering
 	// of lines in "runDaemon".
 	WaitForSync(context.Context) bool
+
+	ForEachEndpoint(func(*Service, *Endpoints) error) error
 }
 
 type ServiceCache interface {
@@ -477,6 +479,20 @@ func (sc *serviceCache) Events(ctx context.Context) <-chan *ServiceEvent {
 	events := make(chan *ServiceEvent)
 	sc.subChan <- &newSub{ctx, events}
 	return events
+}
+
+func (sc *serviceCache) ForEachEndpoint(apply func(*Service, *Endpoints) error) error {
+	sc.mu.RLock()
+	defer sc.mu.RUnlock()
+	for svcID, epSlice := range sc.endpoints {
+		svc := sc.services[svcID]
+		for _, ep := range epSlice.EpSlices {
+			if err := apply(svc, ep); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func drain[T any](ch <-chan T) {
