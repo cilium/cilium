@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -197,12 +196,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
-
-	// Release the identity allocator reference created by NewDaemon. This
-	// is done manually here as we have no Close() function daemon
-	ds.d.identityAllocator.Close()
-
-	identitymanager.RemoveAll()
 
 	err := ds.hive.Stop(ctx)
 	c.Assert(err, IsNil)

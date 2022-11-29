@@ -1377,6 +1377,8 @@ func (d *Daemon) Close() {
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
 	}
+	d.identityAllocator.Close()
+	identitymanager.RemoveAll()
 	d.nodeDiscovery.Close()
 	d.cgroupManager.Close()
 }
