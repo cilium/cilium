@@ -400,7 +400,7 @@ func (sc *serviceCache) updateEndpoints(key resource.Key, newEps *Endpoints) {
 	svcID := newEps.EndpointSliceID.ServiceID
 
 	sc.Log.Infof("updateEndpoints(%s): svcID=%s, esName=%s",
-	             key, svcID, esName)
+		key, svcID, esName)
 
 	eps, ok := sc.endpoints[svcID]
 	if ok {

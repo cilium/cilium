@@ -22,7 +22,9 @@ type Readiness struct {
 }
 
 func New() *Readiness {
-	return &Readiness{}
+	return &Readiness{
+		chans: make(map[string]chan struct{}),
+	}
 }
 
 // Add registers a module to be waited for readiness. Returns callback

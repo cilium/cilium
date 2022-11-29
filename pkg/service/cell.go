@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"time"
 
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
@@ -21,8 +23,44 @@ import (
 	"github.com/cilium/cilium/pkg/service/cache"
 )
 
+// TODO: Split the ServiceManager API into groups.
 type ServiceManager interface {
-	// ...
+	SetMonitorNotify(monitorNotify)
+	SetEnvoyCache(envoyCache)
+
+	// from redirectpolicymanager:
+	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
+	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
+
+	// from k8s watcher. used in cilium_envoy_config.go and pod.go.
+	//DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
+	//UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
+	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
+	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
+	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
+
+	// from daemon.go
+	RestoreServices() error
+	SyncServicesOnDeviceChange(datapathTypes.NodeAddressing)
+
+	// from daemon/cmd/loadbalancer.go
+	UpdateBackendsState([]*loadbalancer.Backend) error
+	DeleteServiceByID(loadbalancer.ServiceID) (bool, error)
+	GetDeepCopyServiceByID(loadbalancer.ServiceID) (*loadbalancer.SVC, bool)
+	GetDeepCopyServices() []*loadbalancer.SVC
+
+	// from daemon/cmd/datapath.go
+	InitMaps(ipv6, ipv4 bool, sockRevNat bool, restoreState bool) error
+
+	// from daemon/cmd/hubble.go
+	GetServiceNameByAddr(loadbalancer.L3n4Addr) (ns, name string, ok bool)
+
+	// from daemon/cmd/state.go
+	SyncWithK8sFinished() error
+
+	// from daemon/cmd/kube_proxy_healthz.go.
+	GetLastUpdatedTs() time.Time
+	GetCurrentTs() time.Time
 }
 
 const (
@@ -47,14 +85,14 @@ type serviceManagerParams struct {
 }
 
 func newServiceManager(p serviceManagerParams) ServiceManager {
-	svc := NewService(
+	svc := newService(
 		nil,
 		nil,
 		p.Datapath.LBMap(),
 	)
 	sm := &serviceManager{
 		serviceManagerParams: p,
-		svc:                  svc,
+		Service:              svc,
 		wp:                   workerpool.New(8),
 	}
 	p.Lifecycle.Append(sm)
@@ -62,9 +100,13 @@ func newServiceManager(p serviceManagerParams) ServiceManager {
 	return sm
 }
 
+// TODO: this currently just wraps '*Service' and throws on top the k8s event
+// handling. Reimplement the event handling as "K8sServicesHandler" or some such
+// and put the rest back into '*Service' (and rename it).
 type serviceManager struct {
 	serviceManagerParams
-	svc   *Service
+	*Service
+
 	wp    *workerpool.WorkerPool
 	ready func()
 }
@@ -82,19 +124,44 @@ func (sm *serviceManager) Stop(hive.HookContext) error {
 	return sm.wp.Close()
 }
 
+// TODO: Check whether delayed assignment of these screws things up.
+func (sm *serviceManager) SetMonitorNotify(m monitorNotify) {
+	sm.Lock()
+	sm.monitorNotify = m
+	sm.Unlock()
+}
+
+func (sm *serviceManager) SetEnvoyCache(e envoyCache) {
+	sm.Lock()
+	sm.envoyCache = e
+	sm.Unlock()
+}
+
 func (sm *serviceManager) processEvents(ctx context.Context) error {
+	log.Info("serviceManager: Starting to process events!")
 	for event := range sm.ServiceCache.Events(ctx) {
 		switch event.Action {
 		case cache.Synchronized:
-			sm.ready()
+			log.Info("serviceManager: Synchronized!")
 		case cache.UpdateService:
+			log.Info("serviceManager: upsert!")
 			sm.upsert(event.ID, event.OldService, event.Service, event.Endpoints)
+		case cache.DeleteService:
+			log.Info("serviceManager: delete!")
+			sm.delete(event.ID, event.Service, event.Endpoints)
 		}
 	}
+	log.Info("serviceManager: processEvents terminated")
 	return nil
 }
 
+//
+// Delicious copy-pasta from watcher.go follows:
+//
+
 func (sm *serviceManager) upsert(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
+	log.Infof("serviceManager.upsert(%s)", svcID)
+
 	// COPIED FROM addK8sSVCs()
 
 	// Headless services do not need any datapath implementation
@@ -119,7 +186,7 @@ func (sm *serviceManager) upsert(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, 
 
 		for svcHash, oldSvc := range oldSVCMap {
 			if _, ok := svcMap[svcHash]; !ok {
-				if found, err := sm.svc.DeleteService(oldSvc); err != nil {
+				if found, err := sm.DeleteService(oldSvc); err != nil {
 					scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(oldSvc)).
 						Warn("Error deleting service by frontend")
 				} else if !found {
@@ -146,7 +213,7 @@ func (sm *serviceManager) upsert(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, 
 				Namespace: svcID.Namespace,
 			},
 		}
-		if _, _, err := sm.svc.UpsertService(p); err != nil {
+		if _, _, err := sm.UpsertService(p); err != nil {
 			if errors.Is(err, NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
 				scopedLog.WithError(err).Debug("Error while inserting service in LB map")
 			} else {
@@ -157,9 +224,66 @@ func (sm *serviceManager) upsert(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, 
 	return nil
 }
 
-//
-// Delicious copy-pasta from watcher.go follows:
-//
+func (sm *serviceManager) delete(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
+	// Headless services do not need any datapath implementation
+	if svcInfo.IsHeadless {
+		return nil
+	}
+
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.K8sSvcName:   svc.Name,
+		logfields.K8sNamespace: svc.Namespace,
+	})
+
+	repPorts := svcInfo.UniquePorts()
+
+	frontends := []*loadbalancer.L3n4Addr{}
+
+	for portName, svcPort := range svcInfo.Ports {
+		if !repPorts[svcPort.Port] {
+			continue
+		}
+		repPorts[svcPort.Port] = false
+
+		for _, feIP := range svcInfo.FrontendIPs {
+			fe := loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(feIP), svcPort.Port, loadbalancer.ScopeExternal)
+			frontends = append(frontends, fe)
+		}
+
+		for _, nodePortFE := range svcInfo.NodePorts[portName] {
+			frontends = append(frontends, &nodePortFE.L3n4Addr)
+			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+				cpFE := nodePortFE.L3n4Addr.DeepCopy()
+				cpFE.Scope = loadbalancer.ScopeInternal
+				frontends = append(frontends, cpFE)
+			}
+		}
+
+		for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
+			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, cmtypes.MustAddrClusterFromIP(k8sExternalIP), svcPort.Port, loadbalancer.ScopeExternal))
+		}
+
+		for _, ip := range svcInfo.LoadBalancerIPs {
+			addrCluster := cmtypes.MustAddrClusterFromIP(ip)
+			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
+			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
+			}
+		}
+	}
+
+	for _, fe := range frontends {
+		if found, err := sm.DeleteService(*fe); err != nil {
+			scopedLog.WithError(err).WithField(logfields.Object, logfields.Repr(fe)).
+				Warn("Error deleting service by frontend")
+		} else if !found {
+			scopedLog.WithField(logfields.Object, logfields.Repr(fe)).Warn("service not found")
+		} else {
+			scopedLog.Debugf("# cilium lb delete-service %s %d 0", fe.AddrCluster.String(), fe.Port)
+		}
+	}
+	return nil
+}
 
 // HashSVCMap returns a mapping of all frontend's hash to the its corresponded
 // value.

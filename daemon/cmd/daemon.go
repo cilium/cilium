@@ -85,7 +85,7 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
-	"github.com/cilium/cilium/pkg/service"
+	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
@@ -114,7 +114,7 @@ type Daemon struct {
 	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
-	svc              *service.Service
+	svc              serviceManager.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
 	policyUpdater    *policy.Updater
@@ -380,6 +380,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
 	serviceCache serviceCache.ServiceCache,
+	serviceManager serviceManager.ServiceManager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -526,6 +527,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
+		svc:               serviceManager,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -642,7 +644,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	bootstrapStats.proxyStart.End(true)
 
 	// Start service support after proxy support so that we can inject 'd.l7Proxy`.
-	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
+	d.svc = serviceManager
+	serviceManager.SetMonitorNotify(&d)
+	serviceManager.SetEnvoyCache(d.l7Proxy)
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {

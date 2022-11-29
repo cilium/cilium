@@ -224,8 +224,8 @@ type Service struct {
 	l7lbSvcs map[lb.ServiceName]*L7LBInfo
 }
 
-// NewService creates a new instance of the service handler.
-func NewService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
+// newService creates a new instance of the service handler.
+func newService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
 
 	var localHealthServer healthServer
 	if option.Config.EnableHealthCheckNodePort {

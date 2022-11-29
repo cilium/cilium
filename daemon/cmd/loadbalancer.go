@@ -13,14 +13,14 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/service"
+	serviceManager "github.com/cilium/cilium/pkg/service"
 )
 
 type putServiceID struct {
-	svc *service.Service
+	svc serviceManager.ServiceManager
 }
 
-func NewPutServiceIDHandler(svc *service.Service) PutServiceIDHandler {
+func NewPutServiceIDHandler(svc serviceManager.ServiceManager) PutServiceIDHandler {
 	return &putServiceID{svc: svc}
 }
 
@@ -118,10 +118,10 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 }
 
 type deleteServiceID struct {
-	svc *service.Service
+	svc serviceManager.ServiceManager
 }
 
-func NewDeleteServiceIDHandler(svc *service.Service) DeleteServiceIDHandler {
+func NewDeleteServiceIDHandler(svc serviceManager.ServiceManager) DeleteServiceIDHandler {
 	return &deleteServiceID{svc: svc}
 }
 
@@ -142,10 +142,10 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 }
 
 type getServiceID struct {
-	svc *service.Service
+	svc serviceManager.ServiceManager
 }
 
-func NewGetServiceIDHandler(svc *service.Service) GetServiceIDHandler {
+func NewGetServiceIDHandler(svc serviceManager.ServiceManager) GetServiceIDHandler {
 	return &getServiceID{svc: svc}
 }
 
@@ -159,10 +159,10 @@ func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
 }
 
 type getService struct {
-	svc *service.Service
+	svc serviceManager.ServiceManager
 }
 
-func NewGetServiceHandler(svc *service.Service) GetServiceHandler {
+func NewGetServiceHandler(svc serviceManager.ServiceManager) GetServiceHandler {
 	return &getService{svc: svc}
 }
 
@@ -172,7 +172,7 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 	return NewGetServiceOK().WithPayload(list)
 }
 
-func getServiceList(svc *service.Service) []*models.Service {
+func getServiceList(svc serviceManager.ServiceManager) []*models.Service {
 	svcs := svc.GetDeepCopyServices()
 	list := make([]*models.Service, 0, len(svcs))
 	for _, v := range svcs {

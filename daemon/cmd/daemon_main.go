@@ -78,6 +78,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/readiness"
+	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -1636,6 +1638,8 @@ type daemonParams struct {
 	Shutdowner      hive.Shutdowner
 	SharedResources k8s.SharedResources
 	ServiceCache    serviceCache.ServiceCache
+	ServiceManager  serviceManager.ServiceManager
+	Readiness       *readiness.Readiness
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1665,6 +1669,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Clientset,
 				params.SharedResources,
 				params.ServiceCache,
+				params.ServiceManager,
 			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
@@ -1719,14 +1724,10 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		<-d.k8sCachesSynced
 	}
 
-	// Wait for ServiceCache to synchronize and its subscribers
-	// to receive sync event. This makes sure we won't proceed
-	// before services have been applied to datapath.
-	// FIXME: This relies on ServiceCache Events() channel being unbuffered
-	// and on completely synchronous handling in pkg/service. Preferably we'd
-	// have more explicit (and modular) mechanism for datapath readiness rather
-	// than hacking it around k8s store synchronization.
-	params.ServiceCache.WaitForSync(d.ctx)
+	// Wait for the datapath readiness signal.
+	log.Info("Waiting for ready signal")
+	params.Readiness.Wait(d.ctx)
+	log.Info("Datapath ready, finalizing initialization")
 
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)

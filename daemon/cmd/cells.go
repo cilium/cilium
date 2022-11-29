@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/readiness"
+	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 )
 
@@ -47,6 +49,11 @@ var (
 		"controlplane",
 		"Control Plane",
 
+		// Readiness allows modules to register as readiness signal providers.
+		// Daemon waits for the signal before finishing initialization and telling
+		// Kubernetes that the agent is ready for CNI requests.
+		readiness.Cell,
+
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
@@ -58,6 +65,9 @@ var (
 		// ServiceCache provides an API for accessing services and their associated
 		// endpoints.
 		serviceCache.Cell,
+
+		// ServiceManager manages the datapath resources for services and backends.
+		serviceManager.Cell,
 
 		// Provide NodeAddressing for ServiceCache.
 		cell.Provide(
