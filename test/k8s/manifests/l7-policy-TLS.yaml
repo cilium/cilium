@@ -39,3 +39,29 @@ specs:
             secret:
               namespace: "default"
               name: "user-agent"
+- description: "L7 policy with TLS without HTTP rules"
+  endpointSelector:
+    matchLabels:
+      id: app3
+  egress:
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+          - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "www.lyft.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "default"
+          name: "lyft-server"
+      originatingTLS:
+        secret:
+          namespace: "default"
+          name: "test-client"
