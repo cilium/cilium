@@ -18,7 +18,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "service-healthserver")
@@ -185,7 +185,7 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 					logfields.ServiceName:                svc.Service.Name,
 					logfields.ServiceNamespace:           svc.Service.Namespace,
 					logfields.ServiceHealthCheckNodePort: port,
-				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", option.EnableHealthCheckNodePort)
+				}).Errorf("ListenAndServe failed for service health server, since the user might be running with kube-proxy. Please ensure that '--%s' option is set to false if kube-proxy is running.", serviceConfig.EnableHealthCheckNodePort)
 			}
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.ServiceName:                svc.Service.Name,

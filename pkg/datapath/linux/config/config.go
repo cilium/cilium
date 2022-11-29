@@ -55,6 +55,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
@@ -433,9 +434,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	)
 	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
 	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
-	if option.Config.NodePortAlg == option.NodePortAlgRandom {
+	if option.Config.NodePortAlg == serviceConfig.NodePortAlgRandom {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
-	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+	} else if option.Config.NodePortAlg == serviceConfig.NodePortAlgMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
 		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
 		if option.Config.EnableIPv6 {

@@ -28,6 +28,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 )
 
@@ -84,6 +85,8 @@ type envoyCache interface {
 }
 
 type svcInfo struct {
+	cfg config.ServiceConfig
+
 	hash          string
 	frontend      lb.L3n4AddrID
 	backends      []*lb.Backend
@@ -145,14 +148,14 @@ func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool
 }
 
 func (svc *svcInfo) useMaglev() bool {
-	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
+	if svc.cfg.NodePortAlg != config.NodePortAlgMaglev {
 		return false
 	}
 	// Provision the Maglev LUT for ClusterIP only if ExternalClusterIP is
 	// enabled because ClusterIP can also be accessed from outside with this
 	// setting. We don't do it unconditionally to avoid increasing memory
 	// footprint.
-	if svc.svcType == lb.SVCTypeClusterIP && !option.Config.ExternalClusterIP {
+	if svc.svcType == lb.SVCTypeClusterIP && !svc.cfg.ExternalClusterIP {
 		return false
 	}
 	// Wildcarded frontend is not exposed for external traffic.
@@ -194,7 +197,7 @@ type L7LBInfo struct {
 }
 
 func (svc *svcInfo) checkLBSourceRange() bool {
-	if option.Config.EnableSVCSourceRangeCheck {
+	if svc.cfg.EnableSVCSourceRangeCheck {
 		return len(svc.loadBalancerSourceRanges) != 0
 	}
 
@@ -207,6 +210,8 @@ func (svc *svcInfo) checkLBSourceRange() bool {
 // API calls to the /services endpoint.
 type Service struct {
 	lock.RWMutex
+
+	cfg config.ServiceConfig
 
 	svcByHash map[string]*svcInfo
 	svcByID   map[lb.ID]*svcInfo
@@ -225,14 +230,15 @@ type Service struct {
 }
 
 // newService creates a new instance of the service handler.
-func newService(monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
+func newService(cfg config.ServiceConfig, monitorNotify monitorNotify, envoyCache envoyCache, lbmap datapathTypes.LBMap) *Service {
 
 	var localHealthServer healthServer
-	if option.Config.EnableHealthCheckNodePort {
+	if cfg.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
 	}
 
 	svc := &Service{
+		cfg:             cfg,
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
 		backendRefCount: counter.StringCounter{},
@@ -552,10 +558,10 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	})
 	scopedLog.Debug("Upserting service")
 
-	if !option.Config.EnableSVCSourceRangeCheck &&
+	if !s.cfg.EnableSVCSourceRangeCheck &&
 		len(params.LoadBalancerSourceRanges) != 0 {
 		scopedLog.Warnf("--%s is disabled, ignoring loadBalancerSourceRanges",
-			option.EnableSVCSourceRangeCheck)
+			config.EnableSVCSourceRangeCheck)
 	}
 
 	// Backends must either be the same IP proto as the frontend, or can be of
@@ -649,7 +655,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
-	if option.Config.EnableHealthCheckNodePort {
+	if s.cfg.EnableHealthCheckNodePort {
 		if onlyLocalBackends && filterBackends {
 			_, activeBackends, _ := segregateBackends(backendsCopy)
 
@@ -918,7 +924,7 @@ func (s *Service) RestoreServices() error {
 	}
 
 	// Remove LB source ranges for no longer existing services
-	if option.Config.EnableSVCSourceRangeCheck {
+	if s.cfg.EnableSVCSourceRangeCheck {
 		if err := s.restoreAndDeleteOrphanSourceRanges(); err != nil {
 			return err
 		}
@@ -1022,7 +1028,7 @@ func (s *Service) SyncWithK8sFinished() error {
 	}
 
 	// Remove no longer existing affinity matches
-	if option.Config.EnableSessionAffinity {
+	if s.cfg.EnableSessionAffinity {
 		if err := s.deleteOrphanAffinityMatchesLocked(); err != nil {
 			return err
 		}
@@ -1171,7 +1177,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	//
 	// If L7 LB is configured for this service then BPF level session affinity is not used so
 	// that the L7 proxy port may be passed in a shared union in the service entry.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if s.cfg.EnableSessionAffinity && !svc.isL7LBService() {
 		if prevSessionAffinity && !svc.sessionAffinity {
 			// Remove backends from the affinity match because the svc's sessionAffinity
 			// has been disabled
@@ -1280,7 +1286,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// If L7 LB is configured for this service then BPF level session affinity is not used.
-	if option.Config.EnableSessionAffinity && !svc.isL7LBService() {
+	if s.cfg.EnableSessionAffinity && !svc.isL7LBService() {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 
@@ -1440,7 +1446,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 
 	// Delete affinity matches
-	if option.Config.EnableSessionAffinity && svc.sessionAffinity {
+	if s.cfg.EnableSessionAffinity && svc.sessionAffinity {
 		backendIDs := make([]lb.BackendID, 0, len(svc.backends))
 		for _, b := range svc.backends {
 			backendIDs = append(backendIDs, b.ID)
@@ -1448,7 +1454,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
-	if option.Config.EnableSVCSourceRangeCheck &&
+	if s.cfg.EnableSVCSourceRangeCheck &&
 		svc.svcType == lb.SVCTypeLoadBalancer {
 		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
 			svc.loadBalancerSourceRanges, nil, ipv6); err != nil {
@@ -1468,7 +1474,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
 	}
 
-	if option.Config.EnableHealthCheckNodePort {
+	if s.cfg.EnableHealthCheckNodePort {
 		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 	}
 

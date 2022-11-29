@@ -49,9 +49,9 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/version"
-
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
+	"github.com/cilium/cilium/pkg/version"
 )
 
 var (
@@ -97,6 +97,12 @@ var (
 		cell.Invoke(
 			registerOperatorHooks,
 		),
+
+		serviceConfig.Cell,
+		cell.Invoke(func(cfg serviceConfig.ServiceConfig) {
+			// HACK HACK HACK
+			option.Config.ServiceConfig = cfg
+		}),
 
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config

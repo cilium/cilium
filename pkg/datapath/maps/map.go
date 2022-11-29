@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 )
 
 var (
@@ -191,7 +192,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmap.HealthProbe6MapName, lbmap.HealthProbe4MapName)
 	}
 
-	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
+	if option.Config.NodePortAlg != serviceConfig.NodePortAlgMaglev {
 		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
 	}
 

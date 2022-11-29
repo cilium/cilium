@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/metrics"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -246,10 +247,6 @@ const (
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode = "node-port-mode"
 
-	// NodePortAlg indicates which algorithm is used for backend selection
-	// ("random" or "maglev")
-	NodePortAlg = "node-port-algorithm"
-
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration = "node-port-acceleration"
@@ -295,11 +292,6 @@ const (
 	// KubeProxyReplacement controls how to enable kube-proxy replacement
 	// features in BPF datapath
 	KubeProxyReplacement = "kube-proxy-replacement"
-
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity = "enable-session-affinity"
-
-	EnableServiceTopology = "enable-service-topology"
 
 	// EnableIdentityMark enables setting the mark field with the identity for
 	// local traffic. This may be disabled if chaining modes and Cilium use
@@ -754,9 +746,6 @@ const (
 	// EnableEndpointHealthChecking is the name of the EnableEndpointHealthChecking option
 	EnableEndpointHealthChecking = "enable-endpoint-health-checking"
 
-	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
-	EnableHealthCheckNodePort = "enable-health-check-nodeport"
-
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
@@ -1201,12 +1190,6 @@ const (
 
 	// NodePortModeDSR is for performing DSR for requests to remote nodes
 	NodePortModeDSR = "dsr"
-
-	// NodePortAlgRandom is for randomly selecting a backend
-	NodePortAlgRandom = "random"
-
-	// NodePortAlgMaglev is for using maglev consistent hashing for backend selection
-	NodePortAlgMaglev = "maglev"
 
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
@@ -1730,10 +1713,6 @@ type DaemonConfig struct {
 	// health endpoints
 	EnableEndpointHealthChecking bool
 
-	// EnableHealthCheckNodePort enables health checking of NodePort by
-	// cilium
-	EnableHealthCheckNodePort bool
-
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -1840,9 +1819,6 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
-	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
-	EnableSVCSourceRangeCheck bool
-
 	// EnableHealthDatapath enables IPIP health probes data path
 	EnableHealthDatapath bool
 
@@ -1858,10 +1834,6 @@ type DaemonConfig struct {
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
-
-	// NodePortAlg indicates which backend selection algorithm is used
-	// ("random" or "maglev")
-	NodePortAlg string
 
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
 	// backends under DSR ("opt" or "ipip")
@@ -1949,11 +1921,6 @@ type DaemonConfig struct {
 
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax int
-
-	// EnableSessionAffinity enables a support for service sessionAffinity
-	EnableSessionAffinity bool
-
-	EnableServiceTopology bool
 
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
@@ -2200,10 +2167,6 @@ type DaemonConfig struct {
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
 
-	// ExternalClusterIP enables routing to ClusterIP services from outside
-	// the cluster. This mirrors the behaviour of kube-proxy.
-	ExternalClusterIP bool
-
 	// ARPPingRefreshPeriod is the ARP entries refresher period.
 	ARPPingRefreshPeriod time.Duration
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature.
@@ -2265,6 +2228,9 @@ type DaemonConfig struct {
 	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
 	// following Endpoint restoration.
 	EnableStaleCiliumEndpointCleanup bool
+
+	// FIXME fix the use sites and don't embed like this.
+	serviceConfig.ServiceConfig
 }
 
 var (
@@ -2278,7 +2244,6 @@ var (
 		EnableHostIPRestore:          defaults.EnableHostIPRestore,
 		EnableHealthChecking:         defaults.EnableHealthChecking,
 		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckNodePort:    defaults.EnableHealthCheckNodePort,
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
 		EnableIPv6NDP:                defaults.EnableIPv6NDP,
@@ -2310,7 +2275,6 @@ var (
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
 
-		ExternalClusterIP:     defaults.ExternalClusterIP,
 		EnableVTEP:            defaults.EnableVTEP,
 		EnableBGPControlPlane: defaults.EnableBGPControlPlane,
 	}
@@ -2814,7 +2778,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
-	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
@@ -2822,7 +2785,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableTracing = vp.GetBool(EnableTracing)
 	c.EnableUnreachableRoutes = vp.GetBool(EnableUnreachableRoutes)
 	c.EnableNodePort = vp.GetBool(EnableNodePort)
-	c.EnableSVCSourceRangeCheck = vp.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = vp.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = vp.GetBool(EnableHostLegacyRouting)
 	c.MaglevTableSize = vp.GetInt(MaglevTableSize)
@@ -2830,8 +2792,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.NodePortBindProtection = vp.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = vp.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
-	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
-	c.EnableServiceTopology = vp.GetBool(EnableServiceTopology)
 	c.EnableBandwidthManager = vp.GetBool(EnableBandwidthManager)
 	c.EnableBBR = vp.GetBool(EnableBBR)
 	c.EnableRecorder = vp.GetBool(EnableRecorder)
@@ -2948,7 +2908,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
-	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
 	c.EnableStatelessNat46X64 = vp.GetBool(EnableStatelessNat46X64)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
@@ -3319,7 +3278,6 @@ func (c *DaemonConfig) populateDevices(vp *viper.Viper) {
 func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 	c.NodePortAcceleration = vp.GetString(LoadBalancerAcceleration)
 	c.NodePortMode = vp.GetString(LoadBalancerMode)
-	c.NodePortAlg = vp.GetString(LoadBalancerAlg)
 	// If old settings were explicitly set by the user, then have them
 	// override the new ones in order to not break existing setups.
 	if vp.IsSet(NodePortAcceleration) {
@@ -3338,14 +3296,15 @@ func (c *DaemonConfig) populateLoadBalancerSettings(vp *viper.Viper) {
 				LoadBalancerMode, NodePortMode, LoadBalancerMode)
 		}
 	}
-	if vp.IsSet(NodePortAlg) {
+	// FIXME NodePortAlg is in service.Config. Figure out what to do with this.
+	/*if vp.IsSet(NodePortAlg) {
 		prior := c.NodePortAlg
 		c.NodePortAlg = vp.GetString(NodePortAlg)
 		if vp.IsSet(LoadBalancerAlg) && prior != c.NodePortAlg {
 			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
 				LoadBalancerAlg, NodePortAlg, LoadBalancerAlg)
 		}
-	}
+	}*/
 }
 
 func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
@@ -3709,9 +3668,8 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 func (c *DaemonConfig) KubeProxyReplacementFullyEnabled() bool {
 	return c.EnableHostPort &&
 		c.EnableNodePort &&
-		c.EnableExternalIPs &&
-		c.EnableSocketLB &&
-		c.EnableSessionAffinity
+		c.EnableSocketLB
+	// FIXME EnableExternalIPs and SessionAffinity now in service.Config.
 }
 
 // StoreInFile stores the configuration in a the given directory under the file

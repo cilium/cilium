@@ -12,9 +12,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/readiness"
 	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 )
 
 var (
@@ -69,6 +71,12 @@ var (
 		// ServiceManager manages the datapath resources for services and backends.
 		serviceManager.Cell,
 
+		// Service-related configuration common to ServiceManager and ServiceCache.
+		// TODO: Maybe don't have this separately? E.g. if Cache&Manager are merged,
+		// put it there. Datapath/LBMap also need this config. Not sure if that implies
+		// that it should be its own standalone thing?
+		serviceConfig.Cell,
+
 		// Provide NodeAddressing for ServiceCache.
 		cell.Provide(
 			func(dp datapath.Datapath) types.NodeAddressing {
@@ -78,6 +86,8 @@ var (
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
+
+		hacks,
 	)
 
 	// Datapath provides the privileged operations to apply control-plane
@@ -91,4 +101,14 @@ var (
 			newDatapath,
 		),
 	)
+)
+
+var hacks = cell.Module(
+	"hacks",
+	"Dirty hacks",
+
+	cell.Invoke(func(c serviceConfig.ServiceConfig) {
+		// Bridge the options migrated into pkg/service/config back into DaemonConfig.
+		option.Config.ServiceConfig = c
+	}),
 )

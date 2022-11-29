@@ -8,7 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/workerpool"
 	"github.com/davecgh/go-spew/spew"
@@ -133,6 +133,7 @@ var _ k8s.ServiceIPGetter = &serviceCache{}
 type serviceCacheParams struct {
 	cell.In
 
+	Config    config.ServiceConfig
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
 	LocalNode resource.Resource[*corev1.Node]
@@ -292,8 +293,7 @@ func (sc *serviceCache) subscribe(workerCtx context.Context, sub *newSub) {
 }
 
 func (sc *serviceCache) updateNode(key resource.Key, node *corev1.Node) {
-	// FIXME move this option into "ServicesConfig" or similar. Perhaps in pkg/service/config.go?
-	if !option.Config.EnableServiceTopology {
+	if !sc.Config.EnableServiceTopology {
 		return
 	}
 

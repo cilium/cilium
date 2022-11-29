@@ -115,6 +115,9 @@ func (n *InfoStruct) Print(indent int, w *InfoPrinter) {
 	scs := spew.ConfigState{Indent: strings.Repeat(" ", indentBy), SortKeys: true}
 	indentString := strings.Repeat(" ", indent)
 	for i, line := range strings.Split(scs.Sdump(n.value), "\n") {
+		if len(line) == 0 {
+			continue
+		}
 		if i == 0 {
 			fmt.Fprintf(w, "%s⚙️ %s\n", indentString, line)
 		} else {

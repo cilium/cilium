@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -484,7 +485,7 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+	if option.Config.NodePortAlg == serviceConfig.NodePortAlgMaglev {
 		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6, uint32(option.Config.MaglevTableSize)); err != nil {
 			return fmt.Errorf("initializing maglev maps: %w", err)
 		}

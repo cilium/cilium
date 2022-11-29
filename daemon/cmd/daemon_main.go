@@ -81,6 +81,7 @@ import (
 	"github.com/cilium/cilium/pkg/readiness"
 	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -238,9 +239,6 @@ func initializeFlags() {
 
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
 	option.BindEnv(Vp, option.EnableHealthChecking)
-
-	flags.Bool(option.EnableHealthCheckNodePort, defaults.EnableHealthCheckNodePort, "Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set")
-	option.BindEnv(Vp, option.EnableHealthCheckNodePort)
 
 	flags.StringSlice(option.EndpointStatus, []string{},
 		"Enable additional CiliumEndpoint status features ("+strings.Join(option.EndpointStatusValues(), ",")+")")
@@ -517,9 +515,6 @@ func initializeFlags() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
 	option.BindEnv(Vp, option.EnableNodePort)
 
-	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
-	option.BindEnv(Vp, option.EnableSVCSourceRangeCheck)
-
 	flags.String(option.AddressScopeMax, fmt.Sprintf("%d", defaults.AddressScopeMax), "Maximum local address scope for ipcache to consider host addresses")
 	flags.MarkHidden(option.AddressScopeMax)
 	option.BindEnv(Vp, option.AddressScopeMax)
@@ -548,20 +543,17 @@ func initializeFlags() {
 	flags.MarkHidden(option.NodePortMode)
 	option.BindEnv(Vp, option.NodePortMode)
 
-	flags.String(option.NodePortAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
-	flags.MarkHidden(option.NodePortAlg)
-	option.BindEnv(Vp, option.NodePortAlg)
-
 	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	flags.MarkHidden(option.NodePortAcceleration)
 	option.BindEnv(Vp, option.NodePortAcceleration)
 
+	// FIXME these two should go into pkg/service/config.
 	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(Vp, option.LoadBalancerMode)
 
-	flags.String(option.LoadBalancerAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
+	flags.String(option.LoadBalancerAlg, serviceConfig.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
 	option.BindEnv(Vp, option.LoadBalancerAlg)
 
 	flags.String(option.LoadBalancerDSRDispatch, option.DSRDispatchOption, "BPF load balancing DSR dispatch method (\"opt\", \"ipip\")")
@@ -597,12 +589,6 @@ func initializeFlags() {
 
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(Vp, option.NodePortBindProtection)
-
-	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
-	option.BindEnv(Vp, option.EnableSessionAffinity)
-
-	flags.Bool(option.EnableServiceTopology, false, "Enable support for service topology aware hints")
-	option.BindEnv(Vp, option.EnableServiceTopology)
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(Vp, option.EnableIdentityMark)
@@ -1022,9 +1008,6 @@ func initializeFlags() {
 
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(Vp, option.BGPConfigPath)
-
-	flags.Bool(option.ExternalClusterIPName, false, "Enable external access to ClusterIP services (default false)")
-	option.BindEnv(Vp, option.ExternalClusterIPName)
 
 	// flags.IntSlice cannot be used due to missing support for appropriate conversion in Viper.
 	// See https://github.com/cilium/cilium/pull/20282 for more information.

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/readiness"
 	"github.com/cilium/cilium/pkg/service/cache"
+	"github.com/cilium/cilium/pkg/service/config"
 )
 
 // TODO: Split the ServiceManager API into groups.
@@ -33,8 +34,6 @@ type ServiceManager interface {
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 
 	// from k8s watcher. used in cilium_envoy_config.go and pod.go.
-	//DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	//UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
 	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
 	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
@@ -77,8 +76,8 @@ var Cell = cell.Module(
 type serviceManagerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-
+	Lifecycle    hive.Lifecycle
+	Config       config.ServiceConfig
 	ServiceCache cache.ServiceCache
 	Datapath     datapath.Datapath
 	Readiness    *readiness.Readiness
@@ -86,6 +85,7 @@ type serviceManagerParams struct {
 
 func newServiceManager(p serviceManagerParams) ServiceManager {
 	svc := newService(
+		p.Config,
 		nil,
 		nil,
 		p.Datapath.LBMap(),
@@ -144,10 +144,8 @@ func (sm *serviceManager) processEvents(ctx context.Context) error {
 		case cache.Synchronized:
 			log.Info("serviceManager: Synchronized!")
 		case cache.UpdateService:
-			log.Info("serviceManager: upsert!")
 			sm.upsert(event.ID, event.OldService, event.Service, event.Endpoints)
 		case cache.DeleteService:
-			log.Info("serviceManager: delete!")
 			sm.delete(event.ID, event.Service, event.Endpoints)
 		}
 	}
@@ -161,8 +159,6 @@ func (sm *serviceManager) processEvents(ctx context.Context) error {
 
 func (sm *serviceManager) upsert(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
 	log.Infof("serviceManager.upsert(%s)", svcID)
-
-	// COPIED FROM addK8sSVCs()
 
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {

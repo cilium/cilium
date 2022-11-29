@@ -39,6 +39,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -256,7 +257,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			features.NodePort.Mode = strings.Title(option.Config.NodePortMode)
 		}
 		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
-		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		if option.Config.NodePortAlg == serviceConfig.NodePortAlgMaglev {
 			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
 			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
 		}

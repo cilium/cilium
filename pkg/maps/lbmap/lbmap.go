@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -49,7 +50,7 @@ type LBBPFMap struct {
 }
 
 func New() *LBBPFMap {
-	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
+	maglev := option.Config.NodePortAlg == serviceConfig.NodePortAlgMaglev
 	maglevTableSize := option.Config.MaglevTableSize
 
 	m := &LBBPFMap{}

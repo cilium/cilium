@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -74,7 +75,7 @@ func initKubeProxyReplacementOptions() error {
 		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
-			option.EnableSessionAffinity)
+			serviceConfig.EnableSessionAffinity)
 
 		option.Config.EnableHostPort = true
 		option.Config.EnableNodePort = true
@@ -149,9 +150,9 @@ func initKubeProxyReplacementOptions() error {
 				option.LoadBalancerRSSv4CIDR, option.LoadBalancerRSSv6CIDR)
 		}
 
-		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
-			option.Config.NodePortAlg != option.NodePortAlgMaglev {
-			return fmt.Errorf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
+		if option.Config.NodePortAlg != serviceConfig.NodePortAlgRandom &&
+			option.Config.NodePortAlg != serviceConfig.NodePortAlgMaglev {
+			return fmt.Errorf("Invalid value for --%s: %s", serviceConfig.NodePortAlg, option.Config.NodePortAlg)
 		}
 
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
@@ -164,7 +165,7 @@ func initKubeProxyReplacementOptions() error {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
 		}
 
-		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		if option.Config.NodePortAlg == serviceConfig.NodePortAlgMaglev {
 			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
 			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
 			// backends." (from Maglev paper, page 6)
