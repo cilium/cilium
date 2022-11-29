@@ -407,6 +407,21 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 	return result.Stdout, nil
 }
 
+func (c *Client) ExecInPodWithWriters(ctx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
+	err := c.execInPodWithWriters(ctx, ExecParameters{
+		Namespace: namespace,
+		Pod:       pod,
+		Container: container,
+		Command:   command,
+		TTY:       true,
+	}, stdout, stderr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Client) CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error) {
 	stdout, err := c.ExecInPod(ctx, namespace, pod, defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
 	if err != nil {
