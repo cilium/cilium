@@ -156,6 +156,11 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			WithScenarios(
 				tests.OutsideToNodePort(),
 			)
+		ct.NewTest("pod-to-pod-encryption").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryption)).
+			WithScenarios(
+				tests.PodToPodEncryption(),
+			)
 
 		return ct.Run(ctx)
 	}
