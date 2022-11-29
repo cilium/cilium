@@ -21,7 +21,7 @@ jobs:
           go-version: 1.19.3
 
       - name: Generate the artifacts
-        run: make release
+        run: RELEASE_UID=0 RELEASE_GID=0 RELEASE_USER= RELEASE_GROUP= make release
 
       - name: Create Release
         id: create_release
