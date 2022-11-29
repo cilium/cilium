@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
@@ -1635,7 +1636,6 @@ type daemonParams struct {
 	Datapath       datapath.Datapath
 	WGAgent        *wg.Agent `optional:"true"`
 	LocalNodeStore node.LocalNodeStore
-	BGPController  *bgpv1.Controller
 	Shutdowner     hive.Shutdowner
 }
 
@@ -1871,9 +1871,19 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
-	// Assign the BGP Control to the struct field so non-modularized components can interact with the BGP Controller
-	// like they are used to.
-	d.bgpControlPlaneController = params.BGPController
+	if option.Config.BGPControlPlaneEnabled() {
+		switch option.Config.IPAM {
+		case ipamOption.IPAMClusterPool:
+		case ipamOption.IPAMClusterPoolV2:
+		case ipamOption.IPAMKubernetes:
+		default:
+			log.Fatalf("BGP control plane cannot be utilized with IPAM mode: %v", option.Config.IPAM)
+		}
+		log.Info("Initializing BGP Control Plane")
+		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
+			log.Fatalf("failed to initialize BGP control plane: %s", err)
+		}
+	}
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
@@ -1899,6 +1909,18 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
 		params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
+}
+
+func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {
+	// goBGP is currently the only supported RouterManager, if more are
+	// implemented replace this hard-coding with a construction switch.
+	rm := gobgp.NewBGPRouterManager()
+	ctrl, err := bgpv1.NewController(d.ctx, d.clientset, rm)
+	if err != nil {
+		return fmt.Errorf("failed to instantiate BGP Control Plane: %v", err)
+	}
+	d.bgpControlPlaneController = ctrl
+	return nil
 }
 
 func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
