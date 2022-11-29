@@ -1,4 +1,4 @@
-package cache
+package cache_test
 
 import (
 	"context"
@@ -13,12 +13,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-
-	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	. "github.com/cilium/cilium/pkg/service/cache"
 )
 
 var (

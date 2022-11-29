@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package k8s
+package cache_test
 
 import (
-	"net"
+	"testing"
 	"time"
 
-	"gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -22,14 +22,36 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
+
+	. "github.com/cilium/cilium/pkg/service/cache"
 )
 
-func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
-	svcID1 := ServiceID{Name: "svc1", Namespace: "default"}
-	svcID2 := ServiceID{Name: "svc2", Namespace: "default"}
+/*
+func newForTests() *serviceCache {
+	testHive := hive.New(
+		// Dependencies:
+		cell.Provide(func() cacheResources { return mocks }),
+		cell.Provide(fakeDatapath.NewNodeAddressing),
+		// ServiceCache itself:
+		Cell,
+		// Pull out the constructed ServiceCache so we can test
+		// against it.
+		cell.Invoke(func(s ServiceCache) {
+			cache = s
+		}),
+	)
 
-	endpoints := Endpoints{
-		Backends: map[cmtypes.AddrCluster]*Backend{
+	err := testHive.Start(context.TODO())
+	assert.NoError(t, err, "expected hive.Start to succeed")
+}*/
+
+/*
+func (s *CacheSuite) TestGetUniqueServiceFrontends(c *check.C) {
+	svcID1 := k8s.ServiceID{Name: "svc1", Namespace: "default"}
+	svcID2 := k8s.ServiceID{Name: "svc2", Namespace: "default"}
+
+	endpoints := k8s.Endpoints{
+		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			cmtypes.MustParseAddrCluster("3.3.3.3"): {
 				Ports: map[string]*loadbalancer.L4Addr{
 					"port": {
@@ -114,9 +136,9 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, addrCluster1, 20, scope)
 		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
 	}
-}
+}*/
 
-func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
+func TestServiceCacheEndpoints(t *testing.T) {
 	k8sEndpoints := &slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
@@ -143,10 +165,10 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 		svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
 	}
 
-	testServiceCache(c, updateEndpoints, deleteEndpoints)
+	testServiceCache(t, updateEndpoints, deleteEndpoints)
 }
 
-func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
+func TestServiceCacheEndpointSlice(t *testing.T) {
 	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -179,10 +201,10 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
 	}
 
-	testServiceCache(c, updateEndpoints, deleteEndpoints)
+	testServiceCache(t, updateEndpoints, deleteEndpoints)
 }
 
-func testServiceCache(c *check.C,
+func testServiceCache(t *testing.T,
 	updateEndpointsCB, deleteEndpointsCB func(svcCache *ServiceCacheOLD, swgEps *lock.StoppableWaitGroup)) {
 
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
@@ -220,7 +242,7 @@ func testServiceCache(c *check.C,
 
 	// The service should be ready as both service and endpoints have been
 	// imported
-	c.Assert(testutils.WaitUntil(func() bool {
+	assert.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
 		c.Assert(event.Action, check.Equals, UpdateService)
@@ -322,12 +344,12 @@ func testServiceCache(c *check.C,
 	}, 2*time.Second), check.IsNil)
 }
 
-func (s *K8sSuite) TestCacheActionString(c *check.C) {
+func (s *CacheSuite) TestCacheActionString(c *check.C) {
 	c.Assert(UpdateService.String(), check.Equals, "service-updated")
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")
 }
 
-func (s *K8sSuite) TestServiceMerging(c *check.C) {
+func (s *CacheSuite) TestServiceMerging(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
@@ -628,7 +650,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 }
 
-func (s *K8sSuite) TestNonSharedService(c *check.C) {
+func (s *CacheSuite) TestNonSharedService(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
@@ -677,7 +699,7 @@ func (s *K8sSuite) TestNonSharedService(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 }
 
-func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
+func (s *CacheSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	k8sEndpointSlice1 := &slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -920,7 +942,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 }
 
-func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
+func (s *CacheSuite) TestServiceEndpointFiltering(c *check.C) {
 	k8sSvc := &slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
