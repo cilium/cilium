@@ -86,12 +86,6 @@ func (c *CESToCEPMapping) getCESTracker(cesName string) (*cesTracker, bool) {
 	return ces, ok
 }
 
-func (c *CESToCEPMapping) getCESTrackerOnly(cesName string) *cesTracker {
-	c.cesMutex.RLock()
-	defer c.cesMutex.RUnlock()
-	return c.desiredCESs[CESName(cesName)]
-}
-
 func (c *CESToCEPMapping) getAllCESs() []*cesTracker {
 	c.cesMutex.RLock()
 	defer c.cesMutex.RUnlock()
