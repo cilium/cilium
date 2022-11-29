@@ -1438,7 +1438,7 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d.policy.BumpRevision() // force policy recalculation
 }
 
-// numWorkerThreads returns the number of worker threads with a minimum of 4.
+// numWorkerThreads returns the number of worker threads with a minimum of 2.
 func numWorkerThreads() int {
 	ncpu := runtime.NumCPU()
 	minWorkerThreads := 2
