@@ -382,9 +382,8 @@ bpf:
   # active connections.
   monitorInterval: "5s"
 
-  # -- Configure which TCP flags trigger notifications when seen for the
-  # first time in a connection.
-  monitorFlags: "all"
+  # -- Configure which TCP flags trigger notifications when changed.
+  monitorFlags: syn fin rst
 
   # -- Allow cluster external access to ClusterIP services.
   lbExternalClusterIP: false

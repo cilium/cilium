@@ -81,7 +81,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.mapDynamicSizeRatio | float64 | `0.0025` | Configure auto-sizing for all BPF maps based on available memory. ref: https://docs.cilium.io/en/stable/concepts/ebpf/maps/#ebpf-maps |
 | bpf.masquerade | bool | `false` | Enable native IP masquerade support in eBPF |
 | bpf.monitorAggregation | string | `"medium"` | Configure the level of aggregation for monitor notifications. Valid options are none, low, medium, maximum. |
-| bpf.monitorFlags | string | `"all"` | Configure which TCP flags trigger notifications when seen for the first time in a connection. |
+| bpf.monitorFlags | string | `"syn fin rst"` | Configure which TCP flags trigger notifications when changed. |
 | bpf.monitorInterval | string | `"5s"` | Configure the typical time between monitor notifications for active connections. |
 | bpf.mountHostBoot | bool | `true` | Enable host boot directory mount for BPF clock source probing |
 | bpf.natMax | int | `524288` | Configure the maximum number of entries for the NAT table. |

@@ -276,8 +276,8 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-interval: {{ include "validateDuration" .Values.bpf.monitorInterval | quote }}
 
-  # The monitor aggregation flags determine which TCP flags which, upon the
-  # first observation, cause monitor notifications to be generated.
+  # The monitor aggregation flags determine which TCP flags trigger monitor
+  # reports when changed.
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: {{ .Values.bpf.monitorFlags }}

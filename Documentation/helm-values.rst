@@ -122,9 +122,9 @@
      - string
      - ``"medium"``
    * - bpf.monitorFlags
-     - Configure which TCP flags trigger notifications when seen for the first time in a connection.
+     - Configure which TCP flags trigger notifications when changed.
      - string
-     - ``"all"``
+     - ``"syn fin rst"``
    * - bpf.monitorInterval
      - Configure the typical time between monitor notifications for active connections.
      - string
