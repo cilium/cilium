@@ -181,6 +181,103 @@ func (s *Service) GetCurrentTs() time.Time {
 	return time.Now()
 }
 
+func (s *Service) populateBackendMapV2FromV3(ipv4, ipv6 bool) error {
+	const (
+		v4 = "ipv4"
+		v6 = "ipv6"
+	)
+
+	var (
+		count int
+		err   error
+		v3Map *bpf.Map
+	)
+
+	enabled := map[string]bool{v4: ipv4, v6: ipv6}
+
+	for v, e := range enabled {
+		if !e {
+			continue
+		}
+
+		copyBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+			var (
+				v2Map          *bpf.Map
+				v2BackendKey   lbmap.BackendKey
+				v2BackendValue lbmap.BackendValue
+			)
+
+			if v == v4 {
+				backendKey := key.(*lbmap.Backend4KeyV3)
+				backendValue := value.(*lbmap.Backend4ValueV3)
+				v2Map = lbmap.Backend4MapV2
+				v2BackendKey = lbmap.NewBackend4KeyV2(backendKey.GetID())
+				v2BackendValue, err = lbmap.NewBackend4Value(
+					backendValue.Address[:],
+					backendValue.Port,
+					backendValue.Proto,
+				)
+				if err != nil {
+					log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Failed to create value")
+				}
+				if backendValue.ClusterID != 0 || backendValue.Flags != 0 {
+					count = count + 1
+					return
+				}
+			} else {
+				backendKey := key.(*lbmap.Backend6KeyV3)
+				backendValue := value.(*lbmap.Backend6ValueV3)
+				v2Map = lbmap.Backend6MapV2
+				v2BackendKey = lbmap.NewBackend6KeyV2(backendKey.GetID())
+				v2BackendValue, err = lbmap.NewBackend6Value(
+					backendValue.Address[:],
+					backendValue.Port,
+					backendValue.Proto,
+				)
+				if err != nil {
+					log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Failed to create value")
+				}
+				if backendValue.ClusterID != 0 || backendValue.Flags != 0 {
+					count = count + 1
+					return
+				}
+			}
+
+			err := v2Map.Update(v2BackendKey, v2BackendValue)
+			if err != nil {
+				log.WithError(err).WithField(logfields.BPFMapName, v2Map.Name()).Warn("Error updating backend map")
+			}
+		}
+
+		if v == v4 {
+			v3Map = lbmap.Backend4MapV3
+		} else {
+			v3Map = lbmap.Backend6MapV3
+		}
+		count = 0
+
+		err = v3Map.DumpWithCallback(copyBackendEntries)
+		if err != nil {
+			return fmt.Errorf("Unable to populate %s: %w", v3Map.Name(), err)
+		}
+
+		err = v3Map.Close()
+		if err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Warn("Error closing map")
+		}
+
+		err = v3Map.Unpin()
+		if err != nil {
+			log.WithError(err).WithField(logfields.BPFMapName, v3Map.Name()).Warn("Error unpinning map")
+		}
+
+		if count > 0 {
+			log.WithField(logfields.NumEntries, count).WithField(logfields.BPFMapName, v3Map.Name()).Warn("Dropped map entries from v2 map")
+		}
+	}
+	return nil
+}
+
 func (s *Service) populateBackendMapV2FromV1(ipv4, ipv6 bool) error {
 	const (
 		v4 = "ipv4"
@@ -259,6 +356,8 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	var (
 		v1BackendMapExistsV4 bool
 		v1BackendMapExistsV6 bool
+		v3BackendMapExistsV4 bool
+		v3BackendMapExistsV6 bool
 	)
 
 	toOpen := []*bpf.Map{}
@@ -274,6 +373,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 			}
 		}
 		v1BackendMapExistsV6 = lbmap.Backend6Map.Open() == nil
+		v3BackendMapExistsV6 = lbmap.Backend6MapV3.Open() == nil
 	}
 	if ipv4 {
 		toOpen = append(toOpen, lbmap.Service4MapV2, lbmap.Backend4MapV2, lbmap.RevNat4Map)
@@ -286,6 +386,7 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 			}
 		}
 		v1BackendMapExistsV4 = lbmap.Backend4Map.Open() == nil
+		v3BackendMapExistsV4 = lbmap.Backend4MapV3.Open() == nil
 	}
 
 	for _, m := range toOpen {
@@ -303,6 +404,13 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 		log.Info("Backend map v1 exists. Migrating entries to backend map v2.")
 		if err := s.populateBackendMapV2FromV1(v1BackendMapExistsV4, v1BackendMapExistsV6); err != nil {
 			log.WithError(err).Warn("Error populating V2 map from V1 map, might interrupt existing connections during upgrade")
+		}
+	}
+
+	if v3BackendMapExistsV4 || v3BackendMapExistsV6 {
+		log.Info("Backend map v3 exists. Migrating entries to backend map v2.")
+		if err := s.populateBackendMapV2FromV3(v3BackendMapExistsV4, v3BackendMapExistsV6); err != nil {
+			log.WithError(err).Warn("Error populating V2 map from V3 map, might interrupt existing connections during upgrade")
 		}
 	}
 
