@@ -10,6 +10,7 @@ import (
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 
+	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -106,8 +107,8 @@ func TestPreflightReconciler(t *testing.T) {
 				LocalASN: 64125,
 			}
 			cstate := &agent.ControlPlaneState{
-				Annotations: agent.AnnotationMap{
-					64125: agent.Attributes{
+				Annotations: bgpv1.AnnotationMap{
+					64125: bgpv1.Attributes{
 						RouterID:  tt.newRouterID,
 						LocalPort: tt.newLocalPort,
 					},
