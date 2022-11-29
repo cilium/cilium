@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/readiness"
 	"github.com/cilium/cilium/pkg/service/cache"
 )
 
@@ -24,8 +25,12 @@ type ServiceManager interface {
 	// ...
 }
 
+const (
+	moduleId = "service-manager"
+)
+
 var Cell = cell.Module(
-	"service-manager",
+	moduleId,
 	"Service Manager",
 
 	cell.Provide(newServiceManager),
@@ -38,6 +43,7 @@ type serviceManagerParams struct {
 
 	ServiceCache cache.ServiceCache
 	Datapath     datapath.Datapath
+	Readiness    *readiness.Readiness
 }
 
 func newServiceManager(p serviceManagerParams) ServiceManager {
@@ -52,13 +58,15 @@ func newServiceManager(p serviceManagerParams) ServiceManager {
 		wp:                   workerpool.New(8),
 	}
 	p.Lifecycle.Append(sm)
+	sm.ready = p.Readiness.Add(moduleId)
 	return sm
 }
 
 type serviceManager struct {
 	serviceManagerParams
-	svc *Service
-	wp  *workerpool.WorkerPool
+	svc   *Service
+	wp    *workerpool.WorkerPool
+	ready func()
 }
 
 var _ ServiceManager = &serviceManager{}
@@ -67,9 +75,6 @@ var _ hive.HookInterface = &serviceManager{}
 // Start implements hive.HookInterface
 func (sm *serviceManager) Start(hive.HookContext) error {
 	return sm.wp.Submit("processEvents", sm.processEvents)
-	// TODO should probably block and wait for subscribing
-	// to ServiceCache.Events(). Or we expose WaitForSync()
-	// similar to ServiceCache and wait in daemon for that.
 }
 
 // Stop implements hive.HookInterface
@@ -79,12 +84,12 @@ func (sm *serviceManager) Stop(hive.HookContext) error {
 
 func (sm *serviceManager) processEvents(ctx context.Context) error {
 	for event := range sm.ServiceCache.Events(ctx) {
-
 		switch event.Action {
+		case cache.Synchronized:
+			sm.ready()
 		case cache.UpdateService:
 			sm.upsert(event.ID, event.OldService, event.Service, event.Endpoints)
 		}
-
 	}
 	return nil
 }

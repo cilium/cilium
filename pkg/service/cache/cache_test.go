@@ -35,18 +35,18 @@ type cacheResources struct {
 func TestServiceCache(t *testing.T) {
 	var cache ServiceCache
 
-	mockNodes := resource.NewMockResource[*corev1.Node]()
-	mockServices := resource.NewMockResource[*slim_corev1.Service]()
-	mockEndpoints := resource.NewMockResource[*k8s.Endpoints]()
-	mocks := cacheResources{
-		Nodes:     mockNodes,
-		Services:  mockServices,
-		Endpoints: mockEndpoints,
+	fakeNodes := resource.NewFakeResource[*corev1.Node]()
+	fakeServices := resource.NewFakeResource[*slim_corev1.Service]()
+	fakeEndpoints := resource.NewFakeResource[*k8s.Endpoints]()
+	fakes := cacheResources{
+		Nodes:     fakeNodes,
+		Services:  fakeServices,
+		Endpoints: fakeEndpoints,
 	}
 
 	testHive := hive.New(
 		// Dependencies:
-		cell.Provide(func() cacheResources { return mocks }),
+		cell.Provide(func() cacheResources { return fakes }),
 		cell.Provide(fakeDatapath.NewNodeAddressing),
 		// ServiceCache itself:
 		Cell,
@@ -64,14 +64,14 @@ func TestServiceCache(t *testing.T) {
 	events := cache.Events(ctx)
 
 	// FIXME test node labels
-	// mockNodes.EmitUpdate(...)
-	mockNodes.EmitSync()
+	// fakeNodes.EmitUpdate(...)
+	fakeNodes.EmitSync()
 
 	serviceID := k8s.ServiceID{Name: "svc1", Namespace: "default"}
 	serviceClusterIP := "1.2.3.4"
 
 	// Emit the service and mark services synced.
-	mockServices.EmitUpsert(&slim_corev1.Service{
+	fakeServices.EmitUpsert(&slim_corev1.Service{
 		ObjectMeta: slim_metav1.ObjectMeta{Namespace: serviceID.Namespace, Name: serviceID.Name, ResourceVersion: "1"},
 		Spec: slim_corev1.ServiceSpec{
 			Type:      slim_corev1.ServiceTypeClusterIP,
@@ -96,7 +96,7 @@ func TestServiceCache(t *testing.T) {
 	backendClusterIP := cmtypes.MustParseAddrCluster("2.3.4.5")
 
 	// Emit the an endpoint for the service and mark endpoints synced.
-	mockEndpoints.EmitUpsert(&k8s.Endpoints{
+	fakeEndpoints.EmitUpsert(&k8s.Endpoints{
 		EndpointSliceID: epSliceID,
 		Backends: map[cmtypes.AddrCluster]*k8s.Backend{
 			backendClusterIP: {
@@ -115,8 +115,8 @@ func TestServiceCache(t *testing.T) {
 	assert.Equal(t, []net.IP{net.ParseIP(serviceClusterIP)}, ev.Service.FrontendIPs)
 
 	// Mark both resources as synced. This should emit the Synchronized event.
-	mockServices.EmitSync()
-	mockEndpoints.EmitSync()
+	fakeServices.EmitSync()
+	fakeEndpoints.EmitSync()
 	ev = <-events
 	assert.Equal(t, Synchronized, ev.Action)
 
