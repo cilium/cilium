@@ -623,3 +623,8 @@ func (ct *ConnectivityTest) K8sClient() *k8s.Client {
 func (ct *ConnectivityTest) NodesWithoutCilium() []string {
 	return ct.nodesWithoutCilium
 }
+
+func (ct *ConnectivityTest) Feature(f Feature) (FeatureStatus, bool) {
+	s, ok := ct.features[f]
+	return s, ok
+}
