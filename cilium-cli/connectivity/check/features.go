@@ -26,6 +26,7 @@ const (
 	FeatureL7Proxy            Feature = "l7-proxy"
 	FeatureHostFirewall       Feature = "host-firewall"
 	FeatureICMPPolicy         Feature = "icmp-policy"
+	FeatureTunnel             Feature = "tunnel"
 
 	FeatureKPRMode                Feature = "kpr-mode"
 	FeatureKPRExternalIPs         Feature = "kpr-external-ips"
@@ -159,6 +160,15 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	}
 	result[FeatureCNIChaining] = FeatureStatus{
 		Enabled: mode != "none",
+		Mode:    mode,
+	}
+
+	mode = "Disabled"
+	if v, ok := cm.Data["tunnel"]; ok {
+		mode = v
+	}
+	result[FeatureTunnel] = FeatureStatus{
+		Enabled: mode != "Disabled",
 		Mode:    mode,
 	}
 
