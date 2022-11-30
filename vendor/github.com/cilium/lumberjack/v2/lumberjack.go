@@ -3,7 +3,7 @@
 // Note that this is v2.0 of lumberjack, and should be imported using gopkg.in
 // thusly:
 //
-//   import "gopkg.in/natefinch/lumberjack.v2"
+//	import "gopkg.in/natefinch/lumberjack.v2"
 //
 // The package name remains simply lumberjack, and the code resides at
 // https://github.com/natefinch/lumberjack under the v2.0 branch.
@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -67,7 +68,7 @@ var _ io.WriteCloser = (*Logger)(nil)
 // `/var/log/foo/server.log`, a backup created at 6:30pm on Nov 11 2016 would
 // use the filename `/var/log/foo/server-2016-11-04T18-30-00.000.log`
 //
-// Cleaning Up Old Log Files
+// # Cleaning Up Old Log Files
 //
 // Whenever a new logfile gets created, old log files may be deleted.  The most
 // recent files according to the encoded timestamp will be retained, up to a
@@ -107,6 +108,10 @@ type Logger struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" yaml:"compress"`
+
+	// FileMode is the file's mode and permission bits of the log file. If set
+	// it will be used as the specified mode.
+	FileMode fs.FileMode
 
 	size int64
 	file *os.File
@@ -214,6 +219,11 @@ func (l *Logger) openNew() error {
 
 	name := l.filename()
 	mode := os.FileMode(0644)
+
+	if l.fileModeIsSet() {
+		mode = l.FileMode
+	}
+
 	info, err := osStat(name)
 	if err == nil {
 		// Copy the mode off the old logfile.
@@ -296,6 +306,16 @@ func (l *Logger) filename() string {
 	}
 	name := filepath.Base(os.Args[0]) + "-lumberjack.log"
 	return filepath.Join(os.TempDir(), name)
+}
+
+// fileModeIsSet checks if the file mode of the log file was set. If so
+// it returns true. It does not validate the mode.
+func (l *Logger) fileModeIsSet() bool {
+	if uint32(l.FileMode) != 0 {
+		return true
+	}
+
+	return false
 }
 
 // millRunOnce performs compression and removal of stale log files.
@@ -507,18 +527,17 @@ func compressLogFile(src, dst string) (err error) {
 		return err
 	}
 
-	// Flush the gz writer before Sync()ing
-	if err := gz.Flush(); err != nil {
+	// Close the gzip writer.
+	// Closing also triggers a Flush to the underlying
+	// io.Writer, and doesnot close the underlying io.Writer.
+	// We must Close() or Flush() the gz writer before Sync()ing otherwise we may
+	// see partially written data and a corrupt gzip archive.
+	if err := gz.Close(); err != nil {
 		return err
 	}
 
 	// fsync is important, otherwise os.Rename could rename a zero-length file
 	if err := gzf.Sync(); err != nil {
-		return err
-	}
-
-	// Close the gzip writer
-	if err := gz.Close(); err != nil {
 		return err
 	}
 
