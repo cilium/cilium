@@ -397,6 +397,8 @@ contributors across the globe, there is almost always someone available to help.
 | monitor | object | `{"enabled":false}` | cilium-monitor sidecar. |
 | monitor.enabled | bool | `false` | Enable the cilium-monitor sidecar. |
 | name | string | `"cilium"` | Agent container name. |
+| nat46x64Gateway | object | `{"enabled":false}` | Configure standalone NAT46/NAT64 gateway |
+| nat46x64Gateway.enabled | bool | `false` | Enable RFC8215-prefixed translation |
 | nodePort | object | `{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enabled":false}` | Configure N-S k8s service loadbalancing |
 | nodePort.autoProtectPortRange | bool | `true` | Append NodePort range to ip_local_reserved_ports if clash with ephemeral ports is detected. |
 | nodePort.bindProtection | bool | `true` | Set to true to prevent applications binding to service ports. |
@@ -513,8 +515,6 @@ contributors across the globe, there is almost always someone available to help.
 | sockops | object | `{"enabled":false}` | Configure BPF socket operations configuration |
 | startupProbe.failureThreshold | int | `105` | failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s) |
 | startupProbe.periodSeconds | int | `2` | interval between checks of the startup probe |
-| statelessNat46x64 | object | `{"enabled":false}` | Configure Stateless NAT46/NAT64 translation |
-| statelessNat46x64.enabled | bool | `false` | Enable RFC8215-prefixed translation |
 | svcSourceRangeCheck | bool | `true` | Enable check of service source ranges (currently, only for LoadBalancer). |
 | synchronizeK8sNodes | bool | `true` | Synchronize Kubernetes nodes to kvstore and perform CNP GC. |
 | terminationGracePeriodSeconds | int | `1` | Configure termination grace period for cilium-agent DaemonSet. |

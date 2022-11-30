@@ -310,7 +310,7 @@ helm upgrade cilium ${HELM_CHART_DIR} \
     --wait \
     --namespace kube-system \
     --reuse-values \
-    --set statelessNat46x64.enabled=true
+    --set nat46x64Gateway.enabled=true
 kubectl -n kube-system delete pod -l k8s-app=cilium
 kubectl -n kube-system rollout status ds/cilium --timeout=5m
 
@@ -328,7 +328,7 @@ helm upgrade cilium ${HELM_CHART_DIR} \
     --wait \
     --namespace kube-system \
     --reuse-values \
-    --set statelessNat46x64.enabled=false \
+    --set nat46x64Gateway.enabled=false \
     --set loadBalancer.acceleration=disabled
 kubectl -n kube-system delete pod -l k8s-app=cilium
 kubectl -n kube-system rollout status ds/cilium --timeout=5m

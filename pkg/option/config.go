@@ -670,8 +670,8 @@ const (
 	// EnableSCTPName is the name of the option to enable SCTP support
 	EnableSCTPName = "enable-sctp"
 
-	// EnableStatelessNat46X64 enables L3 based NAT46 and NAT64 translation
-	EnableStatelessNat46X64 = "enable-stateless-nat46x64"
+	// EnableNat46X64Gateway enables L3 based NAT46 and NAT64 gateway
+	EnableNat46X64Gateway = "enable-nat46x64-gateway"
 
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
@@ -1552,8 +1552,8 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
-	// EnableStatelessNat46X64 is true when L3 based NAT46 and NAT64 translation is enabled
-	EnableStatelessNat46X64 bool
+	// EnableNat46X64Gateway is true when L3 based NAT46 and NAT64 translation is enabled
+	EnableNat46X64Gateway bool
 
 	// EnableIPv6NDP is true when NDP is enabled for IPv6
 	EnableIPv6NDP bool
@@ -2957,7 +2957,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
-	c.EnableStatelessNat46X64 = vp.GetBool(EnableStatelessNat46X64)
+	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
@@ -3009,10 +3009,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	if c.EnableStatelessNat46X64 {
+	if c.EnableNat46X64Gateway {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
 			log.Fatalf("--%s requires both --%s and --%s enabled",
-				EnableStatelessNat46X64, EnableIPv4Name, EnableIPv6Name)
+				EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name)
 		}
 	}
 

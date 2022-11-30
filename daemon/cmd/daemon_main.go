@@ -255,8 +255,8 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(Vp, option.EnableIPv6Name)
 
-	flags.Bool(option.EnableStatelessNat46X64, false, "Enable stateless NAT46 and NAT64 support")
-	option.BindEnv(Vp, option.EnableStatelessNat46X64)
+	flags.Bool(option.EnableNat46X64Gateway, false, "Enable NAT46 and NAT64 gateway")
+	option.BindEnv(Vp, option.EnableNat46X64Gateway)
 
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
 	option.BindEnv(Vp, option.EnableIPv6NDPName)

@@ -325,7 +325,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
 			}
 		}
-		if option.Config.EnableStatelessNat46X64 {
+		if option.Config.EnableNat46X64Gateway {
 			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
 		}
 		if option.Config.NodePortNat46X64 {
