@@ -925,7 +925,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	if _, err := d.deviceManager.Detect(clientset.IsEnabled()); err != nil {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
@@ -1257,7 +1257,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Start listening to changed devices if requested.
 	if option.Config.EnableRuntimeDeviceDetection {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			devicesChan, err := d.deviceManager.Listen(ctx)
 			if err != nil {
 				log.WithError(err).Warn("Runtime device detection failed to start")
