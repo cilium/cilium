@@ -3055,6 +3055,30 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "gateway": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "prefixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "service": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             },
@@ -7760,6 +7784,30 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "gateway": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "prefixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "service": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             },
@@ -7912,6 +7960,30 @@ func init() {
           "properties": {
             "enabled": {
               "type": "boolean"
+            },
+            "gateway": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "prefixes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "service": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -8028,6 +8100,54 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesNat46X64": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gateway": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "prefixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "service": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64Gateway": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64Service": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
