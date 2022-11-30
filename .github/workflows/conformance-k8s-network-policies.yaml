@@ -3,7 +3,7 @@ name: Cyclonus network policy test
 on:
   schedule:
     # run once a day at midnight
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
 
 permissions: read-all
 

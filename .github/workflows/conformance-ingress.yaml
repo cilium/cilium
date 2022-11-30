@@ -4,15 +4,15 @@ name: ConformanceIngress (Dedicated LB)
 on:
   pull_request:
     paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+      - "Documentation/**"
+      - "test/**"
   push:
     branches:
       - master
       - ft/master/**
     paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+      - "Documentation/**"
+      - "test/**"
 
 permissions: read-all
 

@@ -7,7 +7,7 @@ on:
       - created
   # Run every 6 hours
   schedule:
-    - cron:  '0 2/6 * * *'
+    - cron: "0 2/6 * * *"
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `master`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -202,10 +202,10 @@ jobs:
           cilium version
 
       - name: Set up gcloud credentials
-        id: 'auth'
-        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d'
+        id: "auth"
+        uses: "google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d"
         with:
-          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+          credentials_json: "${{ secrets.GCP_PR_SA_KEY }}"
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@d51b5346f85640ec2aa2fa057354d2b82c2fcbce

@@ -16,7 +16,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
 
@@ -202,10 +202,10 @@ jobs:
           cilium version
 
       - name: Set up gcloud credentials
-        id: 'auth'
-        uses: 'google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d'
+        id: "auth"
+        uses: "google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d"
         with:
-          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+          credentials_json: "${{ secrets.GCP_PR_SA_KEY }}"
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@d51b5346f85640ec2aa2fa057354d2b82c2fcbce

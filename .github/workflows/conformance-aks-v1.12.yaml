@@ -16,7 +16,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
 
@@ -203,9 +203,9 @@ jobs:
 
       - name: Install aks-preview CLI extension
         run: |
-            az extension add --name aks-preview
-            az extension update --name aks-preview
-            az version
+          az extension add --name aks-preview
+          az extension update --name aks-preview
+          az version
 
       - name: Create AKS cluster
         run: |
