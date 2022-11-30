@@ -228,10 +228,10 @@ func TestGetStringMapString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-			viper.AutomaticEnv()
+			vp := viper.New()
+			vp.AutomaticEnv()
 			t.Setenv(strings.ToUpper(tt.args.key), tt.args.value)
-			v, err := GetStringMapStringE(viper.GetViper(), strings.ToLower(tt.args.key))
+			v, err := GetStringMapStringE(vp, strings.ToLower(tt.args.key))
 			tt.wantErr(t, err)
 			assert.Equal(t, tt.want, v)
 		})
@@ -239,9 +239,9 @@ func TestGetStringMapString(t *testing.T) {
 }
 
 func TestGetStringMapStringConversion(t *testing.T) {
-	viper.Reset()
-	viper.Set("foo_bar", struct{}{})
-	v, err := GetStringMapStringE(viper.GetViper(), "foo_bar")
+	vp := viper.New()
+	vp.Set("foo_bar", struct{}{})
+	v, err := GetStringMapStringE(vp, "foo_bar")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to cast struct {}{} of type struct {} to map[string]string")
 	assert.Equal(t, map[string]string{}, v)

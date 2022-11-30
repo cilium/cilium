@@ -567,8 +567,8 @@ endif
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(ECHO_CHECK) contrib/scripts/check-viper-unusable-api.sh
-	$(QUIET) contrib/scripts/check-viper-unusable-api.sh
+	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
+	$(QUIET) contrib/scripts/check-viper.sh
 ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh
