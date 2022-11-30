@@ -120,6 +120,7 @@ cilium-agent [flags]
       --enable-local-node-route                                 Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                            Enable Local Redirect Policy
       --enable-monitor                                          Enable the monitor unix domain socket server (default true)
+      --enable-nat46x64-gateway                                 Enable NAT46 and NAT64 gateway
       --enable-node-port                                        Enable NodePort type services by Cilium
       --enable-pmtu-discovery                                   Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                    Enable policy enforcement (default "default")
@@ -129,7 +130,6 @@ cilium-agent [flags]
       --enable-sctp                                             Enable SCTP support (beta)
       --enable-service-topology                                 Enable support for service topology aware hints
       --enable-session-affinity                                 Enable support for service session affinity
-      --enable-stateless-nat46x64                               Enable stateless NAT46 and NAT64 support
       --enable-svc-source-range-check                           Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                          Enable tracing while determining policy (debugging)
       --enable-unreachable-routes                               Add unreachable routes on pod deletion

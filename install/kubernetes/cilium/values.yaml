@@ -307,8 +307,8 @@ bandwidthManager:
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
 
-# -- Configure Stateless NAT46/NAT64 translation
-statelessNat46x64:
+# -- Configure standalone NAT46/NAT64 gateway
+nat46x64Gateway:
   # -- Enable RFC8215-prefixed translation
   enabled: false
 
