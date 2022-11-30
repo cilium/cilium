@@ -26,4 +26,3 @@ understand the workflow of getting these changes reviewed and merged upstream.
    hubble
    introducing_new_crds
    documentation
-   season_of_docs
