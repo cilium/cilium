@@ -6,6 +6,7 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -62,6 +63,14 @@ type Configuration struct {
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
 	IPCache *ipcache.IPCache
+
+	// ServicesSharedKeyDeleteDelay is the delay before a shared service delete
+	// event is handled. This parameter is optional.
+	ServicesSharedKeyDeleteDelay *time.Duration
+
+	// NodesSharedKeyDeleteDelay is the delay before a shared node delete event
+	// is handled. This parameter is optional.
+	NodesSharedKeyDeleteDelay *time.Duration
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
