@@ -141,7 +141,6 @@ func (lc *DefaultLifecycle) PrintHooks() {
 	for _, hook := range lc.hooks {
 		fnName, exists := getHookFuncName(hook, true)
 		if !exists {
-			fmt.Printf("%v not defined\n", hook)
 			continue
 		}
 		fmt.Printf("  • %s\n", fnName)
