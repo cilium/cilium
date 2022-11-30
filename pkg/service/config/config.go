@@ -83,7 +83,7 @@ func (def ServiceConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden("node-port-algorithm")
 }
 
-var defaultConfig = ServiceConfig{
+var Default = ServiceConfig{
 	// FIXME move definitions from pkg/defaults to here.
 	EnableHealthCheckNodePort: defaults.EnableHealthCheckNodePort,
 	EnableSVCSourceRangeCheck: true,
@@ -93,4 +93,4 @@ var defaultConfig = ServiceConfig{
 	NodePortAlg:               NodePortAlgRandom,
 }
 
-var Cell = cell.Config(defaultConfig)
+var Cell = cell.Config(Default)

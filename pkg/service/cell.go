@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -79,7 +78,7 @@ type serviceManagerParams struct {
 	Lifecycle    hive.Lifecycle
 	Config       config.ServiceConfig
 	ServiceCache cache.ServiceCache
-	Datapath     datapath.Datapath
+	LBMap        datapathTypes.LBMap
 	Readiness    *readiness.Readiness
 }
 
@@ -88,7 +87,7 @@ func newServiceManager(p serviceManagerParams) ServiceManager {
 		p.Config,
 		nil,
 		nil,
-		p.Datapath.LBMap(),
+		p.LBMap,
 	)
 	sm := &serviceManager{
 		serviceManagerParams: p,
@@ -125,6 +124,8 @@ func (sm *serviceManager) Stop(hive.HookContext) error {
 }
 
 // TODO: Check whether delayed assignment of these screws things up.
+// Alternatively could depend optionally on Promise[Monitor], Promise[L7Proxy]
+// and then assign when they're resolved and the follow-up actions if needed.
 func (sm *serviceManager) SetMonitorNotify(m monitorNotify) {
 	sm.Lock()
 	sm.monitorNotify = m

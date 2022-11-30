@@ -19,6 +19,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/service/config"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
@@ -124,15 +125,11 @@ func TestLocalRedirectServiceExistsError(t *testing.T) {
 }
 
 type ManagerTestSuite struct {
-	svc                         *Service
-	lbmap                       *mockmaps.LBMockMap // for accessing public fields
-	svcHealth                   *healthserver.MockHealthHTTPServerFactory
-	prevOptionSessionAffinity   bool
-	prevOptionLBSourceRanges    bool
-	prevOptionNPAlgo            string
-	prevOptionDPMode            string
-	prevOptionExternalClusterIP bool
-	ipv6                        bool
+	svc              *Service
+	lbmap            *mockmaps.LBMockMap // for accessing public fields
+	svcHealth        *healthserver.MockHealthHTTPServerFactory
+	prevOptionDPMode string
+	ipv6             bool
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -142,20 +139,16 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	backendIDAlloc.resetLocalID()
 
 	m.lbmap = mockmaps.NewLBMockMap()
-	m.svc = NewService(nil, nil, m.lbmap)
+	cfg := config.Default
+	cfg.EnableSessionAffinity = true
+	cfg.EnableSVCSourceRangeCheck = true
+	m.svc = newService(cfg, nil, nil, m.lbmap)
+	option.Config.ServiceConfig = cfg
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
 
-	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
-	option.Config.EnableSessionAffinity = true
-
-	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
-	option.Config.EnableSVCSourceRangeCheck = true
-
-	m.prevOptionNPAlgo = option.Config.NodePortAlg
 	m.prevOptionDPMode = option.Config.DatapathMode
-	m.prevOptionExternalClusterIP = option.Config.ExternalClusterIP
 
 	m.ipv6 = option.Config.EnableIPv6
 }
@@ -163,11 +156,7 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 func (m *ManagerTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
-	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
-	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
-	option.Config.NodePortAlg = m.prevOptionNPAlgo
 	option.Config.DatapathMode = m.prevOptionDPMode
-	option.Config.ExternalClusterIP = m.prevOptionExternalClusterIP
 	option.Config.EnableIPv6 = m.ipv6
 }
 
@@ -478,10 +467,11 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Restart service, but keep the lbmap to restore services from
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	cfg := m.svc.cfg
+	cfg.NodePortAlg = config.NodePortAlgMaglev
 	option.Config.DatapathMode = datapathOpt.DatapathModeLBOnly
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = newService(cfg, nil, nil, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -550,7 +540,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 
 	// Restart service, but keep the lbmap to restore services from
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = newService(m.svc.cfg, nil, nil, lbmap)
 	err = m.svc.RestoreServices()
 	c.Assert(err, IsNil)
 	c.Assert(len(m.svc.svcByID), Equals, 2)
@@ -716,12 +706,12 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
 	// NewService sets healthServer to nil if EnableHealthCheckNodePort is
 	// false at start time. We emulate this here by temporarily setting it nil.
-	enableHealthCheckNodePort := option.Config.EnableHealthCheckNodePort
+	enableHealthCheckNodePort := m.svc.cfg.EnableHealthCheckNodePort
 	healthServer := m.svc.healthServer
-	option.Config.EnableHealthCheckNodePort = false
+	m.svc.cfg.EnableHealthCheckNodePort = false
 	m.svc.healthServer = nil
 	defer func() {
-		option.Config.EnableHealthCheckNodePort = enableHealthCheckNodePort
+		m.svc.cfg.EnableHealthCheckNodePort = enableHealthCheckNodePort
 		m.svc.healthServer = healthServer
 	}()
 
@@ -910,7 +900,7 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 // backends are not added to the service map, but are added to the backends and
 // affinity maps.
 func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
 	backends := append(backends4, backends1...)
 	p := &lb.SVC{
 		Frontend:                  frontend1,
@@ -973,8 +963,8 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 // Tests whether upsert service provisions the Maglev LUT for ClusterIP,
 // if ExternalClusterIP is true
 func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
-	option.Config.ExternalClusterIP = true
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
+	m.svc.cfg.ExternalClusterIP = true
 	p := &lb.SVC{
 		Frontend:      frontend1,
 		Backends:      backends1,
@@ -998,7 +988,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
 // Tests whether upsert service doesn't provision the Maglev LUT for ClusterIP,
 // if ExternalClusterIP is false
 func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
 	p := &lb.SVC{
 		Frontend:      frontend1,
 		Backends:      backends1,
@@ -1021,7 +1011,7 @@ func (m *ManagerTestSuite) TestUpsertServiceWithOutExternalClusterIP(c *C) {
 
 // Tests terminating backend entries are not removed after service restore.
 func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
 	backends := append(backends4, backends1...)
 	p := &lb.SVC{
 		Frontend:                  frontend1,
@@ -1055,7 +1045,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = newService(config.Default, nil, nil, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -1245,7 +1235,9 @@ func (m *ManagerTestSuite) TestUpdateBackendsState(c *C) {
 
 // Tests that backend states are restored.
 func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
+	option.Config.ServiceConfig = m.svc.cfg
+
 	backends := append(backends1, backends4...)
 	p1 := &lb.SVC{
 		Frontend:                  frontend1,
@@ -1274,7 +1266,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 
 	// Simulate agent restart.
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = NewService(nil, nil, lbmap)
+	m.svc = newService(m.svc.cfg, nil, nil, lbmap)
 
 	// Restore services from lbmap
 	err = m.svc.RestoreServices()
@@ -1296,7 +1288,7 @@ func (m *ManagerTestSuite) TestRestoreServiceWithBackendStates(c *C) {
 }
 
 func (m *ManagerTestSuite) TestUpsertServiceWithZeroWeightBackends(c *C) {
-	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	m.svc.cfg.NodePortAlg = config.NodePortAlgMaglev
 	backends := append(backends1, backends4...)
 	backends[0].State = lb.BackendStateActive
 	backends[1].Weight = 0

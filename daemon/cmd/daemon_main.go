@@ -42,6 +42,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -1579,7 +1580,15 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	return wgAgent
 }
 
-func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
+// FIXME move these into pkg/datapath/linux/cell.go
+type datapathOut struct {
+	cell.Out
+
+	Datapath datapath.Datapath
+	LBMap    datapathTypes.LBMap
+}
+
+func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapathOut {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1597,7 +1606,12 @@ func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath 
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+	dp := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+
+	return datapathOut{
+		Datapath: dp,
+		LBMap:    dp.LBMap(),
+	}
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has

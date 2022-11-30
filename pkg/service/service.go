@@ -1062,6 +1062,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		p.Frontend.ID = addrID.ID
 
 		svc = &svcInfo{
+			cfg:           s.cfg,
 			hash:          hash,
 			frontend:      p.Frontend,
 			backendByHash: map[string]*lb.Backend{},
@@ -1374,6 +1375,7 @@ func (s *Service) restoreServicesLocked() error {
 		}
 
 		newSVC := &svcInfo{
+			cfg:              s.cfg,
 			hash:             svc.Frontend.Hash(),
 			frontend:         svc.Frontend,
 			backends:         svc.Backends,
