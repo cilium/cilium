@@ -45,8 +45,12 @@ type LocalNodeStore interface {
 // This currently returns the singleton instance instead of constructing a fresh
 // one with newLocalNodeStore() in order to keep the semantics of the global getters/setters
 // as is.
-var LocalNodeStoreCell = cell.Provide(
-	func() LocalNodeStore { return localNode },
+var LocalNodeStoreCell = cell.Module(
+	"local-node-store",
+	"Manages information about the local Cilium node",
+	cell.Provide(
+		func() LocalNodeStore { return localNode },
+	),
 )
 
 // LocalNodeStoreParams are the inputs needed for constructing LocalNodeStore.

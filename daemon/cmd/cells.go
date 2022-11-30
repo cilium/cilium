@@ -50,8 +50,8 @@ var (
 	// actions. This separation enables non-privileged integration testing of
 	// the control-plane.
 	ControlPlane = cell.Module(
-		"controlplane",
-		"Control Plane",
+		"control-plane",
+		"Cilium Control Plane",
 
 		// Readiness allows modules to register as readiness signal providers.
 		// Daemon waits for the signal before finishing initialization and telling
@@ -77,14 +77,8 @@ var (
 		// TODO: Maybe don't have this separately? E.g. if Cache&Manager are merged,
 		// put it there. Datapath/LBMap also need this config. Not sure if that implies
 		// that it should be its own standalone thing?
-		serviceConfig.Cell,
-
-		// Provide NodeAddressing for ServiceCache.
-		cell.Provide(
-			func(dp datapath.Datapath) types.NodeAddressing {
-				return dp.LocalNodeAddressing()
-			},
-		),
+		//serviceConfig.Cell,
+		// XXX ^ this is now in serviceCache.Cell.
 
 		// EndpointManager maintains a collection of the locally running endpoints.
 		endpointmanager.Cell,
@@ -95,18 +89,31 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
-		hacks,
+		//hacks,
 	)
 
 	// Datapath provides the privileged operations to apply control-plane
 	// decision to the kernel.
 	Datapath = cell.Module(
 		"datapath",
-		"Datapath",
+		"Cilium Datapath",
 
 		cell.Provide(
-			newWireguardAgent,
 			newDatapath,
+		),
+
+		// XXX for pretty picture nested it.
+		cell.Module(
+			"wireguard",
+			"Wireguard Agent",
+			cell.Provide(newWireguardAgent),
+		),
+
+		// Provide NodeAddressing for ServiceCache.
+		cell.Provide(
+			func(dp datapath.Datapath) types.NodeAddressing {
+				return dp.LocalNodeAddressing()
+			},
 		),
 	)
 )

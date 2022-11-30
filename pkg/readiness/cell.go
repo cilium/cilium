@@ -10,7 +10,7 @@ import (
 
 var Cell = cell.Module(
 	"readiness",
-	"Coordinates readiness of modules controlling datapath",
+	"Signalling for datapath readiness",
 
 	cell.Provide(New),
 )

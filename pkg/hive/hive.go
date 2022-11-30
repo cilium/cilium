@@ -301,9 +301,11 @@ func (h *Hive) PrintDotGraph() {
 		log.WithError(err).Fatal("Failed to populate object graph")
 	}
 
-	if err := dig.Visualize(h.container, os.Stdout); err != nil {
-		log.WithError(err).Fatal("Failed to Visualize()")
-	}
+	/*
+		if err := dig.Visualize(h.container, os.Stdout); err != nil {
+			log.WithError(err).Fatal("Failed to Visualize()")
+		}*/
+	fmt.Println(cell.CreateDotGraph(h.cells))
 }
 
 // getEnvName returns the environment variable to be used for the given option name.

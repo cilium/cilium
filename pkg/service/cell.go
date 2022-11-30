@@ -67,7 +67,7 @@ const (
 
 var Cell = cell.Module(
 	moduleId,
-	"Service Manager",
+	"Manages the service and backend maps",
 
 	cell.Provide(newServiceManager),
 )

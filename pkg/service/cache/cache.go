@@ -79,6 +79,9 @@ var Cell = cell.Module(
 	"service-cache",
 	"Service Cache stores services and associated endpoints",
 	cell.Provide(newServiceCache),
+
+	config.Cell, // FIXME which modules owns this. Sometimes we need just ServiceCache
+	// but no ServiceManager.
 )
 
 // serviceCacheState captures the internal state. It's a separate struct for DebugStatus().
