@@ -198,7 +198,7 @@ github.com/cilium/ebpf/rlimit
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/lumberjack/v2 v2.2.2
+# github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
 # github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9

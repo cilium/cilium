@@ -175,8 +175,8 @@ github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735 h1:zVAyMgk50mGdTozg5aT
 github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
-github.com/cilium/lumberjack/v2 v2.2.2 h1:RKTdhb63DY0Xu7pE1pipMj7Zq28LyvBGSrCneHiKm4A=
-github.com/cilium/lumberjack/v2 v2.2.2/go.mod h1:yfbtPGmg4i//5oEqzaMxDqSWqgfZFmMoV70Mc2k6v0A=
+github.com/cilium/lumberjack/v2 v2.3.0 h1:IhVJMvPpqDYmQzC0KDhAoy7KlaRsyOsZnT97Nsa3u0o=
+github.com/cilium/lumberjack/v2 v2.3.0/go.mod h1:yfbtPGmg4i//5oEqzaMxDqSWqgfZFmMoV70Mc2k6v0A=
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7 h1:ocC6/1Gz6LJd0XsJiwhcTlAy3yJrJruzh4sjRzUNvQs=
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7/go.mod h1:8nydvUTW+/9nVywCQ9bE/YGzb4EISALP4lKNpK3fFqo=
 github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9 h1:wBQh5SLM94SdqJN6CtE1jEJOXDNIiFX4gPy7HapeEvc=
