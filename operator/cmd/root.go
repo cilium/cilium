@@ -98,7 +98,6 @@ var (
 			registerOperatorHooks,
 		),
 
-		serviceConfig.Cell,
 		cell.Invoke(func(cfg serviceConfig.ServiceConfig) {
 			// HACK HACK HACK
 			option.Config.ServiceConfig = cfg

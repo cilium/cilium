@@ -89,7 +89,7 @@ var (
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
-		//hacks,
+		hacks,
 	)
 
 	// Datapath provides the privileged operations to apply control-plane

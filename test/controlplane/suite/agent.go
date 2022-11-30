@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -59,7 +60,9 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 		// Provide the mocked infrastructure and datapath components
 		cell.Provide(
 			func() k8sClient.Clientset { return clientset },
-			func() datapath.Datapath { return fdp },
+			func() (datapath.Datapath, datapathTypes.LBMap, datapathTypes.NodeAddressing) {
+				return fdp, fdp.LBMap(), fdp.LocalNodeAddressing()
+			},
 		),
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
