@@ -146,9 +146,9 @@ more about Cilium internals and development.
 Documentation Improvements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We would like to make this Cilium documentation :ref:`easier to
-navigate<season_of_docs>`, with more example configurations and links to
-articles and videos that explain features in more depth. 
+We would like to make this Cilium documentation easier to navigate, with more
+example configurations and links to articles and videos that explain features in
+more depth.
 
 .. _rm-influence:
 
