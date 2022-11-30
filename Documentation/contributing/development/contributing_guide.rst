@@ -10,6 +10,22 @@
 How To Contribute
 =================
 
+Cilium Feature Proposals
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Before you start working on a significant code change, it's a good idea to make sure
+that your approach is likely to be accepted. The best way to do this is to
+create a `Cilium issue of type "Feature Request" in 
+GitHub <https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Ffeature&template=feature_template.md&title=CFP%3A+>`_
+where you describe your plans.
+
+For longer proposals, you might like to include a link to an external doc (e.g.
+a Google doc) where it's easier for reviewers to make comments and suggestions
+in-line. The GitHub feature request template includes a link to the `Cilium
+Feature Proposal template <https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit>`_ which you are welcome to use to help structure your
+proposal. Please make a copy of that template, fill it in with your ideas, and 
+ensure it's publicly visible, before adding the link into the GitHub issue. 
+
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
