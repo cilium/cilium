@@ -10,9 +10,9 @@ jobs:
   labeler:
     if: |
       (
-        (github.event.pull_request.author_association != 'OWNER') &&
-        (github.event.pull_request.author_association != 'COLLABORATOR') &&
-        (github.event.pull_request.author_association != 'MEMBER')
+        (github.event.issue.author_association != 'OWNER') &&
+        (github.event.issue.author_association != 'COLLABORATOR') &&
+        (github.event.issue.author_association != 'MEMBER')
       )
     runs-on: ubuntu-latest
     permissions:
