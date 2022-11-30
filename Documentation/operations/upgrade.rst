@@ -328,6 +328,12 @@ Annotations:
 * NodeExternalIP of the local node is now correctly included into the ``host``
   :ref:`entity <Entities based>` (it used to belong to the world entity).
 
+* The scope of the ``policy_implementation_delay`` Prometheus metric has been expanded to cover the
+  full interval from when a policy is first received from a cilium-agent, to when the policy has been
+  applied to endpoints. In previous versions, ``policy_implementation_delay`` only covered the work
+  done by the daemon subsystem to implement the policy. As a result, users may notice an expected
+  increase in ``policy_implementation_delay`` after upgrading.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
