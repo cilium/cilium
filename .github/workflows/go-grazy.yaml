@@ -1,0 +1,12 @@
+name: go-crazy-test
+
+on:
+  pull_request: {}
+
+jobs:
+  hello:
+    runs-on:
+      labels: ubuntu-latest-16-cores
+    steps:
+      - run: |
+          echo hello world
