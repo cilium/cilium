@@ -7,7 +7,7 @@ on:
       - created
   # Run every 6 hours
   schedule:
-    - cron:  '0 5/6 * * *'
+    - cron: "0 5/6 * * *"
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `master`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -119,7 +119,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kernel: ['4.19-main', '5.4-main', '5.10-main', '5.15-main', 'bpf-next-main']
+        kernel:
+          ["4.19-main", "5.4-main", "5.10-main", "5.15-main", "bpf-next-main"]
     timeout-minutes: 60
     steps:
       - name: Set up job variables
@@ -171,19 +172,19 @@ jobs:
       - name: Derive kube-proxy requirements
         shell: bash
         run: |
-            if [[ ${{ matrix.kernel }} == "4.19-"* ]]; then
-              # Only kube-proxy
-              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
-              echo 'KPR=disabled' >> $GITHUB_ENV
-            elif [[ ${{ matrix.kernel }} == "5.4-"* ]]; then
-              # Mixed mode
-              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
-              echo 'KPR=strict' >> $GITHUB_ENV
-            else
-              # Only kube-proxy-replacement
-              echo 'KUBE_PROXY=none' >> $GITHUB_ENV
-              echo 'KPR=strict' >> $GITHUB_ENV
-            fi
+          if [[ ${{ matrix.kernel }} == "4.19-"* ]]; then
+            # Only kube-proxy
+            echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
+            echo 'KPR=disabled' >> $GITHUB_ENV
+          elif [[ ${{ matrix.kernel }} == "5.4-"* ]]; then
+            # Mixed mode
+            echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
+            echo 'KPR=strict' >> $GITHUB_ENV
+          else
+            # Only kube-proxy-replacement
+            echo 'KUBE_PROXY=none' >> $GITHUB_ENV
+            echo 'KPR=strict' >> $GITHUB_ENV
+          fi
 
       - name: Run tests
         uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
@@ -220,7 +221,7 @@ jobs:
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
         with:
-          provision: 'false'
+          provision: "false"
           cmd: |
             cd /host
             kubectl get pods --all-namespaces -o wide
