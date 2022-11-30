@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.10
   timeout: 5m
   gateway_api_version: v0.5.1
 
