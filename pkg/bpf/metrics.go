@@ -11,5 +11,4 @@ const (
 	metricOpGetNextKey = "getNextKey"
 	metricOpObjPin     = "objPin"
 	metricOpObjGet     = "objGet"
-	metricOpGetFDByID  = "getFDByID"
 )
