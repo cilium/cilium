@@ -4,6 +4,8 @@
 package policy
 
 import (
+	"time"
+
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -47,4 +49,8 @@ type AddOptions struct {
 
 	// The source of this policy, one of api, fqdn or k8s
 	Source string
+
+	// The time the policy initially began to be processed in Cilium, such as when the
+	// policy was received from the API server.
+	ProcessingStartTime time.Time
 }
