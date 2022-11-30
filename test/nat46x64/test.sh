@@ -297,7 +297,7 @@ cilium_install \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
     --bpf-lb-mode=snat \
-    --enable-stateless-nat46x64=true
+    --enable-nat46x64-gateway=true
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: XDP
 cilium_install \
@@ -305,7 +305,7 @@ cilium_install \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=native \
     --bpf-lb-mode=snat \
-    --enable-stateless-nat46x64=true
+    --enable-nat46x64-gateway=true
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: restore
 cilium_install \

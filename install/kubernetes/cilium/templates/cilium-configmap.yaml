@@ -559,8 +559,8 @@ data:
   enable-ipv4-fragment-tracking: "false"
 {{- end }}
 
-{{- if .Values.statelessNat46x64.enabled }}
-  enable-stateless-nat46x64: {{ .Values.statelessNat46x64.enabled | quote }}
+{{- if .Values.nat46x64Gateway.enabled }}
+  enable-nat46x64-gateway: {{ .Values.nat46x64Gateway.enabled | quote }}
 {{- end }}
 
 {{- if and .Values.hostFirewall .Values.hostFirewall.enabled }}
