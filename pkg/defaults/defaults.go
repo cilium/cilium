@@ -514,6 +514,9 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+
+	// FQDNGCCacheSize is the default size of the FQDN garbage collection cache
+	FQDNGCCacheSize = 100
 )
 
 var (

@@ -25,9 +25,11 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
+	"github.com/cilium/cilium/pkg/fqdn/gccache"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -172,6 +174,11 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
 	d.dnsNameManager = rg
 
+	err = gccache.InitGCCache(defaults.FQDNGCCacheSize)
+	if err != nil {
+		return err
+	}
+
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	// dns-garbage-collector-job runs the logic to remove stale or undesired
 	// entries from the DNS caches. This is done for all per-EP DNSCache
@@ -217,6 +224,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				}
 				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, ep.DNSZombies)...)
 				alive, dead := ep.DNSZombies.GC()
+
 				if option.Config.MetricsConfig.FQDNActiveZombiesConnections {
 					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
 				}
@@ -270,14 +278,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToClean)))
 			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToClean)
-			namesCount := len(namesToClean)
-			// Limit the amount of info level logging to some sane amount
-			if namesCount > 20 {
-				// namedsToClean is only used for logging after this so we can reslice it in place
-				namesToClean = namesToClean[:20]
-			}
-			log.WithField(logfields.Controller, dnsGCJobName).Infof(
-				"FQDN garbage collector work deleted %d name entries: %s", namesCount, strings.Join(namesToClean, ","))
+
+			// Add garbage collected FQDNs to cache for output in sysdump
+			gccache.Add(namesToClean...)
+
 			return err
 		},
 		Context: d.ctx,
@@ -708,6 +712,26 @@ func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responde
 	}
 
 	return NewGetFqdnCacheIDOK().WithPayload(lookups)
+}
+
+type getFqdnGCCache struct {
+	daemon *Daemon
+}
+
+func NewGetFqdnGCCacheHandler(d *Daemon) GetFqdnGccacheHandler {
+	return &getFqdnGCCache{daemon: d}
+}
+func (h *getFqdnGCCache) Handle(params GetFqdnGccacheParams) middleware.Responder {
+	entries, err := gccache.Dump()
+	if err != nil {
+		switch err.(type) {
+		case gccache.UninitializedError:
+			return NewGetFqdnGccacheUninitialized()
+		default:
+			return NewGetFqdnGccacheFailure()
+		}
+	}
+	return NewGetFqdnGccacheOK().WithPayload(entries)
 }
 
 type getFqdnNamesHandler struct {

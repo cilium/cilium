@@ -2014,6 +2014,8 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 		restAPI.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
 		restAPI.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
 		restAPI.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
+		// /fqdn/gccache
+		restAPI.PolicyGetFqdnGccacheHandler = NewGetFqdnGCCacheHandler(d)
 	}
 
 	// /ip/

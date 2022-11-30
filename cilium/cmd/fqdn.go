@@ -56,6 +56,22 @@ var fqdnListCacheCmd = &cobra.Command{
 	},
 }
 
+var fqdnGCCacheCmd = &cobra.Command{
+	Use:   "gccache",
+	Short: "Manage fqdn garbage collection cache",
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+var fqdnListGCCacheCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List fqdn garbage collection cache contents",
+	Run: func(cmd *cobra.Command, args []string) {
+		listFQDNGCCache()
+	},
+}
+
 var fqdnCacheMatchPattern string
 var fqdnEndpointID string
 var fqdnSource string
@@ -63,8 +79,10 @@ var fqdnSource string
 func init() {
 	fqdnCacheCmd.AddCommand(fqdnListCacheCmd)
 	fqdnCacheCmd.AddCommand(fqdnCleanCacheCmd)
+	fqdnGCCacheCmd.AddCommand(fqdnListGCCacheCmd)
 	fqdnCmd.AddCommand(fqdnCacheCmd)
 	fqdnCmd.AddCommand(fqdnNames)
+	fqdnCmd.AddCommand(fqdnGCCacheCmd)
 	rootCmd.AddCommand(fqdnCmd)
 
 	fqdnCleanCacheCmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation")
@@ -167,6 +185,25 @@ func listFQDNCache() {
 			lookup.TTL,
 			lookup.ExpirationTime.String(),
 			strings.Join(lookup.Ips, ","))
+	}
+	w.Flush()
+}
+
+func listFQDNGCCache() {
+	params := policy.NewGetFqdnGccacheParams()
+	result, err := client.Policy.GetFqdnGccache(params)
+	if err != nil {
+		switch err := err.(type) {
+		case *policy.GetFqdnGccacheUninitialized:
+			// cache not yet initialized, do nothing
+		default:
+			Fatalf("Error: %s\n", err)
+		}
+	}
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "FQDN\tGarbageCollectedTime\t")
+	for _, r := range result.Payload {
+		fmt.Fprintf(w, "%s\t%s\t\n", r.Fqdn, r.GarbageCollectionTime)
 	}
 	w.Flush()
 }

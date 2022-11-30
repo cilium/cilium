@@ -137,6 +137,11 @@ func configureAPI(api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation policy.GetFqdnCacheID has not yet been implemented")
 		})
 	}
+	if api.PolicyGetFqdnGccacheHandler == nil {
+		api.PolicyGetFqdnGccacheHandler = policy.GetFqdnGccacheHandlerFunc(func(params policy.GetFqdnGccacheParams) middleware.Responder {
+			return middleware.NotImplemented("operation policy.GetFqdnGccache has not yet been implemented")
+		})
+	}
 	if api.PolicyGetFqdnNamesHandler == nil {
 		api.PolicyGetFqdnNamesHandler = policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetFqdnNames has not yet been implemented")

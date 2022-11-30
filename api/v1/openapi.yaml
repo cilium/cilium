@@ -932,6 +932,32 @@ paths:
             "$ref": "#/definitions/Error"
         '404':
           description: No DNS data with provided parameters found
+
+  "/fqdn/gccache":
+    get:
+      summary: Retrieves the list of DNS entries that have been garbage collected.
+      description: |
+        Retrieves the list of DNS entries stored in the garbage collection LRU cache.
+      tags:
+      - policy
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/FQDNGCCacheEntry"
+        '500':
+          description: Retrieving FQDNGCCache failed
+          x-go-name: Failure
+          schema:
+            "$ref": "#/definitions/Error"
+        '503':
+          description: FQDNGCCache is not ready
+          x-go-name: Uninitialized
+          schema:
+            "$ref": "#/definitions/Error"
+
   "/fqdn/names":
     get:
       summary: List internal DNS selector representations
@@ -3193,6 +3219,16 @@ definitions:
         type: integer
       source:
         description: The reason this FQDN IP association exists. Either a DNS lookup or an ongoing connection to an IP that was created by a DNS lookup.
+        type: string
+  FQDNGCCacheEntry:
+    description: A FQDN and its garbage collection timestamp
+    type: object
+    properties:
+      fqdn:
+        description: DNS name
+        type: string
+      garbage-collection-time:
+        description: The timestamp for when this FQDN was garbage collected.
         type: string
   IPListEntry:
     description: IP entry with metadata

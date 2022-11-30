@@ -365,6 +365,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		fmt.Sprintf("cilium debuginfo --output=markdown,json -f --output-directory=%s", cmdDir),
 		"cilium metrics list",
 		"cilium fqdn cache list",
+		"cilium fqdn gccache list",
 		"cilium config -a",
 		"cilium encrypt status",
 		"cilium endpoint list",

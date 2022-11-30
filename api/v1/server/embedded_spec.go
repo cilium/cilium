@@ -622,6 +622,40 @@ func init() {
         }
       }
     },
+    "/fqdn/gccache": {
+      "get": {
+        "description": "Retrieves the list of DNS entries stored in the garbage collection LRU cache.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieves the list of DNS entries that have been garbage collected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/FQDNGCCacheEntry"
+              }
+            }
+          },
+          "500": {
+            "description": "Retrieving FQDNGCCache failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "503": {
+            "description": "FQDNGCCache is not ready",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Uninitialized"
+          }
+        }
+      }
+    },
     "/fqdn/names": {
       "get": {
         "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
@@ -2606,6 +2640,20 @@ func init() {
     },
     "Error": {
       "type": "string"
+    },
+    "FQDNGCCacheEntry": {
+      "description": "A FQDN and its garbage collection timestamp",
+      "type": "object",
+      "properties": {
+        "fqdn": {
+          "description": "DNS name",
+          "type": "string"
+        },
+        "garbage-collection-time": {
+          "description": "The timestamp for when this FQDN was garbage collected.",
+          "type": "string"
+        }
+      }
     },
     "FrontendAddress": {
       "description": "Layer 4 address. The protocol is currently ignored, all services will\nbehave as if protocol any is specified. To restrict to a particular\nprotocol, use policy.\n",
@@ -5108,6 +5156,40 @@ func init() {
         }
       }
     },
+    "/fqdn/gccache": {
+      "get": {
+        "description": "Retrieves the list of DNS entries stored in the garbage collection LRU cache.\n",
+        "tags": [
+          "policy"
+        ],
+        "summary": "Retrieves the list of DNS entries that have been garbage collected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/FQDNGCCacheEntry"
+              }
+            }
+          },
+          "500": {
+            "description": "Retrieving FQDNGCCache failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          },
+          "503": {
+            "description": "FQDNGCCache is not ready",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Uninitialized"
+          }
+        }
+      }
+    },
     "/fqdn/names": {
       "get": {
         "description": "Retrieves the list of DNS-related fields (names to poll, selectors and\ntheir corresponding regexes).\n",
@@ -7269,6 +7351,20 @@ func init() {
     },
     "Error": {
       "type": "string"
+    },
+    "FQDNGCCacheEntry": {
+      "description": "A FQDN and its garbage collection timestamp",
+      "type": "object",
+      "properties": {
+        "fqdn": {
+          "description": "DNS name",
+          "type": "string"
+        },
+        "garbage-collection-time": {
+          "description": "The timestamp for when this FQDN was garbage collected.",
+          "type": "string"
+        }
+      }
     },
     "FrontendAddress": {
       "description": "Layer 4 address. The protocol is currently ignored, all services will\nbehave as if protocol any is specified. To restrict to a particular\nprotocol, use policy.\n",

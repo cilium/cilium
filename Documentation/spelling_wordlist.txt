@@ -449,6 +449,7 @@ gatewayAPI
 gcInterval
 gcTags
 gcc
+gccache
 gcloud
 gcp
 geneve
