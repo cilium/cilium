@@ -1,0 +1,12 @@
+name: michi-test
+
+on:
+  pull_request: {}
+
+jobs:
+  hello:
+    runs-on:
+      - ubuntu-latest-4-cores-16GBRAM
+    steps:
+      - run: |
+          uname -a
