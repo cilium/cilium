@@ -248,7 +248,7 @@ func (d *Daemon) PolicyAdd(rules policyAPI.Rules, opts *policy.AddOptions) (newR
 // was not able to be imported.
 func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions, resChan chan interface{}) {
 	policyAddStartTime := time.Now()
-	if !opts.ProcessingStartTime.IsZero() {
+	if opts != nil && !opts.ProcessingStartTime.IsZero() {
 		policyAddStartTime = opts.ProcessingStartTime
 	}
 	logger := log.WithField("policyAddRequest", uuid.New().String())
