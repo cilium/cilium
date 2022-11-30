@@ -2076,6 +2076,28 @@ definitions:
             properties:
               enabled:
                 type: boolean
+              service:
+                description: |-
+
+
+                  +k8s:deepcopy-gen=true
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+              gateway:
+                description: |-
+
+
+                  +k8s:deepcopy-gen=true
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  prefixes:
+                    type: array
+                    items:
+                      type: string
           socketLBTracing:
             description: |-
 
