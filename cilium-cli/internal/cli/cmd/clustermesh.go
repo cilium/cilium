@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium-cli/clustermesh"
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 func newCmdClusterMesh() *cobra.Command {
@@ -297,6 +298,8 @@ func newCmdExternalWorkloadInstall() *cobra.Command {
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
 	cmd.Flags().StringSliceVar(&params.ConfigOverwrites, "config", []string{}, "Cilium agent config entries (key=value)")
 	cmd.Flags().IntVar(&params.Retries, "retries", 4, "Number of Cilium agent start retries")
+
+	cmd.Flags().StringVar(&params.HelmValuesSecretName, "helm-values-secret-name", defaults.HelmValuesSecretName, "Secret name to store the auto-generated helm values file. The namespace is the same as where Cilium will be installed")
 
 	return cmd
 }
