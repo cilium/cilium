@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -117,8 +118,7 @@ func (s *BPFPrivilegedTestSuite) TestOpen(c *C) {
 	noSuchMap := NewMap("cilium_test_no_exist",
 		MapTypeHash, &TestKey{}, 4, &TestValue{}, 4, maxEntries, 0, nil)
 	err := noSuchMap.Open()
-	c.Assert(os.IsNotExist(err), Equals, true)
-	c.Assert(err, ErrorMatches, ".*cilium_test_no_exist.*")
+	c.Assert(errors.Is(err, os.ErrNotExist), Equals, true)
 
 	// existingMap is the same as testMap. Opening should succeed.
 	existingMap := NewMap("cilium_test",
@@ -143,7 +143,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenMap(c *C) {
 	c.Assert(err, Not(IsNil))
 	c.Assert(openedMap, IsNil)
 
-	openedMap, err = OpenMap("cilium_test")
+	openedMap, err = OpenMap(MapPath("cilium_test"))
 	c.Assert(err, IsNil)
 
 	// Check OpenMap warning section
