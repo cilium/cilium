@@ -39,10 +39,12 @@ type NatGateway struct {
 	Name                      string                                   `json:"Name" xml:"Name"`
 	PrivateLinkEnabled        bool                                     `json:"PrivateLinkEnabled" xml:"PrivateLinkEnabled"`
 	PrivateLinkMode           string                                   `json:"PrivateLinkMode" xml:"PrivateLinkMode"`
+	EipBindMode               string                                   `json:"EipBindMode" xml:"EipBindMode"`
 	ForwardTableIds           ForwardTableIdsInDescribeNatGateways     `json:"ForwardTableIds" xml:"ForwardTableIds"`
 	SnatTableIds              SnatTableIdsInDescribeNatGateways        `json:"SnatTableIds" xml:"SnatTableIds"`
 	FullNatTableIds           FullNatTableIdsInDescribeNatGateways     `json:"FullNatTableIds" xml:"FullNatTableIds"`
 	BandwidthPackageIds       BandwidthPackageIdsInDescribeNatGateways `json:"BandwidthPackageIds" xml:"BandwidthPackageIds"`
 	NatGatewayPrivateInfo     NatGatewayPrivateInfo                    `json:"NatGatewayPrivateInfo" xml:"NatGatewayPrivateInfo"`
 	IpLists                   IpLists                                  `json:"IpLists" xml:"IpLists"`
+	Tags                      TagsInDescribeNatGateways                `json:"Tags" xml:"Tags"`
 }

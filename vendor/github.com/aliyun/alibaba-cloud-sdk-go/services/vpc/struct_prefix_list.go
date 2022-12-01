@@ -18,10 +18,15 @@ package vpc
 // PrefixList is a nested struct in vpc response
 type PrefixList struct {
 	PrefixListId          string   `json:"PrefixListId" xml:"PrefixListId"`
-	PrefixListStatus      string   `json:"PrefixListStatus" xml:"PrefixListStatus"`
 	PrefixListName        string   `json:"PrefixListName" xml:"PrefixListName"`
 	PrefixListDescription string   `json:"PrefixListDescription" xml:"PrefixListDescription"`
 	IpVersion             string   `json:"IpVersion" xml:"IpVersion"`
 	CreationTime          string   `json:"CreationTime" xml:"CreationTime"`
+	ShareType             string   `json:"ShareType" xml:"ShareType"`
+	MaxEntries            int      `json:"MaxEntries" xml:"MaxEntries"`
+	Status                string   `json:"Status" xml:"Status"`
+	OwnerId               string   `json:"OwnerId" xml:"OwnerId"`
+	PrefixListStatus      string   `json:"PrefixListStatus" xml:"PrefixListStatus"`
+	RegionId              string   `json:"RegionId" xml:"RegionId"`
 	CidrBlocks            []string `json:"CidrBlocks" xml:"CidrBlocks"`
 }

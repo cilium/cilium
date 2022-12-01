@@ -37,7 +37,7 @@ type UnassignIpv6AddressesInput struct {
 	// The IPv6 addresses to unassign from the network interface.
 	Ipv6Addresses []string
 
-	// One or more IPv6 prefixes to unassign from the network interface.
+	// The IPv6 prefixes to unassign from the network interface.
 	Ipv6Prefixes []string
 
 	noSmithyDocumentSerde

@@ -72,6 +72,7 @@ func (client *Client) CreatePhysicalConnectionWithCallback(request *CreatePhysic
 type CreatePhysicalConnectionRequest struct {
 	*requests.RpcRequest
 	AccessPointId                 string           `position:"Query" name:"AccessPointId"`
+	CloudBoxInstanceId            string           `position:"Query" name:"CloudBoxInstanceId"`
 	ResourceOwnerId               requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	PortType                      string           `position:"Query" name:"PortType"`
 	CircuitCode                   string           `position:"Query" name:"CircuitCode"`

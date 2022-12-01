@@ -70,9 +70,9 @@ type AssignPrivateIpAddressesInput struct {
 	// option if you use the Ipv4PrefixCount option.
 	Ipv4Prefixes []string
 
-	// One or more IP addresses to be assigned as a secondary private IP address to the
-	// network interface. You can't specify this parameter when also specifying a
-	// number of secondary IP addresses. If you don't specify an IP address, Amazon EC2
+	// The IP addresses to be assigned as a secondary private IP address to the network
+	// interface. You can't specify this parameter when also specifying a number of
+	// secondary IP addresses. If you don't specify an IP address, Amazon EC2
 	// automatically selects an IP address within the subnet range.
 	PrivateIpAddresses []string
 

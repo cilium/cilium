@@ -75,6 +75,7 @@ type ModifyFlowLogAttributeRequest struct {
 	Description          string           `position:"Query" name:"Description"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	AggregationInterval  requests.Integer `position:"Query" name:"AggregationInterval"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	FlowLogId            string           `position:"Query" name:"FlowLogId"`
 	FlowLogName          string           `position:"Query" name:"FlowLogName"`

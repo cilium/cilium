@@ -72,22 +72,22 @@ all: generate unit
 # Code Generation #
 ###################
 .PHONY: generate smithy-generate smithy-build smithy-build-% smithy-clean smithy-go-publish-local format \
-gen-config-asserts gen-repo-mod-replace gen-mod-replace-smithy gen-mod-dropreplace-smithy gen-aws-ptrs tidy-modules-% \
+gen-config-asserts gen-repo-mod-replace gen-mod-replace-smithy gen-mod-dropreplace-smithy-% gen-aws-ptrs tidy-modules-% \
 add-module-license-files sync-models sync-endpoints-model sync-endpoints.json clone-v1-models gen-internal-codegen \
 sync-api-models copy-attributevalue-feature min-go-version-% update-requires smithy-annotate-stable \
 update-module-metadata download-modules-%
 
 generate: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
-gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-dropreplace-smithy min-go-version-. \
+gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-dropreplace-smithy-. min-go-version-. \
 tidy-modules-. add-module-license-files gen-aws-ptrs format
 
 smithy-generate:
 	cd codegen && ./gradlew clean build -Plog-tests && ./gradlew clean
 
-smithy-build: gen-repo-mod-replace
+smithy-build:
 	cd codegen && ./gradlew clean build -Plog-tests
 
-smithy-build-%: gen-repo-mod-replace
+smithy-build-%:
 	@# smithy-build- command that uses the pattern to define build filter that
 	@# the smithy API model service id starts with. Strips off the
 	@# "smithy-build-".
@@ -126,13 +126,25 @@ gen-repo-mod-replace:
 	@echo "Generating go.mod replace for repo modules"
 	go run ${REPOTOOLS_CMD_MAKE_RELATIVE}
 
-gen-mod-replace-smithy:
+gen-mod-replace-smithy-%:
+	@# gen-mod-replace-smithy- command that uses the pattern to define build filter that
+	@# for modules to add replace to. Strips off the "gen-mod-replace-smithy-".
+	@#
+	@# SMITHY_GO_SRC environment variable is the path to add replace to
+	@#
+	@# e.g. gen-mod-replace-smithy-service_ssooidc
 	cd ./internal/repotools/cmd/eachmodule \
-    		&& go run . "go mod edit -replace github.com/aws/smithy-go=${SMITHY_GO_SRC}"
+		&& go run . -p $(subst _,/,$(subst gen-mod-replace-smithy-,,$@)) ${EACHMODULE_FLAGS} \
+			"go mod edit -replace github.com/aws/smithy-go=${SMITHY_GO_SRC}"
 
-gen-mod-dropreplace-smithy:
+gen-mod-dropreplace-smithy-%:
+	@# gen-mod-dropreplace-smithy- command that uses the pattern to define build filter that
+	@# for modules to add replace to. Strips off the "gen-mod-dropreplace-smithy-".
+	@#
+	@# e.g. gen-mod-dropreplace-smithy-service_ssooidc
 	cd ./internal/repotools/cmd/eachmodule \
-    		&& go run . "go mod edit -dropreplace github.com/aws/smithy-go"
+		&& go run . -p $(subst _,/,$(subst gen-mod-dropreplace-smithy-,,$@)) ${EACHMODULE_FLAGS} \
+			"go mod edit -dropreplace github.com/aws/smithy-go"
 
 gen-aws-ptrs:
 	cd aws && go generate

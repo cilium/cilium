@@ -17,15 +17,19 @@ package vpc
 
 // FlowLog is a nested struct in vpc response
 type FlowLog struct {
-	FlowLogId    string `json:"FlowLogId" xml:"FlowLogId"`
-	FlowLogName  string `json:"FlowLogName" xml:"FlowLogName"`
-	Description  string `json:"Description" xml:"Description"`
-	CreationTime string `json:"CreationTime" xml:"CreationTime"`
-	ResourceType string `json:"ResourceType" xml:"ResourceType"`
-	ResourceId   string `json:"ResourceId" xml:"ResourceId"`
-	ProjectName  string `json:"ProjectName" xml:"ProjectName"`
-	LogStoreName string `json:"LogStoreName" xml:"LogStoreName"`
-	Status       string `json:"Status" xml:"Status"`
-	TrafficType  string `json:"TrafficType" xml:"TrafficType"`
-	RegionId     string `json:"RegionId" xml:"RegionId"`
+	Status              string      `json:"Status" xml:"Status"`
+	CreationTime        string      `json:"CreationTime" xml:"CreationTime"`
+	FlowLogName         string      `json:"FlowLogName" xml:"FlowLogName"`
+	TrafficType         string      `json:"TrafficType" xml:"TrafficType"`
+	ResourceType        string      `json:"ResourceType" xml:"ResourceType"`
+	Description         string      `json:"Description" xml:"Description"`
+	ProjectName         string      `json:"ProjectName" xml:"ProjectName"`
+	LogStoreName        string      `json:"LogStoreName" xml:"LogStoreName"`
+	ResourceId          string      `json:"ResourceId" xml:"ResourceId"`
+	RegionId            string      `json:"RegionId" xml:"RegionId"`
+	FlowLogId           string      `json:"FlowLogId" xml:"FlowLogId"`
+	BusinessStatus      string      `json:"BusinessStatus" xml:"BusinessStatus"`
+	AggregationInterval int         `json:"AggregationInterval" xml:"AggregationInterval"`
+	ServiceType         string      `json:"ServiceType" xml:"ServiceType"`
+	TrafficPath         TrafficPath `json:"TrafficPath" xml:"TrafficPath"`
 }

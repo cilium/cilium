@@ -38,17 +38,15 @@ type DescribeNetworkInsightsPathsInput struct {
 
 	// The filters. The following are the possible values:
 	//
-	// * Destination - The ID of
+	// * destination - The ID of
 	// the resource.
 	//
-	// * DestinationPort - The destination port.
+	// * destination-port - The destination port.
 	//
-	// * Name - The path
-	// name.
+	// * protocol - The
+	// protocol.
 	//
-	// * Protocol - The protocol.
-	//
-	// * Source - The ID of the resource.
+	// * source - The ID of the resource.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the

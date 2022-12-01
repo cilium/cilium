@@ -68,6 +68,10 @@ type CreateNatGatewayInput struct {
 	// UnauthorizedOperation.
 	DryRun *bool
 
+	// The private IPv4 address to assign to the NAT gateway. If you don't provide an
+	// address, a private IPv4 address will be automatically assigned.
+	PrivateIpAddress *string
+
 	// The tags to assign to the NAT gateway.
 	TagSpecifications []types.TagSpecification
 

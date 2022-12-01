@@ -81,6 +81,7 @@ type ModifyNatGatewayAttributeRequest struct {
 	PrivateLinkMode           string           `position:"Query" name:"PrivateLinkMode"`
 	OwnerId                   requests.Integer `position:"Query" name:"OwnerId"`
 	Name                      string           `position:"Query" name:"Name"`
+	EipBindMode               string           `position:"Query" name:"EipBindMode"`
 }
 
 // ModifyNatGatewayAttributeResponse is the response struct for api ModifyNatGatewayAttribute

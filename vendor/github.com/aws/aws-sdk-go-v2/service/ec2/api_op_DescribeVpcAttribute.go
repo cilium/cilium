@@ -61,6 +61,9 @@ type DescribeVpcAttributeOutput struct {
 	// corresponding IP addresses; otherwise, it does not.
 	EnableDnsSupport *types.AttributeBooleanValue
 
+	// Indicates whether Network Address Usage metrics are enabled for your VPC.
+	EnableNetworkAddressUsageMetrics *types.AttributeBooleanValue
+
 	// The ID of the VPC.
 	VpcId *string
 

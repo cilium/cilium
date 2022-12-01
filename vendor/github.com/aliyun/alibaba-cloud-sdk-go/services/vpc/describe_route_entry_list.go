@@ -71,6 +71,7 @@ func (client *Client) DescribeRouteEntryListWithCallback(request *DescribeRouteE
 // DescribeRouteEntryListRequest is the request struct for api DescribeRouteEntryList
 type DescribeRouteEntryListRequest struct {
 	*requests.RpcRequest
+	DestCidrBlockList    *[]string        `position:"Query" name:"DestCidrBlockList"  type:"Repeated"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	RouteEntryName       string           `position:"Query" name:"RouteEntryName"`
 	NextToken            string           `position:"Query" name:"NextToken"`
@@ -84,6 +85,7 @@ type DescribeRouteEntryListRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	MaxResult            requests.Integer `position:"Query" name:"MaxResult"`
+	ServiceType          string           `position:"Query" name:"ServiceType"`
 	RouteEntryId         string           `position:"Query" name:"RouteEntryId"`
 }
 

@@ -17,6 +17,7 @@ package ecs
 
 // Image is a nested struct in ecs response
 type Image struct {
+	BootMode                string                                      `json:"BootMode" xml:"BootMode"`
 	ImageId                 string                                      `json:"ImageId" xml:"ImageId"`
 	ImageOwnerAlias         string                                      `json:"ImageOwnerAlias" xml:"ImageOwnerAlias"`
 	OSName                  string                                      `json:"OSName" xml:"OSName"`

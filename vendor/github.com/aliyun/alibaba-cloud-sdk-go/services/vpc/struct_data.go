@@ -17,5 +17,5 @@ package vpc
 
 // Data is a nested struct in vpc response
 type Data struct {
-	Logs []string `json:"Logs" xml:"Logs"`
+	OrderId string `json:"OrderId" xml:"OrderId"`
 }
