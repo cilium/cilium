@@ -118,7 +118,6 @@ main() {
     logecho "* Check all changes and add to a new commit"
     logecho "  * If this is a prerelease, create a revert commit"
     logecho "* Push the PR to Github for review ('submit-release.sh')"
-    logecho "* Close https://github.com/cilium/cilium/projects/$old_proj"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"
 
     # Leave $version-changes.txt around for prep-release.sh usage later
