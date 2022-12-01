@@ -743,6 +743,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 								  (__be16)svc->l7_lb_proxy_port);
 		}
 #endif
+		if (unlikely(svc->count == 0))
+			return DROP_NO_SERVICE;
+
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
 				skip_l3_xlate);
@@ -1626,6 +1629,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			if (!ret)
 				return NAT_46X64_RECIRC;
 		} else {
+			if (unlikely(svc->count == 0))
+				return DROP_NO_SERVICE;
+
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr, ipv4_has_l4_header(ip4),
