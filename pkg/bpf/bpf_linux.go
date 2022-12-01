@@ -244,51 +244,6 @@ func GetFirstKey(fd int, nextKey unsafe.Pointer) error {
 	return ret
 }
 
-// This struct must be in sync with union bpf_attr's anonymous struct used by
-// BPF_OBJ_*_ commands
-type bpfAttrObjOp struct {
-	pathname uint64
-	fd       uint32
-	pad0     [4]byte
-}
-
-// ObjGet reads the pathname and returns the map's fd read.
-func ObjGet(pathname string) (int, error) {
-	pathStr, err := unix.BytePtrFromString(pathname)
-	if err != nil {
-		return 0, fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
-	}
-	uba := bpfAttrObjOp{
-		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
-	}
-
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	fd, _, errno := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_OBJ_GET,
-		uintptr(unsafe.Pointer(&uba)),
-		unsafe.Sizeof(uba),
-	)
-	runtime.KeepAlive(pathStr)
-	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
-	}
-
-	if fd == 0 || errno != 0 {
-		return 0, &os.PathError{
-			Op:   "Unable to get object",
-			Err:  errno,
-			Path: pathname,
-		}
-	}
-
-	return int(fd), nil
-}
-
 func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	info, err := GetMapInfo(os.Getpid(), fd)
 	if err != nil {
