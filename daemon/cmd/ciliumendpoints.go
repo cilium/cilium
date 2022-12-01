@@ -110,7 +110,13 @@ func (d *Daemon) deleteCiliumEndpoint(
 			UID: cepUID,
 		},
 	}); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
-			Error("Could not delete stale CEP")
+		logger := log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace})
+		if k8serrors.IsNotFound(err) {
+			// CEP not found, likely already deleted. Do not log as an error as that
+			// will fail CI runs.
+			logger.Debug("Could not delete stale CEP")
+		} else {
+			logger.Error("Could not delete stale CEP")
+		}
 	}
 }
