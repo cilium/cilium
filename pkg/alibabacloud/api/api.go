@@ -36,10 +36,10 @@ const (
 )
 
 var maxAttachRetries = wait.Backoff{
-	Duration: 4 * time.Second,
+	Duration: 2500 * time.Millisecond,
 	Factor:   1,
 	Jitter:   0.1,
-	Steps:    4,
+	Steps:    6,
 	Cap:      0,
 }
 
