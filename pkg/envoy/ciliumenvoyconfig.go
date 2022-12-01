@@ -358,6 +358,13 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
 	}
 	var wg *completion.WaitGroup
+	// Listener config may fail if it refers to a cluster that has not been added yet, so we
+	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
+	// config does not fail for this reason.
+	// Enable wait before new Listeners are added if clusters are also added.
+	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Do not wait for the addition of routes, clusters, endpoints, routes,
 	// or secrets as there are no guarantees that these additions will be
@@ -366,6 +373,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// in which case we could wait forever for the ACKs. This could also
 	// happen if there is no listener referring to these named
 	// resources to begin with.
+	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
 		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
@@ -376,11 +384,26 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	for _, r := range resources.Clusters {
 		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Routes {
 		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	// Wait before new Listeners are added if clusters were also added above.
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpsertEnvoyResources: Wait time for cluster updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+			return err
+		}
+		wg = nil
 	}
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
@@ -573,11 +596,22 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	// Add new Clusters
 	for _, r := range new.Clusters {
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	// Add new Routes
 	for _, r := range new.Routes {
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	if wg != nil && len(new.Clusters) > 0 {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		if err != nil {
+			log.Debug("UpdateEnvoyResources: cluster update failed: ", err)
+		}
+		log.Debug("UpdateEnvoyResources: Wait time for cluster updates: ", time.Since(start))
+		// new wait group for adds
+		wg = completion.NewWaitGroup(ctx)
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {
