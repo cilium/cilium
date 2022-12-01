@@ -15,6 +15,7 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -26,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
-	// be registered for use in Cilium Enco Config CRDs:
+	// be registered for use in Cilium Envoy Config CRDs:
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
@@ -122,60 +123,77 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 						foundCiliumNetworkFilter = true
 					}
 					tc := filter.GetTypedConfig()
-					if tc == nil || tc.GetTypeUrl() != HttpConnectionManagerTypeURL {
+					if tc == nil {
 						continue
 					}
-					any, err := tc.UnmarshalNew()
-					if err != nil {
-						continue
-					}
-					hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
-					if !ok {
-						continue
-					}
-					updated := false
-					if rds := hcmConfig.GetRds(); rds != nil {
-						if rds.ConfigSource == nil {
-							rds.ConfigSource = ciliumXDS
-							updated = true
+					switch tc.GetTypeUrl() {
+					case HttpConnectionManagerTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
 						}
-						// Since we are prepending CEC namespace and name to Routes name,
-						// we must do the same here to point to the correct Route resource.
-						if rds.RouteConfigName != "" {
-							rds.RouteConfigName = resourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
-							updated = true
+						hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
+						if !ok {
+							continue
 						}
+						updated := false
+						if rds := hcmConfig.GetRds(); rds != nil {
+							// Since we are prepending CEC namespace and name to Routes name,
+							// we must do the same here to point to the correct Route resource.
+							if rds.RouteConfigName != "" {
+								rds.RouteConfigName = resourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
+								updated = true
+							}
+							if rds.ConfigSource == nil {
+								rds.ConfigSource = ciliumXDS
+								updated = true
+							}
+						}
+						if listener.GetAddress() == nil {
+							foundCiliumL7Filter := false
+						loop:
+							for j, httpFilter := range hcmConfig.HttpFilters {
+								switch httpFilter.Name {
+								case "cilium.l7policy":
+									foundCiliumL7Filter = true
+								case "envoy.filters.http.router":
+									if !foundCiliumL7Filter {
+										// Inject Cilium HTTP filter just before the HTTP Router filter
+										hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
+										hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
+										updated = true
+									}
+									break loop
+								}
+							}
+						}
+						if updated {
+							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: toAny(hcmConfig),
+							}
+						}
+					case TCPProxyTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						_, ok := any.(*envoy_config_tcp.TcpProxy)
+						if !ok {
+							continue
+						}
+					default:
+						continue
 					}
 					// Only inject Cilium policy enforcement filters for
 					// listeners for which Cilium agent allocates address
 					// for (see below)
 					if listener.GetAddress() == nil {
 						if !foundCiliumNetworkFilter {
-							// Inject Cilium network filter just before the HTTP Connection Manager filter
+							// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 							fc.Filters[i] = &envoy_config_listener.Filter{
 								Name: "cilium.network",
 							}
-						}
-						foundCiliumL7Filter := false
-						for j, httpFilter := range hcmConfig.HttpFilters {
-							switch httpFilter.Name {
-							case "cilium.l7policy":
-								foundCiliumL7Filter = true
-							case "envoy.filters.http.router":
-								if !foundCiliumL7Filter {
-									// Inject Cilium HTTP filter just before the HTTP Router filter
-									hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
-									hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
-									updated = true
-								}
-								break
-							}
-						}
-					}
-					if updated {
-						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(hcmConfig),
 						}
 					}
 					break // Done with this filter chain
