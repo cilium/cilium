@@ -323,6 +323,8 @@ jobs:
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
+            --test '!/pod-to-world' \
+            --test '!/pod-to-cidr' \
             --flow-validation=disabled --hubble=false
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
