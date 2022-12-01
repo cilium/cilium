@@ -69,7 +69,7 @@ env:
   clusterNameBase: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.12.10
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
