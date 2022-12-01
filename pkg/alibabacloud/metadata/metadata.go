@@ -4,6 +4,7 @@
 package metadata
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 const (
 	metadataURL = "http://100.100.100.200/latest/meta-data"
+	bufferSize  = 1048576 //1MiB should be plenty enough for metadata
 )
 
 // GetInstanceID returns the instance ID from metadata
@@ -67,9 +69,25 @@ func getMetadata(ctx context.Context, path string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	respBytes, err := io.ReadAll(resp.Body)
+
+	reader := bufio.NewReaderSize(resp.Body, bufferSize)
+	var respBytes []byte
+	if resp.ContentLength == -1 {
+		respBytes = make([]byte, bufferSize)
+	} else {
+		respBytes = make([]byte, resp.ContentLength)
+	}
+	n, err := reader.Read(respBytes)
+
 	if err != nil {
 		return "", err
+	}
+	if n == bufferSize {
+		if _, err := reader.ReadByte(); err == nil {
+			log.Error("Buffer size too small. Please report to developers")
+			return "", io.ErrShortBuffer
+		}
+		// body is exactly bufferSize, return it
 	}
 
 	return string(respBytes), nil
