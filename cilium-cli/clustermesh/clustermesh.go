@@ -27,9 +27,11 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/api/v1/models"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/certs"
+	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
@@ -429,6 +431,7 @@ type k8sClusterMeshImplementation interface {
 	ListCiliumEndpoints(ctx context.Context, namespace string, options metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetPlatform(ctx context.Context) (*k8s.Platform, error)
 	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
+	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
 }
 
 type K8sClusterMesh struct {
@@ -462,6 +465,7 @@ type Parameters struct {
 	All                  bool
 	ConfigOverwrites     []string
 	Retries              int
+	HelmValuesSecretName string
 }
 
 func (p Parameters) validateParams() error {
@@ -1624,13 +1628,28 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		k.params.Retries = 1
 	}
 
-	vsn, err := k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+	var ciliumVer semver.Version
+
+	helmState, err := k.client.GetHelmState(ctx, k.params.Namespace, k.params.HelmValuesSecretName)
 	if err != nil {
-		return err
+		// Try to retrieve version from image tag
+		v, err := k.client.GetRunningCiliumVersion(ctx, k.params.Namespace)
+		if err != nil {
+			return err
+		}
+		ciliumVer, err = utils.ParseCiliumVersion(v)
+		if err != nil {
+			return fmt.Errorf("failed to parse Cilium version %s: %w", v, err)
+		}
+
+	} else {
+		ciliumVer = helmState.Version
 	}
-	sockLBOpt, err := getSockLBOpt(vsn)
-	if err != nil {
-		return err
+
+	sockLBOpt := "--bpf-lb-sock"
+	if ciliumVer.LT(versioncheck.MustVersion("1.12.0")) {
+		// Before 1.12, the socket LB was enabled via --enable-host-reachable-services flag
+		sockLBOpt = "--enable-host-reachable-services"
 	}
 
 	fmt.Fprintf(writer, installScriptFmt,
@@ -1639,23 +1658,6 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey),
 		strconv.Itoa(k.params.Retries), sockLBOpt)
 	return nil
-}
-
-func getSockLBOpt(ciliumVSN string) (string, error) {
-	sockLBOpt := "--bpf-lb-sock"
-
-	vsn, err := semver.Parse(strings.TrimLeft(ciliumVSN, "v"))
-	if err != nil {
-		return "", err
-	}
-
-	vsn112 := semver.MustParse("1.12.0")
-	// Before 1.12, the socket LB was enabled via --enable-host-reachable-services flag
-	if vsn.LT(vsn112) {
-		sockLBOpt = "--enable-host-reachable-services"
-	}
-
-	return sockLBOpt, nil
 }
 
 func formatCEW(cew ciliumv2.CiliumExternalWorkload) string {

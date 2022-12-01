@@ -203,6 +203,7 @@ type k8sInstallerImplementation interface {
 	DeleteIngressClass(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	CiliumLogs(ctx context.Context, namespace, pod string, since time.Time, filter *regexp.Regexp) (string, error)
 	ListAPIResources(ctx context.Context) ([]string, error)
+	GetHelmState(ctx context.Context, namespace string, secretName string) (*helm.State, error)
 }
 
 type K8sInstaller struct {
