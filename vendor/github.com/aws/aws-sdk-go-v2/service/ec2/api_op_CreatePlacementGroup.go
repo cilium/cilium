@@ -70,7 +70,7 @@ type CreatePlacementGroupInput struct {
 
 type CreatePlacementGroupOutput struct {
 
-	// Describes a placement group.
+	// Information about the placement group.
 	PlacementGroup *types.PlacementGroup
 
 	// Metadata pertaining to the operation's result.

@@ -55,7 +55,7 @@ type DescribeNetworkInterfacePermissionsInput struct {
 	// parameter is not specified, up to 50 results are returned by default.
 	MaxResults *int32
 
-	// One or more network interface permission IDs.
+	// The network interface permission IDs.
 	NetworkInterfacePermissionIds []string
 
 	// The token to request the next page of results.

@@ -72,6 +72,7 @@ func (client *Client) RunCommandWithCallback(request *RunCommandRequest, callbac
 type RunCommandRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	ContainerName        string                 `position:"Query" name:"ContainerName"`
 	WorkingDir           string                 `position:"Query" name:"WorkingDir"`
 	Description          string                 `position:"Query" name:"Description"`
 	Type                 string                 `position:"Query" name:"Type"`
@@ -89,6 +90,7 @@ type RunCommandRequest struct {
 	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string              `position:"Query" name:"InstanceId"  type:"Repeated"`
 	Name                 string                 `position:"Query" name:"Name"`
+	ContainerId          string                 `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
 	EnableParameter      requests.Boolean       `position:"Query" name:"EnableParameter"`
 	Username             string                 `position:"Query" name:"Username"`

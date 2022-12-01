@@ -71,18 +71,11 @@ func (client *Client) DeleteImagePipelineWithCallback(request *DeleteImagePipeli
 // DeleteImagePipelineRequest is the request struct for api DeleteImagePipeline
 type DeleteImagePipelineRequest struct {
 	*requests.RpcRequest
-	ImagePipelineId      string                            `position:"Query" name:"ImagePipelineId"`
-	ResourceOwnerId      requests.Integer                  `position:"Query" name:"ResourceOwnerId"`
-	TemplateTag          *[]DeleteImagePipelineTemplateTag `position:"Query" name:"TemplateTag"  type:"Repeated"`
-	ResourceOwnerAccount string                            `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                            `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer                  `position:"Query" name:"OwnerId"`
-}
-
-// DeleteImagePipelineTemplateTag is a repeated param struct in DeleteImagePipelineRequest
-type DeleteImagePipelineTemplateTag struct {
-	Key   string `name:"Key"`
-	Value string `name:"Value"`
+	ImagePipelineId      string           `position:"Query" name:"ImagePipelineId"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }
 
 // DeleteImagePipelineResponse is the response struct for api DeleteImagePipeline

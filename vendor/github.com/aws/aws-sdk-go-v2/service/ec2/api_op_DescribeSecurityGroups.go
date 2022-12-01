@@ -25,9 +25,9 @@ import (
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-network-security.html)
 // in the Amazon Elastic Compute Cloud User Guide and Security groups for your VPC
 // (https://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_SecurityGroups.html)
-// in the Amazon Virtual Private Cloud User Guide. We are retiring EC2-Classic on
-// August 15, 2022. We recommend that you migrate from EC2-Classic to a VPC. For
-// more information, see Migrate from EC2-Classic to a VPC
+// in the Amazon Virtual Private Cloud User Guide. We are retiring EC2-Classic. We
+// recommend that you migrate from EC2-Classic to a VPC. For more information, see
+// Migrate from EC2-Classic to a VPC
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeSecurityGroups(ctx context.Context, params *DescribeSecurityGroupsInput, optFns ...func(*Options)) (*DescribeSecurityGroupsOutput, error) {

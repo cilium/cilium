@@ -24,7 +24,7 @@ import (
 // addition to the root device volume, the new AMI contains block device mapping
 // information for those volumes. When you launch an instance from this new AMI,
 // the instance automatically launches with those additional volumes. For more
-// information, see Creating Amazon EBS-Backed Linux AMIs
+// information, see Create an Amazon EBS-backed Linux AMI
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/creating-an-ami-ebs.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateImage(ctx context.Context, params *CreateImageInput, optFns ...func(*Options)) (*CreateImageOutput, error) {

@@ -20,6 +20,7 @@ type RouteEntry struct {
 	PrivateIpAddress         string                        `json:"PrivateIpAddress" xml:"PrivateIpAddress"`
 	NextHopOppsiteInstanceId string                        `json:"NextHopOppsiteInstanceId" xml:"NextHopOppsiteInstanceId"`
 	NextHopType              string                        `json:"NextHopType" xml:"NextHopType"`
+	GmtModified              string                        `json:"GmtModified" xml:"GmtModified"`
 	IpVersion                string                        `json:"IpVersion" xml:"IpVersion"`
 	RouteTableId             string                        `json:"RouteTableId" xml:"RouteTableId"`
 	RouteEntryName           string                        `json:"RouteEntryName" xml:"RouteEntryName"`
@@ -27,6 +28,7 @@ type RouteEntry struct {
 	RouteEntryId             string                        `json:"RouteEntryId" xml:"RouteEntryId"`
 	Status                   string                        `json:"Status" xml:"Status"`
 	DestinationCidrBlock     string                        `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
+	ServiceType              string                        `json:"ServiceType" xml:"ServiceType"`
 	NextHopRegionId          string                        `json:"NextHopRegionId" xml:"NextHopRegionId"`
 	Description              string                        `json:"Description" xml:"Description"`
 	NextHopOppsiteType       string                        `json:"NextHopOppsiteType" xml:"NextHopOppsiteType"`

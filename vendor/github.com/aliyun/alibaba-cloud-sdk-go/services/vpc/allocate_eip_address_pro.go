@@ -73,6 +73,7 @@ type AllocateEipAddressProRequest struct {
 	*requests.RpcRequest
 	IpAddress               string           `position:"Query" name:"IpAddress"`
 	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	PublicIpAddressPoolId   string           `position:"Query" name:"PublicIpAddressPoolId"`
 	ClientToken             string           `position:"Query" name:"ClientToken"`
 	ISP                     string           `position:"Query" name:"ISP"`
 	ResourceGroupId         string           `position:"Query" name:"ResourceGroupId"`

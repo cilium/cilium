@@ -76,6 +76,7 @@ type ListPrefixListsRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	PrefixListIds        *[]string        `position:"Query" name:"PrefixListIds"  type:"Repeated"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	PrefixListName       string           `position:"Query" name:"PrefixListName"`
 	NextToken            string           `position:"Query" name:"NextToken"`
 	MaxResults           requests.Integer `position:"Query" name:"MaxResults"`
 }

@@ -14,8 +14,8 @@ import (
 
 // Describes a root volume replacement task. For more information, see Replace a
 // root volume
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-restoring-volume.html#replace-root)
-// in the Amazon Elastic Compute Cloud User Guide.
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/replace-root.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeReplaceRootVolumeTasks(ctx context.Context, params *DescribeReplaceRootVolumeTasksInput, optFns ...func(*Options)) (*DescribeReplaceRootVolumeTasksOutput, error) {
 	if params == nil {
 		params = &DescribeReplaceRootVolumeTasksInput{}

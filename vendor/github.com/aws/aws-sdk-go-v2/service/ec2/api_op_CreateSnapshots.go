@@ -13,13 +13,14 @@ import (
 
 // Creates crash-consistent snapshots of multiple EBS volumes and stores the data
 // in S3. Volumes are chosen by specifying an instance. Any attached volumes will
-// produce one snapshot each that is crash-consistent across the instance. Boot
-// volumes can be excluded by changing the parameters. You can create multi-volume
-// snapshots of instances in a Region and instances on an Outpost. If you create
-// snapshots from an instance in a Region, the snapshots must be stored in the same
-// Region as the instance. If you create snapshots from an instance on an Outpost,
-// the snapshots can be stored on the same Outpost as the instance, or in the
-// Region for that Outpost.
+// produce one snapshot each that is crash-consistent across the instance. You can
+// include all of the volumes currently attached to the instance, or you can
+// exclude the root volume or specific data (non-root) volumes from the
+// multi-volume snapshot set. You can create multi-volume snapshots of instances in
+// a Region and instances on an Outpost. If you create snapshots from an instance
+// in a Region, the snapshots must be stored in the same Region as the instance. If
+// you create snapshots from an instance on an Outpost, the snapshots can be stored
+// on the same Outpost as the instance, or in the Region for that Outpost.
 func (c *Client) CreateSnapshots(ctx context.Context, params *CreateSnapshotsInput, optFns ...func(*Options)) (*CreateSnapshotsOutput, error) {
 	if params == nil {
 		params = &CreateSnapshotsInput{}

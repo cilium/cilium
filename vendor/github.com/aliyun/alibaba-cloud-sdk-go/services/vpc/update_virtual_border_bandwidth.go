@@ -84,7 +84,7 @@ type UpdateVirtualBorderBandwidthRequest struct {
 type UpdateVirtualBorderBandwidthResponse struct {
 	*responses.BaseResponse
 	Code           string `json:"Code" xml:"Code"`
-	HttpStatusCode string `json:"HttpStatusCode" xml:"HttpStatusCode"`
+	HttpStatusCode int    `json:"HttpStatusCode" xml:"HttpStatusCode"`
 	Message        string `json:"Message" xml:"Message"`
 	RequestId      string `json:"RequestId" xml:"RequestId"`
 	Success        bool   `json:"Success" xml:"Success"`

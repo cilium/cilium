@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/errors"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -98,6 +99,9 @@ type AcsRequest interface {
 	addQueryParam(key, value string)
 	addFormParam(key, value string)
 	addPathParam(key, value string)
+
+	SetTracerSpan(span opentracing.Span)
+	GetTracerSpan() opentracing.Span
 }
 
 // base class
@@ -130,6 +134,8 @@ type baseRequest struct {
 	queries string
 
 	stringToSign string
+
+	span opentracing.Span
 }
 
 func (request *baseRequest) GetQueryParams() map[string]string {
@@ -281,6 +287,13 @@ func (request *baseRequest) SetStringToSign(stringToSign string) {
 
 func (request *baseRequest) GetStringToSign() string {
 	return request.stringToSign
+}
+
+func (request *baseRequest) SetTracerSpan(span opentracing.Span) {
+	request.span = span
+}
+func (request *baseRequest) GetTracerSpan() opentracing.Span {
+	return request.span
 }
 
 func defaultBaseRequest() (request *baseRequest) {

@@ -78,6 +78,7 @@ type DescribeSnatTableEntriesRequest struct {
 	SourceVSwitchId      string           `position:"Query" name:"SourceVSwitchId"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
 	SnatEntryId          string           `position:"Query" name:"SnatEntryId"`
+	NatGatewayId         string           `position:"Query" name:"NatGatewayId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	SnatTableId          string           `position:"Query" name:"SnatTableId"`

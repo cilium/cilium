@@ -43,7 +43,11 @@ type ModifyInstanceAttributeInput struct {
 	// This member is required.
 	InstanceId *string
 
-	// The name of the attribute.
+	// The name of the attribute to modify. You can modify the following attributes
+	// only: disableApiTermination | instanceType | kernel | ramdisk |
+	// instanceInitiatedShutdownBehavior | blockDeviceMapping | userData |
+	// sourceDestCheck | groupSet | ebsOptimized | sriovNetSupport | enaSupport |
+	// nvmeSupport | disableApiStop | enclaveOptions
 	Attribute types.InstanceAttributeName
 
 	// Modifies the DeleteOnTermination attribute for volumes that are currently

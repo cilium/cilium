@@ -29,6 +29,7 @@ type BgpGroup struct {
 	Keepalive   string `json:"Keepalive" xml:"Keepalive"`
 	IsFake      string `json:"IsFake" xml:"IsFake"`
 	RouteLimit  string `json:"RouteLimit" xml:"RouteLimit"`
+	RouteQuota  int    `json:"RouteQuota" xml:"RouteQuota"`
 	Name        string `json:"Name" xml:"Name"`
 	AuthKey     string `json:"AuthKey" xml:"AuthKey"`
 }
