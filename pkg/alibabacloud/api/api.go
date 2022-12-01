@@ -73,7 +73,7 @@ func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, ra
 func (c *Client) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
-	networkInterfaceSets, err := c.describeNetworkInterfaces(ctx, subnets)
+	networkInterfaceSets, err := c.describeNetworkInterfaces(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -396,31 +396,25 @@ func (c *Client) UnassignPrivateIPAddresses(ctx context.Context, eniID string, a
 	return err
 }
 
-func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamTypes.SubnetMap) ([]ecs.NetworkInterfaceSet, error) {
+func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkInterfaceSet, error) {
 	var result []ecs.NetworkInterfaceSet
+	req := ecs.CreateDescribeNetworkInterfacesRequest()
+	req.MaxResults = requests.NewInteger(500)
 
-	for _, subnet := range subnets {
-		for i := 1; ; {
-			req := ecs.CreateDescribeNetworkInterfacesRequest()
-			req.PageNumber = requests.NewInteger(i)
-			req.PageSize = requests.NewInteger(50)
-			req.VSwitchId = subnet.ID
-			c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
-			resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
-			if err != nil {
-				return nil, err
-			}
-			if len(resp.NetworkInterfaceSets.NetworkInterfaceSet) == 0 {
-				break
-			}
+	for {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		resp, err := c.ecsClient.DescribeNetworkInterfaces(req)
+		if err != nil {
+			return nil, err
+		}
 
-			for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
-				result = append(result, v)
-			}
-			if resp.TotalCount < resp.PageNumber*resp.PageSize {
-				break
-			}
-			i++
+		for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
+			result = append(result, v)
+		}
+		if resp.NextToken == "" {
+			break
+		} else {
+			req.NextToken = resp.NextToken
 		}
 	}
 
