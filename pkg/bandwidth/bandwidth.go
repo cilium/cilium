@@ -4,6 +4,8 @@
 package bandwidth
 
 import (
+	"fmt"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/sirupsen/logrus"
@@ -74,6 +76,82 @@ func ProbeBandwidthManager() {
 	}
 }
 
+func setBaselineSysctls() error {
+	// Ensure interger type sysctls are no smaller than our baseline settings
+	baseIntSettings := map[string]int64{
+		"net.core.netdev_max_backlog":  1000,
+		"net.core.somaxconn":           4096,
+		"net.ipv4.tcp_max_syn_backlog": 4096,
+	}
+
+	for name, value := range baseIntSettings {
+		currentValue, err := sysctl.ReadInt(name)
+		if err != nil {
+			return fmt.Errorf("read sysctl %s failed: %s", name, err)
+		}
+
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.SysParamName:  name,
+			logfields.SysParamValue: currentValue,
+			"baselineValue":         value,
+		})
+
+		if currentValue >= value {
+			scopedLog.Info("Skip setting sysctl as it already meets baseline")
+			continue
+		}
+
+		scopedLog.Info("Setting sysctl to baseline for BPF bandwidth manager")
+		if err := sysctl.WriteInt(name, value); err != nil {
+			return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
+		}
+	}
+
+	// Ensure string type sysctls
+	congctl := "cubic"
+	if option.Config.EnableBBR {
+		congctl = "bbr"
+	}
+
+	baseStringSettings := map[string]string{
+		"net.core.default_qdisc":          "fq",
+		"net.ipv4.tcp_congestion_control": congctl,
+	}
+
+	for name, value := range baseStringSettings {
+		log.WithFields(logrus.Fields{
+			logfields.SysParamName: name,
+			"baselineValue":        value,
+		}).Info("Setting sysctl to baseline for BPF bandwidth manager")
+
+		if err := sysctl.Write(name, value); err != nil {
+			return fmt.Errorf("set sysctl %s=%s failed: %s", name, value, err)
+		}
+	}
+
+	// Extra settings
+	extraSettings := map[string]int64{
+		"net.ipv4.tcp_slow_start_after_idle": 0,
+	}
+
+	// Few extra knobs which can be turned on along with pacing. EnableBBR
+	// also provides the right kernel dependency implicitly as well.
+	if option.Config.EnableBBR {
+		for name, value := range extraSettings {
+			log.WithFields(logrus.Fields{
+				logfields.SysParamName: name,
+				"baselineValue":        value,
+			}).Info("Setting sysctl to baseline for BPF bandwidth manager")
+
+			if err := sysctl.WriteInt(name, value); err != nil {
+				return fmt.Errorf("set sysctl %s=%d failed: %s", name, value, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func InitBandwidthManager() {
 	if option.Config.DryMode || !option.Config.EnableBandwidthManager {
 		return
@@ -95,52 +173,11 @@ func InitBandwidthManager() {
 	if _, err := bwmap.ThrottleMap.OpenOrCreate(); err != nil {
 		log.WithError(err).Fatal("Failed to access ThrottleMap")
 	}
-	congctl := "cubic"
-	if option.Config.EnableBBR {
-		congctl = "bbr"
+
+	if err := setBaselineSysctls(); err != nil {
+		log.WithError(err).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
 	}
-	type setting struct {
-		name string
-		val  string
-	}
-	baseSettings := []setting{
-		{"net.core.netdev_max_backlog", "1000"},
-		{"net.core.somaxconn", "4096"},
-		{"net.core.default_qdisc", "fq"},
-		{"net.ipv4.tcp_max_syn_backlog", "4096"},
-		{"net.ipv4.tcp_congestion_control", congctl},
-	}
-	extraSettings := []setting{
-		{"net.ipv4.tcp_slow_start_after_idle", "0"},
-	}
-	for _, s := range baseSettings {
-		log.WithFields(logrus.Fields{
-			logfields.SysParamName:  s.name,
-			logfields.SysParamValue: s.val,
-		}).Info("Setting sysctl")
-		if err := sysctl.Write(s.name, s.val); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
-				logfields.SysParamName:  s.name,
-				logfields.SysParamValue: s.val,
-			}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
-		}
-	}
-	// Few extra knobs which can be turned on along with pacing. EnableBBR
-	// also provides the right kernel dependency implicitly as well.
-	if option.Config.EnableBBR {
-		for _, s := range extraSettings {
-			log.WithFields(logrus.Fields{
-				logfields.SysParamName:  s.name,
-				logfields.SysParamValue: s.val,
-			}).Info("Setting sysctl")
-			if err := sysctl.Write(s.name, s.val); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.SysParamName:  s.name,
-					logfields.SysParamValue: s.val,
-				}).Fatal("Failed to set sysctl needed by BPF bandwidth manager.")
-			}
-		}
-	}
+
 	for _, device := range option.Config.GetDevices() {
 		link, err := netlink.LinkByName(device)
 		if err != nil {
