@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   # 
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -199,11 +199,9 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
-          cilium version
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:ca07a0a710e5c1b06246d77afde87037070b842f ls)
+          docker cp $cid:/usr/local/bin/cilium ./cilium-cli
+          docker rm $cid
 
       - name: Set up gcloud credentials
         id: 'auth'
@@ -271,24 +269,24 @@ jobs:
 
       - name: Install Cilium in cluster
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Enable cluster mesh
         run: |
-          cilium clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
+          ./cilium-cli clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
 
       - name: Wait for cluster mesh status to be ready
         run: |
-          cilium clustermesh status --wait
+          ./cilium-cli clustermesh status --wait
 
       - name: Add VM to cluster mesh
         run: |
-          cilium clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
-          cilium clustermesh vm status
+          ./cilium-cli clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
+          ./cilium-cli clustermesh vm status
 
       - name: Install Cilium on VM
         run: |
-          cilium clustermesh vm install install-external-workload.sh --config debug
+          ./cilium-cli clustermesh vm install install-external-workload.sh --config debug
           gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
             --command "~/install-external-workload.sh"
@@ -309,7 +307,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          ./cilium-cli connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -317,12 +315,12 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl get cew --all-namespaces -o wide
           kubectl get cep --all-namespaces -o wide
-          cilium status
-          cilium clustermesh status
-          cilium clustermesh vm status
+          ./cilium-cli status
+          ./cilium-cli clustermesh status
+          ./cilium-cli clustermesh vm status
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
-          cilium sysdump --output-filename cilium-sysdump-out
+          ./cilium-cli sysdump --output-filename cilium-sysdump-out
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE cluster and VM
