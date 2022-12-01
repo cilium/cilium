@@ -9,7 +9,7 @@ ifeq ($(RELEASE),yes)
     export PULL_POLICY:=IfNotPresent
     export CILIUM_REPO:=quay.io/cilium/cilium
     export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
-    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-rela
+    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
 else
     export CILIUM_BRANCH:=master
     export PULL_POLICY:=Always
