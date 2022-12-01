@@ -71,7 +71,6 @@ type MapInfo struct {
 	MaxEntries    uint32
 	Flags         uint32
 	InnerSpec     *ebpf.MapSpec
-	OwnerProgType ProgType
 }
 
 type cacheEntry struct {
@@ -158,7 +157,6 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
-			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
 		DumpParser: dumpParser,
@@ -182,7 +180,6 @@ func NewMapWithInnerSpec(name string, mapType MapType, mapKey MapKey, mapValue M
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
-			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
 		innerSpec:  innerSpec,
@@ -385,8 +382,6 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 			info.MaxEntries = uint32(value)
 		} else if n, err := fmt.Sscanf(line, "map_flags:\t0x%x", &value); n == 1 && err == nil {
 			info.Flags = uint32(value)
-		} else if n, err := fmt.Sscanf(line, "owner_prog_type:\t%d", &value); n == 1 && err == nil {
-			info.OwnerProgType = ProgType(value)
 		}
 	}
 
@@ -402,38 +397,32 @@ func GetMapInfo(pid int, fd int) (*MapInfo, error) {
 // *Warning*: Calling this function requires the caller to properly setup
 // the MapInfo.MapKey and MapInfo.MapValues fields as those structures are not
 // stored in the bpf map.
-func OpenMap(name string) (*Map, error) {
-	// Expand path if needed
-	if !path.IsAbs(name) {
-		name = MapPath(name)
+func OpenMap(pinPath string) (*Map, error) {
+	if !path.IsAbs(pinPath) {
+		return nil, fmt.Errorf("pinPath must be absolute: %s", pinPath)
 	}
 
-	fd, err := ObjGet(name)
+	em, err := ebpf.LoadPinnedMap(pinPath, nil)
 	if err != nil {
 		return nil, err
-	}
-
-	info, err := GetMapInfo(os.Getpid(), fd)
-	if err != nil {
-		return nil, err
-	}
-
-	if info.MapType == 0 {
-		return nil, fmt.Errorf("Unable to determine map type")
-	}
-
-	if info.KeySize == 0 {
-		return nil, fmt.Errorf("Unable to determine map key size")
 	}
 
 	m := &Map{
-		MapInfo: *info,
-		fd:      fd,
-		name:    path.Base(name),
-		path:    name,
+		MapInfo: MapInfo{
+			MapType:       MapType(em.Type()),
+			KeySize:       em.KeySize(),
+			ValueSize:     em.ValueSize(),
+			ReadValueSize: em.ValueSize(),
+			MaxEntries:    em.MaxEntries(),
+			Flags:         em.Flags(),
+		},
+		m:    em,
+		fd:   em.FD(),
+		name: path.Base(pinPath),
+		path: pinPath,
 	}
 
-	registerMap(name, m)
+	registerMap(pinPath, m)
 
 	return m, nil
 }
@@ -589,14 +578,16 @@ func (m *Map) open() error {
 		return err
 	}
 
-	fd, err := ObjGet(m.path)
+	em, err := ebpf.LoadPinnedMap(m.path, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading pinned map %s: %w", m.path, err)
 	}
 
 	registerMap(m.path, m)
 
-	m.fd = fd
+	m.m = em
+	m.fd = em.FD()
+
 	return nil
 }
 

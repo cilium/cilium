@@ -107,11 +107,6 @@ func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(v, Not(Equals), 0)
 
-	// Inner map should exist on the bpffs
-	fd, err := bpf.ObjGet(bpf.MapPath(cluster1MapName))
-	c.Assert(err, IsNil)
-	c.Assert(fd, Not(Equals), 0)
-
 	// Inner map should not exist on the global registry
 	c.Assert(bpf.GetMap(cluster1MapName), IsNil)
 
@@ -142,10 +137,6 @@ func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
 
 	// After delete, outer map shouldn't contain the inner map
 	_, err = om.Lookup(&PerClusterCTMapKey{1})
-	c.Assert(err, NotNil)
-
-	// Inner map shouldn't exist on the bpffs
-	_, err = bpf.ObjGet(bpf.MapPath(cluster1MapName))
 	c.Assert(err, NotNil)
 }
 

@@ -24,7 +24,6 @@ const (
 	BPF_MAP_DELETE_ELEM  = 3
 	BPF_MAP_GET_NEXT_KEY = 4
 	BPF_PROG_LOAD        = 5
-	BPF_OBJ_GET          = 7
 	BPF_PROG_ATTACH      = 8
 
 	// BPF syscall attach types
