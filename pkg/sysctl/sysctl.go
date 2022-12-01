@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -120,6 +121,11 @@ func Write(name string, val string) error {
 	return writeSysctl(name, val)
 }
 
+// WriteInt writes the given integer type sysctl parameter.
+func WriteInt(name string, val int64) error {
+	return writeSysctl(name, strconv.FormatInt(val, 10))
+}
+
 // Read reads the given sysctl parameter.
 func Read(name string) (string, error) {
 	path, err := parameterPath(name)
@@ -132,6 +138,21 @@ func Read(name string) (string, error) {
 	}
 
 	return strings.TrimRight(string(val), "\n"), nil
+}
+
+// ReadInt reads the given sysctl parameter, return an int64 value.
+func ReadInt(name string) (int64, error) {
+	s, err := Read(name)
+	if err != nil {
+		return -1, err
+	}
+
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return -1, err
+	}
+
+	return i, nil
 }
 
 // ApplySettings applies all settings in sysSettings.
