@@ -8,7 +8,6 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -57,14 +56,5 @@ func FuzzParseCEGP(f *testing.F) {
 		}
 		ff.GenerateStruct(cegp)
 		_, _ = ParseCEGP(cegp)
-	})
-}
-
-func FuzzParseCENP(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data []byte) {
-		ff := fuzz.NewConsumer(data)
-		cenp := &v2alpha1.CiliumEgressNATPolicy{}
-		ff.GenerateStruct(cenp)
-		_, _ = ParseCENP(cenp)
 	})
 }
