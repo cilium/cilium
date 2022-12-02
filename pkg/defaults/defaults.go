@@ -41,6 +41,12 @@ const (
 	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDRBase = "f00d::"
 
+	// IPv6NAT46x64CIDR is the default prefix for NAT46x64 gateway
+	IPv6NAT46x64CIDR = IPv6NAT46x64CIDRBase + "/96"
+
+	// IPv6NAT46x64CIDRBase is the default base for IPv6NAT46x64CIDR
+	IPv6NAT46x64CIDRBase = "64:ff9b::"
+
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 

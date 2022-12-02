@@ -291,7 +291,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			Prefixes: make([]string, 0),
 		}
 		if option.Config.EnableNat46X64Gateway {
-			gw.Prefixes = append(gw.Prefixes, "64:ff9b::/96")
+			gw.Prefixes = append(gw.Prefixes, option.Config.IPv6NAT46x64CIDR)
 		}
 		features.Nat46X64.Gateway = gw
 
