@@ -106,6 +106,11 @@ func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*c
 		return nil, err
 	}
 
+	// Cluster configuration missing, but it's not an error
+	if val == nil {
+		return nil, nil
+	}
+
 	if err := json.Unmarshal(val, &config); err != nil {
 		return nil, err
 	}
@@ -322,6 +327,32 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	}
 
 	return nready
+}
+
+func (cm *ClusterMesh) canConnect(name string, config *cmtypes.CiliumClusterConfig) error {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	for n, rc := range cm.clusters {
+		if err := func() error {
+			rc.mutex.RLock()
+			defer rc.mutex.RUnlock()
+
+			if rc.name == name || !rc.isReadyLocked() || rc.config == nil {
+				return nil
+			}
+
+			if err := rc.config.IsCompatible(config); err != nil {
+				return err
+			}
+
+			return nil
+		}(); err != nil {
+			return fmt.Errorf("configuration of %s is not compatible with %s: %w", name, n, err)
+		}
+	}
+
+	return nil
 }
 
 // ClustersSynced returns after all clusters were synchronized with the bpf

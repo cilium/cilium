@@ -16,6 +16,7 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -103,6 +104,15 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	defer os.RemoveAll(dir)
 
 	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
+
+	for i, name := range []string{"test2", "cluster1", "cluster2"} {
+		config := cmtypes.CiliumClusterConfig{
+			ID: uint32(i),
+		}
+
+		err = SetClusterConfig(name, &config, kvstore.Client())
+		c.Assert(err, IsNil)
+	}
 
 	config1 := path.Join(dir, "cluster1")
 	err = os.WriteFile(config1, etcdConfig, 0644)
