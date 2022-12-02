@@ -58,6 +58,8 @@ func init() {
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&GRPCRoute{},
+		&GRPCRouteList{},
 		&Gateway{},
 		&GatewayClass{},
 		&GatewayClassList{},
@@ -66,8 +68,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&HTTPRouteList{},
 		&ReferenceGrant{},
 		&ReferenceGrantList{},
-		&ReferencePolicy{},
-		&ReferencePolicyList{},
 		&TCPRoute{},
 		&TCPRouteList{},
 		&TLSRoute{},

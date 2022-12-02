@@ -38,7 +38,7 @@ var HTTPRouteRequestHeaderModifier = suite.ConformanceTest{
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "request-header-modifier", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
-		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request: http.Request{
@@ -171,8 +171,9 @@ var HTTPRouteRequestHeaderModifier = suite.ConformanceTest{
 				Request: http.Request{
 					Path: "/case-insensitivity",
 					Headers: map[string]string{
-						"X-Header-Set": "header-set",
-						"X-Header-Add": "original-val-add,header-add",
+						"X-Header-Set":   "header-set",
+						"X-Header-Add":   "original-val-add,header-add",
+						"Another-Header": "another-header-val",
 					},
 				},
 				AbsentHeaders: []string{"x-header-remove", "X-Header-Remove"},
@@ -185,9 +186,9 @@ var HTTPRouteRequestHeaderModifier = suite.ConformanceTest{
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
 			tc := testCases[i]
-			t.Run(testName(tc, i), func(t *testing.T) {
+			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, gwAddr, tc)
+				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
 			})
 		}
 	},

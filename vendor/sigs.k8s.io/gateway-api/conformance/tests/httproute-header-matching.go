@@ -38,7 +38,7 @@ var HTTPRouteHeaderMatching = suite.ConformanceTest{
 		ns := "gateway-conformance-infra"
 		routeNN := types.NamespacedName{Name: "header-matching", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
-		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeReady(t, suite.Client, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
+		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "one"}},
@@ -53,11 +53,15 @@ var HTTPRouteHeaderMatching = suite.ConformanceTest{
 			Backend:   "infra-backend-v1",
 			Namespace: ns,
 		}, {
-			Request:    http.Request{Path: "/", Headers: map[string]string{"Color": "orange"}},
-			StatusCode: 404,
+			Request:   http.Request{Path: "/", Headers: map[string]string{"Version": "two", "Color": "blue"}},
+			Backend:   "infra-backend-v2",
+			Namespace: ns,
 		}, {
-			Request:    http.Request{Path: "/", Headers: map[string]string{"Some-Other-Header": "one"}},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/", Headers: map[string]string{"Color": "orange"}},
+			Response: http.Response{StatusCode: 404},
+		}, {
+			Request:  http.Request{Path: "/", Headers: map[string]string{"Some-Other-Header": "one"}},
+			Response: http.Response{StatusCode: 404},
 		}, {
 			Request:   http.Request{Path: "/", Headers: map[string]string{"Color": "blue"}},
 			Backend:   "infra-backend-v1",
@@ -75,17 +79,17 @@ var HTTPRouteHeaderMatching = suite.ConformanceTest{
 			Backend:   "infra-backend-v2",
 			Namespace: ns,
 		}, {
-			Request:    http.Request{Path: "/", Headers: map[string]string{"Color": "purple"}},
-			StatusCode: 404,
+			Request:  http.Request{Path: "/", Headers: map[string]string{"Color": "purple"}},
+			Response: http.Response{StatusCode: 404},
 		}}
 
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
 			tc := testCases[i]
-			t.Run(testName(tc, i), func(t *testing.T) {
+			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, gwAddr, tc)
+				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
 			})
 		}
 	},
