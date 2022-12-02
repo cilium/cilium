@@ -4,6 +4,8 @@ kind: RoleBinding
 metadata:
   name: cilium-config-agent
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -19,6 +21,8 @@ kind: RoleBinding
 metadata:
   name: cilium-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -36,6 +40,8 @@ kind: RoleBinding
 metadata:
   name: cilium-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
