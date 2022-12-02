@@ -234,6 +234,8 @@ func deleteNexthopRoute(route Route, link netlink.Link, routerNet *net.IPNet) er
 func Upsert(route Route) error {
 	var nexthopRouteCreated bool
 
+	log.WithFields(route.LogFields()).Infof("Upsert route")
+
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
 		return fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)

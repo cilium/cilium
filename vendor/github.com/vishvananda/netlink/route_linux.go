@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
 	"syscall"
-
+	"runtime/debug"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
@@ -702,6 +703,8 @@ func (h *Handle) RouteReplace(route *Route) error {
 // RouteDel will delete a route from the system.
 // Equivalent to: `ip route del $route`
 func RouteDel(route *Route) error {
+	log.Printf("deleting %v %v if %v table %v\n", route.Src, route.Gw, route.LinkIndex, route.Table)
+        debug.PrintStack()
 	return pkgHandle.RouteDel(route)
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"runtime/debug"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -74,6 +75,11 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, compat bool) error {
 		egressPriority = linux_defaults.RulePriorityEgressv2
 		tableID = computeTableIDFromIfaceNumber(info.InterfaceNumber)
 	}
+	log.WithFields(logrus.Fields{
+		"endpointIP": ip,
+	}).Infof("dbg rule tableID %v egressPrio %v", tableID, egressPriority)
+
+	debug.PrintStack()
 
 	// The condition here should mirror the condition in Delete.
 	if info.Masquerade && info.IpamMode == ipamOption.IPAMENI {

@@ -398,6 +398,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 
 	nodeRoute, err := n.createNodeRouteSpec(prefix, isLocalNode)
 	if err != nil {
+		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to create node route spec for route update")
 		return err
 	}
 	if err := route.Upsert(nodeRoute); err != nil {
