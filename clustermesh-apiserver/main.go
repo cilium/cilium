@@ -29,6 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -588,6 +590,14 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	var err error
 	if err = kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
 		log.WithError(err).Fatal("Unable to connect to etcd")
+	}
+
+	config := cmtypes.CiliumClusterConfig{
+		ID: clusterID,
+	}
+
+	if err := clustermesh.SetClusterConfig(cfg.clusterName, &config, kvstore.Client()); err != nil {
+		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
 	_, err = store.JoinSharedStore(store.Configuration{
