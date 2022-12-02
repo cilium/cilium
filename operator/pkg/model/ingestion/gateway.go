@@ -71,14 +71,23 @@ func GatewayAPI(input Input) []model.HTTPListener {
 					}
 				}
 
-				var requestHeaderFilter *model.HTTPRequestHeaderFilter
+				var requestHeaderFilter *model.HTTPHeaderFilter
+				var responseHeaderFilter *model.HTTPHeaderFilter
 				if len(rule.Filters) > 0 {
 					for _, f := range rule.Filters {
 						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier {
-							requestHeaderFilter = &model.HTTPRequestHeaderFilter{
+							requestHeaderFilter = &model.HTTPHeaderFilter{
 								HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
 								HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
 								HeadersToRemove: f.RequestHeaderModifier.Remove,
+							}
+						}
+
+						if f.Type == gatewayv1beta1.HTTPRouteFilterResponseHeaderModifier {
+							responseHeaderFilter = &model.HTTPHeaderFilter{
+								HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+								HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+								HeadersToRemove: f.ResponseHeaderModifier.Remove,
 							}
 						}
 					}
@@ -86,23 +95,25 @@ func GatewayAPI(input Input) []model.HTTPListener {
 
 				if len(rule.Matches) == 0 {
 					routes = append(routes, model.HTTPRoute{
-						Hostnames:           computedHost,
-						Backends:            bes,
-						DirectResponse:      dr,
-						RequestHeaderFilter: requestHeaderFilter,
+						Hostnames:              computedHost,
+						Backends:               bes,
+						DirectResponse:         dr,
+						RequestHeaderFilter:    requestHeaderFilter,
+						ResponseHeaderModifier: responseHeaderFilter,
 					})
 				}
 
 				for _, match := range rule.Matches {
 					routes = append(routes, model.HTTPRoute{
-						Hostnames:           computedHost,
-						PathMatch:           toPathMatch(match),
-						HeadersMatch:        toHeaderMatch(match),
-						QueryParamsMatch:    toQueryMatch(match),
-						Method:              (*string)(match.Method),
-						Backends:            bes,
-						DirectResponse:      dr,
-						RequestHeaderFilter: requestHeaderFilter,
+						Hostnames:              computedHost,
+						PathMatch:              toPathMatch(match),
+						HeadersMatch:           toHeaderMatch(match),
+						QueryParamsMatch:       toQueryMatch(match),
+						Method:                 (*string)(match.Method),
+						Backends:               bes,
+						DirectResponse:         dr,
+						RequestHeaderFilter:    requestHeaderFilter,
+						ResponseHeaderModifier: responseHeaderFilter,
 					})
 				}
 			}
