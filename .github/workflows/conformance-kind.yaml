@@ -127,6 +127,8 @@ jobs:
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          kubectl delete --all-namespaces rolebinding -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
+          kubectl delete --all-namespaces role -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
 
       - name: Install Cilium with encryption
         run: |
