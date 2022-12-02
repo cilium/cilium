@@ -211,3 +211,8 @@ func (v *VisibilityMetadata) GetIngress() bool {
 func (v *VisibilityMetadata) GetPort() uint16 {
 	return v.Port
 }
+
+// GetListener returns the optional listener name.
+func (l4 *VisibilityMetadata) GetListener() string {
+	return ""
+}

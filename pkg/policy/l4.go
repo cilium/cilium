@@ -410,6 +410,11 @@ func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
 }
 
+// GetListener returns the optional listener name.
+func (l4 *L4Filter) GetListener() string {
+	return ""
+}
+
 // ToMapState converts filter into a MapState with two possible values:
 //
 //	Entry with ProxyPort = 0: No proxy redirection is needed for this key
@@ -1182,4 +1187,5 @@ type ProxyPolicy interface {
 	GetL7Parser() L7ParserType
 	GetIngress() bool
 	GetPort() uint16
+	GetListener() string
 }
