@@ -604,6 +604,22 @@ then you just add a line saying:
 
    Signed-off-by: Random J Developer <random@developer.example.org>
 
-Use your real name (sorry, no pseudonyms or anonymous contributions.)
-
 If you need to add your sign off to a commit you have already made, please see `this article <https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/amending-a-commit>`_.
+
+Cilium follows the real names policy described in the CNCF `DCO Guidelines v1.0
+<https://github.com/cncf/foundation/blob/main/dco-guidelines.md>`_:
+
+::
+
+    The DCO requires the use of a real name that can be used to identify
+    someone in case there is an issue about a contribution they made.
+
+    A real name does not require a legal name, nor a birth name, nor any name
+    that appears on an official ID (e.g. a passport). Your real name is the
+    name you convey to people in the community for them to use to identify you
+    as you. The key concern is that your identification is sufficient enough to
+    contact you if an issue were to arise in the future about your
+    contribution.
+
+    Your real name should not be an anonymous id or false name that
+    misrepresents who you are.
