@@ -64,6 +64,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&GatewayList{},
 		&HTTPRoute{},
 		&HTTPRouteList{},
+		&ReferenceGrant{},
+		&ReferenceGrantList{},
 	)
 	// AddToGroupVersion allows the serialization of client types like ListOptions.
 	v1.AddToGroupVersion(scheme, SchemeGroupVersion)

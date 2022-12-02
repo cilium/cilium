@@ -17,13 +17,10 @@ limitations under the License.
 package tests
 
 import (
-	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -35,33 +32,21 @@ func init() {
 var HTTPRouteDisallowedKind = suite.ConformanceTest{
 	ShortName:   "HTTPRouteDisallowedKind",
 	Description: "A single HTTPRoute in the gateway-conformance-infra namespace should fail to attach to a Listener that does not allow the HTTPRoute kind",
+	Features:    []suite.SupportedFeature{suite.SupportTLSRoute},
 	Manifests:   []string{"tests/httproute-disallowed-kind.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		// This test creates an additional Gateway in the gateway-conformance-infra
 		// namespace so we have to wait for it to be ready.
-		kubernetes.NamespacesMustBeReady(t, suite.Client, []string{"gateway-conformance-infra"}, 300)
+		kubernetes.NamespacesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, []string{"gateway-conformance-infra"})
 
 		routeName := types.NamespacedName{Name: "disallowed-kind", Namespace: "gateway-conformance-infra"}
 		gwName := types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}
 
 		t.Run("Route should not have Parents set in status", func(t *testing.T) {
-			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, routeName, 60)
+			kubernetes.HTTPRouteMustHaveNoAcceptedParents(t, suite.Client, suite.TimeoutConfig, routeName)
 		})
-
 		t.Run("Gateway should have 0 Routes attached", func(t *testing.T) {
-			gw := &v1alpha2.Gateway{}
-			err := suite.Client.Get(context.TODO(), gwName, gw)
-			require.NoError(t, err, "error fetching Gateway")
-			// There are two valid ways to represent this:
-			// 1. No listeners in status
-			// 2. One listener in status with 0 attached routes
-			if len(gw.Status.Listeners) == 0 {
-				// No listeners in status.
-			} else if len(gw.Status.Listeners) == 1 {
-				require.Equal(t, int32(0), gw.Status.Listeners[0].AttachedRoutes)
-			} else {
-				t.Errorf("Expected no more than 1 listener in status, got %d", len(gw.Status.Listeners))
-			}
+			kubernetes.GatewayMustHaveZeroRoutes(t, suite.Client, suite.TimeoutConfig, gwName)
 		})
 	},
 }
