@@ -564,7 +564,14 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, p.defaultEndpointInfoRegistry)
 		default:
-			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			if pp.proxyType == ProxyTypeCRD {
+				// CRD Listeners already exist, create a no-op implementation
+				redir.implementation = &CRDRedirect{}
+				err = nil
+			} else {
+				// create an Envoy Listener for Cilium policy enforcement
+				redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
+			}
 		}
 
 		if err == nil {
