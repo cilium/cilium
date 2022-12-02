@@ -4,6 +4,7 @@
 package netns
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,7 +23,7 @@ func RemoveIfFromNetNSIfExists(netNS ns.NetNS, ifName string) error {
 	return netNS.Do(func(_ ns.NetNS) error {
 		l, err := netlink.LinkByName(ifName)
 		if err != nil {
-			if strings.Contains(err.Error(), "Link not found") {
+			if errors.As(err, &netlink.LinkNotFoundError{}) {
 				return nil
 			}
 			return err
