@@ -48,7 +48,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port1a, Equals, port1)
 
-	name, pp := findProxyPortByType(ProxyTypeCRD, false)
+	name, pp := findProxyPortByType(ProxyTypeCRD, "listener1", false)
 	c.Assert(name, Equals, "listener1")
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
 	c.Assert(pp.proxyPort, Equals, port)
