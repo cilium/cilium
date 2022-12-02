@@ -89,8 +89,8 @@ type Header struct {
 	Value string
 }
 
-// HTTPRequestHeaderFilter holds configuration for a request header filter.
-type HTTPRequestHeaderFilter struct {
+// HTTPHeaderFilter holds configuration for a request header filter.
+type HTTPHeaderFilter struct {
 	// HeadersToAdd is a list of headers to add to the request.
 	// Existing headers with the same name will be appended to.
 	HeadersToAdd []Header `json:"headers_to_add,omitempty"`
@@ -120,7 +120,11 @@ type HTTPRoute struct {
 
 	// RequestHeaderFilter can be used to add or remove an HTTP
 	//header from an HTTP request before it is sent to the upstream target.
-	RequestHeaderFilter *HTTPRequestHeaderFilter `json:"filter,omitempty"`
+	RequestHeaderFilter *HTTPHeaderFilter `json:"request_header_filter,omitempty"`
+
+	// ResponseHeaderModifier can be used to add or remove an HTTP
+	//header from an HTTP response before it is sent to the client.
+	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.
