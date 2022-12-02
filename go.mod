@@ -3,7 +3,7 @@ module github.com/cilium/cilium
 go 1.19
 
 require (
-	github.com/AdaLogics/go-fuzz-headers v0.0.0-20221102164654-7f26c6c35b9a
+	github.com/AdaLogics/go-fuzz-headers v0.0.0-20221118232415-3345c89a7c72
 	github.com/Azure/azure-sdk-for-go v67.1.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.28
 	github.com/Azure/go-autorest/autorest/adal v0.9.21
