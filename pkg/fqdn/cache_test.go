@@ -755,6 +755,41 @@ func (ds *DNSCacheTestSuite) TestZombiesGCOverLimit(c *C) {
 	})
 }
 
+func (ds *DNSCacheTestSuite) TestZombiesGCOverLimitWithCTGC(c *C) {
+	now := time.Now()
+	afterNow := now.Add(1 * time.Nanosecond)
+	maxConnections := 3
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
+	zombies.SetCTGCTime(now)
+
+	// Limit the number of IPs per hostname, but associate 'test.com' with
+	// more IPs.
+	for i := 0; i < maxConnections+1; i++ {
+		zombies.Upsert(now, fmt.Sprintf("1.1.1.%d", i+1), "test.com")
+	}
+
+	// Simulate that CT garbage collection marks some IPs as live, we'll
+	// use the first 'maxConnections' IPs just so we can sort the output
+	// in the test below.
+	for i := 0; i < maxConnections; i++ {
+		zombies.MarkAlive(afterNow, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)))
+	}
+	zombies.SetCTGCTime(afterNow)
+
+	// Garbage collection should now impose the maxConnections limit on
+	// the name, prioritizing to keep the active IPs live and then marking
+	// the inactive IP as dead (to delete).
+	alive, dead := zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.4": {"test.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"1.1.1.2": {"test.com"},
+		"1.1.1.3": {"test.com"},
+	})
+}
+
 func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
