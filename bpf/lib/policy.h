@@ -146,10 +146,13 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		struct ipv6hdr *ip6;
 		__u32 off;
 		__u8 icmp_type;
+		__u8 nexthdr;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
-		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, &ip6->nexthdr);
+
+		nexthdr = ip6->nexthdr;
+		off = ((void *)ip6 - data) + ipv6_hdrlen(ctx, &nexthdr);
 		if (ctx_load_bytes(ctx, off, &icmp_type, sizeof(icmp_type)) < 0)
 			return DROP_INVALID;
 
