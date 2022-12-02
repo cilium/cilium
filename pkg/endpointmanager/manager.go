@@ -652,6 +652,10 @@ type policyRepoGetter interface {
 // node's known labels.
 func (mgr *EndpointManager) InitHostEndpointLabels(ctx context.Context) {
 	ep := mgr.GetHostEndpoint()
+	if ep == nil {
+		log.Error("Attempted to init host endpoint labels but host endpoint not set.")
+		return
+	}
 	ep.InitWithNodeLabels(ctx, launchTime)
 }
 
