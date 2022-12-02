@@ -30,11 +30,11 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 
 static __always_inline __maybe_unused bool is_v4_in_v6_rfc8215(const union v6addr *daddr)
 {
-	/* Check for 64:ff9b::<IPv4 address>. */
 	union v6addr dprobe  = {
-		.addr[1] = 0x64,
-		.addr[2] = 0xff,
-		.addr[3] = 0x9b,
+		.addr[0] = NAT_46X64_PREFIX_0,
+		.addr[1] = NAT_46X64_PREFIX_1,
+		.addr[2] = NAT_46X64_PREFIX_2,
+		.addr[3] = NAT_46X64_PREFIX_3,
 	};
 	union v6addr dmasked = {
 		.d1 = daddr->d1,
@@ -57,9 +57,10 @@ static __always_inline __maybe_unused
 void build_v4_in_v6_rfc8215(union v6addr *daddr, __be32 v4)
 {
 	memset(daddr, 0, sizeof(*daddr));
-	daddr->addr[1] = 0x64;
-	daddr->addr[2] = 0xff;
-	daddr->addr[3] = 0x9b;
+	daddr->addr[0] = NAT_46X64_PREFIX_0;
+	daddr->addr[1] = NAT_46X64_PREFIX_1;
+	daddr->addr[2] = NAT_46X64_PREFIX_2;
+	daddr->addr[3] = NAT_46X64_PREFIX_3;
 	daddr->p4 = v4;
 }
 
