@@ -1382,6 +1382,13 @@ type DaemonConfig struct {
 	// DaemonConfig.Validate()
 	IPv6ClusterAllocCIDRBase string
 
+	// IPv6NAT46x64CIDR is the private base CIDR for the NAT46x64 gateway
+	IPv6NAT46x64CIDR string
+
+	// IPv6NAT46x64CIDRBase is derived from IPv6NAT46x64CIDR and contains
+	// the IPv6 prefix with the masked bits zeroed out
+	IPv6NAT46x64CIDRBase net.IP
+
 	// K8sRequireIPv4PodCIDR requires the k8s node resource to specify the
 	// IPv4 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
@@ -2613,11 +2620,35 @@ func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	return nil
 }
 
+func (c *DaemonConfig) validateIPv6NAT46x64CIDR() error {
+	ip, cidr, err := net.ParseCIDR(c.IPv6NAT46x64CIDR)
+	if err != nil {
+		return err
+	}
+
+	if cidr == nil {
+		return fmt.Errorf("ParseCIDR returned nil")
+	}
+
+	if ones, _ := cidr.Mask.Size(); ones != 96 {
+		return fmt.Errorf("CIDR length must be /96")
+	}
+
+	c.IPv6NAT46x64CIDRBase = ip.Mask(cidr.Mask)
+
+	return nil
+}
+
 // Validate validates the daemon configuration
 func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	if err := c.validateIPv6NAT46x64CIDR(); err != nil {
+		return fmt.Errorf("unable to parse internal CIDR value '%s': %s",
+			c.IPv6NAT46x64CIDR, err)
 	}
 
 	if c.MTU < 0 {
@@ -2985,6 +3016,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
+	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
