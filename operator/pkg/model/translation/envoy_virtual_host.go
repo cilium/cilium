@@ -238,9 +238,11 @@ func envoyHTTPRoutes(matchBackendMap map[string][]model.HTTPRoute, hostnames []s
 				hRoutes[0].HeadersMatch,
 				hRoutes[0].QueryParamsMatch,
 				hRoutes[0].Method),
-			Action:                 routeAction,
-			RequestHeadersToAdd:    getRequestHeadersToAdd(hRoutes[0]),
-			RequestHeadersToRemove: getRequestHeadersToRemove(hRoutes[0]),
+			Action:                  routeAction,
+			RequestHeadersToAdd:     getHeadersToAdd(hRoutes[0].RequestHeaderFilter),
+			RequestHeadersToRemove:  getHeadersToRemove(hRoutes[0].RequestHeaderFilter),
+			ResponseHeadersToAdd:    getHeadersToAdd(hRoutes[0].ResponseHeaderModifier),
+			ResponseHeadersToRemove: getHeadersToRemove(hRoutes[0].ResponseHeaderModifier),
 		}
 		routes = append(routes, &route)
 	}
@@ -435,16 +437,16 @@ func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMat
 	return nil
 }
 
-func getRequestHeadersToAdd(route model.HTTPRoute) []*envoy_config_core_v3.HeaderValueOption {
-	if route.RequestHeaderFilter == nil {
+func getHeadersToAdd(filter *model.HTTPHeaderFilter) []*envoy_config_core_v3.HeaderValueOption {
+	if filter == nil {
 		return nil
 	}
 	result := make(
 		[]*envoy_config_core_v3.HeaderValueOption,
 		0,
-		len(route.RequestHeaderFilter.HeadersToAdd)+len(route.RequestHeaderFilter.HeadersToSet),
+		len(filter.HeadersToAdd)+len(filter.HeadersToSet),
 	)
-	for _, h := range route.RequestHeaderFilter.HeadersToAdd {
+	for _, h := range filter.HeadersToAdd {
 		result = append(result, &envoy_config_core_v3.HeaderValueOption{
 			Header: &envoy_config_core_v3.HeaderValue{
 				Key:   h.Name,
@@ -454,7 +456,7 @@ func getRequestHeadersToAdd(route model.HTTPRoute) []*envoy_config_core_v3.Heade
 		})
 	}
 
-	for _, h := range route.RequestHeaderFilter.HeadersToSet {
+	for _, h := range filter.HeadersToSet {
 		result = append(result, &envoy_config_core_v3.HeaderValueOption{
 			Header: &envoy_config_core_v3.HeaderValue{
 				Key:   h.Name,
@@ -466,9 +468,9 @@ func getRequestHeadersToAdd(route model.HTTPRoute) []*envoy_config_core_v3.Heade
 	return result
 }
 
-func getRequestHeadersToRemove(route model.HTTPRoute) []string {
-	if route.RequestHeaderFilter == nil {
+func getHeadersToRemove(filter *model.HTTPHeaderFilter) []string {
+	if filter == nil {
 		return nil
 	}
-	return route.RequestHeaderFilter.HeadersToRemove
+	return filter.HeadersToRemove
 }

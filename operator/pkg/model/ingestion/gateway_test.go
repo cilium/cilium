@@ -757,7 +757,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestHeaderFilter: &model.HTTPRequestHeaderFilter{
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
 					HeadersToSet: []model.Header{
 						{
 							Name:  "X-Header-Set",
@@ -777,7 +777,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestHeaderFilter: &model.HTTPRequestHeaderFilter{
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
 					HeadersToAdd: []model.Header{
 						{
 							Name:  "X-Header-Add",
@@ -797,7 +797,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestHeaderFilter: &model.HTTPRequestHeaderFilter{
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
 					HeadersToRemove: []string{"X-Header-Remove"},
 				},
 			},
@@ -812,7 +812,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestHeaderFilter: &model.HTTPRequestHeaderFilter{
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
 					HeadersToAdd: []model.Header{
 						{
 							Name:  "X-Header-Add-1",
@@ -854,7 +854,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestHeaderFilter: &model.HTTPRequestHeaderFilter{
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
 					HeadersToAdd: []model.Header{
 						{
 							Name:  "X-Header-Add",
