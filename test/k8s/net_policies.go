@@ -65,6 +65,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		daemonCfg = map[string]string{
 			"tls.secretsBackend": "k8s",
+			"debug.verbose":      "envoy",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
