@@ -1706,12 +1706,13 @@ sigs.k8s.io/controller-tools/pkg/schemapatcher
 sigs.k8s.io/controller-tools/pkg/schemapatcher/internal/yaml
 sigs.k8s.io/controller-tools/pkg/version
 sigs.k8s.io/controller-tools/pkg/webhook
-# sigs.k8s.io/gateway-api v0.5.1
+# sigs.k8s.io/gateway-api v0.6.0
 ## explicit; go 1.18
 sigs.k8s.io/gateway-api/apis/v1alpha2
 sigs.k8s.io/gateway-api/apis/v1beta1
 sigs.k8s.io/gateway-api/conformance
 sigs.k8s.io/gateway-api/conformance/tests
+sigs.k8s.io/gateway-api/conformance/utils/config
 sigs.k8s.io/gateway-api/conformance/utils/flags
 sigs.k8s.io/gateway-api/conformance/utils/http
 sigs.k8s.io/gateway-api/conformance/utils/kubernetes

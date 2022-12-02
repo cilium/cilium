@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/roundtripper"
 )
 
@@ -37,22 +38,35 @@ type ExpectedResponse struct {
 	// expected to match Request.
 	ExpectedRequest *ExpectedRequest
 
-	StatusCode int
-	Backend    string
-	Namespace  string
+	RedirectRequest *roundtripper.RedirectRequest
+
+	// BackendSetResponseHeaders is a set of headers
+	// the echoserver should set in its response.
+	BackendSetResponseHeaders map[string]string
+
+	// Response defines what response the test case
+	// should receive.
+	Response Response
+
+	Backend   string
+	Namespace string
+
+	// User Given TestCase name
+	TestCaseName string
 }
 
 // Request can be used as both the request to make and a means to verify
 // that echoserver received the expected request. Note that multiple header
 // values can be provided, as a comma-separated value.
 type Request struct {
-	Host    string
-	Method  string
-	Path    string
-	Headers map[string]string
+	Host             string
+	Method           string
+	Path             string
+	Headers          map[string]string
+	UnfollowRedirect bool
 }
 
-// ExpectedRequest defines expected properties of a request.
+// ExpectedRequest defines expected properties of a request that reaches a backend.
 type ExpectedRequest struct {
 	Request
 
@@ -61,9 +75,12 @@ type ExpectedRequest struct {
 	AbsentHeaders []string
 }
 
-// maxTimeToConsistency is the maximum time that WaitForConsistency will wait for
-// requiredConsecutiveSuccesses requests to succeed in a row before failing the test.
-const maxTimeToConsistency = 30 * time.Second
+// Response defines expected properties of a response from a backend.
+type Response struct {
+	StatusCode    int
+	Headers       map[string]string
+	AbsentHeaders []string
+}
 
 // requiredConsecutiveSuccesses is the number of requests that must succeed in a row
 // for MakeRequestAndExpectEventuallyConsistentResponse to consider the response "consistent"
@@ -76,15 +93,15 @@ const requiredConsecutiveSuccesses = 3
 //
 // Once the request succeeds consistently with the response having the expected status code, make
 // additional assertions on the response body using the provided ExpectedResponse.
-func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripper.RoundTripper, gwAddr string, expected ExpectedResponse) {
+func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripper.RoundTripper, timeoutConfig config.TimeoutConfig, gwAddr string, expected ExpectedResponse) {
 	t.Helper()
 
 	if expected.Request.Method == "" {
 		expected.Request.Method = "GET"
 	}
 
-	if expected.StatusCode == 0 {
-		expected.StatusCode = 200
+	if expected.Response.StatusCode == 0 {
+		expected.Response.StatusCode = 200
 	}
 
 	t.Logf("Making %s request to http://%s%s", expected.Request.Method, gwAddr, expected.Request.Path)
@@ -92,27 +109,35 @@ func MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, r roundtripp
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
 
 	req := roundtripper.Request{
-		Method:   expected.Request.Method,
-		Host:     expected.Request.Host,
-		URL:      url.URL{Scheme: "http", Host: gwAddr, Path: path, RawQuery: query},
-		Protocol: "HTTP",
+		Method:           expected.Request.Method,
+		Host:             expected.Request.Host,
+		URL:              url.URL{Scheme: "http", Host: gwAddr, Path: path, RawQuery: query},
+		Protocol:         "HTTP",
+		Headers:          map[string][]string{},
+		UnfollowRedirect: expected.Request.UnfollowRedirect,
 	}
 
 	if expected.Request.Headers != nil {
-		req.Headers = map[string][]string{}
 		for name, value := range expected.Request.Headers {
 			req.Headers[name] = []string{value}
 		}
 	}
 
-	WaitForConsistentResponse(t, r, req, expected, requiredConsecutiveSuccesses)
+	backendSetHeaders := []string{}
+	for name, val := range expected.BackendSetResponseHeaders {
+		backendSetHeaders = append(backendSetHeaders, name+":"+val)
+	}
+	req.Headers["X-Echo-Set-Header"] = []string{strings.Join(backendSetHeaders, ",")}
+
+	WaitForConsistentResponse(t, r, req, expected, requiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency)
 }
 
 // awaitConvergence runs the given function until it returns 'true' `threshold` times in a row.
 // Each failed attempt has a 1s delay; successful attempts have no delay.
-func awaitConvergence(t *testing.T, threshold int, fn func() bool) {
+func awaitConvergence(t *testing.T, threshold int, maxTimeToConsistency time.Duration, fn func(elapsed time.Duration) bool) {
 	successes := 0
 	attempts := 0
+	start := time.Now()
 	to := time.After(maxTimeToConsistency)
 	delay := time.Second
 	for {
@@ -122,7 +147,7 @@ func awaitConvergence(t *testing.T, threshold int, fn func() bool) {
 		default:
 		}
 
-		completed := fn()
+		completed := fn(time.Now().Sub(start))
 		attempts++
 		if completed {
 			successes++
@@ -147,16 +172,16 @@ func awaitConvergence(t *testing.T, threshold int, fn func() bool) {
 // WaitForConsistentResponse repeats the provided request until it completes with a response having
 // the expected response consistently. The provided threshold determines how many times in
 // a row this must occur to be considered "consistent".
-func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req roundtripper.Request, expected ExpectedResponse, threshold int) {
-	awaitConvergence(t, threshold, func() bool {
+func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req roundtripper.Request, expected ExpectedResponse, threshold int, maxTimeToConsistency time.Duration) {
+	awaitConvergence(t, threshold, maxTimeToConsistency, func(elapsed time.Duration) bool {
 		cReq, cRes, err := r.CaptureRoundTrip(req)
 		if err != nil {
-			t.Logf("Request failed, not ready yet: %v", err.Error())
+			t.Logf("Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
 			return false
 		}
 
 		if err := CompareRequest(cReq, cRes, expected); err != nil {
-			t.Logf("Response expectation failed, not ready yet: %v", err)
+			t.Logf("Response expectation failed for request: %v  not ready yet: %v (after %v)", req, err, elapsed)
 			return false
 		}
 
@@ -166,8 +191,8 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 }
 
 func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
-	if expected.StatusCode != cRes.StatusCode {
-		return fmt.Errorf("expected status code to be %d, got %d", expected.StatusCode, cRes.StatusCode)
+	if expected.Response.StatusCode != cRes.StatusCode {
+		return fmt.Errorf("expected status code to be %d, got %d", expected.Response.StatusCode, cRes.StatusCode)
 	}
 	if cRes.StatusCode == 200 {
 		// The request expected to arrive at the backend is
@@ -208,6 +233,37 @@ func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.Captu
 			}
 		}
 
+		if expected.Response.Headers != nil {
+			if cRes.Headers == nil {
+				return fmt.Errorf("no headers captured, expected %v", len(expected.ExpectedRequest.Headers))
+			}
+			for name, val := range cRes.Headers {
+				cRes.Headers[strings.ToLower(name)] = val
+			}
+
+			for name, expectedVal := range expected.Response.Headers {
+				actualVal, ok := cRes.Headers[strings.ToLower(name)]
+				if !ok {
+					return fmt.Errorf("expected %s header to be set, actual headers: %v", name, cRes.Headers)
+				} else if strings.Join(actualVal, ",") != expectedVal {
+					return fmt.Errorf("expected %s header to be set to %s, got %s", name, expectedVal, strings.Join(actualVal, ","))
+				}
+			}
+		}
+
+		if len(expected.Response.AbsentHeaders) > 0 {
+			for name, val := range cRes.Headers {
+				cRes.Headers[strings.ToLower(name)] = val
+			}
+
+			for _, name := range expected.Response.AbsentHeaders {
+				val, ok := cRes.Headers[strings.ToLower(name)]
+				if ok {
+					return fmt.Errorf("expected %s header to not be set, got %s", name, val)
+				}
+			}
+		}
+
 		// Verify that headers expected *not* to be present on the
 		// request are actually not present.
 		if len(expected.ExpectedRequest.AbsentHeaders) > 0 {
@@ -226,6 +282,36 @@ func CompareRequest(cReq *roundtripper.CapturedRequest, cRes *roundtripper.Captu
 		if !strings.HasPrefix(cReq.Pod, expected.Backend) {
 			return fmt.Errorf("expected pod name to start with %s, got %s", expected.Backend, cReq.Pod)
 		}
+	} else if roundtripper.IsRedirect(cRes.StatusCode) {
+		if expected.RedirectRequest == nil {
+			return nil
+		}
+		if expected.RedirectRequest.Hostname != cRes.RedirectRequest.Hostname {
+			return fmt.Errorf("expected redirected hostname to be %s, got %s", expected.RedirectRequest.Hostname, cRes.RedirectRequest.Hostname)
+		}
 	}
 	return nil
+}
+
+// Get User-defined test case name or generate from expected response to a given request.
+func (er *ExpectedResponse) GetTestCaseName(i int) string {
+
+	// If TestCase name is provided then use that or else generate one.
+	if er.TestCaseName != "" {
+		return er.TestCaseName
+	}
+
+	headerStr := ""
+	reqStr := ""
+
+	if er.Request.Headers != nil {
+		headerStr = " with headers"
+	}
+
+	reqStr = fmt.Sprintf("%d request to '%s%s'%s", i, er.Request.Host, er.Request.Path, headerStr)
+
+	if er.Backend != "" {
+		return fmt.Sprintf("%s should go to %s", reqStr, er.Backend)
+	}
+	return fmt.Sprintf("%s should receive a %d", reqStr, er.Response.StatusCode)
 }

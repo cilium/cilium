@@ -1164,7 +1164,7 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 					Filters: []gatewayv1beta1.HTTPRouteFilter{
 						{
 							Type: "RequestHeaderModifier",
-							RequestHeaderModifier: &gatewayv1beta1.HTTPRequestHeaderFilter{
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
 								Set: []gatewayv1beta1.HTTPHeader{
 									{
 										Name:  "X-Header-Set",
@@ -1197,7 +1197,7 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 					Filters: []gatewayv1beta1.HTTPRouteFilter{
 						{
 							Type: "RequestHeaderModifier",
-							RequestHeaderModifier: &gatewayv1beta1.HTTPRequestHeaderFilter{
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
 								Add: []gatewayv1beta1.HTTPHeader{
 									{
 										Name:  "X-Header-Add",
@@ -1230,7 +1230,7 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 					Filters: []gatewayv1beta1.HTTPRouteFilter{
 						{
 							Type: "RequestHeaderModifier",
-							RequestHeaderModifier: &gatewayv1beta1.HTTPRequestHeaderFilter{
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
 								Remove: []string{
 									"X-Header-Remove",
 								},
@@ -1260,7 +1260,7 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 					Filters: []gatewayv1beta1.HTTPRouteFilter{
 						{
 							Type: "RequestHeaderModifier",
-							RequestHeaderModifier: &gatewayv1beta1.HTTPRequestHeaderFilter{
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
 								Set: []gatewayv1beta1.HTTPHeader{
 									{
 										Name:  "X-Header-Set-1",
@@ -1315,7 +1315,7 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 					Filters: []gatewayv1beta1.HTTPRouteFilter{
 						{
 							Type: "RequestHeaderModifier",
-							RequestHeaderModifier: &gatewayv1beta1.HTTPRequestHeaderFilter{
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
 								Set: []gatewayv1beta1.HTTPHeader{
 									{
 										Name:  "X-Header-Set",
