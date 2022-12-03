@@ -366,54 +366,6 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			return check.ResultOK, check.ResultNone
 		})
 
-	// Test L7 HTTP introspection using an ingress policy on echo pods.
-	ct.NewTest("echo-ingress-l7").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
-		WithScenarios(
-			tests.PodToPodWithEndpoints(),
-		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
-				// Trying to access private endpoint without "secret" header set
-				// should lead to a drop.
-				if a.Destination().Path() == "/private" && !a.Destination().HasLabel("X-Very-Secret-Token", "42") {
-					return check.ResultDropCurlHTTPError, check.ResultNone
-				}
-				egress = check.ResultOK
-				// Expect all curls from client2 to be proxied and to be GET calls.
-				egress.HTTP = check.HTTP{
-					Method: "GET",
-				}
-				return egress, check.ResultNone
-			}
-			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
-		})
-
-	// Test L7 HTTP introspection using an ingress policy on echo pods.
-	ct.NewTest("echo-ingress-l7-named-port").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
-		WithScenarios(
-			tests.PodToPodWithEndpoints(),
-		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
-				// Trying to access private endpoint without "secret" header set
-				// should lead to a drop.
-				if a.Destination().Path() == "/private" && !a.Destination().HasLabel("X-Very-Secret-Token", "42") {
-					return check.ResultDropCurlHTTPError, check.ResultNone
-				}
-				egress = check.ResultOK
-				// Expect all curls from client2 to be proxied and to be GET calls.
-				egress.HTTP = check.HTTP{
-					Method: "GET",
-				}
-				return egress, check.ResultNone
-			}
-			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
-		})
-
 	// Tests with deny policy
 	ct.NewTest("echo-ingress-from-other-client-deny").
 		WithPolicy(allowAllEgressPolicyYAML).                 // Allow all egress traffic
@@ -559,6 +511,54 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithScenarios(tests.CiliumHealth())
 
 	// The following tests have DNS redirect policies. They should be executed last.
+
+	// Test L7 HTTP introspection using an ingress policy on echo pods.
+	ct.NewTest("echo-ingress-l7").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
+		WithScenarios(
+			tests.PodToPodWithEndpoints(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
+				// Trying to access private endpoint without "secret" header set
+				// should lead to a drop.
+				if a.Destination().Path() == "/private" && !a.Destination().HasLabel("X-Very-Secret-Token", "42") {
+					return check.ResultDropCurlHTTPError, check.ResultNone
+				}
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+				}
+				return egress, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+		})
+
+	// Test L7 HTTP introspection using an ingress policy on echo pods.
+	ct.NewTest("echo-ingress-l7-named-port").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
+		WithScenarios(
+			tests.PodToPodWithEndpoints(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
+				// Trying to access private endpoint without "secret" header set
+				// should lead to a drop.
+				if a.Destination().Path() == "/private" && !a.Destination().HasLabel("X-Very-Secret-Token", "42") {
+					return check.ResultDropCurlHTTPError, check.ResultNone
+				}
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
+				}
+				return egress, check.ResultNone
+			}
+			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
+		})
 
 	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-method").
