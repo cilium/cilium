@@ -366,7 +366,7 @@ Removed Metrics/Labels
 Changed Metrics
 ~~~~~~~~~~~~~
 
-* ``cilium_bpf_map_pressure`` is now enabled by default
+* ``cilium_bpf_map_pressure`` is now enabled by default.
 
 Helm Options
 ~~~~~~~~~~~~
