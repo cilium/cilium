@@ -1,0 +1,22 @@
+pull_request_rules:
+  - name: Add waiting-on-reviews label based on conditional status checks from files changed
+    conditions:
+    - and:
+      - base=master
+      - or:
+        # Add waiting-on-reviews label if the PR is only modifying files related to
+        # documentation changes and its CI is green
+        - "check-success=Validate & Build HTML"
+        - -files~=^(Documentation/)
+      - or:
+        # Add waiting-on-reviews label if the PR is modifying source code
+        # and smoke tests have passed.
+        - and:
+          - "check-success=conformance-test"
+          - "check-success=lint"
+          - "check-success=preflight-clusterrole"
+        - -files~=^((daemon/)|(pkg/))
+    actions:
+      label:
+        add:
+          - waiting-on-reviews
