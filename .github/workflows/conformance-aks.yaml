@@ -190,7 +190,7 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          git clone --depth 1 https://github.com/cilium/cilium-cli
+          git clone --depth 1 -b pr/pchaigno/debug-curl https://github.com/cilium/cilium-cli
           cd cilium-cli
           make -j$(nproc)
           sudo make install
