@@ -363,6 +363,11 @@ Removed Metrics/Labels
 * ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
 * The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
 
+Changed Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_bpf_map_pressure`` is now enabled by default
+
 Helm Options
 ~~~~~~~~~~~~
 
