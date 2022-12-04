@@ -76,6 +76,10 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.init.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       containers:
       - name: etcd
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
@@ -111,6 +115,10 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -124,6 +132,7 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
+        - --clustermesh-health-port=8080
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -147,6 +156,8 @@ spec:
               name: cilium-config
               key: enable-k8s-endpoint-slice
               optional: true
+        - name: GOPS_CONFIG_DIR
+          value: /tmp
         {{- with .Values.clustermesh.apiserver.extraEnv }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}
@@ -154,10 +165,17 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        - mountPath: /tmp
+          name: tmp
+          readOnly: false
         terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - name: etcd-server-secrets
@@ -171,6 +189,8 @@ spec:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
       - name: etcd-data-dir
+        emptyDir: {}
+      - name: tmp
         emptyDir: {}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
@@ -197,6 +217,10 @@ spec:
       {{- end }}
       {{- with .Values.clustermesh.apiserver.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.clustermesh.apiserver.securityContext }}
+      securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}

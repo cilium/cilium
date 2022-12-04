@@ -209,10 +209,22 @@
      - Affinity for clustermesh.apiserver
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - clustermesh.apiserver.containerSecurityContext
+     - Specifies the security context of the api server container
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}``
+   * - clustermesh.apiserver.etcd.containerSecurityContext
+     - Specifies the security context of the etcd container in the apiserver
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}``
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
      - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}``
+   * - clustermesh.apiserver.etcd.init.containerSecurityContext
+     - Specifies the security context of the etcd init container in the apiserver
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}``
    * - clustermesh.apiserver.etcd.init.resources
      - Specifies the resources for etcd init container in the apiserver
      - object
@@ -265,6 +277,10 @@
      - Resource requests and limits for the clustermesh-apiserver
      - object
      - ``{}``
+   * - clustermesh.apiserver.securityContext
+     - Specifies the security context of the api server pod
+     - object
+     - ``{"fsGroup":1000,"runAsGroup":1000,"runAsUser":1000}``
    * - clustermesh.apiserver.service.annotations
      - Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
      - object

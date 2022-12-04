@@ -2144,6 +2144,20 @@ clustermesh:
       useDigest: ${USE_DIGESTS}
       pullPolicy: "${PULL_POLICY}"
 
+    # -- Specifies the security context of the api server pod
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+
+    # -- Specifies the security context of the api server container
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      readOnlyRootFilesystem: true
+
     etcd:
       # -- Clustermesh API server etcd image.
       image:
@@ -2161,6 +2175,14 @@ clustermesh:
       #     cpu: 1000m
       #     memory: 256Mi
 
+      # -- Specifies the security context of the etcd container in the apiserver
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        readOnlyRootFilesystem: true
+
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
@@ -2170,6 +2192,14 @@ clustermesh:
         #   limits:
         #     cpu: 100m
         #     memory: 100Mi
+
+        # -- Specifies the security context of the etcd init container in the apiserver
+        containerSecurityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
 
     service:
       # -- The type of service used for apiserver access.

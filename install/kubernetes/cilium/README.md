@@ -103,7 +103,10 @@ contributors across the globe, there is almost always someone available to help.
 | cluster.id | int | `0` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh, may be 0 if Cluster Mesh is not used. |
 | cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh. |
 | clustermesh.apiserver.affinity | object | `{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"clustermesh-apiserver"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for clustermesh.apiserver |
+| clustermesh.apiserver.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Specifies the security context of the api server container |
+| clustermesh.apiserver.etcd.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Specifies the security context of the etcd container in the apiserver |
 | clustermesh.apiserver.etcd.image | object | `{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}` | Clustermesh API server etcd image. |
+| clustermesh.apiserver.etcd.init.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true}` | Specifies the security context of the etcd init container in the apiserver |
 | clustermesh.apiserver.etcd.init.resources | object | `{}` | Specifies the resources for etcd init container in the apiserver |
 | clustermesh.apiserver.etcd.resources | object | `{}` | Specifies the resources for etcd container in the apiserver |
 | clustermesh.apiserver.extraEnv | list | `[]` | Additional clustermesh-apiserver environment variables. |
@@ -117,6 +120,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.priorityClassName | string | `""` | The priority class to use for clustermesh-apiserver |
 | clustermesh.apiserver.replicas | int | `1` | Number of replicas run for the clustermesh-apiserver deployment. |
 | clustermesh.apiserver.resources | object | `{}` | Resource requests and limits for the clustermesh-apiserver |
+| clustermesh.apiserver.securityContext | object | `{"fsGroup":1000,"runAsGroup":1000,"runAsUser":1000}` | Specifies the security context of the api server pod |
 | clustermesh.apiserver.service.annotations | object | `{}` | Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0 |
 | clustermesh.apiserver.service.nodePort | int | `32379` | Optional port to use as the node port for apiserver access. |
 | clustermesh.apiserver.service.type | string | `"NodePort"` | The type of service used for apiserver access. |
