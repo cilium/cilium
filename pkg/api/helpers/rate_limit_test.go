@@ -24,7 +24,7 @@ var _ = check.Suite(&HelpersSuite{})
 
 func (e *HelpersSuite) TestRateLimitBurst(c *check.C) {
 	metricsAPI := mock.NewMockMetrics()
-	limiter := NewApiLimiter(metricsAPI, 1, 10)
+	limiter := NewAPILimiter(metricsAPI, 1, 10)
 	c.Assert(limiter, check.Not(check.IsNil))
 
 	// Exhaust bucket (rate limit should not kick in)
@@ -42,7 +42,7 @@ func (e *HelpersSuite) TestRateLimitBurst(c *check.C) {
 
 func (e *HelpersSuite) TestRateLimitWait(c *check.C) {
 	metricsAPI := mock.NewMockMetrics()
-	limiter := NewApiLimiter(metricsAPI, 100, 1)
+	limiter := NewAPILimiter(metricsAPI, 100, 1)
 	c.Assert(limiter, check.Not(check.IsNil))
 
 	// Exhaust bucket

@@ -41,7 +41,7 @@ type Client struct {
 	virtualnetworks network.VirtualNetworksClient
 	vmss            compute.VirtualMachineScaleSetVMsClient
 	vmscalesets     compute.VirtualMachineScaleSetsClient
-	limiter         *helpers.ApiLimiter
+	limiter         *helpers.APILimiter
 	metricsAPI      MetricsAPI
 	usePrimary      bool
 }
@@ -86,7 +86,7 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID 
 		vmss:            compute.NewVirtualMachineScaleSetVMsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		vmscalesets:     compute.NewVirtualMachineScaleSetsClientWithBaseURI(azureEnv.ResourceManagerEndpoint, subscriptionID),
 		metricsAPI:      metrics,
-		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
+		limiter:         helpers.NewAPILimiter(metrics, rateLimit, burst),
 		usePrimary:      usePrimary,
 	}
 
