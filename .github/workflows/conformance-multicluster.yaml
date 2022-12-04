@@ -169,7 +169,7 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
@@ -336,6 +336,7 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
+            --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
             --test '!/pod-to-world' \
@@ -362,6 +363,7 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
+            --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
             --test '!no-policies/pod-to-service'
@@ -384,11 +386,11 @@ jobs:
 
           kubectl config use-context ${{ steps.contexts.outputs.context1 }}
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-context1
+          cilium sysdump --output-filename cilium-sysdump-context1-final
 
           kubectl config use-context ${{ steps.contexts.outputs.context2 }}
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-context2
+          cilium sysdump --output-filename cilium-sysdump-context2-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
@@ -406,10 +408,8 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: |
-            cilium-sysdump-context1.zip
-            cilium-sysdump-context2.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success
