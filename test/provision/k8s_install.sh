@@ -595,7 +595,7 @@ sudo rm -rfv /var/lib/kubelet || true
 
 if [[ "${PRELOAD_VM}" == "true" ]]; then
     cd ${SRC_FOLDER}
-    ./test/provision/container-images.sh test_images .
+    ./test/provision/container-images.sh test_images test/k8s
     ./test/provision/container-images.sh cilium_images .
     echo "VM preloading is finished, skipping the rest"
     exit 0
