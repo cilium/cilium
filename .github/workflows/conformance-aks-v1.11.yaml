@@ -295,6 +295,7 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up AKS
