@@ -218,8 +218,10 @@ jobs:
             --nodes-without-cilium=kind-worker3 --helm-set-string="kubeProxyReplacement=${{ env.KPR }}"
 
             ./cilium-cli status --wait
-            ./cilium-cli connectivity test --datapath
-            ./cilium-cli connectivity test -t -d
+            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
+            ./cilium-cli connectivity test -t -d --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -231,14 +233,14 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance-${{ matrix.kernel }}
+            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.kernel }}-final
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdumps
-          path: ./cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success
