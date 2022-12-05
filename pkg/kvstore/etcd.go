@@ -19,10 +19,13 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/client/pkg/v3/logutil"
 	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	client "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	clientyaml "go.etcd.io/etcd/client/v3/yaml"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 
@@ -87,6 +90,16 @@ var (
 	etcdDummyAddress = "http://127.0.0.1:4002"
 
 	etcdInstance = newEtcdModule()
+
+	// Stop using a package scoped logger. We need to pass each etcd client a
+	// logger, otherwise each client will create its own. So when cluster mesh
+	// on re-connection attempts, it create new etcd client with its own logger
+	// too. But old etcd client logger could not been released, which comes with a
+	// significant memory cost(around 30% of the cilium-agent memory when
+	// cluster mesh on re-connection attempts). So we need share logger across
+	// all clients. See https://github.com/cilium/cilium/issues/13446 for more
+	// detail.
+	etcd3ClientLogger *zap.Logger
 )
 
 func EtcdDummyAddress() string {
@@ -255,6 +268,28 @@ func init() {
 			statusCheckTimeout = timeout
 		}
 	}
+
+	l, err := logutil.CreateDefaultZapLogger(etcdClientDebugLevel())
+	if err != nil {
+		l = zap.NewNop()
+	}
+	etcd3ClientLogger = l.Named("etcd-client")
+}
+
+// etcdClientDebugLevel translates ETCD_CLIENT_DEBUG into zap log level.
+// NOTE(negz): This is a copy of a private etcd client function:
+// https://github.com/etcd-io/etcd/blob/v3.5.4/client/v3/logger.go#L47
+func etcdClientDebugLevel() zapcore.Level {
+	envLevel := os.Getenv("ETCD_CLIENT_DEBUG")
+	if envLevel == "" || envLevel == "true" {
+		return zapcore.InfoLevel
+	}
+	var l zapcore.Level
+	if err := l.Set(envLevel); err == nil {
+		log.Printf("Deprecated env ETCD_CLIENT_DEBUG value. Using default level: 'info'")
+		return zapcore.InfoLevel
+	}
+	return l
 }
 
 // Hint tries to improve the error message displayed to te user.
@@ -682,6 +717,9 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
 	config.Context = ctx
+
+	// Use share etcd client logger to fix the logger could not be release when etcd client close
+	config.Logger = etcd3ClientLogger
 
 	c, err := client.New(*config)
 	if err != nil {
