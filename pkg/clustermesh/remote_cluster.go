@@ -80,6 +80,11 @@ type remoteCluster struct {
 
 	// lastFailure is the timestamp of the last failure
 	lastFailure time.Time
+
+	// releaseTimeout is the timeout for the release operation of a kvstore
+	// connection. Because kvstore backend close may time out if the
+	// connection was closed due to an error condition.
+	releaseTimeout time.Duration
 }
 
 var (
@@ -106,55 +111,53 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 }
 
 // releaseOldConnection releases the etcd connection to a remote cluster
-func (rc *remoteCluster) releaseOldConnection() {
-	rc.mutex.Lock()
-	ipCacheWatcher := rc.ipCacheWatcher
-	rc.ipCacheWatcher = nil
+func (rc *remoteCluster) releaseOldConnection(parentCtx context.Context) {
+	if rc.ipCacheWatcher != nil {
+		rc.ipCacheWatcher.Close()
+		rc.ipCacheWatcher = nil
+	}
 
-	remoteNodes := rc.remoteNodes
-	rc.remoteNodes = nil
+	if rc.remoteNodes != nil {
+		// Although we are not using local keys, we need to "Close()" since unit
+		// tests are using local keys to simulate node addition / removal.
+		rc.remoteNodes.Close(parentCtx)
+		rc.remoteNodes = nil
+	}
 
-	remoteIdentityCache := rc.remoteIdentityCache
-	rc.remoteIdentityCache = nil
+	if rc.remoteIdentityCache != nil {
+		rc.remoteIdentityCache.Close()
+		rc.remoteIdentityCache = nil
+	}
 
-	remoteServices := rc.remoteServices
-	rc.remoteServices = nil
+	if rc.remoteServices != nil {
+		// Although we are not using local keys, we need to "Close()" since unit
+		// tests are using local keys to simulate node addition / removal.
+		rc.remoteServices.Close(parentCtx)
+		rc.remoteServices = nil
+	}
 
-	backend := rc.backend
-	rc.backend = nil
+	if rc.backend != nil {
+		ctx, cancel := context.WithTimeout(parentCtx, rc.releaseTimeout)
+		defer cancel()
+		// This will force any session grants and will release any resources
+		// being held by this backend.
+		rc.backend.Close(ctx)
+		rc.backend = nil
+	}
 
 	rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(0.0)
 	rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-
-	rc.mutex.Unlock()
-
-	// Release resources asynchronously in the background. Many of these
-	// operations may time out if the connection was closed due to an error
-	// condition.
-	go func() {
-		if ipCacheWatcher != nil {
-			ipCacheWatcher.Close()
-		}
-		if remoteNodes != nil {
-			remoteNodes.Close(context.TODO())
-		}
-		if remoteIdentityCache != nil {
-			remoteIdentityCache.Close()
-		}
-		if remoteServices != nil {
-			remoteServices.Close(context.TODO())
-		}
-		if backend != nil {
-			backend.Close(context.TODO())
-		}
-	}()
 }
 
 func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				rc.releaseOldConnection()
+				rc.mutex.Lock()
+				if rc.backend != nil {
+					rc.releaseOldConnection(ctx)
+				}
+				rc.mutex.Unlock()
 
 				backend, errChan := kvstore.NewClient(context.TODO(), kvstore.EtcdBackendName,
 					map[string]string{
@@ -235,7 +238,9 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
-				rc.releaseOldConnection()
+				rc.mutex.Lock()
+				rc.releaseOldConnection(ctx)
+				rc.mutex.Unlock()
 				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
 				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 				rc.getLogger().Info("All resources of remote cluster cleaned up")

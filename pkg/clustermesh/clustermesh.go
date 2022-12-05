@@ -6,6 +6,7 @@ package clustermesh
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -207,12 +208,13 @@ func (cm *ClusterMesh) Close() {
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 	rc := &remoteCluster{
-		name:        name,
-		configPath:  path,
-		mesh:        cm,
-		changed:     make(chan bool, configNotificationsChannelSize),
-		controllers: controller.NewManager(),
-		swg:         lock.NewStoppableWaitGroup(),
+		name:           name,
+		configPath:     path,
+		mesh:           cm,
+		changed:        make(chan bool, configNotificationsChannelSize),
+		controllers:    controller.NewManager(),
+		swg:            lock.NewStoppableWaitGroup(),
+		releaseTimeout: 5 * time.Second, // timeout to release old kvstore backend when reconnecting to remote cluster
 	}
 
 	return rc
