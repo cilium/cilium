@@ -220,6 +220,7 @@ func TestWorkloadFilterInclude(t *testing.T) {
 			},
 			want: false,
 		},
+
 		{
 			name: "source-kind-match",
 			args: args{
@@ -244,6 +245,7 @@ func TestWorkloadFilterInclude(t *testing.T) {
 			},
 			want: true,
 		},
+
 		{
 			name: "destination-kind-match",
 			args: args{

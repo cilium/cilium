@@ -482,7 +482,7 @@ message FlowFilter {
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
 
-    //http_header filters flows based on HTTPheader
+    //http_header filters flows based on list of HTTPHeaders
     repeated HTTPHeader http_header=29;
 }
 

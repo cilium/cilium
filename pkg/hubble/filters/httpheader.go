@@ -12,7 +12,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
-func filterByHTTPHeader(h []*flowpb.HTTPHeader, gethttp func(*v1.Event) *flowpb.HTTP) (FilterFunc, error) {
+func filterByHTTPHeader(h []*flowpb.HTTPHeader) (FilterFunc, error) {
 
 	return func(ev *v1.Event) bool {
 		for _, w := range ev.GetFlow().L7.GetHttp().GetHeaders() {
@@ -28,12 +28,13 @@ func filterByHTTPHeader(h []*flowpb.HTTPHeader, gethttp func(*v1.Event) *flowpb.
 
 }
 
-// HTTPHeaderimplements filtering based on endpoint workload
+// HTTPHeaderimplements filtering based on header
 
 type HTTPHeaderFilter struct{}
 
 func (*HTTPHeaderFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
+
 	if ff.GetHttpHeader() != nil {
 		if !httpMatchCompatibleEventFilter(ff.GetEventType()) {
 			return nil, errors.New("filtering by http headers requires " +
@@ -45,5 +46,6 @@ func (*HTTPHeaderFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilte
 		}
 		fs = append(fs, hh)
 	}
+
 	return fs, nil
 }

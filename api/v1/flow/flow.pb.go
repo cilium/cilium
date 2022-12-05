@@ -2930,7 +2930,7 @@ func (x *FlowFilter) GetTraceId() []string {
 	return nil
 }
 
-func (x *FlowFilter) GetHttpHeader() []string {
+func (x *FlowFilter) GetHttpHeader() []*HTTPHeader {
 	if x != nil {
 		return x.HttpHeader
 	}
