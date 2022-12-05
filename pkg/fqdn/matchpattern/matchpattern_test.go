@@ -34,8 +34,8 @@ func (ts *MatchPatternTestSuite) TestAnchoredMatchPatternREConversion(c *C) {
 	} {
 		reStr := ToAnchoredRegexp(source)
 		_, err := regexp.Compile(reStr)
-		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %sis not valid", source))
-		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %s isn't expected", source))
+		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %q is not valid", source))
+		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %q isn't expected", source))
 	}
 }
 
@@ -48,8 +48,8 @@ func (ts *MatchPatternTestSuite) TestUnAnchoredMatchPatternREConversion(c *C) {
 	} {
 		reStr := ToUnAnchoredRegexp(source)
 		_, err := regexp.Compile(reStr)
-		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %sis not valid", source))
-		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %s isn't expected", source))
+		c.Assert(err, IsNil, Commentf("Regexp generated from pattern %q is not valid", source))
+		c.Assert(reStr, Equals, target, Commentf("Regexp generated from pattern %q isn't expected", source))
 	}
 }
 
