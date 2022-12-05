@@ -9,7 +9,6 @@
 package restore
 
 import (
-	"regexp"
 	"sort"
 )
 
@@ -25,17 +24,24 @@ type IPRule struct {
 	IPs map[string]struct{} // IPs, nil set is wildcard and allows all IPs!
 }
 
-// RuleRegex is a wrapper for *regexp.Regexp so that we can define marshalers for it.
+// RuleRegex is a wrapper for a pointer to a string so that we can define marshalers for it.
 type RuleRegex struct {
-	*regexp.Regexp
+	Pattern *string
 }
 
 // Sort is only used for testing
 // Sorts in place, but returns IPRules for convenience
 func (r IPRules) Sort() IPRules {
 	sort.SliceStable(r, func(i, j int) bool {
-		return r[i].Re.String() < r[j].Re.String()
+		if r[i].Re.Pattern != nil && r[j].Re.Pattern != nil {
+			return *r[i].Re.Pattern < *r[j].Re.Pattern
+		}
+		if r[i].Re.Pattern != nil {
+			return true
+		}
+		return false
 	})
+
 	return r
 }
 
@@ -54,18 +60,15 @@ func (r DNSRules) Sort() DNSRules {
 // UnmarshalText unmarshals json into a RuleRegex
 // This must have a pointer receiver, otherwise the RuleRegex remains empty.
 func (r *RuleRegex) UnmarshalText(b []byte) error {
-	regex, err := regexp.Compile(string(b))
-	if err != nil {
-		return err
-	}
-	r.Regexp = regex
+	pattern := string(b)
+	r.Pattern = &pattern
 	return nil
 }
 
 // MarshalText marshals RuleRegex as string
 func (r RuleRegex) MarshalText() ([]byte, error) {
-	if r.Regexp != nil {
-		return []byte(r.Regexp.String()), nil
+	if r.Pattern != nil {
+		return []byte(*r.Pattern), nil
 	}
 	return nil, nil
 }

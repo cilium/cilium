@@ -33,7 +33,7 @@ func NewPatchEndpointIDLabels(ctx *middleware.Context, handler PatchEndpointIDLa
 }
 
 /*
-PatchEndpointIDLabels swagger:route PATCH /endpoint/{id}/labels endpoint patchEndpointIdLabels
+	PatchEndpointIDLabels swagger:route PATCH /endpoint/{id}/labels endpoint patchEndpointIdLabels
 
 # Set label configuration of endpoint
 
@@ -48,17 +48,15 @@ type PatchEndpointIDLabels struct {
 func (o *PatchEndpointIDLabels) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewPatchEndpointIDLabelsParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

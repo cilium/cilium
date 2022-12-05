@@ -133,7 +133,7 @@ type DescribeImagesInput struct {
 	// ID of the owner. We recommend that you use the Owner request parameter instead
 	// of this filter.
 	//
-	// * platform - The platform. To only list Windows-based AMIs, use
+	// * platform - The platform. The only supported value is
 	// windows.
 	//
 	// * product-code - The product code.
@@ -178,11 +178,9 @@ type DescribeImagesInput struct {
 	// The image IDs. Default: Describes all images available to you.
 	ImageIds []string
 
-	// If true, all deprecated AMIs are included in the response. If false, no
-	// deprecated AMIs are included in the response. If no value is specified, the
-	// default value is false. If you are the AMI owner, all deprecated AMIs appear in
-	// the response regardless of the value (true or false) that you set for this
-	// parameter.
+	// Specifies whether to include deprecated AMIs. Default: No deprecated AMIs are
+	// included in the response. If you are the AMI owner, all deprecated AMIs appear
+	// in the response regardless of what you specify for this parameter.
 	IncludeDeprecated *bool
 
 	// Scopes the results to images with the specified owners. You can specify a

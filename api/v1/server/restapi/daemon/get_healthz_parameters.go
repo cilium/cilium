@@ -18,7 +18,8 @@ import (
 )
 
 // NewGetHealthzParams creates a new GetHealthzParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetHealthzParams() GetHealthzParams {
 
 	return GetHealthzParams{}
@@ -52,7 +53,6 @@ func (o *GetHealthzParams) BindRequest(r *http.Request, route *middleware.Matche
 	if err := o.bindBrief(r.Header[http.CanonicalHeaderKey("brief")], true, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

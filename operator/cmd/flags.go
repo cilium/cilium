@@ -66,6 +66,17 @@ func init() {
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(Vp, operatorOption.CNPNodeStatusGCInterval)
 
+	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
+	option.BindEnv(Vp, operatorOption.SkipCNPStatusStartupClean)
+
+	flags.Float64(operatorOption.CNPStatusCleanupQPS, operatorOption.CNPStatusCleanupQPSDefault,
+		"Rate used for limiting the clean up of the status nodes updates in CNP, expressed as qps")
+	option.BindEnv(Vp, operatorOption.CNPStatusCleanupQPS)
+
+	flags.Int(operatorOption.CNPStatusCleanupBurst, operatorOption.CNPStatusCleanupBurstDefault,
+		"Maximum burst of requests to clean up status nodes updates in CNPs")
+	option.BindEnv(Vp, operatorOption.CNPStatusCleanupBurst)
+
 	flags.Duration(operatorOption.CNPStatusUpdateInterval, 1*time.Second, "Interval between CNP status updates sent to the k8s-apiserver per-CNP")
 	option.BindEnv(Vp, operatorOption.CNPStatusUpdateInterval)
 
@@ -322,6 +333,9 @@ func init() {
 	option.BindEnv(Vp, operatorOption.IngressLBAnnotationPrefixes)
 
 	flags.Bool(operatorOption.EnableK8s, true, `Enable operation of Kubernetes-related services/controllers when using Cilium with Kubernetes`)
+	option.BindEnv(Vp, operatorOption.EnableK8s)
+
+	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "Set the label of a pod that existed before the operator removed the node taint")
 	option.BindEnv(Vp, operatorOption.EnableK8s)
 
 	flags.Duration(option.KVstoreLeaseTTL, defaults.KVstoreLeaseTTL, "Time-to-live for the KVstore lease.")

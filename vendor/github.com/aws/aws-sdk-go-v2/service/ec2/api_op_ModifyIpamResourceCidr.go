@@ -78,7 +78,7 @@ type ModifyIpamResourceCidrInput struct {
 
 type ModifyIpamResourceCidrOutput struct {
 
-	// The CIDR for an IPAM resource.
+	// The CIDR of the resource.
 	IpamResourceCidr *types.IpamResourceCidr
 
 	// Metadata pertaining to the operation's result.

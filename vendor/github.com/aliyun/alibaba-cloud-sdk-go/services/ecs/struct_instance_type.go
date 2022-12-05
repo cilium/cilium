@@ -23,6 +23,7 @@ type InstanceType struct {
 	EniPrivateIpAddressQuantity int     `json:"EniPrivateIpAddressQuantity" xml:"EniPrivateIpAddressQuantity"`
 	CpuCoreCount                int     `json:"CpuCoreCount" xml:"CpuCoreCount"`
 	EniTotalQuantity            int     `json:"EniTotalQuantity" xml:"EniTotalQuantity"`
+	NetworkEncryptionSupport    bool    `json:"NetworkEncryptionSupport" xml:"NetworkEncryptionSupport"`
 	Cores                       int     `json:"Cores" xml:"Cores"`
 	InstanceTypeId              string  `json:"InstanceTypeId" xml:"InstanceTypeId"`
 	InstanceBandwidthRx         int     `json:"InstanceBandwidthRx" xml:"InstanceBandwidthRx"`
@@ -37,6 +38,7 @@ type InstanceType struct {
 	InstanceFamilyLevel         string  `json:"InstanceFamilyLevel" xml:"InstanceFamilyLevel"`
 	LocalStorageAmount          int     `json:"LocalStorageAmount" xml:"LocalStorageAmount"`
 	TotalEniQueueQuantity       int     `json:"TotalEniQueueQuantity" xml:"TotalEniQueueQuantity"`
+	CpuArchitecture             string  `json:"CpuArchitecture" xml:"CpuArchitecture"`
 	GPUSpec                     string  `json:"GPUSpec" xml:"GPUSpec"`
 	SecondaryEniQueueNumber     int     `json:"SecondaryEniQueueNumber" xml:"SecondaryEniQueueNumber"`
 	InstanceBandwidthTx         int     `json:"InstanceBandwidthTx" xml:"InstanceBandwidthTx"`
@@ -44,11 +46,16 @@ type InstanceType struct {
 	DiskQuantity                int     `json:"DiskQuantity" xml:"DiskQuantity"`
 	PrimaryEniQueueNumber       int     `json:"PrimaryEniQueueNumber" xml:"PrimaryEniQueueNumber"`
 	Memory                      int     `json:"Memory" xml:"Memory"`
+	CpuTurboFrequency           float64 `json:"CpuTurboFrequency" xml:"CpuTurboFrequency"`
 	BaselineCredit              int     `json:"BaselineCredit" xml:"BaselineCredit"`
 	EniTrunkSupported           bool    `json:"EniTrunkSupported" xml:"EniTrunkSupported"`
 	GPUAmount                   int     `json:"GPUAmount" xml:"GPUAmount"`
+	GPUMemorySize               float64 `json:"GPUMemorySize" xml:"GPUMemorySize"`
 	NvmeSupport                 string  `json:"NvmeSupport" xml:"NvmeSupport"`
+	InstanceCategory            string  `json:"InstanceCategory" xml:"InstanceCategory"`
 	EniIpv6AddressQuantity      int     `json:"EniIpv6AddressQuantity" xml:"EniIpv6AddressQuantity"`
 	LocalStorageCapacity        int64   `json:"LocalStorageCapacity" xml:"LocalStorageCapacity"`
+	CpuSpeedFrequency           float64 `json:"CpuSpeedFrequency" xml:"CpuSpeedFrequency"`
 	LocalStorageCategory        string  `json:"LocalStorageCategory" xml:"LocalStorageCategory"`
+	PhysicalProcessorModel      string  `json:"PhysicalProcessorModel" xml:"PhysicalProcessorModel"`
 }

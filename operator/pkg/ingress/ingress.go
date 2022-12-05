@@ -342,7 +342,7 @@ func (ic *Controller) ensureResources(ing *slim_networkingv1.Ingress, forceShare
 }
 
 func (ic *Controller) updateIngressStatus(ing *slim_networkingv1.Ingress, status *slim_corev1.LoadBalancerStatus) error {
-	if ing == nil || status == nil || status.DeepEqual(&ing.Status.LoadBalancer) {
+	if ing == nil || status == nil || k8s.ConvertToSlimIngressLoadBalancerStatus(status).DeepEqual(&ing.Status.LoadBalancer) {
 		return nil
 	}
 
@@ -372,8 +372,8 @@ func getIngressForStatusUpdate(slimIngress *slim_networkingv1.Ingress, lb slim_c
 			Annotations:     slimIngressCopy.GetAnnotations(),
 		},
 		Status: networkingv1.IngressStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: k8s.ConvertToK8sV1LoadBalancerIngress(lb.Ingress),
+			LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+				Ingress: k8s.ConvertToNetworkV1IngressLoadBalancerIngress(lb.Ingress),
 			},
 		},
 	}

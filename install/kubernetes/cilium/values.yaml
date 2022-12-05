@@ -814,10 +814,16 @@ hubble:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Relabeling configs for the ServiceMonitor hubble
+      relabelings:
+        - sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node
+          replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
     dashboards:
-      enabled: true
+      enabled: false
       label: grafana_dashboard
       namespace: ~
       labelValue: "1"
@@ -1064,6 +1070,8 @@ hubble:
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
+        # -- Relabeling configs for the ServiceMonitor hubble-relay
+        relabelings: ~
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
         metricRelabelings: ~
 
@@ -1510,6 +1518,12 @@ prometheus:
     # -- Specify the Kubernetes namespace where Prometheus expects to find
     # service monitors configured.
     # namespace: ""
+    # -- Relabeling configs for the ServiceMonitor cilium-agent
+    relabelings:
+      - sourceLabels:
+          - __meta_kubernetes_pod_node_name
+        targetLabel: node
+        replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
   # -- Metrics that should be enabled or disabled from the default metric
@@ -1827,6 +1841,9 @@ operator:
   # -- Interval for cilium node garbage collection.
   nodeGCInterval: "5m0s"
 
+  # -- Skip CNP node status clean up at operator startup.
+  skipCNPStatusStartupClean: false
+
   # -- Interval for identity garbage collection.
   identityGCInterval: "15m0s"
 
@@ -1848,6 +1865,8 @@ operator:
       annotations: {}
       # -- Interval for scrape metrics.
       interval: "10s"
+      # -- Relabeling configs for the ServiceMonitor cilium-operator
+      relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
       metricRelabelings: ~
 
@@ -2102,6 +2121,25 @@ clustermesh:
         repository: "quay.io/coreos/etcd"
         tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
         pullPolicy: "Always"
+
+      # -- Specifies the resources for etcd container in the apiserver
+      resources: {}
+      #   requests:
+      #     cpu: 200m
+      #     memory: 256Mi
+      #   limits:
+      #     cpu: 1000m
+      #     memory: 256Mi
+
+      init:
+        # -- Specifies the resources for etcd init container in the apiserver
+        resources: {}
+        #   requests:
+        #     cpu: 100m
+        #     memory: 100Mi
+        #   limits:
+        #     cpu: 100m
+        #     memory: 100Mi
 
     service:
       # -- The type of service used for apiserver access.

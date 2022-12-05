@@ -38,7 +38,6 @@ func (o *GetMetricsReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -50,7 +49,7 @@ func NewGetMetricsOK() *GetMetricsOK {
 }
 
 /*
-GetMetricsOK handles this case with default header values.
+GetMetricsOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -58,7 +57,36 @@ type GetMetricsOK struct {
 	Payload []*models.Metric
 }
 
+// IsSuccess returns true when this get metrics o k response has a 2xx status code
+func (o *GetMetricsOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get metrics o k response has a 3xx status code
+func (o *GetMetricsOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get metrics o k response has a 4xx status code
+func (o *GetMetricsOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get metrics o k response has a 5xx status code
+func (o *GetMetricsOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get metrics o k response a status code equal to that given
+func (o *GetMetricsOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetMetricsOK) Error() string {
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMetricsOK) String() string {
 	return fmt.Sprintf("[GET /metrics/][%d] getMetricsOK  %+v", 200, o.Payload)
 }
 
@@ -82,14 +110,43 @@ func NewGetMetricsFailed() *GetMetricsFailed {
 }
 
 /*
-GetMetricsFailed handles this case with default header values.
+GetMetricsFailed describes a response with status code 500, with default header values.
 
 Metrics cannot be retrieved
 */
 type GetMetricsFailed struct {
 }
 
+// IsSuccess returns true when this get metrics failed response has a 2xx status code
+func (o *GetMetricsFailed) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get metrics failed response has a 3xx status code
+func (o *GetMetricsFailed) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get metrics failed response has a 4xx status code
+func (o *GetMetricsFailed) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get metrics failed response has a 5xx status code
+func (o *GetMetricsFailed) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get metrics failed response a status code equal to that given
+func (o *GetMetricsFailed) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *GetMetricsFailed) Error() string {
+	return fmt.Sprintf("[GET /metrics/][%d] getMetricsFailed ", 500)
+}
+
+func (o *GetMetricsFailed) String() string {
 	return fmt.Sprintf("[GET /metrics/][%d] getMetricsFailed ", 500)
 }
 

@@ -213,6 +213,14 @@
      - Clustermesh API server etcd image.
      - object
      - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}``
+   * - clustermesh.apiserver.etcd.init.resources
+     - Specifies the resources for etcd init container in the apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.etcd.resources
+     - Specifies the resources for etcd container in the apiserver
+     - object
+     - ``{}``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
      - list
@@ -788,7 +796,7 @@
    * - hubble.metrics
      - Hubble metrics configuration. See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics for more comprehensive documentation about Hubble metrics.
      - object
-     - ``{"dashboards":{"annotations":{},"enabled":true,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null}}``
+     - ``{"dashboards":{"annotations":{},"enabled":false,"label":"grafana_dashboard","labelValue":"1","namespace":null},"enableOpenMetrics":false,"enabled":null,"port":9965,"serviceAnnotations":{},"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
    * - hubble.metrics.enableOpenMetrics
      - Enables exporting hubble metrics in OpenMetrics format.
      - bool
@@ -825,6 +833,10 @@
      - Metrics relabeling configs for the ServiceMonitor hubble
      - string
      - ``nil``
+   * - hubble.metrics.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor hubble
+     - list
+     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
    * - hubble.peerService.clusterDomain
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string
@@ -900,7 +912,7 @@
    * - hubble.relay.prometheus
      - Enable prometheus metrics for hubble-relay on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"port":9966,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - hubble.relay.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor hubble-relay
      - object
@@ -919,6 +931,10 @@
      - ``{}``
    * - hubble.relay.prometheus.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor hubble-relay
+     - string
+     - ``nil``
+   * - hubble.relay.prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor hubble-relay
      - string
      - ``nil``
    * - hubble.relay.replicas
@@ -1536,7 +1552,7 @@
    * - operator.prometheus
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - operator.prometheus.serviceMonitor.annotations
      - Annotations to add to ServiceMonitor cilium-operator
      - object
@@ -1555,6 +1571,10 @@
      - ``{}``
    * - operator.prometheus.serviceMonitor.metricRelabelings
      - Metrics relabeling configs for the ServiceMonitor cilium-operator
+     - string
+     - ``nil``
+   * - operator.prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor cilium-operator
      - string
      - ``nil``
    * - operator.removeNodeTaints
@@ -1581,6 +1601,10 @@
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
      - ``true``
+   * - operator.skipCNPStatusStartupClean
+     - Skip CNP node status clean up at operator startup.
+     - bool
+     - ``false``
    * - operator.skipCRDCreation
      - Skip CRDs creation for cilium-operator
      - bool
@@ -1704,7 +1728,7 @@
    * - prometheus
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null}}``
+     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
    * - prometheus.metrics
      - Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
      - string
@@ -1729,6 +1753,10 @@
      - Metrics relabeling configs for the ServiceMonitor cilium-agent
      - string
      - ``nil``
+   * - prometheus.serviceMonitor.relabelings
+     - Relabeling configs for the ServiceMonitor cilium-agent
+     - list
+     - ``[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]``
    * - proxy
      - Configure Istio proxy options.
      - object

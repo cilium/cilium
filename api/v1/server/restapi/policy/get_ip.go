@@ -33,7 +33,7 @@ func NewGetIP(ctx *middleware.Context, handler GetIPHandler) *GetIP {
 }
 
 /*
-GetIP swagger:route GET /ip policy getIp
+	GetIP swagger:route GET /ip policy getIp
 
 # Lists information about known IP addresses
 
@@ -49,17 +49,15 @@ type GetIP struct {
 func (o *GetIP) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetIPParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

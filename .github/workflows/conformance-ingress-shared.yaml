@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   timeout: 5m
 
 jobs:

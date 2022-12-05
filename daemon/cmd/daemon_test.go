@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -146,10 +145,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 				return cs
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
+			func() *option.DaemonConfig { return option.Config },
 		),
-
 		ControlPlane,
-
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
@@ -173,8 +171,8 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
 		string(models.EndpointStateReady),
-		string(models.EndpointStateWaitingForIdentity),
-		string(models.EndpointStateWaitingToRegenerate)} {
+		string(models.EndpointStateWaitingDashForDashIdentity),
+		string(models.EndpointStateWaitingDashToDashRegenerate)} {
 		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
 	}
 }
@@ -198,12 +196,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
-
-	// Release the identity allocator reference created by NewDaemon. This
-	// is done manually here as we have no Close() function daemon
-	ds.d.identityAllocator.Close()
-
-	identitymanager.RemoveAll()
 
 	err := ds.hive.Stop(ctx)
 	c.Assert(err, IsNil)

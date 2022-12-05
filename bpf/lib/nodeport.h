@@ -845,7 +845,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
-	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
 
@@ -864,7 +863,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
+	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -874,7 +873,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	svc = lb6_lookup_service(&key, false);
+	svc = lb6_lookup_service(&key, false, false);
 	if (svc) {
 		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
@@ -899,13 +898,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (!lb6_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
 	} else {
+skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_STATELESS
-		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr) &&
+		    is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
 			return DROP_MISSED_TAIL_CALL;
 		}
 #endif
-skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 		if (nodeport_uses_dsr6(&tuple))
@@ -923,6 +923,8 @@ skip_service_lookup:
 
 	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
 		struct ct_state ct_state = {};
+		union macaddr smac = {0};
+		union macaddr *mac;
 
 		ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				 CT_EGRESS, &ct_state, &monitor);
@@ -960,45 +962,45 @@ redo:
 			if (ret < 0)
 				return ret;
 		}
-	}
 
-	if (!backend_local) {
-		edt_set_aggregate(ctx, 0);
-		if (nodeport_uses_dsr6(&tuple)) {
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
-			ctx_store_meta(ctx, CB_HINT,
-				       ((__u32)tuple.sport << 16) | tuple.dport);
-			ctx_store_meta(ctx, CB_ADDR_V6_1, tuple.daddr.p1);
-			ctx_store_meta(ctx, CB_ADDR_V6_2, tuple.daddr.p2);
-			ctx_store_meta(ctx, CB_ADDR_V6_3, tuple.daddr.p3);
-			ctx_store_meta(ctx, CB_ADDR_V6_4, tuple.daddr.p4);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-			ctx_store_meta(ctx, CB_PORT, key.dport);
-			ctx_store_meta(ctx, CB_ADDR_V6_1, key.address.p1);
-			ctx_store_meta(ctx, CB_ADDR_V6_2, key.address.p2);
-			ctx_store_meta(ctx, CB_ADDR_V6_3, key.address.p3);
-			ctx_store_meta(ctx, CB_ADDR_V6_4, key.address.p4);
-#endif /* DSR_ENCAP_MODE */
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR);
-		} else {
-			/* This code path is not only hit for NAT64, but also
-			 * for NAT46. For the latter we initially hit the IPv4
-			 * NodePort path, then migrate the request to IPv6 and
-			 * recirculate into the regular IPv6 NodePort path. So
-			 * we need to make sure to not NAT back to IPv4 for
-			 * IPv4-in-IPv6 converted addresses.
-			 */
-			ctx_store_meta(ctx, CB_NAT_46X64,
-				       !is_v4_in_v6(&key.address) &&
-				       lb6_to_lb4_service(svc));
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS);
+		if (backend_local) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+			return CTX_ACT_OK;
 		}
-		return DROP_MISSED_TAIL_CALL;
 	}
 
-	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-
-	return CTX_ACT_OK;
+	/* TX request to remote backend: */
+	edt_set_aggregate(ctx, 0);
+	if (nodeport_uses_dsr6(&tuple)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+		ctx_store_meta(ctx, CB_HINT,
+			       ((__u32)tuple.sport << 16) | tuple.dport);
+		ctx_store_meta(ctx, CB_ADDR_V6_1, tuple.daddr.p1);
+		ctx_store_meta(ctx, CB_ADDR_V6_2, tuple.daddr.p2);
+		ctx_store_meta(ctx, CB_ADDR_V6_3, tuple.daddr.p3);
+		ctx_store_meta(ctx, CB_ADDR_V6_4, tuple.daddr.p4);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		ctx_store_meta(ctx, CB_PORT, key.dport);
+		ctx_store_meta(ctx, CB_ADDR_V6_1, key.address.p1);
+		ctx_store_meta(ctx, CB_ADDR_V6_2, key.address.p2);
+		ctx_store_meta(ctx, CB_ADDR_V6_3, key.address.p3);
+		ctx_store_meta(ctx, CB_ADDR_V6_4, key.address.p4);
+#endif /* DSR_ENCAP_MODE */
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR);
+	} else {
+		/* This code path is not only hit for NAT64, but also
+		 * for NAT46. For the latter we initially hit the IPv4
+		 * NodePort path, then migrate the request to IPv6 and
+		 * recirculate into the regular IPv6 NodePort path. So
+		 * we need to make sure to not NAT back to IPv4 for
+		 * IPv4-in-IPv6 converted addresses.
+		 */
+		ctx_store_meta(ctx, CB_NAT_46X64,
+			       !is_v4_in_v6(&key.address) &&
+			       lb6_to_lb4_service(svc));
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS);
+	}
+	return DROP_MISSED_TAIL_CALL;
 }
 
 /* See comment in tail_rev_nodeport_lb4(). */
@@ -1781,7 +1783,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
 
@@ -1796,7 +1797,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-	ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off, CT_EGRESS);
+	ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -1806,7 +1807,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	svc = lb4_lookup_service(&key, false);
+	svc = lb4_lookup_service(&key, false, false);
 	if (svc) {
 		const bool skip_l3_xlate = DSR_ENCAP_MODE == DSR_ENCAP_IPIP;
 
@@ -1837,6 +1838,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (!lb4_svc_is_routable(svc))
 			return DROP_IS_CLUSTER_IP;
 	} else {
+skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_STATELESS
 		if (ip4->daddr != IPV4_DIRECT_ROUTING) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV46_RFC8215);
@@ -1847,7 +1849,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		 * packet from a remote backend, in which case we need to perform
 		 * the reverse NAT.
 		 */
-skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifndef ENABLE_MASQUERADE
@@ -1879,6 +1880,8 @@ skip_service_lookup:
 	 */
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
+		union macaddr smac = {0};
+		union macaddr *mac;
 
 		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
 				 CT_EGRESS, &ct_state, &monitor);
@@ -1919,29 +1922,29 @@ redo:
 			if (ret < 0)
 				return ret;
 		}
-	}
 
-	if (!backend_local) {
-		edt_set_aggregate(ctx, 0);
-		if (nodeport_uses_dsr4(&tuple)) {
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
-			ctx_store_meta(ctx, CB_HINT,
-				       ((__u32)tuple.sport << 16) | tuple.dport);
-			ctx_store_meta(ctx, CB_ADDR_V4, tuple.daddr);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
-			ctx_store_meta(ctx, CB_PORT, key.dport);
-			ctx_store_meta(ctx, CB_ADDR_V4, key.address);
-#endif /* DSR_ENCAP_MODE */
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
-		} else {
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS);
+		if (backend_local) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+			return CTX_ACT_OK;
 		}
-		return DROP_MISSED_TAIL_CALL;
 	}
 
-	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
-
-	return CTX_ACT_OK;
+	/* TX request to remote backend: */
+	edt_set_aggregate(ctx, 0);
+	if (nodeport_uses_dsr4(&tuple)) {
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+		ctx_store_meta(ctx, CB_HINT,
+			       ((__u32)tuple.sport << 16) | tuple.dport);
+		ctx_store_meta(ctx, CB_ADDR_V4, tuple.daddr);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		ctx_store_meta(ctx, CB_PORT, key.dport);
+		ctx_store_meta(ctx, CB_ADDR_V4, key.address);
+#endif /* DSR_ENCAP_MODE */
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR);
+	} else {
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS);
+	}
+	return DROP_MISSED_TAIL_CALL;
 }
 
 /* Reverse NAT handling of node-port traffic for the case where the

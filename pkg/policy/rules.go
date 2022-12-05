@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 )
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
@@ -147,4 +148,13 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint) (bool, error) {
 	}
 
 	return endpointSelected, nil
+}
+
+// AsPolicyRules return the internal policyapi.Rule objects as a policyapi.Rules object
+func (rules ruleSlice) AsPolicyRules() policyapi.Rules {
+	policyRules := make(policyapi.Rules, 0, len(rules))
+	for _, r := range rules {
+		policyRules = append(policyRules, &r.Rule)
+	}
+	return policyRules
 }

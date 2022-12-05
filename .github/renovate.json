@@ -87,6 +87,17 @@
       "matchBaseBranches": [
         "v1.10"
       ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "3.16",
+      "matchBaseBranches": [
+        "v1.12",
+        "v1.11",
+        "v1.10"
+      ]
     }
   ]
 }

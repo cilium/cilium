@@ -50,7 +50,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -199,7 +198,7 @@ type Daemon struct {
 	bgpControlPlaneController *bgpv1.Controller
 
 	// CIDRs for which identities were restored during bootstrap
-	restoredCIDRs []*net.IPNet
+	restoredCIDRs []netip.Prefix
 
 	// Controllers owned by the daemon
 	controllers *controller.Manager
@@ -548,7 +547,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			v := value.(*ipcachemap.RemoteEndpointInfo)
 			nid := identity.NumericIdentity(v.SecurityIdentity)
 			if nid.HasLocalScope() {
-				d.restoredCIDRs = append(d.restoredCIDRs, k.IPNet())
+				d.restoredCIDRs = append(d.restoredCIDRs, k.Prefix())
 				oldNIDs = append(oldNIDs, nid)
 			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
 				oldIngressIPs = append(oldIngressIPs, k.IPNet())
@@ -598,11 +597,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
 	if len(d.restoredCIDRs) > 0 {
 		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-		prefixes := make([]netip.Prefix, 0, len(d.restoredCIDRs))
-		for _, c := range d.restoredCIDRs {
-			prefixes = append(prefixes, ip.IPNetToPrefix(c))
-		}
-		_, err = d.ipcache.AllocateCIDRs(prefixes, oldNIDs, restoredCIDRidentities)
+		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
 		if err != nil {
 			log.WithError(err).Error("Error allocating old CIDR identities")
 		}
@@ -610,7 +605,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		// same numeric identity as before the restart. This can only happen if we have
 		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
 		for i, prefix := range d.restoredCIDRs {
-			id, exists := restoredCIDRidentities[ip.IPNetToPrefix(prefix)]
+			id, exists := restoredCIDRidentities[prefix]
 			if !exists || id.ID != oldNIDs[i] {
 				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
 				break
@@ -681,6 +676,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.cgroupManager,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
+
 	d.ipcache.RegisterK8sSyncedChecker(&d)
 
 	d.k8sWatcher.RegisterNodeSubscriber(d.endpointManager)
@@ -929,7 +925,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	if _, err := d.deviceManager.Detect(clientset.IsEnabled()); err != nil {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
@@ -1261,7 +1257,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Start listening to changed devices if requested.
 	if option.Config.EnableRuntimeDeviceDetection {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			devicesChan, err := d.deviceManager.Listen(ctx)
 			if err != nil {
 				log.WithError(err).Warn("Runtime device detection failed to start")
@@ -1381,6 +1377,8 @@ func (d *Daemon) Close() {
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
 	}
+	d.identityAllocator.Close()
+	identitymanager.RemoveAll()
 	d.nodeDiscovery.Close()
 	d.cgroupManager.Close()
 }
@@ -1442,7 +1440,7 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d.policy.BumpRevision() // force policy recalculation
 }
 
-// numWorkerThreads returns the number of worker threads with a minimum of 4.
+// numWorkerThreads returns the number of worker threads with a minimum of 2.
 func numWorkerThreads() int {
 	ncpu := runtime.NumCPU()
 	minWorkerThreads := 2

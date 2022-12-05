@@ -32,10 +32,10 @@ import (
 // RevokeSecurityGroupEgress. For more information about VPC security group limits,
 // see Amazon VPC Limits
 // (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html). We
-// are retiring EC2-Classic on August 15, 2022. We recommend that you migrate from
-// EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to a
-// VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// are retiring EC2-Classic. We recommend that you migrate from EC2-Classic to a
+// VPC. For more information, see Migrate from EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateSecurityGroup(ctx context.Context, params *CreateSecurityGroupInput, optFns ...func(*Options)) (*CreateSecurityGroupOutput, error) {
 	if params == nil {
 		params = &CreateSecurityGroupInput{}

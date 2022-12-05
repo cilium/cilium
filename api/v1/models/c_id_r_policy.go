@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -49,7 +50,6 @@ func (m *CIDRPolicy) Validate(formats strfmt.Registry) error {
 }
 
 func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Egress) { // not required
 		return nil
 	}
@@ -63,6 +63,8 @@ func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
 			if err := m.Egress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("egress" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -74,7 +76,6 @@ func (m *CIDRPolicy) validateEgress(formats strfmt.Registry) error {
 }
 
 func (m *CIDRPolicy) validateIngress(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Ingress) { // not required
 		return nil
 	}
@@ -88,6 +89,66 @@ func (m *CIDRPolicy) validateIngress(formats strfmt.Registry) error {
 			if err := m.Ingress[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("ingress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this c ID r policy based on the context it is used
+func (m *CIDRPolicy) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateEgress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIngress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *CIDRPolicy) contextValidateEgress(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Egress); i++ {
+
+		if m.Egress[i] != nil {
+			if err := m.Egress[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("egress" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("egress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *CIDRPolicy) contextValidateIngress(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Ingress); i++ {
+
+		if m.Ingress[i] != nil {
+			if err := m.Ingress[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("ingress" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("ingress" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

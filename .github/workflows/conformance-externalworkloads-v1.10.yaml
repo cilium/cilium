@@ -160,7 +160,7 @@ jobs:
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
-            --flow-validation=disabled --hubble=false"
+            --flow-validation=disabled --hubble=false --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
@@ -314,9 +314,12 @@ jobs:
       - name: Clean up GKE cluster and VM
         if: ${{ always() }}
         run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterName }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
           gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
           gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}

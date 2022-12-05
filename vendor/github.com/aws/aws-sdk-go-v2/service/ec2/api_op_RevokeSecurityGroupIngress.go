@@ -24,9 +24,9 @@ import (
 // the security group rules that were not revoked. Amazon Web Services recommends
 // that you describe the security group to verify that the rules were removed. Rule
 // changes are propagated to instances within the security group as quickly as
-// possible. However, a small delay might occur. We are retiring EC2-Classic on
-// August 15, 2022. We recommend that you migrate from EC2-Classic to a VPC. For
-// more information, see Migrate from EC2-Classic to a VPC
+// possible. However, a small delay might occur. We are retiring EC2-Classic. We
+// recommend that you migrate from EC2-Classic to a VPC. For more information, see
+// Migrate from EC2-Classic to a VPC
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) RevokeSecurityGroupIngress(ctx context.Context, params *RevokeSecurityGroupIngressInput, optFns ...func(*Options)) (*RevokeSecurityGroupIngressOutput, error) {
@@ -66,7 +66,8 @@ type RevokeSecurityGroupIngressInput struct {
 	GroupId *string
 
 	// [EC2-Classic, default VPC] The name of the security group. You must specify
-	// either the security group ID or the security group name in the request.
+	// either the security group ID or the security group name in the request. For
+	// security groups in a nondefault VPC, you must specify the security group ID.
 	GroupName *string
 
 	// The sets of IP permissions. You can't specify a source security group and a CIDR

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"unsafe"
 
@@ -95,6 +96,18 @@ func (k Key) IPNet() *net.IPNet {
 		cidr.Mask = net.CIDRMask(int(prefixLen), 128)
 	}
 	return cidr
+}
+
+func (k Key) Prefix() netip.Prefix {
+	var addr netip.Addr
+	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
+	switch k.Family {
+	case bpf.EndpointKeyIPv4:
+		addr = netip.AddrFrom4(*(*[4]byte)(k.IP[:4]))
+	case bpf.EndpointKeyIPv6:
+		addr = netip.AddrFrom16(k.IP)
+	}
+	return netip.PrefixFrom(addr, prefixLen)
 }
 
 // getPrefixLen determines the length that should be set inside the Key so that

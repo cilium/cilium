@@ -372,7 +372,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 // When optional 'filterName' is given, it is configured as the first filter in the chain
 // and 'proxylib' is not configured. In this case the returned filter chain is only used
 // if the applicable network policy specifies 'filterName' as the L7 parser.
-func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string, config *anypb.Any) *envoy_config_listener.FilterChain {
+func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string, config *anypb.Any, tls bool) *envoy_config_listener.FilterChain {
 	var filters []*envoy_config_listener.Filter
 
 	// 1. Add the filter 'filterName' to the beginning of the TCP chain with optional 'config', if needed.
@@ -425,10 +425,21 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 
 	chain := &envoy_config_listener.FilterChain{
 		Filters: filters,
-		FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-			// must have transport match, otherwise TLS inspector will be automatically inserted
+	}
+
+	if tls {
+		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
+			TransportProtocol: "tls",
+		}
+		chain.TransportSocket = &envoy_config_core.TransportSocket{
+			Name: "cilium.tls_wrapper",
+		}
+	} else {
+		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
+			// must have transport match for non-TLS,
+			// otherwise TLS inspector will be automatically inserted
 			TransportProtocol: "raw_buffer",
-		},
+		}
 	}
 
 	if filterName != "" {
@@ -718,9 +729,11 @@ func getListenerSocketMarkOption(isIngress bool) *envoy_config_core.SocketOption
 
 func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
+	tlsClusterName := egressTLSClusterName
 
 	if isIngress {
 		clusterName = ingressClusterName
+		tlsClusterName = ingressTLSClusterName
 	}
 
 	listenerConf := &envoy_config_listener.Listener{
@@ -732,41 +745,39 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		},
 		// FilterChains: []*envoy_config_listener.FilterChain
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
+			// Always insert tls_inspector as the first filter
+			{
+				Name: "envoy.filters.listener.tls_inspector",
+			},
 			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
 		},
 	}
 
 	// Add filter chains
 	if kind == policy.ParserTypeHTTP {
-		// Use tls_inspector only with HTTP, insert as the first filter
-		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
-			Name: "envoy.filters.listener.tls_inspector",
-		}}, listenerConf.ListenerFilters...)
-
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
 
 		// Add a TLS variant
-		tlsClusterName := egressTLSClusterName
-		if isIngress {
-			tlsClusterName = ingressTLSClusterName
-		}
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true))
 	} else {
 		// Default TCP chain, takes care of all parsers in proxylib
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil, false))
+
+		// Add a TLS variant
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(tlsClusterName, "", nil, true))
 
 		// Experimental TCP chain for MySQL 5.x
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
 			"envoy.filters.network.mysql_proxy", toAny(&envoy_mysql_proxy.MySQLProxy{
 				StatPrefix: "mysql",
-			})))
+			}), false))
 
 		// Experimental TCP chain for MongoDB
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
 			"envoy.filters.network.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
 				StatPrefix:          "mongo",
 				EmitDynamicMetadata: true,
-			})))
+			}), false))
 	}
 	return listenerConf
 }
@@ -1117,8 +1128,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 	useDownstreamProtocolAutoSNI := map[string]*anypb.Any{
 		"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": toAny(&envoy_config_upstream.HttpProtocolOptions{
 			UpstreamHttpProtocolOptions: &envoy_config_core.UpstreamHttpProtocolOptions{
-				AutoSni:           true,
-				AutoSanValidation: true,
+				//	Setting AutoSni or AutoSanValidation options here may crash
+				//	Envoy, when Cilium Network filter already passes these from
+				//	downstream to upstream.
 			},
 			CommonHttpProtocolOptions: &envoy_config_core.HttpProtocolOptions{
 				MaxRequestsPerConnection: wrapperspb.UInt32(uint32(option.Config.ProxyMaxRequestsPerConnection)),
@@ -1320,6 +1332,13 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	if l7Rules.OriginatingTLS != nil {
 		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
 	}
+	if len(l7Rules.ServerNames) > 0 {
+		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
+		for sni := range l7Rules.ServerNames {
+			r.ServerNames = append(r.ServerNames, sni)
+		}
+		sort.Strings(r.ServerNames)
+	}
 
 	// Assume none of the rules have side-effects so that rule evaluation can
 	// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1520,7 +1539,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
 						allowAll = true

@@ -39,7 +39,7 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 }
 
 // GetInstanceMetadata returns required AWS metadatas
-func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID string, err error) {
+func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID, subnetID string, err error) {
 	client, err := newClient()
 	if err != nil {
 		return
@@ -61,6 +61,12 @@ func GetInstanceMetadata() (instanceID, instanceType, availabilityZone, vpcID st
 	}
 	vpcIDPath := fmt.Sprintf("network/interfaces/macs/%s/vpc-id", eth0MAC)
 	vpcID, err = getMetadata(client, vpcIDPath)
+	if err != nil {
+		return
+	}
+
+	subnetIDPath := fmt.Sprintf("network/interfaces/macs/%s/subnet-id", eth0MAC)
+	subnetID, err = getMetadata(client, subnetIDPath)
 	if err != nil {
 		return
 	}

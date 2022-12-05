@@ -23,7 +23,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
 
 jobs:
   installation-and-connectivity:
@@ -70,7 +70,7 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}

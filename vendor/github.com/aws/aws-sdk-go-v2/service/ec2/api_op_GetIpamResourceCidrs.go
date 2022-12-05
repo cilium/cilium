@@ -61,7 +61,7 @@ type GetIpamResourceCidrsInput struct {
 	// The ID of the Amazon Web Services account that owns the resource.
 	ResourceOwner *string
 
-	// A tag on an IPAM resource.
+	// The resource tag.
 	ResourceTag *types.RequestIpamResourceTag
 
 	// The resource type.

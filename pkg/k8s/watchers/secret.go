@@ -31,62 +31,64 @@ const (
 	caCrtAttribute = "ca.crt"
 )
 
-func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace string, swgSecrets *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespaces []string, swgSecrets *lock.StoppableWaitGroup) {
 	// Watch for all Secret types
 	secretOptsModifier := func(options *metav1.ListOptions) {}
 
 	apiGroup := resources.K8sAPIGroupSecretV1Core
-	_, secretController := informer.NewInformer(
-		utils.ListerWatcherWithModifier(
-			utils.ListerWatcherFromTyped[*slim_corev1.SecretList](slimClient.CoreV1().Secrets(namespace)),
-			secretOptsModifier),
-		&slim_corev1.Secret{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() {
-					k.K8sEventReceived(apiGroup, metricSecret, resources.MetricCreate, valid, equal)
-				}()
-				if k8sSecret := k8s.ObjToV1Secret(obj); k8sSecret != nil {
-					valid = true
-					err := k.addK8sSecretV1(k8sSecret)
-					k.K8sEventProcessed(metricSecret, resources.MetricCreate, err == nil)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricSecret, resources.MetricUpdate, valid, equal) }()
-				if oldSecret := k8s.ObjToV1Secret(oldObj); oldSecret != nil {
-					if newSecret := k8s.ObjToV1Secret(newObj); newSecret != nil {
+	for _, ns := range uniq(namespaces) {
+		_, secretController := informer.NewInformer(
+			utils.ListerWatcherWithModifier(
+				utils.ListerWatcherFromTyped[*slim_corev1.SecretList](slimClient.CoreV1().Secrets(ns)),
+				secretOptsModifier),
+			&slim_corev1.Secret{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc: func(obj interface{}) {
+					var valid, equal bool
+					defer func() {
+						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricCreate, valid, equal)
+					}()
+					if k8sSecret := k8s.ObjToV1Secret(obj); k8sSecret != nil {
 						valid = true
-						if oldSecret.DeepEqual(newSecret) {
-							equal = true
-							return
-						}
-						err := k.updateK8sSecretV1(oldSecret, newSecret)
-						k.K8sEventProcessed(metricSecret, resources.MetricUpdate, err == nil)
+						err := k.addK8sSecretV1(k8sSecret)
+						k.K8sEventProcessed(metricSecret, resources.MetricCreate, err == nil)
 					}
-				}
+				},
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					var valid, equal bool
+					defer func() { k.K8sEventReceived(apiGroup, metricSecret, resources.MetricUpdate, valid, equal) }()
+					if oldSecret := k8s.ObjToV1Secret(oldObj); oldSecret != nil {
+						if newSecret := k8s.ObjToV1Secret(newObj); newSecret != nil {
+							valid = true
+							if oldSecret.DeepEqual(newSecret) {
+								equal = true
+								return
+							}
+							err := k.updateK8sSecretV1(oldSecret, newSecret)
+							k.K8sEventProcessed(metricSecret, resources.MetricUpdate, err == nil)
+						}
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					var valid, equal bool
+					defer func() {
+						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricDelete, valid, equal)
+					}()
+					k8sSecret := k8s.ObjToV1Secret(obj)
+					if k8sSecret == nil {
+						return
+					}
+					valid = true
+					err := k.deleteK8sSecretV1(k8sSecret)
+					k.K8sEventProcessed(metricSecret, resources.MetricDelete, err == nil)
+				},
 			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() {
-					k.K8sEventReceived(apiGroup, metricSecret, resources.MetricDelete, valid, equal)
-				}()
-				k8sSecret := k8s.ObjToV1Secret(obj)
-				if k8sSecret == nil {
-					return
-				}
-				valid = true
-				err := k.deleteK8sSecretV1(k8sSecret)
-				k.K8sEventProcessed(metricSecret, resources.MetricDelete, err == nil)
-			},
-		},
-		nil,
-	)
-	k.blockWaitGroupToSyncResources(k.stop, swgSecrets, secretController.HasSynced, resources.K8sAPIGroupSecretV1Core)
-	go secretController.Run(k.stop)
+			nil,
+		)
+		k.blockWaitGroupToSyncResources(k.stop, swgSecrets, secretController.HasSynced, resources.K8sAPIGroupSecretV1Core)
+		go secretController.Run(k.stop)
+	}
 	k.k8sAPIGroups.AddAPI(apiGroup)
 }
 
@@ -164,4 +166,17 @@ func k8sToEnvoySecret(secret *slim_corev1.Secret) *envoy_entensions_tls_v3.Secre
 
 func getEnvoySecretName(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func uniq(arr []string) []string {
+	keys := make(map[string]bool)
+	for _, entry := range arr {
+		keys[entry] = true
+	}
+
+	list := make([]string, 0, len(keys))
+	for k := range keys {
+		list = append(list, k)
+	}
+	return list
 }

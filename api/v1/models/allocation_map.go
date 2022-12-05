@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 )
 
@@ -19,5 +21,10 @@ type AllocationMap map[string]string
 
 // Validate validates this allocation map
 func (m AllocationMap) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this allocation map based on context it is used
+func (m AllocationMap) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

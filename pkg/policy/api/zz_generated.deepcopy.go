@@ -707,6 +707,11 @@ func (in *PortRule) DeepCopyInto(out *PortRule) {
 		*out = new(TLSContext)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ServerNames != nil {
+		in, out := &in.ServerNames, &out.ServerNames
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Rules != nil {
 		in, out := &in.Rules, &out.Rules
 		*out = new(L7Rules)

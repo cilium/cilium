@@ -19,7 +19,8 @@ import (
 )
 
 // NewGetMapNameEventsParams creates a new GetMapNameEventsParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetMapNameEventsParams() GetMapNameEventsParams {
 
 	return GetMapNameEventsParams{}
@@ -65,7 +66,6 @@ func (o *GetMapNameEventsParams) BindRequest(r *http.Request, route *middleware.
 	if err := o.bindName(rName, rhkName, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -81,6 +81,7 @@ func (o *GetMapNameEventsParams) bindFollow(rawData []string, hasKey bool, forma
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
@@ -103,7 +104,6 @@ func (o *GetMapNameEventsParams) bindName(rawData []string, hasKey bool, formats
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.Name = raw
 
 	return nil

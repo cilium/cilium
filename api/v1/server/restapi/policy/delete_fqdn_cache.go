@@ -33,7 +33,7 @@ func NewDeleteFqdnCache(ctx *middleware.Context, handler DeleteFqdnCacheHandler)
 }
 
 /*
-DeleteFqdnCache swagger:route DELETE /fqdn/cache policy deleteFqdnCache
+	DeleteFqdnCache swagger:route DELETE /fqdn/cache policy deleteFqdnCache
 
 Deletes matching DNS lookups from the policy-generation cache.
 
@@ -49,17 +49,15 @@ type DeleteFqdnCache struct {
 func (o *DeleteFqdnCache) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewDeleteFqdnCacheParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

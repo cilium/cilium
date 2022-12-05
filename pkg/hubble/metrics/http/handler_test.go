@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
 func Test_httpHandler_Status(t *testing.T) {
@@ -31,15 +32,17 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 	handler := plugin.NewHandler()
 	require.Error(t, handler.Init(prometheus.NewRegistry(), map[string]string{"destinationContext": "invalid"}))
 	require.NoError(t, handler.Init(prometheus.NewRegistry(), nil))
+	fp, ok := handler.(api.FlowProcessor)
+	require.True(t, ok)
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{})
+	fp.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
+	fp.ProcessFlow(ctx, &pb.Flow{L7: &pb.Layer7{
 		Type:   pb.L7FlowType_RESPONSE,
 		Record: &pb.Layer7_Dns{},
 	}})
 	// should count for request
-	handler.ProcessFlow(ctx, &pb.Flow{
+	fp.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
@@ -49,7 +52,7 @@ func Test_httpHandler_ProcessFlow(t *testing.T) {
 		},
 	})
 	// should count for response
-	handler.ProcessFlow(ctx, &pb.Flow{
+	fp.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type:      pb.L7FlowType_RESPONSE,
@@ -104,17 +107,21 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		"destinationContext": "pod",
 		"labelsContext":      "source_pod,destination_pod",
 	}))
+
+	fp, ok := handler.(api.FlowProcessor)
+	require.True(t, ok)
+
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{})
+	fp.ProcessFlow(ctx, &pb.Flow{})
 	// shouldn't count
-	handler.ProcessFlow(ctx, &pb.Flow{
+	fp.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type:   pb.L7FlowType_RESPONSE,
 			Record: &pb.Layer7_Dns{},
 		}})
 	// shouldn't count for request, we use responses in v2
-	handler.ProcessFlow(ctx, &pb.Flow{
+	fp.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		L7: &pb.Layer7{
 			Type: pb.L7FlowType_REQUEST,
@@ -147,7 +154,7 @@ func Test_httpHandlerV2_ProcessFlow(t *testing.T) {
 		},
 	}
 	// should count for request
-	handler.ProcessFlow(ctx, &pb.Flow{
+	fp.ProcessFlow(ctx, &pb.Flow{
 		TrafficDirection: pb.TrafficDirection_INGRESS,
 		// Responses have the source and destination inverted, because it's the
 		// other side of the flow. Our tests are asserting that the HTTPv2 handler

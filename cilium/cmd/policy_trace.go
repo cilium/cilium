@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/policy/trace"
 )
 
 const (
@@ -30,7 +29,7 @@ const (
 
 var src, dst, dports []string
 var srcIdentity, dstIdentity int64
-var srcEndpoint, dstEndpoint, srcK8sPod, dstK8sPod, srcK8sYaml, dstK8sYaml string
+var srcEndpoint, dstEndpoint, srcK8sPod, dstK8sPod string
 
 // policyTraceCmd represents the policy_trace command
 var policyTraceCmd = &cobra.Command{
@@ -51,11 +50,11 @@ If multiple sources and / or destinations are provided, each source is tested wh
 		var dPorts []*models.Port
 		var err error
 
-		if len(src) == 0 && srcIdentity == defaultSecurityID && srcEndpoint == "" && srcK8sPod == "" && srcK8sYaml == "" {
+		if len(src) == 0 && srcIdentity == defaultSecurityID && srcEndpoint == "" && srcK8sPod == "" {
 			Usagef(cmd, "Missing source argument")
 		}
 
-		if len(dst) == 0 && dstIdentity == defaultSecurityID && dstEndpoint == "" && dstK8sPod == "" && dstK8sYaml == "" {
+		if len(dst) == 0 && dstIdentity == defaultSecurityID && dstEndpoint == "" && dstK8sPod == "" {
 			Usagef(cmd, "Missing destination argument")
 		}
 
@@ -117,23 +116,6 @@ If multiple sources and / or destinations are provided, each source is tested wh
 			dstSlices = append(dstSlices, dstSlice)
 		}
 
-		// Parse provided YAML files.
-		if srcK8sYaml != "" {
-			srcYamlSlices, err := trace.GetLabelsFromYaml(srcK8sYaml)
-			if err != nil {
-				Fatalf("%s", err)
-			}
-			srcSlices = append(srcSlices, srcYamlSlices...)
-		}
-
-		if dstK8sYaml != "" {
-			dstYamlSlices, err := trace.GetLabelsFromYaml(dstK8sYaml)
-			if err != nil {
-				Fatalf("%s", err)
-			}
-			dstSlices = append(dstSlices, dstYamlSlices...)
-		}
-
 		for _, v := range srcSlices {
 			for _, w := range dstSlices {
 				search := models.TraceSelector{
@@ -178,8 +160,6 @@ func init() {
 	policyTraceCmd.Flags().StringVarP(&dstEndpoint, "dst-endpoint", "", "", "Destination endpoint")
 	policyTraceCmd.Flags().StringVarP(&srcK8sPod, "src-k8s-pod", "", "", "Source k8s pod ([namespace:]podname)")
 	policyTraceCmd.Flags().StringVarP(&dstK8sPod, "dst-k8s-pod", "", "", "Destination k8s pod ([namespace:]podname)")
-	policyTraceCmd.Flags().StringVarP(&srcK8sYaml, "src-k8s-yaml", "", "", "Path to YAML file for source")
-	policyTraceCmd.Flags().StringVarP(&dstK8sYaml, "dst-k8s-yaml", "", "", "Path to YAML file for destination")
 	command.AddOutputOption(policyTraceCmd)
 }
 

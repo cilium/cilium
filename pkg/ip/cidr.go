@@ -83,28 +83,6 @@ func AddrToIPNet(addr netip.Addr) *net.IPNet {
 	}
 }
 
-// IPNetToPrefix is a convenience helper for migrating from the older 'net'
-// standard library types to the newer 'netip' types. Use this to plug the
-// new types in newer code into older types in older code during the migration.
-//
-// Note: This function assumes given prefix.IP is not an IPv4 mapped IPv6
-// address. See the comment of AddrFromIP for more details.
-func IPNetToPrefix(prefix *net.IPNet) netip.Prefix {
-	if prefix == nil {
-		return netip.Prefix{}
-	}
-	ip, ok := AddrFromIP(prefix.IP)
-	if !ok {
-		return netip.Prefix{}
-	}
-	ones, bits := prefix.Mask.Size()
-	if bits != net.IPv4len*8 && bits != net.IPv6len*8 {
-		// invalid mask
-		return netip.Prefix{}
-	}
-	return netip.PrefixFrom(ip, ones)
-}
-
 // IPToNetPrefix is a convenience helper for migrating from the older 'net'
 // standard library types to the newer 'netip' types. Use this to plug the new
 // types in newer code into older types in older code during the migration.

@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetMetricsParams creates a new GetMetricsParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetMetricsParams() GetMetricsParams {
 
 	return GetMetricsParams{}

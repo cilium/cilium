@@ -1,4 +1,5 @@
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name}}
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -7,9 +8,27 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: cilium-secrets
+  name: cilium-ingress-secrets
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
     namespace: {{ .Release.Namespace }}
 {{- end }}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.name}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-gateway-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-gateway-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end}}
+

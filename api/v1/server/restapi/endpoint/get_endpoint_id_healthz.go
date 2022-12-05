@@ -33,7 +33,7 @@ func NewGetEndpointIDHealthz(ctx *middleware.Context, handler GetEndpointIDHealt
 }
 
 /*
-GetEndpointIDHealthz swagger:route GET /endpoint/{id}/healthz endpoint getEndpointIdHealthz
+	GetEndpointIDHealthz swagger:route GET /endpoint/{id}/healthz endpoint getEndpointIdHealthz
 
 Retrieves the status logs associated with this endpoint.
 */
@@ -45,17 +45,15 @@ type GetEndpointIDHealthz struct {
 func (o *GetEndpointIDHealthz) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetEndpointIDHealthzParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

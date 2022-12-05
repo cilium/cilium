@@ -18,7 +18,8 @@ import (
 )
 
 // NewDeleteFqdnCacheParams creates a new DeleteFqdnCacheParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewDeleteFqdnCacheParams() DeleteFqdnCacheParams {
 
 	return DeleteFqdnCacheParams{}
@@ -54,7 +55,6 @@ func (o *DeleteFqdnCacheParams) BindRequest(r *http.Request, route *middleware.M
 	if err := o.bindMatchpattern(qMatchpattern, qhkMatchpattern, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -70,10 +70,10 @@ func (o *DeleteFqdnCacheParams) bindMatchpattern(rawData []string, hasKey bool, 
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Matchpattern = &raw
 
 	return nil

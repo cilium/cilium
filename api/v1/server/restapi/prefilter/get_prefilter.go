@@ -33,7 +33,7 @@ func NewGetPrefilter(ctx *middleware.Context, handler GetPrefilterHandler) *GetP
 }
 
 /*
-GetPrefilter swagger:route GET /prefilter prefilter getPrefilter
+	GetPrefilter swagger:route GET /prefilter prefilter getPrefilter
 
 Retrieve list of CIDRs
 */
@@ -45,17 +45,15 @@ type GetPrefilter struct {
 func (o *GetPrefilter) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetPrefilterParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

@@ -33,7 +33,7 @@ func NewPutRecorderID(ctx *middleware.Context, handler PutRecorderIDHandler) *Pu
 }
 
 /*
-PutRecorderID swagger:route PUT /recorder/{id} recorder putRecorderId
+	PutRecorderID swagger:route PUT /recorder/{id} recorder putRecorderId
 
 Create or update recorder
 */
@@ -45,17 +45,15 @@ type PutRecorderID struct {
 func (o *PutRecorderID) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewPutRecorderIDParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

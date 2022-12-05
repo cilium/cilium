@@ -28,33 +28,36 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCacheOK, error)
+	DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error)
 
-	DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error)
+	DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) (*DeletePolicyOK, error)
 
-	GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error)
+	GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error)
 
-	GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error)
+	GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error)
 
-	GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, error)
+	GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error)
 
-	GetIP(params *GetIPParams) (*GetIPOK, error)
+	GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error)
 
-	GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error)
+	GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error)
 
-	GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetIdentityEndpointsOK, error)
+	GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error)
 
-	GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, error)
+	GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error)
 
-	GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error)
+	GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error)
 
-	GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyResolveOK, error)
+	GetPolicyResolve(params *GetPolicyResolveParams, opts ...ClientOption) (*GetPolicyResolveOK, error)
 
-	GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolicySelectorsOK, error)
+	GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error)
 
-	PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error)
+	PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -67,13 +70,12 @@ type ClientService interface {
 DNS name. The removed IP data will no longer be used in generated
 policies.
 */
-func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCacheOK, error) {
+func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams, opts ...ClientOption) (*DeleteFqdnCacheOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteFqdnCacheParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeleteFqdnCache",
 		Method:             "DELETE",
 		PathPattern:        "/fqdn/cache",
@@ -84,7 +86,12 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCach
 		Reader:             &DeleteFqdnCacheReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +108,12 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCach
 /*
 DeletePolicy deletes a policy sub tree
 */
-func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error) {
+func (a *Client) DeletePolicy(params *DeletePolicyParams, opts ...ClientOption) (*DeletePolicyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeletePolicyParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeletePolicy",
 		Method:             "DELETE",
 		PathPattern:        "/policy",
@@ -118,7 +124,12 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 		Reader:             &DeletePolicyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -139,13 +150,12 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 
 optionally filtered by DNS name, CIDR IP range or source.
 */
-func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error) {
+func (a *Client) GetFqdnCache(params *GetFqdnCacheParams, opts ...ClientOption) (*GetFqdnCacheOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetFqdnCacheParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnCache",
 		Method:             "GET",
 		PathPattern:        "/fqdn/cache",
@@ -156,7 +166,12 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 		Reader:             &GetFqdnCacheReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -177,13 +192,12 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 
 optionally filtered by endpoint id, DNS name, CIDR IP range or source.
 */
-func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error) {
+func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams, opts ...ClientOption) (*GetFqdnCacheIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetFqdnCacheIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnCacheID",
 		Method:             "GET",
 		PathPattern:        "/fqdn/cache/{id}",
@@ -194,7 +208,12 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK
 		Reader:             &GetFqdnCacheIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +234,12 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK
 
 their corresponding regexes).
 */
-func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, error) {
+func (a *Client) GetFqdnNames(params *GetFqdnNamesParams, opts ...ClientOption) (*GetFqdnNamesOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetFqdnNamesParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetFqdnNames",
 		Method:             "GET",
 		PathPattern:        "/fqdn/names",
@@ -232,7 +250,12 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, erro
 		Reader:             &GetFqdnNamesReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -254,13 +277,12 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, erro
 their identities, host addresses, Kubernetes pod names, etc.
 The list can optionally filtered by a CIDR IP range.
 */
-func (a *Client) GetIP(params *GetIPParams) (*GetIPOK, error) {
+func (a *Client) GetIP(params *GetIPParams, opts ...ClientOption) (*GetIPOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetIPParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetIP",
 		Method:             "GET",
 		PathPattern:        "/ip",
@@ -271,7 +293,12 @@ func (a *Client) GetIP(params *GetIPParams) (*GetIPOK, error) {
 		Reader:             &GetIPReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -290,13 +317,12 @@ GetIdentity retrieves a list of identities that have metadata matching the provi
 
 Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
 */
-func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) {
+func (a *Client) GetIdentity(params *GetIdentityParams, opts ...ClientOption) (*GetIdentityOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetIdentityParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetIdentity",
 		Method:             "GET",
 		PathPattern:        "/identity",
@@ -307,7 +333,12 @@ func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) 
 		Reader:             &GetIdentityReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -324,13 +355,12 @@ func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) 
 /*
 GetIdentityEndpoints retrieves identities which are being used by local endpoints
 */
-func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetIdentityEndpointsOK, error) {
+func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams, opts ...ClientOption) (*GetIdentityEndpointsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetIdentityEndpointsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetIdentityEndpoints",
 		Method:             "GET",
 		PathPattern:        "/identity/endpoints",
@@ -341,7 +371,12 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetI
 		Reader:             &GetIdentityEndpointsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -358,13 +393,12 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetI
 /*
 GetIdentityID retrieves identity
 */
-func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, error) {
+func (a *Client) GetIdentityID(params *GetIdentityIDParams, opts ...ClientOption) (*GetIdentityIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetIdentityIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetIdentityID",
 		Method:             "GET",
 		PathPattern:        "/identity/{id}",
@@ -375,7 +409,12 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, e
 		Reader:             &GetIdentityIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -394,13 +433,12 @@ GetPolicy retrieves entire policy tree
 
 Returns the entire policy tree with all children.
 */
-func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
+func (a *Client) GetPolicy(params *GetPolicyParams, opts ...ClientOption) (*GetPolicyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetPolicyParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetPolicy",
 		Method:             "GET",
 		PathPattern:        "/policy",
@@ -411,7 +449,12 @@ func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
 		Reader:             &GetPolicyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -428,13 +471,12 @@ func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
 /*
 GetPolicyResolve resolves policy for an identity context
 */
-func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyResolveOK, error) {
+func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams, opts ...ClientOption) (*GetPolicyResolveOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetPolicyResolveParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetPolicyResolve",
 		Method:             "GET",
 		PathPattern:        "/policy/resolve",
@@ -445,7 +487,12 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 		Reader:             &GetPolicyResolveReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -462,13 +509,12 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 /*
 GetPolicySelectors sees what selectors match which identities
 */
-func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolicySelectorsOK, error) {
+func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams, opts ...ClientOption) (*GetPolicySelectorsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetPolicySelectorsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetPolicySelectors",
 		Method:             "GET",
 		PathPattern:        "/policy/selectors",
@@ -479,7 +525,12 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolic
 		Reader:             &GetPolicySelectorsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -496,13 +547,12 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolic
 /*
 PutPolicy creates or update a policy sub tree
 */
-func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
+func (a *Client) PutPolicy(params *PutPolicyParams, opts ...ClientOption) (*PutPolicyOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPutPolicyParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PutPolicy",
 		Method:             "PUT",
 		PathPattern:        "/policy",
@@ -513,7 +563,12 @@ func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
 		Reader:             &PutPolicyReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

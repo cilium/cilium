@@ -180,6 +180,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
+					SharedKeyDeleteDelay:    rc.mesh.conf.NodesSharedKeyDeleteDelay,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
 					Observer:                rc.mesh.conf.NodeObserver(),
@@ -190,7 +191,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 
 				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
+					Prefix:               path.Join(serviceStore.ServiceStorePrefix, rc.name),
+					SharedKeyDeleteDelay: rc.mesh.conf.ServicesSharedKeyDeleteDelay,
 					KeyCreator: func() store.Key {
 						svc := serviceStore.ClusterService{}
 						return &svc

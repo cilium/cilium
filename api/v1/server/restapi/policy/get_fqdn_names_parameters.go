@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetFqdnNamesParams creates a new GetFqdnNamesParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetFqdnNamesParams() GetFqdnNamesParams {
 
 	return GetFqdnNamesParams{}

@@ -63,7 +63,7 @@ const (
 )
 
 func validateCNPs(clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
-	defer shutdowner.Shutdown(nil)
+	defer shutdowner.Shutdown()
 
 	if !clientset.IsEnabled() {
 		return fmt.Errorf("Kubernetes client not configured. Please provide configuration via --%s or --%s",

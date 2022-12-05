@@ -185,6 +185,11 @@ spec:
                       field is obsolete, please use Spec.IPAM.MinAllocate"
                     minimum: 0
                     type: integer
+                  node-subnet-id:
+                    description: NodeSubnetID is the subnet of the primary ENI the
+                      instance was brought up with. It is used as a sensible default
+                      subnet to create ENIs in.
+                    type: string
                   pre-allocate:
                     description: "PreAllocate defines the number of IP addresses that
                       must be available for allocation in the IPAMspec. It defines

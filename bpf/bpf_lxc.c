@@ -655,8 +655,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 
 		l4_off = ETH_HLEN + hdrlen;
 
-		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off,
-				      CT_EGRESS);
+		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
@@ -671,7 +670,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		 * the CT entry for destination endpoints where we can't encode the
 		 * state in the address.
 		 */
-		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb6_svc_is_l7loadbalancer(svc)) {
@@ -1020,7 +1019,7 @@ ct_recreate4:
 
 		if (egress_gw_request_needs_redirect(ip4, &tunnel_endpoint)) {
 			/* Send the packet to egress gateway node through a tunnel. */
-			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, 0,
 						       SECLABEL, *dst_id, &trace);
 			if (ret == CTX_ACT_OK)
 				goto encrypt_to_stack;
@@ -1218,8 +1217,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 
 		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
-				      CT_EGRESS);
+		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
@@ -1227,7 +1225,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 				return ret;
 		}
 
-		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
 #if defined(ENABLE_L7_LB)
 			if (lb4_svc_is_l7loadbalancer(svc)) {

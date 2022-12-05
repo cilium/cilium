@@ -113,7 +113,7 @@ func GenerateRandMAC() (MAC, error) {
 	// Set locally administered addresses bit and reset multicast bit
 	buf[0] = (buf[0] | 0x02) & 0xfe
 
-	return MAC(buf), nil
+	return buf, nil
 }
 
 // HaveMACAddrs returns true if all given network interfaces have L2 addr.

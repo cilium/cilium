@@ -16,7 +16,8 @@ import (
 )
 
 // NewGetPrefilterParams creates a new GetPrefilterParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetPrefilterParams() GetPrefilterParams {
 
 	return GetPrefilterParams{}

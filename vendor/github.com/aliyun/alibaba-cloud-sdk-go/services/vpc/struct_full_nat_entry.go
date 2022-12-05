@@ -29,4 +29,5 @@ type FullNatEntry struct {
 	CreationTime            string `json:"CreationTime" xml:"CreationTime"`
 	FullNatEntryId          string `json:"FullNatEntryId" xml:"FullNatEntryId"`
 	FullNatEntryStatus      string `json:"FullNatEntryStatus" xml:"FullNatEntryStatus"`
+	FullNatTableId          string `json:"FullNatTableId" xml:"FullNatTableId"`
 }

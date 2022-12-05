@@ -77,38 +77,11 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		}
 		addrs = append(addrs, na)
 	}
-
-	k8sNodeAddHostIP := func(annotation string) {
-		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok || ciliumInternalIP == "" {
-			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
-		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
-			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
-		} else {
-			na := nodeTypes.Address{
-				Type: addressing.NodeCiliumInternalIP,
-				IP:   ip,
-			}
-			addrs = append(addrs, na)
-			scopedLog.Debugf("Add NodeCiliumInternalIP: %s", ip)
-		}
-	}
-
-	k8sNodeAddHostIP(annotation.CiliumHostIP)
-	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
-
-	encryptKey := uint8(0)
-	if key, ok := k8sNode.Annotations[annotation.CiliumEncryptionKey]; ok {
-		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
-			encryptKey = uint8(u)
-		}
-	}
-
 	newNode := &nodeTypes.Node{
-		Name:          k8sNode.Name,
-		Cluster:       option.Config.ClusterName,
-		IPAddresses:   addrs,
-		Source:        source,
-		EncryptionKey: encryptKey,
+		Name:        k8sNode.Name,
+		Cluster:     option.Config.ClusterName,
+		IPAddresses: addrs,
+		Source:      source,
 	}
 
 	if len(k8sNode.Spec.PodCIDRs) != 0 {
@@ -138,6 +111,40 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 			}
 		}
 	}
+
+	newNode.Labels = k8sNode.GetLabels()
+
+	if !option.Config.AnnotateK8sNode {
+		return newNode
+	}
+
+	// Any code bellow this line will depend on k8s node annotations. If we are
+	// not annotating the node then we should not use any annotations.
+
+	k8sNodeAddHostIP := func(annotation string) {
+		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok || ciliumInternalIP == "" {
+			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
+		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
+			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
+		} else {
+			na := nodeTypes.Address{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   ip,
+			}
+			addrs = append(addrs, na)
+			scopedLog.Debugf("Add NodeCiliumInternalIP: %s", ip)
+		}
+	}
+
+	k8sNodeAddHostIP(annotation.CiliumHostIP)
+	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
+
+	if key, ok := k8sNode.Annotations[annotation.CiliumEncryptionKey]; ok {
+		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
+			newNode.EncryptionKey = uint8(u)
+		}
+	}
+
 	// Spec.PodCIDR takes precedence since it's
 	// the CIDR assigned by k8s controller manager
 	// In case it's invalid or empty then we fall back to our annotations.
@@ -206,8 +213,6 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 			newNode.IPv6IngressIP = ip
 		}
 	}
-
-	newNode.Labels = k8sNode.GetLabels()
 
 	return newNode
 }

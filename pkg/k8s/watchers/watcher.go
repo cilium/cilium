@@ -268,6 +268,13 @@ type K8sWatcher struct {
 	ciliumNodeStoreMU lock.RWMutex
 	ciliumNodeStore   cache.Store
 
+	ciliumEndpointIndexerMU lock.RWMutex
+	ciliumEndpointIndexer   cache.Indexer
+
+	ciliumEndpointSliceIndexerMU lock.RWMutex
+	// note: this store only contains endpointslices referencing local endpoints.
+	ciliumEndpointSliceIndexer cache.Indexer
+
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
 
@@ -330,9 +337,8 @@ func (*k8sMetrics) Increment(_ context.Context, code string, method string, host
 	// more info:
 	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
 	if code != "<error>" {
-		// Consider success if status code is 2xx or 4xx
-		if strings.HasPrefix(code, "2") ||
-			strings.HasPrefix(code, "4") {
+		// Consider success only if status code is 2xx
+		if strings.HasPrefix(code, "2") {
 			k8smetrics.LastSuccessInteraction.Reset()
 		}
 	}
@@ -402,20 +408,20 @@ type watcherInfo struct {
 }
 
 var ciliumResourceToGroupMapping = map[string]watcherInfo{
-	synced.CRDResourceName(v2.CNPName):           {start, k8sAPIGroupCiliumNetworkPolicyV2},
-	synced.CRDResourceName(v2.CCNPName):          {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
-	synced.CRDResourceName(v2.CEPName):           {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
-	synced.CRDResourceName(v2.CNName):            {start, k8sAPIGroupCiliumNodeV2},
-	synced.CRDResourceName(v2.CIDName):           {skip, ""}, // Handled in pkg/k8s/identitybackend/
-	synced.CRDResourceName(v2.CLRPName):          {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
-	synced.CRDResourceName(v2.CEWName):           {skip, ""}, // Handled in clustermesh-apiserver/
-	synced.CRDResourceName(v2.CEGPName):          {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
-	synced.CRDResourceName(v2alpha1.CENPName):    {start, k8sAPIGroupCiliumEgressNATPolicyV2},
-	synced.CRDResourceName(v2alpha1.CESName):     {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
-	synced.CRDResourceName(v2.CCECName):          {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
-	synced.CRDResourceName(v2.CECName):           {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
-	synced.CRDResourceName(v2alpha1.BGPPName):    {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPPoolName): {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2.CNPName):            {start, k8sAPIGroupCiliumNetworkPolicyV2},
+	synced.CRDResourceName(v2.CCNPName):           {start, k8sAPIGroupCiliumClusterwideNetworkPolicyV2},
+	synced.CRDResourceName(v2.CEPName):            {start, k8sAPIGroupCiliumEndpointV2}, // ipcache
+	synced.CRDResourceName(v2.CNName):             {start, k8sAPIGroupCiliumNodeV2},
+	synced.CRDResourceName(v2.CIDName):            {skip, ""}, // Handled in pkg/k8s/identitybackend/
+	synced.CRDResourceName(v2.CLRPName):           {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
+	synced.CRDResourceName(v2.CEWName):            {skip, ""}, // Handled in clustermesh-apiserver/
+	synced.CRDResourceName(v2.CEGPName):           {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
+	synced.CRDResourceName(v2alpha1.CENPName):     {start, k8sAPIGroupCiliumEgressNATPolicyV2},
+	synced.CRDResourceName(v2alpha1.CESName):      {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
+	synced.CRDResourceName(v2.CCECName):           {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
+	synced.CRDResourceName(v2.CECName):            {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
+	synced.CRDResourceName(v2alpha1.BGPPName):     {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
@@ -441,7 +447,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sAPIGroupNodeV1Core,
 	}
 
-	if k.cfg.K8sIngressControllerEnabled() {
+	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
 		// While Ingress controller is part of operator, we need to watch
 		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
 		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
@@ -513,6 +519,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	utils.ServiceConfiguration
 	utils.IngressConfiguration
+	utils.GatewayAPIConfiguration
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -557,8 +564,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.initEndpointsOrSlices(k.clientset.Slim(), serviceOptModifier)
 		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch secrets in cilium-secrets namespace
-			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespace, swgSecret)
+			// only watch secrets in specific namespaces
+			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2:
 			k.ciliumNetworkPoliciesInit(k.clientset)
@@ -975,7 +982,45 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 	k.k8sResourceSynced.SetEventTimestamp(apiResourceName)
 }
 
+// GetIndexer returns an index to a k8s cache store for the given resource name.
+// Objects gotten using returned stores should *not* be mutated as they
+// are references to internal k8s watcher store state.
+func (k *K8sWatcher) GetIndexer(name string) cache.Indexer {
+	switch name {
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.RLock()
+		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
+		return k.ciliumEndpointSliceIndexer
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.RLock()
+		defer k.ciliumEndpointIndexerMU.RUnlock()
+		return k.ciliumEndpointIndexer
+	default:
+		panic("no such indexer: " + name)
+	}
+}
+
+// SetIndexer lets you set a named cache store, only used for testing.
+func (k *K8sWatcher) SetIndexer(name string, indexer cache.Indexer) {
+	switch name {
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.Lock()
+		defer k.ciliumEndpointSliceIndexerMU.Unlock()
+		k.ciliumEndpointSliceIndexer = indexer
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.Lock()
+		defer k.ciliumEndpointIndexerMU.Unlock()
+		k.ciliumEndpointIndexer = indexer
+	default:
+		panic("no such indexer: " + name)
+	}
+}
+
 // GetStore returns the k8s cache store for the given resource name.
+// It's possible for valid resource names to return nil stores if that
+// watcher is not in use.
+// Objects gotten using returned stores should *not* be mutated as they
+// are references to internal k8s watcher store state.
 func (k *K8sWatcher) GetStore(name string) cache.Store {
 	switch name {
 	case "networkpolicy":
@@ -989,8 +1034,16 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		k.podStoreMU.RLock()
 		defer k.podStoreMU.RUnlock()
 		return k.podStore
+	case "ciliumendpoint":
+		k.ciliumEndpointIndexerMU.RLock()
+		defer k.ciliumEndpointIndexerMU.RUnlock()
+		return k.ciliumEndpointIndexer
+	case "ciliumendpointslice":
+		k.ciliumEndpointSliceIndexerMU.RLock()
+		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
+		return k.ciliumEndpointSliceIndexer
 	default:
-		return nil
+		panic("no such store: " + name)
 	}
 }
 

@@ -123,7 +123,9 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
 
-	ep.setState(State(base.State), "Endpoint creation")
+	if base.State != nil {
+		ep.setState(State(*base.State), "Endpoint creation")
+	}
 
 	return ep, nil
 }
@@ -156,7 +158,7 @@ func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
 func (e *Endpoint) getModelCurrentStateRLocked() models.EndpointState {
 	currentState := models.EndpointState(e.state)
 	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
-		return models.EndpointStateNotReady
+		return models.EndpointStateNotDashReady
 	}
 	return currentState
 }
@@ -212,7 +214,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			Policy:      e.GetPolicyModel(),
 			Log:         statusLog,
 			Controllers: controllerMdl,
-			State:       e.getModelCurrentStateRLocked(), // TODO: Validate
+			State:       e.getModelCurrentStateRLocked().Pointer(), // TODO: Validate
 			Health:      e.getHealthModel(),
 			NamedPorts:  e.getNamedPortsModel(),
 		},
@@ -228,7 +230,7 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 	// Duplicated from GetModelRLocked.
 	currentState := models.EndpointState(e.state)
 	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
-		currentState = models.EndpointStateNotReady
+		currentState = models.EndpointStateNotDashReady
 	}
 
 	h := models.EndpointHealth{
@@ -238,21 +240,21 @@ func (e *Endpoint) getHealthModel() *models.EndpointHealth {
 		OverallHealth: models.EndpointHealthStatusDisabled,
 	}
 	switch currentState {
-	case models.EndpointStateRegenerating, models.EndpointStateWaitingToRegenerate, models.EndpointStateDisconnecting:
+	case models.EndpointStateRegenerating, models.EndpointStateWaitingDashToDashRegenerate, models.EndpointStateDisconnecting:
 		h = models.EndpointHealth{
 			Bpf:           models.EndpointHealthStatusPending,
 			Policy:        models.EndpointHealthStatusPending,
 			Connected:     true,
 			OverallHealth: models.EndpointHealthStatusPending,
 		}
-	case models.EndpointStateWaitingForIdentity:
+	case models.EndpointStateWaitingDashForDashIdentity:
 		h = models.EndpointHealth{
 			Bpf:           models.EndpointHealthStatusDisabled,
 			Policy:        models.EndpointHealthStatusBootstrap,
 			Connected:     true,
 			OverallHealth: models.EndpointHealthStatusDisabled,
 		}
-	case models.EndpointStateNotReady:
+	case models.EndpointStateNotDashReady:
 		h = models.EndpointHealth{
 			Bpf:           models.EndpointHealthStatusWarning,
 			Policy:        models.EndpointHealthStatusWarning,
@@ -434,11 +436,11 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	if e.Options.IsEnabled(option.PolicyAuditMode) {
 		switch policyEnabled {
 		case models.EndpointPolicyEnabledIngress:
-			return models.EndpointPolicyEnabledAuditIngress
+			return models.EndpointPolicyEnabledAuditDashIngress
 		case models.EndpointPolicyEnabledEgress:
-			return models.EndpointPolicyEnabledAuditEgress
+			return models.EndpointPolicyEnabledAuditDashEgress
 		case models.EndpointPolicyEnabledBoth:
-			return models.EndpointPolicyEnabledAuditBoth
+			return models.EndpointPolicyEnabledAuditDashBoth
 		}
 	}
 

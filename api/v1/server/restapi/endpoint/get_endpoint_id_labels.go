@@ -33,7 +33,7 @@ func NewGetEndpointIDLabels(ctx *middleware.Context, handler GetEndpointIDLabels
 }
 
 /*
-GetEndpointIDLabels swagger:route GET /endpoint/{id}/labels endpoint getEndpointIdLabels
+	GetEndpointIDLabels swagger:route GET /endpoint/{id}/labels endpoint getEndpointIdLabels
 
 Retrieves the list of labels associated with an endpoint.
 */
@@ -45,17 +45,15 @@ type GetEndpointIDLabels struct {
 func (o *GetEndpointIDLabels) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetEndpointIDLabelsParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

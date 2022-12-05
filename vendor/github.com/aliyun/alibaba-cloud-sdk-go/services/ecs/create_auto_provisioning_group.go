@@ -125,6 +125,7 @@ type CreateAutoProvisioningGroupRequest struct {
 	LaunchTemplateVersion                          string                                                    `position:"Query" name:"LaunchTemplateVersion"`
 	LaunchConfigurationIoOptimized                 string                                                    `position:"Query" name:"LaunchConfiguration.IoOptimized"`
 	PayAsYouGoTargetCapacity                       string                                                    `position:"Query" name:"PayAsYouGoTargetCapacity"`
+	HibernationOptionsConfigured                   requests.Boolean                                          `position:"Query" name:"HibernationOptionsConfigured"`
 	TotalTargetCapacity                            string                                                    `position:"Query" name:"TotalTargetCapacity"`
 	SpotTargetCapacity                             string                                                    `position:"Query" name:"SpotTargetCapacity"`
 	ValidFrom                                      string                                                    `position:"Query" name:"ValidFrom"`

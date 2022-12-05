@@ -10,6 +10,22 @@
 How To Contribute
 =================
 
+Cilium Feature Proposals
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Before you start working on a significant code change, it's a good idea to make sure
+that your approach is likely to be accepted. The best way to do this is to
+create a `Cilium issue of type "Feature Request" in 
+GitHub <https://github.com/cilium/cilium/issues/new?assignees=&labels=kind%2Ffeature&template=feature_template.md&title=CFP%3A+>`_
+where you describe your plans.
+
+For longer proposals, you might like to include a link to an external doc (e.g.
+a Google doc) where it's easier for reviewers to make comments and suggestions
+in-line. The GitHub feature request template includes a link to the `Cilium
+Feature Proposal template <https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit>`_ which you are welcome to use to help structure your
+proposal. Please make a copy of that template, fill it in with your ideas, and 
+ensure it's publicly visible, before adding the link into the GitHub issue. 
+
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -588,6 +604,22 @@ then you just add a line saying:
 
    Signed-off-by: Random J Developer <random@developer.example.org>
 
-Use your real name (sorry, no pseudonyms or anonymous contributions.)
-
 If you need to add your sign off to a commit you have already made, please see `this article <https://docs.github.com/en/desktop/contributing-and-collaborating-using-github-desktop/managing-commits/amending-a-commit>`_.
+
+Cilium follows the real names policy described in the CNCF `DCO Guidelines v1.0
+<https://github.com/cncf/foundation/blob/main/dco-guidelines.md>`_:
+
+::
+
+    The DCO requires the use of a real name that can be used to identify
+    someone in case there is an issue about a contribution they made.
+
+    A real name does not require a legal name, nor a birth name, nor any name
+    that appears on an official ID (e.g. a passport). Your real name is the
+    name you convey to people in the community for them to use to identify you
+    as you. The key concern is that your identification is sufficient enough to
+    contact you if an issue were to arise in the future about your
+    contribution.
+
+    Your real name should not be an anonymous id or false name that
+    misrepresents who you are.

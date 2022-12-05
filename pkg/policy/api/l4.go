@@ -140,6 +140,13 @@ type PortRule struct {
 	// +kubebuilder:validation:Optional
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
 
+	// ServerNames is a list of allowed TLS SNI values. If not empty, then
+	// TLS must be present and one of the provided SNIs must be indicated in the
+	// TLS handshake.
+	//
+	// +kubebuilder:validation:Optional
+	ServerNames []string `json:"serverNames,omitempty"`
+
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
 	// no layer 7 rules are enforced.
@@ -217,9 +224,9 @@ func (rules *L7Rules) Len() int {
 	return len(rules.HTTP) + len(rules.Kafka) + len(rules.DNS) + len(rules.L7)
 }
 
-// IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
+// IsEmpty returns whether the `L7Rules` is nil or contains no rules.
 func (rules *L7Rules) IsEmpty() bool {
-	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.DNS == nil && rules.L7 == nil)
+	return rules.Len() == 0
 }
 
 // PortRules is a slice of PortRule.

@@ -65,8 +65,7 @@ contributing blog posts, training and other resources.
 CNCF Graduation
 ~~~~~~~~~~~~~~~
 
-Given the widespread adoption of Cilium, `CNCF Graduation`_ is a natural goal for
-the project. We hope to apply for graduation soon.
+Cilium has applied for `CNCF Graduation`_, please add your support on the PR!
 
 .. _rm-cilium-service-mesh:
 
@@ -192,7 +191,7 @@ anything other than trivial fixes.
 .. _GitHub issues: https://github.com/cilium/cilium/issues
 .. _point releases: https://cilium.io/blog/categories/release/
 .. _Get Involved: https://cilium.io/get-involved
-.. _CNCF Graduation: https://github.com/cncf/toc/blob/main/process/graduation_criteria.md
+.. _CNCF Graduation: https://github.com/cncf/toc/pull/952
 .. _Hubble OpenTelemetry collector: https://github.com/cilium/hubble-otel
 .. _CI improvements: https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2FCI-improvement
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue

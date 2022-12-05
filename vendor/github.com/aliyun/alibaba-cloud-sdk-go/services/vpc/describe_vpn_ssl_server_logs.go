@@ -87,12 +87,12 @@ type DescribeVpnSslServerLogsRequest struct {
 // DescribeVpnSslServerLogsResponse is the response struct for api DescribeVpnSslServerLogs
 type DescribeVpnSslServerLogsResponse struct {
 	*responses.BaseResponse
-	PageSize    int    `json:"PageSize" xml:"PageSize"`
-	PageNumber  int    `json:"PageNumber" xml:"PageNumber"`
-	RequestId   string `json:"RequestId" xml:"RequestId"`
-	Count       int    `json:"Count" xml:"Count"`
-	IsCompleted bool   `json:"IsCompleted" xml:"IsCompleted"`
-	Data        Data   `json:"Data" xml:"Data"`
+	PageSize    int                            `json:"PageSize" xml:"PageSize"`
+	PageNumber  int                            `json:"PageNumber" xml:"PageNumber"`
+	RequestId   string                         `json:"RequestId" xml:"RequestId"`
+	Count       int                            `json:"Count" xml:"Count"`
+	IsCompleted bool                           `json:"IsCompleted" xml:"IsCompleted"`
+	Data        DataInDescribeVpnSslServerLogs `json:"Data" xml:"Data"`
 }
 
 // CreateDescribeVpnSslServerLogsRequest creates a request to invoke DescribeVpnSslServerLogs API

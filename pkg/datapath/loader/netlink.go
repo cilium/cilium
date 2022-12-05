@@ -53,6 +53,11 @@ func replaceQdisc(link netlink.Link) error {
 	return netlink.QdiscReplace(qdisc)
 }
 
+type progDefinition struct {
+	progName  string
+	direction string
+}
+
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
 //
 // When successful, returns a finalizer to allow the map cleanup operation to be
@@ -66,7 +71,7 @@ func replaceQdisc(link netlink.Link) error {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction string, xdpMode string) (func(), error) {
+func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (func(), error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -78,7 +83,6 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction s
 	}
 
 	l := log.WithField("device", ifName).WithField("objPath", objPath).
-		WithField("progName", progName).WithField("direction", direction).
 		WithField("ifindex", link.Attrs().Index)
 
 	// Load the ELF from disk.
@@ -88,8 +92,10 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction s
 		return nil, fmt.Errorf("loading eBPF ELF: %w", err)
 	}
 
-	if spec.Programs[progName] == nil {
-		return nil, fmt.Errorf("no program %s found in eBPF ELF", progName)
+	for _, prog := range progs {
+		if spec.Programs[prog.progName] == nil {
+			return nil, fmt.Errorf("no program %s found in eBPF ELF", prog.progName)
+		}
 	}
 
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
@@ -134,18 +140,20 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progName, direction s
 		return nil, err
 	}
 
-	l.Debug("Attaching program to interface")
-	if err := attachProgram(link, coll.Programs[progName], directionToParent(direction), xdpModeToFlag(xdpMode)); err != nil {
-		// Program replacement unsuccessful, revert bpffs migration.
-		l.Debug("Reverting bpffs map migration")
-		if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
-			l.WithError(err).Error("Failed to revert bpffs map migration")
+	for _, prog := range progs {
+		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
+		scopedLog.Debug("Attaching program to interface")
+		if err := attachProgram(link, coll.Programs[prog.progName], directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
+			// Program replacement unsuccessful, revert bpffs migration.
+			l.Debug("Reverting bpffs map migration")
+			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
+				l.WithError(err).Error("Failed to revert bpffs map migration")
+			}
+
+			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
-
-		return nil, fmt.Errorf("program %s: %w", progName, err)
+		scopedLog.Debug("Successfully attached program to interface")
 	}
-
-	l.Debugf("Successfully attached program to interface")
 
 	return finalize, nil
 }

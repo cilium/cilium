@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.101.0
   kubectl_version: v1.23.6
@@ -165,7 +165,7 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}

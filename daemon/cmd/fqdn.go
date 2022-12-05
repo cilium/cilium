@@ -43,11 +43,13 @@ import (
 )
 
 const (
-	upstream        = "upstreamTime"
+	upstreamTime    = "upstreamTime"
 	processingTime  = "processingTime"
 	semaphoreTime   = "semaphoreTime"
 	policyCheckTime = "policyCheckTime"
+	policyGenTime   = "policyGenerationTime"
 	dataplaneTime   = "dataplaneTime"
+	totalTime       = "totalTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -334,14 +336,14 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
 	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	if err != nil {
+		return err
+	}
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
 		// Try locate old DNS proxy port number from the datapath
 		port = d.datapath.GetProxyPort(proxy.DNSProxyName)
-	}
-	if err != nil {
-		return err
 	}
 	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression,
 		option.Config.DNSMaxIPsPerRestoredRule, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID,
@@ -423,15 +425,20 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	endMetric := func() {
 		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
-		if errors.Is(stat.Err, dnsproxy.ErrFailedAcquireSemaphore{}) || errors.Is(stat.Err, dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Add(1)
+		stat.TotalTime.End(true)
+		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+			metrics.FQDNSemaphoreRejectedTotal.Inc()
 		}
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstream).Observe(
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
+			stat.TotalTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
 			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
 			stat.ProcessingTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
 			stat.SemaphoreAcquireTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
+			stat.PolicyGenerationTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
@@ -525,7 +532,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	record.Log()
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		stat.DataplaneTime.Start()
+		stat.PolicyGenerationTime.Start()
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
@@ -542,7 +549,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithFields(logrus.Fields{
 			"qname": qname,
 			"ips":   responseIPs,
-		}).Debug("Updating DNS name in cache from response to to query")
+		}).Debug("Updating DNS name in cache from response to query")
 
 		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
@@ -557,6 +564,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			log.WithError(err).Error("error updating internal DNS cache for rule generation")
 		}
 
+		stat.PolicyGenerationTime.End(true)
+		stat.DataplaneTime.Start()
 		updateComplete := make(chan struct{})
 		go func(wg *sync.WaitGroup, done chan struct{}) {
 			wg.Wait()

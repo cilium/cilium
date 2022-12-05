@@ -103,7 +103,7 @@ func NewClient(path, nodeId string, updater proxylib.PolicyUpdater) proxylib.Pol
 				}
 			} else {
 				// Reset backoff after successful start
-				backOff = BackOff
+				backOff.Reset()
 			}
 
 			if closing {

@@ -87,6 +87,7 @@ func (request *CommonRequest) TransToAcsRequest() {
 		rpcRequest.actionName = request.ApiName
 		rpcRequest.Headers["x-acs-version"] = request.Version
 		rpcRequest.Headers["x-acs-action"] = request.ApiName
+		rpcRequest.span = request.span
 		request.Ontology = rpcRequest
 	}
 }

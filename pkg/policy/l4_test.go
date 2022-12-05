@@ -17,6 +17,82 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+func (s *PolicyTestSuite) TestParserTypeMerge(c *C) {
+	for _, t := range []struct {
+		a, b, c L7ParserType
+		success bool
+	}{
+		// trivially true
+		{ParserTypeNone, ParserTypeNone, ParserTypeNone, true},
+		{ParserTypeDNS, ParserTypeDNS, ParserTypeDNS, true},
+		{ParserTypeHTTP, ParserTypeHTTP, ParserTypeHTTP, true},
+		{ParserTypeKafka, ParserTypeKafka, ParserTypeKafka, true},
+		{L7ParserType("foo"), L7ParserType("foo"), L7ParserType("foo"), true},
+		{ParserTypeTLS, ParserTypeTLS, ParserTypeTLS, true},
+
+		// None can be promoted to any other type
+		{ParserTypeNone, ParserTypeDNS, ParserTypeDNS, true},
+		{ParserTypeDNS, ParserTypeNone, ParserTypeDNS, true},
+
+		{ParserTypeNone, ParserTypeHTTP, ParserTypeHTTP, true},
+		{ParserTypeHTTP, ParserTypeNone, ParserTypeHTTP, true},
+
+		{ParserTypeNone, ParserTypeKafka, ParserTypeKafka, true},
+		{ParserTypeKafka, ParserTypeNone, ParserTypeKafka, true},
+
+		{ParserTypeNone, L7ParserType("foo"), L7ParserType("foo"), true},
+		{L7ParserType("foo"), ParserTypeNone, L7ParserType("foo"), true},
+
+		{ParserTypeNone, ParserTypeTLS, ParserTypeTLS, true},
+		{ParserTypeTLS, ParserTypeNone, ParserTypeTLS, true},
+
+		// TLS can also be promoted to any other type except for DNS (but not demoted to
+		// None)
+
+		{ParserTypeTLS, ParserTypeHTTP, ParserTypeHTTP, true},
+		{ParserTypeHTTP, ParserTypeTLS, ParserTypeHTTP, true},
+
+		{ParserTypeTLS, ParserTypeKafka, ParserTypeKafka, true},
+		{ParserTypeKafka, ParserTypeTLS, ParserTypeKafka, true},
+
+		{ParserTypeTLS, L7ParserType("foo"), L7ParserType("foo"), true},
+		{L7ParserType("foo"), ParserTypeTLS, L7ParserType("foo"), true},
+
+		// DNS does not merge with anything else
+
+		{ParserTypeTLS, ParserTypeDNS, ParserTypeNone, false},
+		{ParserTypeDNS, ParserTypeTLS, ParserTypeNone, false},
+
+		{ParserTypeDNS, ParserTypeHTTP, ParserTypeNone, false},
+		{ParserTypeHTTP, ParserTypeDNS, ParserTypeNone, false},
+
+		{ParserTypeDNS, ParserTypeKafka, ParserTypeNone, false},
+		{ParserTypeKafka, ParserTypeDNS, ParserTypeNone, false},
+
+		{ParserTypeDNS, L7ParserType("foo"), ParserTypeNone, false},
+		{L7ParserType("foo"), ParserTypeDNS, ParserTypeNone, false},
+
+		// Proxylib parsers do not merge with other proxylib parsers nor with HTTP
+
+		{ParserTypeKafka, ParserTypeHTTP, ParserTypeNone, false},
+		{ParserTypeHTTP, ParserTypeKafka, ParserTypeNone, false},
+
+		{L7ParserType("bar"), L7ParserType("foo"), ParserTypeNone, false},
+		{L7ParserType("foo"), L7ParserType("bar"), ParserTypeNone, false},
+
+		{L7ParserType("bar"), ParserTypeHTTP, ParserTypeNone, false},
+		{ParserTypeHTTP, L7ParserType("bar"), ParserTypeNone, false},
+	} {
+		res, err := t.a.Merge(t.b)
+		if t.success {
+			c.Assert(err, Equals, nil)
+		} else {
+			c.Assert(err, Not(Equals), nil)
+		}
+		c.Assert(res, Equals, t.c)
+	}
+}
+
 func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 	tuple := api.PortProtocol{Port: "80", Protocol: api.ProtoTCP}
 	portrule := &api.PortRule{

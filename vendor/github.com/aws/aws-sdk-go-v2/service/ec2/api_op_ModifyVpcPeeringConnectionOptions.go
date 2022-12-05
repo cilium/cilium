@@ -11,10 +11,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// We are retiring EC2-Classic on August 15, 2022. We recommend that you migrate
-// from EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to
-// a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
-// the Amazon Elastic Compute Cloud User Guide. Modifies the VPC peering connection
+// We are retiring EC2-Classic. We recommend that you migrate from EC2-Classic to a
+// VPC. For more information, see Migrate from EC2-Classic to a VPC
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
+// Amazon Elastic Compute Cloud User Guide. Modifies the VPC peering connection
 // options on one side of a VPC peering connection. You can do the following:
 //
 // *

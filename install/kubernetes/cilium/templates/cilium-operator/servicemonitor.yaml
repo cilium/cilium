@@ -27,6 +27,10 @@ spec:
     interval: {{ .Values.operator.prometheus.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics
+    {{- with .Values.operator.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with .Values.operator.prometheus.serviceMonitor.metricRelabelings }}
     metricRelabelings:
     {{- toYaml . | nindent 4 }}

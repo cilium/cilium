@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build_commits:
     name: Check if build works for every commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - name: Configure git
@@ -21,7 +21,7 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Install Go
-        uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f
+        uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
           go-version: 1.19.3
 
@@ -31,6 +31,11 @@ jobs:
         with:
           path: $HOME/.clang
           key: llvm-10.0
+
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
         uses: KyleMayes/install-llvm-action@665aaf9d6fba342a852f55fecc5688e7f00e6663

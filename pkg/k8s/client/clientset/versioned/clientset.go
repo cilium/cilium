@@ -22,8 +22,7 @@ type Interface interface {
 	CiliumV2alpha1() ciliumv2alpha1.CiliumV2alpha1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	ciliumV2       *ciliumv2.CiliumV2Client

@@ -21,4 +21,5 @@ type BgpNetwork struct {
 	VpcId        string `json:"VpcId" xml:"VpcId"`
 	DstCidrBlock string `json:"DstCidrBlock" xml:"DstCidrBlock"`
 	RouterId     string `json:"RouterId" xml:"RouterId"`
+	IpVersion    string `json:"IpVersion" xml:"IpVersion"`
 }

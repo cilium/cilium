@@ -33,7 +33,7 @@ func NewGetFqdnNames(ctx *middleware.Context, handler GetFqdnNamesHandler) *GetF
 }
 
 /*
-GetFqdnNames swagger:route GET /fqdn/names policy getFqdnNames
+	GetFqdnNames swagger:route GET /fqdn/names policy getFqdnNames
 
 # List internal DNS selector representations
 
@@ -48,17 +48,15 @@ type GetFqdnNames struct {
 func (o *GetFqdnNames) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetFqdnNamesParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -20,6 +21,15 @@ import (
 //
 // swagger:model EndpointHealthStatus
 type EndpointHealthStatus string
+
+func NewEndpointHealthStatus(value EndpointHealthStatus) *EndpointHealthStatus {
+	return &value
+}
+
+// Pointer returns a pointer to a freshly-allocated EndpointHealthStatus.
+func (m EndpointHealthStatus) Pointer() *EndpointHealthStatus {
+	return &m
+}
 
 const (
 
@@ -74,5 +84,10 @@ func (m EndpointHealthStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// ContextValidate validates this endpoint health status based on context it is used
+func (m EndpointHealthStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

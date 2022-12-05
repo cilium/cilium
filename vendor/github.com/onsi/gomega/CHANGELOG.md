@@ -1,3 +1,47 @@
+## 1.24.1
+
+### Fixes
+- maintain backward compatibility for Eventually and Consisntetly's signatures [4c7df5e]
+- fix small typo (#601) [ea0ebe6]
+
+### Maintenance
+- Bump golang.org/x/net from 0.1.0 to 0.2.0 (#603) [1ba8372]
+- Bump github.com/onsi/ginkgo/v2 from 2.4.0 to 2.5.0 (#602) [f9426cb]
+- fix label-filter in test.yml [d795db6]
+- stop running flakey tests and rely on external network dependencies in CI [7133290]
+
+## 1.24.0
+
+### Features
+
+Introducting [gcustom](https://onsi.github.io/gomega/#gcustom-a-convenient-mechanism-for-buildling-custom-matchers) - a convenient mechanism for building custom matchers.
+
+This is an RC release for `gcustom`.  The external API may be tweaked in response to feedback however it is expected to remain mostly stable.
+
+### Maintenance
+
+- Update BeComparableTo documentation [756eaa0]
+
+## 1.23.0
+
+### Features
+- Custom formatting on a per-type basis can be provided using `format.RegisterCustomFormatter()` -- see the docs [here](https://onsi.github.io/gomega/#adjusting-output)
+
+- Substantial improvement have been made to `StopTrying()`:
+  - Users can now use `StopTrying().Wrap(err)` to wrap errors and `StopTrying().Attach(description, object)` to attach arbitrary objects to the `StopTrying()` error
+  - `StopTrying()` is now always interpreted as a failure.  If you are an early adopter of `StopTrying()` you may need to change your code as the prior version would match against the returned value even if `StopTrying()` was returned.  Going forward the `StopTrying()` api should remain stable.
+  - `StopTrying()` and `StopTrying().Now()` can both be used in matchers - not just polled functions.
+
+- `TryAgainAfter(duration)` is used like `StopTrying()` but instructs `Eventually` and `Consistently` that the poll should be tried again after the specified duration.  This allows you to dynamically adjust the polling duration.
+
+- `ctx` can now be passed-in as the first argument to `Eventually` and `Consistently`.
+
+## Maintenance
+
+- Bump github.com/onsi/ginkgo/v2 from 2.3.0 to 2.3.1 (#597) [afed901]
+- Bump nokogiri from 1.13.8 to 1.13.9 in /docs (#599) [7c691b3]
+- Bump github.com/google/go-cmp from 0.5.8 to 0.5.9 (#587) [ff22665]
+
 ## 1.22.1
 
 ## Fixes

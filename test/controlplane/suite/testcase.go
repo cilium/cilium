@@ -159,7 +159,6 @@ func (cpt *ControlPlaneTest) StartOperator() *ControlPlaneTest {
 		cpt.t.Fatal("StartOperator() already called")
 	}
 
-	operatorCmd.ResetCiliumNodesCacheSyncedStatus()
 	watchers.PodStoreSynced = make(chan struct{})
 	watchers.UnmanagedPodStoreSynced = make(chan struct{})
 

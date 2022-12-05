@@ -17,7 +17,8 @@ import (
 )
 
 // NewGetEndpointIDLogParams creates a new GetEndpointIDLogParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetEndpointIDLogParams() GetEndpointIDLogParams {
 
 	return GetEndpointIDLogParams{}
@@ -64,7 +65,6 @@ func (o *GetEndpointIDLogParams) BindRequest(r *http.Request, route *middleware.
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -80,7 +80,6 @@ func (o *GetEndpointIDLogParams) bindID(rawData []string, hasKey bool, formats s
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil

@@ -34,11 +34,10 @@ import (
 // in the Amazon Elastic Compute Cloud User Guide. You can allocate a carrier IP
 // address which is a public IP address from a telecommunication carrier, to a
 // network interface which resides in a subnet in a Wavelength Zone (for example an
-// EC2 instance). We are retiring EC2-Classic on August 15, 2022. We recommend that
-// you migrate from EC2-Classic to a VPC. For more information, see Migrate from
-// EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// EC2 instance). We are retiring EC2-Classic. We recommend that you migrate from
+// EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to a
+// VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
+// the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) AllocateAddress(ctx context.Context, params *AllocateAddressInput, optFns ...func(*Options)) (*AllocateAddressOutput, error) {
 	if params == nil {
 		params = &AllocateAddressInput{}

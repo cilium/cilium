@@ -112,6 +112,7 @@ type MetadataMatcher_PathSegment struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Segment:
+	//
 	//	*MetadataMatcher_PathSegment_Key
 	Segment isMetadataMatcher_PathSegment_Segment `protobuf_oneof:"segment"`
 }

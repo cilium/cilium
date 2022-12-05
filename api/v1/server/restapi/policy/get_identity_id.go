@@ -33,7 +33,7 @@ func NewGetIdentityID(ctx *middleware.Context, handler GetIdentityIDHandler) *Ge
 }
 
 /*
-GetIdentityID swagger:route GET /identity/{id} policy getIdentityId
+	GetIdentityID swagger:route GET /identity/{id} policy getIdentityId
 
 Retrieve identity
 */
@@ -45,17 +45,15 @@ type GetIdentityID struct {
 func (o *GetIdentityID) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetIdentityIDParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

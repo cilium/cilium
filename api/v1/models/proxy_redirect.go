@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -30,6 +32,11 @@ type ProxyRedirect struct {
 
 // Validate validates this proxy redirect
 func (m *ProxyRedirect) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this proxy redirect based on context it is used
+func (m *ProxyRedirect) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

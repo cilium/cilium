@@ -16,7 +16,8 @@ import (
 )
 
 // NewPutStatusProbeParams creates a new PutStatusProbeParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPutStatusProbeParams() PutStatusProbeParams {
 
 	return PutStatusProbeParams{}

@@ -373,6 +373,9 @@ const (
 	// EnableIngressController enables Ingress Controller
 	EnableIngressController = "enable-ingress-controller"
 
+	// EnableGatewayAPI enables Gateway API support
+	EnableGatewayAPI = "enable-gateway-api"
+
 	// EnableEnvoyConfig enables processing of CiliumClusterwideEnvoyConfig and CiliumEnvoyConfig CRDs
 	EnableEnvoyConfig = "enable-envoy-config"
 
@@ -1089,6 +1092,9 @@ const (
 	// IngressSecretsNamespace is the namespace having tls secrets used by CEC.
 	IngressSecretsNamespace = "ingress-secrets-namespace"
 
+	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API.
+	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
+
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
@@ -1100,6 +1106,10 @@ const (
 	// BPFMapEventBuffers specifies what maps should have event buffers enabled,
 	// and the max size and TTL of events in the buffers should be.
 	BPFMapEventBuffers = "bpf-map-event-buffers"
+
+	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
+	// stale CiliumEndpoints during init.
+	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
 )
 
 // Default string arguments
@@ -1630,6 +1640,7 @@ type DaemonConfig struct {
 	InstallEgressGatewayRoutes bool
 	EnableEnvoyConfig          bool
 	EnableIngressController    bool
+	EnableGatewayAPI           bool
 	EnvoyConfigTimeout         time.Duration
 	IPMasqAgentConfigPath      string
 	InstallIptRules            bool
@@ -2247,14 +2258,19 @@ type DaemonConfig struct {
 	// Enables BGP control plane features.
 	EnableBGPControlPlane bool
 
-	// EnvoySecretNamespace for TLS secrets. Used by CiliumEnvoyConfig via SDS.
-	EnvoySecretNamespace string
+	// EnvoySecretNamespaces for TLS secrets. Used by CiliumEnvoyConfig via SDS.
+	EnvoySecretNamespaces []string
 
 	// BPFMapEventBuffers has configuration on what BPF map event buffers to enabled
 	// and configuration options for those.
 	BPFMapEventBuffers          map[string]string
 	BPFMapEventBuffersValidator func(val string) (string, error) `json:"-"`
 	bpfMapEventConfigs          BPFEventBufferConfigs
+
+	// EnableStaleCiliumEndpointCleanup enables cleanup routine during Cilium init.
+	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
+	// following Endpoint restoration.
+	EnableStaleCiliumEndpointCleanup bool
 }
 
 var (
@@ -2411,6 +2427,12 @@ func (c *DaemonConfig) TunnelExists() bool {
 	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway
 }
 
+// AreDevicesRequired returns true if the agent needs to attach to the native
+// devices to implement some features.
+func (c *DaemonConfig) AreDevicesRequired() bool {
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager
+}
+
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
@@ -2540,6 +2562,11 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 	return c.EnableIngressController
+}
+
+// K8sGatewayAPIEnabled returns true if Gateway API feature is enabled in Cilium
+func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
+	return c.EnableGatewayAPI
 }
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
@@ -2877,6 +2904,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.InstallEgressGatewayRoutes = vp.GetBool(InstallEgressGatewayRoutes)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
+	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnvoyConfigTimeout = vp.GetDuration(EnvoyConfigTimeout)
 	c.IPMasqAgentConfigPath = vp.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = vp.GetBool(InstallIptRules)
@@ -3057,6 +3085,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ToFQDNsProxyPort = vp.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = vp.GetString(ToFQDNsPreCache)
 	c.ToFQDNsEnableDNSCompression = vp.GetBool(ToFQDNsEnableDNSCompression)
+	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
+	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 
@@ -3246,6 +3276,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
 	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 	c.EnableK8sTerminatingEndpoint = vp.GetBool(EnableK8sTerminatingEndpoint)
+	c.EnableStaleCiliumEndpointCleanup = vp.GetBool(EnableStaleCiliumEndpointCleanup)
 
 	// Disable Envoy version check if L7 proxy is disabled.
 	c.DisableEnvoyVersionCheck = vp.GetBool(DisableEnvoyVersionCheck)
@@ -3259,8 +3290,16 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	// Enable BGP control plane features
 	c.EnableBGPControlPlane = vp.GetBool(EnableBGPControlPlane)
 
-	// Envoy secrets namespace to watch
-	c.EnvoySecretNamespace = vp.GetString(IngressSecretsNamespace)
+	// Envoy secrets namespaces to watch
+	params := []string{IngressSecretsNamespace, GatewayAPISecretsNamespace}
+	var nsList = make([]string, 0, len(params))
+	for _, param := range params {
+		ns := vp.GetString(param)
+		if ns != "" {
+			nsList = append(nsList, ns)
+		}
+	}
+	c.EnvoySecretNamespaces = nsList
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {

@@ -71,15 +71,22 @@ func (client *Client) ListVirtualPhysicalConnectionsWithCallback(request *ListVi
 // ListVirtualPhysicalConnectionsRequest is the request struct for api ListVirtualPhysicalConnections
 type ListVirtualPhysicalConnectionsRequest struct {
 	*requests.RpcRequest
-	VlanIds                                 *[]string        `position:"Query" name:"VlanIds"  type:"Repeated"`
-	VirtualPhysicalConnectionBusinessStatus string           `position:"Query" name:"VirtualPhysicalConnectionBusinessStatus"`
-	VirtualPhysicalConnectionAliUids        *[]string        `position:"Query" name:"VirtualPhysicalConnectionAliUids"  type:"Repeated"`
-	NextToken                               string           `position:"Query" name:"NextToken"`
-	VirtualPhysicalConnectionIds            *[]string        `position:"Query" name:"VirtualPhysicalConnectionIds"  type:"Repeated"`
-	IsConfirmed                             requests.Boolean `position:"Query" name:"IsConfirmed"`
-	VirtualPhysicalConnectionStatuses       *[]string        `position:"Query" name:"VirtualPhysicalConnectionStatuses"  type:"Repeated"`
-	PhysicalConnectionId                    string           `position:"Query" name:"PhysicalConnectionId"`
-	MaxResults                              requests.Integer `position:"Query" name:"MaxResults"`
+	VlanIds                                 *[]string                             `position:"Query" name:"VlanIds"  type:"Repeated"`
+	VirtualPhysicalConnectionBusinessStatus string                                `position:"Query" name:"VirtualPhysicalConnectionBusinessStatus"`
+	VirtualPhysicalConnectionAliUids        *[]string                             `position:"Query" name:"VirtualPhysicalConnectionAliUids"  type:"Repeated"`
+	NextToken                               string                                `position:"Query" name:"NextToken"`
+	VirtualPhysicalConnectionIds            *[]string                             `position:"Query" name:"VirtualPhysicalConnectionIds"  type:"Repeated"`
+	IsConfirmed                             requests.Boolean                      `position:"Query" name:"IsConfirmed"`
+	Tags                                    *[]ListVirtualPhysicalConnectionsTags `position:"Query" name:"Tags"  type:"Repeated"`
+	VirtualPhysicalConnectionStatuses       *[]string                             `position:"Query" name:"VirtualPhysicalConnectionStatuses"  type:"Repeated"`
+	PhysicalConnectionId                    string                                `position:"Query" name:"PhysicalConnectionId"`
+	MaxResults                              requests.Integer                      `position:"Query" name:"MaxResults"`
+}
+
+// ListVirtualPhysicalConnectionsTags is a repeated param struct in ListVirtualPhysicalConnectionsRequest
+type ListVirtualPhysicalConnectionsTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListVirtualPhysicalConnectionsResponse is the response struct for api ListVirtualPhysicalConnections

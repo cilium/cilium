@@ -72,6 +72,12 @@ type IngressConfiguration interface {
 	K8sIngressControllerEnabled() bool
 }
 
+// GatewayAPIConfiguration is the required configuration for GetServiceListOptionsModifier
+type GatewayAPIConfiguration interface {
+	// K8sGatewayAPIEnabled returns true if gateway API is enabled in Cilium
+	K8sGatewayAPIEnabled() bool
+}
+
 // GetServiceListOptionsModifier returns the options modifier for service object list.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.

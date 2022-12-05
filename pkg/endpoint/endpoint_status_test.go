@@ -58,7 +58,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 			"k8s:io.kubernetes.pod.namespace=default",
 			"k8s:name=probe",
 		},
-		State: models.EndpointState("waiting-for-identity"),
+		State: models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 	})
 	c.Assert(err, check.IsNil)
 
@@ -427,9 +427,9 @@ func (s *EndpointSuite) TestEndpointPolicyStatus(c *check.C) {
 		{false, true, false, models.EndpointPolicyEnabledEgress},
 		{true, true, false, models.EndpointPolicyEnabledBoth},
 		{false, false, true, models.EndpointPolicyEnabledNone},
-		{true, false, true, models.EndpointPolicyEnabledAuditIngress},
-		{false, true, true, models.EndpointPolicyEnabledAuditEgress},
-		{true, true, true, models.EndpointPolicyEnabledAuditBoth},
+		{true, false, true, models.EndpointPolicyEnabledAuditDashIngress},
+		{false, true, true, models.EndpointPolicyEnabledAuditDashEgress},
+		{true, true, true, models.EndpointPolicyEnabledAuditDashBoth},
 	}
 
 	e := s.newEndpoint(c, endpointGeneratorSpec{})

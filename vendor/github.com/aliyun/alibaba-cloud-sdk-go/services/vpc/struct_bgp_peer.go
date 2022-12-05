@@ -17,23 +17,26 @@ package vpc
 
 // BgpPeer is a nested struct in vpc response
 type BgpPeer struct {
-	Status        string `json:"Status" xml:"Status"`
-	PeerIpAddress string `json:"PeerIpAddress" xml:"PeerIpAddress"`
-	RouterId      string `json:"RouterId" xml:"RouterId"`
-	BgpGroupId    string `json:"BgpGroupId" xml:"BgpGroupId"`
-	BgpStatus     string `json:"BgpStatus" xml:"BgpStatus"`
-	BfdMultiHop   int    `json:"BfdMultiHop" xml:"BfdMultiHop"`
-	PeerAsn       string `json:"PeerAsn" xml:"PeerAsn"`
-	LocalAsn      string `json:"LocalAsn" xml:"LocalAsn"`
-	RegionId      string `json:"RegionId" xml:"RegionId"`
-	BgpPeerId     string `json:"BgpPeerId" xml:"BgpPeerId"`
-	EnableBfd     bool   `json:"EnableBfd" xml:"EnableBfd"`
-	Hold          string `json:"Hold" xml:"Hold"`
-	IpVersion     string `json:"IpVersion" xml:"IpVersion"`
-	Keepalive     string `json:"Keepalive" xml:"Keepalive"`
-	Description   string `json:"Description" xml:"Description"`
-	RouteLimit    string `json:"RouteLimit" xml:"RouteLimit"`
-	IsFake        string `json:"IsFake" xml:"IsFake"`
-	AuthKey       string `json:"AuthKey" xml:"AuthKey"`
-	Name          string `json:"Name" xml:"Name"`
+	Status               string `json:"Status" xml:"Status"`
+	PeerIpAddress        string `json:"PeerIpAddress" xml:"PeerIpAddress"`
+	RouterId             string `json:"RouterId" xml:"RouterId"`
+	BgpGroupId           string `json:"BgpGroupId" xml:"BgpGroupId"`
+	BgpStatus            string `json:"BgpStatus" xml:"BgpStatus"`
+	BfdMultiHop          int    `json:"BfdMultiHop" xml:"BfdMultiHop"`
+	PeerAsn              string `json:"PeerAsn" xml:"PeerAsn"`
+	LocalAsn             string `json:"LocalAsn" xml:"LocalAsn"`
+	RegionId             string `json:"RegionId" xml:"RegionId"`
+	BgpPeerId            string `json:"BgpPeerId" xml:"BgpPeerId"`
+	EnableBfd            bool   `json:"EnableBfd" xml:"EnableBfd"`
+	Hold                 string `json:"Hold" xml:"Hold"`
+	IpVersion            string `json:"IpVersion" xml:"IpVersion"`
+	Keepalive            string `json:"Keepalive" xml:"Keepalive"`
+	Description          string `json:"Description" xml:"Description"`
+	RouteLimit           string `json:"RouteLimit" xml:"RouteLimit"`
+	IsFake               bool   `json:"IsFake" xml:"IsFake"`
+	AuthKey              string `json:"AuthKey" xml:"AuthKey"`
+	Name                 string `json:"Name" xml:"Name"`
+	AdvertisedRouteCount int    `json:"AdvertisedRouteCount" xml:"AdvertisedRouteCount"`
+	ReceivedRouteCount   int    `json:"ReceivedRouteCount" xml:"ReceivedRouteCount"`
+	GmtModified          string `json:"GmtModified" xml:"GmtModified"`
 }

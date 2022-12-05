@@ -73,7 +73,7 @@ func (p *policyContext) GetSelectorCache() *SelectorCache {
 	return p.repo.GetSelectorCache()
 }
 
-// GetSelectorCache() returns the selector cache used by the Repository
+// GetTLSContext() returns data for TLS Context via a CertificateManager
 func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
 	if p.repo.certManager == nil {
 		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")

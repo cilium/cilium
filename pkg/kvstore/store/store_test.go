@@ -171,7 +171,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 		Prefix:               rand.RandomString(),
 		KeyCreator:           newTestType,
 		Observer:             &observer{},
-		SharedKeyDeleteDelay: sharedKeyDeleteDelay,
+		SharedKeyDeleteDelay: func() *time.Duration { a := sharedKeyDeleteDelay; return &a }(),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))

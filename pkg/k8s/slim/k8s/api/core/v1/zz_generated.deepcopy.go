@@ -9,6 +9,7 @@
 package v1
 
 import (
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -921,6 +922,16 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 		*out = make([]IPFamily, len(*in))
 		copy(*out, *in)
 	}
+	if in.IPFamilyPolicy != nil {
+		in, out := &in.IPFamilyPolicy, &out.IPFamilyPolicy
+		*out = new(IPFamilyPolicy)
+		**out = **in
+	}
+	if in.LoadBalancerClass != nil {
+		in, out := &in.LoadBalancerClass, &out.LoadBalancerClass
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
@@ -938,6 +949,13 @@ func (in *ServiceSpec) DeepCopy() *ServiceSpec {
 func (in *ServiceStatus) DeepCopyInto(out *ServiceStatus) {
 	*out = *in
 	in.LoadBalancer.DeepCopyInto(&out.LoadBalancer)
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
