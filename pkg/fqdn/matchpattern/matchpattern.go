@@ -75,12 +75,7 @@ func ToAnchoredRegexp(pattern string) string {
 		return "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)"
 	}
 
-	// base case. * becomes .*, but only for DNS valid characters
-	// NOTE: this only works because the case above does not leave the *
-	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
-
-	// base case. "." becomes a literal .
-	pattern = strings.Replace(pattern, ".", "[.]", -1)
+	pattern = escapeRegexpCharacters(pattern)
 
 	// Anchor the match to require the whole string to match this expression
 	return "^" + pattern + "$"
