@@ -70,6 +70,10 @@ type TypeMeta = metav1.TypeMeta
 type ObjectMeta = metav1.ObjectMeta
 
 var (
+	// RegisterFlags registers flag variables to the given FlagSet if not already registered.
+	// It uses the default command line FlagSet, if none is provided. Currently, it only registers the kubeconfig flag.
+	RegisterFlags = config.RegisterFlags
+
 	// GetConfigOrDie creates a *rest.Config for talking to a Kubernetes apiserver.
 	// If --kubeconfig is set, will use the kubeconfig file at that location.  Otherwise will assume running
 	// in cluster and use the cluster provided kubeconfig.

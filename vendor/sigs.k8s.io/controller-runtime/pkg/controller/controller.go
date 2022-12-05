@@ -153,3 +153,6 @@ func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller
 		RecoverPanic:            options.RecoverPanic,
 	}, nil
 }
+
+// ReconcileIDFromContext gets the reconcileID from the current context.
+var ReconcileIDFromContext = controller.ReconcileIDFromContext

@@ -112,6 +112,7 @@ type Options struct {
 	// NewClient is the func that creates the client to be used by the manager.
 	// If not set this will create the default DelegatingClient that will
 	// use the cache for reads and the client for writes.
+	// NOTE: The default client will not cache Unstructured.
 	NewClient NewClientFunc
 
 	// ClientDisableCacheFor tells the client that, if any cache is used, to bypass it
@@ -255,16 +256,33 @@ func setOptionsDefaults(options Options) Options {
 // NewClientFunc allows a user to define how to create a client.
 type NewClientFunc func(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error)
 
-// DefaultNewClient creates the default caching client.
-func DefaultNewClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
-	c, err := client.New(config, options)
-	if err != nil {
-		return nil, err
-	}
+// ClientOptions are the optional arguments for tuning the caching client.
+type ClientOptions struct {
+	UncachedObjects   []client.Object
+	CacheUnstructured bool
+}
 
-	return client.NewDelegatingClient(client.NewDelegatingClientInput{
-		CacheReader:     cache,
-		Client:          c,
-		UncachedObjects: uncachedObjects,
-	})
+// DefaultNewClient creates the default caching client, that will never cache Unstructured.
+func DefaultNewClient(cache cache.Cache, config *rest.Config, options client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+	return ClientBuilderWithOptions(ClientOptions{})(cache, config, options, uncachedObjects...)
+}
+
+// ClientBuilderWithOptions returns a Client constructor that will build a client
+// honoring the options argument
+func ClientBuilderWithOptions(options ClientOptions) NewClientFunc {
+	return func(cache cache.Cache, config *rest.Config, clientOpts client.Options, uncachedObjects ...client.Object) (client.Client, error) {
+		options.UncachedObjects = append(options.UncachedObjects, uncachedObjects...)
+
+		c, err := client.New(config, clientOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		return client.NewDelegatingClient(client.NewDelegatingClientInput{
+			CacheReader:       cache,
+			Client:            c,
+			UncachedObjects:   options.UncachedObjects,
+			CacheUnstructured: options.CacheUnstructured,
+		})
+	}
 }

@@ -288,40 +288,152 @@ func (c *client) List(ctx context.Context, obj ObjectList, opts ...ListOption) e
 }
 
 // Status implements client.StatusClient.
-func (c *client) Status() StatusWriter {
-	return &statusWriter{client: c}
+func (c *client) Status() SubResourceWriter {
+	return c.SubResource("status")
 }
 
-// statusWriter is client.StatusWriter that writes status subresource.
-type statusWriter struct {
-	client *client
+func (c *client) SubResource(subResource string) SubResourceWriter {
+	return &subResourceWriter{client: c, subResource: subResource}
 }
 
-// ensure statusWriter implements client.StatusWriter.
-var _ StatusWriter = &statusWriter{}
+// subResourceWriter is client.SubResourceWriter that writes to subresources.
+type subResourceWriter struct {
+	client      *client
+	subResource string
+}
 
-// Update implements client.StatusWriter.
-func (sw *statusWriter) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
-	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
-	switch obj.(type) {
-	case *unstructured.Unstructured:
-		return sw.client.unstructuredClient.UpdateStatus(ctx, obj, opts...)
-	case *metav1.PartialObjectMetadata:
-		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
-	default:
-		return sw.client.typedClient.UpdateStatus(ctx, obj, opts...)
+// ensure subResourceWriter implements client.SubResourceWriter.
+var _ SubResourceWriter = &subResourceWriter{}
+
+// SubResourceUpdateOptions holds all the possible configuration
+// for a subresource update request.
+type SubResourceUpdateOptions struct {
+	UpdateOptions
+	SubResourceBody Object
+}
+
+// ApplyToSubResourceUpdate updates the configuration on the given create options
+func (uo *SubResourceUpdateOptions) ApplyToSubResourceUpdate(o *SubResourceUpdateOptions) {
+	uo.UpdateOptions.ApplyToUpdate(&o.UpdateOptions)
+	if uo.SubResourceBody != nil {
+		o.SubResourceBody = uo.SubResourceBody
 	}
 }
 
-// Patch implements client.Client.
-func (sw *statusWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
+// ApplyOptions applies the given options.
+func (uo *SubResourceUpdateOptions) ApplyOptions(opts []SubResourceUpdateOption) *SubResourceUpdateOptions {
+	for _, o := range opts {
+		o.ApplyToSubResourceUpdate(uo)
+	}
+
+	return uo
+}
+
+// SubResourceUpdateAndPatchOption is an option that can be used for either
+// a subresource update or patch request.
+type SubResourceUpdateAndPatchOption interface {
+	SubResourceUpdateOption
+	SubResourcePatchOption
+}
+
+// WithSubResourceBody returns an option that uses the given body
+// for a subresource Update or Patch operation.
+func WithSubResourceBody(body Object) SubResourceUpdateAndPatchOption {
+	return &withSubresourceBody{body: body}
+}
+
+type withSubresourceBody struct {
+	body Object
+}
+
+func (wsr *withSubresourceBody) ApplyToSubResourceUpdate(o *SubResourceUpdateOptions) {
+	o.SubResourceBody = wsr.body
+}
+
+func (wsr *withSubresourceBody) ApplyToSubResourcePatch(o *SubResourcePatchOptions) {
+	o.SubResourceBody = wsr.body
+}
+
+// SubResourceCreateOptions are all the possible configurations for a subresource
+// create request.
+type SubResourceCreateOptions struct {
+	CreateOptions
+}
+
+// ApplyOptions applies the given options.
+func (co *SubResourceCreateOptions) ApplyOptions(opts []SubResourceCreateOption) *SubResourceCreateOptions {
+	for _, o := range opts {
+		o.ApplyToSubResourceCreate(co)
+	}
+
+	return co
+}
+
+// ApplyToSubresourceCreate applies the the configuration on the given create options.
+func (co *SubResourceCreateOptions) ApplyToSubresourceCreate(o *SubResourceCreateOptions) {
+	co.CreateOptions.ApplyToCreate(&co.CreateOptions)
+}
+
+// SubResourcePatchOptions holds all possible configurations for a subresource patch
+// request.
+type SubResourcePatchOptions struct {
+	PatchOptions
+	SubResourceBody Object
+}
+
+// ApplyOptions applies the given options.
+func (po *SubResourcePatchOptions) ApplyOptions(opts []SubResourcePatchOption) *SubResourcePatchOptions {
+	for _, o := range opts {
+		o.ApplyToSubResourcePatch(po)
+	}
+
+	return po
+}
+
+// ApplyToSubResourcePatch applies the configuration on the given patch options.
+func (po *SubResourcePatchOptions) ApplyToSubResourcePatch(o *SubResourcePatchOptions) {
+	po.PatchOptions.ApplyToPatch(&o.PatchOptions)
+	if po.SubResourceBody != nil {
+		o.SubResourceBody = po.SubResourceBody
+	}
+}
+
+func (sw *subResourceWriter) Create(ctx context.Context, obj Object, subResource Object, opts ...SubResourceCreateOption) error {
+	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+	defer sw.client.resetGroupVersionKind(subResource, subResource.GetObjectKind().GroupVersionKind())
+
+	switch obj.(type) {
+	case *unstructured.Unstructured:
+		return sw.client.unstructuredClient.CreateSubResource(ctx, obj, subResource, sw.subResource, opts...)
+	case *metav1.PartialObjectMetadata:
+		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
+	default:
+		return sw.client.typedClient.CreateSubResource(ctx, obj, subResource, sw.subResource, opts...)
+	}
+}
+
+// Update implements client.SubResourceWriter.
+func (sw *subResourceWriter) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
 	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
 	case *unstructured.Unstructured:
-		return sw.client.unstructuredClient.PatchStatus(ctx, obj, patch, opts...)
+		return sw.client.unstructuredClient.UpdateSubResource(ctx, obj, sw.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
-		return sw.client.metadataClient.PatchStatus(ctx, obj, patch, opts...)
+		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
 	default:
-		return sw.client.typedClient.PatchStatus(ctx, obj, patch, opts...)
+		return sw.client.typedClient.UpdateSubResource(ctx, obj, sw.subResource, opts...)
+	}
+}
+
+// Patch implements client.SubResourceWriter.
+func (sw *subResourceWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
+	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+	switch obj.(type) {
+	case *unstructured.Unstructured:
+		return sw.client.unstructuredClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
+	case *metav1.PartialObjectMetadata:
+		return sw.client.metadataClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
+	default:
+		return sw.client.typedClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
 	}
 }
