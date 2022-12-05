@@ -815,28 +815,3 @@ func checkCiliumXDS(c *C, cs *envoy_config_core.ConfigSource) {
 	c.Assert(eg, Not(IsNil))
 	c.Assert(eg.ClusterName, Equals, "xds-grpc-cilium")
 }
-
-func (s *JSONSuite) TestResourceQualifiedName(c *C) {
-	var fullName, namespace, name, resource string
-
-	resource = "test-resource"
-	fullName = resourceQualifiedName(namespace, name, resource)
-	c.Assert(fullName, Equals, "test-resource")
-
-	name = "test-name"
-	resource = "test-resource"
-	fullName = resourceQualifiedName(namespace, name, resource)
-	c.Assert(fullName, Equals, "test-name/test-resource")
-
-	namespace = "test-namespace"
-	name = ""
-	resource = "test-resource"
-	fullName = resourceQualifiedName(namespace, name, resource)
-	c.Assert(fullName, Equals, "test-namespace/test-resource")
-
-	namespace = "test-namespace"
-	name = "test-name"
-	resource = "test-resource"
-	fullName = resourceQualifiedName(namespace, name, resource)
-	c.Assert(fullName, Equals, "test-namespace/test-name/test-resource")
-}
