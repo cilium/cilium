@@ -22,10 +22,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"reflect"
 	"strconv"
@@ -437,7 +437,7 @@ func (r *Request) Body(obj interface{}) *Request {
 	}
 	switch t := obj.(type) {
 	case string:
-		data, err := ioutil.ReadFile(t)
+		data, err := os.ReadFile(t)
 		if err != nil {
 			r.err = err
 			return r
@@ -519,14 +519,17 @@ func (r Request) finalURLTemplate() url.URL {
 		newParams[k] = v
 	}
 	r.params = newParams
-	url := r.URL()
+	u := r.URL()
+	if u == nil {
+		return url.URL{}
+	}
 
-	segments := strings.Split(url.Path, "/")
+	segments := strings.Split(u.Path, "/")
 	groupIndex := 0
 	index := 0
 	trimmedBasePath := ""
-	if url != nil && r.c.base != nil && strings.Contains(url.Path, r.c.base.Path) {
-		p := strings.TrimPrefix(url.Path, r.c.base.Path)
+	if r.c.base != nil && strings.Contains(u.Path, r.c.base.Path) {
+		p := strings.TrimPrefix(u.Path, r.c.base.Path)
 		if !strings.HasPrefix(p, "/") {
 			p = "/" + p
 		}
@@ -537,7 +540,7 @@ func (r Request) finalURLTemplate() url.URL {
 		groupIndex = 1
 	}
 	if len(segments) <= 2 {
-		return *url
+		return *u
 	}
 
 	const CoreGroupPrefix = "api"
@@ -555,11 +558,11 @@ func (r Request) finalURLTemplate() url.URL {
 		// outlet here in case more API groups are added in future if ever possible:
 		// https://kubernetes.io/docs/concepts/overview/kubernetes-api/#api-groups
 		// if a wrong API groups name is encountered, return the {prefix} for url.Path
-		url.Path = "/{prefix}"
-		url.RawQuery = ""
-		return *url
+		u.Path = "/{prefix}"
+		u.RawQuery = ""
+		return *u
 	}
-	//switch segLength := len(segments) - index; segLength {
+	// switch segLength := len(segments) - index; segLength {
 	switch {
 	// case len(segments) - index == 1:
 	// resource (with no name) do nothing
@@ -582,8 +585,8 @@ func (r Request) finalURLTemplate() url.URL {
 			segments[index+3] = "{name}"
 		}
 	}
-	url.Path = path.Join(trimmedBasePath, path.Join(segments...))
-	return *url
+	u.Path = path.Join(trimmedBasePath, path.Join(segments...))
+	return *u
 }
 
 func (r *Request) tryThrottleWithInfo(ctx context.Context, retryInfo string) error {
@@ -823,7 +826,7 @@ func (r *Request) Stream(ctx context.Context) (io.ReadCloser, error) {
 			return nil, err
 		}
 		if r.body != nil {
-			req.Body = ioutil.NopCloser(r.body)
+			req.Body = io.NopCloser(r.body)
 		}
 		resp, err := client.Do(req)
 		updateURLMetrics(ctx, r, resp, err)
@@ -1015,7 +1018,7 @@ func (r *Request) Do(ctx context.Context) Result {
 func (r *Request) DoRaw(ctx context.Context) ([]byte, error) {
 	var result Result
 	err := r.request(ctx, func(req *http.Request, resp *http.Response) {
-		result.body, result.err = ioutil.ReadAll(resp.Body)
+		result.body, result.err = io.ReadAll(resp.Body)
 		glogBody("Response Body", result.body)
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusPartialContent {
 			result.err = r.transformUnstructuredResponseError(resp, req, result.body)
@@ -1034,7 +1037,7 @@ func (r *Request) DoRaw(ctx context.Context) ([]byte, error) {
 func (r *Request) transformResponse(resp *http.Response, req *http.Request) Result {
 	var body []byte
 	if resp.Body != nil {
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		switch err.(type) {
 		case nil:
 			body = data
@@ -1176,7 +1179,7 @@ const maxUnstructuredResponseTextBytes = 2048
 // TODO: introduce transformation of generic http.Client.Do() errors that separates 4.
 func (r *Request) transformUnstructuredResponseError(resp *http.Response, req *http.Request, body []byte) error {
 	if body == nil && resp.Body != nil {
-		if data, err := ioutil.ReadAll(&io.LimitedReader{R: resp.Body, N: maxUnstructuredResponseTextBytes}); err == nil {
+		if data, err := io.ReadAll(&io.LimitedReader{R: resp.Body, N: maxUnstructuredResponseTextBytes}); err == nil {
 			body = data
 		}
 	}
@@ -1282,6 +1285,14 @@ func (r Result) Get() (runtime.Object, error) {
 // error was returned.)
 func (r Result) StatusCode(statusCode *int) Result {
 	*statusCode = r.statusCode
+	return r
+}
+
+// ContentType returns the "Content-Type" response header into the passed
+// string, returning the Result for possible chaining. (Only valid if no
+// error code was returned.)
+func (r Result) ContentType(contentType *string) Result {
+	*contentType = r.contentType
 	return r
 }
 

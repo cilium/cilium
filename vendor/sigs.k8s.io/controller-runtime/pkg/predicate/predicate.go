@@ -50,6 +50,7 @@ var _ Predicate = GenerationChangedPredicate{}
 var _ Predicate = AnnotationChangedPredicate{}
 var _ Predicate = or{}
 var _ Predicate = and{}
+var _ Predicate = not{}
 
 // Funcs is a function that implements Predicate.
 type Funcs struct {
@@ -338,6 +339,35 @@ func (o or) Generic(e event.GenericEvent) bool {
 		}
 	}
 	return false
+}
+
+// Not returns a predicate that implements a logical NOT of the predicate passed to it.
+func Not(predicate Predicate) Predicate {
+	return not{predicate}
+}
+
+type not struct {
+	predicate Predicate
+}
+
+func (n not) InjectFunc(f inject.Func) error {
+	return f(n.predicate)
+}
+
+func (n not) Create(e event.CreateEvent) bool {
+	return !n.predicate.Create(e)
+}
+
+func (n not) Update(e event.UpdateEvent) bool {
+	return !n.predicate.Update(e)
+}
+
+func (n not) Delete(e event.DeleteEvent) bool {
+	return !n.predicate.Delete(e)
+}
+
+func (n not) Generic(e event.GenericEvent) bool {
+	return !n.predicate.Generic(e)
 }
 
 // LabelSelectorPredicate constructs a Predicate from a LabelSelector.

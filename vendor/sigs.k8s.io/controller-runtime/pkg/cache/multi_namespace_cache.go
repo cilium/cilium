@@ -296,17 +296,47 @@ type multiNamespaceInformer struct {
 var _ Informer = &multiNamespaceInformer{}
 
 // AddEventHandler adds the handler to each namespaced informer.
-func (i *multiNamespaceInformer) AddEventHandler(handler toolscache.ResourceEventHandler) {
-	for _, informer := range i.namespaceToInformer {
-		informer.AddEventHandler(handler)
+func (i *multiNamespaceInformer) AddEventHandler(handler toolscache.ResourceEventHandler) (toolscache.ResourceEventHandlerRegistration, error) {
+	handles := make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))
+	for ns, informer := range i.namespaceToInformer {
+		registration, err := informer.AddEventHandler(handler)
+		if err != nil {
+			return nil, err
+		}
+		handles[ns] = registration
 	}
+	return handles, nil
 }
 
 // AddEventHandlerWithResyncPeriod adds the handler with a resync period to each namespaced informer.
-func (i *multiNamespaceInformer) AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration) {
-	for _, informer := range i.namespaceToInformer {
-		informer.AddEventHandlerWithResyncPeriod(handler, resyncPeriod)
+func (i *multiNamespaceInformer) AddEventHandlerWithResyncPeriod(handler toolscache.ResourceEventHandler, resyncPeriod time.Duration) (toolscache.ResourceEventHandlerRegistration, error) {
+	handles := make(map[string]toolscache.ResourceEventHandlerRegistration, len(i.namespaceToInformer))
+	for ns, informer := range i.namespaceToInformer {
+		registration, err := informer.AddEventHandlerWithResyncPeriod(handler, resyncPeriod)
+		if err != nil {
+			return nil, err
+		}
+		handles[ns] = registration
 	}
+	return handles, nil
+}
+
+// RemoveEventHandler removes a formerly added event handler given by its registration handle.
+func (i *multiNamespaceInformer) RemoveEventHandler(h toolscache.ResourceEventHandlerRegistration) error {
+	handles, ok := h.(map[string]toolscache.ResourceEventHandlerRegistration)
+	if !ok {
+		return fmt.Errorf("it is not the registration returned by multiNamespaceInformer")
+	}
+	for ns, informer := range i.namespaceToInformer {
+		registration, ok := handles[ns]
+		if !ok {
+			continue
+		}
+		if err := informer.RemoveEventHandler(registration); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AddIndexers adds the indexer for each namespaced informer.
