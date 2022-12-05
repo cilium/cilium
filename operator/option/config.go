@@ -288,6 +288,10 @@ const (
 	// Intended for operating cilium with CNI-compatible orchestrators
 	// other than Kubernetes. (default is true)
 	EnableK8s = "enable-k8s"
+
+	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
+	// default values: k8s-app=kube-dns
+	PodRestartSelector = "pod-restart-selector"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -538,6 +542,9 @@ type OperatorConfig struct {
 	// Intended for operating cilium with CNI-compatible orquestrators
 	// othern than Kubernetes. (default is true)
 	EnableK8s bool
+
+	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
+	PodRestartSelector string
 }
 
 // Populate sets all options with the values from viper.
@@ -582,6 +589,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
 	c.EnableK8s = vp.GetBool(EnableK8s)
+	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
 

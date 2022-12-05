@@ -419,7 +419,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	} else if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		go enableUnmanagedKubeDNSController(legacy.clientset)
+		go enableUnmanagedController(legacy.clientset)
 	}
 
 	var (
