@@ -1008,8 +1008,11 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ifindex, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
 		goto drop;
+	}
+
 	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
 		ret = lb6_to_lb4(ctx, ip6);
 		if (ret)
