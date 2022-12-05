@@ -6,7 +6,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -25,6 +24,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
 	// be registered for use in Cilium Envoy Config CRDs:
@@ -141,7 +141,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 							// Since we are prepending CEC namespace and name to Routes name,
 							// we must do the same here to point to the correct Route resource.
 							if rds.RouteConfigName != "" {
-								rds.RouteConfigName = resourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
+								rds.RouteConfigName = api.ResourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
 								updated = true
 							}
 							if rds.ConfigSource == nil {
@@ -201,7 +201,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := listener.Name
-			listener.Name = resourceQualifiedName(cecNamespace, cecName, listener.Name)
+			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name)
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
@@ -227,7 +227,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := route.Name
-			route.Name = resourceQualifiedName(cecNamespace, cecName, route.Name)
+			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, route.Name)
 			resources.Routes = append(resources.Routes, route)
 
 			log.Debugf("ParseResources: Parsed route %q: %v", name, route)
@@ -819,26 +819,4 @@ func fillInTransportSocketXDS(ts *envoy_config_core.TransportSocket) {
 			}
 		}
 	}
-}
-
-// resourceQualifiedName returns the qualified name of an Envoy resource,
-// prepending CEC namespace and CEC name to the resource name and using
-// '/' as a separator.
-//
-// In case of an empty CEC namespace or an empty CEC name, leading separators
-// are stripped away.
-func resourceQualifiedName(namespace, name, resource string) string {
-	var sb strings.Builder
-
-	if namespace != "" {
-		sb.WriteString(namespace)
-		sb.WriteRune('/')
-	}
-	if name != "" {
-		sb.WriteString(name)
-		sb.WriteRune('/')
-	}
-	sb.WriteString(resource)
-
-	return sb.String()
 }
