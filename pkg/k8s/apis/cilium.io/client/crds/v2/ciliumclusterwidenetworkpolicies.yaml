@@ -227,8 +227,7 @@ spec:
                     toEntities:
                       description: ToEntities is a list of special entities to which
                         the endpoint subject to the rule is allowed to initiate connections.
-                        Supported entities are `world`, `cluster` ,`host` , `remote-node`,
-                        `kube-apiserver`, `init`, `health`,`unmanaged` and `all`.
+                        Supported entities are `world`, `cluster` and `host`
                       items:
                         description: Entity specifies the class of receiver/sender
                           endpoints that do not have individual identities.  Entities
@@ -1055,8 +1054,7 @@ spec:
                     toEntities:
                       description: ToEntities is a list of special entities to which
                         the endpoint subject to the rule is allowed to initiate connections.
-                        Supported entities are `world`, `cluster` ,`host` , `remote-node`,
-                        `kube-apiserver`, `init`, `health`,`unmanaged` and `all`.
+                        Supported entities are `world`, `cluster` and `host`
                       items:
                         description: Entity specifies the class of receiver/sender
                           endpoints that do not have individual identities.  Entities
@@ -2596,8 +2594,8 @@ spec:
                       toEntities:
                         description: ToEntities is a list of special entities to which
                           the endpoint subject to the rule is allowed to initiate
-                          connections. Supported entities are `world`, `cluster` ,`host` ,
-                          `remote-node`, `kube-apiserver`, `init`, `health`,`unmanaged` and `all`.
+                          connections. Supported entities are `world`, `cluster` and
+                          `host`
                         items:
                           description: Entity specifies the class of receiver/sender
                             endpoints that do not have individual identities.  Entities
@@ -3440,8 +3438,8 @@ spec:
                       toEntities:
                         description: ToEntities is a list of special entities to which
                           the endpoint subject to the rule is allowed to initiate
-                          connections. Supported entities are `world`, `cluster` ,`host` ,
-                          `remote-node`, `kube-apiserver`, `init`, `health`,`unmanaged` and `all`.
+                          connections. Supported entities are `world`, `cluster` and
+                          `host`
                         items:
                           description: Entity specifies the class of receiver/sender
                             endpoints that do not have individual identities.  Entities
