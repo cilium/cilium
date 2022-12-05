@@ -111,3 +111,28 @@ func (s *PolicyAPITestSuite) TestParseL4Proto(c *C) {
 	_, err = ParseL4Proto("foo2")
 	c.Assert(err, Not(IsNil))
 }
+
+func (s *PolicyAPITestSuite) TestResourceQualifiedName(c *C) {
+	var fullName, namespace, name, resource string
+
+	resource = "test-resource"
+	fullName = ResourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-resource")
+
+	name = "test-name"
+	resource = "test-resource"
+	fullName = ResourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-name/test-resource")
+
+	namespace = "test-namespace"
+	name = ""
+	resource = "test-resource"
+	fullName = ResourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-resource")
+
+	namespace = "test-namespace"
+	name = "test-name"
+	resource = "test-resource"
+	fullName = ResourceQualifiedName(namespace, name, resource)
+	c.Assert(fullName, Equals, "test-namespace/test-name/test-resource")
+}
