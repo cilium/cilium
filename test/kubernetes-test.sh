@@ -26,8 +26,8 @@ helm template --validate install/kubernetes/cilium \
   --set ipv4.enabled=true \
   --set ipv6.enabled=true \
   --set identityChangeGracePeriod="0s" \
-  --set kubeProxyReplacement=probe \
   --set cni.chainingMode=portmap \
+  --set sessionAffinity=true \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml

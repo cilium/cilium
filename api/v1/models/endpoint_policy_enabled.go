@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -20,6 +21,15 @@ import (
 //
 // swagger:model EndpointPolicyEnabled
 type EndpointPolicyEnabled string
+
+func NewEndpointPolicyEnabled(value EndpointPolicyEnabled) *EndpointPolicyEnabled {
+	return &value
+}
+
+// Pointer returns a pointer to a freshly-allocated EndpointPolicyEnabled.
+func (m EndpointPolicyEnabled) Pointer() *EndpointPolicyEnabled {
+	return &m
+}
 
 const (
 
@@ -35,14 +45,14 @@ const (
 	// EndpointPolicyEnabledBoth captures enum value "both"
 	EndpointPolicyEnabledBoth EndpointPolicyEnabled = "both"
 
-	// EndpointPolicyEnabledAuditIngress captures enum value "audit-ingress"
-	EndpointPolicyEnabledAuditIngress EndpointPolicyEnabled = "audit-ingress"
+	// EndpointPolicyEnabledAuditDashIngress captures enum value "audit-ingress"
+	EndpointPolicyEnabledAuditDashIngress EndpointPolicyEnabled = "audit-ingress"
 
-	// EndpointPolicyEnabledAuditEgress captures enum value "audit-egress"
-	EndpointPolicyEnabledAuditEgress EndpointPolicyEnabled = "audit-egress"
+	// EndpointPolicyEnabledAuditDashEgress captures enum value "audit-egress"
+	EndpointPolicyEnabledAuditDashEgress EndpointPolicyEnabled = "audit-egress"
 
-	// EndpointPolicyEnabledAuditBoth captures enum value "audit-both"
-	EndpointPolicyEnabledAuditBoth EndpointPolicyEnabled = "audit-both"
+	// EndpointPolicyEnabledAuditDashBoth captures enum value "audit-both"
+	EndpointPolicyEnabledAuditDashBoth EndpointPolicyEnabled = "audit-both"
 )
 
 // for schema
@@ -77,5 +87,10 @@ func (m EndpointPolicyEnabled) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// ContextValidate validates this endpoint policy enabled based on context it is used
+func (m EndpointPolicyEnabled) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -53,7 +54,6 @@ func (m *ClusterNodeStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NodesAdded) { // not required
 		return nil
 	}
@@ -67,6 +67,8 @@ func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
 			if err := m.NodesAdded[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes-added" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes-added" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -78,7 +80,6 @@ func (m *ClusterNodeStatus) validateNodesAdded(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodeStatus) validateNodesRemoved(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NodesRemoved) { // not required
 		return nil
 	}
@@ -92,6 +93,66 @@ func (m *ClusterNodeStatus) validateNodesRemoved(formats strfmt.Registry) error 
 			if err := m.NodesRemoved[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this cluster node status based on the context it is used
+func (m *ClusterNodeStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateNodesAdded(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNodesRemoved(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ClusterNodeStatus) contextValidateNodesAdded(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.NodesAdded); i++ {
+
+		if m.NodesAdded[i] != nil {
+			if err := m.NodesAdded[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("nodes-added" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes-added" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *ClusterNodeStatus) contextValidateNodesRemoved(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.NodesRemoved); i++ {
+
+		if m.NodesRemoved[i] != nil {
+			if err := m.NodesRemoved[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes-removed" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

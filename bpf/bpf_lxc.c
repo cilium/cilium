@@ -1020,7 +1020,7 @@ ct_recreate4:
 
 		if (egress_gw_request_needs_redirect(ip4, &tunnel_endpoint)) {
 			/* Send the packet to egress gateway node through a tunnel. */
-			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, 0,
 						       SECLABEL, *dst_id, &trace);
 			if (ret == CTX_ACT_OK)
 				goto encrypt_to_stack;

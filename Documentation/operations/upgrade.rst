@@ -315,6 +315,12 @@ Annotations:
 * The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
   In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
 
+* In the ENI IPAM mode, the default subnet in which ENIs are created has changed
+  from the subnet (in the same VPC and AZ) with the most addresses available to
+  the subnet in which the primary ENI of the node is attached. Note that this
+  default only matters if no explicit selection of the subnet occurs, i.e.
+  specifying subnet IDs or tags still takes precedence.
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
@@ -327,6 +333,12 @@ Removed Options
   ``strict`` or ``partial`` with individual options configured. Please refer to
   :ref:`kubeproxy-free` for more info.
 
+
+Deprecated Options
+~~~~~~~~~~~~~~~~~~
+
+* The ``force-local-policy-eval-at-source`` option is deprecated and will be
+  removed in 1.14.
 
 Added Metrics
 ~~~~~~~~~~~~~
@@ -361,6 +373,11 @@ Helm Options
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
   ``securityContext.capabilities.cilium_agent``.
 * ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
+
+CRD Changes
+~~~~~~~~~~~
+
+* ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
 
 .. _earlier_upgrade_notes:
 

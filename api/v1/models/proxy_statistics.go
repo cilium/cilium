@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -89,7 +90,6 @@ func (m *ProxyStatistics) validateLocationEnum(path, location string, value stri
 }
 
 func (m *ProxyStatistics) validateLocation(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Location) { // not required
 		return nil
 	}
@@ -103,7 +103,6 @@ func (m *ProxyStatistics) validateLocation(formats strfmt.Registry) error {
 }
 
 func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Statistics) { // not required
 		return nil
 	}
@@ -112,6 +111,38 @@ func (m *ProxyStatistics) validateStatistics(formats strfmt.Registry) error {
 		if err := m.Statistics.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("statistics")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("statistics")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this proxy statistics based on the context it is used
+func (m *ProxyStatistics) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateStatistics(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ProxyStatistics) contextValidateStatistics(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Statistics != nil {
+		if err := m.Statistics.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("statistics")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("statistics")
 			}
 			return err
 		}

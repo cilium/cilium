@@ -556,7 +556,7 @@ IPs to be allowed are selected via:
 
   * ``*`` within a domain allows 0 or more valid DNS characters, except for the
     ``.`` separator. ``*.cilium.io`` will match ``sub.cilium.io`` but not
-    ``cilium.io``. ``part*ial.com`` will match ``partial.com`` and
+    ``cilium.io`` or ``sub.sub.cilium.io``. ``part*ial.com`` will match ``partial.com`` and
     ``part-extra-ial.com``.
   * ``*`` alone matches all names, and inserts all cached DNS IPs into this
     rule.

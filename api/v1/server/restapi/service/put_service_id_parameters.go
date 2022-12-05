@@ -17,12 +17,14 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPutServiceIDParams creates a new PutServiceIDParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPutServiceIDParams() PutServiceIDParams {
 
 	return PutServiceIDParams{}
@@ -73,6 +75,11 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 				res = append(res, err)
 			}
 
+			ctx := validate.WithOperationRequest(r.Context())
+			if err := body.ContextValidate(ctx, route.Formats); err != nil {
+				res = append(res, err)
+			}
+
 			if len(res) == 0 {
 				o.Config = &body
 			}
@@ -80,11 +87,11 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 	} else {
 		res = append(res, errors.Required("config", "body", ""))
 	}
+
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}

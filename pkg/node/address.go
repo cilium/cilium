@@ -284,6 +284,15 @@ func GetIPv4() net.IP {
 	return clone(n.GetNodeIP(false))
 }
 
+// GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
+// running on this node.
+func GetCiliumEndpointNodeIP() string {
+	if option.Config.EnableIPv4 {
+		return GetIPv4().String()
+	}
+	return GetIPv6().String()
+}
+
 // SetInternalIPv4Router sets the cilium internal IPv4 node address, it is allocated from the node prefix.
 // This must not be conflated with k8s internal IP as this IP address is only relevant within the
 // Cilium-managed network (this means within the node for direct routing mode and on the overlay

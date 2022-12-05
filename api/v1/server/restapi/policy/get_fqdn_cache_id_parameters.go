@@ -18,7 +18,8 @@ import (
 )
 
 // NewGetFqdnCacheIDParams creates a new GetFqdnCacheIDParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetFqdnCacheIDParams() GetFqdnCacheIDParams {
 
 	return GetFqdnCacheIDParams{}
@@ -94,7 +95,6 @@ func (o *GetFqdnCacheIDParams) BindRequest(r *http.Request, route *middleware.Ma
 	if err := o.bindSource(qSource, qhkSource, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -110,10 +110,10 @@ func (o *GetFqdnCacheIDParams) bindCidr(rawData []string, hasKey bool, formats s
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Cidr = &raw
 
 	return nil
@@ -128,7 +128,6 @@ func (o *GetFqdnCacheIDParams) bindID(rawData []string, hasKey bool, formats str
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil
@@ -143,10 +142,10 @@ func (o *GetFqdnCacheIDParams) bindMatchpattern(rawData []string, hasKey bool, f
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Matchpattern = &raw
 
 	return nil
@@ -161,10 +160,10 @@ func (o *GetFqdnCacheIDParams) bindSource(rawData []string, hasKey bool, formats
 
 	// Required: false
 	// AllowEmptyValue: false
+
 	if raw == "" { // empty values pass all other validations
 		return nil
 	}
-
 	o.Source = &raw
 
 	return nil

@@ -2820,9 +2820,13 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				continue
 			}
 			for _, ep := range endpoints {
+				state := ""
+				if ep.Status.State != nil {
+					state = string(*ep.Status.State)
+				}
 				errorMessage += fmt.Sprintf(
 					"\tCilium Pod: %s \tEndpoint: %d \tIdentity: %d\t State: %s\n",
-					pod, ep.ID, ep.Status.Identity.ID, ep.Status.State)
+					pod, ep.ID, ep.Status.Identity.ID, state)
 			}
 		}
 		return errorMessage

@@ -20,10 +20,17 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
 func (s *K8sSuite) TestUseNodeCIDR(c *C) {
+	prevAnnotateK8sNode := option.Config.AnnotateK8sNode
+	option.Config.AnnotateK8sNode = true
+	defer func() {
+		option.Config.AnnotateK8sNode = prevAnnotateK8sNode
+	}()
+
 	// Test IPv4
 	node1 := v1.Node{
 		ObjectMeta: metav1.ObjectMeta{

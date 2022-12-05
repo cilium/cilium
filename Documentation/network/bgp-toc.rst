@@ -17,3 +17,4 @@ BGP
    bird
    bgp
    bgp-control-plane
+   lb-ipam

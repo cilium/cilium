@@ -546,7 +546,7 @@ type AllocationAction struct {
 	PoolID ipamTypes.PoolID
 
 	// AvailableForAllocation is the number IPs available for allocation.
-	// If InterfaeID is set, then this number corresponds to the number of
+	// If InterfaceID is set, then this number corresponds to the number of
 	// IPs available for allocation on that interface. This number may be
 	// lower than the number of IPs required to resolve the deficit.
 	AvailableForAllocation int

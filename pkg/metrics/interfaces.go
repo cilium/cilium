@@ -12,11 +12,11 @@ import (
 )
 
 type daemonHealthGetter interface {
-	GetHealthz(params *daemon.GetHealthzParams) (*daemon.GetHealthzOK, error)
+	GetHealthz(params *daemon.GetHealthzParams, opts ...daemon.ClientOption) (*daemon.GetHealthzOK, error)
 }
 
 type connectivityStatusGetter interface {
-	GetStatus(params *connectivity.GetStatusParams) (*connectivity.GetStatusOK, error)
+	GetStatus(params *connectivity.GetStatusParams, opts ...connectivity.ClientOption) (*connectivity.GetStatusOK, error)
 }
 
 type CounterVec interface {

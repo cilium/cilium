@@ -814,7 +814,7 @@ hubble:
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
     dashboards:
-      enabled: true
+      enabled: false
       label: grafana_dashboard
       namespace: ~
       labelValue: "1"
@@ -1823,6 +1823,9 @@ operator:
 
   # -- Interval for cilium node garbage collection.
   nodeGCInterval: "5m0s"
+
+  # -- Skip CNP node status clean up at operator startup.
+  skipCNPStatusStartupClean: false
 
   # -- Interval for identity garbage collection.
   identityGCInterval: "15m0s"

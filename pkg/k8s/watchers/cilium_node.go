@@ -168,7 +168,7 @@ func (k *K8sWatcher) GetCiliumNode(ctx context.Context, nodeName string) (*ciliu
 	}
 	k.ciliumNodeStoreMU.RUnlock()
 
-	if getFromAPIServer {
+	if !exists || getFromAPIServer {
 		// fallback to using the kube-apiserver
 		return k.clientset.CiliumV2().CiliumNodes().Get(ctx, nodeName, v1.GetOptions{})
 	}

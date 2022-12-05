@@ -92,7 +92,7 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 }
 
 func createArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
-	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
+	// Based on https://blog.ralch.com/articles/golang-working-with-tar-and-gzip/
 	file := os.Stdout
 	archivePath := "STDOUT"
 
@@ -122,7 +122,7 @@ func createArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
 }
 
 func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
-	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
+	// Based on https://blog.ralch.com/articles/golang-working-with-tar-and-gzip/
 	source, err := createArchive(dbgDir, false)
 	if err != nil {
 		return "", err

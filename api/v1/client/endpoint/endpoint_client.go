@@ -28,29 +28,32 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error)
+	DeleteEndpointID(params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error)
 
-	GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error)
+	GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error)
 
-	GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, error)
+	GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error)
 
-	GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEndpointIDConfigOK, error)
+	GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error)
 
-	GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetEndpointIDHealthzOK, error)
+	GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error)
 
-	GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEndpointIDLabelsOK, error)
+	GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error)
 
-	GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointIDLogOK, error)
+	GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error)
 
-	PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointIDOK, error)
+	PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error)
 
-	PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*PatchEndpointIDConfigOK, error)
+	PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error)
 
-	PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*PatchEndpointIDLabelsOK, error)
+	PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error)
 
-	PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreated, error)
+	PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
@@ -69,13 +72,12 @@ All resources associated with the endpoint will be freed and the
 workload represented by the endpoint will be disconnected.It will no
 longer be able to initiate or receive communications of any sort.
 */
-func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
+func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams, opts ...ClientOption) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteEndpointIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeleteEndpointID",
 		Method:             "DELETE",
 		PathPattern:        "/endpoint/{id}",
@@ -86,7 +88,12 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpoi
 		Reader:             &DeleteEndpointIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,13 +113,12 @@ GetEndpoint retrieves a list of endpoints that have metadata matching the provid
 
 Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
 */
-func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) {
+func (a *Client) GetEndpoint(params *GetEndpointParams, opts ...ClientOption) (*GetEndpointOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpoint",
 		Method:             "GET",
 		PathPattern:        "/endpoint",
@@ -123,7 +129,12 @@ func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) 
 		Reader:             &GetEndpointReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +153,12 @@ GetEndpointID gets endpoint by endpoint ID
 
 Returns endpoint information
 */
-func (a *Client) GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, error) {
+func (a *Client) GetEndpointID(params *GetEndpointIDParams, opts ...ClientOption) (*GetEndpointIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpointID",
 		Method:             "GET",
 		PathPattern:        "/endpoint/{id}",
@@ -159,7 +169,12 @@ func (a *Client) GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, e
 		Reader:             &GetEndpointIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -178,13 +193,12 @@ GetEndpointIDConfig retrieves endpoint configuration
 
 Retrieves the configuration of the specified endpoint.
 */
-func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEndpointIDConfigOK, error) {
+func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams, opts ...ClientOption) (*GetEndpointIDConfigOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointIDConfigParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpointIDConfig",
 		Method:             "GET",
 		PathPattern:        "/endpoint/{id}/config",
@@ -195,7 +209,12 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEnd
 		Reader:             &GetEndpointIDConfigReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -212,13 +231,12 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEnd
 /*
 GetEndpointIDHealthz retrieves the status logs associated with this endpoint
 */
-func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetEndpointIDHealthzOK, error) {
+func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams, opts ...ClientOption) (*GetEndpointIDHealthzOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointIDHealthzParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpointIDHealthz",
 		Method:             "GET",
 		PathPattern:        "/endpoint/{id}/healthz",
@@ -229,7 +247,12 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetE
 		Reader:             &GetEndpointIDHealthzReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -246,13 +269,12 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetE
 /*
 GetEndpointIDLabels retrieves the list of labels associated with an endpoint
 */
-func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEndpointIDLabelsOK, error) {
+func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams, opts ...ClientOption) (*GetEndpointIDLabelsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointIDLabelsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpointIDLabels",
 		Method:             "GET",
 		PathPattern:        "/endpoint/{id}/labels",
@@ -263,7 +285,12 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEnd
 		Reader:             &GetEndpointIDLabelsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -280,13 +307,12 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEnd
 /*
 GetEndpointIDLog retrieves the status logs associated with this endpoint
 */
-func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointIDLogOK, error) {
+func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams, opts ...ClientOption) (*GetEndpointIDLogOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetEndpointIDLogParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetEndpointIDLog",
 		Method:             "GET",
 		PathPattern:        "/endpoint/{id}/log",
@@ -297,7 +323,12 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointI
 		Reader:             &GetEndpointIDLogReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -316,13 +347,12 @@ PatchEndpointID modifies existing endpoint
 
 Applies the endpoint change request to an existing endpoint
 */
-func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointIDOK, error) {
+func (a *Client) PatchEndpointID(params *PatchEndpointIDParams, opts ...ClientOption) (*PatchEndpointIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPatchEndpointIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PatchEndpointID",
 		Method:             "PATCH",
 		PathPattern:        "/endpoint/{id}",
@@ -333,7 +363,12 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointI
 		Reader:             &PatchEndpointIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -354,13 +389,12 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointI
 
 recompiles the corresponding programs automatically.
 */
-func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*PatchEndpointIDConfigOK, error) {
+func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams, opts ...ClientOption) (*PatchEndpointIDConfigOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPatchEndpointIDConfigParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PatchEndpointIDConfig",
 		Method:             "PATCH",
 		PathPattern:        "/endpoint/{id}/config",
@@ -371,7 +405,12 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 		Reader:             &PatchEndpointIDConfigReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -392,13 +431,12 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 
 derived from the orchestration system.
 */
-func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*PatchEndpointIDLabelsOK, error) {
+func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams, opts ...ClientOption) (*PatchEndpointIDLabelsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPatchEndpointIDLabelsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PatchEndpointIDLabels",
 		Method:             "PATCH",
 		PathPattern:        "/endpoint/{id}/labels",
@@ -409,7 +447,12 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*Pa
 		Reader:             &PatchEndpointIDLabelsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -428,13 +471,12 @@ PutEndpointID creates endpoint
 
 Creates a new endpoint
 */
-func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreated, error) {
+func (a *Client) PutEndpointID(params *PutEndpointIDParams, opts ...ClientOption) (*PutEndpointIDCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPutEndpointIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PutEndpointID",
 		Method:             "PUT",
 		PathPattern:        "/endpoint/{id}",
@@ -445,7 +487,12 @@ func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreat
 		Reader:             &PutEndpointIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

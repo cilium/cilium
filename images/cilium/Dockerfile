@@ -1,10 +1,8 @@
-# syntax=docker/dockerfile:1.2
-
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:27d229929784dcfb5b3548731626f9710c2fe271@sha256:63cf224ee8670285a41c3aa1f70ba1db5ed1b573847fa3b8014c45dc8aea578f
-ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:4a95b59667de2381e96ded74ebedff70a8e695b2@sha256:dc60391a2b454fbca540ee5e18f6c955cf5cbf781c3419a8e1fae915ec1ed9aa
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:da46e4fd562337f29b72f50da7eb2b2d2ff90585@sha256:3ac63119116cbd3fb4cec090a50edae5b6c2bb61334ceddcec1b1a9f4f4aca47
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:1ecb52af6613b98db559ee0f6d9222a1a4b0d403@sha256:6a2a09ab54ce77cdb31bac81dbb9a9f79c97fd5cdcc53fa1798bf8860627321c
 
 # cilium-envoy from github.com/cilium/proxy
 #

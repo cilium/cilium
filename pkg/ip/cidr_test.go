@@ -41,17 +41,6 @@ func TestAddrToIPNet(t *testing.T) {
 	assert.Equal(t, nilNet, AddrToIPNet(netip.Addr{}))
 }
 
-func TestIPNetToPrefix(t *testing.T) {
-	_, v4IPNet, err := net.ParseCIDR("1.1.1.1/32")
-	assert.NoError(t, err)
-	_, v6IPNet, err := net.ParseCIDR("::ff/128")
-	assert.NoError(t, err)
-	assert.Equal(t, netip.MustParsePrefix(v4IPNet.String()), IPNetToPrefix(v4IPNet))
-	assert.Equal(t, netip.MustParsePrefix(v6IPNet.String()), IPNetToPrefix(v6IPNet))
-
-	assert.Equal(t, netip.Prefix{}, IPNetToPrefix(nil))
-}
-
 func TestIPToNetPrefix(t *testing.T) {
 	v4, _, err := net.ParseCIDR("1.1.1.1/32")
 	assert.NoError(t, err)

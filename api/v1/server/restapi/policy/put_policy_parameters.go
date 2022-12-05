@@ -18,7 +18,8 @@ import (
 )
 
 // NewPutPolicyParams creates a new PutPolicyParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewPutPolicyParams() PutPolicyParams {
 
 	return PutPolicyParams{}

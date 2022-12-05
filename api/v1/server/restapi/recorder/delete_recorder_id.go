@@ -33,7 +33,7 @@ func NewDeleteRecorderID(ctx *middleware.Context, handler DeleteRecorderIDHandle
 }
 
 /*
-DeleteRecorderID swagger:route DELETE /recorder/{id} recorder deleteRecorderId
+	DeleteRecorderID swagger:route DELETE /recorder/{id} recorder deleteRecorderId
 
 Delete a recorder
 */
@@ -45,17 +45,15 @@ type DeleteRecorderID struct {
 func (o *DeleteRecorderID) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewDeleteRecorderIDParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

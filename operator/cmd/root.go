@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	xrate "golang.org/x/time/rate"
 	"google.golang.org/grpc"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
+	"github.com/cilium/cilium/operator/pkg/lbipam"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 
 	"github.com/cilium/cilium/pkg/components"
@@ -97,8 +99,15 @@ var (
 			registerOperatorHooks,
 		),
 
+		cell.Provide(func() *option.DaemonConfig {
+			return option.Config
+		}),
+
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
+			resourcesCell,
+			lbipam.Cell,
+
 			legacyCell,
 		),
 	)
@@ -364,12 +373,13 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientSet k8sClient.Clientset) {
+func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources SharedResources) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
 		ctx:       ctx,
 		cancel:    cancel,
-		clientset: clientSet,
+		clientset: clientset,
+		resources: resources,
 	}
 	lc.Append(hive.Hook{
 		OnStart: legacy.onStart,
@@ -381,6 +391,7 @@ type legacyOnLeader struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	clientset k8sClient.Clientset
+	resources SharedResources
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
@@ -451,7 +462,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if operatorOption.Config.BGPAnnounceLBIP {
 		log.Info("Starting LB IP allocator")
-		operatorWatchers.StartLBIPAllocator(legacy.ctx, option.Config, legacy.clientset)
+		operatorWatchers.StartBGPBetaLBIPAllocator(legacy.ctx, legacy.clientset, legacy.resources.Services)
 	}
 
 	if kvstoreEnabled() {
@@ -462,7 +473,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		})
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(legacy.clientset, true, option.Config)
+			operatorWatchers.StartSynchronizingServices(legacy.ctx, legacy.clientset, legacy.resources.Services, true, option.Config)
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
@@ -550,6 +561,23 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	if legacy.clientset.IsEnabled() {
 		if err := startSynchronizingCiliumNodes(legacy.ctx, legacy.clientset, nodeManager, withKVStore); err != nil {
 			log.WithError(err).Fatal("Unable to setup node watcher")
+		}
+
+		if operatorOption.Config.SkipCNPStatusStartupClean {
+			log.Info("Skipping clean up of CNP and CCNP node status updates")
+		} else {
+			// If CNP status updates are disabled, we clean up all the
+			// possible updates written when the option was enabled.
+			// This is done to avoid accumulating stale updates and thus
+			// hindering scalability for large clusters.
+			RunCNPStatusNodesCleaner(
+				legacy.ctx,
+				legacy.clientset,
+				xrate.NewLimiter(
+					xrate.Limit(operatorOption.Config.CNPStatusCleanupQPS),
+					operatorOption.Config.CNPStatusCleanupBurst,
+				),
+			)
 		}
 
 		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {

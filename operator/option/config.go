@@ -31,10 +31,16 @@ const (
 
 	// CESSlicingModeDefault is default method for grouping CEP in a CES.
 	CESSlicingModeDefault = "cesSliceModeIdentity"
+
+	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
+	CNPStatusCleanupQPSDefault = 10
+
+	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
+	CNPStatusCleanupBurstDefault = 20
 )
 
 const (
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP = "bgp-announce-lb-ip"
 
 	// BGPConfigPath is the file path to the BGP configuration. It is
@@ -53,6 +59,19 @@ const (
 	// CNPStatusUpdateInterval is the interval between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval = "cnp-status-update-interval"
+
+	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
+	// NodeStatus updates at startup must be skipped.
+	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
+
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS = "cnp-status-cleanup-qps"
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst = "cnp-status-cleanup-burst"
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
@@ -304,6 +323,19 @@ type OperatorConfig struct {
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
+	// SkipCNPStatusStartupClean disables the cleanup of all the CNP
+	// NodeStatus updates at startup.
+	SkipCNPStatusStartupClean bool
+
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS float64
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst int
+
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
@@ -358,7 +390,7 @@ type OperatorConfig struct {
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP bool
 
 	// BGPConfigPath is the file path to the BGP configuration. It is
@@ -545,6 +577,9 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
+	c.SkipCNPStatusStartupClean = vp.GetBool(SkipCNPStatusStartupClean)
+	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
+	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)

@@ -37,7 +37,6 @@ func (o *GetMapNameEventsReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -46,12 +45,13 @@ func (o *GetMapNameEventsReader) ReadResponse(response runtime.ClientResponse, c
 // NewGetMapNameEventsOK creates a GetMapNameEventsOK with default headers values
 func NewGetMapNameEventsOK(writer io.Writer) *GetMapNameEventsOK {
 	return &GetMapNameEventsOK{
+
 		Payload: writer,
 	}
 }
 
 /*
-GetMapNameEventsOK handles this case with default header values.
+GetMapNameEventsOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -59,7 +59,36 @@ type GetMapNameEventsOK struct {
 	Payload io.Writer
 }
 
+// IsSuccess returns true when this get map name events o k response has a 2xx status code
+func (o *GetMapNameEventsOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get map name events o k response has a 3xx status code
+func (o *GetMapNameEventsOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get map name events o k response has a 4xx status code
+func (o *GetMapNameEventsOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get map name events o k response has a 5xx status code
+func (o *GetMapNameEventsOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get map name events o k response a status code equal to that given
+func (o *GetMapNameEventsOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetMapNameEventsOK) Error() string {
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMapNameEventsOK) String() string {
 	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsOK  %+v", 200, o.Payload)
 }
 
@@ -83,14 +112,43 @@ func NewGetMapNameEventsNotFound() *GetMapNameEventsNotFound {
 }
 
 /*
-GetMapNameEventsNotFound handles this case with default header values.
+GetMapNameEventsNotFound describes a response with status code 404, with default header values.
 
 Map not found
 */
 type GetMapNameEventsNotFound struct {
 }
 
+// IsSuccess returns true when this get map name events not found response has a 2xx status code
+func (o *GetMapNameEventsNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get map name events not found response has a 3xx status code
+func (o *GetMapNameEventsNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get map name events not found response has a 4xx status code
+func (o *GetMapNameEventsNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get map name events not found response has a 5xx status code
+func (o *GetMapNameEventsNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get map name events not found response a status code equal to that given
+func (o *GetMapNameEventsNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetMapNameEventsNotFound) Error() string {
+	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound ", 404)
+}
+
+func (o *GetMapNameEventsNotFound) String() string {
 	return fmt.Sprintf("[GET /map/{name}/events][%d] getMapNameEventsNotFound ", 404)
 }
 

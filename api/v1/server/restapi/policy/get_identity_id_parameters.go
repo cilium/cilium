@@ -17,7 +17,8 @@ import (
 )
 
 // NewGetIdentityIDParams creates a new GetIdentityIDParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetIdentityIDParams() GetIdentityIDParams {
 
 	return GetIdentityIDParams{}
@@ -53,7 +54,6 @@ func (o *GetIdentityIDParams) BindRequest(r *http.Request, route *middleware.Mat
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {
 		res = append(res, err)
 	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
@@ -69,7 +69,6 @@ func (o *GetIdentityIDParams) bindID(rawData []string, hasKey bool, formats strf
 
 	// Required: true
 	// Parameter is provided by construction from the route
-
 	o.ID = raw
 
 	return nil

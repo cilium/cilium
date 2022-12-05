@@ -14,12 +14,14 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/validate"
 
 	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewGetPolicyResolveParams creates a new GetPolicyResolveParams object
-// no default values defined in spec.
+//
+// There are no default values defined in the spec.
 func NewGetPolicyResolveParams() GetPolicyResolveParams {
 
 	return GetPolicyResolveParams{}
@@ -57,6 +59,11 @@ func (o *GetPolicyResolveParams) BindRequest(r *http.Request, route *middleware.
 		} else {
 			// validate body object
 			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
+
+			ctx := validate.WithOperationRequest(r.Context())
+			if err := body.ContextValidate(ctx, route.Formats); err != nil {
 				res = append(res, err)
 			}
 

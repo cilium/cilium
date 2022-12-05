@@ -33,7 +33,7 @@ func NewGetClusterNodes(ctx *middleware.Context, handler GetClusterNodesHandler)
 }
 
 /*
-GetClusterNodes swagger:route GET /cluster/nodes daemon getClusterNodes
+	GetClusterNodes swagger:route GET /cluster/nodes daemon getClusterNodes
 
 Get nodes information stored in the cilium-agent
 */
@@ -45,17 +45,15 @@ type GetClusterNodes struct {
 func (o *GetClusterNodes) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	route, rCtx, _ := o.Context.RouteInfo(r)
 	if rCtx != nil {
-		r = rCtx
+		*r = *rCtx
 	}
 	var Params = NewGetClusterNodesParams()
-
 	if err := o.Context.BindValidRequest(r, route, &Params); err != nil { // bind params
 		o.Context.Respond(rw, r, route.Produces, route, err)
 		return
 	}
 
 	res := o.Handler.Handle(Params) // actually handle the request
-
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
 }

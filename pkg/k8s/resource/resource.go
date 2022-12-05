@@ -120,7 +120,7 @@ func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 func (r *resource[T]) pushUpdate(key Key) {
 	r.mu.RLock()
 	for _, queue := range r.queues {
-		queue.Add(&updateEntry{key})
+		queue.AddUpdate(key)
 	}
 	r.mu.RUnlock()
 }
@@ -133,7 +133,7 @@ func (r *resource[T]) pushDelete(lastState any) {
 	}
 	r.mu.RLock()
 	for _, queue := range r.queues {
-		queue.Add(&deleteEntry{key, obj})
+		queue.AddDelete(key, obj)
 	}
 	r.mu.RUnlock()
 }
@@ -239,9 +239,9 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 		// the queue add and listing keys, plus to have one error handling path for Event.Done().
 		keyIter := store.IterKeys()
 		for keyIter.Next() {
-			queue.Add(&updateEntry{keyIter.Key()})
+			queue.AddUpdate(keyIter.Key())
 		}
-		queue.Add(&syncEntry{})
+		queue.AddSync()
 		r.mu.Unlock()
 
 		for {
@@ -256,11 +256,11 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 				func(err error) { queue.eventDone(entry, err) },
 			}
 			switch entry := entry.(type) {
-			case *syncEntry:
+			case syncEntry:
 				next(&SyncEvent[T]{baseEvent})
-			case *deleteEntry:
+			case deleteEntry:
 				next(&DeleteEvent[T]{baseEvent, entry.key, entry.obj.(T)})
-			case *updateEntry:
+			case updateEntry:
 				obj, exists, err := store.GetByKey(entry.key)
 				if err != nil {
 					queue.setError(err)
@@ -297,11 +297,24 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 // e.g. it implements the eventDone() method called by Event[T].Done().
 type keyQueue struct {
 	lock.Mutex
-	workqueue.RateLimitingInterface
-
-	errorHandler ErrorHandler
-
 	err error
+
+	workqueue.RateLimitingInterface
+	errorHandler ErrorHandler
+}
+
+func (kq *keyQueue) AddSync() {
+	kq.Add(syncEntry{})
+}
+
+func (kq *keyQueue) AddUpdate(key Key) {
+	// The entries must be added by value and not by pointer in order for
+	// them to be compared by value and not by pointer.
+	kq.Add(updateEntry{key})
+}
+
+func (kq *keyQueue) AddDelete(key Key, obj any) {
+	kq.Add(deleteEntry{key, obj})
 }
 
 func (kq *keyQueue) getError() error {
@@ -330,11 +343,11 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 
 		var action ErrorAction
 		switch entry := entry.(type) {
-		case *syncEntry:
+		case syncEntry:
 			action = ErrorActionStop
-		case *updateEntry:
+		case updateEntry:
 			action = kq.errorHandler(entry.key, numRequeues, err)
-		case *deleteEntry:
+		case deleteEntry:
 			action = kq.errorHandler(entry.key, numRequeues, err)
 		}
 

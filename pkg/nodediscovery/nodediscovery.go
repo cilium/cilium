@@ -463,11 +463,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	nodeResource.ObjectMeta.Annotations = localCN.Annotations
 
 	for _, k8sAddress := range k8sNodeAddresses {
-		k8sAddressStr := k8sAddress.IP.String()
-		nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
-			Type: k8sAddress.Type,
-			IP:   k8sAddressStr,
-		})
+		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source
+		// of truth is always the local node. The CiliumInternalIP address is
+		// added from n.localNode.IPAddress in the next for-loop.
+		if k8sAddress.Type != addressing.NodeCiliumInternalIP {
+			k8sAddressStr := k8sAddress.IP.String()
+			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+				Type: k8sAddress.Type,
+				IP:   k8sAddressStr,
+			})
+		}
 	}
 
 	for _, address := range n.localNode.IPAddresses {
@@ -546,7 +551,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
-		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
+		instanceID, instanceType, availabilityZone, vpcID, subnetID, err := metadata.GetInstanceMetadata()
 		if err != nil {
 			log.WithError(err).Fatal("Unable to retrieve InstanceID of own EC2 instance")
 		}
@@ -618,6 +623,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		nodeResource.Spec.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
+		nodeResource.Spec.ENI.NodeSubnetID = subnetID
 
 	case ipamOption.IPAMAzure:
 		if providerID == "" {

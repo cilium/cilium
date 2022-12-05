@@ -586,6 +586,59 @@ func (e *ENISuite) TestNodeManagerExceedENICapacity(c *check.C) {
 	c.Assert(node.Stats().UsedIPs, check.Equals, 40)
 }
 
+// TestInterfaceCreatedInInitialSubnet tests that additional ENIs are allocated in the same subnet
+// as the first ENI, if possible.
+//
+// - t2.xlarge (3x ENIs, 3x15-3 IPs)
+// - MinAllocate 0
+// - MaxAllocate 0
+// - PreAllocate 16
+// - FirstInterfaceIndex 0
+func (e *ENISuite) TestInterfaceCreatedInInitialSubnet(c *check.C) {
+	const instanceID = "i-testCreateInterfaceInCorrectSubnet-1"
+
+	testSubnet2 := &ipamTypes.Subnet{
+		ID:                 "s-2",
+		AvailabilityZone:   "us-west-1",
+		VirtualNetworkID:   "vpc-1",
+		AvailableAddresses: 500, // more than s-1
+		Tags:               ipamTypes.Tags{"k": "v"},
+	}
+
+	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet, testSubnet2}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
+	instances := NewInstancesManager(ec2api)
+	c.Assert(instances, check.Not(check.IsNil))
+	eniID1, _, err := ec2api.CreateNetworkInterface(context.TODO(), 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false)
+	c.Assert(err, check.IsNil)
+	_, err = ec2api.AttachNetworkInterface(context.TODO(), 0, instanceID, eniID1)
+	c.Assert(err, check.IsNil)
+	instances.Resync(context.TODO())
+	mngr, err := ipam.NewNodeManager(instances, k8sapi, metricsapi, 10, false, false)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	// Announce node, wait for IPs to become available
+	cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("t2.xlarge"),
+		withIPAMPreAllocate(16), withNodeSubnetID(testSubnet.ID))
+	mngr.Update(cn)
+	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
+
+	node := mngr.Get("node1")
+	c.Assert(node, check.Not(check.IsNil))
+	c.Assert(node.Stats().AvailableIPs, check.Equals, 16)
+	c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+
+	// Checks that we have created a new interface and that we did so in the same subnet.
+	eniNode, castOK := node.Ops().(*Node)
+	c.Assert(castOK, check.Equals, true)
+	eniNode.mutex.RLock()
+	c.Assert(eniNode.enis, check.HasLen, 2)
+	for _, eni := range eniNode.enis {
+		c.Assert(eni.Subnet.ID, check.Equals, testSubnet.ID)
+	}
+	eniNode.mutex.RUnlock()
+}
+
 type nodeState struct {
 	cn           *v2.CiliumNode
 	name         string
@@ -898,6 +951,12 @@ func withInstanceType(instanceType string) func(*v2.CiliumNode) {
 func withFirstInterfaceIndex(firstInterface int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.ENI.FirstInterfaceIndex = &firstInterface
+	}
+}
+
+func withNodeSubnetID(id string) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.NodeSubnetID = id
 	}
 }
 
