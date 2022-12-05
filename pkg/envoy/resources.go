@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -90,79 +91,97 @@ func (cache *NPHDSCache) OnIPIdentityCacheGC() {
 func (cache *NPHDSCache) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
 	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
-	// An upsert where an existing pair exists should translate into a
-	// delete (for the old Identity) followed by an upsert (for the new).
-	if oldID != nil && modType == ipcache.Upsert {
-		// Skip update if identity is identical
-		if oldID.ID == newID.ID {
-			return
-		}
-
-		cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, k8sMeta)
-	}
-
 	cidrStr := cidr.String()
+	resourceName := newID.ID.StringID()
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.IPAddr:       cidrStr,
-		logfields.Identity:     newID,
+		logfields.Identity:     resourceName,
 		logfields.Modification: modType,
 	})
 
 	// Look up the current resources for the specified Identity.
-	resourceName := newID.ID.StringID()
 	msg, err := cache.Lookup(NetworkPolicyHostsTypeURL, resourceName)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Can't lookup NPHDS cache")
 		return
 	}
 
+	var npHost *envoyAPI.NetworkPolicyHosts
+	if msg != nil {
+		npHost = msg.(*envoyAPI.NetworkPolicyHosts)
+	}
+
 	switch modType {
 	case ipcache.Upsert:
-		var hostAddresses []string
-		if msg == nil {
-			hostAddresses = make([]string, 0, 1)
-		} else {
-			// If the resource already exists, create a copy of it and insert
-			// the new IP address into its HostAddresses list.
-			npHost := msg.(*envoyAPI.NetworkPolicyHosts)
-			hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
-			hostAddresses = append(hostAddresses, npHost.HostAddresses...)
+		// An upsert where an existing pair exists should translate into a
+		// delete (for the old Identity) followed by an upsert (for the new).
+		if oldID != nil {
+			// Skip update if identity is identical
+			if oldID.ID == newID.ID {
+				return
+			}
+			// Recursive call to delete the 'cidr' from the 'oldID'
+			cache.OnIPIdentityCacheChange(ipcache.Delete, cidr, nil, nil, nil, *oldID, encryptKey, k8sMeta)
 		}
-		hostAddresses = append(hostAddresses, cidrStr)
-		sort.Strings(hostAddresses)
-
-		newNpHost := envoyAPI.NetworkPolicyHosts{
-			Policy:        uint64(newID.ID),
-			HostAddresses: hostAddresses,
-		}
-		if err := newNpHost.Validate(); err != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				logfields.XDSResource: newNpHost.String(),
-			}).Warning("Could not validate NPHDS resource update on upsert")
-			return
-		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, resourceName, &newNpHost)
+		cache.handleIPUpsert(npHost, resourceName, cidrStr, newID.ID)
 	case ipcache.Delete:
-		if msg == nil {
-			// Doesn't exist; already deleted.
-			return
-		}
-		cache.handleIPDelete(msg.(*envoyAPI.NetworkPolicyHosts), resourceName, cidrStr)
+		cache.handleIPDelete(npHost, resourceName, cidrStr)
+	}
+}
+
+// handleIPUpsert adds elements to the NPHDS cache with the specified peer IP->ID mapping.
+func (cache *NPHDSCache) handleIPUpsert(npHost *envoyAPI.NetworkPolicyHosts, identityStr, cidrStr string, newID identity.NumericIdentity) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.IPAddr:       cidrStr,
+		logfields.Identity:     identityStr,
+		logfields.Modification: ipcache.Upsert,
+	})
+
+	var hostAddresses []string
+	if npHost == nil {
+		hostAddresses = make([]string, 0, 1)
+	} else {
+		// If the resource already exists, create a copy of it and insert
+		// the new IP address into its HostAddresses list.
+		hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
+		hostAddresses = append(hostAddresses, npHost.HostAddresses...)
+	}
+	hostAddresses = append(hostAddresses, cidrStr)
+	sort.Strings(hostAddresses)
+
+	newNpHost := envoyAPI.NetworkPolicyHosts{
+		Policy:        uint64(newID),
+		HostAddresses: hostAddresses,
+	}
+	if err := newNpHost.Validate(); err != nil {
+		scopedLog.WithError(err).WithFields(logrus.Fields{
+			logfields.XDSResource: newNpHost.String(),
+		}).Warning("Could not validate NPHDS resource update on upsert")
+		return
+	}
+	_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
+	if !updated {
+		scopedLog.Warningf("NPHDS cache not updated when expected adding %q", newNpHost.String())
 	}
 }
 
 // handleIPUpsert deletes elements from the NPHDS cache with the specified peer IP->ID mapping.
-func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, peerIdentity, peerIP string) {
+func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, identityStr, cidrStr string) {
+	if npHost == nil {
+		// Doesn't exist; already deleted.
+		return
+	}
+
 	targetIndex := -1
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.IPAddr:       peerIP,
-		logfields.Identity:     peerIdentity,
+		logfields.IPAddr:       cidrStr,
+		logfields.Identity:     identityStr,
 		logfields.Modification: ipcache.Delete,
 	})
 	for i, endpointIP := range npHost.HostAddresses {
-		if endpointIP == peerIP {
+		if endpointIP == cidrStr {
 			targetIndex = i
 			break
 		}
@@ -175,7 +194,7 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 	// If removing this host would result in empty list, delete it.
 	// Otherwise, update to a list that doesn't contain the target IP
 	if len(npHost.HostAddresses) <= 1 {
-		cache.Delete(NetworkPolicyHostsTypeURL, peerIdentity)
+		cache.Delete(NetworkPolicyHostsTypeURL, identityStr)
 	} else {
 		// If the resource is to be updated, create a copy of it before
 		// removing the IP address from its HostAddresses list.
@@ -195,6 +214,9 @@ func (cache *NPHDSCache) handleIPDelete(npHost *envoyAPI.NetworkPolicyHosts, pee
 			scopedLog.WithError(err).Warning("Could not validate NPHDS resource update on delete")
 			return
 		}
-		cache.Upsert(NetworkPolicyHostsTypeURL, peerIdentity, &newNpHost)
+		_, updated, _ := cache.Upsert(NetworkPolicyHostsTypeURL, identityStr, &newNpHost)
+		if !updated {
+			scopedLog.Warningf("NPHDS cache not updated when expected deleting %q", newNpHost.String())
+		}
 	}
 }
