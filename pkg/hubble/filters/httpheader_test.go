@@ -6,10 +6,25 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestHTTPHeaderFilter(t *testing.T) {
+
+	httpFlow := func(http *flowpb.HTTP) *v1.Event {
+		return &v1.Event{
+			Event: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
+					Type: api.MessageTypeAccessLog,
+				},
+				L7: &flowpb.Layer7{
+					Record: &flowpb.Layer7_Http{
+						Http: http,
+					},
+				}},
+		}
+	}
 
 	type args struct {
 		f  []*flowpb.FlowFilter
@@ -26,7 +41,7 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
+						HttpHeader: []*flowpb.HTTPHeader{
 							{
 								Key:   "Content_Length",
 								Value: "162",
@@ -44,41 +59,21 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: nil,
+						HttpHeader: nil,
 					},
 				},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					HTTP: &flowpb.HTTP{
-						HTTPHeader: []*flowpb.HTTPHeader{
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
 							{
 								Key:   "Content_Length",
 								Value: "162",
 							},
-						}},
-				}},
-			},
-
-			want: true,
-		},
-
-		{
-			name: "header-filter-empty",
-			args: args{
-				f: []*flowpb.FlowFilter{
-					{
-						HTTPHeader: []*flowpb.HTTPHeader{},
-					},
+						},
+					}),
 				},
 			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
-						},
-					}},
-			}},
+
 			want: true,
 		},
 
@@ -87,22 +82,26 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "",
-							Value: "",
+						HttpHeader: []*flowpb.HTTPHeader{
+							{
+								Key:   "",
+								Value: "",
+							},
 						},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
 			want: true,
 		},
 
@@ -111,17 +110,22 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "",
-							Value: "",
-						},
+						HttpHeader: []*flowpb.HTTPHeader{
+							{
+								Key:   "",
+								Value: "",
+							}},
 					},
 				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{},
+						},
+					}),
+				},
 			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{}},
-			}},
+
 			want: false,
 		},
 
@@ -130,22 +134,24 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "Content_Length",
-							Value: "",
-						},
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "Content_Length",
+								Value: "",
+							}},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
 			want: true,
 		},
 
@@ -154,46 +160,51 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "",
-							Value: "162",
-						},
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "",
+								Value: "162",
+							}},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
 			want: true,
 		},
-
 		{
 			name: "header_key_and_value_match",
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "Content_Length",
-							Value: "162",
+						HttpHeader: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
 			want: true,
 		},
 
@@ -202,22 +213,25 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "Connection",
-							Value: "162",
+						HttpHeader: []*flowpb.HTTPHeader{
+							{Key: "Connection",
+								Value: "162",
+							},
 						},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
 			want: false,
 		},
 
@@ -226,22 +240,54 @@ func TestHTTPHeaderFilter(t *testing.T) {
 			args: args{
 				f: []*flowpb.FlowFilter{
 					{
-						HTTPHeader: []*flowpb.HTTPHeader{
-							Key:   "Content_Length",
-							Value: "16200",
+						HttpHeader: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "1652",
+							},
 						},
 					},
 				},
-			},
-			ev: &v1.Event{Event: &flowpb.Flow{
-				HTTP: &flowpb.HTTP{
-					HTTPHeader: []*flowpb.HTTPHeader{
-						{
-							Key:   "Content_Length",
-							Value: "162",
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
 						},
-					}},
-			}},
+					}),
+				},
+			},
+
+			want: false,
+		},
+
+		{
+			name: "header_key_and_value_mismatch",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpHeader: []*flowpb.HTTPHeader{
+							{
+								Key:   "Context_Length",
+								Value: "1652",
+							},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{
+						Headers: []*flowpb.HTTPHeader{
+							{
+								Key:   "Content_Length",
+								Value: "162",
+							},
+						},
+					}),
+				},
+			},
+
 			want: false,
 		},
 	}
