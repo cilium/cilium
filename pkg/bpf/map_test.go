@@ -14,6 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 )
 
+// Hook up gocheck into the "go test" runner.
+type BPFTestSuite struct{}
+
+var _ = Suite(&BPFTestSuite{})
+
 func (s *BPFTestSuite) TestExtractCommonName(c *C) {
 	c.Assert(extractCommonName("cilium_calls_1157"), Equals, "calls")
 	c.Assert(extractCommonName("cilium_calls_netdev_ns_1"), Equals, "calls")

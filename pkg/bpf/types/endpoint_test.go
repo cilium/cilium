@@ -5,16 +5,13 @@ package types
 
 import (
 	"net"
+	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
 )
 
-// Hook up gocheck into the "go test" runner.
-type BPFTestSuite struct{}
-
-var _ = Suite(&BPFTestSuite{})
-
-func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
+func TestEndpointKeyToString(t *testing.T) {
+	assert := assert.New(t)
 	tests := []struct {
 		ip string
 	}{
@@ -23,10 +20,9 @@ func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
 		{"::"},
 		{"fdff::ff"},
 	}
-
 	for _, tt := range tests {
 		ip := net.ParseIP(tt.ip)
 		k := NewEndpointKey(ip, 0)
-		c.Assert(k.ToIP().String(), Equals, tt.ip)
+		assert.Equal(tt.ip, k.ToIP().String())
 	}
 }
