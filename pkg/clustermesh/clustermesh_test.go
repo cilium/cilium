@@ -105,6 +105,10 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	etcdConfig := []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
+	// cluster3 doesn't have cluster configuration on kvstore. This emulates
+	// the old Cilium version which doesn't support cluster configuration
+	// feature. We should be able to connect to such a cluster for
+	// compatibility.
 	for i, name := range []string{"test2", "cluster1", "cluster2"} {
 		config := cmtypes.CiliumClusterConfig{
 			ID: uint32(i),
@@ -120,6 +124,10 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	config2 := path.Join(dir, "cluster2")
 	err = os.WriteFile(config2, etcdConfig, 0644)
+	c.Assert(err, IsNil)
+
+	config3 := path.Join(dir, "cluster3")
+	err = os.WriteFile(config3, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,7 +151,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 
 	// wait for both clusters to appear in the list of cm clusters
 	c.Assert(testutils.WaitUntil(func() bool {
-		return cm.NumReadyClusters() == 2
+		return cm.NumReadyClusters() == 3
 	}, 10*time.Second), IsNil)
 
 	cm.mutex.RLock()
@@ -161,24 +169,25 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		nodesMutex.RLock()
 		defer nodesMutex.RUnlock()
-		return len(nodes) == 2*len(nodeNames)
+		return len(nodes) == 3*len(nodeNames)
 	}, 10*time.Second), IsNil)
 
 	os.RemoveAll(config2)
 
 	// wait for the removed cluster to disappear
 	c.Assert(testutils.WaitUntil(func() bool {
-		return cm.NumReadyClusters() == 1
+		return cm.NumReadyClusters() == 2
 	}, 5*time.Second), IsNil)
 
 	// wait for the nodes of the removed cluster to disappear
 	c.Assert(testutils.WaitUntil(func() bool {
 		nodesMutex.RLock()
 		defer nodesMutex.RUnlock()
-		return len(nodes) == len(nodeNames)
+		return len(nodes) == 2*len(nodeNames)
 	}, 10*time.Second), IsNil)
 
 	os.RemoveAll(config1)
+	os.RemoveAll(config3)
 
 	// wait for the removed cluster to disappear
 	c.Assert(testutils.WaitUntil(func() bool {
