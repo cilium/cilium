@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -374,7 +373,7 @@ func (c regexCache) lookupOrCompileRegex(pattern string) (*regexp.Regexp, error)
 		entry.referenceCount += 1
 		return entry.regex, nil
 	}
-	regex, err := re.CompileRegex(pattern)
+	regex, err := regexp.Compile(pattern)
 	if err != nil {
 		return nil, err
 	}
