@@ -1252,11 +1252,15 @@
    * - ingressController.service
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"annotations":{},"labels":{},"name":"cilium-ingress"}``
+     - ``{"annotations":{},"insecureNodePort":null,"labels":{},"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
    * - ingressController.service.annotations
      - Annotations to be added for the shared LB service
      - object
      - ``{}``
+   * - ingressController.service.insecureNodePort
+     - Configure a specific nodePort for insecure HTTP traffic on the shared LB service
+     - string
+     - ``nil``
    * - ingressController.service.labels
      - Labels to be added for the shared LB service
      - object
@@ -1265,6 +1269,14 @@
      - Service name
      - string
      - ``"cilium-ingress"``
+   * - ingressController.service.secureNodePort
+     - Configure a specific nodePort for secure HTTPS traffic on the shared LB service
+     - string
+     - ``nil``
+   * - ingressController.service.type
+     - Service type for the shared LB service
+     - string
+     - ``"LoadBalancer"``
    * - installIptablesRules
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool

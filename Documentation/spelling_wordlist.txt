@@ -530,6 +530,7 @@ inlined
 inlines
 inlining
 inodes
+insecureNodePort
 installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
@@ -882,6 +883,7 @@ seccomp
 secretName
 secretsBackend
 secretsNamespace
+secureNodePort
 securityContext
 selftest
 selftests

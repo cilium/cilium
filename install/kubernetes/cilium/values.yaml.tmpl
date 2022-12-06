@@ -578,6 +578,12 @@ ingressController:
     labels: {}
     # -- Annotations to be added for the shared LB service
     annotations: {}
+    # -- Service type for the shared LB service
+    type: LoadBalancer
+    # -- Configure a specific nodePort for insecure HTTP traffic on the shared LB service
+    insecureNodePort: ~
+    # -- Configure a specific nodePort for secure HTTPS traffic on the shared LB service
+    secureNodePort : ~
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
