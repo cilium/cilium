@@ -1,0 +1,130 @@
+name: Conditional Status Checker
+
+on:
+  check_suite:
+    types:
+      - completed
+  check_rune:
+    types:
+      - completed
+
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # So that Sibz/github-status-action can write into the status API
+  statuses: write
+
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-gke' ||
+        github.event.comment.body == '/test'
+      ) && github.event.issue.number) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number)
+    }}
+  cancel-in-progress: true
+
+env:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-latest
+    outputs:
+      go-changes: ${{ steps.go-changes.outputs.src }}
+    steps:
+      - uses: hmarr/debug-action@v2
+
+      # Because we run on issue comments, we need to checkout the code for
+      # paths-filter to work.
+      - name: Checkout code
+        if: ${{ github.event.issue.pull_request }}
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+
+      - name: Retrieve pull request's base and head
+        if: ${{ github.event.issue.pull_request }}
+        id: pr
+        run: |
+          curl ${{ github.event.issue.pull_request.url }} > pr.json
+          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
+          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+      - name: Check code changes
+        if: ${{ github.event.issue.pull_request }}
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        id: tested-tree
+        with:
+          base: ${{ steps.pr.outputs.base }}
+          ref: ${{ steps.pr.outputs.head }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+      - name: Check code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        id: go-changes
+        with:
+          filters: |
+            src:
+              - .github/workflows/lint-codeql.yaml
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+            PR_API_JSON=$(curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+            OWNER=$(echo "$PR_API_JSON" | jq -r ".number")
+          else
+            SHA=${{ github.sha }}
+            OWNER=${{ github.sha }}
+          fi
+
+          echo ::set-output name=sha::${SHA}
+
+      - name: Set commit status to success
+        if: ${{ success() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test successful
+          state: success
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to failure
+        if: ${{ failure() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test failed
+          state: failure
+          target_url: ${{ env.check_url }}
+
+      - name: Set commit status to cancelled
+        if: ${{ cancelled() }}
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test cancelled
+          state: error
+          target_url: ${{ env.check_url }}
