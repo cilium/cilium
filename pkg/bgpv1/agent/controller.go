@@ -335,7 +335,6 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to list CiliumBGPPeeringPolicies")
 	}
-
 	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
