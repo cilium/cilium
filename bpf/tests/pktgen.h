@@ -182,21 +182,25 @@ void ethhdr__set_macs(struct ethhdr *l2, unsigned char *src, unsigned char *dst)
 /* Push an empty IPv4 header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
+struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
+	__u32 length = sizeof(struct iphdr) + option_bytes;
 	struct __ctx_buff *ctx = builder->ctx;
 	struct iphdr *layer;
 	int layer_idx;
 
+	if (option_bytes > MAX_IPOPTLEN)
+		return 0;
+
 	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct iphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct iphdr) > ctx_data_end(ctx))
+	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + length > ctx_data_end(ctx))
 		return 0;
 
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+	if (builder->cur_off >= MAX_PACKET_OFF - length)
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -207,29 +211,36 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
 
 	builder->layers[layer_idx] = PKT_LAYER_IPV4;
 	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct iphdr);
+	builder->cur_off += length;
 
 	return layer;
 }
 
-/* Push a IPv4 header with sane defaults onto the packet */
+/* Push a IPv4 header with sane defaults and options onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
-struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
+						      __u8 option_words)
 {
-	struct iphdr *hdr = pktgen__push_iphdr(builder);
+	struct iphdr *hdr = pktgen__push_iphdr(builder, option_words * 4);
 
 	if (!hdr)
 		return 0;
 
 	hdr->version = 4;
-	/* No options by default */
-	hdr->ihl = 5;
+	hdr->ihl = 5 + option_words;
 	hdr->ttl = 64;
 	/* No fragmentation by default */
 	hdr->frag_off = 0;
 
 	return hdr;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
+{
+	return pktgen__push_default_iphdr_with_options(builder, 0);
 }
 
 /* Push an empty TCP header onto the packet */
