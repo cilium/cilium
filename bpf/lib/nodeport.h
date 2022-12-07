@@ -73,19 +73,6 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-static __always_inline bool
-bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
-{
-	/* From XDP layer, we do not go through an egress hook from
-	 * here, hence nothing to be skipped.
-	 */
-#if __ctx_is == __ctx_skb
-	return ctx->tc_index & TC_INDEX_F_SKIP_RECIRCULATION;
-#else
-	return false;
-#endif
-}
-
 static __always_inline __u64 ctx_adjust_hroom_dsr_flags(void)
 {
 #ifdef HAVE_CSUM_LEVEL
@@ -702,7 +689,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_FWD);
 	ret = DROP_MISSED_TAIL_CALL;
 	goto drop_err;
 
@@ -1110,16 +1097,11 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		return CTX_ACT_REDIRECT;
 	}
 
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-	return DROP_MISSED_TAIL_CALL;
+	return DROP_NAT_NO_MAPPING;
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
-int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_REVNAT_FWD)
+int tail_rev_nodeport_fwd_lb6(struct __ctx_buff *ctx)
 {
 	int ext_err = 0, ret = 0;
 	void *data, *data_end;
@@ -1146,6 +1128,12 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 #endif
 	ret = rev_nodeport_lb6(ctx, &ifindex, &ext_err);
+	if (ret == DROP_NAT_NO_MAPPING) {
+		ctx_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+		ret = DROP_MISSED_TAIL_CALL;
+	}
+
 	if (IS_ERR(ret))
 		goto drop;
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1170,6 +1158,44 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 		return ctx_redirect(ctx, ifindex, 0);
 
 	ctx_move_xfer(ctx);
+	return ret;
+
+drop:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+}
+
+declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV6_NODEPORT_REVNAT_LOCAL)
+int tail_rev_nodeport_local_lb6(struct __ctx_buff *ctx)
+{
+	int ext_err = 0, ret = 0;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__u32 ifindex = 0;
+
+	ret = rev_nodeport_lb6(ctx, &ifindex, &ext_err);
+	if (IS_ERR(ret))
+		goto drop;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop;
+	}
+
+	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
+		int ret2;
+
+		ret2 = lb6_to_lb4(ctx, ip6);
+		if (ret2) {
+			ret = ret2;
+			goto drop;
+		}
+	}
+
+	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+
+	if (ret == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, ifindex, 0);
+
 	return ret;
 
 drop:
@@ -1660,7 +1686,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * a remote backend. So handle the service reverse DNAT (if
 	 * needed)
 	 */
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT_FWD);
 	ret = DROP_MISSED_TAIL_CALL;
 	goto drop_err;
 
@@ -2101,12 +2127,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		return CTX_ACT_REDIRECT;
 	}
 
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-	return DROP_MISSED_TAIL_CALL;
+	return DROP_NAT_NO_MAPPING;
 
 #if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE))
 encap_redirect:
@@ -2115,8 +2136,8 @@ encap_redirect:
 #endif
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
-int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
+declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_REVNAT_FWD)
+int tail_rev_nodeport_fwd_lb4(struct __ctx_buff *ctx)
 {
 	__u32 ifindex = 0;
 	int ext_err = 0;
@@ -2141,6 +2162,12 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	ctx_skip_host_fw_set(ctx);
 #endif
 	ret = rev_nodeport_lb4(ctx, &ifindex, &ext_err);
+	if (ret == DROP_NAT_NO_MAPPING) {
+		ctx_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+		ret = DROP_MISSED_TAIL_CALL;
+	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -2152,6 +2179,27 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 		return ctx_redirect(ctx, ifindex, 0);
 
 	ctx_move_xfer(ctx);
+	return ret;
+}
+
+declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV4_NODEPORT_REVNAT_LOCAL)
+int tail_rev_nodeport_local_lb4(struct __ctx_buff *ctx)
+{
+	__u32 ifindex = 0;
+	int ext_err = 0;
+	int ret = 0;
+
+	ret = rev_nodeport_lb4(ctx, &ifindex, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
+
+	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+
+	if (ret == CTX_ACT_REDIRECT)
+		return ctx_redirect(ctx, ifindex, 0);
+
 	return ret;
 }
 
