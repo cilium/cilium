@@ -83,6 +83,10 @@ func (r *FakeResource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan 
 	return stream.ToChannel[Event[T]](ctx, make(chan error, 1), r)
 }
 
+func (r *FakeResource[T]) Tracker(ctx context.Context) ObjectTracker[T] {
+	return newObjectTracker[T](ctx, r)
+}
+
 func (m *FakeResource[T]) Store(context.Context) (Store[T], error) {
 	panic("FakeResource does not implement Store(). Use a fake client with real resource instead.")
 }

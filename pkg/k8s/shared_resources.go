@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -43,17 +44,21 @@ var (
 			namespaceResource,
 			lbIPPoolsResource,
 			endpointsResource,
+			cecResource,
+			ccecResource,
 		),
 	)
 )
 
 type SharedResources struct {
 	cell.In
-	LocalNode  resource.Resource[*corev1.Node]
-	Services   resource.Resource[*slim_corev1.Service]
-	Namespaces resource.Resource[*slim_corev1.Namespace]
-	LBIPPools  resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	Endpoints  resource.Resource[*Endpoints]
+	LocalNode                     resource.Resource[*corev1.Node]
+	Services                      resource.Resource[*slim_corev1.Service]
+	Namespaces                    resource.Resource[*slim_corev1.Namespace]
+	LBIPPools                     resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	Endpoints                     resource.Resource[*Endpoints]
+	CiliumEnvoyConfigs            resource.Resource[*cilium_v2.CiliumEnvoyConfig]
+	CiliumClusterwideEnvoyConfigs resource.Resource[*cilium_v2.CiliumClusterwideEnvoyConfig]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -163,4 +168,20 @@ func endpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 		&endpointsListerWatcher{cs: cs},
 		resource.WithTransform(transformEndpoint),
 	), nil
+}
+
+func cecResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_v2.CiliumEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_v2.CiliumEnvoyConfigList](cs.CiliumV2().CiliumEnvoyConfigs(""))
+	return resource.New[*cilium_v2.CiliumEnvoyConfig](lc, lw), nil
+}
+
+func ccecResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_v2.CiliumClusterwideEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_v2.CiliumClusterwideEnvoyConfigList](cs.CiliumV2().CiliumClusterwideEnvoyConfigs())
+	return resource.New[*cilium_v2.CiliumClusterwideEnvoyConfig](lc, lw), nil
 }
