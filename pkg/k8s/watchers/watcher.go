@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -236,7 +237,7 @@ type K8sWatcher struct {
 	nodeDiscoverManager   nodeDiscoverManager
 	policyManager         policyManager
 	policyRepository      policyRepository
-	svcManager            svcManager
+	svcHandle             service.ServiceHandle
 	redirectPolicyManager redirectPolicyManager
 	bgpSpeakerManager     bgpSpeakerManager
 	egressGatewayManager  egressGatewayManager
@@ -285,7 +286,7 @@ func NewK8sWatcher(
 	nodeDiscoverManager nodeDiscoverManager,
 	policyManager policyManager,
 	policyRepository policyRepository,
-	svcManager svcManager,
+	svcManager service.ServiceManager,
 	datapath datapath.Datapath,
 	redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
@@ -304,7 +305,7 @@ func NewK8sWatcher(
 		nodeDiscoverManager:   nodeDiscoverManager,
 		policyManager:         policyManager,
 		policyRepository:      policyRepository,
-		svcManager:            svcManager,
+		svcHandle:             svcManager.NewHandle("k8s-watcher"),
 		ipcache:               ipcache,
 		controllersStarted:    make(chan struct{}),
 		stop:                  make(chan struct{}),
@@ -512,6 +513,9 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 			log.WithError(err).Fatal("Timed out waiting for pre-existing resources to be received; exiting")
 		}
 		close(cachesSynced)
+
+		// TODO: is this waiting for the right resources?
+		k.svcHandle.Synchronized()
 	}()
 }
 

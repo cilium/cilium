@@ -159,7 +159,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceNam
 
 		// Tell service manager to redirect the service to the port
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
+		err := k.svcHandle.RegisterL7LBService(serviceName, resourceName, nil, proxyPort)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func (k *K8sWatcher) addK8sServiceRedirects(resourceName loadbalancer.ServiceNam
 	for _, svc := range spec.BackendServices {
 		// Tell service manager to sync backends for this service
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RegisterL7LBServiceBackendSync(serviceName, resourceName, svc.Ports)
+		err := k.svcHandle.RegisterL7LBServiceBackendSync(serviceName, resourceName, svc.Ports)
 		if err != nil {
 			return err
 		}
@@ -258,7 +258,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.Service
 	for _, oldSvc := range removedServices {
 		// Tell service manager to remove old service registration
 		serviceName := getServiceName(resourceName, oldSvc.Name, oldSvc.Namespace, true)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
+		err := k.svcHandle.RemoveL7LBService(serviceName, resourceName)
 		if err != nil {
 			return err
 		}
@@ -279,7 +279,7 @@ func (k *K8sWatcher) removeK8sServiceRedirects(resourceName loadbalancer.Service
 	for _, oldSvc := range removedBackendServices {
 		// Tell service manager to remove old service registration
 		serviceName := getServiceName(resourceName, oldSvc.Name, oldSvc.Namespace, false)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
+		err := k.svcHandle.RemoveL7LBService(serviceName, resourceName)
 		if err != nil {
 			return err
 		}
@@ -329,7 +329,7 @@ func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.Service
 	for _, svc := range spec.Services {
 		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, true)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
+		err := k.svcHandle.RemoveL7LBService(serviceName, resourceName)
 		if err != nil {
 			return err
 		}
@@ -337,7 +337,7 @@ func (k *K8sWatcher) deleteK8sServiceRedirects(resourceName loadbalancer.Service
 	for _, svc := range spec.BackendServices {
 		// Tell service manager to remove old service redirection
 		serviceName := getServiceName(resourceName, svc.Name, svc.Namespace, false)
-		err := k.svcManager.RemoveL7LBService(serviceName, resourceName)
+		err := k.svcHandle.RemoveL7LBService(serviceName, resourceName)
 		if err != nil {
 			return err
 		}

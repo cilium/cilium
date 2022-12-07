@@ -98,11 +98,6 @@ var (
 			registerOperatorHooks,
 		),
 
-		cell.Invoke(func(cfg serviceConfig.ServiceConfig) {
-			// HACK HACK HACK
-			option.Config.ServiceConfig = cfg
-		}),
-
 		cell.Provide(func() *option.DaemonConfig {
 			return option.Config
 		}),
@@ -113,6 +108,11 @@ var (
 			lbipam.Cell,
 			serviceCache.Cell,
 			legacyCell,
+
+			cell.Invoke(func(cfg serviceConfig.ServiceConfig) {
+				// HACK HACK HACK
+				option.Config.ServiceConfig = cfg
+			}),
 		),
 	)
 

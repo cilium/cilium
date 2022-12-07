@@ -15,7 +15,6 @@ import (
 	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -412,14 +411,15 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// elsewhere. This means that if, for instance, a user manually
 				// adds a service via the CLI into the BPF maps, that it will
 				// not be cleaned up by the daemon until it restarts.
-				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
+				/*controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
 						DoFunc: func(ctx context.Context) error {
 							return d.svc.SyncWithK8sFinished()
 						},
 						Context: d.ctx,
 					},
-				)
+				)*/
+				// ^ the above is now handled via ServiceHandle.Synchronized()
 			}
 		}()
 	} else {

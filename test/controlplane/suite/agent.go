@@ -17,8 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	serviceConfig "github.com/cilium/cilium/pkg/service/config"
 )
 
 type agentHandle struct {
@@ -67,6 +69,10 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
 			daemonPromise = p
+		}),
+		cell.Invoke(func(cfg serviceConfig.ServiceConfig) {
+			// HACK HACK HACK
+			option.Config.ServiceConfig = cfg
 		}),
 	)
 

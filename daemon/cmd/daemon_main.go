@@ -80,7 +80,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/readiness"
 	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	serviceConfig "github.com/cilium/cilium/pkg/service/config"
@@ -1637,7 +1636,6 @@ type daemonParams struct {
 	SharedResources k8s.SharedResources
 	ServiceCache    serviceCache.ServiceCache
 	ServiceManager  serviceManager.ServiceManager
-	Readiness       *readiness.Readiness
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
 }
@@ -1725,10 +1723,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		<-d.k8sCachesSynced
 	}
 
-	// Wait for the datapath readiness signal.
-	log.Info("Waiting for ready signal")
-	params.Readiness.Wait(d.ctx)
-	log.Info("Datapath ready, finalizing initialization")
+	d.svc.WaitUntilSynchronized()
 
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
@@ -2003,9 +1998,11 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	}
 
 	// /service/{id}/
-	restAPI.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
-	restAPI.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d.svc)
-	restAPI.ServicePutServiceIDHandler = NewPutServiceIDHandler(d.svc)
+	h := d.svc.NewHandle("service-api")
+	h.Synchronized()
+	restAPI.ServiceGetServiceIDHandler = NewGetServiceIDHandler(h)
+	restAPI.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(h)
+	restAPI.ServicePutServiceIDHandler = NewPutServiceIDHandler(h)
 
 	// /service/
 	restAPI.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)

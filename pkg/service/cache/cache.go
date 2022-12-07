@@ -43,6 +43,10 @@ type ServiceLookup interface {
 	// being marked done before they have processed all events prior to the sync event.
 	Events(context.Context) <-chan *ServiceEvent
 
+	// TODO: Kill these and instead only expose the Events stream? GetServiceIP is needed
+	// by the kvstore dialer. Consider writing a lightweight utility that uses Resource[Service]
+	// and Resource[Endpoints] instead? One complication is with whether or not we should try
+	// and avoid waiting for synchronization before dialing...  
 	GetEndpointsOfService(svcID ServiceID) *Endpoints
 	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType loadbalancer.SVCType) (map[loadbalancer.FEPortName][]*loadbalancer.L3n4Addr, int)
 	GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) net.IP
@@ -67,6 +71,9 @@ type ServiceCache interface {
 	ServiceLookup
 
 	// TODO kill this weird thing.
+	// This is used by redirect policy manager to re-emit events for a cluster IP service after
+	// a redirect policy have been removed that shadowed it. Fix this by handling shadowing in
+	// service manager.
 	EnsureService(svcID k8s.ServiceID) bool
 
 	store.ServiceMerger
@@ -214,6 +221,7 @@ func (sc *serviceCache) processK8sEvents(ctx context.Context) error {
 		case ev := <-nodes:
 			switch ev.Kind {
 			case resource.Sync:
+				sc.Log.Info("Nodes synced")
 				numSync--
 			case resource.Upsert:
 				sc.updateNode(ev.Key, ev.Object)
@@ -223,6 +231,7 @@ func (sc *serviceCache) processK8sEvents(ctx context.Context) error {
 		case ev := <-services:
 			switch ev.Kind {
 			case resource.Sync:
+				sc.Log.Info("Services synced")
 				numSync--
 			case resource.Upsert:
 				sc.updateService(ev.Key, ev.Object)
@@ -234,6 +243,7 @@ func (sc *serviceCache) processK8sEvents(ctx context.Context) error {
 		case ev := <-endpoints:
 			switch ev.Kind {
 			case resource.Sync:
+				sc.Log.Info("Endpoints synced")
 				numSync--
 			case resource.Upsert:
 				sc.updateEndpoints(ev.Key, ev.Object)
@@ -244,9 +254,11 @@ func (sc *serviceCache) processK8sEvents(ctx context.Context) error {
 		}
 
 		if numSync == 0 {
+			sc.Log.Info("Emitting sync!")
 			numSync = -1 // in order to handle this only once.
 			sc.mcast.emit(&ServiceEvent{Action: Synchronized})
 			close(sc.syncChan)
+			sc.Log.Info("Done with emitting sync")
 		}
 	}
 }
@@ -289,8 +301,11 @@ func (sc *serviceCache) subscribe(workerCtx context.Context, sub *newSub) {
 	// Check if we're already synchronized by checking if syncChan has closed.
 	select {
 	case <-sc.syncChan:
+		sc.Log.Info("sub: Already synced, emitting it")
 		sub.events <- &ServiceEvent{Action: Synchronized}
+		sc.Log.Info("sub: Sync emit done")
 	default:
+		sc.Log.Info("sub: Not synced yet!")
 		// Not synchronized yet, the event will be emitted by later when
 		// all resources have synchronized.
 	}

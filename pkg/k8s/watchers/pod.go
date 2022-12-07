@@ -662,7 +662,7 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 					}
 				}
 				if !added {
-					if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
+					if _, err := k.svcHandle.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
 						logger.WithError(err).Error("Error while deleting service in LB map")
 					}
 				}
@@ -688,7 +688,7 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			LoopbackHostport: dpSvc.LoopbackHostport,
 		}
 
-		if _, _, err := k.svcManager.UpsertService(p); err != nil {
+		if _, _, err := k.svcHandle.UpsertService(p); err != nil {
 			if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
 				logger.WithError(err).Debug("Error while inserting service in LB map")
 			} else {
@@ -719,7 +719,7 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	for _, dpSvc := range svcs {
-		if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
+		if _, err := k.svcHandle.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
 			logger.WithError(err).Error("Error while deleting service in LB map")
 			return err
 		}

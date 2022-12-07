@@ -17,10 +17,10 @@ import (
 )
 
 type putServiceID struct {
-	svc serviceManager.ServiceManager
+	svc serviceManager.ServiceHandle
 }
 
-func NewPutServiceIDHandler(svc serviceManager.ServiceManager) PutServiceIDHandler {
+func NewPutServiceIDHandler(svc serviceManager.ServiceHandle) PutServiceIDHandler {
 	return &putServiceID{svc: svc}
 }
 
@@ -118,10 +118,10 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 }
 
 type deleteServiceID struct {
-	svc serviceManager.ServiceManager
+	svc serviceManager.ServiceHandle
 }
 
-func NewDeleteServiceIDHandler(svc serviceManager.ServiceManager) DeleteServiceIDHandler {
+func NewDeleteServiceIDHandler(svc serviceManager.ServiceHandle) DeleteServiceIDHandler {
 	return &deleteServiceID{svc: svc}
 }
 
@@ -142,10 +142,10 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 }
 
 type getServiceID struct {
-	svc serviceManager.ServiceManager
+	svc serviceManager.ServiceHandle
 }
 
-func NewGetServiceIDHandler(svc serviceManager.ServiceManager) GetServiceIDHandler {
+func NewGetServiceIDHandler(svc serviceManager.ServiceHandle) GetServiceIDHandler {
 	return &getServiceID{svc: svc}
 }
 

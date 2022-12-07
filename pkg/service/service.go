@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -204,6 +205,85 @@ func (svc *svcInfo) checkLBSourceRange() bool {
 	return false
 }
 
+// svcList is a list of svcInfo's sorted by priority based on service type.
+// TODO: allow overlaps of types when they're from different handles?
+type svcList struct {
+	infos []*svcInfo
+}
+
+func (l svcList) Empty() bool {
+	return len(l.infos) == 0
+}
+
+func (l svcList) Primary() *svcInfo {
+	if len(l.infos) > 0 {
+		return l.infos[0]
+	}
+	return nil
+}
+
+func (l svcList) Lookup(typ lb.SVCType) *svcInfo {
+	for _, info := range l.infos {
+		if info.svcType == typ {
+			return info
+		}
+	}
+	return nil
+}
+
+func (l *svcList) Upsert(svc *svcInfo) {
+	for i, info := range l.infos {
+		if info.svcType == svc.svcType {
+			l.infos[i] = svc
+		}
+	}
+	l.infos = append(l.infos, svc)
+	// TODO: Define a more complete sorting. Perhaps taking the
+	// handles into account and allow overlapping service types.
+	slices.SortFunc(l.infos, func(a, b *svcInfo) bool {
+		if a.svcType == lb.SVCTypeLocalRedirect {
+			return true
+		}
+		return false
+	})
+}
+
+func (l *svcList) Delete(typ lb.SVCType) {
+	for i, info := range l.infos {
+		if info.svcType == typ {
+			l.infos = slices.Delete(l.infos, i, i+1)
+			return
+		}
+	}
+}
+
+type svcMap[Key comparable] map[Key]*svcList
+
+func (m svcMap[Key]) Primary(key Key) *svcInfo {
+	if l := m[key]; l != nil {
+		return l.infos[0]
+	}
+	return nil
+}
+
+func (m svcMap[Key]) Delete(key Key, typ lb.SVCType) {
+	if l := m[key]; l != nil {
+		l.Delete(typ)
+		if len(l.infos) == 0 {
+			delete(m, key)
+		}
+	}
+}
+
+func (m svcMap[Key]) Upsert(key Key, fill func(*svcInfo)) {
+	if l := m[key]; l != nil {
+
+		panic("TODO convert svc to svcInfo and upsert")
+	}
+	panic("TBD")
+}
+
+
 // Service is a service handler. Its main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
 // The changes can be triggered either by k8s_watcher or directly by
@@ -213,8 +293,8 @@ type Service struct {
 
 	cfg config.ServiceConfig
 
-	svcByHash map[string]*svcInfo
-	svcByID   map[lb.ID]*svcInfo
+	svcByHash map[string]*svcList
+	svcByID   map[lb.ID]*svcList
 
 	backendRefCount counter.StringCounter
 	backendByHash   map[string]*lb.Backend
@@ -239,8 +319,8 @@ func newService(cfg config.ServiceConfig, monitorNotify monitorNotify, envoyCach
 
 	svc := &Service{
 		cfg:             cfg,
-		svcByHash:       map[string]*svcInfo{},
-		svcByID:         map[lb.ID]*svcInfo{},
+		svcByHash:       map[string]*svcList{},
+		svcByID:         map[lb.ID]*svcList{},
 		backendRefCount: counter.StringCounter{},
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
@@ -772,7 +852,8 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 		be.State = updatedB.State
 		be.Preferred = updatedB.Preferred
 
-		for id, info := range s.svcByID {
+		for id, infos := range s.svcByID {
+			info := infos.Primary()
 			var p *datapathTypes.UpsertServiceParams
 			for i, b := range info.backends {
 				if b.L3n4Addr.String() != updatedB.L3n4Addr.String() {
@@ -811,8 +892,9 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 					logfields.BackendPreferred: b.Preferred,
 				}).Info("Persisting service with backend state update")
 			}
+			/* XXX we're dealing with pointer, should not be needed
 			s.svcByID[id] = info
-			s.svcByHash[info.frontend.Hash()] = info
+			s.svcByHash[info.frontend.Hash()] = info */
 		}
 		updatedBackends = append(updatedBackends, be)
 	}
@@ -1050,7 +1132,13 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 	prevLoadBalancerSourceRanges := []*cidr.CIDR{}
 
 	hash := p.Frontend.Hash()
-	svc, found := s.svcByHash[hash]
+	var svc *svcInfo
+	svcs, found := s.svcByHash[hash]
+	if found {
+		svc = svcs.Lookup(p.Type)
+		found = svc != nil
+	}
+
 	if !found {
 		// Allocate service ID for the new service
 		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
@@ -1081,8 +1169,8 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			l7LBFrontendPorts:        p.L7LBFrontendPorts,
 			LoopbackHostport:         p.LoopbackHostport,
 		}
-		s.svcByID[p.Frontend.ID] = svc
-		s.svcByHash[hash] = svc
+		s.svcByID[p.Frontend.ID].Upsert(svc)
+		s.svcByHash[hash].Upsert(svc)
 	} else {
 		// Local Redirect Policies with service matcher would have same frontend
 		// as the service clusterIP type. In such cases, if a Local redirect service

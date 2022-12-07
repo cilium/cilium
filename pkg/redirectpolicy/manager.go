@@ -35,11 +35,6 @@ var (
 	localRedirectSvcStr = "-local-redirect"
 )
 
-type svcManager interface {
-	DeleteService(frontend lb.L3n4Addr) (bool, error)
-	UpsertService(*lb.SVC) (bool, lb.ID, error)
-}
-
 type svcCache interface {
 	EnsureService(svcID k8s.ServiceID) bool
 	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) (map[lb.FEPortName][]*lb.L3n4Addr, int)
@@ -61,7 +56,7 @@ type podID = k8s.ServiceID
 // new lb.SVCTypeLocalRedirect service with a frontend that has at least one node-local backend.
 type Manager struct {
 	// Service handler to manage service entries corresponding to redirect policies
-	svcManager svcManager
+	svcHandle service.ServiceHandle
 
 	svcCache svcCache
 
@@ -85,9 +80,9 @@ type Manager struct {
 	policyConfigs map[policyID]*LRPConfig
 }
 
-func NewRedirectPolicyManager(svc svcManager) *Manager {
+func NewRedirectPolicyManager(svc service.ServiceManager) *Manager {
 	return &Manager{
-		svcManager:            svc,
+		svcHandle:             svc.NewHandle("redirect-policy-manager"),
 		policyFrontendsByHash: make(map[string]policyID),
 		policyServices:        make(map[k8s.ServiceID]policyID),
 		policyPods:            make(map[podID][]policyID),
@@ -447,7 +442,7 @@ func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
 
 // Deletes service entry for the specified frontend.
 func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) {
-	found, err := rpm.svcManager.DeleteService(*frontend)
+	found, err := rpm.svcHandle.DeleteService(*frontend)
 	delete(rpm.policyFrontendsByHash, frontend.Hash())
 	if !found || err != nil {
 		log.WithError(err).Debugf("Local redirect service for policy %v not deleted",
@@ -461,7 +456,7 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 		rpm.upsertService(config, frontendMapping)
 	} else {
 		// No backends so remove the service entry.
-		found, err := rpm.svcManager.DeleteService(*frontendMapping.feAddr)
+		found, err := rpm.svcHandle.DeleteService(*frontendMapping.feAddr)
 		if !found || err != nil {
 			log.WithError(err).Errorf("Local redirect service for policy (%v)"+
 				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
@@ -549,7 +544,7 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		TrafficPolicy: lb.SVCTrafficPolicyCluster,
 	}
 
-	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {
+	if _, _, err := rpm.svcHandle.UpsertService(p); err != nil {
 		if errors.Is(err, service.NewErrLocalRedirectServiceExists(p.Frontend, p.Name)) {
 			log.WithError(err).Debug("Error while inserting service in LB map")
 		} else {

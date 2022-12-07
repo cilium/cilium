@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/readiness"
 	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	serviceConfig "github.com/cilium/cilium/pkg/service/config"
@@ -53,11 +52,6 @@ var (
 		"control-plane",
 		"Cilium Control Plane",
 
-		// Readiness allows modules to register as readiness signal providers.
-		// Daemon waits for the signal before finishing initialization and telling
-		// Kubernetes that the agent is ready for CNI requests.
-		readiness.Cell,
-
 		// LocalNodeStore holds onto the information about the local node and allows
 		// observing changes to it.
 		node.LocalNodeStoreCell,
@@ -72,6 +66,8 @@ var (
 
 		// ServiceManager manages the datapath resources for services and backends.
 		serviceManager.Cell,
+
+		serviceManager.K8sHandlerCell,
 
 		// Service-related configuration common to ServiceManager and ServiceCache.
 		// TODO: Maybe don't have this separately? E.g. if Cache&Manager are merged,

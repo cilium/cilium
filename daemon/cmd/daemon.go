@@ -1473,6 +1473,7 @@ func (d *Daemon) K8sCacheIsSynced() bool {
 	}
 	select {
 	case <-d.k8sCachesSynced:
+		log.Info("K8s CACHES SYNCED")
 		return true
 	default:
 		return false
