@@ -173,9 +173,10 @@ github.com/cespare/xxhash/v2
 github.com/cilium/coverbee
 github.com/cilium/coverbee/pkg/cparser
 github.com/cilium/coverbee/pkg/verifierlog
-# github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
-## explicit; go 1.15
+# github.com/cilium/customvet v0.0.0-20221207003726-576d50314db5
+## explicit; go 1.19
 github.com/cilium/customvet
+github.com/cilium/customvet/analysis/ioreadall
 github.com/cilium/customvet/analysis/timeafter
 # github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 ## explicit; go 1.14
@@ -1051,7 +1052,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.3.0
+# golang.org/x/tools v0.4.0
 ## explicit; go 1.18
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/cover
@@ -1068,7 +1069,6 @@ golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
-golang.org/x/tools/internal/analysisinternal
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
@@ -1078,7 +1078,6 @@ golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gcimporter
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
-golang.org/x/tools/internal/goroot
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
