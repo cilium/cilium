@@ -100,21 +100,20 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			if s.method == "" {
-				curlEndpoints(ctx, s, t, fmt.Sprintf("curl-%d", i), &client, echo)
-			} else {
-				curlEndpoints(ctx, s, t, fmt.Sprintf("curl-%d", i), &client, echo, "-X", s.method)
-			}
+			s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%d", i), &client, echo)
 
 			i++
 		}
 	}
 }
 
-func curlEndpoints(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, client *check.Pod, echo check.TestPeer, curlOpts ...string) {
-
+func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test, name string,
+	client *check.Pod, echo check.TestPeer) {
 	baseURL := fmt.Sprintf("%s://%s:%d", echo.Scheme(), echo.Address(), echo.Port())
+	var curlOpts []string
+	if s.method != "" {
+		curlOpts = append(curlOpts, "-X", s.method)
+	}
 
 	// Manually construct an HTTP endpoint for each API endpoint.
 	for _, path := range []string{"public", "private"} {
