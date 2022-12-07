@@ -21,7 +21,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
-          go-version: 1.18.8
+          go-version: 1.18.9
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
@@ -39,7 +39,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
-          go-version: 1.18.8
+          go-version: 1.18.9
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
@@ -56,7 +56,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
-          go-version: 1.18.8
+          go-version: 1.18.9
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
@@ -74,7 +74,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
-          go-version: 1.18.8
+          go-version: 1.18.9
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
@@ -92,7 +92,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@d0a58c1c4d2b25278816e339b944508c875f3613
         with:
-          go-version: 1.18.8
+          go-version: 1.18.9
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
