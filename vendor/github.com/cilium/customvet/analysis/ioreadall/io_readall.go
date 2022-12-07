@@ -1,4 +1,4 @@
-// Copyright 2020 Authors of Cilium
+// Copyright 2022 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package timeafter
+package ioreadall
 
 import (
 	"fmt"
@@ -26,15 +26,16 @@ import (
 
 const (
 	// Doc for the timeafter check
-	Doc = `This is checks for "time.After" instances in for loops.`
+	Doc = `This checks for "io.ReadAll" instances.`
 
-	timeAfterPkg  = "time"
-	timeAfterFunc = "After"
+	readAllFunc = "ReadAll"
 )
+
+var ioReadAllPkgs = []string{"io", "ioutil"}
 
 // Analyzer is the global for the multichecker
 var Analyzer = &analysis.Analyzer{
-	Name:     "timeafter",
+	Name:     "readall",
 	Doc:      Doc,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
@@ -43,7 +44,7 @@ var Analyzer = &analysis.Analyzer{
 var ignoreArg string
 
 func init() {
-	Analyzer.Flags.StringVar(&ignoreArg, "ignore", "", `list of packages to ignore ("inctimer,time")`)
+	Analyzer.Flags.StringVar(&ignoreArg, "ignore", "", `list of packages to ignore (e.g. "readall,config")`)
 }
 
 type visitor func(ast.Node) bool
@@ -70,8 +71,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		pkgAliases []string
 		ignore     = false
 		nodeFilter = []ast.Node{
-			(*ast.ForStmt)(nil),
-			(*ast.RangeStmt)(nil),
+			(*ast.CallExpr)(nil),
 			(*ast.File)(nil),
 			(*ast.ImportSpec)(nil),
 		}
@@ -80,45 +80,32 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		switch stmt := n.(type) {
 		case *ast.File:
 			_, ignore = ignoreMap[stmt.Name.Name]
-			pkgAliases = []string{timeAfterPkg}
+			pkgAliases = ioReadAllPkgs
 		case *ast.ImportSpec:
 			if ignore {
 				return
 			}
 			// Collect aliases.
 			pkg := stmt.Path.Value
-			if pkg == fmt.Sprintf("%q", timeAfterPkg) {
-				if stmt.Name != nil {
-					pkgAliases = append(pkgAliases, stmt.Name.Name)
+			for _, originPkg := range ioReadAllPkgs {
+				if pkg == fmt.Sprintf("%q", originPkg) {
+					if stmt.Name != nil {
+						pkgAliases = append(pkgAliases, stmt.Name.Name)
+					}
 				}
 			}
-		case *ast.ForStmt:
+		case *ast.CallExpr:
 			if ignore {
 				return
 			}
-			checkForStmt(pass, stmt.Body, pkgAliases)
-		case *ast.RangeStmt:
-			if ignore {
-				return
+			for _, pkg := range pkgAliases {
+				if isPkgDot(stmt.Fun, pkg, readAllFunc) {
+					pass.Reportf(n.Pos(), "use of %s.ReadAll is prohibited, use bufio.NewReaderSize instead", pkg)
+				}
 			}
-			checkForStmt(pass, stmt.Body, pkgAliases)
 		}
 	})
 	return nil, nil
-}
-
-func checkForStmt(pass *analysis.Pass, body *ast.BlockStmt, pkgAliases []string) {
-	ast.Walk(visitor(func(node ast.Node) bool {
-		switch expr := node.(type) {
-		case *ast.CallExpr:
-			for _, pkg := range pkgAliases {
-				if isPkgDot(expr.Fun, pkg, timeAfterFunc) {
-					pass.Reportf(node.Pos(), "use of %s.After in a for loop is prohibited, use inctimer instead", pkg)
-				}
-			}
-		}
-		return true
-	}), body)
 }
 
 func isPkgDot(expr ast.Expr, pkg, name string) bool {

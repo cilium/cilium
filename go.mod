@@ -18,7 +18,7 @@ require (
 	github.com/aws/smithy-go v1.13.4
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/coverbee v0.2.2
-	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
+	github.com/cilium/customvet v0.0.0-20221207003726-576d50314db5
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 	github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
@@ -97,7 +97,7 @@ require (
 	golang.org/x/sys v0.3.0
 	golang.org/x/term v0.3.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.3.0
+	golang.org/x/tools v0.4.0
 	golang.zx2c4.com/wireguard v0.0.0-20211017052713-f87e87af0d9a
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211027115401-c9b1ec1aa6d8
 	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e
