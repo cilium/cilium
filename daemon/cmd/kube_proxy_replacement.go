@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
+	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -572,7 +573,7 @@ func markHostExtension() {
 				return err
 			}
 			defer f.Close()
-			valBytes, err := io.ReadAll(f)
+			valBytes, err := safeio.ReadAllLimit(f, safeio.KB)
 			if err != nil {
 				return err
 			}

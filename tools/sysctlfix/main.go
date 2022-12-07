@@ -13,6 +13,8 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 // This tool attempts to write a sysctl config file to the sysctl config directory with the highest precedence so
@@ -74,7 +76,7 @@ func main() {
 	}
 	defer f.Close()
 
-	currentContents, err := io.ReadAll(f)
+	currentContents, err := safeio.ReadAllLimit(f, safeio.MB)
 	if err != nil {
 		fmt.Printf("read config: %s\n", err)
 		return

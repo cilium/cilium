@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 // policyCmd represents the policy command
@@ -114,14 +115,18 @@ func ignoredFile(name string) bool {
 func loadPolicyFile(path string) (api.Rules, error) {
 	var content []byte
 	var err error
+	var r io.Reader
 	logrus.WithField(logfields.Path, path).Debug("Loading file")
 
 	if path == "-" {
-		content, err = io.ReadAll(bufio.NewReader(os.Stdin))
+		r = bufio.NewReader(os.Stdin)
 	} else {
-		content, err = os.ReadFile(path)
+		r, err = os.Open(path)
+		if err != nil {
+			return nil, err
+		}
 	}
-
+	content, err = safeio.ReadAllLimit(r, safeio.MB)
 	if err != nil {
 		return nil, err
 	}

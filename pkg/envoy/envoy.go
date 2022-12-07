@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "envoy-manager")
@@ -87,7 +88,7 @@ func (a *admin) transact(query string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
 	if err != nil {
 		return err
 	}

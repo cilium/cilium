@@ -6,9 +6,10 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
+
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 const (
@@ -67,7 +68,7 @@ func getMetadata(ctx context.Context, path string) (string, error) {
 	}
 
 	defer resp.Body.Close()
-	respBytes, err := io.ReadAll(resp.Body)
+	respBytes, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
 	if err != nil {
 		return "", err
 	}
