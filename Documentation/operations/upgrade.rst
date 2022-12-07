@@ -372,7 +372,7 @@ Helm Options
 ~~~~~~~~~~~~
 
 * The way Linux capabilities are configured has been revamped in this release. 
-  All capabilities of every container in the ``cilium-agent`` DaemonSet is
+  All capabilities of everuiy container in the ``cilium-agent`` DaemonSet is
   configured from Helm's values, defaulting to the old behavior. If you have not
   been using ``securityContext.extraCapabilities`` you do not need to do anything.
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
