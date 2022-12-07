@@ -45,7 +45,11 @@ type Resource[T k8sRuntime.Object] interface {
 	//
 	// When Done() is called with non-nil error the error handler is invoked, which
 	// can ignore, requeue the event or close the channel. The default error handler
-	// will requeue.
+	// will requeue. Custom error handler can be provided with option WithErrorHandler()
+	// and the rate limiter can be provided with WithRateLimiter().
+	//
+	// If events are needed only for specific object or objects in specific namespace
+	// the option FilterByKey() can be used which takes the predicate func(Key) bool.
 	Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T]
 
 	// Store retrieves the read-only store for the resource. Blocks until
@@ -53,6 +57,10 @@ type Resource[T k8sRuntime.Object] interface {
 	// Returns a non-nil error if context is cancelled or the resource
 	// has been stopped before store has synchronized.
 	Store(context.Context) (Store[T], error)
+
+	// Tracker returns a new instance of object tracker for subscribing to
+	// events of a changing subset of objects.
+	Tracker(ctx context.Context) ObjectTracker[T]
 }
 
 // New creates a new Resource[T]. Use with hive.Provide:
@@ -111,7 +119,7 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 }
 
 type options struct {
-	transform cache.TransformFunc
+	transform  cache.TransformFunc
 	fromObject k8sRuntime.Object
 }
 
@@ -162,6 +170,10 @@ func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 	}
 
 	return r.storePromise.Await(ctx)
+}
+
+func (r *resource[T]) Tracker(ctx context.Context) ObjectTracker[T] {
+	return newObjectTracker[T](ctx, r)
 }
 
 func (r *resource[T]) pushUpdate(key Key) {
@@ -260,8 +272,10 @@ func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
 }
 
 type eventsOpts struct {
-	rateLimiter  workqueue.RateLimiter
-	errorHandler ErrorHandler
+	rateLimiter   workqueue.RateLimiter
+	errorHandler  ErrorHandler
+	keyFilterFunc func(Key) bool
+	requeues      chan Key
 }
 
 type EventsOpt func(*eventsOpts)
@@ -278,6 +292,20 @@ func WithRateLimiter(r workqueue.RateLimiter) EventsOpt {
 func WithErrorHandler(h ErrorHandler) EventsOpt {
 	return func(o *eventsOpts) {
 		o.errorHandler = h
+	}
+}
+
+func FilterByKey(keep func(Key) bool) EventsOpt {
+	return func(o *eventsOpts) {
+		o.keyFilterFunc = keep
+	}
+}
+
+// TODO rename this. Idea here is that subscriber can force queuing the processing
+// for some key (if it exists). This allows implementing things like the ObjectTracker.
+func WithRequeues(ch chan Key) EventsOpt {
+	return func(o *eventsOpts) {
+		o.requeues = ch
 	}
 }
 
@@ -317,6 +345,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	queue := &keyQueue{
 		RateLimitingInterface: workqueue.NewRateLimitingQueue(options.rateLimiter),
 		errorHandler:          options.errorHandler,
+		keyFilter:             options.keyFilterFunc,
 	}
 	r.mu.Lock()
 	subId := r.subId
@@ -427,16 +456,29 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	}()
 
 	// Fork a goroutine to wait for either the subscriber cancelling or the resource
-	// shutting down.
+	// shutting down. This also handles the requeues option.
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-		select {
-		case <-r.ctx.Done():
-		case <-ctx.Done():
+		defer subCancel()
+		defer queue.ShutDownWithDrain()
+
+		requeues := options.requeues
+
+		for {
+			select {
+			case <-r.ctx.Done():
+				return
+			case <-ctx.Done():
+				return
+			case key, ok := <-requeues:
+				if !ok {
+					requeues = nil
+				} else {
+					queue.AddUpsert(key)
+				}
+			}
 		}
-		subCancel()
-		queue.ShutDownWithDrain()
 	}()
 
 	return out
@@ -447,6 +489,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 type keyQueue struct {
 	workqueue.RateLimitingInterface
 	errorHandler ErrorHandler
+	keyFilter    func(Key) bool
 }
 
 func (kq *keyQueue) AddSync() {
@@ -454,12 +497,19 @@ func (kq *keyQueue) AddSync() {
 }
 
 func (kq *keyQueue) AddUpsert(key Key) {
+	if kq.keyFilter != nil && !kq.keyFilter(key) {
+		return
+	}
+
 	// The entries must be added by value and not by pointer in order for
 	// them to be compared by value and not by pointer.
 	kq.Add(upsertEntry{key})
 }
 
 func (kq *keyQueue) AddDelete(key Key, obj any) {
+	if kq.keyFilter != nil && !kq.keyFilter(key) {
+		return
+	}
 	kq.Add(deleteEntry{key, obj})
 }
 

@@ -304,7 +304,7 @@ func TestResource_WithTransform(t *testing.T) {
 			func() k8sClient.Clientset { return cs },
 			func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*StrippedNode] {
 				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
-				return resource.New[*StrippedNode](lc, lw, resource.WithTransform(strip))
+				return resource.New[*StrippedNode](lc, lw, resource.WithTransform(&StrippedNode{}, strip))
 			}),
 
 		cell.Invoke(func(r resource.Resource[*StrippedNode]) {
