@@ -190,10 +190,10 @@ jobs:
 
       - name: Install Cilium CLI
         run: |
-          git clone --depth 1 -b pr/pchaigno/debug-curl https://github.com/cilium/cilium-cli
-          cd cilium-cli
-          make -j$(nproc)
-          sudo make install
+          # Image built in https://github.com/cilium/cilium-cli/pull/1271
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:95fa48cec03cc69c9dc1a89b769e92fe11a9616e ls)
+          docker cp $cid:/usr/local/bin/cilium /usr/local/bin/cilium
+          docker rm $cid
           cilium version
 
       - name: Login to Azure
