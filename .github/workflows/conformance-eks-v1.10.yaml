@@ -240,6 +240,11 @@ jobs:
 
           eksctl create cluster -f ./eks-config.yaml
 
+      # This is a workaround for flake #16938.
+      - name: Remove AWS-CNI
+        run: |
+          kubectl -n kube-system delete daemonset aws-node
+
       - name: Wait for images to be available
         timeout-minutes: 10
         shell: bash
