@@ -220,7 +220,7 @@ jobs:
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
-            ./cilium-cli connectivity test -t -d --collect-sysdump-on-failure \
+            ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
 
       - name: Fetch artifacts
