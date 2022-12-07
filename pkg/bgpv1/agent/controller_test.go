@@ -380,7 +380,7 @@ func TestPolicySelection(t *testing.T) {
 					},
 				}
 				policies = append(policies, policy)
-				if p.want == true {
+				if p.want {
 					want = policy
 				}
 			}
