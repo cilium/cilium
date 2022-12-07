@@ -22,7 +22,7 @@ yamllint==1.27.1
 alabaster==0.7.12
 attrs==22.1.0
 Babel==2.10.3
-certifi==2022.6.15
+certifi==2022.12.7
 charset-normalizer==2.1.1
 colorama==0.4.5
 deepmerge==1.0.1
