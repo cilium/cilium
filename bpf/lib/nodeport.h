@@ -1107,15 +1107,16 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 			if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 				return DROP_WRITE_ERROR;
 		}
-	} else {
-		if (!bpf_skip_recirculation(ctx)) {
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			return DROP_MISSED_TAIL_CALL;
-		}
+
+		return CTX_ACT_REDIRECT;
 	}
 
-	return CTX_ACT_REDIRECT;
+	if (bpf_skip_recirculation(ctx))
+		return DROP_NAT_NO_MAPPING;
+
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+	return DROP_MISSED_TAIL_CALL;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
@@ -2086,15 +2087,16 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 			if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 				return DROP_WRITE_ERROR;
 		}
-	} else {
-		if (!bpf_skip_recirculation(ctx)) {
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-			return DROP_MISSED_TAIL_CALL;
-		}
+
+		return CTX_ACT_REDIRECT;
 	}
 
-	return CTX_ACT_REDIRECT;
+	if (bpf_skip_recirculation(ctx))
+		return DROP_NAT_NO_MAPPING;
+
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+	return DROP_MISSED_TAIL_CALL;
 
 #if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE))
 encap_redirect:
