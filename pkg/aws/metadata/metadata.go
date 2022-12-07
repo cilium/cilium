@@ -6,10 +6,11 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 func newClient() (*imds.Client, error) {
@@ -30,7 +31,7 @@ func getMetadata(client *imds.Client, path string) (string, error) {
 	}
 
 	defer res.Content.Close()
-	value, err := io.ReadAll(res.Content)
+	value, err := safeio.ReadAllLimit(res.Content, safeio.MB)
 	if err != nil {
 		return "", fmt.Errorf("unable to read response content for AWS metadata %q: %w", path, err)
 	}

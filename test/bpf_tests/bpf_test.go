@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/monitor"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 var (
@@ -263,7 +264,10 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 	for _, mspec := range spec.Maps {
 		// Drain extra info from map specs, cilium/ebpf will complain if we don't
 		if mspec.Extra != nil {
-			io.ReadAll(mspec.Extra)
+			_, err := safeio.ReadAllLimit(mspec.Extra, safeio.MB)
+			if err != nil {
+				t.Fatalf("error draining map specs: %v", err)
+			}
 		}
 
 		mspec.Pinning = ebpf.PinNone
