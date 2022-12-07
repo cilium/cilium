@@ -66,7 +66,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 			      .h_dest = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67},
 			      .h_proto = bpf_htons(ETH_P_IP)};
 
-	iph = pktgen__push_default_iphdr(&builder);
+	iph = pktgen__push_default_iphdr(&builder, 0);
 
 	if (!iph)
 		return TEST_ERROR;

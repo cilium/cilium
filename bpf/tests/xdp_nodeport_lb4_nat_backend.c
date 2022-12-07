@@ -74,7 +74,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
 
 	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_default_iphdr(&builder, 0);
 	if (!l3)
 		return TEST_ERROR;
 

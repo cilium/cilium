@@ -74,7 +74,7 @@ int build_packet(struct __ctx_buff *ctx)
 	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_default_iphdr(&builder, 0);
 
 	if (!l3)
 		return TEST_ERROR;
@@ -241,7 +241,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
+	l3 = pktgen__push_default_iphdr(&builder, 0);
 
 	if (!l3)
 		return TEST_ERROR;
