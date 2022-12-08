@@ -41,10 +41,16 @@ func TestPolicyHandler(t *testing.T) {
 	flow.Source = &flowpb.Endpoint{Identity: uint32(identity.ReservedIdentityHost)}
 	h.ProcessFlow(context.Background(), &flow)
 
+	// l7
+	flow.EventType = &flowpb.CiliumEventType{Type: monitorAPI.MessageTypeAccessLog}
+	flow.Verdict = flowpb.Verdict_DROPPED
+	h.ProcessFlow(context.Background(), &flow)
+
 	expected := strings.NewReader(`# HELP hubble_policy_verdicts_total Total number of Cilium network policy verdicts
 # TYPE hubble_policy_verdicts_total counter
 hubble_policy_verdicts_total{action="dropped",direction="egress",match="none"} 1
 hubble_policy_verdicts_total{action="redirected",direction="ingress",match="l3-l4"} 1
+hubble_policy_verdicts_total{action="dropped",direction="ingress",match="l7"} 1
 `)
 	assert.NoError(t, testutil.CollectAndCompare(h.verdicts, expected))
 }

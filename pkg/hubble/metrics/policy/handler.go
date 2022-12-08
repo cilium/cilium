@@ -45,9 +45,18 @@ func (d *policyHandler) Status() string {
 }
 
 func (d *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	if flow.GetEventType().GetType() != monitorAPI.MessageTypePolicyVerdict {
-		return nil
+	if flow.GetEventType().GetType() == monitorAPI.MessageTypePolicyVerdict {
+		return d.ProcessFlowL3L4(ctx, flow)
 	}
+
+	if flow.GetEventType().GetType() == monitorAPI.MessageTypeAccessLog {
+		return d.ProcessFlowL7(ctx, flow)
+	}
+
+	return nil
+}
+
+func (d *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) error {
 	// ignore verdict if the source is host since host is allowed to connect to any local endpoints.
 	if flow.GetSource().GetIdentity() == uint32(identity.ReservedIdentityHost) {
 		return nil
@@ -59,6 +68,22 @@ func (d *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) erro
 
 	direction := strings.ToLower(flow.GetTrafficDirection().String())
 	match := strings.ToLower(monitorAPI.PolicyMatchType(flow.GetPolicyMatchType()).String())
+	action := strings.ToLower(flow.Verdict.String())
+	labels := []string{direction, match, action}
+	labels = append(labels, labelValues...)
+
+	d.verdicts.WithLabelValues(labels...).Inc()
+	return nil
+}
+
+func (d *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) error {
+	labelValues, err := d.context.GetLabelValues(flow)
+	if err != nil {
+		return err
+	}
+
+	direction := strings.ToLower(flow.GetTrafficDirection().String())
+	match := "l7"
 	action := strings.ToLower(flow.Verdict.String())
 	labels := []string{direction, match, action}
 	labels = append(labels, labelValues...)
