@@ -421,18 +421,6 @@
      - Enable tail call hooks for custom eBPF programs.
      - bool
      - ``false``
-   * - daemon.allowedConfigOverrides
-     - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
-     - string
-     - ``nil``
-   * - daemon.blockedConfigOverrides
-     - blockedConfigOverrides is a list of config-map keys that may not be overridden. In other words, if any of these keys appear in a configuration source excepting the first one, they will be ignored  This is ignored if allowedConfigOverrides is set.  By default, all keys may be overridden.
-     - string
-     - ``nil``
-   * - daemon.configSources
-     - Configure a custom list of possible configuration override sources The default is "config-map:cilium-config,cilium-node-config". For supported values, see the help text for the build-config subcommand. Note that this value should be a comma-separated string.
-     - string
-     - ``nil``
    * - daemon.runPath
      - Configure where Cilium runtime state should be stored.
      - string

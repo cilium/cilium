@@ -1,21 +1,3 @@
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: cilium-config-agent
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app.kubernetes.io/part-of: cilium
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -23,8 +5,6 @@ kind: Role
 metadata:
   name: cilium-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
-  labels:
-    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""
@@ -43,8 +23,6 @@ kind: Role
 metadata:
   name: cilium-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
-  labels:
-    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""

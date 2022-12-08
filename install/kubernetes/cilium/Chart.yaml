@@ -117,10 +117,3 @@ annotations:
       displayName: Cilium Load Balancer IP Pool
       description: |
         Defining a Cilium Load Balancer IP Pool instructs Cilium to assign IPs to LoadBalancer Services.
-    - kind: CiliumNodeConfig
-      version: v2alpha1
-      name: ciliumnodeconfigs.cilium.io
-      displayName: Cilium Node Configuration
-      description: |
-        CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
-        nodes indicated by a label selector.
