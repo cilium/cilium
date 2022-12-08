@@ -16,6 +16,13 @@ HELM_CHART_DIR=${3:-/vagrant/install/kubernetes/cilium}
 # just to create Docker-in-Docker containers.
 kind create cluster --config kind-config.yaml --image=kindest/node:v1.24.3
 
+# Extract the internal URL to the apiserver from the kind config
+kind get kubeconfig --internal > internal-kubeconfig
+HOSTPORT=$(kubectl --kubeconfig internal-kubeconfig config view -o jsonpath='{.clusters[0].cluster.server}')
+HOSTPORT=$(echo ${HOSTPORT} | cut -d/ -f3)
+HOST=$(echo ${HOSTPORT}| cut -d: -f1)
+PORT=$(echo ${HOSTPORT} | cut -d: -f2)
+
 # Install Cilium as standalone L4LB: tc/Maglev/SNAT
 helm install cilium ${HELM_CHART_DIR} \
     --wait \
@@ -30,6 +37,8 @@ helm install cilium ${HELM_CHART_DIR} \
     --set loadBalancer.algorithm=maglev \
     --set loadBalancer.mode=snat \
     --set loadBalancer.acceleration=disabled \
+    --set k8sServiceHost="${HOST}" \
+    --set k8sServicePort="${PORT}" \
     --set devices='{eth0}' \
     --set ipv4.enabled=true \
     --set ipv6.enabled=true \
