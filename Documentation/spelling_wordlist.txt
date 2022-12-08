@@ -164,7 +164,6 @@ aksbyocni
 alibabacloud
 allocator
 allocators
-allowedConfigOverrides
 amd
 analytics
 annotateK
@@ -216,7 +215,6 @@ bgp
 bgpControlPlane
 binPath
 bindProtection
-blockedConfigOverrides
 blog
 bnxt
 bookinfo
@@ -290,7 +288,6 @@ confPath
 config
 configMap
 configMapKey
-configSources
 configmap
 configs
 conformant

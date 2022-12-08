@@ -16,11 +16,3 @@ type CiliumEndpointSliceListerExpansion interface{}
 // CiliumLoadBalancerIPPoolListerExpansion allows custom methods to be added to
 // CiliumLoadBalancerIPPoolLister.
 type CiliumLoadBalancerIPPoolListerExpansion interface{}
-
-// CiliumNodeConfigListerExpansion allows custom methods to be added to
-// CiliumNodeConfigLister.
-type CiliumNodeConfigListerExpansion interface{}
-
-// CiliumNodeConfigNamespaceListerExpansion allows custom methods to be added to
-// CiliumNodeConfigNamespaceLister.
-type CiliumNodeConfigNamespaceListerExpansion interface{}
