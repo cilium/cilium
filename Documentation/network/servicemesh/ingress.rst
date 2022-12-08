@@ -12,7 +12,9 @@ Kubernetes Ingress Support
 
 Cilium uses the standard Kubernetes Ingress resource definition, with
 an ``ingressClassName`` of ``cilium``. This can be used for path-based
-routing and for TLS termination.
+routing and for TLS termination. For backwards compatibility, the 
+``kubernetes.io/ingress.class`` annotation with value of ``cilium``
+is also supported.
 
 .. Note::
 
