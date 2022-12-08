@@ -390,13 +390,13 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func (ipc *IPCache) InitIPIdentityWatcher() {
+func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
 			watcher = NewIPIdentityWatcher(ipc, kvstore.Client())
 			close(initialized)
-			watcher.Watch(context.TODO())
+			watcher.Watch(ctx)
 		}()
 	})
 }
