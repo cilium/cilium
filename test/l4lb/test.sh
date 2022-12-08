@@ -50,6 +50,14 @@ nsenter -t $CONTROL_PLANE_PID -n /bin/sh -c "\
     ip a a "${SECOND_LB_NODE_IP}/24" dev l4lb-veth1 && \
     ip l s dev l4lb-veth1 up"
 
+# Extract the internal URL to the apiserver from the kind config
+kind get kubeconfig --internal > internal-kubeconfig
+HOSTPORT=$(kubectl --kubeconfig internal-kubeconfig config view -o jsonpath='{.clusters[0].cluster.server}')
+HOSTPORT=$(echo ${HOSTPORT} | cut -d/ -f3)
+HOST=$(echo ${HOSTPORT}| cut -d: -f1)
+PORT=$(echo ${HOSTPORT} | cut -d: -f2)
+
+
 # Install Cilium as standalone L4LB
 helm install cilium ${HELM_CHART_DIR} \
     --wait \
@@ -65,6 +73,8 @@ helm install cilium ${HELM_CHART_DIR} \
     --set loadBalancer.mode=dsr \
     --set loadBalancer.acceleration=native \
     --set loadBalancer.dsrDispatch=ipip \
+    --set k8sServiceHost="${HOST}" \
+    --set k8sServicePort="${PORT}" \
     --set devices='{eth0,l4lb-veth1}' \
     --set nodePort.directRoutingDevice=eth0 \
     --set affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key="kubernetes.io/hostname" \
