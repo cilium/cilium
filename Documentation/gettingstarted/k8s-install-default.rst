@@ -266,6 +266,14 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
            cilium install
            cilium status --wait
 
+       .. note::
+
+           If you have to uninstall Cilium and later install it again, that could cause
+           connectivity issues due to ``aws-node`` DaemonSet flushing Linux routing tables.
+           The issues can be fixed by restarting all pods, alternatively to avoid such issues
+           you can delete ``aws-node`` DaemonSet prior to installing Cilium.
+
+
     .. group-tab:: OpenShift
 
        .. include:: requirements-openshift.rst
