@@ -95,7 +95,6 @@ var (
 func mapsEqual(a, b *Map) bool {
 	return a.name == b.name &&
 		a.path == b.path &&
-		a.NonPersistent == b.NonPersistent &&
 		reflect.DeepEqual(a.MapInfo, b.MapInfo)
 }
 
@@ -191,7 +190,7 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
+func (s *BPFPrivilegedTestSuite) TestRecreateMap(c *C) {
 	parallelMap := NewMap("cilium_test",
 		MapTypeHash,
 		&TestKey{},
@@ -201,11 +200,11 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 		maxEntries,
 		BPF_F_NO_PREALLOC,
 		ConvertKeyValue).WithCache()
-	err := parallelMap.OpenParallel()
+	err := parallelMap.Recreate()
 	defer parallelMap.Close()
 	c.Assert(err, IsNil)
 
-	err = parallelMap.OpenParallel()
+	err = parallelMap.Recreate()
 	c.Assert(err, Not(IsNil))
 
 	// Check OpenMap warning section
@@ -234,8 +233,6 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	value, err = parallelMap.Lookup(key2)
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
-
-	parallelMap.EndParallelMode()
 }
 
 func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {

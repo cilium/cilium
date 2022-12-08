@@ -205,9 +205,3 @@ func IPCacheMap() *Map {
 	})
 	return ipcache
 }
-
-// Reopen attempts to close and re-open the IPCache map at the standard path
-// on the filesystem.
-func Reopen() error {
-	return IPCacheMap().Reopen()
-}

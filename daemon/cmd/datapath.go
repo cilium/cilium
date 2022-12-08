@@ -174,10 +174,6 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	}
 }
 
-func endParallelMapMode() {
-	ipcachemap.IPCacheMap().EndParallelMode()
-}
-
 // syncHostIPs adds local host entries to bpf lxcmap, as well as ipcache, if
 // needed, and also notifies the daemon and network policy hosts cache if
 // changes were made.
@@ -333,17 +329,17 @@ func (d *Daemon) initMaps() error {
 		return fmt.Errorf("initializing lxc map: %w", err)
 	}
 
-	// The ipcache is shared between endpoints. Parallel mode needs to be
-	// used to allow existing endpoints that have not been regenerated yet
-	// to continue using the existing ipcache until the endpoint is
-	// regenerated for the first time. Existing endpoints are using a
-	// policy map which is potentially out of sync as local identities are
-	// re-allocated on startup. Parallel mode allows to continue using the
-	// old version until regeneration. Note that the old version is not
-	// updated with new identities. This is fine as any new identity
-	// appearing would require a regeneration of the endpoint anyway in
-	// order for the endpoint to gain the privilege of communication.
-	if err := ipcachemap.IPCacheMap().OpenParallel(); err != nil {
+	// The ipcache is shared between endpoints. Unpin the old ipcache map created
+	// by any previous instances of the agent to prevent new endpoints from
+	// picking up the old map pin. The old ipcache will continue to be used by
+	// loaded bpf programs, it will just no longer be updated by the agent.
+	//
+	// This is to allow existing endpoints that have not been regenerated yet to
+	// continue using the existing ipcache until the endpoint is regenerated for
+	// the first time and its bpf programs have been replaced. Existing endpoints
+	// are using a policy map which is potentially out of sync as local identities
+	// are re-allocated on startup.
+	if err := ipcachemap.IPCacheMap().Recreate(); err != nil {
 		return fmt.Errorf("initializing ipcache map: %w", err)
 	}
 
@@ -356,7 +352,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.TunnelingEnabled() {
-		if err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
+		if err := tunnel.TunnelMap().Recreate(); err != nil {
 			return fmt.Errorf("initializing tunnel map: %w", err)
 		}
 	}
@@ -372,7 +368,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableVTEP {
-		if err := vtep.VtepMap().OpenOrCreate(); err != nil {
+		if err := vtep.VtepMap().Recreate(); err != nil {
 			return fmt.Errorf("initializing vtep map: %w", err)
 		}
 	}
