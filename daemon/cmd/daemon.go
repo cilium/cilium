@@ -1279,7 +1279,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	d.ipcache.InitIPIdentityWatcher()
+	d.ipcache.InitIPIdentityWatcher(d.ctx)
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices if requested.
