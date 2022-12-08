@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   # 
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -189,12 +189,17 @@ jobs:
           state: pending
           target_url: ${{ env.check_url }}
 
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
       - name: Install Cilium CLI
         run: |
-          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
-          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
-          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
-          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          xz -d ./test/cilium-cli.xz
+          sudo cp ./test/cilium-cli /usr/local/bin/cilium
           cilium version
 
       - name: Login to Azure
@@ -241,13 +246,6 @@ jobs:
           for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
-
-      # Checkout source code to install Cilium using local Helm chart.
-      - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
-        with:
-          ref: ${{ steps.vars.outputs.sha }}
-          persist-credentials: false
 
       - name: Install Cilium
         run: |
@@ -299,6 +297,7 @@ jobs:
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
+          for n in $(kubectl get nodes --no-headers | awk '{print $1}'); do ./test/nsenter.sh $n; done
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
