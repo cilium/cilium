@@ -329,16 +329,17 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 {
 	struct ipv6_ct_tuple nat_tup = *tuple;
 	struct ipv6_nat_entry *entry;
-	int ret = 0;
 
 	nat_tup.flags = NAT_DIR_EGRESS;
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
 
 	entry = snat_v6_lookup(&nat_tup);
-	if (entry)
-		ret = snat_v6_rewrite_egress(ctx, &nat_tup, entry, l4_off);
-	return ret;
+	if (!entry)
+		return 0;
+
+	ctx_snat_done_set(ctx);
+	return snat_v6_rewrite_egress(ctx, &nat_tup, entry, l4_off);
 }
 
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
@@ -1406,16 +1407,17 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 {
 	struct ipv4_ct_tuple nat_tup = *tuple;
 	struct ipv4_nat_entry *entry;
-	int ret = 0;
 
 	nat_tup.flags = NAT_DIR_EGRESS;
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
 
 	entry = snat_v4_lookup(&nat_tup);
-	if (entry)
-		ret = snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
-	return ret;
+	if (!entry)
+		return 0;
+
+	ctx_snat_done_set(ctx);
+	return snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
 }
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
