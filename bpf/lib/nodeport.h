@@ -357,7 +357,7 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 
 	entry = snat_v6_lookup(&nat_tup);
 	if (!entry)
-		return 0;
+		return DROP_NAT_NO_MAPPING;
 
 	ctx_snat_done_set(ctx);
 	return snat_v6_rewrite_egress(ctx, &nat_tup, entry, l4_off);
@@ -1410,7 +1410,7 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 
 	entry = snat_v4_lookup(&nat_tup);
 	if (!entry)
-		return 0;
+		return DROP_NAT_NO_MAPPING;
 
 	ctx_snat_done_set(ctx);
 	return snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
