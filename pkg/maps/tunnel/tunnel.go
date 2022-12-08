@@ -60,7 +60,7 @@ func NewTunnelMap(mapName string) *Map {
 		MaxEntries,
 		0,
 		bpf.ConvertKeyValue,
-	).WithCache().WithPressureMetric().WithNonPersistent().
+	).WithCache().WithPressureMetric().
 		WithEvents(option.Config.GetEventBufferConfig(MapName)),
 	}
 }

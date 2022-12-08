@@ -416,7 +416,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
 		go func() {
 			<-restoreComplete
-			endParallelMapMode()
 		}()
 
 		go func() {
@@ -449,9 +448,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		}()
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
-
-		// No restore happened, end parallel map mode immediately
-		endParallelMapMode()
 	}
 	bootstrapStats.restore.End(true)
 
