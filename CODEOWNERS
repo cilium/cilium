@@ -210,284 +210,30 @@
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/tophat
-/AUTHORS @cilium/tophat
-/CODE_OF_CONDUCT.md @cilium/contributing
-/CODEOWNERS @cilium/contributing
-/CONTRIBUTING.md @cilium/contributing
-/.authors.aux @cilium/tophat
-/.clomonitor.yml @cilium/tophat
-/.gitattributes @cilium/tophat
-/.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
-/.github/workflows/conformance-datapath.yaml @cilium/sig-datapath @cilium/github-sec @cilium/ci-structure
-/.gitignore @cilium/tophat
-/.golangci.yaml @cilium/ci-structure
-/.mailmap @cilium/tophat
-/.nvim @cilium/contributing
-/.travis/ @cilium/ci-structure
-/.travis.yml @cilium/ci-structure
-/.vscode @cilium/contributing
 /api/ @cilium/api
 /api/v1/Makefile @cilium/sig-hubble-api
 /api/v1/Makefile.protoc @cilium/sig-hubble-api
 /api/v1/flow/ @cilium/sig-hubble-api
-/api/v1/health/ @cilium/api @cilium/health
 /api/v1/observer/ @cilium/sig-hubble-api
-/api/v1/operator/ @cilium/api @cilium/operator
 /api/v1/peer/ @cilium/sig-hubble-api
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
-/bpf/ @cilium/sig-datapath
-Makefile* @cilium/build
-/bpf/Makefile* @cilium/loader
-/bpf/init.sh @cilium/loader
-/bpf/custom/Makefile* @cilium/build @cilium/loader
-/bpf/lib/encrypt.h @cilium/ipsec
-/bpf/sockops/Makefile* @cilium/build @cilium/loader
-/bugtool/ @cilium/tophat
-/bugtool/cmd/ @cilium/cli
-/cilium/ @cilium/cli
-/cilium/cmd/encrypt* @cilium/ipsec @cilium/cli
-/cilium/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
-/cilium-health/ @cilium/health
-/cilium-health/cmd/ @cilium/health @cilium/cli
-/clustermesh-apiserver @cilium/sig-clustermesh
-/contrib/ @cilium/contributing
-/contrib/packaging/ @cilium/build
-/contrib/vagrant/ @cilium/contributing
-/contrib/coccinelle/ @cilium/sig-datapath
-/daemon/ @cilium/sig-agent
-/daemon/cmd/datapath.go @cilium/sig-datapath
-/daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/health* @cilium/health
-/daemon/cmd/hubble.go @cilium/sig-hubble
-/daemon/cmd/ipcache* @cilium/ipcache
-/daemon/cmd/kube_proxy* @cilium/sig-datapath
-/daemon/cmd/loadbalancer.go @cilium/sig-lb
-/daemon/cmd/metrics.go @cilium/metrics
-/daemon/cmd/policy* @cilium/sig-policy
-/daemon/cmd/prefilter.go @cilium/sig-datapath
-/daemon/cmd/proxy.go @cilium/proxy
-/daemon/cmd/state.go @cilium/endpoint
-/daemon/cmd/sysctl_linux.go @cilium/sig-datapath
-/Documentation/ @cilium/docs-structure
-/Documentation/_static/ @cilium/docs-structure
-/Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
-/Documentation/beta.rst @cilium/docs-structure
-/Documentation/bpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/check-build.sh @cilium/docs-structure
-/Documentation/check-cmdref.sh @cilium/docs-structure
-/Documentation/check-crd-compat-table.sh @cilium/docs-structure
-/Documentation/check-examples.sh @cilium/docs-structure
-/Documentation/check-helmvalues.sh @cilium/docs-structure
-/Documentation/cmdref/
-/Documentation/community/community.rst @cilium/contributing
-/Documentation/community/governance/ @cilium/contributing
-/Documentation/community/governance/commit_access.rst @cilium/contributing @cilium/docs-structure
-/Documentation/community/roadmap.rst @cilium/contributing @cilium/docs-structure
-/Documentation/contributing/ @cilium/contributing @cilium/docs-structure
-/Documentation/conf.py @cilium/docs-structure
-/Documentation/configuration/index.rst @cilium/docs-structure
-/Documentation/contributing/ @cilium/contributing @cilium/docs-structure
-/Documentation/Dockerfile @cilium/docs-structure
-/Documentation/gettingstarted/gettinghelp.rst @cilium/contributing @cilium/docs-structure
-/Documentation/gettingstarted/hubble* @cilium/sig-hubble @cilium/docs-structure
-/Documentation/gettingstarted/hubble-configuration.rst @cilium/sig-hubble @cilium/docs-structure
-/Documentation/glossary.rst @cilium/docs-structure
-/Documentation/helm-values.rst
-/Documentation/images/re-request-review.png @cilium/contributing @cilium/docs-structure
-/Documentation/index.rst @cilium/docs-structure
-/Documentation/installation/alibabacloud* @cilium/alibabacloud @cilium/docs-structure
-/Documentation/installation/aws* @cilium/aws @cilium/docs-structure
-/Documentation/installation/cni-chaining-aws-cni.rst @cilium/aws @cilium/docs-structure
-/Documentation/installation/cni-chaining-azure-cni.rst @cilium/azure @cilium/docs-structure
-/Documentation/installation/kind-configure.rst @cilium/docs-structure
-/Documentation/internals/index.rst @cilium/docs-structure
-/Documentation/internals/cilium_operator.rst @cilium/operator @cilium/docs-structure
-/Documentation/internals/hubble.rst @cilium/sig-hubble @cilium/docs-structure
-/Documentation/images/bpf* @cilium/sig-datapath @cilium/docs-structure
-/Documentation/images/hubble_getflows.png @cilium/sig-hubble @cilium/docs-structure
-/Documentation/Makefile @cilium/docs-structure
-/Documentation/network/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
-/Documentation/network/concepts/ipam/ @cilium/sig-ipam @cilium/docs-structure
-/Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
-/Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
-/Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
-/Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
-/Documentation/network/kubernetes/kubeproxy-free.rst @cilium/sig-lb @cilium/docs-structure
-/Documentation/network/servicemesh/ @cilium/sig-servicemesh @cilium/docs-structure
-/Documentation/observability/ @cilium/sig-policy @cilium/docs-structure
-/Documentation/operations/performance/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/operations/system_requirements.rst @cilium/sig-datapath @cilium/docs-structure
-/Documentation/overview/component-overview.rst @cilium/docs-structure
-/Documentation/overview/intro.rst @cilium/docs-structure
-/Documentation/requirements.txt @cilium/docs-structure
-/Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
-/Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
-/Documentation/security/network/proxy/ @cilium/proxy @cilium/docs-structure
-/Documentation/security/policy-creation.rst @cilium/sig-policy @cilium/docs-structure
-/Documentation/security/policy/ @cilium/sig-policy @cilium/docs-structure
-/Documentation/spelling_wordlist.txt @cilium/docs-structure
-/Documentation/update-cmdref.sh @cilium/docs-structure
-/Documentation/update-spelling_wordlist.sh @cilium/docs-structure
-/Documentation/yaml.config @cilium/docs-structure
-/envoy/ @cilium/proxy
-/examples/ @cilium/docs-structure
-/examples/kubernetes/ @cilium/sig-k8s
-/examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
-/examples/minikube/ @cilium/sig-k8s
-/examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
-/FURTHER_READINGS.rst @cilium/docs-structure
-/hack/ @cilium/tophat
-/GO_VERSION @cilium/sig-agent
-*.Jenkinsfile @cilium/ci-structure
-/hubble-relay/ @cilium/sig-hubble
-/images @cilium/build
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
 /images/builder/install-protoplugins.sh @cilium/sig-hubble-api
-/images/builder/update-cilium-builder-image.sh @cilium/github-sec
-/images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
-/install/kubernetes/ @cilium/sig-k8s @cilium/helm
-/install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
-jenkinsfiles @cilium/ci-structure
-/LICENSE @cilium/tophat
-/MAINTAINERS.md @cilium/contributing
-/netlify.toml @cilium/ci-structure
-/operator/ @cilium/operator
-/operator/pkg/ingress @cilium/operator @cilium/sig-servicemesh
-/pkg/ @cilium/tophat
-/pkg/annotation @cilium/sig-k8s
-/pkg/alibabacloud/ @cilium/alibabacloud
 /pkg/api/ @cilium/api
-/pkg/aws/ @cilium/aws
-/pkg/azure/ @cilium/azure
-/pkg/bandwidth/ @cilium/sig-datapath
-/pkg/bgp/ @cilium/sig-k8s @cilium/sig-lb
-/pkg/bpf/ @cilium/sig-datapath
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
-/pkg/cgroups/ @cilium/sig-datapath
 /pkg/client @cilium/api
-/pkg/clustermesh @cilium/sig-clustermesh
-/pkg/command/ @cilium/cli
-/pkg/completion/ @cilium/proxy
-/pkg/components/ @cilium/sig-agent
-/pkg/controller @cilium/sig-agent
-/pkg/counter @cilium/sig-datapath
-/pkg/datapath/ @cilium/sig-datapath
-/pkg/datapath/linux/config/ @cilium/loader
-/pkg/datapath/linux/ipsec/ @cilium/ipsec
-/pkg/datapath/linux/ipsec/xfrm_collector* @cilium/ipsec @cilium/metrics
-/pkg/datapath/linux/node.go @cilium/ipsec @cilium/sig-datapath
-/pkg/datapath/linux/probes/ @cilium/loader
-/pkg/datapath/linux/requirements.go @cilium/loader
-/pkg/datapath/loader.go @cilium/loader
-/pkg/datapath/loader/ @cilium/loader
-/pkg/datapath/ipcache/ @cilium/ipcache
-/pkg/defaults @cilium/sig-agent
-/pkg/ebpf @cilium/sig-datapath
-/pkg/egressgateway/ @cilium/sig-datapath
-/pkg/elf @cilium/sig-datapath
-/pkg/endpoint/ @cilium/endpoint
-/pkg/endpointmanager/ @cilium/endpoint
-/pkg/envoy/ @cilium/proxy
-/pkg/fqdn/ @cilium/sig-agent @cilium/proxy
-/pkg/health/ @cilium/health
-/pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
-/pkg/identity @cilium/sig-policy
-/pkg/ipam/ @cilium/sig-ipam
-/pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
-/pkg/ipam/allocator/aws/ @cilium/sig-ipam @cilium/aws
-/pkg/ipam/allocator/azure/ @cilium/sig-ipam @cilium/azure
-/pkg/ipam/allocator/clusterpool/ @cilium/sig-ipam @cilium/operator
-/pkg/ipcache/ @cilium/ipcache
-/pkg/ipmasq @cilium/sig-agent
-/pkg/k8s/ @cilium/sig-k8s
-/pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
-/pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
-/pkg/kafka/ @cilium/proxy
-/pkg/kvstore/ @cilium/kvstore
 /pkg/labels @cilium/sig-policy @cilium/api
-/pkg/launcher @cilium/sig-agent
-/pkg/loadbalancer @cilium/sig-lb
-/pkg/lock @cilium/sig-agent
-/pkg/logging/ @cilium/cli
-/pkg/mac @cilium/sig-datapath
-/pkg/maglev @cilium/sig-lb
-/pkg/maps/ @cilium/sig-datapath
-/pkg/mcastmanager @cilium/sig-datapath
-/pkg/metrics @cilium/metrics
-/pkg/monitor @cilium/sig-datapath
 /pkg/monitor/api @cilium/api @cilium/sig-datapath
-/pkg/monitor/format @cilium/cli @cilium/sig-datapath
 /pkg/monitor/payload @cilium/api @cilium/sig-datapath
-/pkg/mountinfo @cilium/sig-datapath
-/pkg/mtu @cilium/sig-datapath
-/pkg/multicast @cilium/sig-datapath
-/pkg/node @cilium/sig-agent
-/pkg/nodediscovery/ @cilium/sig-agent
-/pkg/option @cilium/sig-agent @cilium/cli
-/pkg/pidfile @cilium/sig-agent
-/pkg/policy @cilium/sig-policy
+/pkg/k8s/apis/cilium.io/v2/ @cilium/api
+/pkg/datapath/linux/ipsec/xfrm_collector* @cilium/metrics
+/pkg/k8s/client/clientset/versioned/ @cilium/api
+/pkg/k8s/client/informers/ @cilium/api
+/pkg/labels @cilium/sig-policy @cilium/api
+/pkg/monitor/api @cilium/api
+/pkg/monitor/payload @cilium/api
 /pkg/policy/api/ @cilium/api
-/pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
-/pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
-/pkg/redirectpolicy @cilium/sig-lb
-/pkg/serializer @cilium/sig-agent
-/pkg/service @cilium/sig-lb
-/pkg/sysctl @cilium/sig-datapath
-/pkg/testutils/ @cilium/ci-structure
-/pkg/tuple @cilium/sig-datapath
-/pkg/wireguard @cilium/wireguard
-/plugins/cilium-cni/ @cilium/sig-k8s
-/plugins/cilium-docker/ @cilium/docker
-/proxylib/ @cilium/proxy
-/README.rst @cilium/docs-structure
-/SECURITY.md @cilium/contributing
-/stable.txt @cilium/tophat
-/test/ @cilium/ci-structure
-/test/Makefile* @cilium/ci-structure @cilium/build
-# Service handling tests
-/test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
-/test/runtime/lb.go @cilium/sig-lb @cilium/ci-structure
-# Datapath tests
-/test/bpf/ @cilium/sig-datapath
-/test/bpf/check-complexity.sh @cilium/loader
-/test/bpf/verifier-test.sh @cilium/loader
-/test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
-/test/k8s/verifier.go @cilium/loader @cilium/ci-structure
-/test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
-# Policy tests
-/test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
-/test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
-# Hubble/monitoring tests
-/test/k8s/hubble.go @cilium/sig-hubble @cilium/ci-structure
-/test/runtime/monitor.go @cilium/sig-hubble @cilium/ci-structure
-# L7 proxy tests
-/test/k8s/fqdn.go @cilium/proxy @cilium/ci-structure
-/test/k8s/kafka_policies.go @cilium/proxy @cilium/ci-structure
-/test/runtime/fqdn.go @cilium/proxy @cilium/ci-structure
-# Standalone L4LB tests
-/test/l4lb @cilium/sig-lb @cilium/ci-structure
-/test/nat46x64 @cilium/sig-lb @cilium/ci-structure
-# Misc. tests
-/test/k8s/cli.go @cilium/cli @cilium/ci-structure
-/test/k8s/health.go @cilium/health @cilium/ci-structure
-/test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
-/test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
-/test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
-/test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
-/tools/ @cilium/contributing
-/USERS.md @cilium/tophat
-Vagrantfile @cilium/ci-structure
-/Vagrantfile @cilium/contributing
-/go.sum @cilium/vendor
-/go.mod @cilium/vendor
-/vagrant_box_defaults.rb @cilium/ci-structure
-/vendor/ @cilium/vendor
-/VERSION @cilium/tophat
