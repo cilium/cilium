@@ -214,8 +214,17 @@ func (ic *Controller) processEvent() bool {
 	return true
 }
 
+func getIngressClassName(ingress *slim_networkingv1.Ingress) *string {
+	annotations := ingress.GetAnnotations()
+	if className, ok := annotations["kubernetes.io/ingress.class"]; ok {
+		return &className
+	}
+
+	return ingress.Spec.IngressClassName
+}
+
 func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
-	ingressClass := event.ingress.Spec.IngressClassName
+	ingressClass := getIngressClassName(event.ingress)
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
@@ -225,7 +234,7 @@ func (ic *Controller) handleIngressAddedEvent(event ingressAddedEvent) error {
 }
 
 func (ic *Controller) handleIngressUpdatedEvent(event ingressUpdatedEvent) error {
-	ingressClass := event.newIngress.Spec.IngressClassName
+	ingressClass := getIngressClassName(event.newIngress)
 	if ingressClass == nil || *ingressClass != ciliumIngressClassName {
 		return nil
 	}
@@ -282,8 +291,9 @@ func (ic *Controller) handleIngressServiceUpdatedEvent(ingressServiceUpdated ing
 		ic.sharedLBStatus = &service.Status.LoadBalancer
 		for _, ing := range ic.ingressStore.ListKeys() {
 			item, _ := ic.getByKey(ing)
-			if item.Spec.IngressClassName == nil ||
-				*item.Spec.IngressClassName != ciliumIngressClassName ||
+			ingressClassName := getIngressClassName(item)
+			if ingressClassName == nil ||
+				*ingressClassName != ciliumIngressClassName ||
 				item.GetDeletionTimestamp() != nil {
 				continue
 			}
@@ -479,8 +489,9 @@ func (ic *Controller) regenerate(ing *slim_networkingv1.Ingress, forceShared boo
 		translator = ic.sharedTranslator
 		for _, k := range ic.ingressStore.ListKeys() {
 			item, _ := ic.getByKey(k)
-			if item.Spec.IngressClassName == nil ||
-				*item.Spec.IngressClassName != ciliumIngressClassName ||
+			ingressClassName := getIngressClassName(item)
+			if ingressClassName == nil ||
+				*ingressClassName != ciliumIngressClassName ||
 				ic.isEffectiveLoadbalancerModeDedicated(item) ||
 				ing.GetDeletionTimestamp() != nil {
 				continue

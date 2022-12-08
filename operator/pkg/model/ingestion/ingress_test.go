@@ -46,6 +46,43 @@ var defaultBackend = slim_networkingv1.Ingress{
 	},
 }
 
+var defaultBackendLegacy = slim_networkingv1.Ingress{
+	ObjectMeta: slim_metav1.ObjectMeta{
+		Name:        "load-balancing",
+		Namespace:   "random-namespace",
+		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
+	},
+	Spec: slim_networkingv1.IngressSpec{
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
+var defaultBackendLegacyOverride = slim_networkingv1.Ingress{
+	ObjectMeta: slim_metav1.ObjectMeta{
+		Name:        "load-balancing",
+		Namespace:   "random-namespace",
+		Annotations: map[string]string{"kubernetes.io/ingress.class": "cilium"},
+	},
+	Spec: slim_networkingv1.IngressSpec{
+		IngressClassName: stringp("contour"),
+		DefaultBackend: &slim_networkingv1.IngressBackend{
+			Service: &slim_networkingv1.IngressServiceBackend{
+				Name: "default-backend",
+				Port: slim_networkingv1.ServiceBackendPort{
+					Number: 8080,
+				},
+			},
+		},
+	},
+}
+
 var defaultBackendListeners = []model.HTTPListener{
 	{
 		Sources: []model.FullyQualifiedResource{
@@ -1209,6 +1246,14 @@ func TestIngress(t *testing.T) {
 	tests := map[string]testcase{
 		"conformance default backend test": {
 			ingress: defaultBackend,
+			want:    defaultBackendListeners,
+		},
+		"conformance default backend (legacy annotation) test": {
+			ingress: defaultBackendLegacy,
+			want:    defaultBackendListeners,
+		},
+		"conformance default backend (legacy + new) test": {
+			ingress: defaultBackendLegacyOverride,
 			want:    defaultBackendListeners,
 		},
 		"conformance host rules test": {
