@@ -108,14 +108,6 @@ type DNSProxy struct {
 	// parsing etc. for us.
 	UDPServer, TCPServer *dns.Server
 
-	// UDPClient, TCPClient are the miekg/dns client instances. Forwarded
-	// requests are made with these clients but are sent to the originally
-	// intended DNS server.
-	// Note: The DNS request ID is randomized but when seeing a lot of traffic we
-	// may still exhaust the 16-bit ID space for our (source IP, source Port) and
-	// this may cause DNS disruption. A client pool may be better.
-	UDPClient, TCPClient *dns.Client
-
 	// EnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	EnableDNSCompression bool
@@ -471,12 +463,6 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, maxRe
 		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
 
-	// Bind the DNS forwarding clients on UDP and TCP
-	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
 		UDPConn, TCPListener, err = bindToAddr(address, port, EnableIPv4, EnableIPv6)
@@ -718,9 +704,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	var client *dns.Client
 	switch protocol {
 	case "udp":
-		client = p.UDPClient
+		client = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 	case "tcp":
-		client = p.TCPClient
+		client = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 	default:
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %w", err)
