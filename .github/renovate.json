@@ -12,6 +12,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "master",
+    "v1.13",
     "v1.12",
     "v1.11",
     "v1.10"
@@ -34,7 +35,8 @@
       ],
       "allowedVersions": "22.04",
       "matchBaseBranches": [
-        "master"
+        "master",
+        "v1.13"
       ]
     },
     {
@@ -55,7 +57,8 @@
       ],
       "allowedVersions": "1.19",
       "matchBaseBranches": [
-        "master"
+        "master",
+        "v1.13"
       ]
     },
     {
@@ -94,6 +97,7 @@
       ],
       "allowedVersions": "3.16",
       "matchBaseBranches": [
+        "v1.13",
         "v1.12",
         "v1.11",
         "v1.10"
