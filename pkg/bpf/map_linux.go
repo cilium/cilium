@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"reflect"
@@ -90,21 +91,12 @@ type Map struct {
 	path string
 	lock lock.RWMutex
 
-	// inParallelMode is true when the Map is currently being run in
-	// parallel and all modifications are performed on both maps until
-	// EndParallelMode() is called.
-	inParallelMode bool
-
 	// cachedCommonName is the common portion of the name excluding any
 	// endpoint ID
 	cachedCommonName string
 
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
-
-	// NonPersistent is true if the map does not contain persistent data
-	// and should be removed on startup.
-	NonPersistent bool
 
 	// DumpParser is a function for parsing keys and values from BPF maps
 	DumpParser DumpParser
@@ -184,12 +176,6 @@ func NewMapWithInnerSpec(name string, mapType MapType, mapKey MapKey, mapValue M
 		innerSpec:  innerSpec,
 		DumpParser: dumpParser,
 	}
-}
-
-// WithNonPersistent turns the map non-persistent and returns the map
-func (m *Map) WithNonPersistent() *Map {
-	m.NonPersistent = true
-	return m
 }
 
 func (m *Map) commonName() string {
@@ -437,25 +423,8 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
-// EndParallelMode ends the parallel mode of a map
-func (m *Map) EndParallelMode() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if m.inParallelMode {
-		m.inParallelMode = false
-		m.scopedLogger().Debug("End of parallel mode")
-	}
-}
-
-// OpenParallel is similar to OpenOrCreate() but prepares the existing map to
-// be faded out while a new map is taking over. This can be used if a map is
-// shared between multiple consumers and the context of the shared map is
-// changing. Any update to the shared map would impact all consumers and
-// consumers can only be updated one by one. Parallel mode allows for consumers
-// to continue using the old version of the map until the consumer is updated
-// to use the new version.
-func (m *Map) OpenParallel() error {
+// Recreate removes any pin at the Map's pin path, recreates and re-pins it.
+func (m *Map) Recreate() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -467,16 +436,11 @@ func (m *Map) OpenParallel() error {
 		return err
 	}
 
-	if _, err := os.Stat(m.path); err == nil {
-		err := os.Remove(m.path)
-		if err != nil {
-			log.WithError(err).Warning("Unable to remove BPF map for parallel operation")
-			// Fall back to non-parallel mode
-		} else {
-			m.scopedLogger().Debug("Opening map in parallel mode")
-			m.inParallelMode = true
-		}
+	if err := os.Remove(m.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("removing pinned map %s: %w", m.name, err)
 	}
+
+	m.scopedLogger().Infof("Removed map pin at %s, recreating and re-pinning map %s", m.path, m.name)
 
 	return m.openOrCreate(true)
 }
@@ -496,6 +460,8 @@ func (m *Map) OpenOrCreate() error {
 }
 
 // CreateUnpinned creates the map without pinning it to the file system.
+//
+// TODO(tb): Remove this when all map creation takes MapSpec.
 func (m *Map) CreateUnpinned() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -519,12 +485,6 @@ func (m *Map) openOrCreate(pin bool) error {
 
 	if err := m.setPathIfUnset(); err != nil {
 		return err
-	}
-
-	// If the map represents non-persistent data, always remove the map
-	// before opening or creating.
-	if m.NonPersistent {
-		os.Remove(m.path)
 	}
 
 	m.Flags |= GetPreAllocateMapFlags(m.MapType)
@@ -603,12 +563,6 @@ func (m *Map) Close() error {
 	unregisterMap(m.path, m)
 
 	return nil
-}
-
-// Reopen attempts to close and re-open the received map.
-func (m *Map) Reopen() error {
-	m.Close()
-	return m.Open()
 }
 
 type DumpParser func(key []byte, value []byte, mapKey MapKey, mapValue MapValue) (MapKey, MapValue, error)
