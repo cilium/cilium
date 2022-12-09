@@ -972,7 +972,7 @@ func genMessageKnownFunctions(g *protogen.GeneratedFile, f *fileInfo, m *message
 		g.P("			// Identify the next message to search within.")
 		g.P("			md = fd.Message() // may be nil")
 		g.P()
-		g.P("			// Repeated fields are only allowed at the last postion.")
+		g.P("			// Repeated fields are only allowed at the last position.")
 		g.P("			if fd.IsList() || fd.IsMap() {")
 		g.P("				md = nil")
 		g.P("			}")

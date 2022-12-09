@@ -6,6 +6,7 @@
 // both proto2 and proto3 versions of the protocol buffer language.
 //
 // For more information about the usage of this plugin, see:
+//
 //	https://developers.google.com/protocol-buffers/docs/reference/go-generated
 package main
 
