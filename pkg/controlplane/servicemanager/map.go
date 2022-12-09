@@ -3,15 +3,17 @@ package servicemanager
 import (
 	"golang.org/x/exp/slices"
 
-	"github.com/cilium/cilium/pkg/loadbalancer"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 )
 
-type serviceWithBackends struct {
-	*Service
+type frontAndBack struct {
+	*Frontend
 	backends []*Backend
 }
 
-func servicePriority(s *Service) int {
+var typeToPriority = map[loadbalancer.SVCType]int{}
+
+func frontendPriority(s *Frontend) int {
 	if s.Type == loadbalancer.SVCTypeLocalRedirect {
 		return 1
 	}
@@ -19,30 +21,31 @@ func servicePriority(s *Service) int {
 }
 
 type serviceList struct {
-	services []serviceWithBackends
+	services []frontAndBack
 }
 
-func newServiceList() *serviceList { return &serviceList{} }
+func newFrontendList() *serviceList { return &serviceList{} }
 
-func (l *serviceList) lookup(typ loadbalancer.SVCType) (*Service, []*Backend) {
+func (l *serviceList) lookup(typ loadbalancer.SVCType) (*Frontend, []*Backend) {
 	for _, s := range l.services {
 		if s.Type == typ {
-			return s.Service, s.backends
+			return s.Frontend, s.backends
 		}
 	}
 	return nil, nil
 }
 
-func (l *serviceList) upsert(id ServiceID, svc *Service, backends []*Backend) {
+func (l *serviceList) upsert(id FrontendID, svc *Frontend, backends []*Backend) bool {
 	for i, other := range l.services {
 		if svc.Type == other.Type {
-			l.services[i] = serviceWithBackends{svc, backends}
+			l.services[i] = frontAndBack{svc, backends}
 		}
 	}
-	l.services = append(l.services, serviceWithBackends{svc, backends})
-	slices.SortFunc(l.services, func(a, b serviceWithBackends) bool {
-		return servicePriority(a.Service) < servicePriority(b.Service)
+	l.services = append(l.services, frontAndBack{svc, backends})
+	slices.SortFunc(l.services, func(a, b frontAndBack) bool {
+		return frontendPriority(a.Frontend) < frontendPriority(b.Frontend)
 	})
+	return l.services[0].Type == id.Type
 }
 
 func (l *serviceList) delete(typ loadbalancer.SVCType) {
@@ -58,31 +61,31 @@ func (l *serviceList) empty() bool {
 	return len(l.services) == 0
 }
 
-type serviceStore struct {
-	services map[loadbalancer.L3n4Addr]*serviceList
-}
+type serviceStore map[loadbalancer.L3n4Addr]*serviceList
 
-func (s *serviceStore) delete(id ServiceID) {
-	if list := s.services[id.Frontend]; list != nil {
+func (store serviceStore) delete(id FrontendID) {
+	if list := store[id.Address]; list != nil {
 		list.delete(id.Type)
 		if list.empty() {
-			delete(s.services, id.Frontend)
+			delete(store, id.Address)
 		}
 	}
 }
 
-func (s *serviceStore) lookup(id ServiceID) (*Service, []*Backend) {
-	if list := s.services[id.Frontend]; list != nil {
-		return list.lookup(id.Type)
+func (store serviceStore) lookupByAddr(addr loadbalancer.L3n4Addr) (*Frontend, []*Backend) {
+	if list := store[addr]; list != nil {
+		return list.services[0].Frontend, list.services[0].backends
 	}
 	return nil, nil
 }
 
-func (s *serviceStore) upsert(id ServiceID, svc *Service, backends []*Backend) {
-	list := s.services[id.Frontend]
+// upsert creates or updates the frontend. Returns true if this frontend is the
+// primary frontend.
+func (store serviceStore) upsert(id FrontendID, svc *Frontend, backends []*Backend) bool {
+	list := store[id.Address]
 	if list == nil {
-		list = newServiceList()
-		s.services[id.Frontend] = list
+		list = newFrontendList()
+		store[id.Address] = list
 	}
-	list.upsert(id, svc, backends)
+	return list.upsert(id, svc, backends)
 }

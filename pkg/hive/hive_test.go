@@ -6,6 +6,7 @@ package hive_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -274,3 +275,54 @@ var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Sh
 			return nil
 		}})
 })
+
+func TestLazy(t *testing.T) {
+
+	h := hive.New(
+		lazyChild,
+		lazyParent,
+
+		cell.Invoke(
+			func(lp hive.Lazy[ParentObject]) {
+				//p := lp.Get()
+				//fmt.Printf("got p: %s\n", p.name)
+			},
+		),
+	)
+	h.Run()
+
+}
+
+type LazyObject struct {
+	name string
+}
+
+func (l *LazyObject) Start(hive.HookContext) error {
+	fmt.Printf("%s started\n", l.name)
+	return nil
+}
+
+func (l *LazyObject) Stop(hive.HookContext) error {
+	fmt.Printf("%s stopped\n", l.name)
+	return nil
+}
+
+func newLazyObject(name string) *LazyObject {
+	return &LazyObject{name: name}
+}
+
+type ChildObject struct{ *LazyObject }
+type ParentObject struct{ *LazyObject }
+
+var lazyChild = cell.Provide(
+	func(lc hive.Lifecycle) hive.Lazy[ChildObject] {
+		return hive.NewLazy(lc,
+			func() ChildObject { return ChildObject{newLazyObject("child")} })
+	},
+)
+
+var lazyParent = cell.Provide(
+	func(lc hive.Lifecycle, child hive.Lazy[ChildObject]) hive.Lazy[ParentObject] {
+		return hive.NewLazy(lc,
+			func() ParentObject { return ParentObject{newLazyObject("parent of " + child.Get().name)} })
+	})

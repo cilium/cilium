@@ -1,17 +1,19 @@
 package servicemanager
 
-import "github.com/cilium/cilium/pkg/hive/cell"
+import (
+	datapathlb "github.com/cilium/cilium/pkg/datapath/lb"
+	"github.com/cilium/cilium/pkg/hive/cell"
+)
 
 var Cell = cell.Module(
 	"service-manager",
-	"Manages the collection of services with backends and updates datapath",
+	"Manages the load-balancing frontends and backends",
 
 	cell.Provide(New),
 )
 
-type serviceManagerParams struct {
+type params struct {
 	cell.In
 
-	// lbmap?
-	// ...
+	DPLB datapathlb.DatapathLoadBalancing
 }
