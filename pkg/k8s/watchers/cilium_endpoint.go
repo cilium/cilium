@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"k8s.io/client-go/tools/cache"
 
@@ -18,8 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -31,6 +34,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient client.Clientset, asyncC
 	// CiliumEndpoint objects are used for ipcache discovery until the
 	// key-value store is connected
 	var once sync.Once
+
 	apiGroup := k8sAPIGroupCiliumEndpointV2
 	for {
 		cepIndexer, ciliumEndpointInformer := informer.NewIndexerInformer(
@@ -118,12 +122,14 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
 		}
 	}()
+	defer k.updatePromMX(endpoint)
+
 	var ipsAdded []string
 	if oldEndpoint != nil && oldEndpoint.Networking != nil {
 		// Delete the old IP addresses from the IP cache
 		defer func() {
 			for _, oldPair := range oldEndpoint.Networking.Addressing {
-				v4Added, v6Added := false, false
+				var v4Added, v6Added bool
 				for _, ipAdded := range ipsAdded {
 					if ipAdded == oldPair.IPV4 {
 						v4Added = true
@@ -148,61 +154,53 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		}()
 	}
 
-	// default to the standard key
-	encryptionKey := node.GetIPsecKeyIdentity()
-
-	id := identity.ReservedIdentityUnmanaged
-	if endpoint.Identity != nil {
-		id = identity.NumericIdentity(endpoint.Identity.ID)
-	}
-
-	if endpoint.Encryption != nil {
-		encryptionKey = uint8(endpoint.Encryption.Key)
-	}
-
 	if endpoint.Networking == nil || endpoint.Networking.NodeIP == "" {
 		// When upgrading from an older version, the nodeIP may
 		// not be available yet in the CiliumEndpoint and we
 		// have to wait for it to be propagated
 		return
 	}
-
 	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
 	if nodeIP == nil {
 		log.WithField("nodeIP", endpoint.Networking.NodeIP).Warning("Unable to parse node IP while processing CiliumEndpoint update")
 		return
 	}
 
-	k8sMeta := &ipcache.K8sMetadata{
+	k8sMeta := ipcache.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
 	for _, port := range endpoint.NamedPorts {
-		p, err := u8proto.ParseProtocol(port.Protocol)
-		if err != nil {
-			continue
-		}
-		k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
-			Port:  port.Port,
-			Proto: uint8(p),
+		if p, err := u8proto.ParseProtocol(port.Protocol); err == nil {
+			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
+				Port:  port.Port,
+				Proto: uint8(p),
+			}
 		}
 	}
 
+	id := identity.ReservedIdentityUnmanaged
+	if endpoint.Identity != nil {
+		id = identity.NumericIdentity(endpoint.Identity.ID)
+	}
+	// default to the standard key
+	encryptionKey := node.GetIPsecKeyIdentity()
+	if endpoint.Encryption != nil {
+		encryptionKey = uint8(endpoint.Encryption.Key)
+	}
 	for _, pair := range endpoint.Networking.Addressing {
+		cid := ipcache.Identity{ID: id, Source: source.CustomResource}
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
-			portsChanged, _ := k.ipcache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
-				ipcache.Identity{ID: id, Source: source.CustomResource})
+			portsChanged, _ := k.ipcache.Upsert(pair.IPV4, nodeIP, encryptionKey, &k8sMeta, cid)
 			if portsChanged {
 				namedPortsChanged = true
 			}
 		}
-
 		if pair.IPV6 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV6)
-			portsChanged, _ := k.ipcache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
-				ipcache.Identity{ID: id, Source: source.CustomResource})
+			portsChanged, _ := k.ipcache.Upsert(pair.IPV6, nodeIP, encryptionKey, &k8sMeta, cid)
 			if portsChanged {
 				namedPortsChanged = true
 			}
@@ -260,5 +258,16 @@ func CreateCiliumEndpointLocalPodIndexFunc() cache.IndexFunc {
 			indices = append(indices, cep.Networking.NodeIP)
 		}
 		return indices, nil
+	}
+}
+
+// Helpers...
+
+func (k *K8sWatcher) updatePromMX(cep *types.CiliumEndpoint) {
+	if cep == nil {
+		return
+	}
+	if p := k.endpointManager.LookupPodName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+		metrics.EndpointPropagationDelay.WithLabelValues().Observe(time.Since(p.GetCreatedAt()).Seconds())
 	}
 }
