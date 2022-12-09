@@ -24,30 +24,10 @@ updates:
     labels:
     - kind/enhancement
 
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: daily
-    target-branch: "v0.10"
-    open-pull-requests-limit: 5
-    rebase-strategy: disabled
-    labels:
-    - kind/enhancement
-
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: daily
-    open-pull-requests-limit: 1
-    rebase-strategy: disabled
-    labels:
-    - kind/enhancement
-
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: daily
-    target-branch: "v0.10"
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     labels:
