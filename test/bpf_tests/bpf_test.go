@@ -165,6 +165,9 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		}
 
 		progs := testNameToPrograms[match[1]]
+		if match[2] == "pktgen" {
+			progs.pktgenProg = coll.Programs[progName]
+		}
 		if match[2] == "setup" {
 			progs.setupProg = coll.Programs[progName]
 		}
@@ -329,11 +332,12 @@ func loadCallsMap(spec *ebpf.CollectionSpec, coll *ebpf.Collection) error {
 }
 
 type programSet struct {
-	setupProg *ebpf.Program
-	checkProg *ebpf.Program
+	pktgenProg *ebpf.Program
+	setupProg  *ebpf.Program
+	checkProg  *ebpf.Program
 }
 
-var checkProgRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup))`)
+var checkProgRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup)|(?:pktgen))`)
 
 const (
 	ResultSuccess = 1
@@ -350,6 +354,22 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 	return func(t *testing.T) {
 		// create ctx with the max allowed size(4k - head room - tailroom)
 		ctx := make([]byte, 4096-256-320)
+
+		if progSet.pktgenProg != nil {
+			statusCode, result, err := progSet.pktgenProg.Test(ctx)
+			if err != nil {
+				t.Fatalf("error while running pktgen prog: %s", err)
+			}
+
+			if *dumpCtx {
+				t.Log("Pktgen returned status: ")
+				t.Log(statusCode)
+				t.Log("Ctx after pktgen: ")
+				t.Log(spew.Sdump(result))
+			}
+
+			ctx = result
+		}
 
 		if progSet.setupProg != nil {
 			statusCode, result, err := progSet.setupProg.Test(ctx)
