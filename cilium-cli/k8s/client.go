@@ -185,12 +185,20 @@ func (c *Client) CreateRole(ctx context.Context, namespace string, role *rbacv1.
 	return c.Clientset.RbacV1().Roles(namespace).Create(ctx, role, opts)
 }
 
+func (c *Client) UpdateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.UpdateOptions) (*rbacv1.Role, error) {
+	return c.Clientset.RbacV1().Roles(namespace).Update(ctx, role, opts)
+}
+
 func (c *Client) DeleteRole(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error {
 	return c.Clientset.RbacV1().Roles(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error) {
 	return c.Clientset.RbacV1().RoleBindings(namespace).Create(ctx, roleBinding, opts)
+}
+
+func (c *Client) UpdateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.UpdateOptions) (*rbacv1.RoleBinding, error) {
+	return c.Clientset.RbacV1().RoleBindings(namespace).Update(ctx, roleBinding, opts)
 }
 
 func (c *Client) DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
