@@ -349,76 +349,11 @@ jobs:
           path: image-digest
           retention-days: 1
 
-  # we need to build cilium-test separately
-  # this is caused by running apt while building the image
-  # which requires qemu setup in order to avoid x86/arm64 binaries mixups
-  # note: we only build on pushes to v1.13 branch
-  build-and-push-with-qemu:
-    if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        include:
-          - name: cilium-test
-            dockerfile: ./images/cilium-test/Dockerfile
-
-    steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@e81a89b1732b9c48d79cd809d8d81d79c4647a18 # v2.1.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f03ac48505955848960e80bbb68046aa35c7b9e7 # v2.4.1
-
-      - name: Login to quay.io for CI
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME_CI }}
-          password: ${{ secrets.QUAY_PASSWORD_CI }}
-
-      - name: Checkout Source Code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-
-      # v1.13 branch pushes
-      - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
-        id: docker_build_ci_v1_13
-        with:
-          provenance: false
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:v1.13
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ github.sha }}
-          target: release
-
-      # Upload artifact digests
-      - name: Upload artifact digests
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        with:
-          name: image-digest ${{ matrix.name }}
-          path: image-digest
-          retention-days: 1
-
   image-digests:
-    if: ${{ always() &&
-      (needs.build-and-push-with-qemu.result == 'success' || needs.build-and-push-with-qemu.result == 'skipped') }}
+    if: ${{ always() }}
     name: Display Digests
     runs-on: ubuntu-20.04
-    needs: [build-and-push-prs, build-and-push-with-qemu]
+    needs: build-and-push-prs
     steps:
       - name: Downloading Image Digests
         shell: bash
