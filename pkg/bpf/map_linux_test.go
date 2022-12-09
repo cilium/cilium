@@ -100,7 +100,7 @@ func mapsEqual(a, b *Map) bool {
 }
 
 func (s *BPFPrivilegedTestSuite) TestGetMapInfo(c *C) {
-	mi, err := GetMapInfo(os.Getpid(), testMap.GetFd())
+	mi, err := GetMapInfo(os.Getpid(), testMap.FD())
 	c.Assert(err, IsNil)
 
 	// Check OpenMap warning section
@@ -774,7 +774,7 @@ func (s *BPFPrivilegedTestSuite) TestCreateUnpinned(c *C) {
 	c.Assert(err, IsNil)
 
 	var value2 TestValue
-	err = LookupElement(m.fd, unsafe.Pointer(key1), unsafe.Pointer(&value2))
+	err = LookupElement(m.FD(), unsafe.Pointer(key1), unsafe.Pointer(&value2))
 	c.Assert(err, IsNil)
 	c.Assert(*value1, Equals, value2)
 }

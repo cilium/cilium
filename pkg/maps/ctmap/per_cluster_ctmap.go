@@ -535,7 +535,7 @@ func (om *PerClusterCTMap) updateClusterCTMap(clusterID uint32) error {
 
 	if err := om.Update(
 		&PerClusterCTMapKey{clusterID},
-		&PerClusterCTMapVal{uint32(im.GetFd())},
+		&PerClusterCTMapVal{uint32(im.FD())},
 	); err != nil {
 		return err
 	}
