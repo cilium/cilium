@@ -2099,6 +2099,11 @@ clustermesh:
     #   tls:
     #     cert: ""
     #     key: ""
+    # # -- path to the cluster client certificate, private key and certificate authority.
+    #   providedTls:
+    #     caFile: ""
+    #     certFile: ""
+    #     keyFile: ""
 
   apiserver:
     # -- Clustermesh API server image.

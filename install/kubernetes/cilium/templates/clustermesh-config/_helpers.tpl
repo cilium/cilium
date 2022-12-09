@@ -8,7 +8,13 @@ endpoints:
 {{ else }}
 - https://{{ $cluster.address | required "missing clustermesh.apiserver.config.clusters.address" }}:{{ $cluster.port }}
 {{- end }}
+{{- if $cluster.providedTls }}
+trusted-ca-file: {{ $cluster.providedTls.caFile }}
+cert-file: {{ $cluster.providedTls.certFile }}
+key-file: {{ $cluster.providedTls.keyFile }}
+{{- else }}
 trusted-ca-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client-ca.crt
-key-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client.key
 cert-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client.crt
+key-file: /var/lib/cilium/clustermesh/{{ $cluster.name }}.etcd-client.key
+{{- end }}
 {{- end }}
