@@ -128,12 +128,15 @@ Writing tests for a single function or small group of functions should be fairly
 only requiring a ``CHECK`` program. Testing functionality across tail calls requires an additional step: 
 given that the program does not return to the ``CHECK`` function after making a tail call, we can't check whether it was successful.
 
-The workaround is to use a ``SETUP`` program in addition to a ``CHECK`` program. 
-A ``SETUP`` program will run before the ``CHECK`` program with the same name. 
-The BPF context (for example the ``struct __sk_buff`` for TC programs), modified by the ``SETUP`` program, is then passed to the ``CHECK`` program,
-which can inspect the result. By executing the test setup and executing the tail call in ``SETUP`` we can execute complete programs. 
-The return code of the ``SETUP`` program is prepended as a ``u32`` to the start of the packet data passed to ``CHECK``, 
-meaning that the ``CHECK`` program will find the actual packet data at ``(void *)data + 4``. 
+The workaround is to use ``PKTGEN`` and ``SETUP`` programs in addition to a ``CHECK`` program.
+These programs will run before the ``CHECK`` program with the same name.
+Intended usage is that the ``PKGTEN`` program builds a BPF context (for example fill a ``struct __sk_buff`` for TC programs), and passes it on
+to the ``SETUP`` program, which performs further setup steps (for example fill a BPF map). The two-stage pattern is needed so that ``BPF_PROG_RUN`` gets
+invoked with the actual packet content (and for example fills ``skb->protocol``).
+
+The BPF context is then passed to the ``CHECK`` program, which can inspect the result. By executing the test setup and executing the tail
+call in ``SETUP`` we can execute complete programs.  The return code of the ``SETUP`` program is prepended as a ``u32`` to the start of the
+packet data passed to ``CHECK``, meaning that the ``CHECK`` program will find the actual packet data at ``(void *)data + 4``.
 
 This is an abbreviated example showing the key components:
 
@@ -155,8 +158,8 @@ This is an abbreviated example showing the key components:
         },
     };
 
-    SETUP("xdp", "l2_example")
-    int test1_setup(struct __ctx_buff *ctx)
+    PKTGEN("xdp", "l2_example")
+    int test1_pktgen(struct __ctx_buff *ctx)
     {
         /* Create room for our packet to be crafted */
         unsigned int data_len = ctx->data_end - ctx->data;
@@ -176,7 +179,13 @@ This is an abbreviated example showing the key components:
             .h_proto = bpf_htons(ETH_P_IP)
         };
         memcpy(data, &l2, sizeof(struct ethhdr));
-       
+
+        return 0;
+    }
+
+    SETUP("xdp", "l2_example")
+    int test1_setup(struct __ctx_buff *ctx)
+    {
         /* OMITTED setting up map state */
 
         /* Jump into the entrypoint */
