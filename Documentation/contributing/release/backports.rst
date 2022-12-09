@@ -59,6 +59,14 @@ maintainers when the PR is reviewed. When proposing PRs that have already been
 merged, also add a comment to the PR to ensure that the backporters are
 notified.
 
+Marking PRs to be backported by the author
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For PRs which need to be backported, but are likely to run into conflicts or
+other difficulties, the author has the option of adding the ``backport/author``
+label. This will exclude the PR from backporting automation, and the author is
+expected to perform the backport themselves.
+
 Backporting Guide for the Backporter
 ------------------------------------
 
@@ -314,7 +322,9 @@ Original Committers and Reviewers
 Committers should mark PRs needing backport as ``needs-backport/X.Y``, based on
 the `backport criteria <backport_criteria_>`_. It is up to the reviewers to
 confirm that the backport request is reasonable and, if not, raise concerns on
-the PR as comments.
+the PR as comments. In addition, if conflicts are foreseen or significant
+changes to the PR are necessary for older branches, consider adding the
+``backport/author`` label to mark the PR to be backported by the author.
 
 At some point, changes will be picked up on a backport PR and the committer will
 be notified and asked to approve the backport commits. Confirm that:
