@@ -35,8 +35,6 @@ jobs:
 
           - name: docker-plugin
 
-          - name: cilium-test
-
     steps:
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
