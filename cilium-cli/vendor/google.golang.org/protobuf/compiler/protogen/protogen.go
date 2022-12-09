@@ -472,7 +472,7 @@ func newFile(gen *Plugin, p *descriptorpb.FileDescriptorProto, packageName GoPac
 }
 
 // splitImportPathAndPackageName splits off the optional Go package name
-// from the Go import path when seperated by a ';' delimiter.
+// from the Go import path when separated by a ';' delimiter.
 func splitImportPathAndPackageName(s string) (GoImportPath, GoPackageName) {
 	if i := strings.Index(s, ";"); i >= 0 {
 		return GoImportPath(s[:i]), GoPackageName(s[i+1:])
