@@ -137,7 +137,7 @@ jobs:
         run: |
           GATEWAY_API_CONFORMANCE_TESTS=1 go test -v ./operator/pkg/gateway-api \
             --gateway-class cilium \
-            --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching \
+            --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching \
             --debug -test.run "TestConformance"
 
       - name: Post-test information gathering
