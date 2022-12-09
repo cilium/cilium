@@ -19,6 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -162,8 +163,10 @@ type k8sInstallerImplementation interface {
 	CreateClusterRoleBinding(ctx context.Context, role *rbacv1.ClusterRoleBinding, opts metav1.CreateOptions) (*rbacv1.ClusterRoleBinding, error)
 	DeleteClusterRoleBinding(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	CreateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.CreateOptions) (*rbacv1.Role, error)
+	UpdateRole(ctx context.Context, namespace string, role *rbacv1.Role, opts metav1.UpdateOptions) (*rbacv1.Role, error)
 	DeleteRole(ctx context.Context, namespace string, name string, opts metav1.DeleteOptions) error
 	CreateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.CreateOptions) (*rbacv1.RoleBinding, error)
+	UpdateRoleBinding(ctx context.Context, namespace string, roleBinding *rbacv1.RoleBinding, opts metav1.UpdateOptions) (*rbacv1.RoleBinding, error)
 	DeleteRoleBinding(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateDaemonSet(ctx context.Context, namespace string, ds *appsv1.DaemonSet, opts metav1.CreateOptions) (*appsv1.DaemonSet, error)
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)
@@ -796,6 +799,10 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 		for _, r := range rs {
 			_, err = k.client.CreateRole(ctx, r.GetNamespace(), r, metav1.CreateOptions{})
+			if apierrors.IsAlreadyExists(err) {
+				_, err = k.client.UpdateRole(ctx, r.GetNamespace(), r, metav1.UpdateOptions{})
+			}
+
 			if err != nil {
 				return err
 			}
@@ -809,7 +816,10 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 
 		rbs := k.NewRoleBinding(roleName)
 		for _, rb := range rbs {
-			rb, err := k.client.CreateRoleBinding(ctx, rb.GetNamespace(), rb, metav1.CreateOptions{})
+			_, err := k.client.CreateRoleBinding(ctx, rb.GetNamespace(), rb, metav1.CreateOptions{})
+			if apierrors.IsAlreadyExists(err) {
+				_, err = k.client.UpdateRoleBinding(ctx, rb.GetNamespace(), rb, metav1.UpdateOptions{})
+			}
 			if err != nil {
 				return err
 			}
