@@ -152,7 +152,7 @@ func (om *PerClusterNATMap) updateClusterNATMap(clusterID uint32) error {
 
 	if err := om.Update(
 		&PerClusterNATMapKey{clusterID},
-		&PerClusterNATMapVal{uint32(im.GetFd())},
+		&PerClusterNATMapVal{uint32(im.FD())},
 	); err != nil {
 		return err
 	}
