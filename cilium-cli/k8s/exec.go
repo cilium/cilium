@@ -62,14 +62,12 @@ func (c *Client) execInPodWithWriters(ctx context.Context, p ExecParameters, std
 		defer stdin.Close()
 	}
 
-	err = exec.Stream(remotecommand.StreamOptions{
+	return exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  stdin,
 		Stdout: stdout,
 		Stderr: stderr,
 		Tty:    p.TTY,
 	})
-
-	return err
 }
 
 func (c *Client) execInPod(ctx context.Context, p ExecParameters) (*ExecResult, error) {
