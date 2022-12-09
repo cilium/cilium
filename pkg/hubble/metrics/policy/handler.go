@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -83,7 +84,18 @@ func (d *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 	}
 
 	direction := strings.ToLower(flow.GetTrafficDirection().String())
-	match := "l7"
+	var subType string
+	if l7 := flow.GetL7(); l7 != nil {
+		switch {
+		case l7.GetDns() != nil:
+			subType = "dns"
+		case l7.GetHttp() != nil:
+			subType = "http"
+		case l7.GetKafka() != nil:
+			subType = "kafka"
+		}
+	}
+	match := fmt.Sprintf("l7/%s", subType)
 	action := strings.ToLower(flow.Verdict.String())
 	labels := []string{direction, match, action}
 	labels = append(labels, labelValues...)
