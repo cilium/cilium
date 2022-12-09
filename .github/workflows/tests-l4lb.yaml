@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -173,7 +173,9 @@ jobs:
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
           # This is intentionally set to stable branch to avoid using test.sh from pull requests.
-          ref: master
+          #ref: master
+          # XXX Temporarly pick up new test.sh
+          ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
       - name: Checkout pull request for Helm chart
