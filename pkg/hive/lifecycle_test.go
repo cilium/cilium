@@ -16,7 +16,7 @@ import (
 var (
 	started, stopped int
 
-	lifecycleErr = errors.New("nope")
+	errLifecycle = errors.New("nope")
 
 	goodHook = hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -31,7 +31,7 @@ var (
 
 	badStartHook = hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			return lifecycleErr
+			return errLifecycle
 		},
 	}
 
@@ -41,7 +41,7 @@ var (
 			return nil
 		},
 		OnStop: func(hive.HookContext) error {
-			return lifecycleErr
+			return errLifecycle
 		},
 	}
 
@@ -83,7 +83,7 @@ func TestLifecycle(t *testing.T) {
 	lc.Append(badStartHook)
 
 	err = lc.Start(context.TODO())
-	assert.ErrorIs(t, err, lifecycleErr, "expected Start to fail")
+	assert.ErrorIs(t, err, errLifecycle, "expected Start to fail")
 
 	assert.Equal(t, 2, started)
 	started = 0
@@ -101,7 +101,7 @@ func TestLifecycle(t *testing.T) {
 	assert.Equal(t, 0, stopped)
 
 	err = lc.Stop(context.TODO())
-	assert.ErrorIs(t, err, lifecycleErr, "expected Stop to fail")
+	assert.ErrorIs(t, err, errLifecycle, "expected Stop to fail")
 	assert.Equal(t, 2, stopped)
 	started = 0
 	stopped = 0

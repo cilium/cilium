@@ -464,7 +464,7 @@ func (s *BPFPrivilegedTestSuite) TestSubscribe(c *C) {
 	go func(collect *int) {
 		defer subHandle.Close()
 		for range subHandle.C() {
-			*collect += 1
+			*collect++
 		}
 		close(done)
 	}(&collect)
