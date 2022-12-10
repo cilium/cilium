@@ -502,7 +502,8 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	c.Assert(err, IsNil)
 
 	dump1 := map[string][]string{}
-	testMap.Dump(dump1)
+	err = testMap.Dump(dump1)
+	c.Assert(err, IsNil)
 	c.Assert(dump1, checker.DeepEquals, map[string][]string{
 		"key=105": {"value=205"},
 		"key=106": {"value=206"},
@@ -512,7 +513,8 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	customCb := func(key MapKey, value MapValue) {
 		dump2[key.String()] = append(dump2[key.String()], "custom-"+value.String())
 	}
-	testMap.DumpWithCallback(customCb)
+	err = testMap.DumpWithCallback(customCb)
+	c.Assert(err, IsNil)
 	c.Assert(dump2, checker.DeepEquals, map[string][]string{
 		"key=105": {"custom-value=205"},
 		"key=106": {"custom-value=206"},

@@ -601,7 +601,10 @@ func (m *Map) Close() error {
 	defer m.lock.Unlock()
 
 	if m.enableSync {
-		mapControllers.RemoveController(m.controllerName())
+		err := mapControllers.RemoveController(m.controllerName())
+		if err != nil {
+			return err
+		}
 	}
 
 	if m.fd != 0 {

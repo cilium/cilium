@@ -595,7 +595,10 @@ recreate:
 			flags,
 		)
 		if redo {
-			ObjClose(fd)
+			err := ObjClose(fd)
+			if err != nil {
+				return fd, false, err
+			}
 			goto recreate
 		}
 	}
