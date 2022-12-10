@@ -70,7 +70,7 @@ Supported Ingress Annotations
      - 10
    * - ``io.cilium/websocket``
      - Enable websocket
-     - 0 (disabled)
+     - disabled
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
 are supported. Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
