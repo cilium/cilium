@@ -317,7 +317,7 @@ func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
 		ip = *netRange.First
 	} else {
 		ip = *netRange.Last
-		index += 1
+		index++
 	}
 	if ip.To4() != nil {
 		val.SetBytes(ip.To4())
