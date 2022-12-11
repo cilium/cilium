@@ -117,18 +117,14 @@ func (i *defaultTranslator) getResources(m *model.Model) []ciliumv2.XDSResource 
 // listener is returned for shared LB mode, tls and non-tls filters are
 // applied by default.
 func (i *defaultTranslator) getListener(m *model.Model) []ciliumv2.XDSResource {
-	var tlsMap = make(map[string]model.TLSSecret)
+	var tlsMap = make(map[model.TLSSecret][]string)
 	for _, h := range m.HTTP {
 		for _, s := range h.TLS {
-			tlsMap[s.Namespace+"/"+s.Name] = s
+			tlsMap[s] = append(tlsMap[s], h.Hostname)
 		}
 	}
-	tls := make([]model.TLSSecret, 0, len(tlsMap))
-	for _, v := range tlsMap {
-		tls = append(tls, v)
-	}
 
-	l, _ := NewListenerWithDefaults("listener", i.secretsNamespace, tls)
+	l, _ := NewListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
 	return []ciliumv2.XDSResource{l}
 }
 
