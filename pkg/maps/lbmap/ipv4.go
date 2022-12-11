@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -75,7 +76,8 @@ func initSVC(params InitParams) {
 			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Service4MapV2Name))
 		Backend4Map = bpf.NewMap(Backend4MapName,
 			bpf.MapTypeHash,
 			&Backend4Key{},
@@ -85,7 +87,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend4MapName))
 		Backend4MapV2 = bpf.NewMap(Backend4MapV2Name,
 			bpf.MapTypeHash,
 			&Backend4KeyV3{},
@@ -95,7 +98,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV2Name))
 		Backend4MapV3 = bpf.NewMap(Backend4MapV3Name,
 			bpf.MapTypeHash,
 			&Backend4KeyV3{},
@@ -105,7 +109,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend4MapV3Name))
 		RevNat4Map = bpf.NewMap(RevNat4MapName,
 			bpf.MapTypeHash,
 			&RevNat4Key{},
@@ -115,7 +120,8 @@ func initSVC(params InitParams) {
 			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(RevNat4MapName))
 	}
 
 	if params.IPv6 {
@@ -128,7 +134,8 @@ func initSVC(params InitParams) {
 			ServiceMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Service6MapV2Name))
 		Backend6Map = bpf.NewMap(Backend6MapName,
 			bpf.MapTypeHash,
 			&Backend6Key{},
@@ -138,7 +145,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend6MapName))
 		Backend6MapV2 = bpf.NewMap(Backend6MapV2Name,
 			bpf.MapTypeHash,
 			&Backend6KeyV3{},
@@ -148,7 +156,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV2Name))
 		Backend6MapV3 = bpf.NewMap(Backend6MapV3Name,
 			bpf.MapTypeHash,
 			&Backend6KeyV3{},
@@ -158,7 +167,8 @@ func initSVC(params InitParams) {
 			ServiceBackEndMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Backend6MapV3Name))
 		RevNat6Map = bpf.NewMap(RevNat6MapName,
 			bpf.MapTypeHash,
 			&RevNat6Key{},
@@ -168,7 +178,8 @@ func initSVC(params InitParams) {
 			RevNatMapMaxEntries,
 			0, 0,
 			bpf.ConvertKeyValue,
-		).WithCache().WithPressureMetric()
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(RevNat6MapName))
 	}
 }
 
