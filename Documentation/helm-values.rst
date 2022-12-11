@@ -1328,7 +1328,7 @@
    * - ingressController.service
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"annotations":{},"insecureNodePort":null,"labels":{},"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
+     - ``{"annotations":{},"insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
    * - ingressController.service.annotations
      - Annotations to be added for the shared LB service
      - object
@@ -1341,6 +1341,14 @@
      - Labels to be added for the shared LB service
      - object
      - ``{}``
+   * - ingressController.service.loadBalancerClass
+     - Configure a specific loadBalancerClass on the shared LB service (requires Kubernetes 1.24+)
+     - string
+     - ``nil``
+   * - ingressController.service.loadBalancerIP
+     - Configure a specific loadBalancerIP on the shared LB service
+     - string
+     - ``nil``
    * - ingressController.service.name
      - Service name
      - string
