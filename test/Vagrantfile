@@ -71,6 +71,8 @@ while [ "$res" == "0" ]; do
     res=$?
     i=$((i+1))
 done 2>/dev/null
+
+VBoxManage natnetwork list
 SCRIPT
 
 $bootstrap = <<SCRIPT
