@@ -532,9 +532,24 @@ var (
 		"cilium_lxc": "enabled,128,0",
 		// cilium_ipcache is the likely the most useful use of this feature, but also has
 		// the highest churn.
-		"cilium_ipcache":         "enabled,1024,0",
-		"cilium_lb4_services_v2": "enabled,128,0",
-		"cilium_lb4_backends_v2": "enabled,128,0",
-		"cilium_lb4_reverse_nat": "enabled,128,0",
+		"cilium_ipcache":           "enabled,1024,0",
+		"cilium_tunnel_map":        "enabled,128,0",
+		"cilium_lb_affinity_match": "enabled,128,0",
+
+		// ip4
+		"cilium_lb4_services_v2":    "enabled,128,0",
+		"cilium_lb4_backends_v2":    "enabled,128,0",
+		"cilium_lb4_reverse_nat":    "enabled,128,0",
+		"cilium_lb4_backends_v3":    "enabled,128,0",
+		"cilium_lb4_source_range":   "enabled,128,0",
+		"cilium_lb4_affinity_match": "enabled,128,0",
+
+		// ip6
+		"cilium_lb6_services_v2":    "enabled,128,0",
+		"cilium_lb6_backends_v2":    "enabled,128,0",
+		"cilium_lb6_reverse_nat":    "enabled,128,0",
+		"cilium_lb6_backends_v3":    "enabled,128,0",
+		"cilium_lb6_source_range":   "enabled,128,0",
+		"cilium_lb6_affinity_match": "enabled,128,0",
 	}
 )

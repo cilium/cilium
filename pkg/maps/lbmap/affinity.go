@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -40,7 +41,8 @@ func initAffinity(params InitParams) {
 		AffinityMapMaxEntries,
 		0, 0,
 		bpf.ConvertKeyValue,
-	).WithCache().WithPressureMetric()
+	).WithCache().WithPressureMetric().
+		WithEvents(option.Config.GetEventBufferConfig(AffinityMatchMapName))
 
 	if params.IPv4 {
 		Affinity4Map = bpf.NewMap(
