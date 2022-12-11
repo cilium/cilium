@@ -644,6 +644,7 @@ llc
 llvm
 loadBalancer
 loadBalancerClass
+loadBalancerIP
 loadbalancer
 loadbalancerIP
 loadbalancerMode
