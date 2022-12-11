@@ -160,6 +160,15 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		c.Options.CiliumNamespace = ns
 	}
 
+	if c.Options.CiliumOperatorNamespace == "" {
+		ns, err := detectCiliumOperatorNamespace(k)
+		if err != nil {
+			return nil, err
+		}
+		c.log("Detected Cilium operator in namespace %q", ns)
+		c.Options.CiliumOperatorNamespace = ns
+	}
+
 	// Grab the Kubernetes nodes for the target cluster.
 	c.logTask("Collecting Kubernetes nodes")
 	c.allNodes, err = c.Client.ListNodes(context.Background(), metav1.ListOptions{})
@@ -1562,4 +1571,27 @@ func detectCiliumNamespace(k KubernetesClient) (string, error) {
 		return ns.Name, nil
 	}
 	return "", fmt.Errorf("failed to detect Cilium namespace, could not find Cilium installation in namespaces: %v", DefaultCiliumNamespaces)
+}
+
+func detectCiliumOperatorNamespace(k KubernetesClient) (string, error) {
+	for _, ns := range DefaultCiliumNamespaces {
+		ctx := context.Background()
+		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to detect Cilium operator namespace: %w", err)
+		}
+
+		_, err = k.GetDeployment(ctx, ns.Name, ciliumOperatorDeploymentName, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to check for Cilium operator Deployment: %w", err)
+		}
+		return ns.Name, nil
+	}
+	return "", fmt.Errorf("failed to detect Cilium operator namespace, could not find Cilium installation in namespaces: %v", DefaultCiliumNamespaces)
 }
