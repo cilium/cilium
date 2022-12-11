@@ -151,13 +151,13 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	c.logDebug("Using %v as a temporary directory", c.sysdumpDir)
 	c.logTask("Collecting sysdump with cilium-cli version: %s, args: %s", cliVersion, os.Args[1:])
 
-	if o.CiliumNamespace == "" {
+	if c.Options.CiliumNamespace == "" {
 		ns, err := detectCiliumNamespace(k)
 		if err != nil {
 			return nil, err
 		}
 		c.log("🔮 Detected Cilium installation in namespace %q", ns)
-		o.CiliumNamespace = ns
+		c.Options.CiliumNamespace = ns
 	}
 
 	// Grab the Kubernetes nodes for the target cluster.
