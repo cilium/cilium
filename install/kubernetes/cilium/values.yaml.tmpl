@@ -627,6 +627,10 @@ ingressController:
     insecureNodePort: ~
     # -- Configure a specific nodePort for secure HTTPS traffic on the shared LB service
     secureNodePort : ~
+    # -- Configure a specific loadBalancerClass on the shared LB service (requires Kubernetes 1.24+)
+    loadBalancerClass: ~
+    # -- Configure a specific loadBalancerIP on the shared LB service
+    loadBalancerIP : ~
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
