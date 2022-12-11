@@ -265,7 +265,7 @@ func (c *fakeClient) GetDaemonSet(ctx context.Context, namespace, name string, o
 }
 
 func (c *fakeClient) GetDeployment(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.Deployment, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (c *fakeClient) GetLogs(ctx context.Context, namespace, name, container string, sinceTime time.Time, limitBytes int64, previous bool) (string, error) {
