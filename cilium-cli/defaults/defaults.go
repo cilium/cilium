@@ -84,6 +84,9 @@ const (
 
 	PolicyWaitTimeout = 15 * time.Second
 
+	ConnectTimeout = 5 * time.Second
+	RequestTimeout = 20 * time.Second
+
 	IngressClassName        = "cilium"
 	IngressControllerName   = "cilium.io/ingress-controller"
 	IngressSecretsNamespace = "cilium-secrets"
