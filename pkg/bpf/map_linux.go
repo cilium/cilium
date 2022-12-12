@@ -18,6 +18,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
@@ -69,7 +70,7 @@ type MapInfo struct {
 	ValueSize     uint32
 	MaxEntries    uint32
 	Flags         uint32
-	InnerID       uint32
+	InnerSpec     *ebpf.MapSpec
 	OwnerProgType ProgType
 }
 
@@ -83,7 +84,10 @@ type cacheEntry struct {
 
 type Map struct {
 	MapInfo
-	fd   int
+	fd        int
+	m         *ebpf.Map
+	innerSpec *ebpf.MapSpec
+
 	name string
 	path string
 	lock lock.RWMutex
@@ -134,7 +138,7 @@ type Map struct {
 
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
-	mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32,
+	mapValue MapValue, valueSize, maxEntries int, flags uint32, _ uint32,
 	dumpParser DumpParser) *Map {
 
 	if size := reflect.TypeOf(mapKey).Elem().Size(); size != uintptr(keySize) {
@@ -155,7 +159,6 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
-			InnerID:       innerID,
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
@@ -163,27 +166,29 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
 	}
 }
 
-// NewPerCPUHashMap creates a new Map type of "per CPU hash" - object representing a BPF map
-// The number of cpus is used to have the size representation of a value when
-// a lookup is made on this map types.
-func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue, valueSize, cpus, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
-	m := &Map{
+// NewMap creates a new Map instance - object representing a BPF map
+func NewMapWithInnerSpec(name string, mapType MapType, mapKey MapKey, mapValue MapValue, maxEntries int, flags uint32,
+	innerSpec *ebpf.MapSpec, dumpParser DumpParser) *Map {
+
+	keySize := reflect.TypeOf(mapKey).Elem().Size()
+	valueSize := reflect.TypeOf(mapValue).Elem().Size()
+
+	return &Map{
 		MapInfo: MapInfo{
-			MapType:       MapTypePerCPUHash,
+			MapType:       mapType,
 			MapKey:        mapKey,
 			KeySize:       uint32(keySize),
 			MapValue:      mapValue,
-			ReadValueSize: uint32(valueSize * cpus),
+			ReadValueSize: uint32(valueSize),
 			ValueSize:     uint32(valueSize),
 			MaxEntries:    uint32(maxEntries),
 			Flags:         flags,
-			InnerID:       innerID,
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
+		innerSpec:  innerSpec,
 		DumpParser: dumpParser,
 	}
-	return m
 }
 
 // WithNonPersistent turns the map non-persistent and returns the map
@@ -536,16 +541,30 @@ func (m *Map) openOrCreate(pin bool) error {
 		os.Remove(m.path)
 	}
 
-	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
-	fd, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
+	m.Flags |= GetPreAllocateMapFlags(m.MapType)
+
+	spec := &ebpf.MapSpec{
+		Name:       m.name,
+		Type:       ebpf.MapType(m.MapType),
+		KeySize:    m.KeySize,
+		ValueSize:  m.ValueSize,
+		MaxEntries: m.MaxEntries,
+		Flags:      m.Flags,
+		InnerMap:   m.innerSpec,
+	}
+	if pin {
+		spec.Pinning = ebpf.PinByName
+	}
+
+	em, err := OpenOrCreateMap(spec, path.Dir(m.path))
 	if err != nil {
 		return err
 	}
 
 	registerMap(m.path, m)
 
-	m.fd = fd
-	m.Flags = flags
+	m.m = em
+	m.fd = em.FD()
 
 	return nil
 }
@@ -590,8 +609,9 @@ func (m *Map) Close() error {
 		mapControllers.RemoveController(m.controllerName())
 	}
 
-	if m.fd != 0 {
-		unix.Close(m.fd)
+	if m.m != nil {
+		m.m.Close()
+		m.m = nil
 		m.fd = 0
 	}
 
@@ -615,6 +635,9 @@ type MapValidator func(path string) (bool, error)
 // actual key and value. The callback function should consider creating a
 // deepcopy of the key and value on between each iterations to avoid memory
 // corruption.
+//
+// TODO(tb): This package currently doesn't support dumping per-cpu maps, as
+// ReadValueSize is always set to the size of a single value.
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	if err := m.Open(); err != nil {
 		return err

@@ -66,7 +66,7 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 			}
 
 			if tail.Pinning > 0 {
-				m.Pinning = 1 // LIBBPF_PIN_BY_NAME
+				m.Pinning = ebpf.PinByName
 			}
 
 			// Index maps by their iproute2 .id if any, so X/Y ELF section names can

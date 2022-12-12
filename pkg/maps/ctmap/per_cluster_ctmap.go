@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -475,30 +476,21 @@ func (gm *dummyPerClusterCTMaps) Cleanup() {
 }
 
 func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
-	fd, err := bpf.CreateMap(
-		bpf.MapTypeLRUHash,
-		uint32(mapInfo[m].keySize),
-		uint32(mapInfo[m].valueSize),
-		uint32(mapInfo[m].maxEntries),
-		0, 0,
-		name+"_tmp",
-	)
-	if err != nil {
-		return nil, err
+	inner := &ebpf.MapSpec{
+		Type:       ebpf.LRUHash,
+		KeySize:    uint32(mapInfo[m].keySize),
+		ValueSize:  uint32(mapInfo[m].valueSize),
+		MaxEntries: uint32(mapInfo[m].maxEntries),
 	}
 
-	defer syscall.Close(fd)
-
-	om := bpf.NewMap(
+	om := bpf.NewMapWithInnerSpec(
 		name,
 		bpf.MapTypeArrayOfMaps,
 		&PerClusterCTMapKey{},
-		int(unsafe.Sizeof(PerClusterCTMapKey{})),
 		&PerClusterCTMapVal{},
-		int(unsafe.Sizeof(PerClusterCTMapVal{})),
 		perClusterCTMapMaxEntries,
 		0,
-		uint32(fd),
+		inner,
 		bpf.ConvertKeyValue,
 	)
 

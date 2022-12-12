@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -95,30 +96,21 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 		valSize = uint32(unsafe.Sizeof(NatEntry6{}))
 	}
 
-	fd, err := bpf.CreateMap(
-		bpf.MapTypeLRUHash,
-		keySize,
-		valSize,
-		uint32(innerMapEntries),
-		0, 0,
-		name+"_tmp",
-	)
-	if err != nil {
-		return nil, err
+	inner := &ebpf.MapSpec{
+		Type:       ebpf.LRUHash,
+		KeySize:    keySize,
+		ValueSize:  valSize,
+		MaxEntries: uint32(innerMapEntries),
 	}
 
-	defer syscall.Close(fd)
-
-	om := bpf.NewMap(
+	om := bpf.NewMapWithInnerSpec(
 		name,
 		bpf.MapTypeArrayOfMaps,
 		&PerClusterNATMapKey{},
-		int(unsafe.Sizeof(PerClusterNATMapKey{})),
 		&PerClusterNATMapVal{},
-		int(unsafe.Sizeof(PerClusterNATMapVal{})),
 		perClusterNATMapMaxEntries,
 		0,
-		uint32(fd),
+		inner,
 		bpf.ConvertKeyValue,
 	)
 

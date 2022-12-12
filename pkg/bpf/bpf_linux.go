@@ -12,11 +12,10 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
-	"syscall"
 	"unsafe"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
@@ -26,86 +25,24 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
-// CreateMap creates a Map of type mapType, with key size keySize, a value size of
-// valueSize and the maximum amount of entries of maxEntries.
-// mapType should be one of the bpf_map_type in "uapi/linux/bpf.h"
-// When mapType is the type HASH_OF_MAPS an innerID is required to point at a
-// map fd which has the same type/keySize/valueSize/maxEntries as expected map
-// entries. For all other mapTypes innerID is ignored and should be zeroed.
-func CreateMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, fullPath string) (int, error) {
-	ret, err := createMap(mapType, keySize, valueSize, maxEntries, flags, innerID, fullPath)
-	if err != 0 {
-		return 0, &os.PathError{
-			Op:   "Unable to create map",
-			Path: fullPath,
-			Err:  err,
-		}
+// createMap wraps a call to ebpf.NewMapWithOptions while measuring syscall duration.
+func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
+	if opts == nil {
+		opts = &ebpf.MapOptions{}
 	}
-
-	return int(ret), nil
-}
-
-func createMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID uint32, fullPath string) (int, syscall.Errno) {
-	var (
-		uba     unsafe.Pointer
-		ubaSize uintptr
-	)
-
-	var name [16]byte
-	if p := path.Base(fullPath); len(p) > 15 {
-		copy(name[:], p[:15]) // save last element for '\0'
-	} else {
-		copy(name[:], p)
-	}
-	u := ubaMapName{
-		ubaCommon: ubaCommon{
-			mapType:    uint32(mapType),
-			keySize:    keySize,
-			valueSize:  valueSize,
-			maxEntries: maxEntries,
-			mapFlags:   flags,
-			innerID:    innerID,
-		},
-		mapName: name,
-	}
-	uba = unsafe.Pointer(&u)
-	ubaSize = unsafe.Sizeof(u)
 
 	var duration *spanstat.SpanStat
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
 		duration = spanstat.Start()
 	}
-	ret, _, err := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_MAP_CREATE,
-		uintptr(uba),
-		ubaSize,
-	)
-	runtime.KeepAlive(&uba)
+
+	m, err := ebpf.NewMapWithOptions(spec, *opts)
+
 	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpCreate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpCreate, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
 	}
 
-	return int(ret), err
-}
-
-// This struct must be in sync with union bpf_attr's anonymous struct
-// used by the BPF_MAP_CREATE command
-type ubaCommon struct {
-	mapType    uint32
-	keySize    uint32
-	valueSize  uint32
-	maxEntries uint32
-	mapFlags   uint32
-	innerID    uint32
-}
-
-// This struct must be in sync with union bpf_attr's anonymous struct
-// used by the BPF_MAP_CREATE command
-type ubaMapName struct {
-	ubaCommon
-	numaNode uint32
-	mapName  [16]byte
+	return m, err
 }
 
 // This struct must be in sync with union bpf_attr's anonymous struct used by
@@ -315,41 +252,6 @@ type bpfAttrObjOp struct {
 	pad0     [4]byte
 }
 
-// ObjPin stores the map's fd in pathname.
-func ObjPin(fd int, pathname string) error {
-	pathStr, err := unix.BytePtrFromString(pathname)
-	if err != nil {
-		return fmt.Errorf("Unable to convert pathname %q to byte pointer: %w", pathname, err)
-	}
-	uba := bpfAttrObjOp{
-		pathname: uint64(uintptr(unsafe.Pointer(pathStr))),
-		fd:       uint32(fd),
-	}
-
-	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		duration = spanstat.Start()
-	}
-	ret, _, errno := unix.Syscall(
-		unix.SYS_BPF,
-		BPF_OBJ_PIN,
-		uintptr(unsafe.Pointer(&uba)),
-		unsafe.Sizeof(uba),
-	)
-	runtime.KeepAlive(pathStr)
-	runtime.KeepAlive(&uba)
-
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
-		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjPin, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
-	}
-
-	if ret != 0 || errno != 0 {
-		return fmt.Errorf("Unable to pin object with file descriptor %d to %s: %s", fd, pathname, errno)
-	}
-
-	return nil
-}
-
 // ObjGet reads the pathname and returns the map's fd read.
 func ObjGet(pathname string) (int, error) {
 	pathStr, err := unix.BytePtrFromString(pathname)
@@ -385,14 +287,6 @@ func ObjGet(pathname string) (int, error) {
 	}
 
 	return int(fd), nil
-}
-
-// ObjClose closes the map's fd.
-func ObjClose(fd int) error {
-	if fd > 0 {
-		return unix.Close(fd)
-	}
-	return nil
 }
 
 func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32) bool {
@@ -460,82 +354,55 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, error) {
-	var fd int
-	var err error
-
-	redo := false
-
-recreate:
-	create := true
-	if pin {
-		if _, err := os.Stat(path); os.IsNotExist(err) || redo {
-			mapDir := filepath.Dir(path)
-			if _, err = os.Stat(mapDir); os.IsNotExist(err) {
-				if err = os.MkdirAll(mapDir, 0755); err != nil {
-					return 0, &os.PathError{
-						Op:   "Unable create map base directory",
-						Path: path,
-						Err:  err,
-					}
-				}
-			}
-		} else {
-			create = false
+// OpenOrCreateMap attempts to load the pinned map at "pinDir/<spec.Name>" if
+// the spec is marked as Pinned. Any parent directories of pinDir are
+// automatically created. Any pinned maps incompatible with the given spec are
+// removed and recreated.
+//
+// If spec.Pinned is 0, a new Map is always created.
+func OpenOrCreateMap(spec *ebpf.MapSpec, pinDir string) (*ebpf.Map, error) {
+	var opts ebpf.MapOptions
+	if spec.Pinning != 0 {
+		if pinDir == "" {
+			return nil, errors.New("cannot pin map to empty pinDir")
 		}
+		if spec.Name == "" {
+			return nil, errors.New("cannot load unnamed map from pin")
+		}
+
+		if err := os.MkdirAll(pinDir, 0755); err != nil {
+			return nil, fmt.Errorf("creating map base pinning directory: %w", err)
+		}
+
+		opts.PinPath = pinDir
 	}
 
-	if create {
-		fd, err = CreateMap(
-			mapType,
-			keySize,
-			valueSize,
-			maxEntries,
-			flags,
-			innerID,
-			path,
-		)
-
-		defer func() {
-			if err != nil {
-				// In case of error, we need to close
-				// this fd since it was open by CreateMap
-				ObjClose(fd)
-			}
-		}()
-
+	m, err := createMap(spec, &opts)
+	if errors.Is(err, ebpf.ErrMapIncompatible) {
+		// Found incompatible map. Open the pin again to find out why.
+		m, err := ebpf.LoadPinnedMap(path.Join(pinDir, spec.Name), nil)
 		if err != nil {
-			return 0, err
+			return nil, fmt.Errorf("open pin of incompatible map: %w", err)
+		}
+		defer m.Close()
+
+		log.WithField(logfields.Path, path.Join(pinDir, spec.Name)).
+			WithFields(logrus.Fields{
+				"old": fmt.Sprintf("Type:%s KeySize:%d ValueSize:%d MaxEntries:%d Flags:%d",
+					m.Type(), m.KeySize(), m.ValueSize(), m.MaxEntries(), m.Flags()),
+				"new": fmt.Sprintf("Type:%s KeySize:%d ValueSize:%d MaxEntries:%d Flags:%d",
+					spec.Type, spec.KeySize, spec.ValueSize, spec.MaxEntries, spec.Flags),
+			}).Info("Unpinning map with incompatible properties")
+
+		// Existing map incompatible with spec. Unpin so it can be recreated.
+		if err := m.Unpin(); err != nil {
+			return nil, err
 		}
 
-		if pin {
-			err = ObjPin(fd, path)
-			if err != nil {
-				return 0, err
-			}
-		}
-
-		return fd, nil
+		return createMap(spec, &opts)
 	}
 
-	fd, err = ObjGet(path)
-	if err == nil {
-		redo = objCheck(
-			fd,
-			path,
-			mapType,
-			keySize,
-			valueSize,
-			maxEntries,
-			flags,
-		)
-		if redo {
-			ObjClose(fd)
-			goto recreate
-		}
-	}
-
-	return fd, err
+	return m, err
 }
 
 // GetMtime returns monotonic time that can be used to compare
