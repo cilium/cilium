@@ -9,6 +9,5 @@ const (
 	metricOpLookup     = "lookup"
 	metricOpDelete     = "delete"
 	metricOpGetNextKey = "getNextKey"
-	metricOpObjPin     = "objPin"
 	metricOpObjGet     = "objGet"
 )
