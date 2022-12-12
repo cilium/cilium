@@ -61,15 +61,19 @@ type wireguardClient interface {
 // the public key of peer discovered via the node manager.
 type Agent struct {
 	lock.RWMutex
-	wgClient         wireguardClient
-	ipCache          *ipcache.IPCache
-	listenPort       int
-	privKey          wgtypes.Key
+	wgClient   wireguardClient
+	ipCache    *ipcache.IPCache
+	listenPort int
+	privKey    wgtypes.Key
+
 	peerByNodeName   map[string]*peerConfig
 	nodeNameByNodeIP map[string]string
 	nodeNameByPubKey map[wgtypes.Key]string
 	restoredPubKeys  map[wgtypes.Key]struct{}
-	cleanup          []func()
+
+	cleanup []func()
+
+	nodeToNodeEncryption bool
 }
 
 // NewAgent creates a new Wireguard Agent
@@ -87,14 +91,18 @@ func NewAgent(privKeyPath string) (*Agent, error) {
 	node.SetWireguardPubKey(key.PublicKey().String())
 
 	return &Agent{
-		wgClient:         wgClient,
-		privKey:          key,
-		listenPort:       listenPort,
+		wgClient:   wgClient,
+		privKey:    key,
+		listenPort: listenPort,
+
 		peerByNodeName:   map[string]*peerConfig{},
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
 		restoredPubKeys:  map[wgtypes.Key]struct{}{},
-		cleanup:          []func(){},
+
+		cleanup: []func(){},
+
+		nodeToNodeEncryption: option.Config.EncryptNode && !node.GetOptOutNodeEncryption(),
 	}, nil
 }
 
@@ -332,7 +340,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		var lookupIPv4, lookupIPv6 net.IP
 		if option.Config.EnableIPv4 && nodeIPv4 != nil {
 			lookupIPv4 = nodeIPv4
-			if option.Config.EncryptNode {
+			if a.nodeToNodeEncryption {
 				allowedIPs = append(allowedIPs, net.IPNet{
 					IP:   nodeIPv4,
 					Mask: net.CIDRMask(net.IPv4len*8, net.IPv4len*8),
@@ -341,7 +349,7 @@ func (a *Agent) UpdatePeer(nodeName, pubKeyHex string, nodeIPv4, nodeIPv6 net.IP
 		}
 		if option.Config.EnableIPv6 && nodeIPv6 != nil {
 			lookupIPv6 = nodeIPv6
-			if option.Config.EncryptNode {
+			if a.nodeToNodeEncryption {
 				allowedIPs = append(allowedIPs, net.IPNet{
 					IP:   nodeIPv6,
 					Mask: net.CIDRMask(net.IPv6len*8, net.IPv6len*8),

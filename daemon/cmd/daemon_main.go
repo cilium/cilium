@@ -357,6 +357,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enables the fallback to the wireguard userspace implementation")
 	option.BindEnv(Vp, option.EnableWireguardUserspaceFallback)
 
+	flags.String(option.NodeEncryptionOptOutLabels, defaults.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
+	option.BindEnv(Vp, option.NodeEncryptionOptOutLabels)
+
 	flags.Bool(option.ForceLocalPolicyEvalAtSource, defaults.ForceLocalPolicyEvalAtSource, "Force policy evaluation of all local communication at the source endpoint")
 	option.BindEnv(Vp, option.ForceLocalPolicyEvalAtSource)
 	flags.MarkDeprecated(option.ForceLocalPolicyEvalAtSource, "This option will be removed in v1.14")
