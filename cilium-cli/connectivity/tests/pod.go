@@ -38,21 +38,22 @@ func (s *podToPod) Name() string {
 
 func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 	var i int
+	ct := t.Context()
 
-	for _, client := range t.Context().ClientPods() {
+	for _, client := range ct.ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(client, s.sourceLabels) {
 			continue
 		}
-		for _, echo := range t.Context().EchoPods() {
+		for _, echo := range ct.EchoPods() {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo).Run(func(a *check.Action) {
 				if s.method == "" {
-					a.ExecInPod(ctx, curl(echo))
+					a.ExecInPod(ctx, ct.CurlCommand(echo))
 				} else {
-					a.ExecInPod(ctx, curl(echo, "-X", s.method))
+					a.ExecInPod(ctx, ct.CurlCommand(echo, "-X", s.method))
 				}
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
@@ -89,13 +90,14 @@ func (s *podToPodWithEndpoints) Name() string {
 
 func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 	var i int
+	ct := t.Context()
 
-	for _, client := range t.Context().ClientPods() {
+	for _, client := range ct.ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(client, s.sourceLabels) {
 			continue
 		}
-		for _, echo := range t.Context().EchoPods() {
+		for _, echo := range ct.EchoPods() {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
@@ -109,6 +111,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 
 func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test, name string,
 	client *check.Pod, echo check.TestPeer) {
+	ct := t.Context()
 	baseURL := fmt.Sprintf("%s://%s:%d", echo.Scheme(), echo.Address(), echo.Port())
 	var curlOpts []string
 	if s.method != "" {
@@ -122,7 +125,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 		ep := check.HTTPEndpointWithLabels(epName, url, echo.Labels())
 
 		t.NewAction(s, epName, client, ep).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(ep, curlOpts...))
+			a.ExecInPod(ctx, ct.CurlCommand(ep, curlOpts...))
 
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 			a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))
@@ -139,7 +142,7 @@ func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test
 				opts = append(opts, curlOpts...)
 				opts = append(opts, "-H", "X-Very-Secret-Token: 42")
 
-				a.ExecInPod(ctx, curl(ep, opts...))
+				a.ExecInPod(ctx, ct.CurlCommand(ep, opts...))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{}))
 				a.ValidateFlows(ctx, ep, a.GetIngressRequirements(check.FlowParameters{}))

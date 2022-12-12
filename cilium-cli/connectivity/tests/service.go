@@ -35,19 +35,20 @@ func (s *podToService) Name() string {
 
 func (s *podToService) Run(ctx context.Context, t *check.Test) {
 	var i int
+	ct := t.Context()
 
-	for _, pod := range t.Context().ClientPods() {
+	for _, pod := range ct.ClientPods() {
 		pod := pod // copy to avoid memory aliasing when using reference
 		if !hasAllLabels(pod, s.sourceLabels) {
 			continue
 		}
-		for _, svc := range t.Context().EchoServices() {
+		for _, svc := range ct.EchoServices() {
 			if !hasAllLabels(svc, s.destinationLabels) {
 				continue
 			}
 
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, curl(svc))
+				a.ExecInPod(ctx, ct.CurlCommand(svc))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
@@ -146,7 +147,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	// Create the Action with the original svc as this will influence what the
 	// flow matcher looks for in the flow logs.
 	t.NewAction(s, name, pod, svc).Run(func(a *check.Action) {
-		a.ExecInPod(ctx, curl(ep))
+		a.ExecInPod(ctx, t.Context().CurlCommand(ep))
 
 		a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 			// The fact that curl is hitting the NodePort instead of the
