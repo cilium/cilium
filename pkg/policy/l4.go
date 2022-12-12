@@ -217,7 +217,7 @@ func (a *PerSelectorPolicy) IsRedirect() bool {
 // IsEmpty returns whether the `L7Rules` is nil or has no L7 rules and no TLS config.
 func (a *PerSelectorPolicy) IsEmpty() bool {
 	return a == nil ||
-		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil && len(a.ServerNames) > 0)
+		(a.L7Rules.IsEmpty() && a.TerminatingTLS == nil && a.OriginatingTLS == nil && len(a.ServerNames) == 0)
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
