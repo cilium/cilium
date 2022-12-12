@@ -156,7 +156,7 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		if err != nil {
 			return nil, err
 		}
-		c.logDebug("Detected Cilium installation in namespace %q", ns)
+		c.log("🔮 Detected Cilium installation in namespace %q", ns)
 		o.CiliumNamespace = ns
 	}
 
