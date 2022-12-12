@@ -57,6 +57,9 @@ type Parameters struct {
 
 	DeleteCiliumOnNodes []string
 
+	ConnectTimeout time.Duration
+	RequestTimeout time.Duration
+
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options
 }
