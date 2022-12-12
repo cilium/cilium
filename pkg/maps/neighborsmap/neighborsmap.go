@@ -36,7 +36,6 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
 			0,
-			0,
 			bpf.ConvertKeyValue,
 		)
 		neigh6Map = bpf.NewMap(Map6Name,
@@ -46,7 +45,6 @@ func neighMapsGet() (*bpf.Map, *bpf.Map) {
 			&Value{},
 			int(unsafe.Sizeof(Value{})),
 			option.Config.NeighMapEntriesGlobal,
-			0,
 			0,
 			bpf.ConvertKeyValue,
 		)

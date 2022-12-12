@@ -75,7 +75,7 @@ func MapCreate() error {
 			&EncryptValue{},
 			int(unsafe.Sizeof(EncryptValue{})),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))

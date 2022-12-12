@@ -91,7 +91,7 @@ func newConfigMap() *configMap {
 			&value,
 			int(unsafe.Sizeof(value)),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		),
 	}
