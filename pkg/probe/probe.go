@@ -46,7 +46,7 @@ func HaveFullLPM() bool {
 		m := bpf.NewMap(mapName, bpf.MapTypeLPMTrie,
 			&probeKey{}, int(unsafe.Sizeof(probeKey{})),
 			&probeValue{}, int(unsafe.Sizeof(probeValue{})),
-			1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache().
+			1, bpf.BPF_F_NO_PREALLOC, bpf.ConvertKeyValue).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(mapName))
 		err := m.CreateUnpinned()
 		defer m.Close()

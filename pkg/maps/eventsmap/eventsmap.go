@@ -61,7 +61,6 @@ func InitMap(maxEntries int) error {
 		int(unsafe.Sizeof(Value{})),
 		MaxEntries,
 		0,
-		0,
 		bpf.ConvertKeyValue).
 		WithEvents(option.Config.GetEventBufferConfig(MapName))
 	return eventsMap.Create()

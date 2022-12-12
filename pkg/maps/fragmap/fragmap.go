@@ -67,7 +67,6 @@ func InitMap(mapEntries int) error {
 		int(unsafe.Sizeof(FragmentValue{})),
 		mapEntries,
 		0,
-		0,
 		bpf.ConvertKeyValue,
 	).WithEvents(option.Config.GetEventBufferConfig(MapName))
 	return fragMap.Create()

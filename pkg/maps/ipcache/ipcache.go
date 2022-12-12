@@ -171,7 +171,7 @@ func newIPCacheMap(name string) *bpf.Map {
 		&RemoteEndpointInfo{},
 		int(unsafe.Sizeof(RemoteEndpointInfo{})),
 		MaxEntries,
-		bpf.BPF_F_NO_PREALLOC, 0,
+		bpf.BPF_F_NO_PREALLOC,
 		bpf.ConvertKeyValue)
 }
 
