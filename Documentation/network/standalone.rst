@@ -17,11 +17,15 @@ high-traffic load from a north-south direction going into the cluster(s).
 
 The Cilium Standalone Gateway includes functionality such as a high performance
 eBPF-based layer 4 load-balancer and a NAT46/64 gateway. There is a wide range
-of use cases, for example, the Cilium Standalone Gateway could be used to
-frontend DNS resolvers, it can be used as a load-balancer for legacy VM-based
-workloads, as a gateway in front of IPv6 single stack Kubernetes clusters to
-allow for interconnection with IPv4, as a load-balancer for kubeapi-server, to
-replace legacy IPVS-based load-balancers, and many more.
+of use cases, including:
+- frontend DNS resolvers
+- load-balancer for legacy VM-based
+workloads, 
+- as a gateway in front of IPv6 single stack Kubernetes clusters to
+allow for interconnection with IPv4,
+- as a load-balancer for kubeapi-server,
+- as a replacement for legacy IPVS-based load-balancers, 
+- and many more!
 
 Cilium provides a programmable API for its agent which is exposed through a
 unix domain socket on the local node such that it can be integrated into
@@ -65,10 +69,9 @@ up under ``/etc/systemd/system/sys-fs-bpf.mount`` ...
   automatically mount the BPF file system at its default location. See also
   `GH-10955 <https://github.com/cilium/cilium/issues/10955>`_ for details.
 
-In this Quick-Start example we enable the standalone layer 4 load-balancer
-functionality for both IPv4 and IPv6, as a load-balancing algorithm we
-utilize Maglev consistent hashing, and the networking device for the
-load-balancer in this case is called ``bond0``. Multi-device setups are
+In this Quick-Start example, we enable the standalone layer 4 load-balancer
+functionality for both IPv4 and IPv6, with Maglev consistent hashing as the load-balancing algorithm. 
+In our case, the networking device for the load-balancer is called ``bond0``. Multi-device setups are
 supported as well, and can be specified via ``--devices=bond0,eth0`` or
 through a device name regex. Furthermore, we enable XDP acceleration for
 maximum efficiency.
@@ -94,15 +97,15 @@ its programs into the tc BPF layer instead of XDP.
      --bpf-lb-acceleration=native \\
      --devices=bond0
 
-By default, the layer 4 load-balancer operates in SNAT mode, meaning replies from
-backends will reach the load-balancer again which then performs reverse NAT and
-sends the reply back to the client. Advanced options such as direct server return
+By default, the layer 4 load-balancer operates in Source NAT (SNAT) mode, meaning replies from
+backends will be returned to the load-balancer which will then perform reverse NAT and
+sends the reply back to the client. Advanced options such as Direct Server Return
 (DSR) are supported as well and described in later sections of this guide.
 
 Validate the Setup
 ==================
 
-After deploying Cilium Standalone Gateway with above Quick-Start guide, we can first
+After deploying Cilium Standalone Gateway with the Quick-Start guide above, we can first
 validate that the Cilium agent is running in the desired mode:
 
 .. parsed-literal::
@@ -160,7 +163,7 @@ Running the service dump confirms that both have been created:
                                           2 => 1.0.0.1:80 (active)
 
 In this case the frontend address is the publicly accessible IP address of
-the node itself. If a service VIP is being used, then these need to be
+the node itself. If a service VIP is being used, then it would need to be
 announced to the network through BGP daemons such as FRR.
 
 The service is now reachable from an external client node:
@@ -230,7 +233,7 @@ as well:
                                                       2 => 1.1.1.2:80 (active)
   2    [2604:1380:4091:cf00::1]:8080   ExternalIPs    1 => [2606:4700:4700::1111]:80 (active)
 
-And last but not least deleted through its identifier:
+And last but not least, the service can also be deleted through its identifier:
 
 .. parsed-literal::
 
@@ -243,7 +246,7 @@ And last but not least deleted through its identifier:
                                           2 => 1.1.1.2:80 (active)
 
 Each of these operations communicate to the agent through its programmable API
-which for third party integrations can be used directly.
+which can be used directly, for eample for third party integrations.
 
 This concludes the initial bootstrapping. More advanced configuration options
 for the Cilium Standalone Gateway can be found in subsequent sections below.
@@ -282,10 +285,11 @@ the backend replies directly to the external client. The Cilium Standalone Gatew
 supports IPIP and IP6IP6 encapsulation for DSR such that it can be used as a `drop-in
 replacement <https://cilium.io/blog/2022/04/12/cilium-standalone-L4LB-XDP/>`_ for
 existing setups relying on netfilter/IPVS or dedicated hardware load-balancers with
-IPIP encapsulation support. While the SNAT mode is the most straight forward mode
-to configure and run and there are no underlying constraints on the network, the
-DSR mode might have limitations with regards to the underlying fabric when run off-prem
-in cloud provider networks.
+IPIP encapsulation support. 
+
+For all its benefits, be aware that the DSR mode might have limitations with regards to the underlying fabric when run off-prem
+in cloud provider networks. The SNAT mode remains the most straightforward mode
+to configure and run and benefits from not requiring any constraints on the network. 
 
 The original Quick-Start example has been slightly modified to run in DSR mode:
 
@@ -408,8 +412,8 @@ synchronize state with each group member. Therefore it is in particular suited
 for handling inbound north-south traffic with ECMP-based load-balancing in front.
 
 Similarly, upon backend removal the Maglev backend lookup tables are reprogrammed with
-minimal disruption for unrelated backends, for example, depending on the configuration,
-at most 1% difference in the reassignments for the given service.
+minimal disruption for unrelated backends. For example, depending on the configuration,
+there would only be at most 1% difference in the reassignments for the given service.
 
 The ``--bpf-lb-maglev-hash-seed`` option is recommended to be set in order for Cilium
 to not rely on the fixed built-in seed. The seed is a base64-encoded 12 byte-random
@@ -466,7 +470,7 @@ Backend State Management
 For maintenance, quarantining or other purposes it can be necessary to drain traffic
 from a given backend. In such case, the load-balancer will not consider those backends
 for traffic forwarding, meaning, they are excluded for new connections. Ongoing connections
-are still kept in-tact until a backend is removed from the given service entirely. Once
+are still kept intact until a backend is removed from the given service entirely. Once
 the backend is removed from the service, then (still) ongoing traffic will be dropped.
 
 The backend state is presented in the service dump, and can be one of ``active`` (default),
@@ -838,7 +842,7 @@ The IPv6 cluster can then be accessed from an external IPv4 client:
   [...]
 
 In this case the frontend address is the publicly accessible IP address of
-the gateway node itself. If a different IPv4 VIP is being used, then these
+the gateway node itself. If a different IPv4 VIP is being used, then it would
 need to be announced to the network through BGP daemons such as FRR.
 
 The NAT46 gateway node translates the original IPv4 inbound request to the
@@ -1190,6 +1194,9 @@ This approach has the downside that:
 
 Toy example on a cluster node:
 
+At time of writing, GitHub Repos are not accessible over IPv6. 
+This example walks through how to access GitHub over IPv6 using NAT64:
+
 .. parsed-literal::
 
   git clone --ipv6 https://github.com/cilium/cilium.git
@@ -1437,6 +1444,14 @@ The following limitations below apply at this point in time:
     * The PCAP recorder currently supports up to 32 mask rules. However, within
       the set of installed masks, millions of filter entries can be added.
     * The PCAP recorder is currently only enabled under XDP acceleration.
+
+
+Troubleshooting
+===============
+
+    * If you get error messages such as ``level=fatal msg="IPv6 is enabled and ip6tables modules could not be initialized (try disabling IPv6 in Cilium or loading ip6_tables, ip6table_mangle, ip6table_raw and ip6table_filter kernel modules)" error="could not load module ip6_tables: exit status 1" subsys=iptables``, check whether IPv6 was enabled or whether the appropriate Linux modules have been loaded.
+    * If you get error messages such as ``ens5: Failed to set xdp program, the current MTU (9001) is larger than the maximum allowed MTU (3498) while xdp is on``, consider reducing the MTU on the interface. Check `this link <https://docs.cilium.io/en/v1.12/gettingstarted/kubeproxy-free/#nodeport-xdp-on-aws>_ for more details.
+    * If you get error messages such as ``level=warning msg="Error: ena: Failed to set xdp program, there is no enough space for allocating XDP queues, Check the dmesg for more info."``, consider reducing the number of channels with ``ethtool``. 
 
 Further Readings
 ================
