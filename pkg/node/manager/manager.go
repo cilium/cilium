@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -387,8 +388,11 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 		// to encrypt something we know does not have an encryption policy installed
 		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
 		// being sent unencrypted over overlay device.
-		if !m.conf.NodeEncryptionEnabled() &&
-			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP) {
+		if (!m.conf.NodeEncryptionEnabled() &&
+			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP)) ||
+			// Also ignore any remote node's key if the local node opted to not perform
+			// node-to-node encryption
+			node.GetOptOutNodeEncryption() {
 			key = 0
 		}
 

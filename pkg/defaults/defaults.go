@@ -230,6 +230,10 @@ const (
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
 
+	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
+	// node-to-node encryption
+	NodeEncryptionOptOutLabels = "node-role.kubernetes.io/control-plane"
+
 	// MonitorQueueSizePerCPU is the default value for the monitor queue
 	// size per CPU
 	MonitorQueueSizePerCPU = 1024

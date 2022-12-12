@@ -3,8 +3,6 @@
 
 package node
 
-import "github.com/cilium/cilium/pkg/node/types"
-
 const (
 	templateHostEndpointID = uint64(0xffff)
 )
@@ -20,7 +18,7 @@ func GetLabels() map[string]string {
 
 // SetLabels sets the labels of this node.
 func SetLabels(l map[string]string) {
-	localNode.Update(func(n *types.Node) {
+	localNode.Update(func(n *LocalNode) {
 		n.Labels = l
 	})
 }

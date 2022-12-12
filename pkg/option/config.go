@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -737,6 +738,9 @@ const (
 
 	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
 	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
+
+	// NodeEncryptionOptOutLabels is the name of the option for the node-to-node encryption opt-out labels
+	NodeEncryptionOptOutLabels = "node-encryption-opt-out-labels"
 
 	// KVstoreLeaseTTL is the time-to-live for lease in kvstore.
 	KVstoreLeaseTTL = "kvstore-lease-ttl"
@@ -1606,6 +1610,10 @@ type DaemonConfig struct {
 
 	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
 	EnableWireguardUserspaceFallback bool
+
+	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
+	// node-to-node encryption
+	NodeEncryptionOptOutLabels k8sLabels.Selector
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
@@ -3208,6 +3216,12 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("unable to parse %s: %s", BPFMapEventBuffers, err)
 	} else {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
+	}
+
+	if sel, err := k8sLabels.Parse(vp.GetString(NodeEncryptionOptOutLabels)); err != nil {
+		log.Fatalf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err)
+	} else {
+		c.NodeEncryptionOptOutLabels = sel
 	}
 
 	for _, option := range vp.GetStringSlice(EndpointStatus) {

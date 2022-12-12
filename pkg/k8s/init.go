@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -180,6 +181,13 @@ func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 		}
 
 		node.SetLabels(n.Labels)
+
+		if option.Config.NodeEncryptionOptOutLabels.Matches(k8sLabels.Set(n.Labels)) {
+			log.WithField(logfields.Selector, option.Config.NodeEncryptionOptOutLabels).
+				Infof("Opting out from node-to-node encryption on this node as per '%s' label selector",
+					option.NodeEncryptionOptOutLabels)
+			node.SetOptOutNodeEncryption(true)
+		}
 
 		node.SetK8sExternalIPv4(n.GetExternalIP(false))
 		// Avoid removing the IPv4 if there is no IPv6.
