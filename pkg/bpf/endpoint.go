@@ -23,10 +23,11 @@ const (
 // +k8s:deepcopy-gen=true
 type EndpointKey struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
-	IP     types.IPv6 `align:"$union0"`
-	Family uint8      `align:"family"`
-	Key    uint8      `align:"key"`
-	Pad2   uint16     `align:"pad5"`
+	IP        types.IPv6 `align:"$union0"`
+	Family    uint8      `align:"family"`
+	Key       uint8      `align:"key"`
+	ClusterID uint8      `align:"cluster_id"`
+	Pad       uint8      `align:"pad"`
 }
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
