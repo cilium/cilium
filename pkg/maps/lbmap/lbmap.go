@@ -378,7 +378,7 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
 	}
-	if _, err := key.Map().OpenOrCreate(); err != nil {
+	if err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -626,7 +626,7 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 }
 
 func updateBackend(backend Backend) error {
-	if _, err := backend.Map().OpenOrCreate(); err != nil {
+	if err := backend.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -642,7 +642,7 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
-	if _, err := key.Map().OpenOrCreate(); err != nil {
+	if err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
 

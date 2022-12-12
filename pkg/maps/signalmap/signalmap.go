@@ -74,11 +74,12 @@ func initMap(maxEntries int) *signalMap {
 }
 
 func (sm *signalMap) open() error {
-	_, err := sm.oldBpfMap.Create()
-	if err != nil {
+	if err := sm.oldBpfMap.Create(); err != nil {
 		return err
 	}
 	path := bpf.MapPath(MapName)
+
+	var err error
 	sm.ebpfMap, err = ebpf.LoadPinnedMap(path, nil)
 	return err
 }

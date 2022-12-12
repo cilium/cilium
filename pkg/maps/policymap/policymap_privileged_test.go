@@ -37,8 +37,7 @@ func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
 	}
 
 	_ = os.RemoveAll(bpf.MapPath("cilium_policy_test"))
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
+	if err := testMap.OpenOrCreate(); err != nil {
 		c.Fatal("Failed to create map:", err)
 	}
 

@@ -107,7 +107,7 @@ func NewRecorder(ctx context.Context, owner datapath.BaseProgramOwner) (*Recorde
 			maps = append(maps, t.Map())
 		}
 		for _, m := range maps {
-			if _, err := m.OpenOrCreate(); err != nil {
+			if err := m.OpenOrCreate(); err != nil {
 				return nil, err
 			}
 			if err := m.DeleteAll(); err != nil {

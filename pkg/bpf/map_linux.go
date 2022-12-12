@@ -464,16 +464,16 @@ func (m *Map) EndParallelMode() {
 // consumers can only be updated one by one. Parallel mode allows for consumers
 // to continue using the old version of the map until the consumer is updated
 // to use the new version.
-func (m *Map) OpenParallel() (bool, error) {
+func (m *Map) OpenParallel() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if m.fd != 0 {
-		return false, fmt.Errorf("OpenParallel() called on already open map: %s", m.name)
+		return fmt.Errorf("OpenParallel() called on already open map: %s", m.name)
 	}
 
 	if err := m.setPathIfUnset(); err != nil {
-		return false, err
+		return err
 	}
 
 	if _, err := os.Stat(m.path); err == nil {
@@ -497,7 +497,7 @@ func (m *Map) OpenParallel() (bool, error) {
 // If the map is marked as non-persistent, it will always be recreated.
 //
 // Returns whether the map was deleted and recreated, or an optional error.
-func (m *Map) OpenOrCreate() (bool, error) {
+func (m *Map) OpenOrCreate() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -509,27 +509,25 @@ func (m *Map) CreateUnpinned() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	_, err := m.openOrCreate(false)
-	return err
+	return m.openOrCreate(false)
 }
 
 // Create is similar to OpenOrCreate, but closes the map after creating or
 // opening it.
-func (m *Map) Create() (bool, error) {
-	isNew, err := m.OpenOrCreate()
-	if err != nil {
-		return isNew, err
+func (m *Map) Create() error {
+	if err := m.OpenOrCreate(); err != nil {
+		return err
 	}
-	return isNew, m.Close()
+	return m.Close()
 }
 
-func (m *Map) openOrCreate(pin bool) (bool, error) {
+func (m *Map) openOrCreate(pin bool) error {
 	if m.fd != 0 {
-		return false, nil
+		return nil
 	}
 
 	if err := m.setPathIfUnset(); err != nil {
-		return false, err
+		return err
 	}
 
 	// If the map represents non-persistent data, always remove the map
@@ -539,16 +537,17 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 	}
 
 	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
+	fd, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	registerMap(m.path, m)
 
 	m.fd = fd
 	m.Flags = flags
-	return isNew, nil
+
+	return nil
 }
 
 // Open opens the BPF map. All calls to Open() are serialized due to acquiring
