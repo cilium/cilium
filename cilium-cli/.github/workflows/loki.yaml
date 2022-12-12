@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   push-to-loki:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Push to Loki
         uses: michi-covalent/push-to-loki@v0.2.2

@@ -20,7 +20,7 @@ env:
 
 jobs:
   installation-and-connectivity:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
       - name: Checkout
