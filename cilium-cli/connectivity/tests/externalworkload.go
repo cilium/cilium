@@ -22,13 +22,14 @@ func (s *podToExternalWorkload) Name() string {
 
 func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {
 	var i int
+	ct := t.Context()
 
-	for _, pod := range t.Context().ClientPods() {
+	for _, pod := range ct.ClientPods() {
 		pod := pod // copy to avoid memory aliasing when using reference
 
-		for _, wl := range t.Context().ExternalWorkloads() {
+		for _, wl := range ct.ExternalWorkloads() {
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ping(wl))
+				a.ExecInPod(ctx, ct.PingCommand(wl))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
