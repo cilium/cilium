@@ -343,6 +343,11 @@ type NodeSpec struct {
 	// some other means of identification.
 	InstanceID string `json:"instance-id,omitempty"`
 
+	// BootID is a unique node identifier generated on boot
+	//
+	// +kubebuilder:validation:Optional
+	BootID string `json:"bootid,omitempty"`
+
 	// Addresses is the list of all node addresses.
 	//
 	// +kubebuilder:validation:Optional

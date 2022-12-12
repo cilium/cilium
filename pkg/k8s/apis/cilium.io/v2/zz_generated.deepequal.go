@@ -1078,6 +1078,9 @@ func (in *NodeSpec) DeepEqual(other *NodeSpec) bool {
 	if in.InstanceID != other.InstanceID {
 		return false
 	}
+	if in.BootID != other.BootID {
+		return false
+	}
 	if ((in.Addresses != nil) && (other.Addresses != nil)) || ((in.Addresses == nil) != (other.Addresses == nil)) {
 		in, other := &in.Addresses, &other.Addresses
 		if other == nil {

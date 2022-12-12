@@ -60,6 +60,11 @@ func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.Loc
 		ini.WireGuard.InitLocalNodeFromWireGuard(n)
 	}
 
+	n.BootID = node.GetBootID()
+	if option.Config.EnableIPSec && n.BootID == "" {
+		return fmt.Errorf("IPSec requires a valid BootID")
+	}
+
 	return nil
 }
 
