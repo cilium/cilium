@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -552,9 +553,16 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, opts ...string) []string 
 	cmd := []string{"curl",
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
 		"--silent", "--fail", "--show-error",
-		"--connect-timeout", "5",
 		"--output", "/dev/null",
 	}
+
+	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
+		cmd = append(cmd, "--connect-timeout", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
+	}
+	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
+		cmd = append(cmd, "--max-time", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
+	}
+
 	cmd = append(cmd, opts...)
 	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
 		peer.Scheme(),
@@ -564,7 +572,17 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, opts ...string) []string 
 }
 
 func (ct *ConnectivityTest) PingCommand(peer TestPeer) []string {
-	return []string{"ping", "-w", "3", "-c", "1", peer.Address()}
+	cmd := []string{"ping", "-c", "1"}
+
+	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
+		cmd = append(cmd, "-W", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
+	}
+	if requestTimeout := ct.params.RequestTimeout.Seconds(); requestTimeout > 0.0 {
+		cmd = append(cmd, "-w", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
+	}
+
+	cmd = append(cmd, peer.Address())
+	return cmd
 }
 
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
