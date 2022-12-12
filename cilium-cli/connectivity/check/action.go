@@ -208,7 +208,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 
 	a.Debug("Executing command", cmd)
 
-	output, err := pod.K8sClient.ExecInPodWithTTY(ctx,
+	output, err := pod.K8sClient.ExecInPod(ctx,
 		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 
 	cmdName := cmd[0]

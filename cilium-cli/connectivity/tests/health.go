@@ -43,7 +43,7 @@ func runHealthProbe(ctx context.Context, t *check.ConnectivityTest, pod *check.P
 	for {
 		retryTimer := time.After(time.Second)
 
-		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name, "", cmd)
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, "", cmd)
 		if err != nil {
 			t.Warnf("cilium-health probe failed: %q, stdout: %q, retrying...", err, stdout)
 			continue
