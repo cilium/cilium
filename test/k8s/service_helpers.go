@@ -650,12 +650,15 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testS
 	}
 
 	var (
-		data                v1.Service
-		nodePortService     = "test-nodeport"
-		nodePortServiceIPv6 = "test-nodeport-ipv6"
+		data                  v1.Service
+		nodePortService       = "test-nodeport"
+		nodePortServiceIPv6   = "test-nodeport-ipv6"
+		nodePortServiceHostNS = "test-nodeport-hostns"
 	)
 
 	services := []svc{{nodePortService, ni.K8s1IP}}
+
+	services = append(services, svc{name: nodePortServiceHostNS, nodeIP: ni.K8s1IP})
 
 	if helpers.DualStackSupported() {
 		services = append(services, svc{name: nodePortServiceIPv6, nodeIP: ni.PrimaryK8s1IPv6})

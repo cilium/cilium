@@ -39,6 +39,44 @@ spec:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  name: testds-hostns
+spec:
+  selector:
+    matchLabels:
+      zgroup: testDS-hostns
+  template:
+    metadata:
+      labels:
+        zgroup: testDS-hostns
+    spec:
+      hostNetwork: true
+      containers:
+      - name: web
+        image: docker.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
   name: testclient
 spec:
   selector:
@@ -131,6 +169,24 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: test-nodeport-hostns
+spec:
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS-hostns
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: test-affinity
 spec:
   type: NodePort
@@ -165,6 +221,25 @@ spec:
     name: tftp
   selector:
     zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local-hostns
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS-hostns
 ---
 apiVersion: v1
 kind: Service
