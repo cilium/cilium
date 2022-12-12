@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -211,11 +210,8 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wgAgent, ipCache := newTestAgent(ctx)
+	wgAgent.nodeToNodeEncryption = true
 	defer ipCache.Shutdown()
-
-	encryptNode := option.Config.EncryptNode
-	defer func() { option.Config.EncryptNode = encryptNode }()
-	option.Config.EncryptNode = true
 
 	ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
 	ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
