@@ -450,6 +450,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode, ln
 		nodeResource.Spec.IngressAddressing.IPV6 = ip.String()
 	}
 
+	nodeResource.Spec.BootID = ln.BootID
+
 	switch option.Config.IPAM {
 	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
