@@ -364,6 +364,11 @@ Added Metrics
 * ``cilium_operator_ipam_interface_candidates``
 * ``cilium_operator_ipam_empty_interface_slots``
 
+Modified Metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>`` after the detected L7 protocol of the flow.
+
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
