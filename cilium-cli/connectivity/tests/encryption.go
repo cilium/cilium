@@ -34,10 +34,11 @@ func (s *podToPodEncryption) Name() string {
 }
 
 func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
-	client := t.Context().RandomClientPod()
+	ct := t.Context()
+	client := ct.RandomClientPod()
 
 	var server check.Pod
-	for _, pod := range t.Context().EchoPods() {
+	for _, pod := range ct.EchoPods() {
 		// Make sure that the server pod is on another node than client
 		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
 			server = pod
@@ -47,14 +48,14 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 
 	// clientHost is a pod running on the same node as the client pod, just in
 	// the host netns.
-	clientHost := t.Context().HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
+	clientHost := ct.HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 
 	// Determine on which netdev iface to capture pkts. In the case of tunneling,
 	// we don't expect to see unencrypted pkts on a corresponding tunneling iface,
 	// so the choice is obvious. In the native routing mode, we run
 	// "ip route get $SERVER_POD_IP" from the client pod's node.
 	iface := ""
-	tunnelFeat, ok := t.Context().Feature(check.FeatureTunnel)
+	tunnelFeat, ok := ct.Feature(check.FeatureTunnel)
 	if ok && tunnelFeat.Enabled {
 		iface = "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
 	} else {
@@ -123,7 +124,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 
 	// Curl the server from the client to generate some traffic
 	t.NewAction(s, "curl", client, server).Run(func(a *check.Action) {
-		a.ExecInPod(ctx, curl(server))
+		a.ExecInPod(ctx, ct.CurlCommand(server))
 	})
 
 	// Wait until tcpdump has exited

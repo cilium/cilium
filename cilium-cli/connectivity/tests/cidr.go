@@ -28,14 +28,15 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 		check.HTTPEndpoint("cloudflare-1001", "https://1.0.0.1"),
 		check.HTTPEndpoint("cloudflare-1111", "https://1.1.1.1"),
 	}
+	ct := t.Context()
 
 	for _, ep := range eps {
 		var i int
-		for _, src := range t.Context().ClientPods() {
+		for _, src := range ct.ClientPods() {
 			src := src // copy to avoid memory aliasing when using reference
 
 			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, curl(ep))
+				a.ExecInPod(ctx, ct.CurlCommand(ep))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,
