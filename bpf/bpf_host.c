@@ -1111,7 +1111,6 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 #ifdef ENABLE_HOST_FIREWALL
 	__s8 ext_err = 0;
 #endif
-	bool traced = false;
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1208,14 +1207,6 @@ out:
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
 						      METRIC_EGRESS);
-
-		/*
-		 * Depending on the condition, handle_nat_fwd may return
-		 * without tail calling. Since we have packet tracing inside
-		 * the handle_nat_fwd, we need to avoid tracing the packet
-		 * twice.
-		 */
-		traced = true;
 	}
 #endif
 #ifdef ENABLE_HEALTH_CHECK
@@ -1224,9 +1215,8 @@ out:
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif
-	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
-				  0, trace.reason, trace.monitor);
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
+			  0, trace.reason, trace.monitor);
 
 	return ret;
 }
