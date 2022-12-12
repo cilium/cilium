@@ -1174,6 +1174,19 @@ drop:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
+static __always_inline int handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
+{
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	union v6addr addr = { .p1 = 0 };
+
+	BPF_V6(addr, ROUTER_IP);
+#else
+	union v6addr addr = IPV6_DIRECT_ROUTING;
+#endif
+
+	return nodeport_nat_ipv6_fwd(ctx, &addr);
+}
+
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 			       is_defined(ENABLE_IPV6)),
 			 __and(is_defined(ENABLE_HOST_FIREWALL),
@@ -1183,15 +1196,14 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	int ret;
 	enum trace_point obs_point;
+
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	union v6addr addr = { .p1 = 0 };
-	BPF_V6(addr, ROUTER_IP);
 	obs_point = TRACE_TO_OVERLAY;
 #else
-	union v6addr addr = IPV6_DIRECT_ROUTING;
 	obs_point = TRACE_TO_NETWORK;
 #endif
-	ret = nodeport_nat_ipv6_fwd(ctx, &addr);
+
+	ret = handle_nat_fwd_ipv6(ctx);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -2140,6 +2152,11 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	return ret;
 }
 
+static __always_inline int handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
+{
+	return nodeport_nat_ipv4_fwd(ctx);
+}
+
 declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
 				is_defined(ENABLE_IPV6)),
 			  __and(is_defined(ENABLE_HOST_FIREWALL),
@@ -2157,7 +2174,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_nat_ipv4_fwd(ctx);
+	ret = handle_nat_fwd_ipv4(ctx);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -2275,7 +2292,7 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 					       is_defined(IS_BPF_HOST)),
 					 is_defined(ENABLE_EGRESS_GATEWAY)),
 				   CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT,
-				   tail_handle_nat_fwd_ipv4);
+				   handle_nat_fwd_ipv4);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
@@ -2285,7 +2302,7 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 					__and(is_defined(ENABLE_HOST_FIREWALL),
 					      is_defined(IS_BPF_HOST))),
 				   CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT,
-				   tail_handle_nat_fwd_ipv6);
+				   handle_nat_fwd_ipv6);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:
