@@ -34,25 +34,26 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 	}
 
 	var i int
+	ct := t.Context()
 
-	for _, client := range t.Context().ClientPods() {
+	for _, client := range ct.ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With http, over port 80.
 		t.NewAction(s, fmt.Sprintf("http-to-one-one-one-one-%d", i), &client, http).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(http))
+			a.ExecInPod(ctx, ct.CurlCommand(http))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443.
 		t.NewAction(s, fmt.Sprintf("https-to-one-one-one-one-%d", i), &client, https).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(https))
+			a.ExecInPod(ctx, ct.CurlCommand(https))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443, index.html.
 		t.NewAction(s, fmt.Sprintf("https-to-one-one-one-one-index-%d", i), &client, httpsindex).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(httpsindex))
+			a.ExecInPod(ctx, ct.CurlCommand(httpsindex))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
@@ -82,12 +83,14 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 	}
 
 	var i int
-	for _, client := range t.Context().ClientPods() {
+	ct := t.Context()
+
+	for _, client := range ct.ClientPods() {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With https, over port 443.
 		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, curl(https))
+			a.ExecInPod(ctx, ct.CurlCommand(https))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 

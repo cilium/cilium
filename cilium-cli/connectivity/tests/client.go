@@ -25,11 +25,12 @@ func (s *clientToClient) Name() string {
 
 func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 	var i int
+	ct := t.Context()
 
-	for _, src := range t.Context().ClientPods() {
+	for _, src := range ct.ClientPods() {
 		src := src // copy to avoid memory aliasing when using reference
 
-		for _, dst := range t.Context().ClientPods() {
+		for _, dst := range ct.ClientPods() {
 			if src.Pod.Status.PodIP == dst.Pod.Status.PodIP {
 				// Currently we only get flows once per IP,
 				// skip pings to self.
@@ -39,7 +40,7 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 			dst := dst // copy to avoid memory aliasing when using reference
 
 			t.NewAction(s, fmt.Sprintf("ping-%d", i), &src, &dst).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ping(dst))
+				a.ExecInPod(ctx, ct.PingCommand(dst))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,
