@@ -34,7 +34,7 @@ env:
 jobs:
   installation-and-connectivity:
     if: ${{ github.repository == 'cilium/cilium-cli' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
       - name: Checkout
