@@ -330,7 +330,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if _, err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
-		return err
+		return fmt.Errorf("initializing lxc map: %w", err)
 	}
 
 	// The ipcache is shared between endpoints. Parallel mode needs to be
@@ -344,7 +344,7 @@ func (d *Daemon) initMaps() error {
 	// appearing would require a regeneration of the endpoint anyway in
 	// order for the endpoint to gain the privilege of communication.
 	if _, err := ipcachemap.IPCacheMap().OpenParallel(); err != nil {
-		return err
+		return fmt.Errorf("initializing ipcache map: %w", err)
 	}
 
 	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
@@ -352,12 +352,12 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if err := metricsmap.Metrics.OpenOrCreate(); err != nil {
-		return err
+		return fmt.Errorf("initializing metrics map: %w", err)
 	}
 
 	if option.Config.TunnelingEnabled() {
 		if _, err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
-			return err
+			return fmt.Errorf("initializing tunnel map: %w", err)
 		}
 	}
 
@@ -367,13 +367,13 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableHighScaleIPcache {
 		if err := worldcidrsmap.InitWorldCIDRsMap(); err != nil {
-			return err
+			return fmt.Errorf("initializing world CIDRs map: %w", err)
 		}
 	}
 
 	if option.Config.EnableVTEP {
 		if _, err := vtep.VtepMap().OpenOrCreate(); err != nil {
-			return err
+			return fmt.Errorf("initializing vtep map: %w", err)
 		}
 	}
 
@@ -385,11 +385,11 @@ func (d *Daemon) initMaps() error {
 	possibleCPUs := common.GetNumPossibleCPUs(log)
 
 	if err := eventsmap.InitMap(possibleCPUs); err != nil {
-		return err
+		return fmt.Errorf("initializing events map: %w", err)
 	}
 
 	if err := policymap.InitCallMaps(option.Config.EnableEnvoyConfig); err != nil {
-		return err
+		return fmt.Errorf("initializing policy map: %w", err)
 	}
 
 	for _, ep := range d.endpointManager.GetEndpoints() {
@@ -403,14 +403,14 @@ func (d *Daemon) initMaps() error {
 		for _, m := range ctmap.LocalMaps(ep, option.Config.EnableIPv4,
 			option.Config.EnableIPv6) {
 			if _, err := m.Create(); err != nil {
-				return err
+				return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
 			}
 		}
 	}
 	for _, m := range ctmap.GlobalMaps(option.Config.EnableIPv4,
 		option.Config.EnableIPv6) {
 		if _, err := m.Create(); err != nil {
-			return err
+			return fmt.Errorf("initializing conntrack map %s: %w", m.Name(), err)
 		}
 	}
 
@@ -418,25 +418,25 @@ func (d *Daemon) initMaps() error {
 		option.Config.EnableIPv6, option.Config.EnableNodePort)
 	if ipv4Nat != nil {
 		if _, err := ipv4Nat.Create(); err != nil {
-			return err
+			return fmt.Errorf("initializing ipv4nat map: %w", err)
 		}
 	}
 	if ipv6Nat != nil {
 		if _, err := ipv6Nat.Create(); err != nil {
-			return err
+			return fmt.Errorf("initializing ipv6nat map: %w", err)
 		}
 	}
 
 	if option.Config.EnableNodePort {
 		if err := neighborsmap.InitMaps(option.Config.EnableIPv4,
 			option.Config.EnableIPv6); err != nil {
-			return err
+			return fmt.Errorf("initializing neighbors map: %w", err)
 		}
 	}
 
 	if option.Config.EnableIPv4FragmentsTracking {
 		if err := fragmap.InitMap(option.Config.FragmentsMapEntries); err != nil {
-			return err
+			return fmt.Errorf("initializing fragments map: %w", err)
 		}
 	}
 
@@ -449,7 +449,7 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
 		if _, err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
-			return err
+			return fmt.Errorf("initializing masquerading map: %w", err)
 		}
 	}
 
@@ -470,16 +470,16 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableSessionAffinity {
 		if _, err := lbmap.AffinityMatchMap.OpenOrCreate(); err != nil {
-			return err
+			return fmt.Errorf("initializing affinity match map: %w", err)
 		}
 		if option.Config.EnableIPv4 {
 			if _, err := lbmap.Affinity4Map.OpenOrCreate(); err != nil {
-				return err
+				return fmt.Errorf("initializing affinity v4 map: %w", err)
 			}
 		}
 		if option.Config.EnableIPv6 {
 			if _, err := lbmap.Affinity6Map.OpenOrCreate(); err != nil {
-				return err
+				return fmt.Errorf("initializing affinity v6 map: %w", err)
 			}
 		}
 	}
@@ -487,12 +487,12 @@ func (d *Daemon) initMaps() error {
 	if option.Config.EnableSVCSourceRangeCheck {
 		if option.Config.EnableIPv4 {
 			if _, err := lbmap.SourceRange4Map.OpenOrCreate(); err != nil {
-				return err
+				return fmt.Errorf("initializing source range v4 map: %w", err)
 			}
 		}
 		if option.Config.EnableIPv6 {
 			if _, err := lbmap.SourceRange6Map.OpenOrCreate(); err != nil {
-				return err
+				return fmt.Errorf("initializing source range v6 map: %w", err)
 			}
 		}
 	}
