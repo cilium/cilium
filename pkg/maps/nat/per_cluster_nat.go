@@ -122,7 +122,7 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 		bpf.ConvertKeyValue,
 	)
 
-	if _, err := om.OpenOrCreate(); err != nil {
+	if err := om.OpenOrCreate(); err != nil {
 		return nil, err
 	}
 
@@ -152,8 +152,7 @@ func (om *PerClusterNATMap) updateClusterNATMap(clusterID uint32) error {
 
 	im := om.newInnerMap(om.getInnerMapName(clusterID))
 
-	_, err := im.OpenOrCreate()
-	if err != nil {
+	if err := im.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -176,7 +175,7 @@ func (om *PerClusterNATMap) deleteClusterNATMap(clusterID uint32) error {
 
 	im := om.newInnerMap(om.getInnerMapName(clusterID))
 
-	if _, err := im.OpenOrCreate(); err != nil {
+	if err := im.OpenOrCreate(); err != nil {
 		return err
 	}
 

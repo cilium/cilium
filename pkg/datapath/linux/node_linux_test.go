@@ -110,7 +110,7 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 	c.Assert(err, check.IsNil)
 
 	tunnel.SetTunnelMap(tunnel.NewTunnelMap("test_cilium_tunnel_map"))
-	_, err = tunnel.TunnelMap().OpenOrCreate()
+	err = tunnel.TunnelMap().OpenOrCreate()
 	c.Assert(err, check.IsNil)
 
 	nodemap.SetNodeMap(nodemap.NewNodeMap("test_cilium_node_map"))

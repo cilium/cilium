@@ -70,6 +70,5 @@ func InitMap(mapEntries int) error {
 		0,
 		bpf.ConvertKeyValue,
 	).WithEvents(option.Config.GetEventBufferConfig(MapName))
-	_, err := fragMap.Create()
-	return err
+	return fragMap.Create()
 }

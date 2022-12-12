@@ -144,7 +144,7 @@ func (cm *CIDRMap) Close() error {
 }
 
 // OpenMapElems is the same as OpenMap only with defined maxelem as argument.
-func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, bool, error) {
+func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*CIDRMap, error) {
 	typeMap := bpf.MapTypeLPMTrie
 	prefix := 0
 
@@ -153,10 +153,10 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		prefix = prefixlen
 	}
 	if prefixlen <= 0 {
-		return nil, false, fmt.Errorf("prefixlen must be > 0")
+		return nil, fmt.Errorf("prefixlen must be > 0")
 	}
 	bytes := (prefixlen-1)/8 + 1
-	fd, isNewMap, err := bpf.OpenOrCreateMap(
+	fd, err := bpf.OpenOrCreateMap(
 		path,
 		typeMap,
 		uint32(unsafe.Sizeof(uint32(0))+uintptr(bytes)),
@@ -168,7 +168,7 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 	if err != nil {
 		scopedLog := log.WithError(err).WithField(logfields.Path, path)
 		scopedLog.Warning("Failed to create CIDR map")
-		return nil, false, err
+		return nil, err
 	}
 
 	m := &CIDRMap{
@@ -185,5 +185,5 @@ func OpenMapElems(path string, prefixlen int, prefixdyn bool, maxelem uint32) (*
 		"LPM":          typeMap == bpf.MapTypeLPMTrie,
 	}).Debug("Created CIDR map")
 
-	return m, isNewMap, nil
+	return m, nil
 }

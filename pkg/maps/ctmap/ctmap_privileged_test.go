@@ -38,7 +38,7 @@ func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
 
 func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
-	_, err := m.OpenOrCreate()
+	err := m.OpenOrCreate()
 	defer m.Map.Unpin()
 	c.Assert(err, IsNil)
 
@@ -98,7 +98,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
-	_, err := natMap.OpenOrCreate()
+	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
 
@@ -108,7 +108,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 		100, natMap)
 
 	ctMap := newMap(ctMapName, mapTypeIPv4AnyGlobal)
-	_, err = ctMap.OpenOrCreate()
+	err = ctMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMap.Map.Unpin()
 
@@ -210,7 +210,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
 	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
-	_, err := natMap.OpenOrCreate()
+	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
 
@@ -219,7 +219,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
 	ctMapAny := newMap(ctMapAnyName, mapTypeIPv4AnyGlobal)
-	_, err = ctMapAny.OpenOrCreate()
+	err = ctMapAny.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAny.Map.Unpin()
 
@@ -228,7 +228,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
 		100, natMap)
 	ctMapTCP := newMap(ctMapTCPName, mapTypeIPv4TCPGlobal)
-	_, err = ctMapTCP.OpenOrCreate()
+	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapTCP.Map.Unpin()
 
@@ -508,7 +508,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Let's check IPv6
 
 	natMapV6 := nat.NewMap("cilium_nat_any6_test", false, 1000)
-	_, err = natMapV6.OpenOrCreate()
+	err = natMapV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMapV6.Map.Unpin()
 
@@ -517,7 +517,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		100, natMapV6)
 	ctMapAnyV6 := newMap(ctMapAnyName, mapTypeIPv6AnyGlobal)
-	_, err = ctMapAnyV6.OpenOrCreate()
+	err = ctMapAnyV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAnyV6.Map.Unpin()
 
@@ -526,7 +526,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
 		100, natMapV6)
 	ctMapTCPV6 := newMap(ctMapTCPName, mapTypeIPv6TCPGlobal)
-	_, err = ctMapTCP.OpenOrCreate()
+	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapTCPV6.Map.Unpin()
 

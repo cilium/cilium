@@ -502,7 +502,7 @@ func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
 		bpf.ConvertKeyValue,
 	)
 
-	if _, err := om.OpenOrCreate(); err != nil {
+	if err := om.OpenOrCreate(); err != nil {
 		return nil, err
 	}
 
@@ -532,8 +532,7 @@ func (om *PerClusterCTMap) updateClusterCTMap(clusterID uint32) error {
 
 	im := om.newInnerMap(clusterID, om.m)
 
-	_, err := im.OpenOrCreate()
-	if err != nil {
+	if err := im.OpenOrCreate(); err != nil {
 		return err
 	}
 
@@ -559,7 +558,7 @@ func (om *PerClusterCTMap) deleteClusterCTMap(clusterID uint32) error {
 
 	im := om.newInnerMap(clusterID, om.m)
 
-	if _, err := im.OpenOrCreate(); err != nil {
+	if err := im.OpenOrCreate(); err != nil {
 		return err
 	}
 
