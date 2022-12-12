@@ -26,7 +26,7 @@ func (s *BPFTestSuite) TestEndpointKeyToString(c *C) {
 
 	for _, tt := range tests {
 		ip := net.ParseIP(tt.ip)
-		k := NewEndpointKey(ip)
+		k := NewEndpointKey(ip, 0)
 		c.Assert(k.ToIP().String(), Equals, tt.ip)
 	}
 }

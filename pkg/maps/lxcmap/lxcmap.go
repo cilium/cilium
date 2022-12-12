@@ -149,7 +149,7 @@ func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
 // address family is automatically detected
 func NewEndpointKey(ip net.IP) *EndpointKey {
 	return &EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(ip),
+		EndpointKey: bpf.NewEndpointKey(ip, 0),
 	}
 }
 

@@ -4,6 +4,7 @@
 package tunnel
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"unsafe"
@@ -11,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -68,17 +70,29 @@ type TunnelEndpoint struct {
 	bpf.EndpointKey
 }
 
-func newTunnelEndpoint(ip net.IP) *TunnelEndpoint {
-	return &TunnelEndpoint{
-		EndpointKey: bpf.NewEndpointKey(ip),
+func newTunnelEndpoint(ip net.IP, clusterID uint32) (*TunnelEndpoint, error) {
+	if clusterID > cmtypes.ClusterIDMax {
+		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported in TunnelMap", clusterID, cmtypes.ClusterIDMax)
 	}
+	return &TunnelEndpoint{
+		EndpointKey: bpf.NewEndpointKey(ip, uint8(clusterID)),
+	}, nil
 }
 
 func (v TunnelEndpoint) NewValue() bpf.MapValue { return &TunnelEndpoint{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error {
-	key, val := newTunnelEndpoint(prefix), newTunnelEndpoint(endpoint)
+func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, endpoint net.IP) error {
+	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	if err != nil {
+		return err
+	}
+
+	val, err := newTunnelEndpoint(endpoint, 0)
+	if err != nil {
+		return err
+	}
+
 	val.EndpointKey.Key = encryptKey
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
@@ -90,8 +104,13 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error
 }
 
 // GetTunnelEndpoint removes a prefix => tunnel-endpoint mapping
-func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
-	val, err := TunnelMap().Lookup(newTunnelEndpoint(prefix))
+func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
+	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	if err != nil {
+		return net.IP{}, err
+	}
+
+	val, err := TunnelMap().Lookup(key)
 	if err != nil {
 		return net.IP{}, err
 	}
@@ -100,15 +119,23 @@ func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
-func (m *Map) DeleteTunnelEndpoint(prefix net.IP) error {
+func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
+	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	if err != nil {
+		return err
+	}
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
-	return TunnelMap().Delete(newTunnelEndpoint(prefix))
+	return TunnelMap().Delete(key)
 }
 
 // SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
 // If the prefix is not found no error is returned.
-func (m *Map) SilentDeleteTunnelEndpoint(prefix net.IP) error {
+func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
+	key, err := newTunnelEndpoint(prefix.AsNetIP(), prefix.ClusterID())
+	if err != nil {
+		return err
+	}
 	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
-	_, err := TunnelMap().SilentDelete(newTunnelEndpoint(prefix))
+	_, err = TunnelMap().SilentDelete(key)
 	return err
 }
