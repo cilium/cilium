@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/cilium/workerpool"
@@ -84,7 +83,7 @@ func (s *localNodeStoreSpecer) Stop(ctx hive.HookContext) error {
 func (s *localNodeStoreSpecer) run(ctx context.Context) error {
 	doneChan := make(chan struct{})
 
-	next := func(_ types.Node) {
+	next := func(_ node.LocalNode) {
 		s.Signaler.Event(nil)
 	}
 

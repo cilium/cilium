@@ -14,12 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	. "github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 )
 
 type testInitializer struct{}
 
-func (testInitializer) InitLocalNode(n *types.Node) error {
+func (testInitializer) InitLocalNode(n *LocalNode) error {
 	n.NodeIdentity = 1
 	return nil
 }
@@ -35,7 +34,7 @@ func TestLocalNodeStore(t *testing.T) {
 	// waitObserve after the last change has been observed.
 	observe := func(store LocalNodeStore) {
 		store.Observe(context.TODO(),
-			func(n types.Node) {
+			func(n LocalNode) {
 				observed = append(observed, n.NodeIdentity)
 				if n.NodeIdentity == expected[len(expected)-1] {
 					waitObserve.Done()
@@ -52,7 +51,7 @@ func TestLocalNodeStore(t *testing.T) {
 			OnStart: func(hive.HookContext) error {
 				// emit 2, 3, 4, 5
 				for _, i := range expected[1:] {
-					store.Update(func(n *types.Node) {
+					store.Update(func(n *LocalNode) {
 						n.NodeIdentity = i
 					})
 				}
