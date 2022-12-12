@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ip"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
@@ -234,6 +236,32 @@ func PrefixClusterFrom(addr netip.Addr, bits int, clusterID uint32) PrefixCluste
 		prefix:    netip.PrefixFrom(addr, bits),
 		clusterID: clusterID,
 	}
+}
+
+func PrefixClusterFromCIDR(c *cidr.CIDR, clusterID uint32) PrefixCluster {
+	if c == nil {
+		return PrefixCluster{}
+	}
+
+	addr := ip.MustAddrFromIP(c.IP)
+	ones, _ := c.Mask.Size()
+
+	return PrefixCluster{
+		prefix:    netip.PrefixFrom(addr, ones),
+		clusterID: clusterID,
+	}
+}
+
+func (pc0 PrefixCluster) Equal(pc1 PrefixCluster) bool {
+	return pc0.prefix == pc1.prefix && pc0.clusterID == pc1.clusterID
+}
+
+func (pc PrefixCluster) IsValid() bool {
+	return pc.prefix.IsValid()
+}
+
+func (pc PrefixCluster) AddrCluster() AddrCluster {
+	return AddrClusterFrom(pc.prefix.Addr(), pc.clusterID)
 }
 
 func (pc PrefixCluster) String() string {
