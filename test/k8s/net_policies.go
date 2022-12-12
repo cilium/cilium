@@ -137,7 +137,7 @@ var _ = SkipDescribeIf(func() bool {
 			_ = kubectl.Exec(cmd)
 		})
 
-		It("TLS policy", func() {
+		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
 			By("Testing L7 Policy with TLS")
 
 			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
