@@ -97,7 +97,7 @@ func NewMap(name string) *Map {
 			&VtepEndpointInfo{},
 			int(unsafe.Sizeof(VtepEndpointInfo{})),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().WithNonPersistent().
 			WithEvents(option.Config.GetEventBufferConfig(name)),

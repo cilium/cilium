@@ -138,8 +138,7 @@ type Map struct {
 
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
-	mapValue MapValue, valueSize, maxEntries int, flags uint32, _ uint32,
-	dumpParser DumpParser) *Map {
+	mapValue MapValue, valueSize, maxEntries int, flags uint32, dumpParser DumpParser) *Map {
 
 	if size := reflect.TypeOf(mapKey).Elem().Size(); size != uintptr(keySize) {
 		panic(fmt.Sprintf("Invalid %s map key size (%d != %d)", name, size, keySize))

@@ -155,7 +155,7 @@ func initSourceRange(params InitParams) {
 			&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
 			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
+			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange4MapName))
@@ -168,7 +168,7 @@ func initSourceRange(params InitParams) {
 			&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
 			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
+			bpf.BPF_F_NO_PREALLOC,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))

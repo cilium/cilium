@@ -41,7 +41,7 @@ func LXCMap() *bpf.Map {
 			&EndpointInfo{},
 			int(unsafe.Sizeof(EndpointInfo{})),
 			MaxEntries,
-			0, 0,
+			0,
 			bpf.ConvertKeyValue,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))

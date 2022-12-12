@@ -112,7 +112,7 @@ func CaptureMap6() *Map {
 				&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
 				&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
 				MapSize,
-				bpf.BPF_F_NO_PREALLOC, 0,
+				bpf.BPF_F_NO_PREALLOC,
 				bpf.ConvertKeyValue,
 			).WithCache().WithEvents(option.Config.GetEventBufferConfig(MapNameWcard6)),
 			v4: false,

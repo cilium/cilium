@@ -323,7 +323,7 @@ func newMap(mapName string, m mapType) *Map {
 			mapInfo[m].mapValue,
 			mapInfo[m].valueSize,
 			mapInfo[m].maxEntries,
-			0, 0,
+			0,
 			mapInfo[m].parser,
 		),
 		mapType: m,
