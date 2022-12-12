@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -411,7 +412,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -421,7 +422,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -450,7 +451,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// alloc range v1 should map to underlay2
 	if s.enableIPv4 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
@@ -460,7 +461,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	}
 
 	if s.enableIPv6 {
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP2), check.Equals, true)
 
@@ -488,15 +489,15 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
 		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc2.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -513,7 +514,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv6 {
 		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc2.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -539,10 +540,10 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc2.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc2.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -579,7 +580,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv4 {
 		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc2.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -591,7 +592,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	if s.enableIPv6 {
 		// alloc range v2 should map to underlay1
-		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc2.IP)
+		underlayIP, err := tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 		c.Assert(err, check.IsNil)
 		c.Assert(underlayIP.Equal(externalNodeIP1), check.Equals, true)
 
@@ -606,17 +607,17 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// alloc range v1 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
 	// alloc range v2 should fail
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc2.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc2.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc2.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc2.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
 	if s.enableIPv4 {
@@ -917,11 +918,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 
 	// tunnel map entries must exist
 	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		c.Assert(err, check.IsNil)
 	}
 	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		c.Assert(err, check.IsNil)
 	}
 
@@ -938,9 +939,9 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 	c.Assert(err, check.IsNil)
 
 	// tunnel map entries should have been removed
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
-	_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+	_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 	c.Assert(err, check.Not(check.IsNil))
 
 	// Simulate agent restart with address families enabled again
@@ -957,11 +958,11 @@ func (s *linuxPrivilegedBaseTestSuite) TestAgentRestartOptionChanges(c *check.C)
 
 	// tunnel map entries must exist
 	if s.enableIPv4 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip4Alloc1.IP)
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip4Alloc1.IP))
 		c.Assert(err, check.IsNil)
 	}
 	if s.enableIPv6 {
-		_, err = tunnel.TunnelMap().GetTunnelEndpoint(ip6Alloc1.IP)
+		_, err = tunnel.TunnelMap().GetTunnelEndpoint(cmtypes.MustAddrClusterFromIP(ip6Alloc1.IP))
 		c.Assert(err, check.IsNil)
 	}
 

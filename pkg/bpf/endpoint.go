@@ -8,6 +8,8 @@ import (
 	"net"
 	"unsafe"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -39,7 +41,7 @@ func (k *EndpointKey) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected.
-func NewEndpointKey(ip net.IP) EndpointKey {
+func NewEndpointKey(ip net.IP, clusterID uint8) EndpointKey {
 	result := EndpointKey{}
 
 	if ip4 := ip.To4(); ip4 != nil {
@@ -50,6 +52,7 @@ func NewEndpointKey(ip net.IP) EndpointKey {
 		copy(result.IP[:], ip)
 	}
 	result.Key = 0
+	result.ClusterID = clusterID
 
 	return result
 }
@@ -68,7 +71,11 @@ func (k EndpointKey) ToIP() net.IP {
 // String provides a string representation of the EndpointKey.
 func (k EndpointKey) String() string {
 	if ip := k.ToIP(); ip != nil {
-		return net.JoinHostPort(ip.String(), fmt.Sprintf("%d", k.Key))
+		addrCluster := cmtypes.AddrClusterFrom(
+			ippkg.MustAddrFromIP(ip),
+			uint32(k.ClusterID),
+		)
+		return addrCluster.String() + ":" + fmt.Sprintf("%d", k.Key)
 	}
 	return "nil"
 }
