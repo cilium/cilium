@@ -1056,7 +1056,7 @@ func (ct *ConnectivityTest) waitForPodDNS(ctx context.Context, srcPod, dstPod Po
 		// we query it with a so-called "local request" (e.g. "localhost") to get a response.
 		// See https://coredns.io/plugins/local/ for more info.
 		target := "localhost"
-		stdout, err := srcPod.K8sClient.ExecInPodWithTTY(ctx, srcPod.Pod.Namespace, srcPod.Pod.Name,
+		stdout, err := srcPod.K8sClient.ExecInPod(ctx, srcPod.Pod.Namespace, srcPod.Pod.Name,
 			"", []string{"nslookup", target, dstPod.Address()})
 
 		if err == nil {
@@ -1087,7 +1087,7 @@ func (ct *ConnectivityTest) waitForServiceDNS(ctx context.Context, pod Pod) erro
 		r := time.After(time.Second)
 
 		target := "kubernetes.default"
-		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			"", []string{"nslookup", target})
 		if err == nil {
 			return nil
@@ -1113,7 +1113,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		stdout, err := pod.K8sClient.ExecInPodWithTTY(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
 			defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
 		if err == nil {
 			var ic ipCache
@@ -1193,7 +1193,7 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
-		stdout, err := ct.client.ExecInPodWithTTY(ctx,
+		stdout, err := ct.client.ExecInPod(ctx,
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
 
@@ -1243,7 +1243,7 @@ func (ct *ConnectivityTest) waitForNodePorts(ctx context.Context, nodeIP string,
 		ct.Logf("⌛ [%s] Waiting for NodePort %s:%d (%s) to become ready...",
 			ct.client.ClusterName(), nodeIP, nodePort, service.Name())
 		for {
-			e, err := ct.client.ExecInPodWithTTY(ctx,
+			e, err := ct.client.ExecInPod(ctx,
 				pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
 				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
 			if err == nil {
