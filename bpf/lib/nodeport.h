@@ -1162,33 +1162,29 @@ drop:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
-declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV6_NODEPORT_REVNAT_LOCAL)
-int tail_rev_nodeport_local_lb6(struct __ctx_buff *ctx)
+static __always_inline int
+rev_nodeport_local_lb6(struct __ctx_buff *ctx, int *ext_err)
 {
-	int ext_err = 0, ret = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u32 ifindex = 0;
+	int ret = 0;
 
-	ret = rev_nodeport_lb6(ctx, &ifindex, &ext_err);
+	ret = rev_nodeport_lb6(ctx, &ifindex, ext_err);
 	if (IS_ERR(ret))
-		goto drop;
+		return ret;
 
 	ctx_snat_done_set(ctx);
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-		ret = DROP_INVALID;
-		goto drop;
-	}
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return ret;
 
 	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
 		int ret2;
 
 		ret2 = lb6_to_lb4(ctx, ip6);
-		if (ret2) {
-			ret = ret2;
-			goto drop;
-		}
+		if (ret2)
+			return ret2;
 	}
 
 	edt_set_aggregate(ctx, 0);
@@ -1198,9 +1194,20 @@ int tail_rev_nodeport_local_lb6(struct __ctx_buff *ctx)
 		return ctx_redirect(ctx, ifindex, 0);
 
 	return ret;
+}
 
-drop:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV6_NODEPORT_REVNAT_LOCAL)
+int tail_rev_nodeport_local_lb6(struct __ctx_buff *ctx)
+{
+	int ext_err = 0;
+	int ret;
+
+	ret = rev_nodeport_local_lb6(ctx, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
+
+	return ret;
 }
 
 static __always_inline int handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
@@ -2181,17 +2188,15 @@ int tail_rev_nodeport_fwd_lb4(struct __ctx_buff *ctx)
 	return ret;
 }
 
-declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV4_NODEPORT_REVNAT_LOCAL)
-int tail_rev_nodeport_local_lb4(struct __ctx_buff *ctx)
+static __always_inline int
+rev_nodeport_local_lb4(struct __ctx_buff *ctx, int *ext_err)
 {
 	__u32 ifindex = 0;
-	int ext_err = 0;
 	int ret = 0;
 
-	ret = rev_nodeport_lb4(ctx, &ifindex, &ext_err);
+	ret = rev_nodeport_lb4(ctx, &ifindex, ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+		return ret;
 
 	ctx_snat_done_set(ctx);
 
@@ -2200,6 +2205,19 @@ int tail_rev_nodeport_local_lb4(struct __ctx_buff *ctx)
 
 	if (ret == CTX_ACT_REDIRECT)
 		return ctx_redirect(ctx, ifindex, 0);
+
+	return ret;
+}
+
+declare_tailcall_if(is_defined(IS_BPF_LXC), CILIUM_CALL_IPV4_NODEPORT_REVNAT_LOCAL)
+int tail_rev_nodeport_local_lb4(struct __ctx_buff *ctx)
+{
+	int ret, ext_err = 0;
+
+	ret = rev_nodeport_local_lb4(ctx, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
 }
@@ -2327,6 +2345,36 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 	}
 }
 #endif /* ENABLE_HEALTH_CHECK */
+
+static __always_inline int handle_revnat_local(struct __ctx_buff *ctx,
+					       int *ext_err)
+{
+	int ret = CTX_ACT_OK;
+	__u16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return CTX_ACT_OK;
+
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = rev_nodeport_local_lb4(ctx, ext_err);
+		break;
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		ret = rev_nodeport_local_lb6(ctx, ext_err);
+		break;
+#endif /* ENABLE_IPV6 */
+	default:
+		break;
+	}
+
+	if (ret == DROP_NAT_NO_MAPPING)
+		ret = CTX_ACT_OK;
+
+	return ret;
+}
 
 static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 {

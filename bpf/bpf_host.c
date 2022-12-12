@@ -1105,6 +1105,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
+	int ext_err = 0;
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1184,21 +1185,30 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		goto drop_err;
 #endif /* ENABLE_SRV6 */
 
-#if defined(ENABLE_NODEPORT) && \
-	(!defined(ENABLE_DSR) || \
-	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
-	 defined(ENABLE_MASQUERADE) || \
-	 defined(ENABLE_EGRESS_GATEWAY))
+#if defined(ENABLE_NODEPORT)
 	if (!ctx_snat_done(ctx)) {
-		/*
-		 * handle_nat_fwd tail calls in the majority of cases,
-		 * so control might never return to this program.
+		/* First check for replies by local backends that haven't
+		 * been handled yet (eg. hostns backend).
 		 */
-		ret = handle_nat_fwd(ctx);
+		ret = handle_revnat_local(ctx, &ext_err);
+
+		if (!ctx_snat_done(ctx)) {
+# if (!defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))) || \
+     defined(ENABLE_MASQUERADE) || \
+     defined(ENABLE_EGRESS_GATEWAY)
+			/*
+			 * handle_nat_fwd tail calls in the majority of cases,
+			 * so control might never return to this program.
+			 */
+			ret = handle_nat_fwd(ctx);
+# endif
+		}
+
 		if (IS_ERR(ret))
 			goto drop_err;
 	}
 #endif
+
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx);
 	if (IS_ERR(ret))
@@ -1210,7 +1220,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	return ret;
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+					  METRIC_EGRESS);
 }
 
 /*
