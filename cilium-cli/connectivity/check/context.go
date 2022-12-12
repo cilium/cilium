@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -545,6 +546,25 @@ func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
 			}
 		}
 	}
+}
+
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, opts ...string) []string {
+	cmd := []string{"curl",
+		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
+		"--silent", "--fail", "--show-error",
+		"--connect-timeout", "5",
+		"--output", "/dev/null",
+	}
+	cmd = append(cmd, opts...)
+	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
+		peer.Scheme(),
+		net.JoinHostPort(peer.Address(), fmt.Sprint(peer.Port())),
+		peer.Path()))
+	return cmd
+}
+
+func (ct *ConnectivityTest) PingCommand(peer TestPeer) []string {
+	return []string{"ping", "-w", "3", "-c", "1", peer.Address()}
 }
 
 func (ct *ConnectivityTest) RandomClientPod() *Pod {
