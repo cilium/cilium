@@ -10,7 +10,7 @@ jobs:
   build:
     name: Create Release
     if: github.repository == 'cilium/cilium-cli'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
