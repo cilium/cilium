@@ -195,7 +195,7 @@ jobs:
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }} ${{ github.workspace }}/pull-request/install/kubernetes/cilium
+          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
