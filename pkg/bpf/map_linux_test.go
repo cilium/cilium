@@ -52,8 +52,7 @@ func (s *BPFPrivilegedTestSuite) SetUpSuite(c *C) {
 		c.Fatal(err)
 	}
 
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
+	if err := testMap.OpenOrCreate(); err != nil {
 		c.Fatal("Failed to create map:", err)
 	}
 
@@ -171,9 +170,8 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 		BPF_F_NO_PREALLOC,
 		0,
 		ConvertKeyValue).WithCache()
-	isNew, err := existingMap.OpenOrCreate()
+	err := existingMap.OpenOrCreate()
 	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, false)
 
 	// preallocMap unsets BPF_F_NO_PREALLOC. OpenOrCreate should recreate map.
 	EnableMapPreAllocation() // prealloc on/off is controllable in HASH map case.
@@ -187,16 +185,14 @@ func (s *BPFPrivilegedTestSuite) TestOpenOrCreate(c *C) {
 		0,
 		0,
 		ConvertKeyValue).WithCache()
-	isNew, err = preallocMap.OpenOrCreate()
+	err = preallocMap.OpenOrCreate()
 	defer preallocMap.Close()
 	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
 	DisableMapPreAllocation()
 
 	// preallocMap is already open. OpenOrCreate does nothing.
-	isNew, err = preallocMap.OpenOrCreate()
+	err = preallocMap.OpenOrCreate()
 	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, false)
 }
 
 func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
@@ -210,13 +206,11 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 		BPF_F_NO_PREALLOC,
 		0,
 		ConvertKeyValue).WithCache()
-	isNew, err := parallelMap.OpenParallel()
+	err := parallelMap.OpenParallel()
 	defer parallelMap.Close()
 	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
 
-	isNew, err = parallelMap.OpenParallel()
-	c.Assert(isNew, Equals, false)
+	err = parallelMap.OpenParallel()
 	c.Assert(err, Not(IsNil))
 
 	// Check OpenMap warning section
@@ -571,7 +565,7 @@ func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 		0,
 		ConvertKeyValue,
 	).WithCache()
-	_, err := m.OpenOrCreate()
+	err := m.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer func() {
 		path, _ := m.Path()
@@ -700,7 +694,7 @@ func (s *BPFPrivilegedTestSuite) TestCheckAndUpgrade(c *C) {
 		BPF_F_NO_PREALLOC,
 		0,
 		ConvertKeyValue).WithCache()
-	_, err := upgradeMap.OpenOrCreate()
+	err := upgradeMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer func() {
 		_ = upgradeMap.Unpin()
@@ -740,7 +734,7 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 		BPF_F_NO_PREALLOC,
 		0,
 		ConvertKeyValue).WithCache()
-	_, err := unpinMap.OpenOrCreate()
+	err := unpinMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	exist, err = unpinMap.exist()
 	c.Assert(err, IsNil)
@@ -760,7 +754,7 @@ func (s *BPFPrivilegedTestSuite) TestUnpin(c *C) {
 
 	err = UnpinMapIfExists("cilium_test_unpin")
 	c.Assert(err, IsNil)
-	_, err = unpinMap.OpenOrCreate()
+	err = unpinMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	err = UnpinMapIfExists("cilium_test_unpin")
 	c.Assert(err, IsNil)

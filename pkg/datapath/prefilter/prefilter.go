@@ -231,7 +231,7 @@ func (p *PreFilter) initOneMap(which preFilterMapType) error {
 		skip = p.config.fix4Enabled == false
 	}
 	if skip == false {
-		p.maps[which], _, err = cidrmap.OpenMapElems(path, prefixlen, prefixdyn, maxelems)
+		p.maps[which], err = cidrmap.OpenMapElems(path, prefixlen, prefixdyn, maxelems)
 		if err != nil {
 			return err
 		}

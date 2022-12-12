@@ -98,7 +98,7 @@ func newConfigMap() *configMap {
 }
 
 func (m *configMap) init() error {
-	if _, err := m.bpfMap.OpenOrCreate(); err != nil {
+	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}
 

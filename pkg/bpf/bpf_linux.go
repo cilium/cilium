@@ -460,12 +460,11 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 	return false
 }
 
-func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
+func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, error) {
 	var fd int
 	var err error
 
 	redo := false
-	isNewMap := false
 
 recreate:
 	create := true
@@ -474,7 +473,7 @@ recreate:
 			mapDir := filepath.Dir(path)
 			if _, err = os.Stat(mapDir); os.IsNotExist(err) {
 				if err = os.MkdirAll(mapDir, 0755); err != nil {
-					return 0, isNewMap, &os.PathError{
+					return 0, &os.PathError{
 						Op:   "Unable create map base directory",
 						Path: path,
 						Err:  err,
@@ -505,20 +504,18 @@ recreate:
 			}
 		}()
 
-		isNewMap = true
-
 		if err != nil {
-			return 0, isNewMap, err
+			return 0, err
 		}
 
 		if pin {
 			err = ObjPin(fd, path)
 			if err != nil {
-				return 0, isNewMap, err
+				return 0, err
 			}
 		}
 
-		return fd, isNewMap, nil
+		return fd, nil
 	}
 
 	fd, err = ObjGet(path)
@@ -538,7 +535,7 @@ recreate:
 		}
 	}
 
-	return fd, isNewMap, err
+	return fd, err
 }
 
 // GetMtime returns monotonic time that can be used to compare
