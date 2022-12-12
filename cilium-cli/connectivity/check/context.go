@@ -509,7 +509,7 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
 	var minVersion *semver.Version
 	for name, ciliumPod := range ct.ciliumPods {
-		stdout, err := ciliumPod.K8sClient.ExecInPodWithTTY(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
 			defaults.AgentContainerName, []string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"})
 		if err != nil {
 			return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", name, err)
