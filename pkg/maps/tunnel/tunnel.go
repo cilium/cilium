@@ -100,7 +100,7 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, en
 		fieldKey:      encryptKey,
 	}).Debug("Updating tunnel map entry")
 
-	return TunnelMap().Update(key, val)
+	return m.Update(key, val)
 }
 
 // GetTunnelEndpoint removes a prefix => tunnel-endpoint mapping
@@ -110,7 +110,7 @@ func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
 		return net.IP{}, err
 	}
 
-	val, err := TunnelMap().Lookup(key)
+	val, err := m.Lookup(key)
 	if err != nil {
 		return net.IP{}, err
 	}
@@ -125,7 +125,7 @@ func (m *Map) DeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 		return err
 	}
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
-	return TunnelMap().Delete(key)
+	return m.Delete(key)
 }
 
 // SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
@@ -136,6 +136,6 @@ func (m *Map) SilentDeleteTunnelEndpoint(prefix cmtypes.AddrCluster) error {
 		return err
 	}
 	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
-	_, err = TunnelMap().SilentDelete(key)
+	_, err = m.SilentDelete(key)
 	return err
 }
