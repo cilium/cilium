@@ -1030,8 +1030,6 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		ctx_snat_done_set(ctx);
-
 		*ifindex = ct_state.ifindex;
 #ifdef TUNNEL_MODE
 		{
@@ -1175,6 +1173,9 @@ int tail_rev_nodeport_local_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ifindex, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
+
+	ctx_snat_done_set(ctx);
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
 		goto drop;
@@ -2048,8 +2049,6 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		ctx_snat_done_set(ctx);
-
 		*ifindex = ct_state.ifindex;
 #if defined(TUNNEL_MODE)
 		{
@@ -2193,6 +2192,8 @@ int tail_rev_nodeport_local_lb4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
+
+	ctx_snat_done_set(ctx);
 
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
