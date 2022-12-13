@@ -29,7 +29,7 @@ var _ = SkipDescribeIf(func() bool {
 	// code coverage.
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return false // helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
