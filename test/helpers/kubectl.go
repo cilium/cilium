@@ -2873,7 +2873,10 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// https://github.com/cilium/cilium/issues/22476
 	for i := 0; i < limitTimes; i++ {
 		res = execute()
-		if res.GetExitCode() != 126 && res.GetExitCode() != 137 {
+		switch res.GetExitCode() {
+		case 126, 137:
+			// Retry.
+		default:
 			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
 			break
 		}
