@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 
 // TupleKey is the interface describing keys to the conntrack and NAT maps.
 type TupleKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() TupleKey
@@ -44,7 +44,7 @@ func (in *buff256uint8) DeepCopyInto(out *buff256uint8) {
 
 // TupleValStub is a dummy, unused.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
 type TupleValStub struct {
 	buff buff256uint8
 }

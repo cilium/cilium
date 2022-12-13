@@ -11,9 +11,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ipcacheTypes "github.com/cilium/cilium/pkg/maps/ipcache/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -25,26 +26,19 @@ const (
 	Name = "cilium_ipcache"
 )
 
-// Key implements the bpf.MapKey interface.
+// Key implements the bpfTypes.MapKey interface.
 //
 // Must be in sync with struct ipcache_key in <bpf/lib/maps.h>
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Key struct {
-	Prefixlen uint32 `align:"lpm_key"`
-	Pad1      uint16 `align:"pad1"`
-	ClusterID uint8  `align:"cluster_id"`
-	Family    uint8  `align:"family"`
-	// represents both IPv6 and IPv4 (in the lowest four bytes)
-	IP types.IPv6 `align:"$union0"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type Key ipcacheTypes.Key
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
-func (k Key) NewValue() bpf.MapValue { return &RemoteEndpointInfo{} }
+func (k Key) NewValue() bpfTypes.MapValue { return &RemoteEndpointInfo{} }
 
 func getStaticPrefixBits() uint32 {
 	staticMatchSize := unsafe.Sizeof(Key{})
@@ -60,12 +54,12 @@ func (k Key) String() string {
 	)
 
 	switch k.Family {
-	case bpf.EndpointKeyIPv4:
+	case bpfTypes.EndpointKeyIPv4:
 		addr, ok = netip.AddrFromSlice(k.IP[:net.IPv4len])
 		if !ok {
 			return "<unknown>"
 		}
-	case bpf.EndpointKeyIPv6:
+	case bpfTypes.EndpointKeyIPv6:
 		addr = netip.AddrFrom16(k.IP)
 	default:
 		return "<unknown>"
@@ -81,10 +75,10 @@ func (k Key) IPNet() *net.IPNet {
 	cidr := &net.IPNet{}
 	prefixLen := k.Prefixlen - getStaticPrefixBits()
 	switch k.Family {
-	case bpf.EndpointKeyIPv4:
+	case bpfTypes.EndpointKeyIPv4:
 		cidr.IP = net.IP(k.IP[:net.IPv4len])
 		cidr.Mask = net.CIDRMask(int(prefixLen), 32)
-	case bpf.EndpointKeyIPv6:
+	case bpfTypes.EndpointKeyIPv6:
 		cidr.IP = net.IP(k.IP[:net.IPv6len])
 		cidr.Mask = net.CIDRMask(int(prefixLen), 128)
 	}
@@ -95,9 +89,9 @@ func (k Key) Prefix() netip.Prefix {
 	var addr netip.Addr
 	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
 	switch k.Family {
-	case bpf.EndpointKeyIPv4:
+	case bpfTypes.EndpointKeyIPv4:
 		addr = netip.AddrFrom4(*(*[4]byte)(k.IP[:4]))
-	case bpf.EndpointKeyIPv6:
+	case bpfTypes.EndpointKeyIPv6:
 		addr = netip.AddrFrom16(k.IP)
 	}
 	return netip.PrefixFrom(addr, prefixLen)
@@ -122,14 +116,14 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 			ones = net.IPv4len * 8
 		}
 		result.Prefixlen = getPrefixLen(ones)
-		result.Family = bpf.EndpointKeyIPv4
+		result.Family = bpfTypes.EndpointKeyIPv4
 		copy(result.IP[:], ip4)
 	} else {
 		if mask == nil {
 			ones = net.IPv6len * 8
 		}
 		result.Prefixlen = getPrefixLen(ones)
-		result.Family = bpf.EndpointKeyIPv6
+		result.Family = bpfTypes.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
 
@@ -138,16 +132,11 @@ func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 	return result
 }
 
-// RemoteEndpointInfo implements the bpf.MapValue interface. It contains the
+// RemoteEndpointInfo implements the bpfTypes.MapValue interface. It contains the
 // security identity of a remote endpoint.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type RemoteEndpointInfo struct {
-	SecurityIdentity uint32     `align:"sec_label"`
-	TunnelEndpoint   types.IPv4 `align:"tunnel_endpoint"`
-	NodeID           uint16     `align:"node_id"`
-	Key              uint8      `align:"key"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type RemoteEndpointInfo ipcacheTypes.RemoteEndpointInfo
 
 func (v *RemoteEndpointInfo) String() string {
 	return fmt.Sprintf("identity=%d encryptkey=%d tunnelendpoint=%s nodeid=%d",

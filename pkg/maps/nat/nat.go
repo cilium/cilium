@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -40,7 +41,7 @@ type Map struct {
 
 // NatEntry is the interface describing values to the NAT map.
 type NatEntry interface {
-	bpf.MapValue
+	bpfTypes.MapValue
 
 	// ToHost converts fields to host byte order.
 	ToHost() NatEntry
@@ -78,8 +79,8 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 // NewMap instantiates a Map.
 func NewMap(name string, v4 bool, entries int) *Map {
 	var sizeKey, sizeVal int
-	var mapKey bpf.MapKey
-	var mapValue bpf.MapValue
+	var mapKey bpfTypes.MapKey
+	var mapValue bpfTypes.MapValue
 
 	if v4 {
 		mapKey = &NatKey4{}
@@ -109,7 +110,7 @@ func NewMap(name string, v4 bool, entries int) *Map {
 	}
 }
 
-func (m *Map) Delete(k bpf.MapKey) (deleted bool, err error) {
+func (m *Map) Delete(k bpfTypes.MapKey) (deleted bool, err error) {
 	deleted, err = (&m.Map).SilentDelete(k)
 	return
 }
@@ -128,7 +129,7 @@ func DoDumpEntries(m NatMap) (string, error) {
 	var sb strings.Builder
 
 	nsecStart, _ := bpf.GetMtime()
-	cb := func(k bpf.MapKey, v bpf.MapValue) {
+	cb := func(k bpfTypes.MapKey, v bpfTypes.MapValue) {
 		key := k.(NatKey)
 		if !key.ToHost().Dump(&sb, false) {
 			return
@@ -164,7 +165,7 @@ func statStartGc(m *Map) gcStats {
 
 func doFlush4(m *Map) gcStats {
 	stats := statStartGc(m)
-	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
+	filterCallback := func(key bpfTypes.MapKey, _ bpfTypes.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")
@@ -178,7 +179,7 @@ func doFlush4(m *Map) gcStats {
 
 func doFlush6(m *Map) gcStats {
 	stats := statStartGc(m)
-	filterCallback := func(key bpf.MapKey, _ bpf.MapValue) {
+	filterCallback := func(key bpfTypes.MapKey, _ bpfTypes.MapValue) {
 		err := (&m.Map).Delete(key)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Key, key.String()).Error("Unable to delete CT entry")

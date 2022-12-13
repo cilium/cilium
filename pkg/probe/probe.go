@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -29,14 +30,14 @@ var (
 	haveFullLPM     bool
 )
 
-func (p *probeKey) String() string             { return fmt.Sprintf("key=%d", p.Key) }
-func (p *probeKey) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(p) }
-func (p *probeKey) NewValue() bpf.MapValue     { return &probeValue{} }
-func (p *probeKey) DeepCopyMapKey() bpf.MapKey { return &probeKey{p.Prefixlen, p.Key} }
+func (p *probeKey) String() string                  { return fmt.Sprintf("key=%d", p.Key) }
+func (p *probeKey) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(p) }
+func (p *probeKey) NewValue() bpfTypes.MapValue     { return &probeValue{} }
+func (p *probeKey) DeepCopyMapKey() bpfTypes.MapKey { return &probeKey{p.Prefixlen, p.Key} }
 
-func (p *probeValue) String() string                 { return fmt.Sprintf("value=%d", p.Value) }
-func (p *probeValue) GetValuePtr() unsafe.Pointer    { return unsafe.Pointer(p) }
-func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Value} }
+func (p *probeValue) String() string                      { return fmt.Sprintf("value=%d", p.Value) }
+func (p *probeValue) GetValuePtr() unsafe.Pointer         { return unsafe.Pointer(p) }
+func (p *probeValue) DeepCopyMapValue() bpfTypes.MapValue { return &probeValue{p.Value} }
 
 // HaveFullLPM tests whether kernel supports fully functioning BPF LPM map
 // with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.

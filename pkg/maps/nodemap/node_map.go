@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -51,9 +51,9 @@ type NodeKey struct {
 
 func (k *NodeKey) String() string {
 	switch k.Family {
-	case bpf.EndpointKeyIPv4:
+	case bpfTypes.EndpointKeyIPv4:
 		return net.IP(k.IP[:net.IPv4len]).String()
-	case bpf.EndpointKeyIPv6:
+	case bpfTypes.EndpointKeyIPv6:
 		return k.IP.String()
 	}
 	return "<unknown>"
@@ -62,10 +62,10 @@ func (k *NodeKey) String() string {
 func newNodeKey(ip net.IP) NodeKey {
 	result := NodeKey{}
 	if ip4 := ip.To4(); ip4 != nil {
-		result.Family = bpf.EndpointKeyIPv4
+		result.Family = bpfTypes.EndpointKeyIPv4
 		copy(result.IP[:], ip4)
 	} else {
-		result.Family = bpf.EndpointKeyIPv6
+		result.Family = bpfTypes.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
 	return result

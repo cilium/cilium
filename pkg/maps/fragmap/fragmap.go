@@ -8,8 +8,9 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
+	fragmapTypes "github.com/cilium/cilium/pkg/maps/fragmap/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -20,22 +21,13 @@ const (
 
 // FragmentKey must match 'struct ipv4_frag_id' in "bpf/lib/ipv4.h".
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type FragmentKey struct {
-	destAddr   types.IPv4 `align:"daddr"`
-	sourceAddr types.IPv4 `align:"saddr"`
-	id         uint16     `align:"id"`
-	proto      uint8      `align:"proto"`
-	pad        uint8      `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type FragmentKey fragmapTypes.FragmentKey
 
 // FragmentValue must match 'struct ipv4_frag_l4ports' in "bpf/lib/ipv4.h".
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type FragmentValue struct {
-	sourcePort uint16 `align:"sport"`
-	destPort   uint16 `align:"dport"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type FragmentValue fragmapTypes.FragmentValue
 
 // GetKeyPtr returns the unsafe pointer to the BPF key.
 func (k *FragmentKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -45,17 +37,17 @@ func (v *FragmentValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) 
 
 // String converts the key into a human readable string format.
 func (k *FragmentKey) String() string {
-	return fmt.Sprintf("%s --> %s, %d, %d", k.sourceAddr, k.destAddr, k.proto, k.id)
+	return fmt.Sprintf("%s --> %s, %d, %d", k.SourceAddr, k.DestAddr, k.Proto, k.Id)
 }
 
 // String converts the value into a human readable string format.
 func (v *FragmentValue) String() string {
-	return fmt.Sprintf("%d, %d", v.destPort, v.sourcePort)
+	return fmt.Sprintf("%d, %d", v.DestPort, v.SourcePort)
 }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.
-func (k FragmentKey) NewValue() bpf.MapValue { return &FragmentValue{} }
+func (k FragmentKey) NewValue() bpfTypes.MapValue { return &FragmentValue{} }
 
 // InitMap creates the signal map in the kernel.
 func InitMap(mapEntries int) error {

@@ -7,13 +7,14 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 // ServiceKey is the interface describing protocol independent key for services map v2.
 type ServiceKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// Return true if the key is of type IPv6
 	IsIPv6() bool
@@ -57,7 +58,7 @@ type ServiceKey interface {
 
 // ServiceValue is the interface describing protocol independent value for services map v2.
 type ServiceValue interface {
-	bpf.MapValue
+	bpfTypes.MapValue
 
 	// Set the number of backends
 	SetCount(int)
@@ -101,7 +102,7 @@ type ServiceValue interface {
 
 // BackendKey is the interface describing protocol independent backend key.
 type BackendKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// Return the BPF map matching the type
 	Map() *bpf.Map
@@ -115,7 +116,7 @@ type BackendKey interface {
 
 // BackendValue is the interface describing protocol independent backend value.
 type BackendValue interface {
-	bpf.MapValue
+	bpfTypes.MapValue
 
 	// Get backend address
 	GetAddress() net.IP
@@ -149,7 +150,7 @@ type Backend interface {
 }
 
 type RevNatKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// Returns the BPF map matching the key type
 	Map() *bpf.Map
@@ -165,7 +166,7 @@ type RevNatKey interface {
 }
 
 type RevNatValue interface {
-	bpf.MapValue
+	bpfTypes.MapValue
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() RevNatValue

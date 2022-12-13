@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -190,7 +191,7 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 //
 // Must be called while holding l.ipcache.Lock for reading.
 func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
-	return func(key bpf.MapKey, _ bpf.MapValue) {
+	return func(key bpfTypes.MapKey, _ bpfTypes.MapValue) {
 		k := key.(*ipcacheMap.Key)
 		keyToIP := k.String()
 

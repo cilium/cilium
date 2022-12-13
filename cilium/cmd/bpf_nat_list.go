@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nat"
@@ -58,7 +58,7 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 		// Plain output prints immediately, JSON/YAML output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
-			callback := func(key bpf.MapKey, value bpf.MapValue) {
+			callback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 				record := nat.NatMapRecord{Key: key.(nat.NatKey), Value: value.(nat.NatEntry)}
 				entries = append(entries, record)
 			}

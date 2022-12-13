@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -333,7 +333,7 @@ func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID loadbalancer.Backen
 func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, error) {
 	matches := datapathTypes.BackendIDByServiceIDSet{}
 
-	parse := func(key bpf.MapKey, value bpf.MapValue) {
+	parse := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey).ToHost()
 		svcID := matchKey.RevNATID
 		backendID := matchKey.BackendID
@@ -354,7 +354,7 @@ func (*LBBPFMap) DumpAffinityMatches() (datapathTypes.BackendIDByServiceIDSet, e
 
 func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (datapathTypes.SourceRangeSetByServiceID, error) {
 	ret := datapathTypes.SourceRangeSetByServiceID{}
-	parser := func(key bpf.MapKey, value bpf.MapValue) {
+	parser := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		k := key.(SourceRangeKey).ToHost()
 		revNATID := k.GetRevNATID()
 		if _, found := ret[revNATID]; !found {
@@ -436,13 +436,13 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
-	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+	parseBackendEntries := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		backendKey := key.(BackendKey)
 		backendValue := value.DeepCopyMapValue().(BackendValue).ToHost()
 		backendValueMap[backendKey.GetID()] = backendValue
 	}
 
-	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
+	parseSVCEntries := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		svcKey := key.DeepCopyMapKey().(ServiceKey).ToHost()
 		svcValue := value.DeepCopyMapValue().(ServiceValue).ToHost()
 
@@ -518,7 +518,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 	lbBackends := []*loadbalancer.Backend{}
 
-	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+	parseBackendEntries := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		// No need to deep copy the key because we are using the ID which
 		// is a value.
 		backendKey := key.(BackendKey)

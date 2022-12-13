@@ -1,0 +1,32 @@
+# Maps Implementations
+
+This directory contains implementation details for specific BPF Maps used by Cilium.
+Code in the primary directory (e.x. ./lxcamp) should contain all code dealing with implementing
+bpf.Map interactions.
+Implementations of pkg/bpf/types.MapKey and pkg/bpf/types.MapValue should be in nested subdirectory "types".
+All type declarations should be platform independent (i.e. not import pkg/bpf).
+This constraint will be checked during CI by attempting to build all types directories for
+non-Linux platforms.
+
+## Generated Code
+
+Generally, generated code such as deepcopy implementation should exist in the top level package.
+Types should be reserved for simple struct declarations, with no interface implementation provided.
+Types should be redeclared in the primary package using type declarations, alongside go gen comments.
+
+For example:
+
+```go
+// EndpointInfo represents the value of the endpoints BPF map.
+//
+// Must be in sync with struct endpoint_info in <bpf/lib/common.h>
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type EndpointInfo lxcmapTypes.EndpointInfo
+```
+
+By seperating implementation from data struct declarations, we make it easy to avoid violating the
+portability constraint.
+
+The reasoning for this is to provide a easy way for external tools and code to import Ciliums
+Go bpf key/value struct definitions.

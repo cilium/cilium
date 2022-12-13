@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -143,7 +143,7 @@ func dumpCt(maps []interface{}, args ...interface{}) {
 		// Plain output prints immediately, JSON/YAML output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
-			callback := func(key bpf.MapKey, value bpf.MapValue) {
+			callback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 				record := ctmap.CtMapRecord{Key: key.(ctmap.CtKey), Value: *value.(*ctmap.CtEntry)}
 				entries = append(entries, record)
 			}

@@ -9,8 +9,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	eppolicymapTypes "github.com/cilium/cilium/pkg/maps/eppolicymap/types"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -28,12 +30,12 @@ const (
 )
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type EndpointKey struct{ bpf.EndpointKey }
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type EndpointKey eppolicymapTypes.EndpointKey
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type EPPolicyValue struct{ Fd uint32 }
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type EPPolicyValue eppolicymapTypes.EPPolicyValue
 
 var (
 	buildMap sync.Once
@@ -97,7 +99,7 @@ func (v EPPolicyValue) String() string { return fmt.Sprintf("fd=%d", v.Fd) }
 func (v *EPPolicyValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // NewValue returns a new empty instance of the Endpoint Policy fd
-func (k EndpointKey) NewValue() bpf.MapValue { return &EPPolicyValue{} }
+func (k EndpointKey) NewValue() bpfTypes.MapValue { return &EPPolicyValue{} }
 
 func writeEndpoint(keys []*lxcmap.EndpointKey, fd int) error {
 	if option.Config.SockopsEnable == false {

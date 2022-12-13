@@ -9,7 +9,10 @@ import (
 	"sync"
 	"unsafe"
 
+	ipmasqTypes "github.com/cilium/cilium/pkg/maps/ipmasq/types"
+
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -20,21 +23,16 @@ const (
 )
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Key4 struct {
-	PrefixLen uint32
-	Address   types.IPv4
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type Key4 ipmasqTypes.Key4
 
-func (k *Key4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *Key4) NewValue() bpf.MapValue    { return &Value{} }
-func (k *Key4) String() string            { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *Key4) NewValue() bpfTypes.MapValue { return &Value{} }
+func (k *Key4) String() string              { return fmt.Sprintf("%s", k.Address) }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type Value struct {
-	Pad uint8 // not used
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type Value ipmasqTypes.Value
 
 func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *Value) String() string              { return "" }
@@ -73,7 +71,7 @@ func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
 func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
 	cidrs := []net.IPNet{}
 	if err := IPMasq4Map().DumpWithCallback(
-		func(key bpf.MapKey, _ bpf.MapValue) {
+		func(key bpfTypes.MapKey, _ bpfTypes.MapValue) {
 			cidrs = append(cidrs, keyToIPNet(key.(*Key4)))
 		}); err != nil {
 		return nil, err

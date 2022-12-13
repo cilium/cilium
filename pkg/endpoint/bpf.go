@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -1376,7 +1377,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	currentMap := make(policy.MapState)
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
+	cb := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		// Convert key to host byte-order. ToHost() makes a copy.
 		keyHostOrder := key.(*policymap.PolicyKey).ToHost()
 		// Convert from policymap.Key to policy.Key

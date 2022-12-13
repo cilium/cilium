@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -32,14 +33,14 @@ type TestValue struct {
 	Value uint32
 }
 
-func (k *TestKey) String() string            { return fmt.Sprintf("key=%d", k.Key) }
-func (k *TestKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *TestKey) NewValue() MapValue        { return &TestValue{} }
-func (k *TestKey) DeepCopyMapKey() MapKey    { return &TestKey{k.Key} }
+func (k *TestKey) String() string                  { return fmt.Sprintf("key=%d", k.Key) }
+func (k *TestKey) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
+func (k *TestKey) NewValue() bpfTypes.MapValue     { return &TestValue{} }
+func (k *TestKey) DeepCopyMapKey() bpfTypes.MapKey { return &TestKey{k.Key} }
 
-func (v *TestValue) String() string              { return fmt.Sprintf("value=%d", v.Value) }
-func (v *TestValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *TestValue) DeepCopyMapValue() MapValue  { return &TestValue{v.Value} }
+func (v *TestValue) String() string                      { return fmt.Sprintf("value=%d", v.Value) }
+func (v *TestValue) GetValuePtr() unsafe.Pointer         { return unsafe.Pointer(v) }
+func (v *TestValue) DeepCopyMapValue() bpfTypes.MapValue { return &TestValue{v.Value} }
 
 var _ = Suite(&BPFPrivilegedTestSuite{})
 
@@ -508,7 +509,7 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	})
 
 	dump2 := map[string][]string{}
-	customCb := func(key MapKey, value MapValue) {
+	customCb := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		dump2[key.String()] = append(dump2[key.String()], "custom-"+value.String())
 	}
 	testMap.DumpWithCallback(customCb)
@@ -536,7 +537,7 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	c.Assert(err, IsNil)
 
 	dump4 := map[string][]string{}
-	customCb = func(key MapKey, value MapValue) {
+	customCb = func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		dump4[key.String()] = append(dump4[key.String()], "custom-"+value.String())
 	}
 	ds := NewDumpStats(testMap)
@@ -621,7 +622,7 @@ func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 		}
 		for i := 0; i < 100; i++ {
 			dump := map[string]string{}
-			customCb := func(key MapKey, value MapValue) {
+			customCb := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 				k, err := strconv.ParseUint(strings.TrimPrefix(key.String(), "key="), 10, 32)
 				c.Check(err, IsNil)
 				if uint32(k) >= 4 {

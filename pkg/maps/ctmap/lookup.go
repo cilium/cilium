@@ -9,11 +9,12 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpf.MapKey, bool, error) {
+func createTupleKey(isGlobal bool, srcAddr, dstAddr string, proto u8proto.U8proto, ingress bool) (bpfTypes.MapKey, bool, error) {
 	ip, port, err := net.SplitHostPort(srcAddr)
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid source address '%s': %s", srcAddr, err)
@@ -144,7 +145,7 @@ func getOrOpenMap(epname string, ipv4 bool, proto u8proto.U8proto) (*bpf.Map, er
 		// Open the map and leave it open
 		m, err = bpf.OpenMap(mapname)
 		if err != nil {
-			return nil, fmt.Errorf("Can not open CT map %s: %s", mapname, err)
+			return nil, fmt.Errorf("can not open CT map %s: %s", mapname, err)
 		}
 		isGlobal := epname == "global"
 		if isGlobal {

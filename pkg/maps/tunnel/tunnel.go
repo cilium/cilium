@@ -12,10 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ippkg "github.com/cilium/cilium/pkg/ip"
+	tunnelTypes "github.com/cilium/cilium/pkg/maps/tunnel/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -66,26 +67,15 @@ func NewTunnelMap(mapName string) *Map {
 }
 
 // +k8s:deepcopy-gen=true
-type TunnelIP struct {
-	// represents both IPv6 and IPv4 (in the lowest four bytes)
-	IP     types.IPv6 `align:"$union0"`
-	Family uint8      `align:"family"`
-}
-
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type TunnelKey struct {
-	TunnelIP
-	ClusterID uint8  `align:"cluster_id"`
-	Pad       uint16 `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type TunnelKey tunnelTypes.TunnelKey
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *TunnelKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // String provides a string representation of the TunnelKey.
 func (k TunnelKey) String() string {
-	if ip := k.toIP(); ip != nil {
+	if ip := k.ToIP(); ip != nil {
 		addrCluster := cmtypes.AddrClusterFrom(
 			ippkg.MustAddrFromIP(ip),
 			uint32(k.ClusterID),
@@ -96,12 +86,8 @@ func (k TunnelKey) String() string {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type TunnelValue struct {
-	TunnelIP
-	Key    uint8  `align:"key"`
-	NodeID uint16 `align:"node_id"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type TunnelValue tunnelTypes.TunnelValue
 
 // GetValuePtr returns the unsafe pointer to the BPF key for users that
 // use TunnelValue as a value in bpf maps
@@ -109,21 +95,10 @@ func (k *TunnelValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // String provides a string representation of the TunnelValue.
 func (k TunnelValue) String() string {
-	if ip := k.toIP(); ip != nil {
+	if ip := k.ToIP(); ip != nil {
 		return ip.String() + ":" + fmt.Sprintf("%d %d", k.Key, k.NodeID)
 	}
 	return "nil"
-}
-
-// ToIP converts the TunnelIP into a net.IP structure.
-func (v TunnelIP) toIP() net.IP {
-	switch v.Family {
-	case bpf.EndpointKeyIPv4:
-		return v.IP[:4]
-	case bpf.EndpointKeyIPv6:
-		return v.IP[:]
-	}
-	return nil
 }
 
 func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
@@ -137,7 +112,7 @@ func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
 	return &result, nil
 }
 
-func (v TunnelKey) NewValue() bpf.MapValue { return &TunnelValue{} }
+func (v TunnelKey) NewValue() bpfTypes.MapValue { return &TunnelValue{} }
 
 func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
 	result := TunnelValue{}
@@ -147,19 +122,19 @@ func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
 	return &result
 }
 
-func newTunnelIP(ip net.IP) TunnelIP {
-	result := TunnelIP{}
+func newTunnelIP(ip net.IP) tunnelTypes.TunnelIP {
+	result := tunnelTypes.TunnelIP{}
 	if ip4 := ip.To4(); ip4 != nil {
-		result.Family = bpf.EndpointKeyIPv4
+		result.Family = bpfTypes.EndpointKeyIPv4
 		copy(result.IP[:], ip4)
 	} else {
-		result.Family = bpf.EndpointKeyIPv6
+		result.Family = bpfTypes.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
 	return result
 }
 
-func (v TunnelValue) NewValue() bpf.MapValue { return &TunnelValue{} }
+func (v TunnelValue) NewValue() bpfTypes.MapValue { return &TunnelValue{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
 func (m *Map) SetTunnelEndpoint(encryptKey uint8, nodeID uint16, prefix cmtypes.AddrCluster, endpoint net.IP) error {
@@ -192,7 +167,7 @@ func (m *Map) GetTunnelEndpoint(prefix cmtypes.AddrCluster) (net.IP, error) {
 		return net.IP{}, err
 	}
 
-	return val.(*TunnelValue).toIP(), nil
+	return val.(*TunnelValue).ToIP(), nil
 }
 
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping

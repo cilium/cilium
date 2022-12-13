@@ -41,7 +41,7 @@ func (k *VRFKey) Match(srcIP net.IP, cidr *net.IPNet) bool {
 	return k.SourceIP.String() == srcIP.String() && k.DestCIDR.String() == cidr.String()
 }
 
-// VRFValue implements the bpf.MapValue interface. It contains the
+// VRFValue implements the bpfTypes.MapValue interface. It contains the
 // VRF ID for SRv6 lookups.
 type VRFValue struct {
 	ID uint32

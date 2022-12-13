@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
+	recorderTypes "github.com/cilium/cilium/pkg/maps/recorder/types"
 )
 
 const (
@@ -18,11 +20,8 @@ const (
 	MapSize = 16384
 )
 
-type CaptureRule struct {
-	RuleId   uint16 `align:"rule_id"`
-	Reserved uint16 `align:"reserved"`
-	CapLen   uint32 `align:"cap_len"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CaptureRule recorderTypes.CaptureRule
 
 type CaptureMap interface {
 	Open() error
@@ -38,14 +37,14 @@ type Map struct {
 }
 
 type RecorderKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 	ToHost() RecorderKey
 	Dump(sb *strings.Builder)
 	Map() *bpf.Map
 }
 
 type RecorderEntry interface {
-	bpf.MapValue
+	bpfTypes.MapValue
 	Dump(sb *strings.Builder)
 }
 
@@ -57,7 +56,7 @@ type MapRecord struct {
 func (m *Map) DumpEntries() (string, error) {
 	var sb strings.Builder
 
-	cb := func(k bpf.MapKey, v bpf.MapValue) {
+	cb := func(k bpfTypes.MapKey, v bpfTypes.MapValue) {
 		key := k.(RecorderKey)
 		key.ToHost().Dump(&sb)
 		val := v.(RecorderEntry)

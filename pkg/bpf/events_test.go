@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/container"
 )
 
@@ -51,7 +52,7 @@ func TestEventsSubscribe(t *testing.T) {
 
 type IntTestKey uint32
 
-func (k IntTestKey) String() string            { return fmt.Sprintf("key=%d", k) }
-func (k IntTestKey) GetKeyPtr() unsafe.Pointer { panic("not impl") }
-func (k IntTestKey) NewValue() MapValue        { panic("not impl") }
-func (k IntTestKey) DeepCopyMapKey() MapKey    { panic("not impl") }
+func (k IntTestKey) String() string                  { return fmt.Sprintf("key=%d", k) }
+func (k IntTestKey) GetKeyPtr() unsafe.Pointer       { panic("not impl") }
+func (k IntTestKey) NewValue() bpfTypes.MapValue     { panic("not impl") }
+func (k IntTestKey) DeepCopyMapKey() bpfTypes.MapKey { panic("not impl") }

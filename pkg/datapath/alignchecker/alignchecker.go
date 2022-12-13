@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/maps/auth"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -78,7 +78,7 @@ func CheckStructAlignments(path string) error {
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
 		"endpoint_key": {
-			reflect.TypeOf(bpf.EndpointKey{}),
+			reflect.TypeOf(bpfTypes.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
 		},
 		"lb4_affinity_key":       {reflect.TypeOf(lbmap.Affinity4Key{})},

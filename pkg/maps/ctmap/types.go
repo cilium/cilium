@@ -8,7 +8,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	ctmapTypes "github.com/cilium/cilium/pkg/maps/ctmap/types"
+
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
 )
@@ -128,7 +130,7 @@ func FilterMapsByProto(maps []*Map, ipVsn CTMapIPVersion) (ctMapTCP *Map, ctMapA
 }
 
 type CtKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() CtKey
@@ -147,13 +149,11 @@ type CtKey interface {
 
 // CtKey4 is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey4 struct {
-	tuple.TupleKey4
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CtKey4 ctmapTypes.CtKey4
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4) NewValue() bpf.MapValue { return &CtEntry{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *CtKey4) NewValue() bpfTypes.MapValue { return &CtEntry{} }
 
 // ToNetwork converts CtKey4 ports to network byte order.
 func (k *CtKey4) ToNetwork() CtKey {
@@ -228,13 +228,11 @@ func (k *CtKey4) GetTupleKey() tuple.TupleKey {
 
 // CtKey4Global is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey4Global struct {
-	tuple.TupleKey4Global
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CtKey4Global ctmapTypes.CtKey4Global
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey4Global) NewValue() bpf.MapValue { return &CtEntry{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *CtKey4Global) NewValue() bpfTypes.MapValue { return &CtEntry{} }
 
 // ToNetwork converts ports to network byte order.
 //
@@ -317,13 +315,11 @@ func (k *CtKey4Global) GetTupleKey() tuple.TupleKey {
 
 // CtKey6 is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey6 struct {
-	tuple.TupleKey6
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CtKey6 ctmapTypes.CtKey6
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6) NewValue() bpf.MapValue { return &CtEntry{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *CtKey6) NewValue() bpfTypes.MapValue { return &CtEntry{} }
 
 // ToNetwork converts CtKey6 ports to network byte order.
 func (k *CtKey6) ToNetwork() CtKey {
@@ -396,15 +392,13 @@ func (k *CtKey6) GetTupleKey() tuple.TupleKey {
 
 // CtKey6Global is needed to provide CtEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CtKey6Global struct {
-	tuple.TupleKey6Global
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CtKey6Global ctmapTypes.CtKey6Global
 
 const SizeofCtKey6Global = int(unsafe.Sizeof(CtKey6Global{}))
 
-// NewValue creates a new bpf.MapValue.
-func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *CtKey6Global) NewValue() bpfTypes.MapValue { return &CtEntry{} }
 
 // ToNetwork converts ports to network byte order.
 //
@@ -487,23 +481,8 @@ func (k *CtKey6Global) GetTupleKey() tuple.TupleKey {
 
 // CtEntry represents an entry in the connection tracking table.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type CtEntry struct {
-	RxPackets uint64 `align:"rx_packets"`
-	RxBytes   uint64 `align:"$union0"`
-	TxPackets uint64 `align:"tx_packets"`
-	TxBytes   uint64 `align:"tx_bytes"`
-	Lifetime  uint32 `align:"lifetime"`
-	Flags     uint16 `align:"rx_closing"`
-	// RevNAT is in network byte order
-	RevNAT           uint16 `align:"rev_nat_index"`
-	IfIndex          uint16 `align:"ifindex"`
-	TxFlagsSeen      uint8  `align:"tx_flags_seen"`
-	RxFlagsSeen      uint8  `align:"rx_flags_seen"`
-	SourceSecurityID uint32 `align:"src_sec_id"`
-	LastTxReport     uint32 `align:"last_tx_report"`
-	LastRxReport     uint32 `align:"last_rx_report"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type CtEntry ctmapTypes.CtEntry
 
 const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
 

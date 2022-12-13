@@ -9,8 +9,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
+	lbmapTypes "github.com/cilium/cilium/pkg/maps/lbmap/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -38,16 +40,11 @@ var _ SourceRangeKey = (*SourceRangeKey4)(nil)
 var _ SourceRangeKey = (*SourceRangeKey6)(nil)
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type SourceRangeKey4 struct {
-	PrefixLen uint32     `align:"lpm_key"`
-	RevNATID  uint16     `align:"rev_nat_id"`
-	Pad       uint16     `align:"pad"`
-	Address   types.IPv4 `align:"addr"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type SourceRangeKey4 lbmapTypes.SourceRangeKey4
 
-func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
+func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *SourceRangeKey4) NewValue() bpfTypes.MapValue { return &SourceRangeValue{} }
 func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
@@ -82,16 +79,11 @@ func (k *SourceRangeKey4) GetRevNATID() uint16 {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type SourceRangeKey6 struct {
-	PrefixLen uint32     `align:"lpm_key"`
-	RevNATID  uint16     `align:"rev_nat_id"`
-	Pad       uint16     `align:"pad"`
-	Address   types.IPv6 `align:"addr"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type SourceRangeKey6 lbmapTypes.SourceRangeKey6
 
-func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
+func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *SourceRangeKey6) NewValue() bpfTypes.MapValue { return &SourceRangeValue{} }
 func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
@@ -126,10 +118,8 @@ func (k *SourceRangeKey6) GetRevNATID() uint16 {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type SourceRangeValue struct {
-	Pad uint8 // not used
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type SourceRangeValue lbmapTypes.SourceRangeValue
 
 func (v *SourceRangeValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *SourceRangeValue) String() string              { return "" }
@@ -175,7 +165,7 @@ func initSourceRange(params InitParams) {
 	}
 }
 
-func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpf.MapKey {
+func srcRangeKey(cidr *cidr.CIDR, revNATID uint16, ipv6 bool) bpfTypes.MapKey {
 	ones, _ := cidr.Mask.Size()
 	id := byteorder.HostToNetwork16(revNATID)
 	if ipv6 {

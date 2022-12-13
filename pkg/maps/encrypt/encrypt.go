@@ -8,32 +8,31 @@ import (
 	"sync"
 	"unsafe"
 
+	encryptTypes "github.com/cilium/cilium/pkg/maps/encrypt/types"
+
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 // EncryptKey is the context ID for the encryption session
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type EncryptKey struct {
-	key uint32 `align:"ctx"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type EncryptKey encryptTypes.EncryptKey
 
 // EncryptValue is ID assigned to the keys
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type EncryptValue struct {
-	encryptKeyID uint8
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type EncryptValue encryptTypes.EncryptValue
 
 // String pretty print the EncryptKey
 func (k EncryptKey) String() string {
-	return fmt.Sprintf("%d", k.key)
+	return fmt.Sprintf("%d", k.Key)
 }
 
 // String pretty print the encryption key index.
 func (v EncryptValue) String() string {
-	return fmt.Sprintf("%d", v.encryptKeyID)
+	return fmt.Sprintf("%d", v.EncryptKeyID)
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
@@ -44,11 +43,11 @@ func (k *EncryptKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure represeting the BPF
 // map value
-func (k EncryptKey) NewValue() bpf.MapValue { return &EncryptValue{} }
+func (k EncryptKey) NewValue() bpfTypes.MapValue { return &EncryptValue{} }
 
 func newEncryptKey(key uint32) *EncryptKey {
 	return &EncryptKey{
-		key: key,
+		Key: key,
 	}
 }
 
@@ -89,7 +88,7 @@ func MapCreate() error {
 func MapUpdateContext(ctxID uint32, keyID uint8) error {
 	k := newEncryptKey(ctxID)
 	v := &EncryptValue{
-		encryptKeyID: keyID,
+		EncryptKeyID: keyID,
 	}
 	return encryptMap.Update(k, v)
 }

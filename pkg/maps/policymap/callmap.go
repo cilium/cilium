@@ -8,6 +8,8 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
+	policymapTypes "github.com/cilium/cilium/pkg/maps/policymap/types"
 )
 
 // PolicyPlumbingMap maps endpoint IDs to the fd for the program which
@@ -17,28 +19,24 @@ type PolicyPlumbingMap struct {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type PlumbingKey struct {
-	key uint32
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type PlumbingKey policymapTypes.PlumbingKey
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type PlumbingValue struct {
-	fd uint32
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type PlumbingValue policymapTypes.PlumbingValue
 
-func (k *PlumbingKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PlumbingKey) NewValue() bpf.MapValue    { return &PlumbingValue{} }
+func (k *PlumbingKey) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *PlumbingKey) NewValue() bpfTypes.MapValue { return &PlumbingValue{} }
 
 func (k *PlumbingKey) String() string {
-	return fmt.Sprintf("Endpoint: %d", k.key)
+	return fmt.Sprintf("Endpoint: %d", k.Key)
 }
 
 func (v *PlumbingValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (v *PlumbingValue) String() string {
-	return fmt.Sprintf("fd: %d", v.fd)
+	return fmt.Sprintf("fd: %d", v.Fd)
 }
 
 // RemoveGlobalMapping removes the mapping from the specified endpoint ID to
@@ -47,7 +45,7 @@ func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
 	gpm, err := OpenCallMap(PolicyCallMapName)
 	if err == nil {
 		k := PlumbingKey{
-			key: id,
+			Key: id,
 		}
 		err = gpm.Map.Delete(&k)
 		gpm.Close()
@@ -56,7 +54,7 @@ func RemoveGlobalMapping(id uint32, haveEgressCallMap bool) error {
 		gpm, err2 := OpenCallMap(PolicyEgressCallMapName)
 		if err2 == nil {
 			k := PlumbingKey{
-				key: id,
+				Key: id,
 			}
 			err2 = gpm.Map.Delete(&k)
 			gpm.Close()

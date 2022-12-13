@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -95,9 +96,9 @@ var globalDeleteLock [mapTypeMax]lock.Mutex
 var natMapsLock [mapTypeMax]*lock.Mutex
 
 type mapAttributes struct {
-	mapKey     bpf.MapKey
+	mapKey     bpfTypes.MapKey
 	keySize    int
-	mapValue   bpf.MapValue
+	mapValue   bpfTypes.MapValue
 	valueSize  int
 	maxEntries int
 	parser     bpf.DumpParser
@@ -124,7 +125,7 @@ type CtMapRecord struct {
 	Value CtEntry
 }
 
-func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat *nat.Map) {
+func setupMapInfo(m mapType, define string, mapKey bpfTypes.MapKey, keySize int, maxEntries int, nat *nat.Map) {
 	mapInfo[m] = mapAttributes{
 		bpfDefine: define,
 		mapKey:    mapKey,
@@ -284,7 +285,7 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 	}
 
 	var sb strings.Builder
-	cb := func(k bpf.MapKey, v bpf.MapValue) {
+	cb := func(k bpfTypes.MapKey, v bpfTypes.MapValue) {
 		// No need to deep copy as the values are used to create new strings
 		key := k.(CtKey)
 		if !key.ToHost().Dump(&sb, true) {
@@ -377,7 +378,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 		}
 	}
 
-	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
+	filterCallback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		entry := value.(*CtEntry)
 
 		switch obj := key.(type) {
@@ -477,7 +478,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 		}
 	}
 
-	filterCallback := func(key bpf.MapKey, value bpf.MapValue) {
+	filterCallback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		entry := value.(*CtEntry)
 
 		switch obj := key.(type) {
@@ -632,7 +633,7 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	stats := newNatGCStats(natMap, family)
 	defer stats.finish()
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
+	cb := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		natKey := key.(nat.NatKey)
 		natVal := value.(nat.NatEntry)
 

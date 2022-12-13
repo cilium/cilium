@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -68,7 +68,7 @@ func dumpSVC(serviceList map[string][]string) {
 	// IDs are allocated from the same pool regardless the protocol
 	backendMap := make(map[loadbalancer.BackendID]lbmap.BackendValue)
 
-	parseBackendEntry := func(key bpf.MapKey, value bpf.MapValue) {
+	parseBackendEntry := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		id := key.(lbmap.BackendKey).GetID()
 		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue).ToHost()
 	}
@@ -79,7 +79,7 @@ func dumpSVC(serviceList map[string][]string) {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 
-	parseSVCEntry := func(key bpf.MapKey, value bpf.MapValue) {
+	parseSVCEntry := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		var entry string
 
 		svcKey := key.(lbmap.ServiceKey)

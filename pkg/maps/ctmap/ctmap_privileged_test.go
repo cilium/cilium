@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -79,7 +80,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 	a2 := make([]*CtEntry, 1)
 
 	// Also account the cost of casting from MapKey to TupleKey
-	cb := func(k bpf.MapKey, v bpf.MapValue) {
+	cb := func(k bpfTypes.MapKey, v bpfTypes.MapValue) {
 		key := k.(CtKey)
 		value := v.(*CtEntry)
 		a1[0] = key

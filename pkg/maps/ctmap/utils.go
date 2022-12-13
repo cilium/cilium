@@ -8,14 +8,14 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
-func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpfTypes.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
 		t := tuple.TupleKey4{
@@ -54,7 +54,7 @@ func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
-func dsrCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+func dsrCTKeyFromEgressNatKey(k nat.NatKey) bpfTypes.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
 		t := tuple.TupleKey4{
@@ -93,7 +93,7 @@ func dsrCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
-func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey {
+func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpfTypes.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
 		natVal := v.(*nat.NatEntry4)
@@ -135,7 +135,7 @@ func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
-func egressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+func egressCTKeyFromEgressNatKey(k nat.NatKey) bpfTypes.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
 		t := tuple.TupleKey4{
@@ -172,7 +172,7 @@ func egressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 	}
 }
 
-func ctEntryExist(ctMap *Map, ctKey bpf.MapKey) bool {
+func ctEntryExist(ctMap *Map, ctKey bpfTypes.MapKey) bool {
 	_, err := ctMap.Lookup(ctKey)
 	return !errors.Is(err, unix.ENOENT)
 }

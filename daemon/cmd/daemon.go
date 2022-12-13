@@ -26,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -66,7 +66,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	ipcachemaps "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
@@ -303,7 +303,7 @@ func (d *Daemon) init() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	max6, max4 := ipcachemap.IPCacheMap().GetMaxPrefixLengths()
+	max6, max4 := ipcachemaps.IPCacheMap().GetMaxPrefixLengths()
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
@@ -587,9 +587,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	var oldNIDs []identity.NumericIdentity
 	var oldIngressIPs []*net.IPNet
 	if option.Config.RestoreState && !option.Config.DryMode {
-		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-			k := key.(*ipcachemap.Key)
-			v := value.(*ipcachemap.RemoteEndpointInfo)
+		if err := ipcachemaps.IPCacheMap().DumpWithCallback(func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
+			k := key.(*ipcachemaps.Key)
+			v := value.(*ipcachemaps.RemoteEndpointInfo)
 			nid := identity.NumericIdentity(v.SecurityIdentity)
 			if nid.HasLocalScope() {
 				d.restoredCIDRs = append(d.restoredCIDRs, k.Prefix())
@@ -608,7 +608,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		}
 		// DumpWithCallback() leaves the ipcache map open, must close before opened for
 		// parallel mode in Daemon.initMaps()
-		ipcachemap.IPCacheMap().Close()
+		ipcachemaps.IPCacheMap().Close()
 	}
 
 	if err := d.initPolicy(authManager); err != nil {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf/binary"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
@@ -35,34 +36,11 @@ import (
 // been reached.
 var ErrMaxLookup = errors.New("maximum number of lookups reached")
 
-type MapKey interface {
-	fmt.Stringer
-
-	// Returns pointer to start of key
-	GetKeyPtr() unsafe.Pointer
-
-	// Allocates a new value matching the key type
-	NewValue() MapValue
-
-	// DeepCopyMapKey returns a deep copy of the map key
-	DeepCopyMapKey() MapKey
-}
-
-type MapValue interface {
-	fmt.Stringer
-
-	// Returns pointer to start of value
-	GetValuePtr() unsafe.Pointer
-
-	// DeepCopyMapValue returns a deep copy of the map value
-	DeepCopyMapValue() MapValue
-}
-
 type MapInfo struct {
 	MapType  MapType
-	MapKey   MapKey
+	MapKey   bpfTypes.MapKey
 	KeySize  uint32
-	MapValue MapValue
+	MapValue bpfTypes.MapValue
 	// ReadValueSize is the value size that is used to read from the BPF maps
 	// this value and the ValueSize values can be different for MapTypePerCPUHash.
 	ReadValueSize uint32
@@ -74,8 +52,8 @@ type MapInfo struct {
 }
 
 type cacheEntry struct {
-	Key   MapKey
-	Value MapValue
+	Key   bpfTypes.MapKey
+	Value bpfTypes.MapValue
 
 	DesiredAction DesiredAction
 	LastError     error
@@ -133,8 +111,8 @@ type Map struct {
 }
 
 // NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
-	mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32,
+func NewMap(name string, mapType MapType, mapKey bpfTypes.MapKey, keySize int,
+	mapValue bpfTypes.MapValue, valueSize, maxEntries int, flags uint32, innerID uint32,
 	dumpParser DumpParser) *Map {
 
 	if size := reflect.TypeOf(mapKey).Elem().Size(); size != uintptr(keySize) {
@@ -166,7 +144,7 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
 // NewPerCPUHashMap creates a new Map type of "per CPU hash" - object representing a BPF map
 // The number of cpus is used to have the size representation of a value when
 // a lookup is made on this map types.
-func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue, valueSize, cpus, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
+func NewPerCPUHashMap(name string, mapKey bpfTypes.MapKey, keySize int, mapValue bpfTypes.MapValue, valueSize, cpus, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
 	m := &Map{
 		MapInfo: MapInfo{
 			MapType:       MapTypePerCPUHash,
@@ -607,8 +585,8 @@ func (m *Map) Reopen() error {
 	return m.Open()
 }
 
-type DumpParser func(key []byte, value []byte, mapKey MapKey, mapValue MapValue) (MapKey, MapValue, error)
-type DumpCallback func(key MapKey, value MapValue)
+type DumpParser func(key []byte, value []byte, mapKey bpfTypes.MapKey, mapValue bpfTypes.MapValue) (bpfTypes.MapKey, bpfTypes.MapValue, error)
+type DumpCallback func(key bpfTypes.MapKey, value bpfTypes.MapValue)
 type MapValidator func(path string) (bool, error)
 
 // DumpWithCallback iterates over the Map and calls the given callback
@@ -820,7 +798,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 // Dump returns the map (type map[string][]string) which contains all
 // data stored in BPF map.
 func (m *Map) Dump(hash map[string][]string) error {
-	callback := func(key MapKey, value MapValue) {
+	callback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		// No need to deep copy since we are creating strings.
 		hash[key.String()] = append(hash[key.String()], value.String())
 	}
@@ -847,7 +825,7 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 	return nil
 }
 
-func (m *Map) Lookup(key MapKey) (MapValue, error) {
+func (m *Map) Lookup(key bpfTypes.MapKey) (bpfTypes.MapValue, error) {
 	if err := m.Open(); err != nil {
 		return nil, err
 	}
@@ -864,7 +842,7 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 	return value, nil
 }
 
-func (m *Map) Update(key MapKey, value MapValue) error {
+func (m *Map) Update(key bpfTypes.MapKey, value bpfTypes.MapValue) error {
 	var err error
 
 	m.lock.Lock()
@@ -918,7 +896,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 // deleteMapEvent is run at every delete map event.
 // If cache is enabled, it will update the cache to reflect the delete.
 // As well, if event buffer is enabled, it adds a new event to the buffer.
-func (m *Map) deleteMapEvent(key MapKey, err error) {
+func (m *Map) deleteMapEvent(key bpfTypes.MapKey, err error) {
 	m.addToEventsLocked(MapDelete, cacheEntry{
 		Key:           key,
 		DesiredAction: Delete,
@@ -937,7 +915,7 @@ func (m *Map) deleteAllMapEvent(err error) {
 // specified error.
 //
 // Caller must hold m.lock for writing
-func (m *Map) deleteCacheEntry(key MapKey, err error) {
+func (m *Map) deleteCacheEntry(key bpfTypes.MapKey, err error) {
 	if m.cache == nil {
 		return
 	}
@@ -965,7 +943,7 @@ func (m *Map) deleteCacheEntry(key MapKey, err error) {
 // deleteMapEntry deletes the map entry corresponding to the given key.
 // If ignoreMissing is set to true and the entry is not found, then
 // the error metric is not incremented for missing entries and nil error is returned.
-func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err error) {
+func (m *Map) deleteMapEntry(key bpfTypes.MapKey, ignoreMissing bool) (deleted bool, err error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -1001,12 +979,12 @@ func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err 
 
 // SilentDelete deletes the map entry corresponding to the given key.
 // If a map entry is not found this returns (true, nil).
-func (m *Map) SilentDelete(key MapKey) (deleted bool, err error) {
+func (m *Map) SilentDelete(key bpfTypes.MapKey) (deleted bool, err error) {
 	return m.deleteMapEntry(key, true)
 }
 
 // Delete deletes the map entry corresponding to the given key.
-func (m *Map) Delete(key MapKey) error {
+func (m *Map) Delete(key bpfTypes.MapKey) error {
 	_, err := m.deleteMapEntry(key, false)
 	return err
 }
@@ -1070,7 +1048,7 @@ func (m *Map) DeleteAll() error {
 }
 
 // GetNextKey returns the next key in the Map after key.
-func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
+func (m *Map) GetNextKey(key bpfTypes.MapKey, nextKey bpfTypes.MapKey) error {
 	if err := m.Open(); err != nil {
 		return err
 	}
@@ -1083,7 +1061,7 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 }
 
 // ConvertKeyValue converts key and value from bytes to given Golang struct pointers.
-func ConvertKeyValue(bKey []byte, bValue []byte, key MapKey, value MapValue) (MapKey, MapValue, error) {
+func ConvertKeyValue(bKey []byte, bValue []byte, key bpfTypes.MapKey, value bpfTypes.MapValue) (bpfTypes.MapKey, bpfTypes.MapValue, error) {
 
 	if len(bKey) > 0 {
 		if err := binary.Read(bKey, byteorder.Native, key); err != nil {

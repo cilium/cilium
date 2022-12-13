@@ -10,7 +10,9 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
+	policymapTypes "github.com/cilium/cilium/pkg/maps/policymap/types"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -95,13 +97,8 @@ func (pe *PolicyEntry) String() string {
 // PolicyKey represents a key in the BPF policy map for an endpoint. It must
 // match the layout of policy_key in bpf/lib/common.h.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type PolicyKey struct {
-	Identity         uint32 `align:"sec_label"`
-	DestPort         uint16 `align:"dport"` // In network byte-order
-	Nexthdr          uint8  `align:"protocol"`
-	TrafficDirection uint8  `align:"egress"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type PolicyKey policymapTypes.PolicyKey
 
 // SizeofPolicyKey is the size of type PolicyKey.
 const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
@@ -109,16 +106,8 @@ const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type PolicyEntry struct {
-	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
-	Flags     uint8  `align:"deny"`
-	AuthType  uint8  `align:"auth_type"`
-	Pad1      uint16 `align:"pad1"`
-	Pad2      uint16 `align:"pad2"`
-	Packets   uint64 `align:"packets"`
-	Bytes     uint64 `align:"bytes"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type PolicyEntry policymapTypes.PolicyEntry
 
 // ToHost returns a copy of entry with fields converted from network byte-order
 // to host-byte-order if necessary.
@@ -160,17 +149,13 @@ const SizeofPolicyEntry = int(unsafe.Sizeof(PolicyEntry{}))
 
 // CallKey is the index into the prog array map.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type CallKey struct {
-	index uint32
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CallKey policymapTypes.CallKey
 
 // CallValue is the program ID in the prog array map.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type CallValue struct {
-	progID uint32
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type CallValue policymapTypes.CallValue
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -179,17 +164,17 @@ func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format.
-func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
+func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.Index), 10) }
 
 // String converts the value into a human readable string format.
-func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
+func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.ProgID), 10) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.
-func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
+func (k CallKey) NewValue() bpfTypes.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
-func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
+func (pe *PolicyEntry) NewValue() bpfTypes.MapValue { return &PolicyEntry{} }
 
 func (pe *PolicyEntry) Add(oPe PolicyEntry) {
 	pe.Packets += oPe.Packets
@@ -233,8 +218,8 @@ func (p PolicyEntriesDump) Less(i, j int) bool {
 		p[i].Key.Identity < p[j].Key.Identity
 }
 
-func (key *PolicyKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(key) }
-func (key *PolicyKey) NewValue() bpf.MapValue    { return &PolicyEntry{} }
+func (key *PolicyKey) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(key) }
+func (key *PolicyKey) NewValue() bpfTypes.MapValue { return &PolicyEntry{} }
 
 func (key *PolicyKey) String() string {
 
@@ -373,7 +358,7 @@ func (pm *PolicyMap) Dump() (string, error) {
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	entries := PolicyEntriesDump{}
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
+	cb := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		eDump := PolicyEntryDump{
 			Key:         *key.DeepCopyMapKey().(*PolicyKey),
 			PolicyEntry: *value.DeepCopyMapValue().(*PolicyEntry),

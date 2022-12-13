@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"unsafe"
 
+	lbmapTypes "github.com/cilium/cilium/pkg/maps/lbmap/types"
+
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
@@ -76,18 +78,12 @@ func initAffinity(params InitParams) {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type AffinityMatchKey struct {
-	BackendID loadbalancer.BackendID `align:"backend_id"`
-	RevNATID  uint16                 `align:"rev_nat_id"`
-	Pad       uint16                 `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type AffinityMatchKey lbmapTypes.AffinityMatchKey
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type AffinityMatchValue struct {
-	Pad uint8 `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type AffinityMatchValue lbmapTypes.AffinityMatchValue
 
 // NewAffinityMatchKey creates the AffinityMatch key
 func NewAffinityMatchKey(revNATID uint16, backendID loadbalancer.BackendID) *AffinityMatchKey {
@@ -114,7 +110,7 @@ func (v *AffinityMatchValue) String() string { return "" }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
-func (k *AffinityMatchKey) NewValue() bpf.MapValue { return &AffinityMatchValue{} }
+func (k *AffinityMatchKey) NewValue() bpfTypes.MapValue { return &AffinityMatchValue{} }
 
 // ToNetwork returns the key in the network byte order
 func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
@@ -134,34 +130,18 @@ func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
 
 // Affinity4Key is the Go representation of lb4_affinity_key
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Affinity4Key struct {
-	ClientID    uint64 `align:"client_id"`
-	RevNATID    uint16 `align:"rev_nat_id"`
-	NetNSCookie uint8  `align:"netns_cookie"`
-	Pad1        uint8  `align:"pad1"`
-	Pad2        uint32 `align:"pad2"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type Affinity4Key lbmapTypes.Affinity4Key
 
 // Affinity6Key is the Go representation of lb6_affinity_key
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Affinity6Key struct {
-	ClientID    types.IPv6 `align:"client_id"`
-	RevNATID    uint16     `align:"rev_nat_id"`
-	NetNSCookie uint8      `align:"netns_cookie"`
-	Pad1        uint8      `align:"pad1"`
-	Pad2        uint32     `align:"pad2"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type Affinity6Key lbmapTypes.Affinity6Key
 
 // AffinityValue is the Go representing of lb_affinity_value
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type AffinityValue struct {
-	LastUsed  uint64 `align:"last_used"`
-	BackendID uint32 `align:"backend_id"`
-	Pad       uint32 `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type AffinityValue lbmapTypes.AffinityValue
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *Affinity4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -187,8 +167,8 @@ func (v *AffinityValue) String() string { return fmt.Sprintf("%d %d", v.BackendI
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.
-func (k Affinity4Key) NewValue() bpf.MapValue { return &AffinityValue{} }
+func (k Affinity4Key) NewValue() bpfTypes.MapValue { return &AffinityValue{} }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value.
-func (k Affinity6Key) NewValue() bpf.MapValue { return &AffinityValue{} }
+func (k Affinity6Key) NewValue() bpfTypes.MapValue { return &AffinityValue{} }

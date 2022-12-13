@@ -14,8 +14,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
+	ctmapTypes "github.com/cilium/cilium/pkg/maps/ctmap/types"
 )
 
 // Global map that contains all per-cluster CT maps. The actual
@@ -82,20 +84,18 @@ type PerClusterCTMap struct {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
 type PerClusterCTMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterCTMapKey) String() string            { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterCTMapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PerClusterCTMapKey) NewValue() bpf.MapValue    { return &PerClusterCTMapVal{} }
+func (k *PerClusterCTMapKey) String() string              { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterCTMapKey) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *PerClusterCTMapKey) NewValue() bpfTypes.MapValue { return &PerClusterCTMapVal{} }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type PerClusterCTMapVal struct {
-	Fd uint32
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type PerClusterCTMapVal ctmapTypes.PerClusterCTMapVal
 
 func (v *PerClusterCTMapVal) String() string              { return fmt.Sprintf("fd=%d", v.Fd) }
 func (v *PerClusterCTMapVal) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }

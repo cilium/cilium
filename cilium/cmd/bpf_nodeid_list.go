@@ -9,7 +9,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -36,7 +36,7 @@ var bpfNodeIDListCmd = &cobra.Command{
 		bpfNodeIDList := []nodeID{}
 		parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
 			address := key.IP.String()
-			if key.Family == bpf.EndpointKeyIPv4 {
+			if key.Family == bpfTypes.EndpointKeyIPv4 {
 				address = net.IP(key.IP[:net.IPv4len]).String()
 			}
 			bpfNodeIDList = append(bpfNodeIDList, nodeID{

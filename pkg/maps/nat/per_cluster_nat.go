@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -63,17 +64,17 @@ type PerClusterNATMap struct {
 }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
 type PerClusterNATMapKey struct {
 	ClusterID uint32
 }
 
-func (k *PerClusterNATMapKey) String() string            { return strconv.FormatUint(uint64(k.ClusterID), 10) }
-func (k *PerClusterNATMapKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *PerClusterNATMapKey) NewValue() bpf.MapValue    { return &PerClusterNATMapVal{} }
+func (k *PerClusterNATMapKey) String() string              { return strconv.FormatUint(uint64(k.ClusterID), 10) }
+func (k *PerClusterNATMapKey) GetKeyPtr() unsafe.Pointer   { return unsafe.Pointer(k) }
+func (k *PerClusterNATMapKey) NewValue() bpfTypes.MapValue { return &PerClusterNATMapVal{} }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
 type PerClusterNATMapVal struct {
 	Fd uint32
 }

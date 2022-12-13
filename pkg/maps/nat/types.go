@@ -7,13 +7,14 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
+	natTypes "github.com/cilium/cilium/pkg/maps/nat/types"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type NatKey interface {
-	bpf.MapKey
+	bpfTypes.MapKey
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() NatKey
@@ -33,16 +34,14 @@ type NatKey interface {
 
 // NatKey4 is needed to provide NatEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type NatKey4 struct {
-	tuple.TupleKey4Global
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type NatKey4 natTypes.NatKey4
 
 // SizeofNatKey4 is the size of the NatKey4 type in bytes.
 const SizeofNatKey4 = int(unsafe.Sizeof(NatKey4{}))
 
-// NewValue creates a new bpf.MapValue.
-func (k *NatKey4) NewValue() bpf.MapValue { return &NatEntry4{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *NatKey4) NewValue() bpfTypes.MapValue { return &NatEntry4{} }
 
 // ToNetwork converts ports to network byte order.
 //
@@ -75,16 +74,14 @@ func (k *NatKey4) GetNextHeader() u8proto.U8proto {
 
 // NatKey6 is needed to provide NatEntry type to Lookup values
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type NatKey6 struct {
-	tuple.TupleKey6Global
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type NatKey6 natTypes.NatKey6
 
 // SizeofNatKey6 is the size of the NatKey6 type in bytes.
 const SizeofNatKey6 = int(unsafe.Sizeof(NatKey6{}))
 
-// NewValue creates a new bpf.MapValue.
-func (k *NatKey6) NewValue() bpf.MapValue { return &NatEntry6{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *NatKey6) NewValue() bpfTypes.MapValue { return &NatEntry6{} }
 
 // ToNetwork converts ports to network byte order.
 //

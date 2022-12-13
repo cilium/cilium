@@ -12,13 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
+	vtepTypes "github.com/cilium/cilium/pkg/maps/vtep/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-vtep")
@@ -32,21 +33,19 @@ const (
 	Name = "cilium_vtep_map"
 )
 
-// Key implements the bpf.MapKey interface.
+// Key implements the bpfTypes.MapKey interface.
 //
 // Must be in sync with struct vtep_key in <bpf/lib/common.h>
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Key struct {
-	IP types.IPv4 `align:"vtep_ip"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type Key vtepTypes.Key
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
-func (k Key) NewValue() bpf.MapValue { return &VtepEndpointInfo{} }
+func (k Key) NewValue() bpfTypes.MapValue { return &VtepEndpointInfo{} }
 
 func (k Key) String() string {
 	return k.IP.String()
@@ -64,14 +63,11 @@ func NewKey(ip net.IP) Key {
 	return result
 }
 
-// VtepEndpointInfo implements the bpf.MapValue interface. It contains the
+// VtepEndpointInfo implements the bpfTypes.MapValue interface. It contains the
 // VTEP endpoint MAC and IP.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type VtepEndpointInfo struct {
-	VtepMAC        mac.Uint64MAC `align:"vtep_mac"`
-	TunnelEndpoint types.IPv4    `align:"tunnel_endpoint"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type VtepEndpointInfo vtepTypes.VtepEndpointInfo
 
 func (v *VtepEndpointInfo) String() string {
 	return fmt.Sprintf("vtepmac=%s tunnelendpoint=%s",

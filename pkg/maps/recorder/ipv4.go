@@ -10,30 +10,23 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
+	recorderTypes "github.com/cilium/cilium/pkg/maps/recorder/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type CaptureWcard4 struct {
-	SrcAddr  types.IPv4 `align:"saddr"`
-	DestAddr types.IPv4 `align:"daddr"`
-	SrcPort  uint16     `align:"sport"`
-	DestPort uint16     `align:"dport"`
-	NextHdr  uint8      `align:"nexthdr"`
-	SrcMask  uint8      `align:"smask"`
-	DestMask uint8      `align:"dmask"`
-	Flags    uint8      `align:"flags"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type CaptureWcard4 recorderTypes.CaptureWcard4
 
 type CaptureRule4 CaptureRule
 
 func (k *CaptureWcard4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
-func (k *CaptureWcard4) NewValue() bpf.MapValue { return &CaptureRule4{} }
+func (k *CaptureWcard4) NewValue() bpfTypes.MapValue { return &CaptureRule4{} }
 
-func (k *CaptureWcard4) DeepCopyMapKey() bpf.MapKey {
+func (k *CaptureWcard4) DeepCopyMapKey() bpfTypes.MapKey {
 	return &CaptureWcard4{
 		DestAddr: k.DestAddr,
 		SrcAddr:  k.SrcAddr,
@@ -77,7 +70,7 @@ func (k *CaptureWcard4) Map() *bpf.Map {
 
 func (v *CaptureRule4) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
-func (v *CaptureRule4) DeepCopyMapValue() bpf.MapValue {
+func (v *CaptureRule4) DeepCopyMapValue() bpfTypes.MapValue {
 	return &CaptureRule4{
 		RuleId:   v.RuleId,
 		Reserved: v.Reserved,

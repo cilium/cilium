@@ -10,8 +10,10 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpf "github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/mac"
+	lxcmapTypes "github.com/cilium/cilium/pkg/maps/lxcmap/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -107,49 +109,29 @@ func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 
 }
 
-type pad4uint32 [4]uint32
-
-// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad4uint32) DeepCopyInto(out *pad4uint32) {
-	copy(out[:], in[:])
-	return
-}
-
 // EndpointInfo represents the value of the endpoints BPF map.
 //
 // Must be in sync with struct endpoint_info in <bpf/lib/common.h>
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type EndpointInfo struct {
-	IfIndex uint32 `align:"ifindex"`
-	Unused  uint16 `align:"unused"`
-	LxcID   uint16 `align:"lxc_id"`
-	Flags   uint32 `align:"flags"`
-	// go alignment
-	_       uint32
-	MAC     mac.Uint64MAC `align:"mac"`
-	NodeMAC mac.Uint64MAC `align:"node_mac"`
-	Pad     pad4uint32    `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type EndpointInfo lxcmapTypes.EndpointInfo
 
 // GetValuePtr returns the unsafe pointer to the BPF value
 func (v *EndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type EndpointKey struct {
-	bpf.EndpointKey
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type EndpointKey lxcmapTypes.EndpointKey
 
 // NewValue returns a new empty instance of the structure representing the BPF
 // map value
-func (k EndpointKey) NewValue() bpf.MapValue { return &EndpointInfo{} }
+func (k EndpointKey) NewValue() bpfTypes.MapValue { return &EndpointInfo{} }
 
 // NewEndpointKey returns an EndpointKey based on the provided IP address. The
 // address family is automatically detected
 func NewEndpointKey(ip net.IP) *EndpointKey {
 	return &EndpointKey{
-		EndpointKey: bpf.NewEndpointKey(ip, 0),
+		EndpointKey: bpfTypes.NewEndpointKey(ip, 0),
 	}
 }
 
@@ -233,7 +215,7 @@ func DeleteElement(f EndpointFrontend) []error {
 // DumpToMap dumps the contents of the lxcmap into a map and returns it
 func DumpToMap() (map[string]*EndpointInfo, error) {
 	m := map[string]*EndpointInfo{}
-	callback := func(key bpf.MapKey, value bpf.MapValue) {
+	callback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 		if info, ok := value.DeepCopyMapValue().(*EndpointInfo); ok {
 			if endpointKey, ok := key.(*EndpointKey); ok {
 				m[endpointKey.ToIP().String()] = info

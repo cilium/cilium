@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	metricsmapTypes "github.com/cilium/cilium/pkg/maps/metricsmap/types"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
@@ -68,17 +69,10 @@ var direction = map[uint8]string{
 }
 
 // Key must be in sync with struct metrics_key in <bpf/lib/common.h>
-type Key struct {
-	Reason   uint8     `align:"reason"`
-	Dir      uint8     `align:"dir"`
-	Reserved [3]uint16 `align:"reserved"`
-}
+type Key metricsmapTypes.Key
 
 // Value must be in sync with struct metrics_value in <bpf/lib/common.h>
-type Value struct {
-	Count uint64 `align:"count"`
-	Bytes uint64 `align:"bytes"`
-}
+type Value metricsmapTypes.Value
 
 // Values is a slice of Values
 type Values []Value

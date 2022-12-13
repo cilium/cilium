@@ -7,22 +7,16 @@ import (
 	"fmt"
 	"unsafe"
 
+	natTypes "github.com/cilium/cilium/pkg/maps/nat/types"
+
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/tuple"
-	"github.com/cilium/cilium/pkg/types"
 )
 
 // NatEntry6 represents an IPv6 entry in the NAT table.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type NatEntry6 struct {
-	Created   uint64     `align:"created"`
-	HostLocal uint64     `align:"host_local"`
-	Pad1      uint64     `align:"pad1"`
-	Pad2      uint64     `align:"pad2"`
-	Addr      types.IPv6 `align:"to_saddr"`
-	Port      uint16     `align:"to_sport"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type NatEntry6 natTypes.NatEntry6
 
 // SizeofNatEntry6 is the size of the NatEntry6 type in bytes.
 const SizeofNatEntry6 = int(unsafe.Sizeof(NatEntry6{}))

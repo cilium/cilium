@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/ebpf"
+	egressmapTypes "github.com/cilium/cilium/pkg/maps/egressmap/types"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -19,19 +20,10 @@ const (
 )
 
 // EgressPolicyKey4 is the key of an egress policy map.
-type EgressPolicyKey4 struct {
-	// PrefixLen is full 32 bits of SourceIP + DestCIDR's mask bits
-	PrefixLen uint32 `align:"lpm_key"`
-
-	SourceIP types.IPv4 `align:"saddr"`
-	DestCIDR types.IPv4 `align:"daddr"`
-}
+type EgressPolicyKey4 egressmapTypes.EgressPolicyKey4
 
 // EgressPolicyVal4 is the value of an egress policy map.
-type EgressPolicyVal4 struct {
-	EgressIP  types.IPv4 `align:"egress_ip"`
-	GatewayIP types.IPv4 `align:"gateway_ip"`
-}
+type EgressPolicyVal4 egressmapTypes.EgressPolicyVal4
 
 // egressPolicyMap is the internal representation of an egress policy map.
 type egressPolicyMap struct {

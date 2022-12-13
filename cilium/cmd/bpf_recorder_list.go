@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/recorder"
@@ -55,7 +55,7 @@ func dumpRecorderEntries(maps []recorder.CaptureMap) {
 		}
 		defer m.Close()
 		if command.OutputOption() {
-			callback := func(key bpf.MapKey, value bpf.MapValue) {
+			callback := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 				record := recorder.MapRecord{Key: key.(recorder.RecorderKey), Value: value.(recorder.RecorderEntry)}
 				entries = append(entries, record)
 			}

@@ -10,9 +10,10 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
+	authTypes "github.com/cilium/cilium/pkg/maps/auth/types"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -126,18 +127,12 @@ func (m *Map) IterateWithCallback(cb IterateCallback) error {
 //
 // Must be in sync with struct auth_key in <bpf/lib/common.h>
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type AuthKey struct {
-	LocalIdentity  uint32 `align:"local_sec_label"`
-	RemoteIdentity uint32 `align:"remote_sec_label"`
-	RemoteNodeID   uint16 `align:"remote_node_id"`
-	AuthType       uint8  `align:"auth_type"`
-	Pad            uint8  `align:"pad"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
+type AuthKey authTypes.AuthKey
 
 func (r *AuthKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(r) }
 
-func (r *AuthKey) NewValue() bpf.MapValue { return &AuthInfo{} }
+func (r *AuthKey) NewValue() bpfTypes.MapValue { return &AuthInfo{} }
 
 func (r *AuthKey) String() string {
 	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.LocalIdentity, r.RemoteIdentity, r.RemoteNodeID, r.AuthType)
@@ -156,10 +151,8 @@ func newAuthKey(localIdentity identity.NumericIdentity, remoteIdentity identity.
 //
 // Must be in sync with struct auth_info in <bpf/lib/common.h>
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
-type AuthInfo struct {
-	Expiration uint64 `align:"expiration"`
-}
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapValue
+type AuthInfo authTypes.AuthInfo
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
 func (r *AuthInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(r) }

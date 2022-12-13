@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -18,7 +18,7 @@ import (
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
 type TupleKey4 struct {
 	DestAddr   types.IPv4      `align:"daddr"`
 	SourceAddr types.IPv4      `align:"saddr"`
@@ -31,8 +31,8 @@ type TupleKey4 struct {
 // GetKeyPtr returns the unsafe.Pointer for k.
 func (k *TupleKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 
-// NewValue creates a new bpf.MapValue.
-func (k *TupleKey4) NewValue() bpf.MapValue { return &TupleValStub{} }
+// NewValue creates a new bpfTypes.MapValue.
+func (k *TupleKey4) NewValue() bpfTypes.MapValue { return &TupleValStub{} }
 
 // ToNetwork converts TupleKey4 ports to network byte order.
 func (k *TupleKey4) ToNetwork() TupleKey {
@@ -109,7 +109,7 @@ func (t *TupleKey4) SwapAddresses() {
 // TupleKey4Global represents the key for IPv4 entries in the global BPF
 // conntrack map.
 // +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf/types.MapKey
 type TupleKey4Global struct {
 	TupleKey4
 }

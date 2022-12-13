@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
@@ -422,7 +423,7 @@ func (s *Service) populateBackendMapV3FromV2(ipv4, ipv6 bool) error {
 			v3BackendVal lbmap.BackendValue
 		)
 
-		copyBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
+		copyBackendEntries := func(key bpfTypes.MapKey, value bpfTypes.MapValue) {
 			if v == v4 {
 				v3Map = lbmap.Backend4MapV3
 				v1BackendVal := value.(*lbmap.Backend4Value)

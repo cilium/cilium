@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/bpf"
+	bpfTypes "github.com/cilium/cilium/pkg/bpf/types"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -224,7 +224,7 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 	nodeIDs := make(map[string]uint16)
 	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
 		address := key.IP.String()
-		if key.Family == bpf.EndpointKeyIPv4 {
+		if key.Family == bpfTypes.EndpointKeyIPv4 {
 			address = net.IP(key.IP[:net.IPv4len]).String()
 		}
 		nodeIDs[address] = val.NodeID

@@ -32,7 +32,7 @@ func (k *StateKey) String() string {
 	return fmt.Sprintf("%s %s", k.InnerSrc, k.InnerDst)
 }
 
-// StateValue implements the bpf.MapValue interface. It contains the
+// StateValue implements the bpfTypes.MapValue interface. It contains the
 // SRv6 outer IPs for the state maps.
 type StateValue struct {
 	OuterSrc *net.IP
