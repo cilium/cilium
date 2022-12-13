@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blang/semver/v4"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/workerpool"
 	"github.com/mholt/archiver/v3"
@@ -1181,27 +1180,6 @@ func (c *Collector) submitTetragonBugtoolTasks(ctx context.Context, pods []*core
 	return nil
 }
 
-func (c *Collector) getCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error) {
-	o, _, err := c.Client.ExecInPodWithStderr(
-		ctx,
-		p.Namespace,
-		p.Name,
-		defaults.AgentContainerName,
-		[]string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", p.Name, err)
-	}
-
-	v, _, _ := strings.Cut(strings.TrimSpace(o.String()), "-") // strips proprietary -releaseX suffix
-	podVersion, err := semver.Parse(v)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", p.Name, err)
-	}
-
-	return &podVersion, nil
-}
-
 func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1.Pod) error {
 	for _, p := range pods {
 		p := p
@@ -1219,7 +1197,7 @@ func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1
 
 			// Default flags for cilium-bugtool
 			bugtoolFlags := []string{"--archiveType=gz"}
-			ciliumVersion, err := c.getCiliumVersion(ctx, p)
+			ciliumVersion, err := c.Client.GetCiliumVersion(ctx, p)
 			if err == nil {
 				// This flag is not available in older versions
 				if versioncheck.MustCompile(">=1.13.0")(*ciliumVersion) {

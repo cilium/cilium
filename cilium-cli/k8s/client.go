@@ -808,6 +808,29 @@ func getCiliumVersionFromImage(image string) (string, error) {
 	return version, nil
 }
 
+// GetCiliumVersion returns a semver.Version representing the version of cilium
+// running in the cilium-agent pod
+func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error) {
+	o, _, err := c.ExecInPodWithStderr(
+		ctx,
+		p.Namespace,
+		p.Name,
+		defaults.AgentContainerName,
+		[]string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", p.Name, err)
+	}
+
+	v, _, _ := strings.Cut(strings.TrimSpace(o.String()), "-") // strips proprietary -releaseX suffix
+	podVersion, err := semver.Parse(v)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", p.Name, err)
+	}
+
+	return &podVersion, nil
+}
+
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
 	pods, err := c.ListPods(ctx, namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 	if err != nil {

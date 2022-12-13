@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/blang/semver/v4"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/assert"
@@ -254,6 +255,10 @@ func (c *fakeClient) ExecInPodWithStderr(ctx context.Context, namespace, pod, co
 		panic(fmt.Sprintf("unexpected exec: %v", r))
 	}
 	return *bytes.NewBuffer(out.stdout), *bytes.NewBuffer(out.stderr), out.err
+}
+
+func (c *fakeClient) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.Version, error) {
+	panic("implement me")
 }
 
 func (c *fakeClient) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.ConfigMap, error) {
