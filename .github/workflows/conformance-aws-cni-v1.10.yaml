@@ -63,6 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
+  k8s_version: 1.21
   cilium_base_version: "1.10"
   cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -204,6 +205,7 @@ jobs:
             metadata:
               name: ${{ env.clusterName }}
               region: ${{ env.region }}
+              version: ${{ env.k8s_version }}
               tags:
                usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
                owner: "${{ steps.vars.outputs.owner }}"
