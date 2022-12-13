@@ -86,8 +86,8 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
-          echo ::set-output name=sha::${SHA}
-          echo ::set-output name=owner::${OWNER}
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "owner=${OWNER}" >> $GITHUB_OUTPUT
 
       - name: Create GCP VM
         uses: nick-invision/retry@3e91a01664abd3c5cd539100d10d33b9c5b68482
@@ -122,7 +122,7 @@ jobs:
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --preemptible
           CLUSTER_CIDR=$(gcloud container clusters describe ${{ env.clusterName }} --zone ${{ env.zone }} --format="value(clusterIpv4Cidr)")
-          echo ::set-output name=cluster_cidr::${CLUSTER_CIDR}
+          echo "cluster_cidr=${CLUSTER_CIDR}" >> $GITHUB_OUTPUT
 
       - name: Get cluster credentials
         run: |

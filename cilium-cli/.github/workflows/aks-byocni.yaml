@@ -87,8 +87,8 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
-          echo ::set-output name=sha::${SHA}
-          echo ::set-output name=owner::${OWNER}
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "owner=${OWNER}" >> $GITHUB_OUTPUT
 
       - name: Create AKS cluster
         run: |

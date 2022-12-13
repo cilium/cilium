@@ -85,8 +85,8 @@ jobs:
             OWNER=${{ github.sha }}
           fi
 
-          echo ::set-output name=sha::${SHA}
-          echo ::set-output name=owner::${OWNER}
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "owner=${OWNER}" >> $GITHUB_OUTPUT
 
       - name: Create AKS cluster
         run: |
@@ -133,12 +133,12 @@ jobs:
           TENANT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.tenant')
           CLIENT_ID=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.appId')
           CLIENT_SECRET=$(echo ${AZURE_SERVICE_PRINCIPAL} | jq -r '.password')
-          echo ::set-output name=subscription-id::${AZURE_SUBSCRIPTION_ID}
-          echo ::set-output name=node-resource-group::${AZURE_NODE_RESOURCE_GROUP}
-          echo ::set-output name=tenant-id::${TENANT_ID}
-          echo ::set-output name=client-id::${CLIENT_ID}
+          echo "subscription-id=${AZURE_SUBSCRIPTION_ID}" >> $GITHUB_OUTPUT
+          echo "node-resource-group=${AZURE_NODE_RESOURCE_GROUP}" >> $GITHUB_OUTPUT
+          echo "tenant-id=${TENANT_ID}" >> $GITHUB_OUTPUT
+          echo "client-id=${CLIENT_ID}" >> $GITHUB_OUTPUT
           echo ::add-mask::${CLIENT_SECRET}
-          echo ::set-output name=client-secret::${CLIENT_SECRET}
+          echo "client-secret=${CLIENT_SECRET}" >> $GITHUB_OUTPUT
 
       - name: Create cilium-cli install job
         run: |
