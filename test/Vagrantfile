@@ -63,14 +63,14 @@ k8s_nodes="${K8S_NODES:-2}"
 while [ "$i" -le "$k8s_nodes" ]; do
     VBoxManage natnetwork add --netname natnet$i --network 192.168.0.0/16 --ipv6 on --enable
     i=$((i+1))
-done 2>/dev/null
+done
 
 res=0
 while [ "$res" == "0" ]; do
     VBoxManage natnetwork remove --netname natnet$i
     res=$?
     i=$((i+1))
-done 2>/dev/null
+done
 
 VBoxManage natnetwork list
 SCRIPT
