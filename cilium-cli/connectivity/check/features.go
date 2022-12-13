@@ -163,12 +163,12 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 		Mode:    mode,
 	}
 
-	mode = "Disabled"
+	mode = "disabled"
 	if v, ok := cm.Data["tunnel"]; ok {
 		mode = v
 	}
 	result[FeatureTunnel] = FeatureStatus{
-		Enabled: mode != "Disabled",
+		Enabled: mode != "disabled",
 		Mode:    mode,
 	}
 
