@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -43,17 +44,21 @@ var (
 			namespaceResource,
 			lbIPPoolsResource,
 			endpointsResource,
+			podsResource,
+			lrpResource,
 		),
 	)
 )
 
 type SharedResources struct {
 	cell.In
-	LocalNode  resource.Resource[*corev1.Node]
-	Services   resource.Resource[*slim_corev1.Service]
-	Namespaces resource.Resource[*slim_corev1.Namespace]
-	LBIPPools  resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	Endpoints  resource.Resource[*Endpoints]
+	LocalNode        resource.Resource[*corev1.Node]
+	Services         resource.Resource[*slim_corev1.Service]
+	Namespaces       resource.Resource[*slim_corev1.Namespace]
+	Pods             resource.Resource[*slim_corev1.Pod]
+	Endpoints        resource.Resource[*Endpoints]
+	LBIPPools        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	RedirectPolicies resource.Resource[*cilium_v2.CiliumLocalRedirectPolicy]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -172,4 +177,21 @@ func endpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 		elw,
 		resource.WithTransform(obj, transformEndpoint),
 	), nil
+}
+
+func podsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Pod], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	// TODO: sync options up with current pod watcher and deal with the kvstore complication.
+	lw := utils.ListerWatcherFromTyped[*slim_corev1.PodList](cs.Slim().CoreV1().Pods(""))
+	return resource.New[*slim_corev1.Pod](lc, lw), nil
+}
+
+func lrpResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_v2.CiliumLocalRedirectPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_v2.CiliumLocalRedirectPolicyList](cs.CiliumV2().CiliumLocalRedirectPolicies(""))
+	return resource.New[*cilium_v2.CiliumLocalRedirectPolicy](lc, lw), nil
 }

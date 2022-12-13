@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build disabled
-
-package redirectpolicy
+package redirectpolicies
 
 import (
 	"fmt"
@@ -14,12 +12,28 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
+
+type podID = resource.Key
+
+// podMetadata stores relevant metadata associated with a pod that's updated during pod
+// add/update events
+type podMetadata struct {
+	labels map[string]string
+	// id the pod's name and namespace
+	id podID
+	// ips are pod's unique IPs
+	ips []string
+	// namedPorts stores pod port and protocol indexed by the port name
+	namedPorts serviceStore.PortConfiguration
+}
 
 type lrpConfigType = int
 
@@ -61,7 +75,7 @@ type LRPConfig struct {
 	// frontend address, frontend port name, and a slice of its associated backends
 	frontendMappings []*feMapping
 	// serviceID is the parsed service name and namespace
-	serviceID *k8s.ServiceID
+	serviceID *resource.Key
 	// backendSelector is an endpoint selector generated from the parsed policy selector
 	backendSelector api.EndpointSelector
 	// backendPorts is a slice of backend port and protocol along with the port name
@@ -125,7 +139,7 @@ type bePortInfo struct {
 }
 
 // PolicyID includes policy name and namespace
-type policyID = k8s.ServiceID
+type policyID = resource.Key
 
 // Parse parses the specified cilium local redirect policy spec, and returns
 // a sanitized LRPConfig.
@@ -161,7 +175,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		frontendType   = frontendTypeUnknown
 		checkNamedPort = false
 		lrpType        lrpConfigType
-		k8sSvc         *k8s.ServiceID
+		k8sSvc         *resource.Key
 		fe             *frontend
 		feMappings     []*feMapping
 		bePorts        []bePortInfo
@@ -206,7 +220,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		lrpType = lrpConfigTypeAddr
 	case svcMatcher != nil:
 		// LRP specifies service config for traffic that needs to be redirected.
-		k8sSvc = &k8s.ServiceID{
+		k8sSvc = &resource.Key{
 			Name:      svcMatcher.Name,
 			Namespace: svcMatcher.Namespace,
 		}

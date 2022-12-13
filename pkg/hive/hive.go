@@ -6,6 +6,7 @@ package hive
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -296,7 +297,7 @@ func (h *Hive) PrintObjects() {
 	h.lifecycle.PrintHooks()
 }
 
-func (h *Hive) PrintDotGraph() {
+func (h *Hive) WriteDotGraph(w io.Writer) {
 	if err := h.populate(); err != nil {
 		log.WithError(err).Fatal("Failed to populate object graph")
 	}
@@ -305,7 +306,7 @@ func (h *Hive) PrintDotGraph() {
 		if err := dig.Visualize(h.container, os.Stdout); err != nil {
 			log.WithError(err).Fatal("Failed to Visualize()")
 		}*/
-	fmt.Println(cell.CreateDotGraph(h.cells))
+	w.Write([]byte(cell.CreateDotGraph(h.cells)))
 }
 
 // getEnvName returns the environment variable to be used for the given option name.

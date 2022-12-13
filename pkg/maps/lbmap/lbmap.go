@@ -572,7 +572,6 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
-		L7LoadBalancer:   l7lbProxyPort != 0,
 		LoopbackHostport: loopbackHostport,
 	})
 	zeroValue.SetFlags(flag.UInt16())

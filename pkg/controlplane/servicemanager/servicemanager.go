@@ -18,19 +18,24 @@ type (
 
 func New(p params) ServiceManager {
 	return &serviceManager{
-		wp:   workerpool.New(4),
-		dplb: p.DPLB,
+		wp:         workerpool.New(2),
+		dplb:       p.DPLB,
+		handlesSWG: lock.NewStoppableWaitGroup(),
+		store:      make(serviceStore),
 	}
 }
+
+// TODO: How does health server hook into this? can either
+// embed it here, or provide an event stream to it.
 
 type serviceManager struct {
 	mu lock.Mutex
 
 	store      serviceStore
-	handlesSWG lock.StoppableWaitGroup
+	handlesSWG *lock.StoppableWaitGroup
 	wp         *workerpool.WorkerPool
 
-	dplb datapathlb.DatapathLoadBalancing
+	dplb datapathlb.LoadBalancer
 }
 
 // TODO: rename to LBManager, LBController or something?
@@ -64,26 +69,27 @@ func (sm *serviceManager) NewHandle(name string) ServiceHandle {
 	return &serviceHandle{sm, name}
 }
 
-func (sm *serviceManager) upsert(id FrontendID, frontend *Frontend, backends []*Backend) {
+func (sm *serviceManager) upsert(frontend *Frontend, backends []*Backend) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
+	id := FrontendID{Address: frontend.Address, Type: frontend.Type}
 	if sm.store.upsert(id, frontend, backends) {
-		// TODO the boolean return is confusing. Make this more explicit.
-		sm.dplb.Upsert(id, frontend, backends)
+		// The upserted frontend is the primary, update datapath.
+		sm.dplb.Upsert(frontend, backends)
 	}
 }
 
 func (sm *serviceManager) delete(id FrontendID) {
 	sm.store.delete(id)
 
-	// Look up if there's a lower priority frontend that was
-	// now activated.
+	// Look up if there's a lower priority frontend that now
+	// become the primary.
 	frontend, backends := sm.store.lookupByAddr(id.Address)
-	if frontend == nil {
-		sm.dplb.Delete(id)
+	if frontend != nil {
+		sm.dplb.Upsert(frontend, backends)
 	} else {
-		sm.dplb.Upsert(id, frontend, backends)
+		sm.dplb.Delete(id.Address)
 	}
 }
 
@@ -98,13 +104,35 @@ func (h *serviceHandle) Synchronized() {
 	h.sm.handlesSWG.Done()
 }
 
-// TODO: Or return a pointer? These aren't that big though.
-func (*serviceHandle) Iter() Iter2[Frontend, []Backend] {
-	panic("unimplemented")
+type iter struct {
+	pos   int
+	items []frontAndBack
 }
 
-func (h *serviceHandle) Upsert(id FrontendID, frontend *Frontend, backends []*Backend) {
-	h.sm.upsert(id, frontend, backends)
+func (it *iter) Next() (*Frontend, []*Backend, bool) {
+	if it.pos >= len(it.items) {
+		return nil, nil, false
+	}
+	item := it.items[it.pos]
+	it.pos++
+	return item.Frontend, item.backends, true
+}
+
+func (h *serviceHandle) Iter() Iter2[*Frontend, []*Backend] {
+	// XXX concurrency blahblah
+	it := &iter{}
+	for _, fronts := range h.sm.store {
+		it.items = append(it.items,
+			frontAndBack{
+				fronts.services[0].Frontend,
+				fronts.services[0].backends,
+			})
+	}
+	return it
+}
+
+func (h *serviceHandle) Upsert(frontend *Frontend, backends []*Backend) {
+	h.sm.upsert(frontend, backends)
 }
 
 func (h *serviceHandle) Delete(id FrontendID) {

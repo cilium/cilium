@@ -81,24 +81,45 @@ func (ot *objectTracker[Obj]) processLoop(ctx context.Context) {
 		WithRequeues(requeues),
 	)
 
+	startTracking := func(key Key) {
+		// Add the key to the tracked set and
+		// tell resource to queue up the handling for the key.
+		trackedKeys.Store(key, true)
+		requeues <- key
+	}
+	stopTracking := func(key Key) {
+		trackedKeys.Delete(key)
+	}
+
+	sendEvent := func(ev Event[Obj]) {
+		for {
+			select {
+			case key := <-ot.track:
+				startTracking(key)
+
+			case key := <-ot.untrack:
+				stopTracking(key)
+
+			case ot.events <- ev:
+				return
+			}
+		}
+	}
+
 	for {
 		select {
 		case key := <-ot.track:
-			// Add the key to the tracked set and
-			// tell resource to queue up the handling for the key.
-			trackedKeys.Store(key, true)
-			requeues <- key
+			startTracking(key)
 
 		case key := <-ot.untrack:
-			trackedKeys.Delete(key)
+			stopTracking(key)
 
 		case ev, ok := <-allEvents:
 			if !ok {
 				return
 			}
-
 			if ev.Kind != Sync {
-				ot.events <- ev
+				sendEvent(ev)
 			} else {
 				ev.Done(nil)
 			}

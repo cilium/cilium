@@ -28,13 +28,14 @@ type ServiceHandle interface {
 	// If a service exists with the same frontend, then the highest priority one based
 	// on service type will be used in datapath. Lower priority one is activated when a
 	// higher priority service is removed.
-	Upsert(id loadbalancer.FrontendID, frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend)
+	Upsert(frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend)
 
+	// TODO drop FrontendID and just pass addr + type?
 	Delete(id loadbalancer.FrontendID)
 
 	// Iter iterates over frontends and the associated backends.
 	// Only the primary frontend is returned.
-	Iter() Iter2[loadbalancer.Frontend, []loadbalancer.Backend]
+	Iter() Iter2[*loadbalancer.Frontend, []*loadbalancer.Backend]
 }
 
 // as described in https://github.com/golang/go/discussions/54245

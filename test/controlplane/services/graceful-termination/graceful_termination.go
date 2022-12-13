@@ -11,7 +11,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
-	"github.com/cilium/cilium/test/controlplane/services/helpers"
+	"github.com/cilium/cilium/test/controlplane/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
 

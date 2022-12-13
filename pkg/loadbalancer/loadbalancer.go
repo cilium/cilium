@@ -25,6 +25,7 @@ const (
 	SVCTypeExternalIPs   = SVCType("ExternalIPs")
 	SVCTypeLoadBalancer  = SVCType("LoadBalancer")
 	SVCTypeLocalRedirect = SVCType("LocalRedirect")
+	SVCTypeL7Proxy       = SVCType("L7Proxy")
 )
 
 // SVCTrafficPolicy defines which backends are chosen
@@ -72,7 +73,6 @@ type SvcFlagParam struct {
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
-	L7LoadBalancer   bool
 	LoopbackHostport bool
 }
 
@@ -94,6 +94,8 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		}
 	case SVCTypeLocalRedirect:
 		flags |= serviceFlagLocalRedirect
+	case SVCTypeL7Proxy:
+		flags |= serviceFlagL7LoadBalancer
 	}
 
 	switch p.SvcNatPolicy {
@@ -115,9 +117,6 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	if p.CheckSourceRange {
 		flags |= serviceFlagSourceRange
 	}
-	if p.L7LoadBalancer {
-		flags |= serviceFlagL7LoadBalancer
-	}
 
 	return flags
 }
@@ -135,6 +134,8 @@ func (s ServiceFlags) SVCType() SVCType {
 		return SVCTypeHostPort
 	case s&serviceFlagLocalRedirect != 0:
 		return SVCTypeLocalRedirect
+	case s&serviceFlagL7LoadBalancer != 0:
+		return SVCTypeL7Proxy
 	default:
 		return SVCTypeClusterIP
 	}

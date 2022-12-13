@@ -3,7 +3,7 @@ package servicemanager
 import (
 	"golang.org/x/exp/slices"
 
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 )
 
 type frontAndBack struct {

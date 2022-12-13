@@ -20,17 +20,16 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
-	"github.com/cilium/cilium/test/controlplane/suite"
 )
 
-func ValidateLBMapGoldenFile(file string, datapath *fakeDatapath.FakeDatapath) error {
+func ValidateLBMapGoldenFile(file string, updateFlag bool, datapath *fakeDatapath.FakeDatapath) error {
 	lbmap := datapath.LBMockMap()
 	writeLBMap := func() error {
 		f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
-		writeLBMapAsTable(f, lbmap)
+		WriteLBMapAsTable(f, lbmap)
 		f.Close()
 		return nil
 	}
@@ -41,9 +40,9 @@ func ValidateLBMapGoldenFile(file string, datapath *fakeDatapath.FakeDatapath) e
 			return err
 		}
 		var buf bytes.Buffer
-		writeLBMapAsTable(&buf, lbmap)
+		WriteLBMapAsTable(&buf, lbmap)
 		if diff, ok := diffStrings(file, string(bs), buf.String()); !ok {
-			if *suite.FlagUpdate {
+			if updateFlag {
 				return writeLBMap()
 			} else {
 				return fmt.Errorf("lbmap mismatch:\n%s", diff)
@@ -75,7 +74,7 @@ func diffStrings(file string, expected, actual string) (string, bool) {
 	return "", true
 }
 
-func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
+func WriteLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	lbmap.Lock()
 	defer lbmap.Unlock()
 
@@ -122,7 +121,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	// Map for linking backend to services that refer to it.
 	backendToServiceId := make(map[int][]string)
 
-	tw := suite.NewEmptyTable("Services", "ID", "Name", "Type", "Frontend", "Backend IDs")
+	tw := NewEmptyTable("Services", "ID", "Name", "Type", "Frontend", "Backend IDs")
 	for i, svc := range services {
 		for _, be := range svc.Backends {
 			id := newBackendIds[be.ID]
@@ -138,7 +137,7 @@ func writeLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 	}
 	tw.Write(w)
 
-	tw = suite.NewEmptyTable("Backends", "ID", "L3n4Addr", "State", "Linked Services")
+	tw = NewEmptyTable("Backends", "ID", "L3n4Addr", "State", "Linked Services")
 	for i, be := range backends {
 		stateStr, err := be.State.String()
 		if err != nil {

@@ -173,6 +173,8 @@ func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 }
 
 func (r *resource[T]) Tracker(ctx context.Context) ObjectTracker[T] {
+	r.markNeeded()
+
 	return newObjectTracker[T](ctx, r)
 }
 

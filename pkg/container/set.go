@@ -28,16 +28,20 @@ func (s Set[T]) Len() int {
 	return len(s)
 }
 
-// Add an item to the set
+// Add items to the set
 // O(1).
-func (s Set[T]) Add(item T) {
-	s[item] = struct{}{}
+func (s Set[T]) Add(items ...T) {
+	for _, item := range items {
+		s[item] = struct{}{}
+	}
 }
 
-// Delete an item from the set
-// O(1).
-func (s Set[T]) Delete(item T) {
-	delete(s, item)
+// Delete items from the set
+// O(1) per item.
+func (s Set[T]) Delete(items ...T) {
+	for _, item := range items {
+		delete(s, item)
+	}
 }
 
 // Contains returns true if the item is part of the set.

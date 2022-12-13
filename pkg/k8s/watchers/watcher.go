@@ -139,14 +139,16 @@ type policyRepository interface {
 	TranslateRules(translator policy.Translator) (*policy.TranslationResult, error)
 }
 
+/*
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
 	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
 	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
-}
+}*/
 
+/*
 type redirectPolicyManager interface {
 	AddRedirectPolicy(config redirectpolicy.LRPConfig) (bool, error)
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
@@ -155,7 +157,7 @@ type redirectPolicyManager interface {
 	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
 	OnDeletePod(pod *slim_corev1.Pod)
 	OnAddPod(pod *slim_corev1.Pod)
-}
+}*/
 
 type bgpSpeakerManager interface {
 	OnUpdateService(svc *slim_corev1.Service) error
@@ -234,16 +236,16 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager   nodeDiscoverManager
-	policyManager         policyManager
-	policyRepository      policyRepository
-	svcHandle             service.ServiceHandle
-	redirectPolicyManager redirectPolicyManager
-	bgpSpeakerManager     bgpSpeakerManager
-	egressGatewayManager  egressGatewayManager
-	ipcache               ipcacheManager
-	envoyConfigManager    envoyConfigManager
-	cgroupManager         cgroupManager
+	nodeDiscoverManager nodeDiscoverManager
+	policyManager       policyManager
+	policyRepository    policyRepository
+	//svcHandle           service.ServiceHandle
+	//redirectPolicyManager redirectPolicyManager
+	bgpSpeakerManager    bgpSpeakerManager
+	egressGatewayManager egressGatewayManager
+	ipcache              ipcacheManager
+	envoyConfigManager   envoyConfigManager
+	cgroupManager        cgroupManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -286,9 +288,9 @@ func NewK8sWatcher(
 	nodeDiscoverManager nodeDiscoverManager,
 	policyManager policyManager,
 	policyRepository policyRepository,
-	svcManager service.ServiceManager,
+	//svcManager service.ServiceManager,
 	datapath datapath.Datapath,
-	redirectPolicyManager redirectPolicyManager,
+	//redirectPolicyManager redirectPolicyManager,
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager egressGatewayManager,
 	envoyConfigManager envoyConfigManager,
@@ -299,27 +301,27 @@ func NewK8sWatcher(
 	serviceCache serviceCache.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:             clientset,
-		K8sSvcCache:           serviceCache,
-		endpointManager:       endpointManager,
-		nodeDiscoverManager:   nodeDiscoverManager,
-		policyManager:         policyManager,
-		policyRepository:      policyRepository,
-		svcHandle:             svcManager.NewHandle("k8s-watcher"),
-		ipcache:               ipcache,
-		controllersStarted:    make(chan struct{}),
-		stop:                  make(chan struct{}),
-		podStoreSet:           make(chan struct{}),
-		datapath:              datapath,
-		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
-		egressGatewayManager:  egressGatewayManager,
-		cgroupManager:         cgroupManager,
-		NodeChain:             subscriber.NewNodeChain(),
-		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
-		envoyConfigManager:    envoyConfigManager,
-		cfg:                   cfg,
-		sharedResources:       sharedResources,
+		clientset:           clientset,
+		K8sSvcCache:         serviceCache,
+		endpointManager:     endpointManager,
+		nodeDiscoverManager: nodeDiscoverManager,
+		policyManager:       policyManager,
+		policyRepository:    policyRepository,
+		//svcHandle:             svcManager.NewHandle("k8s-watcher"),
+		ipcache:            ipcache,
+		controllersStarted: make(chan struct{}),
+		stop:               make(chan struct{}),
+		podStoreSet:        make(chan struct{}),
+		datapath:           datapath,
+		//redirectPolicyManager: redirectPolicyManager,
+		bgpSpeakerManager:    bgpSpeakerManager,
+		egressGatewayManager: egressGatewayManager,
+		cgroupManager:        cgroupManager,
+		NodeChain:            subscriber.NewNodeChain(),
+		CiliumNodeChain:      subscriber.NewCiliumNodeChain(),
+		envoyConfigManager:   envoyConfigManager,
+		cfg:                  cfg,
+		sharedResources:      sharedResources,
 	}
 }
 

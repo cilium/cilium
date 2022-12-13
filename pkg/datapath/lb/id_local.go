@@ -80,7 +80,7 @@ func (alloc *IDAllocator) acquireLocalID(fe loadbalancer.L3n4Addr, desiredID uin
 			}
 			return alloc.addID(fe, desiredID), nil
 		}
-		return nil, fmt.Errorf("Frontend ID %d is already registered to %q",
+		return nil, fmt.Errorf("ID %d is already registered to %q",
 			desiredID, foundFE)
 	}
 
@@ -103,7 +103,7 @@ func (alloc *IDAllocator) acquireLocalID(fe loadbalancer.L3n4Addr, desiredID uin
 		alloc.nextID++
 	}
 
-	return nil, fmt.Errorf("no frontend ID available")
+	return nil, fmt.Errorf("no ID available")
 }
 
 func (alloc *IDAllocator) getLocalID(id uint32) (*loadbalancer.L3n4AddrID, error) {

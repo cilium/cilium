@@ -10,10 +10,11 @@ var Cell = cell.Module(
 	"Manages the load-balancing frontends and backends",
 
 	cell.Provide(New),
+	cell.Invoke(func(ServiceManager) {}), // force for now.
 )
 
 type params struct {
 	cell.In
 
-	DPLB datapathlb.DatapathLoadBalancing
+	DPLB datapathlb.LoadBalancer
 }

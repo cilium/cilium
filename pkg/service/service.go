@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+//go:build disabled
+
 package service
 
 import (
@@ -282,7 +284,6 @@ func (m svcMap[Key]) Upsert(key Key, fill func(*svcInfo)) {
 	}
 	panic("TBD")
 }
-
 
 // Service is a service handler. Its main responsibility is to reflect
 // service-related changes into BPF maps used by datapath BPF programs.
