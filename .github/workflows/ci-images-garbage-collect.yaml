@@ -12,7 +12,7 @@ jobs:
     name: scruffy
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
         with:
           fetch-depth: 0
       - uses: docker://quay.io/cilium/scruffy:v0.0.2@sha256:6492638de03f4afd05ccb487f995766ebc8f2cddf034ee211107b3b4a0cf7aa7
