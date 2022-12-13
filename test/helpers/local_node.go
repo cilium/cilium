@@ -162,7 +162,7 @@ func (s *LocalExecutor) ExecContext(ctx context.Context, cmd string, options ...
 		ops = options[0]
 	}
 
-	log.Debugf("running command: %s", cmd)
+	log.Debugf("running local command: %s", cmd)
 	fmt.Fprintln(SSHMetaLogs, cmd)
 	stdout := new(Buffer)
 	stderr := new(Buffer)
@@ -184,7 +184,7 @@ func (s *LocalExecutor) ExecContext(ctx context.Context, cmd string, options ...
 		}
 		res.success = false
 
-		log.WithError(err).Errorf("Error executing command '%s'", cmd)
+		log.WithError(err).Errorf("Error executing local command '%s'", cmd)
 		res.err = err
 	}
 
@@ -233,7 +233,7 @@ func (s *LocalExecutor) ExecInBackground(ctx context.Context, cmd string, option
 			}
 			res.success = false
 
-			log.WithError(err).Errorf("Error executing command '%s'", strings.Join(append([]string{cmd.Path}, cmd.Args...), " "))
+			log.WithError(err).Errorf("Error executing local background command '%s'", strings.Join(append([]string{cmd.Path}, cmd.Args...), " "))
 			res.err = err
 		}
 
