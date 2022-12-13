@@ -2822,10 +2822,18 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// changes did not fix the isse, and we need to make this workaround to
 	// avoid Kubectl issue.
 	// https://github.com/openshift/origin/issues/16246
+	//
+	// Sometimes kubectl returns -1 exit code, when the command has been killed
+	// with the stderr "signal: killed" (or generically when a process has been
+	// killed by a signal [1]), where the same command succeeds in a
+	// forthcoming sysdump. Keep trying also in this case until the
+	// 'limitTimes' retries has been exhausted.
+	// https://github.com/cilium/cilium/issues/22476
+	// [1]: https://github.com/golang/go/blob/go1.20rc1/src/os/exec_posix.go#L128-L130
 	for i := 0; i < limitTimes; i++ {
 		res = execute()
 		switch res.GetExitCode() {
-		case 126, 137:
+		case -1, 126:
 			// Retry.
 		default:
 			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
