@@ -3040,17 +3040,17 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	defer cancel()
 	res := kub.CiliumExecContext(ctx, pod, "cilium policy get -o json")
 	if !res.WasSuccessful() {
-		return -1, fmt.Errorf("cannot get the revision %s", res.Stdout())
+		return -1, fmt.Errorf("cannot get policy revision: %q", res.Stdout())
 	}
 
 	revision, err := res.Filter("{.revision}")
 	if err != nil {
-		return -1, fmt.Errorf("cannot get revision from json output '%s': %s", res.CombineOutput(), err)
+		return -1, fmt.Errorf("unable to find revision from json output %q: %s", res.CombineOutput(), err)
 	}
 
 	revi, err := strconv.Atoi(strings.Trim(revision.String(), "\n"))
 	if err != nil {
-		kub.Logger().Errorf("revision on pod '%s' is not valid '%s'", pod, res.CombineOutput())
+		kub.Logger().Errorf("Found invalid policy revision on pod %q: %q", pod, res.CombineOutput())
 		return -1, err
 	}
 	return revi, nil
@@ -3072,7 +3072,7 @@ func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 		revision, err := kub.CiliumPolicyRevision(pod)
 		if err != nil {
 			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
-			return nil, fmt.Errorf("Cannot retrieve cilium pod %s policy revision: %s", pod, err)
+			return nil, fmt.Errorf("Cannot retrieve %q's policy revision: %s", pod, err)
 		}
 		revisions[pod] = revision
 	}
