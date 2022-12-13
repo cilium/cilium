@@ -39,6 +39,8 @@ var serviceDeleteCmd = &cobra.Command{
 			return
 		}
 
+		warnIdTypeDeprecation()
+
 		requireServiceID(cmd, args)
 		if id, err := strconv.ParseInt(args[0], 0, 64); err != nil {
 			Fatalf("%s", err)
