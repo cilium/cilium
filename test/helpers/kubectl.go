@@ -1978,12 +1978,12 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 // ValidateKubernetesDNS validates that the Kubernetes DNS server has been
 // deployed correctly and can resolve DNS names. The following validations are
 // done:
-//  - The Kuberentes DNS deployment has at least one replica
-//  - All replicas are up-to-date and ready
-//  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
-//  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
-//  - The service "default/kubernetes" can be resolved via the KubernetesDNS
-//    and the IP returned matches the ClusterIP in the service
+//   - The Kuberentes DNS deployment has at least one replica
+//   - All replicas are up-to-date and ready
+//   - All pods matching the deployment are represented by a CiliumEndpoint with an identity
+//   - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
+//   - The service "default/kubernetes" can be resolved via the KubernetesDNS
+//     and the IP returned matches the ClusterIP in the service
 func (kub *Kubectl) ValidateKubernetesDNS() error {
 	// The deployment is always validated first and not in parallel. There
 	// is no point in validating correct plumbing if the DNS is not even up
@@ -2830,7 +2830,11 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// https://github.com/openshift/origin/issues/16246
 	for i := 0; i < limitTimes; i++ {
 		res = execute()
-		if res.GetExitCode() != 126 {
+		switch res.GetExitCode() {
+		case 126, 137:
+			// Retry.
+		default:
+			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
@@ -3683,7 +3687,7 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 }
 
 // getCiliumPodOnNodeByName returns the name of the Cilium pod that is running on / in
-//the specified node / namespace.
+// the specified node / namespace.
 func (kub *Kubectl) getCiliumPodOnNodeByName(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
