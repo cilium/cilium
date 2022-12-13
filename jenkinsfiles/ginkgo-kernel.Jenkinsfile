@@ -246,7 +246,7 @@ pipeline {
                     sh 'cd ${TESTDIR}; ./archive_test_results.sh || true'
                     sh 'cd ${TESTDIR}/..; mv *.zip ${WORKSPACE} || true'
                     sh 'cd ${TESTDIR}; mv *.xml ${WORKSPACE}/${PROJ_PATH}/test || true'
-                    sh 'cd ${TESTDIR}; vagrant destroy -f || true'
+                    sh 'cd ${TESTDIR}; ./vagrant_cleanup.sh || true'
                     archiveArtifacts artifacts: '*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
                 }
