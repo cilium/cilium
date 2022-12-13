@@ -33,6 +33,10 @@ var (
 	backendWeights     []uint
 )
 
+func warnIdTypeDeprecation() {
+	fmt.Printf("Deprecation warning: --id parameter will change from int to string in v1.14\n")
+}
+
 // serviceUpdateCmd represents the service_update command
 var serviceUpdateCmd = &cobra.Command{
 	Use:   "update",
@@ -86,6 +90,8 @@ func boolToInt(set bool) int {
 }
 
 func updateService(cmd *cobra.Command, args []string) {
+	warnIdTypeDeprecation()
+
 	id := int64(idU)
 	fa := parseFrontendAddress(frontend)
 	skipFrontendCheck := false
