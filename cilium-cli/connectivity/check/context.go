@@ -509,18 +509,12 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
 	var minVersion *semver.Version
 	for name, ciliumPod := range ct.ciliumPods {
-		stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
-			defaults.AgentContainerName, []string{"cilium", "version", "-o", "jsonpath={$.Daemon.Version}"})
-		if err != nil {
-			return nil, fmt.Errorf("unable to fetch cilium version on pod %q: %w", name, err)
-		}
-		v, _, _ := strings.Cut(strings.TrimSpace(stdout.String()), "-") // strips proprietary -releaseX suffix
-		podVersion, err := semver.Parse(v)
+		podVersion, err := ciliumPod.K8sClient.GetCiliumVersion(ctx, ciliumPod.Pod)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse cilium version on pod %q: %w", name, err)
 		}
 		if minVersion == nil || podVersion.LT(*minVersion) {
-			minVersion = &podVersion
+			minVersion = podVersion
 		}
 	}
 
