@@ -126,7 +126,20 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 		return fmt.Errorf("monitor agent is not set up")
 	}
 
+	// Two types of clients are currently supported: consumers and listeners.
+	// The former ones expect decoded messages, so the notification does not
+	// require any additional marshalling operation before sending an event.
+	// Instead, the latter expect gob-encoded payloads, and the whole marshalling
+	// process may be quite expensive.
+	// While we want to avoid marshalling events if there are no active
+	// listeners, there's no need to check for active consumers ahead of time.
+
 	a.notifyAgentEvent(typ, event)
+
+	// do not marshal notifications if there are no active listeners
+	if !a.hasListeners() {
+		return nil
+	}
 
 	// marshal notifications into JSON format for legacy listeners
 	if typ == api.MessageTypeAgent {
@@ -162,10 +175,19 @@ func (a *Agent) Context() context.Context {
 	return a.ctx
 }
 
-// hasSubscribersLocked returns true if there are listeners subscribed to the
-// agent right now.
+// hasSubscribersLocked returns true if there are listeners or consumers
+// subscribed to the agent right now.
+// Note: it is critical to hold the lock for this operation.
 func (a *Agent) hasSubscribersLocked() bool {
 	return len(a.listeners)+len(a.consumers) != 0
+}
+
+// hasListeners returns true if there are listeners subscribed to the
+// agent right now.
+func (a *Agent) hasListeners() bool {
+	a.Lock()
+	defer a.Unlock()
+	return len(a.listeners) != 0
 }
 
 // startPerfReaderLocked starts the perf reader. This should only be
