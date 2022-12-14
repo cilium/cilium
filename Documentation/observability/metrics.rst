@@ -526,10 +526,14 @@ Context Options
 ^^^^^^^^^^^^^^^
 
 Hubble metrics support configuration via context options.
-Currently there are 3 supported context options for all metrics:
+Supported context options for all metrics:
 
-- ``sourceContext`` - Configures the ``source`` label on metrics.
-- ``destinationContext`` - Configures the ``destination`` label on metrics.
+- ``sourceContext`` - Configures the ``source`` label on metrics for both egress and ingress traffic.
+- ``sourceEgressContext`` - Configures the ``source`` label on metrics for egress traffic (takes precedence over ``sourceContext``).
+- ``sourceIngressContext`` - Configures the ``source`` label on metrics for ingress traffic (takes precedence over ``sourceContext``).
+- ``destinationContext`` - Configures the ``destination`` label on metrics for both egress and ingress traffic.
+- ``destinationEgressContext`` - Configures the ``destination`` label on metrics for egress traffic (takes precedence over ``destinationContext``).
+- ``destinationIngressContext`` - Configures the ``destination`` label on metrics for ingress traffic (takes precedence over ``destinationContext``).
 - ``labelsContext`` - Configures a list of labels to be enabled on metrics.
 
 There are also some context options that are specific to certain metrics.

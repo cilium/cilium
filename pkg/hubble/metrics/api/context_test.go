@@ -131,6 +131,70 @@ func TestParseGetLabelValues(t *testing.T) {
 	assert.Nil(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{IP: &pb.IP{Destination: "10.0.0.2"}}), []string{"10.0.0.2"})
 
+	opts, err = ParseContextOptions(Options{
+		"sourceContext":       "pod-short",
+		"sourceEgressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/foo-123"},
+		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}, TrafficDirection: pb.TrafficDirection_EGRESS}))
+
+	opts, err = ParseContextOptions(Options{
+		"sourceContext":       "pod-short",
+		"sourceEgressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/foo"},
+		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}, TrafficDirection: pb.TrafficDirection_INGRESS}))
+
+	opts, err = ParseContextOptions(Options{
+		"sourceContext":        "pod-short",
+		"sourceEgressContext":  "pod",
+		"sourceIngressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/foo"},
+		mustGetLabelValues(opts, &pb.Flow{Source: &pb.Endpoint{Namespace: "foo", PodName: "foo-123"}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
+
+	opts, err = ParseContextOptions(Options{
+		"destinationContext":        "pod-short",
+		"destinationIngressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/bar-bar"},
+		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}, TrafficDirection: pb.TrafficDirection_EGRESS}))
+
+	opts, err = ParseContextOptions(Options{
+		"destinationContext":        "pod-short",
+		"destinationIngressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/bar-bar-123-123"},
+		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}, TrafficDirection: pb.TrafficDirection_INGRESS}))
+
+	opts, err = ParseContextOptions(Options{
+		"destinationContext":        "pod-short",
+		"destinationEgressContext":  "pod",
+		"destinationIngressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.EqualValues(t,
+		[]string{"foo/bar-bar"},
+		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
+
+	opts, err = ParseContextOptions(Options{
+		"destinationEgressContext":  "pod",
+		"destinationIngressContext": "pod",
+	})
+	assert.Nil(t, err)
+	assert.Nil(t,
+		mustGetLabelValues(opts, &pb.Flow{Destination: &pb.Endpoint{Namespace: "foo", PodName: "bar-bar-123-123"}, TrafficDirection: pb.TrafficDirection_TRAFFIC_DIRECTION_UNKNOWN}))
+
 	opts, err = ParseContextOptions(Options{"sourceContext": "namespace|dns", "destinationContext": "identity|pod-short|ip"})
 	assert.Nil(t, err)
 	assert.EqualValues(t, mustGetLabelValues(opts, &pb.Flow{
