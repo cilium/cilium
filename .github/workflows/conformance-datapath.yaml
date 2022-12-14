@@ -176,7 +176,7 @@ jobs:
       - name: Install cilium-cli
         shell: bash
         run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:6811b2f99082e43bf68113b7e4c0e593c212edf5 ls)
           docker cp $cid:/usr/local/bin/cilium ./cilium-cli
           docker rm $cid
 
