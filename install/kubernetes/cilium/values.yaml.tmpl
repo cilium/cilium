@@ -180,6 +180,13 @@ securityContext:
   # runAsUser: 0
   # -- Run the pod with elevated privileges
   privileged: false
+  # -- SELinux options for the `cilium-agent` and init containers
+  seLinuxOptions:
+    level: 's0'
+    # Running with spc_t since we have removed the privileged mode.
+    # Users can change it to a different type as long as they have the
+    # type available on the system.
+    type: 'spc_t'
   capabilities:
     # -- Capabilities for the `cilium-agent` container
     ciliumAgent:
