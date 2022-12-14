@@ -106,7 +106,7 @@ jobs:
               - '!(test|Documentation)/**'
 
   setup-and-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest-4cores-16gb
     needs: check_changes
     name: Setup & Test
     if: |
@@ -189,14 +189,17 @@ jobs:
           done
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@29b1d2416f88a3be970df79f56464eb4252629b3
         with:
           test-name: datapath-conformance
           image-version: ${{ matrix.kernel }}
           host-mount: ./
+          cpu: 4
+          cmd: |
+            git config --global --add safe.directory /host
 
       - name: Run kube-proxy tests
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@29b1d2416f88a3be970df79f56464eb4252629b3
         with:
           provision: 'false'
           cmd: |
@@ -226,7 +229,7 @@ jobs:
 
       - name: Run encryption tests
         if: ${{ matrix.encryption }} != 'disabled'
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@29b1d2416f88a3be970df79f56464eb4252629b3
         with:
           provision: 'false'
           cmd: |
