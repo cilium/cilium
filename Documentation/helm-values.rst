@@ -1841,6 +1841,10 @@
      - Run the pod with elevated privileges
      - bool
      - ``false``
+   * - securityContext.seLinuxOptions
+     - SELinux options for the ``cilium-agent`` and init containers
+     - object
+     - ``{"level":"s0","type":"spc_t"}``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object
