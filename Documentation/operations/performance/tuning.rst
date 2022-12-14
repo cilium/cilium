@@ -39,6 +39,8 @@ in any of the Cilium pods and look for the line reporting the status for
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 
+.. _ipv6_big_tcp:
+
 IPv6 BIG TCP
 ============
 
