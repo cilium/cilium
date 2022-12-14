@@ -2643,9 +2643,8 @@ func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
 // the current configuration.
 func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
-	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
-	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
+	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard)
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
