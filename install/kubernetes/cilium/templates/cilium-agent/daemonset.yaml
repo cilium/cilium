@@ -261,11 +261,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             add:
             {{- with .Values.securityContext.capabilities.ciliumAgent }}
@@ -478,11 +476,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             add:
             {{- with .Values.securityContext.capabilities.mountCgroup }}
@@ -520,11 +516,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             add:
             {{- with .Values.securityContext.capabilities.applySysctlOverwrites }}
@@ -610,11 +604,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             add:
             {{- with .Values.securityContext.capabilities.cleanCiliumState }}

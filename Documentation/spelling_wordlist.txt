@@ -882,6 +882,7 @@ scalability
 scalable
 scp
 sctp
+seLinuxOptions
 seccomp
 secretName
 secretsBackend
