@@ -232,16 +232,20 @@ func (lr *LogRecord) Log() {
 	flowdebug.Log(lr.getLogFields(), "Logging flow record")
 
 	logMutex.Lock()
-	defer logMutex.Unlock()
-
 	lr.Metadata = metadata
+	n := notifier
+	logMutex.Unlock()
 
-	if notifier != nil {
-		notifier.NewProxyLogRecord(lr)
+	if n != nil {
+		n.NewProxyLogRecord(lr)
 	}
 }
 
-// LogRecordNotifier is the interface to implement LogRecord notifications
+// LogRecordNotifier is the interface to implement LogRecord notifications.
+// Each type that wants to implement this interface must support concurrent calls
+// to the interface methods.
+// Besides, the number of concurrent calls may be very high, so long critical sections
+// should be avoided (i.e.: avoid using a single lock for slow logging operations).
 type LogRecordNotifier interface {
 	// NewProxyLogRecord is called for each new log record
 	NewProxyLogRecord(l *LogRecord) error
