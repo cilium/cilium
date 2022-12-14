@@ -140,6 +140,7 @@ Tetragon
 Tierney
 Tu
 Twilio
+Uncordon
 Uptime
 VM
 VNet
@@ -1015,8 +1016,10 @@ uninline
 uninstall
 uninstallOnExit
 unix
+unlabel
 unmanaged
 unmanagedPodWatcher
+unmigrated
 unsettable
 untriaged
 untrusted
