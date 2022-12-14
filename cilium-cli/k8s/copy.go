@@ -37,7 +37,7 @@ func (c *Client) CopyFromPod(ctx context.Context, namespace, pod, container stri
 func readFromPod(ctx context.Context, client *Client, namespace, pod, container, srcFile string) ReadFunc {
 	return func(offset uint64, writer io.Writer) error {
 		command := []string{"sh", "-c", fmt.Sprintf(defaultReadFromByteCmd, offset, srcFile)}
-		return client.execInPodWithWriters(ctx, ExecParameters{
+		return client.execInPodWithWriters(ctx, nil, ExecParameters{
 			Namespace: namespace,
 			Pod:       pod,
 			Container: container,

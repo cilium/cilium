@@ -45,8 +45,6 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	bgCtx, bgCancel := context.WithCancel(ctx)
-
 	// clientHost is a pod running on the same node as the client pod, just in
 	// the host netns.
 	clientHost := t.Context().HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
@@ -78,6 +76,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	bgStdout := &safeBuffer{}
 	bgStderr := &safeBuffer{}
 	bgExited := make(chan struct{})
+	killCmdCtx, killCmd := context.WithCancel(context.Background())
 	// Start kubectl exec in bg (=goroutine)
 	go func() {
 		// Run tcpdump with -w instead of directly printing captured pkts. This
@@ -95,9 +94,9 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 			// to be captured
 			"-c", "1"}
 		t.Debugf("Running in bg: %s", strings.Join(cmd, " "))
-		err := clientHost.K8sClient.ExecInPodWithWriters(bgCtx, clientHost.Pod.Namespace,
-			clientHost.Pod.Name, "", cmd, bgStdout, bgStderr)
-		if err != nil {
+		err := clientHost.K8sClient.ExecInPodWithWriters(ctx, killCmdCtx,
+			clientHost.Pod.Namespace, clientHost.Pod.Name, "", cmd, bgStdout, bgStderr)
+		if err != nil && !errors.Is(err, context.Canceled) {
 			t.Fatalf("Failed to execute tcpdump: %s", err)
 		}
 		close(bgExited)
@@ -128,7 +127,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	})
 
 	// Wait until tcpdump has exited
-	bgCancel()
+	killCmd()
 	<-bgExited
 
 	// Redirect stderr to /dev/null, as tcpdump logs to stderr, and ExecInPod
