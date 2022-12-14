@@ -38,7 +38,7 @@ may look like
 Making Changes
 --------------
 
-You may change the configuration of a running installation in two ways:
+You may change the configuration of a running installation in three ways:
 
 #. Via ``helm upgrade``
 
@@ -51,7 +51,14 @@ You may change the configuration of a running installation in two ways:
 
    The `Cilium CLI <https://github.com/cilium/cilium-cli/>`_ has the ability
    to update individual values in the ``cilium-config`` ConfigMap. This will
-   not effect running pods; pods must be deleted manually to pick up any changes.
+   not affect running pods; pods must be deleted manually to pick up any changes.
+
+#. Via ``CiliumNodeConfig`` objects
+
+   Cilium also supports configuration on sets of nodes. See the
+   :ref:`per-node-configuration` page for more details. Likewise, this also requires
+   that pods be manually deleted for changes to take effect.
+
 
 Core Agent
 ----------
@@ -60,6 +67,7 @@ Core Agent
    :glob:
 
    api-rate-limiting
+   per-node-config
    sctp
    vlan-802.1q
    argocd-issues
