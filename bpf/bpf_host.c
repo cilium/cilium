@@ -241,12 +241,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #endif /* ENABLE_HOST_FIREWALL */
 
 skip_host_firewall:
-#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
-	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
-
 #ifdef ENABLE_SRV6
 	if (!from_host) {
 		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
@@ -258,6 +252,12 @@ skip_host_firewall:
 		}
 	}
 #endif /* ENABLE_SRV6 */
+
+#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
+	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
+	if (!from_host)
+		return CTX_ACT_OK;
+#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
