@@ -2607,12 +2607,8 @@ func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 		return err
 	}
 
-	if cidr == nil {
-		return fmt.Errorf("ParseCIDR returned nil")
-	}
-
 	if ones, _ := cidr.Mask.Size(); ones != 64 {
-		return fmt.Errorf("CIDR length must be /64")
+		return fmt.Errorf("Prefix length must be /64")
 	}
 
 	c.IPv6ClusterAllocCIDRBase = ip.Mask(cidr.Mask).String()
@@ -2626,12 +2622,8 @@ func (c *DaemonConfig) validateIPv6NAT46x64CIDR() error {
 		return err
 	}
 
-	if cidr == nil {
-		return fmt.Errorf("ParseCIDR returned nil")
-	}
-
 	if ones, _ := cidr.Mask.Size(); ones != 96 {
-		return fmt.Errorf("CIDR length must be /96")
+		return fmt.Errorf("Prefix length must be /96")
 	}
 
 	c.IPv6NAT46x64CIDRBase = ip.Mask(cidr.Mask)
