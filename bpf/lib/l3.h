@@ -93,7 +93,19 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
+# if defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+	/* In tunneling mode, we execute this code to send the packet from
+	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+	 * redirect() because that would bypass conntrack and the reverse DNAT.
+	 * Thus, we send packets to the stack, but since they have the wrong
+	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+	 * will drop them.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
+	return CTX_ACT_OK;
+# else
 	return redirect_ep(ctx, ep->ifindex, from_host);
+# endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 #else
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
@@ -141,7 +153,19 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark |= MARK_MAGIC_IDENTITY;
 	set_identity_mark(ctx, seclabel);
 
+# if defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+	/* In tunneling mode, we execute this code to send the packet from
+	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+	 * redirect() because that would bypass conntrack and the reverse DNAT.
+	 * Thus, we send packets to the stack, but since they have the wrong
+	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+	 * will drop them.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
+	return CTX_ACT_OK;
+# else
 	return redirect_ep(ctx, ep->ifindex, from_host);
+# endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 #else
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
