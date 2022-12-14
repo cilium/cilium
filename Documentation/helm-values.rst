@@ -156,7 +156,7 @@
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"annotations":{"cronJob":{},"job":{}},"image":{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"annotations":{"cronJob":{},"job":{}},"image":{"digest":"sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - certgen.annotations
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
@@ -212,7 +212,7 @@
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}``
+     - ``{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}``
    * - clustermesh.apiserver.etcd.init.resources
      - Specifies the resources for etcd init container in the apiserver
      - object
@@ -664,7 +664,7 @@
    * - etcd.image
      - cilium-etcd-operator image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"}``
+     - ``{"digest":"sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7","useDigest":true}``
    * - etcd.k8sService
      - If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running.
      - bool
@@ -1108,7 +1108,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"}``
+     - ``{"digest":"sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.2","useDigest":true}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -1124,7 +1124,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"}``
+     - ``{"digest":"sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.2","useDigest":true}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object

@@ -785,6 +785,8 @@ certgen:
     override: ~
     repository: "${CERTGEN_REPO}"
     tag: "${CERTGEN_VERSION}"
+    digest: "${CERTGEN_DIGEST}"
+    useDigest: true
     pullPolicy: "${PULL_POLICY}"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
@@ -1157,6 +1159,8 @@ hubble:
         override: ~
         repository: "${HUBBLE_UI_BACKEND_REPO}"
         tag: "${HUBBLE_UI_BACKEND_VERSION}"
+        digest: "${HUBBLE_UI_BACKEND_DIGEST}"
+        useDigest: true
         pullPolicy: "${PULL_POLICY}"
 
       # -- Additional hubble-ui backend environment variables.
@@ -1177,6 +1181,8 @@ hubble:
         override: ~
         repository: "${HUBBLE_UI_FRONTEND_REPO}"
         tag: "${HUBBLE_UI_FRONTEND_VERSION}"
+        digest: "${HUBBLE_UI_FRONTEND_DIGEST}"
+        useDigest: true
         pullPolicy: "${PULL_POLICY}"
 
       # -- Additional hubble-ui frontend environment variables.
@@ -1681,6 +1687,8 @@ etcd:
     override: ~
     repository: "${CILIUM_ETCD_OPERATOR_REPO}"
     tag: "${CILIUM_ETCD_OPERATOR_VERSION}"
+    digest: "${CILIUM_ETCD_OPERATOR_DIGEST}"
+    useDigest: true
     pullPolicy: "${PULL_POLICY}"
 
   # -- The priority class to use for cilium-etcd-operator
@@ -2171,6 +2179,8 @@ clustermesh:
         override: ~
         repository: "${ETCD_REPO}"
         tag: "${ETCD_VERSION}"
+        digest: "${ETCD_DIGEST}"
+        useDigest: true
         pullPolicy: "${PULL_POLICY}"
 
       # -- Specifies the resources for etcd container in the apiserver
