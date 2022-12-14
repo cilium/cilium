@@ -403,13 +403,17 @@ func (c *Client) ExecInPod(ctx context.Context, namespace, pod, container string
 	return result.Stdout, nil
 }
 
-func (c *Client) ExecInPodWithWriters(ctx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
-	err := c.execInPodWithWriters(ctx, ExecParameters{
+func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
+	execParams := ExecParameters{
 		Namespace: namespace,
 		Pod:       pod,
 		Container: container,
 		Command:   command,
-	}, stdout, stderr)
+	}
+	if killCmdCtx != nil {
+		execParams.TTY = true
+	}
+	err := c.execInPodWithWriters(connCtx, killCmdCtx, execParams, stdout, stderr)
 	if err != nil {
 		return err
 	}
