@@ -227,8 +227,9 @@ cilium-agent [flags]
       --node-port-range strings                                 Set the min/max NodePort port range (default [30000,32767])
       --policy-audit-mode                                       Enable policy audit (non-drop) mode
       --policy-queue-size int                                   size of queues for policy-related events (default 100)
-      --pprof                                                   Enable serving the pprof debugging API
-      --pprof-port int                                          Port that the pprof listens on (default 6060)
+      --pprof                                                   Enable serving pprof debugging API
+      --pprof-address string                                    Address that pprof listens on (default "localhost")
+      --pprof-port int                                          Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                 Prepend custom iptables chains instead of appending (default true)
       --procfs string                                           Root's proc filesystem path (default "/proc")

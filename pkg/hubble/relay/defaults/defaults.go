@@ -19,6 +19,8 @@ const (
 	DialTimeout = 5 * time.Second
 	// GopsPort is the default port for gops to listen on.
 	GopsPort = 9893
+	// PprofAddress is the default port for pprof to listen on.
+	PprofAddress = "localhost"
 	// PprofPort is the default port for pprof to listen on.
 	PprofPort = 6062
 	// RetryTimeout is the duration to wait between reconnection attempts.

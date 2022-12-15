@@ -384,6 +384,8 @@ Removed Options
   ``ipv4-native-routing-cidr`` has been removed.
 * The ``prefilter-device`` and ``prefilter-mode`` options deprecated in 1.11 in
   favor of ``enable-xdp-prefilter`` and ``bpf-lb-acceleration`` have been removed.
+* The ``pprof``, ``pprof-port`` flags for cilium-operator have been renamed
+  to ``operator-pprof`` and ``operator-pprof-port`` respectively.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -425,6 +427,10 @@ Helm Options
   container images are not scheduled on non-Linux nodes.
 * ``cluster.id`` cannot be empty and a value must be specified.
   Use the ``0`` value to leave Cluster Mesh disabled.
+* The top-level ``pprof`` section now only configures pprof for cilium agent.
+  The cilium-operator pprof configuration is now managed via the ``operator.pprof`` section.
+  Additionally, a``hubble.relay.pprof`` section has been added.
+* All pprof configuration now support configuring the pprof listen address, defaulting to localhost.
 
 .. _1.11_upgrade_notes:
 
