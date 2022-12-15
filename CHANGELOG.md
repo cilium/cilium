@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.11.12
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix bug that could lead to inconsistent pod IP information between agents, sometimes leading to a failure to decrypt IPsec traffic. (Backport PR #22309, Upstream PR #22127, @aanm)
+* Fix bug where configuring the API rate limiter options could fail when providing multiple options (Backport PR #22752, Upstream PR #22299, @thorn3r)
+* Fix forwarding of the security identity by the DNS proxy which could cause random policy denials (Backport PR #22456, Upstream PR #22361, @aspsk)
+* Fix GC of CEPs that were not GCed by kube-apiserver (Backport PR #22309, Upstream PR #22213, @aanm)
+
+**CI Changes:**
+* .github: Explicitly set build-commits job runner image version and install libtinfo5 (Backport PR #22329, Upstream PR #22315, @chancez)
+* .github: fix bpf-checks on ubuntu-latest runner (Backport PR #22329, Upstream PR #22322, @julianwiedmann)
+* Fix CODEOWNERS (#22293, @michi-covalent)
+
+**Misc Changes:**
+* .github/workflows: split the image tag update in two steps (Backport PR #22261, Upstream PR #22268, @aanm)
+* Add automatic creation of Cilium base images (Backport PR #22261, Upstream PR #22179, @aanm)
+* bpf: Remove FIB lookup for IPsec (Backport PR #22309, Upstream PR #22069, @pchaigno)
+* build(deps): bump actions/setup-go from 3.3.1 to 3.4.0 (#22485, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.4.0 to 3.5.0 (#22713, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.0 to 3.1.1 (#22305, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.32 to 2.1.35 (#22495, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.35 to 2.1.36 (#22631, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.36 to 2.1.37 (#22760, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.4.0 to 1.5.0 (#22714, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.0 to 1.6.1 (#22594, @dependabot[bot])
+* chore(deps): update base-images (v1.11) (#22123, @renovate[bot])
+* gha: Pin ubuntu-20.04 for conformance-test-ipv6 (Backport PR #22329, Upstream PR #22324, @sayboras)
+
+**Other Changes:**
+* .github/workflows: install promtool from binary release (#22331, @tklauser)
+* install: Update image digests for v1.11.11 (#22239, @michi-covalent)
+
 ## v1.11.11
 
 Summary of Changes
