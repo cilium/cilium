@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
-set -eo pipefail
+set -ox pipefail
 
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
