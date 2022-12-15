@@ -148,6 +148,7 @@ jobs:
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
         run: |
+          journalctl -xeu docker.service
           echo "=== Install Cilium CLI ==="
           curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
           sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
