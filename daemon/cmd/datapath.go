@@ -339,7 +339,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.TunnelingEnabled() {
-		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+		if _, err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -355,7 +355,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableVTEP {
-		if _, err := vtep.VtepMAP.OpenOrCreate(); err != nil {
+		if _, err := vtep.VtepMap().OpenOrCreate(); err != nil {
 			return err
 		}
 	}
