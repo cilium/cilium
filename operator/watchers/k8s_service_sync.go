@@ -12,7 +12,6 @@ import (
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -99,7 +98,7 @@ type ServiceSyncConfiguration interface {
 // 'shared' specifies whether only shared services are synchronized. If 'false' then all services
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
-func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
+func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
 	sharedOnly = shared
 
@@ -120,7 +119,7 @@ func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clients
 			},
 			Backend:  nil,
 			Observer: nil,
-			Context:  nil,
+			Context:  ctx,
 		})
 
 		if err != nil {
@@ -170,7 +169,7 @@ func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clients
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(clientset.Slim(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(ctx, wg, clientset.Slim(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			// endpointController has been kicked off already inside
@@ -186,15 +185,17 @@ func StartSynchronizingServices(ctx context.Context, clientset k8sClient.Clients
 		fallthrough
 	default:
 		endpointController = endpointsInit(clientset.Slim(), swgEps, serviceOptsModifier)
-		go endpointController.Run(wait.NeverStop)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			endpointController.Run(ctx.Done())
+		}()
 	}
 
+	wg.Add(1)
 	go func() {
-		<-k8sSvcCacheSynced
-		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
-	}()
+		defer wg.Done()
 
-	go func() {
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
 		k8sServiceHandler(cfg.LocalClusterName())
@@ -247,7 +248,7 @@ func endpointsInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWai
 	return endpointController
 }
 
-func endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
+func endpointSlicesInit(ctx context.Context, wg *sync.WaitGroup, slimClient slimclientset.Interface, swgEps *lock.StoppableWaitGroup) (cache.Controller, bool) {
 	var (
 		hasEndpointSlices = make(chan struct{})
 		once              sync.Once
@@ -337,8 +338,16 @@ func endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.Stoppab
 		nil,
 	)
 
-	ecr := make(chan struct{})
-	go endpointController.Run(ecr)
+	ctx, cancel := context.WithCancel(ctx)
+	// We use the cancel only if there's no endpoint slice support.
+	// Silence the warnings about possible context leak.
+	var _ = cancel
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		endpointController.Run(ctx.Done())
+	}()
 
 	if k8s.HasEndpointSlice(hasEndpointSlices, endpointController) {
 		return endpointController, true
@@ -346,7 +355,7 @@ func endpointSlicesInit(slimClient slimclientset.Interface, swgEps *lock.Stoppab
 
 	// K8s is not running with endpoint slices enabled, stop the endpoint slice
 	// controller to avoid watching for unnecessary stuff in k8s.
-	close(ecr)
+	cancel()
 
 	return nil, false
 }

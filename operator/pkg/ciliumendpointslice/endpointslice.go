@@ -4,6 +4,8 @@
 package ciliumendpointslice
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -93,7 +95,10 @@ func GetCEPNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) str
 }
 
 // NewCESController, creates and initializes the CES controller
-func NewCESController(clientset k8sClient.Clientset,
+func NewCESController(
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	clientset k8sClient.Clientset,
 	maxCEPsInCES int,
 	slicingMode string,
 	qpsLimit float64,
@@ -124,7 +129,7 @@ func NewCESController(clientset k8sClient.Clientset,
 	if slicingMode == cesIdentityBasedSlicing {
 		manager = newCESManagerIdentity(rlQueue, maxCEPsInCES)
 	}
-	cesStore := ciliumEndpointSliceInit(clientset.CiliumV2alpha1(), wait.NeverStop)
+	cesStore := ciliumEndpointSliceInit(clientset.CiliumV2alpha1(), ctx, wg)
 
 	// List all existing CESs from the api-server and cache it locally.
 	// This sync should happen before starting CEP watcher, because CEP watcher
@@ -146,7 +151,7 @@ func NewCESController(clientset k8sClient.Clientset,
 }
 
 // start the worker thread, reconciles the modified CESs with api-server
-func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh chan struct{}) {
+func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh <-chan struct{}) {
 	log.Info("Bootstrap ces controller")
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
@@ -300,7 +305,7 @@ func (c *CiliumEndpointSliceController) syncCES(key string) error {
 
 // Initialize and start CES watcher
 // TODO Watch for CES's, make sure only CES controller Create/Update/Delete the CES not bad actors.
-func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-chan struct{}) cache.Store {
+func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, ctx context.Context, wg *sync.WaitGroup) cache.Store {
 	cesStore, cesController := informer.NewInformer(
 		utils.ListerWatcherFromTyped[*capi_v2a1.CiliumEndpointSliceList](
 			client.CiliumEndpointSlices()),
@@ -309,7 +314,11 @@ func ciliumEndpointSliceInit(client csv2a1.CiliumV2alpha1Interface, stopCh <-cha
 		cache.ResourceEventHandlerFuncs{},
 		nil,
 	)
-	go cesController.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, cesController.HasSynced)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cesController.Run(ctx.Done())
+	}()
+	cache.WaitForCacheSync(ctx.Done(), cesController.HasSynced)
 	return cesStore
 }
