@@ -132,10 +132,12 @@ jobs:
             kube-proxy: 'none'
             kpr: 'strict'
             encryption: 'wireguard'
+            verifier: 'disabled'
           - kernel: '5.15-main'
             kube-proxy: 'none'
             kpr: 'strict'
             encryption: 'wireguard'
+            verifier: 'disabled'
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
@@ -254,6 +256,22 @@ jobs:
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
 
+      - name: Run verifier tests
+        if: ${{ matrix.verifier != 'disabled' }}
+        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            make -C bpf/ clean V=0
+            make -C tools/maptool/
+            go test -c ./test/verifier
+            docker run -t --privileged \
+              -v /sys/fs/bpf:/sys/fs/bpf \
+              -v "\$PWD:/cilium" \
+              quay.io/cilium/test-verifier:2ecf56b4ea57576e9d92d34407898e5d14e80aa3@sha256:62396cedb4f15477f0084d7dfc92de55ac9ab8531021b7ac5f56220c35f2cb64 \
+              /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium
+
       - name: Fetch artifacts
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
@@ -265,6 +283,8 @@ jobs:
             ./cilium-cli status
             mkdir -p cilium-sysdumps
             ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.kernel }}-final
+            mkdir -p cilium-sysdumps/verifier
+            cp bpf/*.o cilium-sysdumps/verifier
 
       - name: Upload artifacts
         if: ${{ !success() }}
