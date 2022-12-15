@@ -24,4 +24,5 @@ type VpnPbrRouteEntry struct {
 	CreateTime    int64  `json:"CreateTime" xml:"CreateTime"`
 	VpnInstanceId string `json:"VpnInstanceId" xml:"VpnInstanceId"`
 	RouteSource   string `json:"RouteSource" xml:"RouteSource"`
+	Priority      int    `json:"Priority" xml:"Priority"`
 }

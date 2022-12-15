@@ -13,6 +13,7 @@ import (
 	apb "google.golang.org/protobuf/types/known/anypb"
 
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
 var (
@@ -61,6 +62,8 @@ type ServerWithConfig struct {
 	Config *v2alpha1api.CiliumBGPVirtualRouter
 	// Holds any announced PodCIDR routes.
 	PodCIDRAnnouncements []Advertisement
+	// Holds any announced Service routes.
+	ServiceAnnouncements map[resource.Key][]Advertisement
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing startReq
@@ -98,6 +101,7 @@ func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (
 		Server:               s,
 		Config:               nil,
 		PodCIDRAnnouncements: []Advertisement{},
+		ServiceAnnouncements: make(map[resource.Key][]Advertisement),
 	}, nil
 }
 

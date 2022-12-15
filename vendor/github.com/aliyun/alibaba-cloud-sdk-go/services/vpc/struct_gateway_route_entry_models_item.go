@@ -17,10 +17,11 @@ package vpc
 
 // GatewayRouteEntryModelsItem is a nested struct in vpc response
 type GatewayRouteEntryModelsItem struct {
-	Status               string `json:"Status" xml:"Status"`
-	NextHopId            string `json:"NextHopId" xml:"NextHopId"`
-	Description          string `json:"Description" xml:"Description"`
-	NextHopType          string `json:"NextHopType" xml:"NextHopType"`
-	DestinationCidrBlock string `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
-	Name                 string `json:"Name" xml:"Name"`
+	Status               string                                  `json:"Status" xml:"Status"`
+	NextHopId            string                                  `json:"NextHopId" xml:"NextHopId"`
+	Description          string                                  `json:"Description" xml:"Description"`
+	NextHopType          string                                  `json:"NextHopType" xml:"NextHopType"`
+	DestinationCidrBlock string                                  `json:"DestinationCidrBlock" xml:"DestinationCidrBlock"`
+	Name                 string                                  `json:"Name" xml:"Name"`
+	NextHops             []NextHopInListGatewayRouteTableEntries `json:"NextHops" xml:"NextHops"`
 }

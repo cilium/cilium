@@ -382,18 +382,11 @@ var _ = SkipDescribeIf(func() bool {
 		// Check the ingress hook in tail_ipv4_to_endpoint()
 		// Similar to the above, with endpointRoutes enabled
 		It("Loads byte-counter and gets consistent values, with per-endpoint routes", func() {
-
 			options := map[string]string{
 				"customCalls.enabled":    "true",
 				"endpointRoutes.enabled": "true",
 			}
-
-			// Packets to pods are processed twice with
-			// per-endpoint routes + VXLAN, account for it
-			// (see GH-14657)
-			expectedByteCount := 2 * pingBytes
-
-			checkByteCounter(options, expectedByteCount, 0, false)
+			checkByteCounter(options, pingBytes, 0, false)
 		})
 	})
 })

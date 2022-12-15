@@ -7,11 +7,14 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -35,6 +38,12 @@ var (
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
 type LocalASNMap map[int]*ServerWithConfig
+
+type bgpRouterManagerParams struct {
+	cell.In
+
+	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
+}
 
 // BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
 //
@@ -69,15 +78,26 @@ type LocalASNMap map[int]*ServerWithConfig
 // BgpServers are abstracted by the ServerWithConfig structure which provides a
 // method set for low-level BGP operations.
 type BGPRouterManager struct {
-	Servers LocalASNMap
+	Servers     LocalASNMap
+	Reconcilers []ConfigReconciler
 }
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
 // See NewBGPRouterManager for details.
-func NewBGPRouterManager() *BGPRouterManager {
+func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
+	for i := len(params.Reconcilers) - 1; i >= 0; i-- {
+		if params.Reconcilers[i] == nil {
+			params.Reconcilers = slices.Delete(params.Reconcilers, i, i+1)
+		}
+	}
+	sort.Slice(params.Reconcilers, func(i, j int) bool {
+		return params.Reconcilers[i].Priority() < params.Reconcilers[j].Priority()
+	})
+
 	return &BGPRouterManager{
-		Servers: make(LocalASNMap),
+		Servers:     make(LocalASNMap),
+		Reconcilers: params.Reconcilers,
 	}
 }
 
@@ -225,7 +245,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 
-	if err = ReconcileBGPConfig(ctx, m, s, c, cstate); err != nil {
+	if err = m.reconcileBGPConfig(ctx, s, c, cstate); err != nil {
 		return fmt.Errorf("failed initial reconciliation for peer config with local ASN %v: %w", c.LocalASN, err)
 	}
 
@@ -296,11 +316,43 @@ func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) err
 			continue
 		}
 
-		if err := ReconcileBGPConfig(ctx, m, sc, newc, rd.state); err != nil {
+		if err := m.reconcileBGPConfig(ctx, sc, newc, rd.state); err != nil {
 			l.WithError(err).Errorf("Encountered error reconciling virtual router with local ASN %v, shutting down this server", newc.LocalASN)
 			sc.Server.Stop()
 			delete(m.Servers, asn)
 		}
 	}
+	return nil
+}
+
+// reconcileBGPConfig will utilize the current set of ConfigReconciler(s)
+// to push a BgpServer to its desired configuration.
+//
+// If any ConfigReconciler fails so will ReconcileBGPConfig and the caller
+// is left to decide how to handle the possible inconsistent state of the
+// BgpServer left over.
+//
+// Providing a ServerWithConfig that has a nil `Config` field indicates that
+// this is the first time this BgpServer is being configured, each
+// ConfigReconciler must be prepared to handle this.
+//
+// The two CiliumBGPVirtualRouter(s) being compared must have the same local
+// ASN, unless `sc.Config` is nil, or else an error is returned.
+//
+// On success the provided `newc` will be written to `sc.Config`. The caller
+// should then store `sc` until next reconciliation.
+func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	if sc.Config != nil {
+		if sc.Config.LocalASN != newc.LocalASN {
+			return fmt.Errorf("cannot reconcile two BgpServers with different local ASNs")
+		}
+	}
+	for _, r := range m.Reconcilers {
+		if err := r.Reconcile(ctx, m, sc, newc, cstate); err != nil {
+			return fmt.Errorf("reconciliation of virtual router with local ASN %v failed: %w", newc.LocalASN, err)
+		}
+	}
+	// all reconcilers succeeded so update Server's config with new peering config.
+	sc.Config = newc
 	return nil
 }

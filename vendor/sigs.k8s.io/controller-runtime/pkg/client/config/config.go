@@ -29,15 +29,32 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 )
 
+// KubeconfigFlagName is the name of the kubeconfig flag
+const KubeconfigFlagName = "kubeconfig"
+
 var (
 	kubeconfig string
 	log        = logf.RuntimeLog.WithName("client").WithName("config")
 )
 
+// init registers the "kubeconfig" flag to the default command line FlagSet.
+// TODO: This should be removed, as it potentially leads to redefined flag errors for users, if they already
+// have registered the "kubeconfig" flag to the command line FlagSet in other parts of their code.
 func init() {
-	// TODO: Fix this to allow double vendoring this library but still register flags on behalf of users
-	flag.StringVar(&kubeconfig, "kubeconfig", "",
-		"Paths to a kubeconfig. Only required if out-of-cluster.")
+	RegisterFlags(flag.CommandLine)
+}
+
+// RegisterFlags registers flag variables to the given FlagSet if not already registered.
+// It uses the default command line FlagSet, if none is provided. Currently, it only registers the kubeconfig flag.
+func RegisterFlags(fs *flag.FlagSet) {
+	if fs == nil {
+		fs = flag.CommandLine
+	}
+	if f := fs.Lookup(KubeconfigFlagName); f != nil {
+		kubeconfig = f.Value.String()
+	} else {
+		fs.StringVar(&kubeconfig, KubeconfigFlagName, "", "Paths to a kubeconfig. Only required if out-of-cluster.")
+	}
 }
 
 // GetConfig creates a *rest.Config for talking to a Kubernetes API server.
@@ -96,7 +113,7 @@ func GetConfigWithContext(context string) (*rest.Config, error) {
 var loadInClusterConfig = rest.InClusterConfig
 
 // loadConfig loads a REST Config as per the rules specified in GetConfig.
-func loadConfig(context string) (*rest.Config, error) {
+func loadConfig(context string) (config *rest.Config, configErr error) {
 	// If a flag is specified with the config location, use that
 	if len(kubeconfig) > 0 {
 		return loadConfigWithContext("", &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, context)
@@ -106,9 +123,16 @@ func loadConfig(context string) (*rest.Config, error) {
 	// try the in-cluster config.
 	kubeconfigPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
 	if len(kubeconfigPath) == 0 {
-		if c, err := loadInClusterConfig(); err == nil {
+		c, err := loadInClusterConfig()
+		if err == nil {
 			return c, nil
 		}
+
+		defer func() {
+			if configErr != nil {
+				log.Error(err, "unable to load in-cluster config")
+			}
+		}()
 	}
 
 	// If the recommended kubeconfig env variable is set, or there

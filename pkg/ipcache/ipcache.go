@@ -20,8 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // Identity is the identity representation of an IP<->Identity cache.
@@ -52,7 +52,7 @@ type K8sMetadata struct {
 	// PodName is the Kubernetes pod name behind the IP
 	PodName string
 	// NamedPorts is the set of named ports for the pod
-	NamedPorts policy.NamedPortMap
+	NamedPorts types.NamedPortMap
 }
 
 // Configuration is init-time configuration for the IPCache.
@@ -91,7 +91,7 @@ type IPCache struct {
 	// only if an egress policy refers to a port by name.
 	// This map is returned to users so all updates must be made into a fresh map that
 	// is then swapped in place while 'mutex' is being held.
-	namedPorts policy.NamedPortMultiMap
+	namedPorts types.NamedPortMultiMap
 
 	// k8sSyncedChecker knows how to check for whether the K8s watcher cache
 	// has been fully synced.
@@ -221,11 +221,11 @@ func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
 		return false
 	}
 	// Collect new named Ports
-	npm := make(policy.NamedPortMultiMap, len(ipc.namedPorts))
+	npm := make(types.NamedPortMultiMap, len(ipc.namedPorts))
 	for _, km := range ipc.ipToK8sMetadata {
 		for name, port := range km.NamedPorts {
 			if npm[name] == nil {
-				npm[name] = make(policy.PortProtoSet)
+				npm[name] = make(types.PortProtoSet)
 			}
 			npm[name][port] = struct{}{}
 		}
@@ -272,7 +272,7 @@ func (ipc *IPCache) upsertLocked(
 	newIdentity Identity,
 	force bool,
 ) (namedPortsChanged bool, err error) {
-	var newNamedPorts policy.NamedPortMap
+	var newNamedPorts types.NamedPortMap
 	if k8sMeta != nil {
 		newNamedPorts = k8sMeta.NamedPorts
 	}
@@ -507,7 +507,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if !found {
-		scopedLog.Debug("Attempt to remove non-existing IP from ipcache layer")
+		scopedLog.Warn("Attempt to remove non-existing IP from ipcache layer")
 		metrics.IPCacheErrorsTotal.WithLabelValues(
 			metricTypeDelete, metricErrorNoExist,
 		).Inc()
@@ -601,7 +601,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 }
 
 // GetNamedPorts returns a copy of the named ports map. May return nil.
-func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+func (ipc *IPCache) GetNamedPorts() (npm types.NamedPortMultiMap) {
 	ipc.mutex.Lock()
 	if !ipc.needNamedPorts {
 		ipc.needNamedPorts = true

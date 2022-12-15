@@ -60,7 +60,8 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 	l7map := L7DataMap{
 		wildcardCachedSelector: &PerSelectorPolicy{
-			L7Rules: l7rules,
+			L7Rules:    l7rules,
+			isRedirect: true,
 		},
 	}
 
@@ -193,6 +194,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -445,11 +447,13 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
+				isRedirect: true,
 			},
 			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -513,10 +517,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 	l7map := L7DataMap{
 		wildcardCachedSelector: &PerSelectorPolicy{
-			L7Rules: l7rules,
+			L7Rules:    l7rules,
+			isRedirect: true,
 		},
 		cachedFooSelector: &PerSelectorPolicy{
-			L7Rules: l7rules,
+			L7Rules:    l7rules,
+			isRedirect: true,
 		},
 	}
 
@@ -606,10 +612,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	// The L3-dependent L7 rules are not merged together.
 	l7map = L7DataMap{
 		cachedFooSelector: &PerSelectorPolicy{
-			L7Rules: fooRules,
+			L7Rules:    fooRules,
+			isRedirect: true,
 		},
 		wildcardCachedSelector: &PerSelectorPolicy{
-			L7Rules: barRules,
+			L7Rules:    barRules,
+			isRedirect: true,
 		},
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
@@ -690,11 +698,13 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/public", Method: "GET"}, {}},
 				},
+				isRedirect: true,
 			},
 			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/private", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          false,
@@ -770,11 +780,13 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}, {}},
 				},
+				isRedirect: true,
 			},
 			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          false,
@@ -851,10 +863,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	// The l3-dependent l7 rules are not merged together.
 	l7map := L7DataMap{
 		cachedFooSelector: &PerSelectorPolicy{
-			L7Rules: fooRules,
+			L7Rules:    fooRules,
+			isRedirect: true,
 		},
 		wildcardCachedSelector: &PerSelectorPolicy{
-			L7Rules: barRules,
+			L7Rules:    barRules,
+			isRedirect: true,
 		},
 	}
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
@@ -2127,6 +2141,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -2162,6 +2177,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 					L7Proto: "testparser",
 					L7:      []api.PortRuleL7{{"Key": "Value"}, {}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -2447,6 +2463,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,
@@ -2510,6 +2527,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
+				isRedirect: true,
 			},
 		},
 		Ingress:          true,

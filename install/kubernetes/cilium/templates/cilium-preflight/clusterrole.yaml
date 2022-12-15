@@ -6,6 +6,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: cilium-pre-flight
+  labels:
+    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - networking.k8s.io
@@ -71,7 +73,6 @@ rules:
   - ciliumclusterwideenvoyconfigs
   - ciliumclusterwidenetworkpolicies
   - ciliumegressgatewaypolicies
-  - ciliumegressnatpolicies
   - ciliumendpoints
   - ciliumendpointslices
   - ciliumenvoyconfigs
@@ -79,6 +80,7 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumnetworkpolicies
   - ciliumnodes
+  - ciliumnodeconfigs
   verbs:
   - list
   - watch

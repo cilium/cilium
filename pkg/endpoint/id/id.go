@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// MaxEndpointId is the maximum endpoint identifier.
-const MaxEndpointId = math.MaxUint16
+// MaxEndpointID is the maximum endpoint identifier.
+const MaxEndpointID = math.MaxUint16
 
 // PrefixType describes the type of endpoint identifier
 type PrefixType string
@@ -99,7 +99,7 @@ func ParseCiliumID(id string) (int64, error) {
 	if err != nil || n < 0 {
 		return 0, fmt.Errorf("invalid numeric cilium id: %s", err)
 	}
-	if n > MaxEndpointId {
+	if n > MaxEndpointID {
 		return 0, fmt.Errorf("endpoint id too large: %d", n)
 	}
 	return n, nil

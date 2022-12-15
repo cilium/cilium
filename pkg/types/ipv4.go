@@ -20,8 +20,7 @@ func (v4 IPv4) IP() net.IP {
 }
 
 func (v4 IPv4) Addr() netip.Addr {
-	addr, _ := netip.AddrFromSlice(v4[:])
-	return addr
+	return netip.AddrFrom4(v4)
 }
 
 func (v4 IPv4) String() string {

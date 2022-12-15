@@ -12,7 +12,7 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.25"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.26"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="0"? false : true
 $NFS_OPTS = (ENV['NFS_OPTS'] || "nolock").split(",")
@@ -63,14 +63,16 @@ k8s_nodes="${K8S_NODES:-2}"
 while [ "$i" -le "$k8s_nodes" ]; do
     VBoxManage natnetwork add --netname natnet$i --network 192.168.0.0/16 --ipv6 on --enable
     i=$((i+1))
-done 2>/dev/null
+done
 
 res=0
 while [ "$res" == "0" ]; do
     VBoxManage natnetwork remove --netname natnet$i
     res=$?
     i=$((i+1))
-done 2>/dev/null
+done
+
+VBoxManage natnetwork list
 SCRIPT
 
 $bootstrap = <<SCRIPT

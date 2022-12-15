@@ -47,7 +47,7 @@ var maxAttachRetries = wait.Backoff{
 type Client struct {
 	vpcClient  *vpc.Client
 	ecsClient  *ecs.Client
-	limiter    *helpers.ApiLimiter
+	limiter    *helpers.APILimiter
 	metricsAPI MetricsAPI
 	filters    map[string]string
 }
@@ -63,7 +63,7 @@ func NewClient(vpcClient *vpc.Client, client *ecs.Client, metrics MetricsAPI, ra
 	return &Client{
 		vpcClient:  vpcClient,
 		ecsClient:  client,
-		limiter:    helpers.NewApiLimiter(metrics, rateLimit, burst),
+		limiter:    helpers.NewAPILimiter(metrics, rateLimit, burst),
 		metricsAPI: metrics,
 		filters:    filters,
 	}

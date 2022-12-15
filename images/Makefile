@@ -45,9 +45,6 @@ check-builder-image:
 cilium-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh cilium-dev images/cilium $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 
-cilium-test-image: .buildx_builder
-	ROOT_CONTEXT=true scripts/build-image.sh cilium-test-dev images/cilium-test $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
-
 operator-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh operator-dev images/operator $(PLATFORMS) $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 

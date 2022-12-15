@@ -1315,7 +1315,6 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 					       enum nat_dir dir,
 					       struct ipv6_ct_tuple *tuple)
 {
-	tuple->nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
 	tuple->flags = dir;
@@ -1366,7 +1365,8 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	hdrlen = ipv6_hdrlen(ctx, &ip6->nexthdr);
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 
@@ -1438,7 +1438,8 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	hdrlen = ipv6_hdrlen(ctx, &ip6->nexthdr);
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
 

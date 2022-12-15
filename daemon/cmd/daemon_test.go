@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -37,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 type DaemonSuite struct {
@@ -52,7 +52,7 @@ type DaemonSuite struct {
 
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
-	OnGetNamedPorts        func() (npm policy.NamedPortMultiMap)
+	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
 	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
@@ -146,6 +146,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 				return cs
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
+			func() *option.DaemonConfig { return option.Config },
 		),
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
@@ -196,12 +197,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
-
-	// Release the identity allocator reference created by NewDaemon. This
-	// is done manually here as we have no Close() function daemon
-	ds.d.identityAllocator.Close()
-
-	identitymanager.RemoveAll()
 
 	err := ds.hive.Stop(ctx)
 	c.Assert(err, IsNil)
@@ -259,7 +254,7 @@ func (ds *DaemonSuite) GetPolicyRepository() *policy.Repository {
 	panic("GetPolicyRepository should not have been called")
 }
 
-func (ds *DaemonSuite) GetNamedPorts() (npm policy.NamedPortMultiMap) {
+func (ds *DaemonSuite) GetNamedPorts() (npm types.NamedPortMultiMap) {
 	if ds.OnGetNamedPorts != nil {
 		return ds.OnGetNamedPorts()
 	}

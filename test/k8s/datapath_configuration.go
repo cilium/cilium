@@ -142,7 +142,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	SkipContextIf(helpers.SkipQuarantined, "Encapsulation", func() {
+	Context("Encapsulation", func() {
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
 			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
@@ -216,7 +216,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		})
 
-		It("Check iptables masquerading with random-fully", func() {
+		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",
@@ -233,7 +233,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 
-		It("Check iptables masquerading without random-fully", func() {
+		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading without random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",

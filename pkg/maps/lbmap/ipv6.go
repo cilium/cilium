@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -31,6 +32,8 @@ const (
 	Backend6MapName = "cilium_lb6_backends"
 	// Backend6MapV2Name is the name of the IPv6 LB backends v2 BPF map.
 	Backend6MapV2Name = "cilium_lb6_backends_v2"
+	// Backend6MapV3Name is the name of the IPv6 LB backends v3 BPF map.
+	Backend6MapV3Name = "cilium_lb6_backends_v3"
 	// RevNat6MapName is the name of the IPv6 LB reverse NAT BPF map.
 	RevNat6MapName = "cilium_lb6_reverse_nat"
 )
@@ -48,6 +51,8 @@ var (
 	Backend6Map *bpf.Map
 	// Backend6MapV2 is the IPv6 LB backends v2 BPF map.
 	Backend6MapV2 *bpf.Map
+	// Backend6MapV3 is the IPv6 LB backends v3 BPF map.
+	Backend6MapV3 *bpf.Map
 	// RevNat6Map is the IPv6 LB reverse NAT BPF map.
 	RevNat6Map *bpf.Map
 )
@@ -252,20 +257,20 @@ func (s *Service6Value) ToHost() ServiceValue {
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
-type Backend6KeyV2 struct {
+type Backend6KeyV3 struct {
 	ID loadbalancer.BackendID
 }
 
-func NewBackend6KeyV2(id loadbalancer.BackendID) *Backend6KeyV2 {
-	return &Backend6KeyV2{ID: id}
+func NewBackend6KeyV3(id loadbalancer.BackendID) *Backend6KeyV3 {
+	return &Backend6KeyV3{ID: id}
 }
 
-func (k *Backend6KeyV2) String() string                  { return fmt.Sprintf("%d", k.ID) }
-func (k *Backend6KeyV2) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
-func (k *Backend6KeyV2) NewValue() bpf.MapValue          { return &Backend6Value{} }
-func (k *Backend6KeyV2) Map() *bpf.Map                   { return Backend6MapV2 }
-func (k *Backend6KeyV2) SetID(id loadbalancer.BackendID) { k.ID = id }
-func (k *Backend6KeyV2) GetID() loadbalancer.BackendID   { return k.ID }
+func (k *Backend6KeyV3) String() string                  { return fmt.Sprintf("%d", k.ID) }
+func (k *Backend6KeyV3) GetKeyPtr() unsafe.Pointer       { return unsafe.Pointer(k) }
+func (k *Backend6KeyV3) NewValue() bpf.MapValue          { return &Backend6ValueV3{} }
+func (k *Backend6KeyV3) Map() *bpf.Map                   { return Backend6MapV3 }
+func (k *Backend6KeyV3) SetID(id loadbalancer.BackendID) { k.ID = id }
+func (k *Backend6KeyV3) GetID() loadbalancer.BackendID   { return k.ID }
 
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
@@ -315,8 +320,11 @@ func (v *Backend6Value) String() string {
 func (v *Backend6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 func (b *Backend6Value) GetAddress() net.IP { return b.Address.IP() }
-func (b *Backend6Value) GetPort() uint16    { return b.Port }
-func (b *Backend6Value) GetFlags() uint8    { return b.Flags }
+func (b *Backend6Value) GetIPCluster() cmtypes.AddrCluster {
+	return cmtypes.AddrClusterFrom(b.Address.Addr(), 0)
+}
+func (b *Backend6Value) GetPort() uint16 { return b.Port }
+func (b *Backend6Value) GetFlags() uint8 { return b.Flags }
 
 func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
@@ -331,8 +339,94 @@ func (v *Backend6Value) ToHost() BackendValue {
 	return &h
 }
 
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type Backend6ValueV3 struct {
+	Address   types.IPv6      `align:"address"`
+	Port      uint16          `align:"port"`
+	Proto     u8proto.U8proto `align:"proto"`
+	Flags     uint8           `align:"flags"`
+	ClusterID uint8           `align:"cluster_id"`
+	Pad       pad3uint8       `align:"pad"`
+}
+
+func NewBackend6ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6ValueV3, error) {
+	addr := addrCluster.Addr()
+
+	// It is possible to have IPv4 backend in IPv6. We have NAT46/64.
+	if !addr.Is4() && !addr.Is6() {
+		return nil, fmt.Errorf("Not a valid IP address")
+	}
+
+	if addrCluster.ClusterID() > cmtypes.ClusterIDMax {
+		return nil, fmt.Errorf("ClusterID %d is too large. ClusterID > %d is not supported with Backend6ValueV3", addrCluster.ClusterID(), cmtypes.ClusterIDMax)
+	}
+
+	flags := loadbalancer.NewBackendFlags(state)
+
+	val := Backend6ValueV3{
+		Port:  port,
+		Proto: proto,
+		Flags: flags,
+	}
+
+	ipv6Array := addr.As16()
+	copy(val.Address[:], ipv6Array[:])
+
+	return &val, nil
+}
+
+func (v *Backend6ValueV3) String() string {
+	vHost := v.ToHost().(*Backend6ValueV3)
+	return fmt.Sprintf("%s://%s", vHost.Proto, cmtypes.AddrClusterFrom(vHost.Address.Addr(), uint32(vHost.ClusterID)))
+}
+
+func (v *Backend6ValueV3) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+func (b *Backend6ValueV3) GetAddress() net.IP { return b.Address.IP() }
+func (b *Backend6ValueV3) GetIPCluster() cmtypes.AddrCluster {
+	return cmtypes.AddrClusterFrom(b.Address.Addr(), uint32(b.ClusterID))
+}
+func (b *Backend6ValueV3) GetPort() uint16 { return b.Port }
+func (b *Backend6ValueV3) GetFlags() uint8 { return b.Flags }
+
+func (v *Backend6ValueV3) ToNetwork() BackendValue {
+	n := *v
+	n.Port = byteorder.HostToNetwork16(n.Port)
+	return &n
+}
+
+// ToHost converts Backend6ValueV3 to host byte order.
+func (v *Backend6ValueV3) ToHost() BackendValue {
+	h := *v
+	h.Port = byteorder.NetworkToHost16(h.Port)
+	return &h
+}
+
+type Backend6V3 struct {
+	Key   *Backend6KeyV3
+	Value *Backend6ValueV3
+}
+
+func NewBackend6V3(id loadbalancer.BackendID, addrCluster cmtypes.AddrCluster, port uint16,
+	proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend6V3, error) {
+	val, err := NewBackend6ValueV3(addrCluster, port, proto, state)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Backend6V3{
+		Key:   NewBackend6KeyV3(id),
+		Value: val,
+	}, nil
+}
+
+func (b *Backend6V3) Map() *bpf.Map          { return Backend6MapV3 }
+func (b *Backend6V3) GetKey() BackendKey     { return b.Key }
+func (b *Backend6V3) GetValue() BackendValue { return b.Value }
+
 type Backend6V2 struct {
-	Key   *Backend6KeyV2
+	Key   *Backend6KeyV3
 	Value *Backend6Value
 }
 
@@ -344,7 +438,7 @@ func NewBackend6V2(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8pr
 	}
 
 	return &Backend6V2{
-		Key:   NewBackend6KeyV2(id),
+		Key:   NewBackend6KeyV3(id),
 		Value: val,
 	}, nil
 }

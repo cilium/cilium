@@ -23,7 +23,7 @@ concurrency:
 env:
   kind_version: v0.11.1
   kind_config: .github/kind-config.yaml
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
 
 jobs:
   installation-and-connectivity:
@@ -70,7 +70,8 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -91,7 +92,7 @@ jobs:
           persist-credentials: false
 
       - name: Create kind cluster
-        uses: helm/kind-action@9e8295d178de23cbfbd8fa16cf844eec1d773a07
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -126,6 +127,8 @@ jobs:
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          kubectl delete --all-namespaces rolebinding -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
+          kubectl delete --all-namespaces role -l "app.kubernetes.io/part-of=cilium" --ignore-not-found=true
 
       - name: Install Cilium with encryption
         run: |
@@ -151,13 +154,13 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5

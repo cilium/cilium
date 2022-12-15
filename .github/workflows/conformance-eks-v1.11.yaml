@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.101.0
   kubectl_version: v1.23.6
@@ -119,7 +119,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
@@ -165,7 +165,8 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -242,6 +243,11 @@ jobs:
 
           eksctl create cluster -f ./eks-config.yaml
 
+      # This is a workaround for flake #16938.
+      - name: Remove AWS-CNI
+        run: |
+          kubectl -n kube-system delete daemonset aws-node
+
       - name: Wait for images to be available
         timeout-minutes: 10
         shell: bash
@@ -277,53 +283,42 @@ jobs:
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
 
-      # EKS testing with encryption is disabled due to https://github.com/cilium/cilium/issues/16938
       - name: Clean up Cilium
-        if: ${{ false }} # see comment above for details
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
           cilium uninstall --chart-directory=install/kubernetes/cilium --wait
 
       - name: Create custom IPsec secret
-        if: ${{ false }} # see comment above for details
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium with encryption
-        if: ${{ false }} # see comment above for details
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
             --encryption=ipsec
 
       - name: Enable Relay
-        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }}
           # NB: necessary to work against occassional flakes due to https://github.com/cilium/cilium-cli/issues/918
           cilium status --wait
 
       - name: Port forward Relay
-        if: ${{ false }} # see comment above for details
         run: |
           cilium hubble port-forward&
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
       - name: Run connectivity test
-        if: ${{ false }} # see comment above for details
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-            --test '!client-egress-l7,!echo-ingress-l7'
-      # workaround for L7 tests issues on EKS with IPsec enabled
-      # TODO: remove both test exceptions once:
-      # - https://github.com/cilium/cilium/issues/17139 is fixed
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up EKS
@@ -336,8 +331,8 @@ jobs:
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success

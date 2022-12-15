@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
@@ -502,7 +501,7 @@ func initializeFlags() {
 	option.BindEnv(Vp, option.Labels)
 
 	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
-		"enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
+		"Enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
 			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
 			"or completely disable it (ignores any selected feature) (%q)",
 		option.KubeProxyReplacementPartial, option.KubeProxyReplacementStrict,
@@ -846,10 +845,10 @@ func initializeFlags() {
 	flags.Int(option.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxDeferredConnectionDeletes, "Maximum number of IPs to retain for expired DNS lookups with still-active connections")
 	option.BindEnv(Vp, option.ToFQDNsMaxDeferredConnectionDeletes)
 
-	flags.DurationVar(&option.Config.ToFQDNsIdleConnectionGracePeriod, option.ToFQDNsIdleConnectionGracePeriod, defaults.ToFQDNsIdleConnectionGracePeriod, "Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)")
+	flags.Duration(option.ToFQDNsIdleConnectionGracePeriod, defaults.ToFQDNsIdleConnectionGracePeriod, "Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)")
 	option.BindEnv(Vp, option.ToFQDNsIdleConnectionGracePeriod)
 
-	flags.DurationVar(&option.Config.FQDNProxyResponseMaxDelay, option.FQDNProxyResponseMaxDelay, 100*time.Millisecond, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
+	flags.Duration(option.FQDNProxyResponseMaxDelay, defaults.FQDNProxyResponseMaxDelay, "The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.")
 	option.BindEnv(Vp, option.FQDNProxyResponseMaxDelay)
 
 	flags.Int(option.FQDNRegexCompileLRUSize, defaults.FQDNRegexCompileLRUSize, "Size of the FQDN regex compilation LRU. Useful for heavy but repeated DNS L7 rules with MatchName or MatchPattern")
@@ -868,10 +867,18 @@ func initializeFlags() {
 	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	option.BindEnv(Vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
-	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
+	flags.Int(option.DNSProxyLockCount, 128, "Array size containing mutexes which protect against parallel handling of DNS response IPs")
+	flags.MarkHidden(option.DNSProxyLockCount)
+	option.BindEnv(Vp, option.DNSProxyLockCount)
+
+	flags.Duration(option.DNSProxyLockTimeout, 500*time.Millisecond, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
+	flags.MarkHidden(option.DNSProxyLockTimeout)
+	option.BindEnv(Vp, option.DNSProxyLockTimeout)
+
+	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(Vp, option.PolicyQueueSize)
 
-	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
+	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(Vp, option.EndpointQueueSize)
 
 	flags.Duration(option.EndpointGCInterval, 5*time.Minute, "Periodically monitor local endpoint health via link status on this interval and garbage collect them if they become unhealthy, set to 0 to disable")
@@ -999,7 +1006,7 @@ func initializeFlags() {
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 	option.BindEnv(Vp, option.APIRateLimitName)
 
-	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
+	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "Configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
 	flags.MarkHidden(option.BPFMapEventBuffers)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
@@ -1636,6 +1643,7 @@ type daemonParams struct {
 	Datapath       datapath.Datapath
 	WGAgent        *wg.Agent `optional:"true"`
 	LocalNodeStore node.LocalNodeStore
+	BGPController  *bgpv1.Controller
 	Shutdowner     hive.Shutdowner
 }
 
@@ -1858,32 +1866,24 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
-		// Remove all non-GC'ed neighbor entries that might have previously set
-		// by a Cilium instance.
-		d.datapath.Node().NodeCleanNeighbors(false)
-	} else {
-		// If we came from an agent upgrade, migrate entries.
-		d.datapath.Node().NodeCleanNeighbors(true)
-		// Start periodical refresh of the neighbor table from the agent if needed.
-		if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-			d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
+			// Remove all non-GC'ed neighbor entries that might have previously set
+			// by a Cilium instance.
+			d.datapath.Node().NodeCleanNeighbors(false)
+		} else {
+			// If we came from an agent upgrade, migrate entries.
+			d.datapath.Node().NodeCleanNeighbors(true)
+			// Start periodical refresh of the neighbor table from the agent if needed.
+			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
+				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+			}
 		}
 	}
 
-	if option.Config.BGPControlPlaneEnabled() {
-		switch option.Config.IPAM {
-		case ipamOption.IPAMClusterPool:
-		case ipamOption.IPAMClusterPoolV2:
-		case ipamOption.IPAMKubernetes:
-		default:
-			log.Fatalf("BGP control plane cannot be utilized with IPAM mode: %v", option.Config.IPAM)
-		}
-		log.Info("Initializing BGP Control Plane")
-		if err := d.instantiateBGPControlPlane(d.ctx); err != nil {
-			log.Fatalf("failed to initialize BGP control plane: %s", err)
-		}
-	}
+	// Assign the BGP Control to the struct field so non-modularized components can interact with the BGP Controller
+	// like they are used to.
+	d.bgpControlPlaneController = params.BGPController
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
 		Info("Daemon initialization completed")
@@ -1909,18 +1909,6 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		log.WithError(err).Error("Error returned from non-returning Serve() call")
 		params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
-}
-
-func (d *Daemon) instantiateBGPControlPlane(ctx context.Context) error {
-	// goBGP is currently the only supported RouterManager, if more are
-	// implemented replace this hard-coding with a construction switch.
-	rm := gobgp.NewBGPRouterManager()
-	ctrl, err := bgpv1.NewController(d.ctx, d.clientset, rm)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate BGP Control Plane: %v", err)
-	}
-	d.bgpControlPlaneController = ctrl
-	return nil
 }
 
 func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {

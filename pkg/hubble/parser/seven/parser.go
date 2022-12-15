@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -27,8 +27,8 @@ import (
 // Parser is a parser for L7 payloads
 type Parser struct {
 	log               logrus.FieldLogger
-	timestampCache    *lru.Cache
-	traceContextCache *lru.Cache
+	timestampCache    *lru.Cache[string, time.Time]
+	traceContextCache *lru.Cache[string, *flowpb.TraceContext]
 	dnsGetter         getters.DNSGetter
 	ipGetter          getters.IPGetter
 	serviceGetter     getters.ServiceGetter
@@ -52,12 +52,12 @@ func New(
 		opt(args)
 	}
 
-	timestampCache, err := lru.New(args.CacheSize)
+	timestampCache, err := lru.New[string, time.Time](args.CacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %v", err)
 	}
 
-	traceIDCache, err := lru.New(args.CacheSize)
+	traceIDCache, err := lru.New[string, *flowpb.TraceContext](args.CacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize cache: %v", err)
 	}
@@ -172,15 +172,11 @@ func (p *Parser) getTraceContext(r *accesslog.LogRecord) *flowpb.TraceContext {
 		if requestID == "" {
 			return nil
 		}
-		value, ok := p.traceContextCache.Get(requestID)
+		traceContext, ok := p.traceContextCache.Get(requestID)
 		if !ok {
 			break
 		}
 		p.traceContextCache.Remove(requestID)
-		traceContext, ok := value.(*flowpb.TraceContext)
-		if !ok {
-			break
-		}
 		return traceContext
 	}
 	return nil
@@ -195,15 +191,11 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	case accesslog.TypeRequest:
 		p.timestampCache.Add(requestID, timestamp)
 	case accesslog.TypeResponse:
-		value, ok := p.timestampCache.Get(requestID)
+		requestTimestamp, ok := p.timestampCache.Get(requestID)
 		if !ok {
 			return 0
 		}
 		p.timestampCache.Remove(requestID)
-		requestTimestamp, ok := value.(time.Time)
-		if !ok {
-			return 0
-		}
 		latency := timestamp.Sub(requestTimestamp).Nanoseconds()
 		if latency < 0 {
 			return 0

@@ -38,6 +38,7 @@ type ValueMatcher struct {
 	// Specifies how to match a value.
 	//
 	// Types that are assignable to MatchPattern:
+	//
 	//	*ValueMatcher_NullMatch_
 	//	*ValueMatcher_DoubleMatch
 	//	*ValueMatcher_StringMatch
@@ -187,6 +188,7 @@ type ListMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to MatchPattern:
+	//
 	//	*ListMatcher_OneOf
 	MatchPattern isListMatcher_MatchPattern `protobuf_oneof:"match_pattern"`
 }

@@ -45,6 +45,7 @@ type FilterConfig struct {
 	// <envoy_v3_api_field_extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig.dns_cache_config>`.
 	DnsCacheConfig *v3.DnsCacheConfig `protobuf:"bytes,1,opt,name=dns_cache_config,json=dnsCacheConfig,proto3" json:"dns_cache_config,omitempty"`
 	// Types that are assignable to PortSpecifier:
+	//
 	//	*FilterConfig_PortValue
 	PortSpecifier isFilterConfig_PortSpecifier `protobuf_oneof:"port_specifier"`
 }

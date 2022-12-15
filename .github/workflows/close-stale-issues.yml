@@ -14,7 +14,7 @@ jobs:
     steps:
     # https://github.com/marketplace/actions/close-stale-issues
     - name: Close stale issues
-      uses: actions/stale@9c1b1c6e115ca2af09755448e0dbba24e5061cc8
+      uses: actions/stale@5ebf00ea0e4c1561e9b43a292ed34424fb1d4578
       with:
         operations-per-run: 1000
         stale-issue-label: stale

@@ -92,11 +92,11 @@ type DescribeFlowLogsRequest struct {
 // DescribeFlowLogsResponse is the response struct for api DescribeFlowLogs
 type DescribeFlowLogsResponse struct {
 	*responses.BaseResponse
-	RequestId  string   `json:"RequestId" xml:"RequestId"`
-	Success    string   `json:"Success" xml:"Success"`
-	TotalCount string   `json:"TotalCount" xml:"TotalCount"`
-	PageNumber string   `json:"PageNumber" xml:"PageNumber"`
 	PageSize   string   `json:"PageSize" xml:"PageSize"`
+	PageNumber string   `json:"PageNumber" xml:"PageNumber"`
+	RequestId  string   `json:"RequestId" xml:"RequestId"`
+	TotalCount string   `json:"TotalCount" xml:"TotalCount"`
+	Success    string   `json:"Success" xml:"Success"`
 	FlowLogs   FlowLogs `json:"FlowLogs" xml:"FlowLogs"`
 }
 

@@ -16,7 +16,7 @@ on:
   # - Don't forget to remove the `DO NOT MERGE` commit once satisfied. The run
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
-  # 
+  #
   # pull_request: {}
   ###
 
@@ -63,7 +63,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   zone: us-west2-a
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -164,7 +164,8 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -281,14 +282,9 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-      - name: Restart connectivity test pods
-        run: |
-          kubectl delete pod -n cilium-test --selector=kind=client
-          kubectl delete pod -n cilium-test --selector=kind=echo
-
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Clean up Cilium
         run: |
@@ -314,15 +310,9 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-      - name: Restart connectivity test pods
-        run: |
-          kubectl delete pod -n cilium-test --selector=kind=client
-          kubectl delete pod -n cilium-test --selector=kind=echo
-          # workaround for github.com/cilium/cilium-cli/issues/156
-
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Clean up Cilium
         run: |
@@ -354,21 +344,24 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterName }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
           gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success

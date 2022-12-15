@@ -15,12 +15,15 @@ release of Cilium.
 On Freeze date
 --------------
 
+Create the branch
+~~~~~~~~~~~~~~~~~
+
 #. Fork a new release branch from master:
 
    .. code-block:: shell-session
 
        git checkout master; git pull origin master
-       git checkout -b v1.2
+       git checkout -b vX.Y
        git push
 
 #. Protect the branch using the GitHub UI to disallow direct push and require
@@ -31,48 +34,86 @@ On Freeze date
 
    #. Keep ``* @cilium/tophat`` fallback entry.
    #. Keep ``/.github/workflows/`` entry for CI/CD security.
-   #. Keep all ``@cilium/api`` assignments for API stability on the release
-      branch.
+   #. Keep all ``@cilium/api`` and @cilium/sig-hubble-api assignments for API
+      stability on the release branch.
    #. Remove everything else so that it is handled by the Top Hat.
 
-#. Delete the ``stable.txt`` file.
+#. Delete files that are no longer necessary in the tree.
 
    .. code-block:: shell-session
 
-        git rm stable.txt
+       $ git rm stable.txt \
+         .github/dependabot.yml .github/renovate.json \
+         .github/pull_request_template.md \
+         .github/ISSUE_TEMPLATE/*
+         .github/workflows/close-stale-issues.yml \
+         .github/workflows/ci-images-* \
+         .github/workflows/lint-codeowners.yaml \
+         .github/workflows/test*fuzz* \
+         .github/workflows/test*l4lb* \
+         .github/workflows/conformance*
+
+   .. warning::
+
+       The above will delete all conformance tests from the branch. Most of
+       these have the stable branch workflow defined on the main branch, but
+       it is important to check whether all of these will continue to run on
+       the new branch.
 
 #. Create a new project named "X.Y.Z" to automatically track the backports
    for that particular release. `Direct Link: <https://github.com/cilium/cilium/projects/new>`_
 
-#. Copy the ``.github/maintainers-little-helper.yaml`` from the previous release ``vX.Y-1``
-   change the contents to be relevant for the release ``vX.Y`` and set the
-   ``project:`` to be the generated link created by the previous step. The link
-   should be something like: ``https://github.com/cilium/cilium/projects/NNN``
+#. Copy the following files from the previous release ``vX.Y-1``
+   change the contents to be relevant for the release ``vX.Y``. For
+   ``.github/maintainers-little-helper.yaml``, set the ``project:`` to be the
+   generated link created by the previous step. The link should be something
+   like: ``https://github.com/cilium/cilium/projects/NNN``.
+
+   ::
+
+      .github/maintainers-little-helper.yaml
+      .github/workflows/build-images-ci.yaml
+      .github/workflows/build-images-hotfixes.yaml
+      .github/workflows/build-images-releases.yaml
+
+   Possibly useful commands for the above (substitute ``vX_Y`` and ``vX.Y``):
+
+   .. code-block:: shell-session
+
+       $ sed -i 's/\(ci_\)master/\1vX_Y/g' .github/workflows/*
+       $ sed -i 's/\(:\)latest/\1vX.Y/g' .github/workflows/*
+       $ sed -i 's/master/v1.13/g' .github/workflows/lint-* \
+             .github/workflows/documentation.yaml \
+             .github/workflows/test*smoke*
+       $ vim $(git grep -l master -- .github/workflows/)
 
 #. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
    the ``pkg/k8s/...`` by following these instructions:
 
    Run ``./Documentation/check-crd-compat-table.sh vX.Y``
 
-#. Update ``install/kubernetes/Makefile.values`` for the new branch.
+#. Double check the changes above vs. the commit created last time a new
+   branch was created from the main branch.
 
-#. Commit changes, open a pull request against the new ``v1.2`` branch, and get
+#. Commit changes, open a pull request against the new ``vX.Y`` branch, and get
    the pull request merged
 
    .. code-block:: shell-session
 
-       git checkout -b pr/prepare-v1.2
+       git checkout -b pr/prepare-vX.Y
        git add [...]
-       git commit
-       git push
+       git commit -s
+       gh create -B vX.Y
 
 #. Create the following GitHub labels:
 
-   #. ``backport-pending/1.2``
-   #. ``backport-done/1.2``
-   #. ``backport/1.2``
-   #. ``needs-backport/1.2``
+   #. ``backport-pending/X.Y``
+   #. ``backport-done/X.Y``
+   #. ``backport/X.Y``
+   #. ``needs-backport/X.Y``
 
+Update the main branch's CI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Checkout to master and update the ``.github/maintainers-little-helper.yaml`` to have
    all the necessary configurations for the backport of the new ``vX.Y`` branch.
@@ -85,13 +126,46 @@ On Freeze date
    .. code-block:: shell-session
 
        $ git checkout -b pr/master-cilium-actions-update origin/master
-       $ # modify .github/maintainers-little-helper.yaml
-       $ git add .github/maintainers-little-helper.yaml
-       $ git commit
-       $ git push
+       $ git grep -l vX.Y-1 .github/
+       .github/dependabot.yml
+       .github/maintainers-little-helper.yaml
+       .github/renovate.json
+       .github/workflows/ci-images-garbage-collect.yaml
+       .github/workflows/conformance-externalworkloads-v1.12.yaml
+       .github/workflows/lint-build-commits.yaml
+       .github/workflows/loki.yaml
+       .github/workflows/tests-l4lb-v1.12.yaml
+       $ # check each file above and add the relevant vX.Y config in each
+       $ git add ...
 
-#. Continue with the next step only after the previous steps are merged into
-   master.
+#. Make a copy of the per-branch CI configurations from the previous version.
+
+   Make sure to update the ``vX.Y`` and ``vX.Y-1`` values in the command below.
+   Note that the ``$OLD_VER`` uses an escape to avoid matching digests!
+
+   .. code-block:: shell-session
+
+      $ export OLD_VER="X\.Y-1"
+      $ export NEW_VER="X.Y"
+      $ for f in .github/workflows/*v${OLD_VER}*; do \
+            cat $f \
+            | sed 's/'${OLD_VER}'/'${NEW_VER}'/g' \
+            > $(echo $f | sed 's/'${OLD_VER}'/'${NEW_VER}'/g'); \
+        done
+      $ git add .github/workflows/*${NEW_VER}*
+
+#. Commit the changes, open a PR and get it merged.
+
+   .. code-block:: shell-session
+
+       $ git commit -s
+       $ gh create -B vX.Y
+
+Prepare for the next release candidate
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. Continue with the next steps only after the previous steps are merged into
+   the main branch.
 
 #. Mark all open PRs with ``needs-backport/x.y`` that have the milestone ``x.y``
 
@@ -109,6 +183,10 @@ On Freeze date
 #. Alert in the testing channel that a new jenkins job needs to be created for
    this new branch.
 
+
+Prepare for the next development cycle
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 #. Prepare the master branch for the next development cycle:
 
    .. code-block:: shell-session
@@ -121,8 +199,6 @@ On Freeze date
 #. Update the release branch on
     `Jenkins <https://jenkins.cilium.io/>`_ to be
     tested on every change and Nightly.
-#. (Only 1.0 minor releases) Tag newest 1.0.x Docker image as ``v1.0-stable``
-   and push it to Docker Hub. This will ensure that Kops uses latest 1.0 release by default.
 #. Update Grafana dashboards in `Grafana <https://grafana.com/orgs/cilium/dashboards>`_.
    Install the dashboards available in ``./examples/kubernetes/addons/prometheus``
    and use them to upload them to Grafana.

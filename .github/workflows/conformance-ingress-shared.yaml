@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   timeout: 5m
 
 jobs:
@@ -80,9 +80,11 @@ jobs:
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
-          repository: kubernetes-sigs/ingress-controller-conformance
+          # Use the forked repo with retry mechanism
+          # Please refer to https://github.com/sayboras/ingress-controller-conformance/pull/2 for more details.
+          repository: sayboras/ingress-controller-conformance
           path: ingress-controller-conformance
-          ref: a38bfcddfc7b10a7b479c1f274b87380c7390c96
+          ref: 32a743e3fd060ffbe124d0e8cad67ca7763700bb
           persist-credentials: false
 
       - name: Install Ingress conformance test tool

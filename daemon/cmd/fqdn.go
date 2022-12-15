@@ -7,10 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"net/netip"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,11 +45,13 @@ import (
 )
 
 const (
-	upstream        = "upstreamTime"
+	upstreamTime    = "upstreamTime"
 	processingTime  = "processingTime"
 	semaphoreTime   = "semaphoreTime"
 	policyCheckTime = "policyCheckTime"
+	policyGenTime   = "policyGenerationTime"
 	dataplaneTime   = "dataplaneTime"
+	totalTime       = "totalTime"
 
 	metricErrorTimeout = "timeout"
 	metricErrorProxy   = "proxyErr"
@@ -156,6 +160,8 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+	d.initDNSProxyContext(option.Config.DNSProxyLockCount)
+
 	cfg := fqdn.Config{
 		MinTTL:          option.Config.ToFQDNsMinTTL,
 		Cache:           fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
@@ -423,15 +429,20 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	endMetric := func() {
 		stat.DataplaneTime.End(true)
 		stat.ProcessingTime.End(true)
-		if errors.Is(stat.Err, dnsproxy.ErrFailedAcquireSemaphore{}) || errors.Is(stat.Err, dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Add(1)
+		stat.TotalTime.End(true)
+		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
+			metrics.FQDNSemaphoreRejectedTotal.Inc()
 		}
-		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstream).Observe(
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
+			stat.TotalTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, upstreamTime).Observe(
 			stat.UpstreamTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, processingTime).Observe(
 			stat.ProcessingTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, semaphoreTime).Observe(
 			stat.SemaphoreAcquireTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyGenTime).Observe(
+			stat.PolicyGenerationTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
@@ -507,25 +518,57 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
 
-	record := logger.NewLogRecord(flowType, false,
-		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
-		logger.LogTags.Verdict(verdict, reason),
-		logger.LogTags.Addressing(addrInfo),
-		logger.LogTags.DNS(&accesslog.LogRecordDNS{
-			Query:             qname,
-			IPs:               responseIPs,
-			TTL:               TTL,
-			CNAMEs:            CNAMEs,
-			ObservationSource: stat.DataSource,
-			RCode:             rcode,
-			QTypes:            qTypes,
-			AnswerTypes:       recordTypes,
-		}),
-	)
-	record.Log()
-
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
-		stat.DataplaneTime.Start()
+		stat.PolicyGenerationTime.Start()
+		// Create a critical section especially for when multiple DNS requests
+		// are in-flight for the same name (i.e. cilium.io).
+		//
+		// In the absence of such a critical section, consider the following
+		// race condition:
+		//
+		//              G1                                    G2
+		//
+		// T0 --> NotifyOnDNSMsg()               NotifyOnDNSMsg()            <-- T0
+		//
+		// T1 --> UpdateGenerateDNS()            UpdateGenerateDNS()         <-- T1
+		//
+		// T2 ----> mutex.Lock()                 +---------------------------+
+		//                                       |No identities need updating|
+		// T3 ----> mutex.Unlock()               +---------------------------+
+		//
+		// T4 --> UpsertGeneratedIdentities()    UpsertGeneratedIdentities() <-- T4
+		//
+		// T5 ---->  Upsert()                    DNS released back to pod    <-- T5
+		//                                                    |
+		// T6 --> DNS released back to pod                    |
+		//              |                                     |
+		//              |                                     |
+		//              v                                     v
+		//       Traffic flows fine                   Leads to policy drop
+		//
+		// Note how G2 releases the DNS msg back to the pod at T5 because
+		// UpdateGenerateDNS() was a no-op. It's a no-op because G1 had executed
+		// UpdateGenerateDNS() first at T1 and performed the necessary identity
+		// allocation for the response IPs. Due to G1 performing all the work
+		// first, G2 executes T4 also as a no-op and releases the msg back to the
+		// pod at T5 before G1 would at T6.
+		mutexAcquireStart := time.Now()
+		mutexes := d.dnsProxyContext.getMutexesForResponseIPs(responseIPs)
+		for _, m := range mutexes {
+			d.dnsProxyContext.responseMutexes[m].Lock()
+			defer d.dnsProxyContext.responseMutexes[m].Unlock()
+		}
+		if d := time.Since(mutexAcquireStart); d >= option.Config.DNSProxyLockTimeout {
+			log.WithFields(logrus.Fields{
+				logfields.DNSName:  qname,
+				logfields.Duration: d,
+				logfields.Expected: option.Config.DNSProxyLockTimeout,
+			}).Warnf("Lock acquisition time took longer than expected. "+
+				"Potentially too many parallel DNS requests being processed, "+
+				"consider adjusting --%s and/or --%s",
+				option.DNSProxyLockCount, option.DNSProxyLockTimeout)
+		}
+
 		// This must happen before the NameManager update below, to ensure that
 		// this data is included in the serialized Endpoint object.
 		// We also need to add to the cache before we purge any matching zombies
@@ -542,7 +585,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		log.WithFields(logrus.Fields{
 			"qname": qname,
 			"ips":   responseIPs,
-		}).Debug("Updating DNS name in cache from response to to query")
+		}).Debug("Updating DNS name in cache from response to query")
 
 		updateCtx, updateCancel := context.WithTimeout(context.TODO(), option.Config.FQDNProxyResponseMaxDelay)
 		defer updateCancel()
@@ -557,6 +600,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			log.WithError(err).Error("error updating internal DNS cache for rule generation")
 		}
 
+		stat.PolicyGenerationTime.End(true)
+		stat.DataplaneTime.Start()
 		updateComplete := make(chan struct{})
 		go func(wg *sync.WaitGroup, done chan struct{}) {
 			wg.Wait()
@@ -583,7 +628,60 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 	}
 
 	stat.ProcessingTime.End(true)
+
+	// Ensure that there are no early returns from this function before the
+	// code below, otherwise the log record will not be made.
+	record := logger.NewLogRecord(flowType, false,
+		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
+		logger.LogTags.Verdict(verdict, reason),
+		logger.LogTags.Addressing(addrInfo),
+		logger.LogTags.DNS(&accesslog.LogRecordDNS{
+			Query:             qname,
+			IPs:               responseIPs,
+			TTL:               TTL,
+			CNAMEs:            CNAMEs,
+			ObservationSource: stat.DataSource,
+			RCode:             rcode,
+			QTypes:            qTypes,
+			AnswerTypes:       recordTypes,
+		}),
+	)
+	record.Log()
+
 	return nil
+}
+
+// getMutexesForResponseIPs returns a slice of indices for accessing the
+// mutexes in dnsProxyContext. There's a many-to-one mapping from IP to mutex,
+// meaning multiple IPs may map to a single mutex. The many-to-one property is
+// obtained by hashing each IP inside responseIPs. In order to prevent the
+// caller from acquiring the mutexes in an undesirable order, this function
+// ensures that the slice returned in ascending order. This is the order in
+// which the mutexes should be taken and released. The slice is de-duplicated
+// to avoid acquiring and releasing the same mutex in order.
+func (dpc *dnsProxyContext) getMutexesForResponseIPs(responseIPs []net.IP) []int {
+	// cache stores all unique indices for mutexes. Prevents the same mutex
+	// index from being added to indices which prevents the caller from
+	// attempting to acquire the same mutex multiple times.
+	cache := make(map[int]struct{}, len(responseIPs))
+	indices := make([]int, 0, len(responseIPs))
+	for _, ip := range responseIPs {
+		h := ipToInt(ip)
+		m := h.Mod(h, dpc.modulus)
+		i := int(m.Int64())
+		if _, exists := cache[i]; !exists {
+			cache[i] = struct{}{}
+			indices = append(indices, i)
+		}
+	}
+	sort.Ints(indices)
+	return indices
+}
+
+func ipToInt(addr net.IP) *big.Int {
+	i := big.NewInt(0)
+	i.SetBytes(addr)
+	return i
 }
 
 type getFqdnCache struct {

@@ -1,3 +1,33 @@
+# Release (2022-10-24)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.13.4
+  * **Bug Fix**: fixed document type checking for encoding nested types
+
+# Release (2022-09-14)
+
+* No change notes available for this release.
+
+# Release (v1.13.2)
+
+* No change notes available for this release.
+
+# Release (v1.13.1)
+
+* No change notes available for this release.
+
+# Release (v1.13.0)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.13.0
+  * **Feature**: Adds support for the Smithy httpBearerAuth authentication trait to smithy-go. This allows the SDK to support the bearer authentication flow for API operations decorated with httpBearerAuth. An API client will need to be provided with its own bearer.TokenProvider implementation or use the bearer.StaticTokenProvider implementation.
+
+# Release (v1.12.1)
+
+## Module Highlights
+* `github.com/aws/smithy-go`: v1.12.1
+  * **Bug Fix**: Fixes a bug where JSON object keys were not escaped.
+
 # Release (v1.12.0)
 
 ## Module Highlights

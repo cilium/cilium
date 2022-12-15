@@ -18,10 +18,12 @@ spec:
   - name: http
     port: 80
     protocol: TCP
+    nodePort: {{ .Values.ingressController.service.insecureNodePort }}
   - name: https
     port: 443
     protocol: TCP
-  type: LoadBalancer
+    nodePort: {{ .Values.ingressController.service.secureNodePort }}
+  type: {{ .Values.ingressController.service.type }}
 ---
 apiVersion: v1
 kind: Endpoints

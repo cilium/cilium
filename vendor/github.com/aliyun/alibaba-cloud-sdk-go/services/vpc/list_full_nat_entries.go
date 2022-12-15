@@ -79,6 +79,7 @@ type ListFullNatEntriesRequest struct {
 	FullNatTableId       string           `position:"Query" name:"FullNatTableId"`
 	NextToken            string           `position:"Query" name:"NextToken"`
 	FullNatEntryNames    *[]string        `position:"Query" name:"FullNatEntryNames"  type:"Repeated"`
+	NatGatewayId         string           `position:"Query" name:"NatGatewayId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	IpProtocol           string           `position:"Query" name:"IpProtocol"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`

@@ -9,10 +9,6 @@ package v2alpha1
 // CiliumBGPPeeringPolicyLister.
 type CiliumBGPPeeringPolicyListerExpansion interface{}
 
-// CiliumEgressNATPolicyListerExpansion allows custom methods to be added to
-// CiliumEgressNATPolicyLister.
-type CiliumEgressNATPolicyListerExpansion interface{}
-
 // CiliumEndpointSliceListerExpansion allows custom methods to be added to
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
@@ -20,3 +16,11 @@ type CiliumEndpointSliceListerExpansion interface{}
 // CiliumLoadBalancerIPPoolListerExpansion allows custom methods to be added to
 // CiliumLoadBalancerIPPoolLister.
 type CiliumLoadBalancerIPPoolListerExpansion interface{}
+
+// CiliumNodeConfigListerExpansion allows custom methods to be added to
+// CiliumNodeConfigLister.
+type CiliumNodeConfigListerExpansion interface{}
+
+// CiliumNodeConfigNamespaceListerExpansion allows custom methods to be added to
+// CiliumNodeConfigNamespaceLister.
+type CiliumNodeConfigNamespaceListerExpansion interface{}

@@ -111,6 +111,11 @@ func MustAddrClusterFromIP(ip net.IP) AddrCluster {
 	return addr
 }
 
+// AddrClusterFrom creates AddrCluster from netip.Addr and ClusterID
+func AddrClusterFrom(addr netip.Addr, clusterID uint32) AddrCluster {
+	return AddrCluster{addr: addr, clusterID: clusterID}
+}
+
 // Addr returns IP address part of AddrCluster as netip.Addr. This function
 // exists for keeping backward compatibility between the existing components
 // which are not aware of the cluster-aware addressing. Calling this function
@@ -118,6 +123,13 @@ func MustAddrClusterFromIP(ip net.IP) AddrCluster {
 // information. It should be used with an extra care.
 func (ac AddrCluster) Addr() netip.Addr {
 	return ac.addr
+}
+
+// ClusterID returns ClusterID part of AddrCluster as uint32. We should avoid
+// using this function as much as possible and treat IP address and ClusterID
+// together.
+func (ac AddrCluster) ClusterID() uint32 {
+	return ac.clusterID
 }
 
 // Equal returns true when given AddrCluster has a same IP address and ClusterID

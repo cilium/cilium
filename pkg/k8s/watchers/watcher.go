@@ -71,7 +71,6 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
-	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
@@ -83,7 +82,6 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCEGP           = "CiliumEgressGatewayPolicy"
-	metricCENP           = "CiliumEgressNATPolicy"
 	metricCCEC           = "CiliumClusterwideEnvoyConfig"
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
@@ -337,9 +335,8 @@ func (*k8sMetrics) Increment(_ context.Context, code string, method string, host
 	// more info:
 	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
 	if code != "<error>" {
-		// Consider success if status code is 2xx or 4xx
-		if strings.HasPrefix(code, "2") ||
-			strings.HasPrefix(code, "4") {
+		// Consider success only if status code is 2xx
+		if strings.HasPrefix(code, "2") {
 			k8smetrics.LastSuccessInteraction.Reset()
 		}
 	}
@@ -417,12 +414,13 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CLRPName):           {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
 	synced.CRDResourceName(v2.CEWName):            {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(v2.CEGPName):           {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
-	synced.CRDResourceName(v2alpha1.CENPName):     {start, k8sAPIGroupCiliumEgressNATPolicyV2},
 	synced.CRDResourceName(v2alpha1.CESName):      {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(v2.CCECName):           {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):            {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):     {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
+	synced.CRDResourceName(v2alpha1.CNCName):      {skip, ""}, // Handled by init directly
+
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
@@ -448,7 +446,7 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sAPIGroupNodeV1Core,
 	}
 
-	if k.cfg.K8sIngressControllerEnabled() {
+	if k.cfg.K8sIngressControllerEnabled() || k.cfg.K8sGatewayAPIEnabled() {
 		// While Ingress controller is part of operator, we need to watch
 		// TLS secrets in pre-defined namespace for populating Envoy xDS SDS cache.
 		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
@@ -520,6 +518,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 type WatcherConfiguration interface {
 	utils.ServiceConfiguration
 	utils.IngressConfiguration
+	utils.GatewayAPIConfiguration
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -564,8 +563,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.initEndpointsOrSlices(k.clientset.Slim(), serviceOptModifier)
 		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
-			// only watch secrets in cilium-secrets namespace
-			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespace, swgSecret)
+			// only watch secrets in specific namespaces
+			k.tlsSecretInit(k.clientset.Slim(), option.Config.EnvoySecretNamespaces, swgSecret)
 		// Custom resource definitions
 		case k8sAPIGroupCiliumNetworkPolicyV2:
 			k.ciliumNetworkPoliciesInit(k.clientset)
@@ -579,8 +578,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
 			k.ciliumEgressGatewayPolicyInit(k.clientset)
-		case k8sAPIGroupCiliumEgressNATPolicyV2:
-			k.ciliumEgressNATPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:

@@ -217,11 +217,7 @@ func (n *Node) loggerLocked() (logger *logrus.Entry) {
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMaxAboveWatermark() int {
-	if n.resource.Spec.IPAM.MaxAboveWatermark != 0 {
-		return n.resource.Spec.IPAM.MaxAboveWatermark
-	}
-	// OBSOLETE: This can be removed in Cilium 1.9
-	return n.resource.Spec.ENI.MaxAboveWatermark
+	return n.resource.Spec.IPAM.MaxAboveWatermark
 }
 
 // getPreAllocate returns the pre-allocation setting for an AWS node
@@ -231,10 +227,6 @@ func (n *Node) getPreAllocate() int {
 	if n.resource.Spec.IPAM.PreAllocate != 0 {
 		return n.resource.Spec.IPAM.PreAllocate
 	}
-	// OBSOLETE: This can be removed in Cilium 1.9
-	if n.resource.Spec.ENI.PreAllocate != 0 {
-		return n.resource.Spec.ENI.PreAllocate
-	}
 	return defaults.IPAMPreAllocation
 }
 
@@ -242,11 +234,7 @@ func (n *Node) getPreAllocate() int {
 //
 // n.mutex must be held when calling this function
 func (n *Node) getMinAllocate() int {
-	if n.resource.Spec.IPAM.MinAllocate != 0 {
-		return n.resource.Spec.IPAM.MinAllocate
-	}
-	// OBSOLETE: This can be removed in Cilium 1.9
-	return n.resource.Spec.ENI.MinAllocate
+	return n.resource.Spec.IPAM.MinAllocate
 }
 
 // getMaxAllocate returns the maximum-allocation setting of an AWS node

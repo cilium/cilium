@@ -154,7 +154,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	}
 
 	for (unsigned long i = 0; i < ARRAY_SIZE(backends); i++) {
-		map_update_elem(&LB4_BACKEND_MAP_V2, &backends[i].key,
+		map_update_elem(&LB4_BACKEND_MAP, &backends[i].key,
 				&backends[i].value, BPF_ANY);
 	}
 

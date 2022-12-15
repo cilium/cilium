@@ -23,21 +23,21 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/go-openapi/strfmt"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/logger"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/runtime/yamlpc"
+	"github.com/go-openapi/strfmt"
 )
 
 // TLSClientOptions to configure client authentication with mutual TLS
@@ -164,7 +164,7 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 		cfg.RootCAs = caCertPool
 	} else if opts.CA != "" {
 		// load ca cert
-		caCert, err := ioutil.ReadFile(opts.CA)
+		caCert, err := os.ReadFile(opts.CA)
 		if err != nil {
 			return nil, fmt.Errorf("tls client ca: %v", err)
 		}
@@ -180,8 +180,6 @@ func TLSClientAuth(opts TLSClientOptions) (*tls.Config, error) {
 		cfg.InsecureSkipVerify = false
 		cfg.ServerName = opts.ServerName
 	}
-
-	cfg.BuildNameToCertificate()
 
 	return cfg, nil
 }
@@ -301,6 +299,14 @@ func NewWithClient(host, basePath string, schemes []string, client *http.Client)
 // The provided opts are applied to each spans - for example to add global tags.
 func (r *Runtime) WithOpenTracing(opts ...opentracing.StartSpanOption) runtime.ClientTransport {
 	return newOpenTracingTransport(r, r.Host, opts)
+}
+
+// WithOpenTelemetry adds opentelemetry support to the provided runtime.
+// A new client span is created for each request.
+// If the context of the client operation does not contain an active span, no span is created.
+// The provided opts are applied to each spans - for example to add global tags.
+func (r *Runtime) WithOpenTelemetry(opts ...OpenTelemetryOpt) runtime.ClientTransport {
+	return newOpenTelemetryTransport(r, r.Host, opts)
 }
 
 func (r *Runtime) pickScheme(schemes []string) string {

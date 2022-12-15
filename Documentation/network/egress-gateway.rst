@@ -247,7 +247,7 @@ There are 3 different ways this can be achieved:
        nodeSelector:
          matchLabels:
            testLabel: testVal
-         egressIP: a.b.c.d
+       egressIP: a.b.c.d
 
    .. warning::
 
@@ -381,7 +381,7 @@ Download the ``egress-sample`` Egress Gateway Policy yaml:
 
 .. parsed-literal::
 
-    $ wget \ |SCM_WEB|\/examples/kubernetes-egress-gateway/egress-nat-policy-egress-gateway.yaml
+    $ wget \ |SCM_WEB|\/examples/kubernetes-egress-gateway/egress-gateway-policy.yaml
 
 Modify the ``destinationCIDRs`` to include the IP of the host where your
 designated external service is running on.
@@ -406,7 +406,7 @@ from the mediabot pod to leave the cluster with the IP of the Egress Gateway nod
 
 .. code-block:: shell-session
 
-    $ kubectl apply -f egress-nat-policy-egress-gateway.yaml
+    $ kubectl apply -f egress-gateway-policy.yaml
 
 Verify the setup
 ----------------

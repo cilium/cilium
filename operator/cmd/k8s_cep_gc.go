@@ -32,7 +32,7 @@ import (
 //     delete CEP if the corresponding pod does not exist
 //
 // CiliumEndpoint objects have the same name as the pod they represent
-func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, once bool) {
+func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool) {
 	var (
 		controllerName = "to-k8s-ciliumendpoint-gc"
 		scopedLog      = log.WithField("controller", controllerName)
@@ -56,19 +56,19 @@ func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, once bool) {
 		// state.
 		watchers.PodsInit(clientset, stopCh)
 	}
-	<-k8sCiliumNodesCacheSynced
+	<-cns.k8sCiliumNodesCacheSynced
 
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
-				return doCiliumEndpointSyncGC(ctx, clientset, once, stopCh, scopedLog)
+				return doCiliumEndpointSyncGC(ctx, clientset, cns, once, stopCh, scopedLog)
 			},
 		})
 }
 
-func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
+func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
 	ciliumClient := clientset.CiliumV2()
 	// For each CEP we fetched, check if we know about it
 	for _, cepObj := range watchers.CiliumEndpointStore.List() {
@@ -100,7 +100,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, 
 					}
 					podChecked = true
 				case "CiliumNode":
-					podObj, exists, err = ciliumNodeStore.GetByKey(owner.Name)
+					podObj, exists, err = cns.ciliumNodeStore.GetByKey(owner.Name)
 					if err != nil {
 						scopedLog.WithError(err).Warn("Unable to get CiliumNode from store")
 					}

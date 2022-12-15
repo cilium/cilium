@@ -836,7 +836,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// backend pods in the same namespace `myns`
 	ex1 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
     "name": "allow-frontend",
     "namespace": "myns"
@@ -972,7 +972,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Example 2a: Allow TCP 443 from any source in Bob's namespaces.
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
     "name": "allow-tcp-443"
   },
@@ -1101,7 +1101,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Example 3: Allow all traffic to all pods in this namespace.
 	ex3 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
     "name": "allow-all"
   },
@@ -1176,7 +1176,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// policies to see if the rules are additive for the same podSelector.
 	ex4 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
     "name": "allow-tcp-8080"
   },
@@ -1337,7 +1337,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Example 5: Some policies with match expressions.
 	ex5 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/v1beta1",
+  "apiVersion": "networking.k8s.io/v1",
   "metadata": {
     "name": "allow-tcp-8080",
     "namespace": "expressions"

@@ -53,8 +53,8 @@ type AssignIpv6AddressesInput struct {
 	// this option if specifying specific IPv6 addresses.
 	Ipv6AddressCount *int32
 
-	// One or more specific IPv6 addresses to be assigned to the network interface. You
-	// can't use this option if you're specifying a number of IPv6 addresses.
+	// The IPv6 addresses to be assigned to the network interface. You can't use this
+	// option if you're specifying a number of IPv6 addresses.
 	Ipv6Addresses []string
 
 	// The number of IPv6 prefixes that Amazon Web Services automatically assigns to

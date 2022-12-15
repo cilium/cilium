@@ -23,6 +23,10 @@ spec:
   - port: metrics
     interval: {{ .Values.hubble.relay.prometheus.serviceMonitor.interval | quote }}
     path: /metrics
+    {{- with .Values.hubble.relay.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.metricRelabelings }}
     metricRelabelings:
     {{- toYaml . | nindent 4 }}

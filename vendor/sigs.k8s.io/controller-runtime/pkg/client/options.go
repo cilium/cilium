@@ -67,6 +67,24 @@ type DeleteAllOfOption interface {
 	ApplyToDeleteAllOf(*DeleteAllOfOptions)
 }
 
+// SubResourceUpdateOption is some configuration that modifies options for a update request.
+type SubResourceUpdateOption interface {
+	// ApplyToSubResourceUpdate applies this configuration to the given update options.
+	ApplyToSubResourceUpdate(*SubResourceUpdateOptions)
+}
+
+// SubResourceCreateOption is some configuration that modifies options for a create request.
+type SubResourceCreateOption interface {
+	// ApplyToSubResourceCreate applies this configuration to the given create options.
+	ApplyToSubResourceCreate(*SubResourceCreateOptions)
+}
+
+// SubResourcePatchOption configures a subresource patch request.
+type SubResourcePatchOption interface {
+	// ApplyToSubResourcePatch applies the configuration on the given patch options.
+	ApplyToSubResourcePatch(*SubResourcePatchOptions)
+}
+
 // }}}
 
 // {{{ Multi-Type Options
@@ -96,7 +114,20 @@ func (dryRunAll) ApplyToPatch(opts *PatchOptions) {
 func (dryRunAll) ApplyToDelete(opts *DeleteOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
+
 func (dryRunAll) ApplyToDeleteAllOf(opts *DeleteAllOfOptions) {
+	opts.DryRun = []string{metav1.DryRunAll}
+}
+
+func (dryRunAll) ApplyToSubResourceCreate(opts *SubResourceCreateOptions) {
+	opts.DryRun = []string{metav1.DryRunAll}
+}
+
+func (dryRunAll) ApplyToSubResourceUpdate(opts *SubResourceUpdateOptions) {
+	opts.DryRun = []string{metav1.DryRunAll}
+}
+
+func (dryRunAll) ApplyToSubResourcePatch(opts *SubResourcePatchOptions) {
 	opts.DryRun = []string{metav1.DryRunAll}
 }
 

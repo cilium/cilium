@@ -35,6 +35,8 @@ const (
 	AcceleratorNameM60           AcceleratorName = "m60"
 	AcceleratorNameRadeonProV520 AcceleratorName = "radeon-pro-v520"
 	AcceleratorNameVu9p          AcceleratorName = "vu9p"
+	AcceleratorNameInferentia    AcceleratorName = "inferentia"
+	AcceleratorNameK520          AcceleratorName = "k520"
 )
 
 // Values returns all known values for AcceleratorName. Note that this can be
@@ -49,6 +51,8 @@ func (AcceleratorName) Values() []AcceleratorName {
 		"m60",
 		"radeon-pro-v520",
 		"vu9p",
+		"inferentia",
+		"k520",
 	}
 }
 
@@ -146,6 +150,26 @@ func (AddressFamily) Values() []AddressFamily {
 	}
 }
 
+type AddressTransferStatus string
+
+// Enum values for AddressTransferStatus
+const (
+	AddressTransferStatusPending  AddressTransferStatus = "pending"
+	AddressTransferStatusDisabled AddressTransferStatus = "disabled"
+	AddressTransferStatusAccepted AddressTransferStatus = "accepted"
+)
+
+// Values returns all known values for AddressTransferStatus. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AddressTransferStatus) Values() []AddressTransferStatus {
+	return []AddressTransferStatus{
+		"pending",
+		"disabled",
+		"accepted",
+	}
+}
+
 type Affinity string
 
 // Enum values for Affinity
@@ -198,6 +222,7 @@ const (
 	AllocationStrategyDiversified                  AllocationStrategy = "diversified"
 	AllocationStrategyCapacityOptimized            AllocationStrategy = "capacityOptimized"
 	AllocationStrategyCapacityOptimizedPrioritized AllocationStrategy = "capacityOptimizedPrioritized"
+	AllocationStrategyPriceCapacityOptimized       AllocationStrategy = "priceCapacityOptimized"
 )
 
 // Values returns all known values for AllocationStrategy. Note that this can be
@@ -209,6 +234,23 @@ func (AllocationStrategy) Values() []AllocationStrategy {
 		"diversified",
 		"capacityOptimized",
 		"capacityOptimizedPrioritized",
+		"priceCapacityOptimized",
+	}
+}
+
+type AllocationType string
+
+// Enum values for AllocationType
+const (
+	AllocationTypeUsed AllocationType = "used"
+)
+
+// Values returns all known values for AllocationType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (AllocationType) Values() []AllocationType {
+	return []AllocationType{
+		"used",
 	}
 }
 
@@ -276,6 +318,7 @@ const (
 	ArchitectureTypeX8664    ArchitectureType = "x86_64"
 	ArchitectureTypeArm64    ArchitectureType = "arm64"
 	ArchitectureTypeX8664Mac ArchitectureType = "x86_64_mac"
+	ArchitectureTypeArm64Mac ArchitectureType = "arm64_mac"
 )
 
 // Values returns all known values for ArchitectureType. Note that this can be
@@ -287,6 +330,7 @@ func (ArchitectureType) Values() []ArchitectureType {
 		"x86_64",
 		"arm64",
 		"x86_64_mac",
+		"arm64_mac",
 	}
 }
 
@@ -298,6 +342,7 @@ const (
 	ArchitectureValuesX8664    ArchitectureValues = "x86_64"
 	ArchitectureValuesArm64    ArchitectureValues = "arm64"
 	ArchitectureValuesX8664Mac ArchitectureValues = "x86_64_mac"
+	ArchitectureValuesArm64Mac ArchitectureValues = "arm64_mac"
 )
 
 // Values returns all known values for ArchitectureValues. Note that this can be
@@ -309,6 +354,7 @@ func (ArchitectureValues) Values() []ArchitectureValues {
 		"x86_64",
 		"arm64",
 		"x86_64_mac",
+		"arm64_mac",
 	}
 }
 
@@ -1289,6 +1335,24 @@ func (DestinationFileFormat) Values() []DestinationFileFormat {
 	}
 }
 
+type DeviceTrustProviderType string
+
+// Enum values for DeviceTrustProviderType
+const (
+	DeviceTrustProviderTypeJamf        DeviceTrustProviderType = "jamf"
+	DeviceTrustProviderTypeCrowdstrike DeviceTrustProviderType = "crowdstrike"
+)
+
+// Values returns all known values for DeviceTrustProviderType. Note that this can
+// be expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (DeviceTrustProviderType) Values() []DeviceTrustProviderType {
+	return []DeviceTrustProviderType{
+		"jamf",
+		"crowdstrike",
+	}
+}
+
 type DeviceType string
 
 // Enum values for DeviceType
@@ -2232,6 +2296,7 @@ const (
 	ImageAttributeNameTpmSupport         ImageAttributeName = "tpmSupport"
 	ImageAttributeNameUefiData           ImageAttributeName = "uefiData"
 	ImageAttributeNameLastLaunchedTime   ImageAttributeName = "lastLaunchedTime"
+	ImageAttributeNameImdsSupport        ImageAttributeName = "imdsSupport"
 )
 
 // Values returns all known values for ImageAttributeName. Note that this can be
@@ -2250,6 +2315,7 @@ func (ImageAttributeName) Values() []ImageAttributeName {
 		"tpmSupport",
 		"uefiData",
 		"lastLaunchedTime",
+		"imdsSupport",
 	}
 }
 
@@ -2298,6 +2364,22 @@ func (ImageTypeValues) Values() []ImageTypeValues {
 		"machine",
 		"kernel",
 		"ramdisk",
+	}
+}
+
+type ImdsSupportValues string
+
+// Enum values for ImdsSupportValues
+const (
+	ImdsSupportValuesV20 ImdsSupportValues = "v2.0"
+)
+
+// Values returns all known values for ImdsSupportValues. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (ImdsSupportValues) Values() []ImdsSupportValues {
+	return []ImdsSupportValues{
+		"v2.0",
 	}
 }
 
@@ -3146,6 +3228,54 @@ const (
 	InstanceTypeC7g12xlarge     InstanceType = "c7g.12xlarge"
 	InstanceTypeC7g16xlarge     InstanceType = "c7g.16xlarge"
 	InstanceTypeMac2Metal       InstanceType = "mac2.metal"
+	InstanceTypeC6idLarge       InstanceType = "c6id.large"
+	InstanceTypeC6idXlarge      InstanceType = "c6id.xlarge"
+	InstanceTypeC6id2xlarge     InstanceType = "c6id.2xlarge"
+	InstanceTypeC6id4xlarge     InstanceType = "c6id.4xlarge"
+	InstanceTypeC6id8xlarge     InstanceType = "c6id.8xlarge"
+	InstanceTypeC6id12xlarge    InstanceType = "c6id.12xlarge"
+	InstanceTypeC6id16xlarge    InstanceType = "c6id.16xlarge"
+	InstanceTypeC6id24xlarge    InstanceType = "c6id.24xlarge"
+	InstanceTypeC6id32xlarge    InstanceType = "c6id.32xlarge"
+	InstanceTypeC6idMetal       InstanceType = "c6id.metal"
+	InstanceTypeM6idLarge       InstanceType = "m6id.large"
+	InstanceTypeM6idXlarge      InstanceType = "m6id.xlarge"
+	InstanceTypeM6id2xlarge     InstanceType = "m6id.2xlarge"
+	InstanceTypeM6id4xlarge     InstanceType = "m6id.4xlarge"
+	InstanceTypeM6id8xlarge     InstanceType = "m6id.8xlarge"
+	InstanceTypeM6id12xlarge    InstanceType = "m6id.12xlarge"
+	InstanceTypeM6id16xlarge    InstanceType = "m6id.16xlarge"
+	InstanceTypeM6id24xlarge    InstanceType = "m6id.24xlarge"
+	InstanceTypeM6id32xlarge    InstanceType = "m6id.32xlarge"
+	InstanceTypeM6idMetal       InstanceType = "m6id.metal"
+	InstanceTypeR6idLarge       InstanceType = "r6id.large"
+	InstanceTypeR6idXlarge      InstanceType = "r6id.xlarge"
+	InstanceTypeR6id2xlarge     InstanceType = "r6id.2xlarge"
+	InstanceTypeR6id4xlarge     InstanceType = "r6id.4xlarge"
+	InstanceTypeR6id8xlarge     InstanceType = "r6id.8xlarge"
+	InstanceTypeR6id12xlarge    InstanceType = "r6id.12xlarge"
+	InstanceTypeR6id16xlarge    InstanceType = "r6id.16xlarge"
+	InstanceTypeR6id24xlarge    InstanceType = "r6id.24xlarge"
+	InstanceTypeR6id32xlarge    InstanceType = "r6id.32xlarge"
+	InstanceTypeR6idMetal       InstanceType = "r6id.metal"
+	InstanceTypeR6aLarge        InstanceType = "r6a.large"
+	InstanceTypeR6aXlarge       InstanceType = "r6a.xlarge"
+	InstanceTypeR6a2xlarge      InstanceType = "r6a.2xlarge"
+	InstanceTypeR6a4xlarge      InstanceType = "r6a.4xlarge"
+	InstanceTypeR6a8xlarge      InstanceType = "r6a.8xlarge"
+	InstanceTypeR6a12xlarge     InstanceType = "r6a.12xlarge"
+	InstanceTypeR6a16xlarge     InstanceType = "r6a.16xlarge"
+	InstanceTypeR6a24xlarge     InstanceType = "r6a.24xlarge"
+	InstanceTypeR6a32xlarge     InstanceType = "r6a.32xlarge"
+	InstanceTypeR6a48xlarge     InstanceType = "r6a.48xlarge"
+	InstanceTypeR6aMetal        InstanceType = "r6a.metal"
+	InstanceTypeP4de24xlarge    InstanceType = "p4de.24xlarge"
+	InstanceTypeU3tb156xlarge   InstanceType = "u-3tb1.56xlarge"
+	InstanceTypeU18tb1112xlarge InstanceType = "u-18tb1.112xlarge"
+	InstanceTypeU24tb1112xlarge InstanceType = "u-24tb1.112xlarge"
+	InstanceTypeTrn12xlarge     InstanceType = "trn1.2xlarge"
+	InstanceTypeTrn132xlarge    InstanceType = "trn1.32xlarge"
+	InstanceTypeHpc6id32xlarge  InstanceType = "hpc6id.32xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be expanded
@@ -3679,6 +3809,54 @@ func (InstanceType) Values() []InstanceType {
 		"c7g.12xlarge",
 		"c7g.16xlarge",
 		"mac2.metal",
+		"c6id.large",
+		"c6id.xlarge",
+		"c6id.2xlarge",
+		"c6id.4xlarge",
+		"c6id.8xlarge",
+		"c6id.12xlarge",
+		"c6id.16xlarge",
+		"c6id.24xlarge",
+		"c6id.32xlarge",
+		"c6id.metal",
+		"m6id.large",
+		"m6id.xlarge",
+		"m6id.2xlarge",
+		"m6id.4xlarge",
+		"m6id.8xlarge",
+		"m6id.12xlarge",
+		"m6id.16xlarge",
+		"m6id.24xlarge",
+		"m6id.32xlarge",
+		"m6id.metal",
+		"r6id.large",
+		"r6id.xlarge",
+		"r6id.2xlarge",
+		"r6id.4xlarge",
+		"r6id.8xlarge",
+		"r6id.12xlarge",
+		"r6id.16xlarge",
+		"r6id.24xlarge",
+		"r6id.32xlarge",
+		"r6id.metal",
+		"r6a.large",
+		"r6a.xlarge",
+		"r6a.2xlarge",
+		"r6a.4xlarge",
+		"r6a.8xlarge",
+		"r6a.12xlarge",
+		"r6a.16xlarge",
+		"r6a.24xlarge",
+		"r6a.32xlarge",
+		"r6a.48xlarge",
+		"r6a.metal",
+		"p4de.24xlarge",
+		"u-3tb1.56xlarge",
+		"u-18tb1.112xlarge",
+		"u-24tb1.112xlarge",
+		"trn1.2xlarge",
+		"trn1.32xlarge",
+		"hpc6id.32xlarge",
 	}
 }
 
@@ -4346,6 +4524,24 @@ func (LocalGatewayRouteState) Values() []LocalGatewayRouteState {
 	}
 }
 
+type LocalGatewayRouteTableMode string
+
+// Enum values for LocalGatewayRouteTableMode
+const (
+	LocalGatewayRouteTableModeDirectVpcRouting LocalGatewayRouteTableMode = "direct-vpc-routing"
+	LocalGatewayRouteTableModeCoip             LocalGatewayRouteTableMode = "coip"
+)
+
+// Values returns all known values for LocalGatewayRouteTableMode. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (LocalGatewayRouteTableMode) Values() []LocalGatewayRouteTableMode {
+	return []LocalGatewayRouteTableMode{
+		"direct-vpc-routing",
+		"coip",
+	}
+}
+
 type LocalGatewayRouteType string
 
 // Enum values for LocalGatewayRouteType
@@ -4426,8 +4622,9 @@ type LogDestinationType string
 
 // Enum values for LogDestinationType
 const (
-	LogDestinationTypeCloudWatchLogs LogDestinationType = "cloud-watch-logs"
-	LogDestinationTypeS3             LogDestinationType = "s3"
+	LogDestinationTypeCloudWatchLogs      LogDestinationType = "cloud-watch-logs"
+	LogDestinationTypeS3                  LogDestinationType = "s3"
+	LogDestinationTypeKinesisDataFirehose LogDestinationType = "kinesis-data-firehose"
 )
 
 // Values returns all known values for LogDestinationType. Note that this can be
@@ -4437,6 +4634,7 @@ func (LogDestinationType) Values() []LogDestinationType {
 	return []LogDestinationType{
 		"cloud-watch-logs",
 		"s3",
+		"kinesis-data-firehose",
 	}
 }
 
@@ -4471,6 +4669,22 @@ func (MembershipType) Values() []MembershipType {
 	return []MembershipType{
 		"static",
 		"igmp",
+	}
+}
+
+type MetricType string
+
+// Enum values for MetricType
+const (
+	MetricTypeAggregateLatency MetricType = "aggregate-latency"
+)
+
+// Values returns all known values for MetricType. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (MetricType) Values() []MetricType {
+	return []MetricType{
+		"aggregate-latency",
 	}
 }
 
@@ -4847,6 +5061,32 @@ func (PaymentOption) Values() []PaymentOption {
 		"AllUpfront",
 		"PartialUpfront",
 		"NoUpfront",
+	}
+}
+
+type PeriodType string
+
+// Enum values for PeriodType
+const (
+	PeriodTypeFiveMinutes    PeriodType = "five-minutes"
+	PeriodTypeFifteenMinutes PeriodType = "fifteen-minutes"
+	PeriodTypeOneHour        PeriodType = "one-hour"
+	PeriodTypeThreeHours     PeriodType = "three-hours"
+	PeriodTypeOneDay         PeriodType = "one-day"
+	PeriodTypeOneWeek        PeriodType = "one-week"
+)
+
+// Values returns all known values for PeriodType. Note that this can be expanded
+// in the future, and so it is only as up to date as the client. The ordering of
+// this slice is not guaranteed to be stable across updates.
+func (PeriodType) Values() []PeriodType {
+	return []PeriodType{
+		"five-minutes",
+		"fifteen-minutes",
+		"one-hour",
+		"three-hours",
+		"one-day",
+		"one-week",
 	}
 }
 
@@ -5258,6 +5498,7 @@ const (
 	ResourceTypeClientVpnEndpoint                                      ResourceType = "client-vpn-endpoint"
 	ResourceTypeCustomerGateway                                        ResourceType = "customer-gateway"
 	ResourceTypeCarrierGateway                                         ResourceType = "carrier-gateway"
+	ResourceTypeCoipPool                                               ResourceType = "coip-pool"
 	ResourceTypeDedicatedHost                                          ResourceType = "dedicated-host"
 	ResourceTypeDhcpOptions                                            ResourceType = "dhcp-options"
 	ResourceTypeEgressOnlyInternetGateway                              ResourceType = "egress-only-internet-gateway"
@@ -5319,7 +5560,9 @@ const (
 	ResourceTypeVolume                                                 ResourceType = "volume"
 	ResourceTypeVpc                                                    ResourceType = "vpc"
 	ResourceTypeVpcEndpoint                                            ResourceType = "vpc-endpoint"
+	ResourceTypeVpcEndpointConnection                                  ResourceType = "vpc-endpoint-connection"
 	ResourceTypeVpcEndpointService                                     ResourceType = "vpc-endpoint-service"
+	ResourceTypeVpcEndpointServicePermission                           ResourceType = "vpc-endpoint-service-permission"
 	ResourceTypeVpcPeeringConnection                                   ResourceType = "vpc-peering-connection"
 	ResourceTypeVpnConnection                                          ResourceType = "vpn-connection"
 	ResourceTypeVpnGateway                                             ResourceType = "vpn-gateway"
@@ -5327,6 +5570,12 @@ const (
 	ResourceTypeCapacityReservationFleet                               ResourceType = "capacity-reservation-fleet"
 	ResourceTypeTrafficMirrorFilterRule                                ResourceType = "traffic-mirror-filter-rule"
 	ResourceTypeVpcEndpointConnectionDeviceType                        ResourceType = "vpc-endpoint-connection-device-type"
+	ResourceTypeVerifiedAccessInstance                                 ResourceType = "verified-access-instance"
+	ResourceTypeVerifiedAccessGroup                                    ResourceType = "verified-access-group"
+	ResourceTypeVerifiedAccessEndpoint                                 ResourceType = "verified-access-endpoint"
+	ResourceTypeVerifiedAccessPolicy                                   ResourceType = "verified-access-policy"
+	ResourceTypeVerifiedAccessTrustProvider                            ResourceType = "verified-access-trust-provider"
+	ResourceTypeVpnConnectionDeviceType                                ResourceType = "vpn-connection-device-type"
 )
 
 // Values returns all known values for ResourceType. Note that this can be expanded
@@ -5338,6 +5587,7 @@ func (ResourceType) Values() []ResourceType {
 		"client-vpn-endpoint",
 		"customer-gateway",
 		"carrier-gateway",
+		"coip-pool",
 		"dedicated-host",
 		"dhcp-options",
 		"egress-only-internet-gateway",
@@ -5399,7 +5649,9 @@ func (ResourceType) Values() []ResourceType {
 		"volume",
 		"vpc",
 		"vpc-endpoint",
+		"vpc-endpoint-connection",
 		"vpc-endpoint-service",
+		"vpc-endpoint-service-permission",
 		"vpc-peering-connection",
 		"vpn-connection",
 		"vpn-gateway",
@@ -5407,6 +5659,12 @@ func (ResourceType) Values() []ResourceType {
 		"capacity-reservation-fleet",
 		"traffic-mirror-filter-rule",
 		"vpc-endpoint-connection-device-type",
+		"verified-access-instance",
+		"verified-access-group",
+		"verified-access-endpoint",
+		"verified-access-policy",
+		"verified-access-trust-provider",
+		"vpn-connection-device-type",
 	}
 }
 
@@ -5689,6 +5947,7 @@ const (
 	SpotAllocationStrategyDiversified                  SpotAllocationStrategy = "diversified"
 	SpotAllocationStrategyCapacityOptimized            SpotAllocationStrategy = "capacity-optimized"
 	SpotAllocationStrategyCapacityOptimizedPrioritized SpotAllocationStrategy = "capacity-optimized-prioritized"
+	SpotAllocationStrategyPriceCapacityOptimized       SpotAllocationStrategy = "price-capacity-optimized"
 )
 
 // Values returns all known values for SpotAllocationStrategy. Note that this can
@@ -5700,6 +5959,7 @@ func (SpotAllocationStrategy) Values() []SpotAllocationStrategy {
 		"diversified",
 		"capacity-optimized",
 		"capacity-optimized-prioritized",
+		"price-capacity-optimized",
 	}
 }
 
@@ -5829,6 +6089,22 @@ func (StaticSourcesSupportValue) Values() []StaticSourcesSupportValue {
 	return []StaticSourcesSupportValue{
 		"enable",
 		"disable",
+	}
+}
+
+type StatisticType string
+
+// Enum values for StatisticType
+const (
+	StatisticTypeP50 StatisticType = "p50"
+)
+
+// Values returns all known values for StatisticType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (StatisticType) Values() []StatisticType {
+	return []StatisticType{
+		"p50",
 	}
 }
 
@@ -6638,6 +6914,24 @@ func (TransportProtocol) Values() []TransportProtocol {
 	}
 }
 
+type TrustProviderType string
+
+// Enum values for TrustProviderType
+const (
+	TrustProviderTypeUser   TrustProviderType = "user"
+	TrustProviderTypeDevice TrustProviderType = "device"
+)
+
+// Values returns all known values for TrustProviderType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (TrustProviderType) Values() []TrustProviderType {
+	return []TrustProviderType{
+		"user",
+		"device",
+	}
+}
+
 type TunnelInsideIpVersion string
 
 // Enum values for TunnelInsideIpVersion
@@ -6717,6 +7011,122 @@ func (UsageClassType) Values() []UsageClassType {
 	return []UsageClassType{
 		"spot",
 		"on-demand",
+	}
+}
+
+type UserTrustProviderType string
+
+// Enum values for UserTrustProviderType
+const (
+	UserTrustProviderTypeIamIdentityCenter UserTrustProviderType = "iam-identity-center"
+	UserTrustProviderTypeOidc              UserTrustProviderType = "oidc"
+)
+
+// Values returns all known values for UserTrustProviderType. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (UserTrustProviderType) Values() []UserTrustProviderType {
+	return []UserTrustProviderType{
+		"iam-identity-center",
+		"oidc",
+	}
+}
+
+type VerifiedAccessEndpointAttachmentType string
+
+// Enum values for VerifiedAccessEndpointAttachmentType
+const (
+	VerifiedAccessEndpointAttachmentTypeVpc VerifiedAccessEndpointAttachmentType = "vpc"
+)
+
+// Values returns all known values for VerifiedAccessEndpointAttachmentType. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (VerifiedAccessEndpointAttachmentType) Values() []VerifiedAccessEndpointAttachmentType {
+	return []VerifiedAccessEndpointAttachmentType{
+		"vpc",
+	}
+}
+
+type VerifiedAccessEndpointProtocol string
+
+// Enum values for VerifiedAccessEndpointProtocol
+const (
+	VerifiedAccessEndpointProtocolHttp  VerifiedAccessEndpointProtocol = "http"
+	VerifiedAccessEndpointProtocolHttps VerifiedAccessEndpointProtocol = "https"
+)
+
+// Values returns all known values for VerifiedAccessEndpointProtocol. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (VerifiedAccessEndpointProtocol) Values() []VerifiedAccessEndpointProtocol {
+	return []VerifiedAccessEndpointProtocol{
+		"http",
+		"https",
+	}
+}
+
+type VerifiedAccessEndpointStatusCode string
+
+// Enum values for VerifiedAccessEndpointStatusCode
+const (
+	VerifiedAccessEndpointStatusCodePending  VerifiedAccessEndpointStatusCode = "pending"
+	VerifiedAccessEndpointStatusCodeActive   VerifiedAccessEndpointStatusCode = "active"
+	VerifiedAccessEndpointStatusCodeUpdating VerifiedAccessEndpointStatusCode = "updating"
+	VerifiedAccessEndpointStatusCodeDeleting VerifiedAccessEndpointStatusCode = "deleting"
+	VerifiedAccessEndpointStatusCodeDeleted  VerifiedAccessEndpointStatusCode = "deleted"
+)
+
+// Values returns all known values for VerifiedAccessEndpointStatusCode. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (VerifiedAccessEndpointStatusCode) Values() []VerifiedAccessEndpointStatusCode {
+	return []VerifiedAccessEndpointStatusCode{
+		"pending",
+		"active",
+		"updating",
+		"deleting",
+		"deleted",
+	}
+}
+
+type VerifiedAccessEndpointType string
+
+// Enum values for VerifiedAccessEndpointType
+const (
+	VerifiedAccessEndpointTypeLoadBalancer     VerifiedAccessEndpointType = "load-balancer"
+	VerifiedAccessEndpointTypeNetworkInterface VerifiedAccessEndpointType = "network-interface"
+)
+
+// Values returns all known values for VerifiedAccessEndpointType. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (VerifiedAccessEndpointType) Values() []VerifiedAccessEndpointType {
+	return []VerifiedAccessEndpointType{
+		"load-balancer",
+		"network-interface",
+	}
+}
+
+type VerifiedAccessLogDeliveryStatusCode string
+
+// Enum values for VerifiedAccessLogDeliveryStatusCode
+const (
+	VerifiedAccessLogDeliveryStatusCodeSuccess VerifiedAccessLogDeliveryStatusCode = "success"
+	VerifiedAccessLogDeliveryStatusCodeFailed  VerifiedAccessLogDeliveryStatusCode = "failed"
+)
+
+// Values returns all known values for VerifiedAccessLogDeliveryStatusCode. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (VerifiedAccessLogDeliveryStatusCode) Values() []VerifiedAccessLogDeliveryStatusCode {
+	return []VerifiedAccessLogDeliveryStatusCode{
+		"success",
+		"failed",
 	}
 }
 
@@ -6898,8 +7308,9 @@ type VpcAttributeName string
 
 // Enum values for VpcAttributeName
 const (
-	VpcAttributeNameEnableDnsSupport   VpcAttributeName = "enableDnsSupport"
-	VpcAttributeNameEnableDnsHostnames VpcAttributeName = "enableDnsHostnames"
+	VpcAttributeNameEnableDnsSupport                 VpcAttributeName = "enableDnsSupport"
+	VpcAttributeNameEnableDnsHostnames               VpcAttributeName = "enableDnsHostnames"
+	VpcAttributeNameEnableNetworkAddressUsageMetrics VpcAttributeName = "enableNetworkAddressUsageMetrics"
 )
 
 // Values returns all known values for VpcAttributeName. Note that this can be
@@ -6909,6 +7320,7 @@ func (VpcAttributeName) Values() []VpcAttributeName {
 	return []VpcAttributeName{
 		"enableDnsSupport",
 		"enableDnsHostnames",
+		"enableNetworkAddressUsageMetrics",
 	}
 }
 

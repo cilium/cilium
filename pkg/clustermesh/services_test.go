@@ -55,6 +55,8 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 
 	s.randomName = rand.RandomString()
+	clusterName1 := s.randomName + "1"
+	clusterName2 := s.randomName + "2"
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
@@ -67,11 +69,19 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	s.testDir = dir
 	c.Assert(err, IsNil)
 
-	config1 := path.Join(dir, s.randomName+"1")
+	for i, cluster := range []string{clusterName1, clusterName2} {
+		config := cmtypes.CiliumClusterConfig{
+			ID: uint32(i),
+		}
+		err := SetClusterConfig(cluster, &config, kvstore.Client())
+		c.Assert(err, IsNil)
+	}
+
+	config1 := path.Join(dir, clusterName1)
 	err = os.WriteFile(config1, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	config2 := path.Join(dir, s.randomName+"2")
+	config2 := path.Join(dir, clusterName2)
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
@@ -82,13 +92,14 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	})
 	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
-		Name:                  "test2",
-		ConfigDirectory:       dir,
-		NodeKeyCreator:        testNodeCreator,
-		nodeObserver:          &testObserver{},
-		ServiceMerger:         &s.svcCache,
-		RemoteIdentityWatcher: mgr,
-		IPCache:               ipc,
+		Name:                         "test2",
+		ConfigDirectory:              dir,
+		NodeKeyCreator:               testNodeCreator,
+		nodeObserver:                 &testObserver{},
+		ServiceMerger:                &s.svcCache,
+		RemoteIdentityWatcher:        mgr,
+		IPCache:                      ipc,
+		ServicesSharedKeyDeleteDelay: func() *time.Duration { a := time.Duration(0); return &a }(),
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
@@ -247,26 +258,35 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
-			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")].Ports["http"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)) &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("20.0.185.196")].Ports["http2"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 90))
 	})
 
 	k, v = s.prepareServiceUpdate("2", "90.0.185.196", "http", "8080")
 	kvstore.Client().Set(context.TODO(), k, []byte(v))
 	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
 		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")] != nil &&
-			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")] != nil
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("80.0.185.196")].Ports["http"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 8080)) &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")].Ports["http"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 8080))
 	})
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"1")
-	// The observer will have a defaults.NodeDeleteDelay time before it receives
-	// the event. For this reason we will trigger the delete events sequentially
-	// and only do the assertion in the end. This way we wait 30seconds for the
-	// test to complete instead of 30+30 seconds.
-	time.Sleep(2 * time.Second)
-	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
+	s.expectEvent(c, k8s.UpdateService, svcID, func(event k8s.ServiceEvent) bool {
+		return event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")] != nil &&
+			event.Endpoints.Backends[cmtypes.MustParseAddrCluster("90.0.185.196")].Ports["http"].DeepEqual(
+				loadbalancer.NewL4Addr(loadbalancer.TCP, 8080))
+	})
 
-	s.expectEvent(c, k8s.UpdateService, svcID, nil)
-	s.expectEvent(c, k8s.DeleteService, svcID, nil)
+	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName+"2")
+	s.expectEvent(c, k8s.DeleteService, svcID, func(event k8s.ServiceEvent) bool {
+		return len(event.Endpoints.Backends) == 0
+	})
 
 	swgSvcs.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {

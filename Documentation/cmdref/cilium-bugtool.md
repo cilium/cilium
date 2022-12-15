@@ -35,6 +35,7 @@ cilium-bugtool [OPTIONS] [flags]
       --dry-run                              Create configuration file of all commands that would have been executed
       --enable-markdown                      Dump output of commands in markdown format
       --envoy-dump                           When set, dump envoy configuration from unix socket (default true)
+      --exclude-object-files                 Exclude per-endpoint object files. Template object files will be kept
       --exec-timeout duration                The default timeout for any cmd execution in seconds (default 30s)
       --get-pprof                            When set, only gets the pprof traces from the cilium-agent binary
   -h, --help                                 help for cilium-bugtool
@@ -43,6 +44,7 @@ cilium-bugtool [OPTIONS] [flags]
       --k8s-mode                             Require Kubernetes pods to be found or fail
       --k8s-namespace string                 Kubernetes namespace for Cilium pod (default "kube-system")
       --parallel-workers int                 Maximum number of parallel worker tasks, use 0 for number of CPUs
+      --pprof-debug int                      Debug pprof args (default 1)
       --pprof-port int                       Pprof port to connect to. Known Cilium component ports are agent:6060, operator:6061, apiserver:6063 (default 6060)
       --pprof-trace-seconds int              Amount of seconds used for pprof CPU traces (default 180)
   -t, --tmp string                           Path to store extracted files. Use '-' to send to stdout. (default "/tmp")

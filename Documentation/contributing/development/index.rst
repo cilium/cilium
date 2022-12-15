@@ -25,7 +25,6 @@ understand the workflow of getting these changes reviewed and merged upstream.
    debugging
    hubble
    introducing_new_crds
-   season_of_docs
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors

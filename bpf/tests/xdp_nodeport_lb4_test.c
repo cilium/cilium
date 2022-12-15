@@ -36,13 +36,14 @@ struct {
 	},
 };
 
+#define FRONTEND_IP 0x0F00010A /* 10.0.1.15 */
+#define FRONTEND_PORT 80
 #define BACKEND_IP 0x0F00020A /* 10.2.0.15 */
 #define BACKEND_PORT 8080
 
 static long (*bpf_xdp_adjust_tail)(struct xdp_md *xdp_md, int delta) = (void *)65;
 
-SETUP("xdp", "forward_to_other_node")
-int test1_setup(struct __ctx_buff *ctx)
+static int build_packet(struct __ctx_buff *ctx)
 {
 	/* Create room for our packet to be crafted */
 	unsigned int data_len = ctx->data_end - ctx->data;
@@ -77,7 +78,7 @@ int test1_setup(struct __ctx_buff *ctx)
 		.ttl = 64,
 		.protocol = IPPROTO_TCP,
 		.saddr = 0x0F00000A, /* 10.0.0.15 */
-		.daddr = 0x0F00010A /* 10.0.1.15 */
+		.daddr = FRONTEND_IP,
 	};
 	memcpy(data, &l3, sizeof(struct iphdr));
 	data += sizeof(struct iphdr);
@@ -90,7 +91,7 @@ int test1_setup(struct __ctx_buff *ctx)
 
 	struct tcphdr l4 = {
 		.source = 23445,
-		.dest = 80,
+		.dest = FRONTEND_PORT,
 		.seq = 2922048129,
 		.doff = 0, /* no options */
 		.syn = 1,
@@ -108,10 +109,22 @@ int test1_setup(struct __ctx_buff *ctx)
 	offset = (long)data - (long)ctx->data_end;
 	bpf_xdp_adjust_tail(ctx, offset);
 
+	return 0;
+}
+
+SETUP("xdp", "xdp_lb4_forward_to_other_node")
+int test1_setup(struct __ctx_buff *ctx)
+{
+	int ret;
+
+	ret = build_packet(ctx);
+	if (ret)
+		return ret;
+
 	/* Register a fake LB backend with endpoint ID 124 matching our packet. */
 	struct lb4_key lb_svc_key = {
-		.address = 0x0F00010A,
-		.dport = 80,
+		.address = FRONTEND_IP,
+		.dport = FRONTEND_PORT,
 		.scope = LB_LOOKUP_SCOPE_EXT
 	};
 	/* Create a service with only one backend */
@@ -140,7 +153,7 @@ int test1_setup(struct __ctx_buff *ctx)
 		.proto = IPPROTO_TCP,
 		.flags = 0,
 	};
-	map_update_elem(&LB4_BACKEND_MAP_V2, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);
@@ -148,7 +161,7 @@ int test1_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("xdp", "forward_to_other_node")
+CHECK("xdp", "xdp_lb4_forward_to_other_node")
 int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	test_init();
@@ -208,6 +221,57 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	if (memcmp(body, msg, sizeof(msg)) != 0)
 		test_fatal("body changed");
+
+	test_finish();
+}
+
+SETUP("xdp", "xdp_lb4_drop_no_backend")
+int test2_setup(struct __ctx_buff *ctx)
+{
+	/* Fake Service matching our packet. */
+	struct lb4_key lb_svc_key = {
+		.address = FRONTEND_IP,
+		.dport = FRONTEND_PORT,
+		.scope = LB_LOOKUP_SCOPE_EXT
+	};
+	/* Service with no backends */
+	struct lb4_service lb_svc_value = {
+		.count = 0,
+		.flags = SVC_FLAG_ROUTABLE,
+	};
+	int ret;
+
+	ret = build_packet(ctx);
+	if (ret)
+		return ret;
+
+	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
+	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, 0);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("xdp", "xdp_lb4_drop_no_backend")
+int test2_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data_end = (void *)(long)ctx->data_end;
+	void *data = (void *)(long)ctx->data;
+	__u32 expected_status = XDP_DROP;
+	__u32 *status_code;
+
+	test_init();
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	if (*status_code != expected_status)
+		test_fatal("status code is %lu, expected %lu", *status_code, expected_status);
 
 	test_finish();
 }

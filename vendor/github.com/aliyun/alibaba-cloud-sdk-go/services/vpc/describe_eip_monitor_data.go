@@ -84,8 +84,8 @@ type DescribeEipMonitorDataRequest struct {
 // DescribeEipMonitorDataResponse is the response struct for api DescribeEipMonitorData
 type DescribeEipMonitorDataResponse struct {
 	*responses.BaseResponse
-	RequestId       string                                  `json:"RequestId" xml:"RequestId"`
-	EipMonitorDatas EipMonitorDatasInDescribeEipMonitorData `json:"EipMonitorDatas" xml:"EipMonitorDatas"`
+	RequestId       string          `json:"RequestId" xml:"RequestId"`
+	EipMonitorDatas EipMonitorDatas `json:"EipMonitorDatas" xml:"EipMonitorDatas"`
 }
 
 // CreateDescribeEipMonitorDataRequest creates a request to invoke DescribeEipMonitorData API

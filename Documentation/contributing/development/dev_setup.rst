@@ -36,9 +36,9 @@ contribute to Cilium:
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 | `go <https://golang.org/dl/>`_                               | |GO_RELEASE|                 | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-+ `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0 and < 2.0.0         | ``go install github.com/onsi/ginkgo/ginkgo@latest``             |
++ `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0 and < 2.0.0         | ``go install github.com/onsi/ginkgo/ginkgo@v1.16.5``            |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-+ `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | ``go install github.com/golangci/golangci-lint@latest``         |
++ `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + `cfssl <https://github.com/cloudflare/cfssl>`_               | >= v1.6.0                    | ``go install github.com/cloudflare/cfssl/cmd/cfssl@latest``     |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
@@ -517,10 +517,10 @@ Minor version
    date with these changes.
 
 #  Update documentation files:
-   - Documentation/concepts/kubernetes/compatibility.rst
-   - Documentation/concepts/kubernetes/requirements.rst
    - Documentation/contributing/testing/e2e.rst
-   - Documentation/gettingstarted/istio.rst
+   - Documentation/network/istio.rst
+   - Documentation/network/kubernetes/compatibility.rst
+   - Documentation/network/kubernetes/requirements.rst
 
 #. Update the Kubernetes version with the newer version in ``test/Vagrantfile``,
    ``test/test_suite_test.go`` and ``test/vagrant-local-start.sh``.
@@ -559,7 +559,7 @@ Minor version
 #. Provision a new dev VM to check if the provisioning scripts work correctly
    with the new k8s version.
 
-#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.23.0-rc.0"``
+#. Run ``git add vendor/ test/provision/manifest/ Documentation/ && git commit -sam "Update k8s tests and libraries to v1.27.0-rc.0"``
 
 #. Submit all your changes into a new PR.
 

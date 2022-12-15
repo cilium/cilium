@@ -66,9 +66,10 @@ concurrency:
 env:
   clusterName1: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-1
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
+  clusterNameBase: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -168,7 +169,7 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
@@ -335,8 +336,11 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
+            --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
-            --test '!no-policies/pod-to-service'
+            --test '!no-policies/pod-to-service' \
+            --test '!/pod-to-world' \
+            --test '!/pod-to-cidr'
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.
@@ -359,9 +363,12 @@ jobs:
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
+            --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!client-egress-l7,!echo-ingress-l7,!to-fqdns,!dns-only' \
             --test '!no-policies/pod-to-service'
+            --test '!/pod-to-world' \
+            --test '!/pod-to-cidr'
         # TODO: Once WireGuard supports the L7 proxy, the L7 tests can be
         # included here. See cilium/cilium#15462
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
@@ -379,29 +386,30 @@ jobs:
 
           kubectl config use-context ${{ steps.contexts.outputs.context1 }}
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-context1
+          cilium sysdump --output-filename cilium-sysdump-context1-final
 
           kubectl config use-context ${{ steps.contexts.outputs.context2 }}
           kubectl get pods --all-namespaces -o wide
-          cilium sysdump --output-filename cilium-sysdump-context2
+          cilium sysdump --output-filename cilium-sysdump-context2-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud compute firewall-rules delete ${{ env.firewallRuleName }} --quiet
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterNameBase }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
           gcloud container clusters delete ${{ env.clusterName1 }} --zone ${{ env.zone }} --quiet --async
           gcloud container clusters delete ${{ env.clusterName2 }} --zone ${{ env.zone }} --quiet --async
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          gcloud compute firewall-rules delete ${{ env.firewallRuleName }} --quiet
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: |
-            cilium-sysdump-context1.zip
-            cilium-sysdump-context2.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success

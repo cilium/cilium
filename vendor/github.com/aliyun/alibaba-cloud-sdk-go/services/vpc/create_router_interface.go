@@ -80,10 +80,12 @@ type CreateRouterInterfaceRequest struct {
 	HealthCheckTargetIp      string           `position:"Query" name:"HealthCheckTargetIp"`
 	Description              string           `position:"Query" name:"Description"`
 	Spec                     string           `position:"Query" name:"Spec"`
+	FastLinkMode             requests.Boolean `position:"Query" name:"FastLinkMode"`
 	OppositeInterfaceId      string           `position:"Query" name:"OppositeInterfaceId"`
 	InstanceChargeType       string           `position:"Query" name:"InstanceChargeType"`
 	Period                   requests.Integer `position:"Query" name:"Period"`
 	AutoPay                  requests.Boolean `position:"Query" name:"AutoPay"`
+	AvailableZoneId          string           `position:"Query" name:"AvailableZoneId"`
 	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
 	OppositeRegionId         string           `position:"Query" name:"OppositeRegionId"`
 	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`

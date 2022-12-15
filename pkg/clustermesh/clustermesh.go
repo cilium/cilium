@@ -5,12 +5,16 @@ package clustermesh
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"path"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -62,6 +66,56 @@ type Configuration struct {
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
 	IPCache *ipcache.IPCache
+
+	// ServicesSharedKeyDeleteDelay is the delay before a shared service delete
+	// event is handled. This parameter is optional.
+	ServicesSharedKeyDeleteDelay *time.Duration
+
+	// NodesSharedKeyDeleteDelay is the delay before a shared node delete event
+	// is handled. This parameter is optional.
+	NodesSharedKeyDeleteDelay *time.Duration
+}
+
+func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
+	key := path.Join(kvstore.ClusterConfigPrefix, clusterName)
+
+	val, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	_, err = kvstore.Client().UpdateIfDifferent(ctx, key, val, true)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*cmtypes.CiliumClusterConfig, error) {
+	var config cmtypes.CiliumClusterConfig
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	val, err := backend.Get(ctx, path.Join(kvstore.ClusterConfigPrefix, clusterName))
+	if err != nil {
+		return nil, err
+	}
+
+	// Cluster configuration missing, but it's not an error
+	if val == nil {
+		return nil, nil
+	}
+
+	if err := json.Unmarshal(val, &config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -273,6 +327,32 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	}
 
 	return nready
+}
+
+func (cm *ClusterMesh) canConnect(name string, config *cmtypes.CiliumClusterConfig) error {
+	cm.mutex.RLock()
+	defer cm.mutex.RUnlock()
+
+	for n, rc := range cm.clusters {
+		if err := func() error {
+			rc.mutex.RLock()
+			defer rc.mutex.RUnlock()
+
+			if rc.name == name || !rc.isReadyLocked() || rc.config == nil {
+				return nil
+			}
+
+			if err := rc.config.IsCompatible(config); err != nil {
+				return err
+			}
+
+			return nil
+		}(); err != nil {
+			return fmt.Errorf("configuration of %s is not compatible with %s: %w", name, n, err)
+		}
+	}
+
+	return nil
 }
 
 // ClustersSynced returns after all clusters were synchronized with the bpf

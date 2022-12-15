@@ -93,7 +93,7 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 		l3DevOK = supportL3Dev()
 	}
 
-	if len(option.Config.GetDevices()) == 0 && dm.AreDevicesRequired() {
+	if len(option.Config.GetDevices()) == 0 && option.Config.AreDevicesRequired() {
 		// Detect the devices from the system routing table by finding the devices
 		// which have global unicast routes.
 		family := netlink.FAMILY_ALL
@@ -401,16 +401,6 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 		}
 	}()
 	return devicesChan, nil
-}
-
-func (dm *DeviceManager) AreDevicesRequired() bool {
-	if option.Config.DryMode {
-		return false
-	}
-
-	return option.Config.EnableNodePort ||
-		option.Config.EnableHostFirewall ||
-		option.Config.EnableBandwidthManager
 }
 
 // expandDevices expands all wildcard device names to concrete devices.
