@@ -17,8 +17,8 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pprof")
 
 // Enable runs an HTTP server to serve the pprof API
-func Enable(port int) {
-	var apiAddress = net.JoinHostPort("localhost", strconv.Itoa(port))
+func Enable(host string, port int) {
+	var apiAddress = net.JoinHostPort(host, strconv.Itoa(port))
 	go func() {
 		if err := http.ListenAndServe(apiAddress, nil); err != nil {
 			log.WithError(err).Warn("Unable to serve pprof API")

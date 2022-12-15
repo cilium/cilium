@@ -818,10 +818,13 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
+	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
 	option.BindEnv(option.PProf)
 
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that the pprof listens on")
+	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
+	option.BindEnv(option.PProfAddress)
+
+	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
 	option.BindEnv(option.PProfPort)
 
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
@@ -1257,7 +1260,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfPort)
+		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
 	}
 
 	if option.Config.PreAllocateMaps {

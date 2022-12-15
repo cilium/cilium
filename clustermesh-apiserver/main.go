@@ -53,6 +53,7 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 type configuration struct {
@@ -236,6 +237,15 @@ func runApiserver() error {
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
 	option.BindEnv(option.K8sEnableEndpointSlice)
+
+	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
+	option.BindEnv(option.PProf)
+
+	flags.String(option.PProfAddress, defaults.PprofAddressAPIServer, "Address that pprof listens on")
+	option.BindEnv(option.PProfAddress)
+
+	flags.Int(option.PProfPort, defaults.PprofPortAPIServer, "Port that pprof listens on")
+	option.BindEnv(option.PProfPort)
 
 	viper.BindPFlags(flags)
 
@@ -641,6 +651,10 @@ func runServer(cmd *cobra.Command) {
 			<-timer.After(kvstore.HeartbeatWriteInterval)
 		}
 	}()
+
+	if option.Config.PProf {
+		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
+	}
 
 	log.Info("Initialization complete")
 

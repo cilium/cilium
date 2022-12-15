@@ -420,6 +420,9 @@ const (
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
+	// PProfAddress is the port that the pprof listens on
+	PProfAddress = "pprof-address"
+
 	// PProfPort is the port that the pprof listens on
 	PProfPort = "pprof-port"
 
@@ -1633,6 +1636,7 @@ type DaemonConfig struct {
 	TracePayloadlen            int
 	Version                    string
 	PProf                      bool
+	PProfAddress               string
 	PProfPort                  int
 	PrometheusServeAddr        string
 	ToFQDNsMinTTL              int
@@ -2894,6 +2898,7 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
 	c.MTU = viper.GetInt(MTUName)
 	c.PProf = viper.GetBool(PProf)
+	c.PProfAddress = viper.GetString(PProfAddress)
 	c.PProfPort = viper.GetInt(PProfPort)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
@@ -2939,7 +2944,6 @@ func (c *DaemonConfig) Populate() {
 	c.BGPConfigPath = viper.GetString(BGPConfigPath)
 	c.ExternalClusterIP = viper.GetBool(ExternalClusterIPName)
 	c.TCFilterPriority = viper.GetInt(TCFilterPriority)
-
 	c.EnableIPv4Masquerade = viper.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = viper.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
