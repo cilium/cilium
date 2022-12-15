@@ -26,7 +26,7 @@ var bpfBandwidthListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf bandwidth list")
 
 		bpfBandwidthList := make(map[string][]string)
-		if err := bwmap.ThrottleMap.Dump(bpfBandwidthList); err != nil {
+		if err := bwmap.ThrottleMap().Dump(bpfBandwidthList); err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 			os.Exit(1)
 		}

@@ -5,11 +5,13 @@ package bwmap
 
 import (
 	"fmt"
+	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -46,29 +48,41 @@ func (v *EdtInfo) DeepCopyMapValue() bpf.MapValue {
 	return &EdtInfo{v.Bps, v.TimeLast, v.TimeHorizonDrop, v.Pad}
 }
 
-var ThrottleMap = bpf.NewMap(
-	MapName,
-	bpf.MapTypeHash,
-	&EdtId{}, int(unsafe.Sizeof(EdtId{})),
-	&EdtInfo{}, int(unsafe.Sizeof(EdtInfo{})),
-	MapSize,
-	bpf.BPF_F_NO_PREALLOC, 0,
-	bpf.ConvertKeyValue,
-).WithCache().WithPressureMetric()
+var (
+	throttleMap     *bpf.Map
+	throttleMapInit = &sync.Once{}
+)
+
+func ThrottleMap() *bpf.Map {
+	throttleMapInit.Do(func() {
+		throttleMap = bpf.NewMap(
+			MapName,
+			bpf.MapTypeHash,
+			&EdtId{}, int(unsafe.Sizeof(EdtId{})),
+			&EdtInfo{}, int(unsafe.Sizeof(EdtInfo{})),
+			MapSize,
+			bpf.BPF_F_NO_PREALLOC, 0,
+			bpf.ConvertKeyValue,
+		).WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(MapName))
+	})
+
+	return throttleMap
+}
 
 func Update(Id uint16, Bps uint64) error {
-	return ThrottleMap.Update(
+	return ThrottleMap().Update(
 		&EdtId{Id: uint64(Id)},
 		&EdtInfo{Bps: Bps, TimeHorizonDrop: uint64(DefaultDropHorizon)})
 }
 
 func Delete(Id uint16) error {
-	return ThrottleMap.Delete(
+	return ThrottleMap().Delete(
 		&EdtId{Id: uint64(Id)})
 }
 
 func SilentDelete(Id uint16) error {
-	_, err := ThrottleMap.SilentDelete(
+	_, err := ThrottleMap().SilentDelete(
 		&EdtId{Id: uint64(Id)})
 
 	return err
