@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.10.18
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Clear stale CNP status nodes if updates have been disabled (Backport PR #22582, Upstream PR #20366, @pippolo84)
+* Fail validate-cnp preflight check if a CiliumClusterwideNetworkPolicy is using an empty toEndpoints/fromEndpoints selector (Backport PR #22582, Upstream PR #21990, @thorn3r)
+* Fix bug that could lead to inconsistent pod IP information between agents, sometimes leading to a failure to decrypt IPsec traffic. (Backport PR #22310, Upstream PR #22127, @aanm)
+* Fix bug where configuring the API rate limiter options could fail when providing multiple options (Backport PR #22753, Upstream PR #22299, @thorn3r)
+* Fix forwarding of the security identity by the DNS proxy which could cause random policy denials (Backport PR #22454, Upstream PR #22361, @aspsk)
+* Fix GC of CEPs that were not GCed by kube-apiserver (Backport PR #22310, Upstream PR #22213, @aanm)
+
+**CI Changes:**
+* .github: Explicitly set build-commits job runner image version and install libtinfo5 (Backport PR #22330, Upstream PR #22315, @chancez)
+* .github: fix bpf-checks on ubuntu-latest runner (Backport PR #22330, Upstream PR #22322, @julianwiedmann)
+
+**Misc Changes:**
+* .github/workflows: split the image tag update in two steps (Backport PR #22262, Upstream PR #22268, @aanm)
+* .github/workflows: use right event type for auto labeler (Backport PR #22582, Upstream PR #22508, @aanm)
+* .github: add PR labeler for external contributions (Backport PR #22582, Upstream PR #22461, @aanm)
+* Add automatic creation of Cilium base images (Backport PR #22262, Upstream PR #22179, @aanm)
+* bpf: Remove FIB lookup for IPsec (Backport PR #22310, Upstream PR #22069, @pchaigno)
+* build(deps): bump actions/setup-go from 3.3.1 to 3.4.0 (#22484, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.4.0 to 3.5.0 (#22710, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.0 to 3.1.1 (#22272, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.32 to 2.1.35 (#22496, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.35 to 2.1.36 (#22634, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.36 to 2.1.37 (#22759, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.4.0 to 1.5.0 (#22709, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.0 to 1.6.1 (#22593, @dependabot[bot])
+* chore(deps): update base-images (v1.10) (#22148, @renovate[bot])
+* daemon/cmd: Fix error handling for getting proxy port (Backport PR #22582, Upstream PR #22296, @christarazi)
+* docs: add instructions to build the base images from external forks (Backport PR #22582, Upstream PR #22304, @aanm)
+* docs: Fix `kubectl create` output in docs after some deployments have moved from K8s "extensions" to "apps". (Backport PR #22582, Upstream PR #22002, @cleverhu)
+* gha: Pin ubuntu-20.04 for conformance-test-ipv6 (Backport PR #22330, Upstream PR #22324, @sayboras)
+* images: update cilium-{runtime,builder} (#22458, @aanm)
+* k8s: don't consider 4xx a successful interaction (Backport PR #22582, Upstream PR #22393, @bimmlerd)
+
+**Other Changes:**
+* .github/workflows: install promtool from binary release (#22343, @jrajahalme)
+* install: Update image digests for v1.10.17 (#22240, @michi-covalent)
+
 ## v1.10.17
 
 Summary of Changes
