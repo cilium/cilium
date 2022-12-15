@@ -17,6 +17,12 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
+	// PprofAddressAgent is the default value for pprof in the agent
+	PprofAddressAgent = "localhost"
+
+	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
+	PprofAddressAPIServer = "localhost"
+
 	// PprofPortAgent is the default value for pprof in the agent
 	PprofPortAgent = 6060
 
