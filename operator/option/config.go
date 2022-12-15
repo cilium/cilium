@@ -109,10 +109,13 @@ const (
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
 	// PProf enabled pprof debugging endpoint
-	PProf = "pprof"
+	PProf = "operator-pprof"
+
+	// PProfAddress is the port that the pprof listens on
+	PProfAddress = "operator-pprof-address"
 
 	// PProfPort is the port that the pprof listens on
-	PProfPort = "pprof-port"
+	PProfPort = "operator-pprof-port"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -375,6 +378,9 @@ type OperatorConfig struct {
 	// PProf enables pprof debugging endpoint
 	PProf bool
 
+	// PProfAddress is the address that the pprof listens on
+	PProfAddress string
+
 	// PProfPort is the port that the pprof listens on
 	PProfPort int
 
@@ -607,6 +613,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.PProf = vp.GetBool(PProf)
+	c.PProfAddress = vp.GetString(PProfAddress)
 	c.PProfPort = vp.GetInt(PProfPort)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)

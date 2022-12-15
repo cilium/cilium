@@ -347,7 +347,8 @@ Removed Options
   :ref:`kubeproxy-free` for more info.
 * The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
   by the ``CiliumEgressGatewayPolicy`` CRD.
-
+* The ``pprof``, ``pprof-port`` flags for cilium-operator have been renamed
+  to ``operator-pprof`` and ``operator-pprof-port`` respectively.
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -387,13 +388,17 @@ Removed Metrics/Labels
 Helm Options
 ~~~~~~~~~~~~
 
-* The way Linux capabilities are configured has been revamped in this release. 
+* The way Linux capabilities are configured has been revamped in this release.
   All capabilities of every container in the ``cilium-agent`` DaemonSet is
   configured from Helm's values, defaulting to the old behavior. If you have not
   been using ``securityContext.extraCapabilities`` you do not need to do anything.
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
   ``securityContext.capabilities.cilium_agent``.
-* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
+* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default)
+* The top-level ``pprof`` section now only configures pprof for cilium agent.
+  The cilium-operator pprof configuration is now managed via the ``operator.pprof`` section.
+  Additionally, a``hubble.relay.pprof`` section has been added.
+* All pprof configuration now support configuring the pprof listen address, defaulting to localhost.
 
 CRD Changes
 ~~~~~~~~~~~

@@ -921,6 +921,18 @@
      - Labels to be added to hubble-relay pods
      - object
      - ``{}``
+   * - hubble.relay.pprof.address
+     - Configure pprof listen address for hubble-relay
+     - string
+     - ``"localhost"``
+   * - hubble.relay.pprof.enabled
+     - Enable pprof for hubble-relay
+     - bool
+     - ``false``
+   * - hubble.relay.pprof.port
+     - Configure pprof listen port for hubble-relay
+     - int
+     - ``6062``
    * - hubble.relay.priorityClassName
      - The priority class to use for hubble-relay
      - string
@@ -1605,6 +1617,18 @@
      - Labels to be added to cilium-operator pods
      - object
      - ``{}``
+   * - operator.pprof.address
+     - Configure pprof listen address for cilium-operator
+     - string
+     - ``"localhost"``
+   * - operator.pprof.enabled
+     - Enable pprof for cilium-operator
+     - bool
+     - ``false``
+   * - operator.pprof.port
+     - Configure pprof listen port for cilium-operator
+     - int
+     - ``6061``
    * - operator.priorityClassName
      - The priority class to use for cilium-operator
      - string
@@ -1705,10 +1729,18 @@
      - The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
      - string
      - ``"default"``
+   * - pprof.address
+     - Configure pprof listen address for cilium-agent
+     - string
+     - ``"localhost"``
    * - pprof.enabled
-     - Enable Go pprof debugging
+     - Enable pprof for cilium-agent
      - bool
      - ``false``
+   * - pprof.port
+     - Configure pprof listen port for cilium-agent
+     - int
+     - ``6060``
    * - preflight.affinity
      - Affinity for cilium-preflight
      - object
