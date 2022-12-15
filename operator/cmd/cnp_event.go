@@ -5,10 +5,10 @@ package cmd
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -37,7 +37,7 @@ func init() {
 
 // enableCNPWatcher waits for the CiliumNetworkPolicy CRD availability and then
 // garbage collects stale CiliumNetworkPolicy status field entries.
-func enableCNPWatcher(clientset k8sClient.Clientset) error {
+func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
 		log.Info("Starting CNP Status handover from kvstore to k8s")
@@ -122,9 +122,17 @@ func enableCNPWatcher(clientset k8sClient.Clientset) error {
 		k8s.ConvertToCNP,
 		cnpStore,
 	)
-	go ciliumV2Controller.Run(wait.NeverStop)
 
-	controller.NewManager().UpdateController("cnp-to-groups",
+	mgr := controller.NewManager()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ciliumV2Controller.Run(ctx.Done())
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController("cnp-to-groups",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)

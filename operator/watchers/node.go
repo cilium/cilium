@@ -58,7 +58,7 @@ func (nodeGetter) GetK8sSlimNode(nodeName string) (*slim_corev1.Node, error) {
 }
 
 // nodesInit starts up a node watcher to handle node events.
-func nodesInit(slimClient slimclientset.Interface, stopCh <-chan struct{}) {
+func nodesInit(wg *sync.WaitGroup, slimClient slimclientset.Interface, stopCh <-chan struct{}) {
 	nodeSyncOnce.Do(func() {
 		slimNodeStore, nodeController = informer.NewInformer(
 			utils.ListerWatcherFromTyped[*slim_corev1.NodeList](slimClient.CoreV1().Nodes()),
@@ -76,7 +76,12 @@ func nodesInit(slimClient slimclientset.Interface, stopCh <-chan struct{}) {
 			},
 			convertToNode,
 		)
-		go nodeController.Run(stopCh)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer nodeQueue.ShutDown()
+			nodeController.Run(stopCh)
+		}()
 
 		cache.WaitForCacheSync(stopCh, nodeController.HasSynced)
 		close(slimNodeStoreSynced)
