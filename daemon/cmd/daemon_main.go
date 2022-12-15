@@ -750,10 +750,13 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(Vp, option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
+	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
 	option.BindEnv(Vp, option.PProf)
 
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that the pprof listens on")
+	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
+	option.BindEnv(Vp, option.PProfAddress)
+
+	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
 	option.BindEnv(Vp, option.PProfPort)
 
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
@@ -1201,7 +1204,7 @@ func initEnv() {
 	}
 
 	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfPort)
+		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
 	}
 
 	if option.Config.PreAllocateMaps {

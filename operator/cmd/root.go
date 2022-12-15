@@ -262,7 +262,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	}
 
 	if operatorOption.Config.PProf {
-		pprof.Enable(operatorOption.Config.PProfPort)
+		pprof.Enable(operatorOption.Config.PProfAddress, operatorOption.Config.PProfPort)
 	}
 
 	if clientset.IsEnabled() {
