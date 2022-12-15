@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -107,7 +108,7 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 }
 
 // ciliumPodsWatcher starts up a pod watcher to handle pod events.
-func ciliumPodsWatcher(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
+func ciliumPodsWatcher(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	ciliumQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cilium-pod-queue")
 
 	ciliumPodInformer := informer.NewInformerWithStore(
@@ -136,7 +137,9 @@ func ciliumPodsWatcher(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 
 	nodeGetter := &nodeGetter{}
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		// Do not use the k8sClient provided by the nodesInit function since we
 		// need a k8s client that can update node structures and not simply
 		// watch for node events.
@@ -144,7 +147,13 @@ func ciliumPodsWatcher(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 		}
 	}()
 
-	go ciliumPodInformer.Run(stopCh)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer ciliumQueue.ShutDown()
+
+		ciliumPodInformer.Run(stopCh)
+	}()
 }
 
 func processNextCiliumPodItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.RateLimitingInterface) bool {
@@ -404,14 +413,16 @@ func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string
 }
 
 // HandleNodeTolerationAndTaints remove node
-func HandleNodeTolerationAndTaints(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
+func HandleNodeTolerationAndTaints(wg *sync.WaitGroup, clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 	mno = markNodeOptions{
 		RemoveNodeTaint:        option.Config.RemoveCiliumNodeTaints,
 		SetCiliumIsUpCondition: option.Config.SetCiliumIsUpCondition,
 	}
-	nodesInit(clientset.Slim(), stopCh)
+	nodesInit(wg, clientset.Slim(), stopCh)
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		// Do not use the k8sClient provided by the nodesInit function since we
 		// need a k8s client that can update node structures and not simply
 		// watch for node events.
@@ -419,5 +430,5 @@ func HandleNodeTolerationAndTaints(clientset k8sClient.Clientset, stopCh <-chan 
 		}
 	}()
 
-	ciliumPodsWatcher(clientset, stopCh)
+	ciliumPodsWatcher(wg, clientset, stopCh)
 }

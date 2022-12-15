@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,6 +36,9 @@ func TestPodCIDRAllocatorOverlap(t *testing.T) {
 }
 
 func podCIDRAllocatorOverlapTestRun(t *testing.T) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -87,7 +91,7 @@ func podCIDRAllocatorOverlapTestRun(t *testing.T) {
 
 	// start synchronization.
 	cns := newCiliumNodeSynchronizer(fakeSet, podCidrManager, false)
-	if err := cns.Start(ctx); err != nil {
+	if err := cns.Start(ctx, &wg); err != nil {
 		t.Fatal(err)
 	}
 

@@ -18,6 +18,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -625,7 +626,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synchronizeIdentities(clientset)
 		synchronizeNodes(clientset)
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(context.Background(), clientset, services, false, cfg)
+		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, clientset, services, false, cfg)
 	}
 
 	go func() {
