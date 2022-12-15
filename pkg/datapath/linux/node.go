@@ -111,7 +111,7 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 			"allocCIDR":      newCIDR,
 		}).Debug("Updating tunnel map entry")
 
-		if err := tunnel.TunnelMap.SetTunnelEndpoint(newEncryptKey, newCIDR.IP, newIP); err != nil {
+		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.IP, newIP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
@@ -168,13 +168,13 @@ func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
 	}).Debug("Deleting tunnel map entry")
 
 	if !quietMode {
-		if err := tunnel.TunnelMap.DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
+		if err := tunnel.TunnelMap().DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": oldCIDR,
 			}).Error("Unable to delete in tunnel endpoint map")
 		}
 	} else {
-		_ = tunnel.TunnelMap.SilentDeleteTunnelEndpoint(oldCIDR.IP)
+		_ = tunnel.TunnelMap().SilentDeleteTunnelEndpoint(oldCIDR.IP)
 
 	}
 }
