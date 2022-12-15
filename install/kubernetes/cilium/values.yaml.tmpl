@@ -1113,6 +1113,14 @@ hubble:
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
         metricRelabelings: ~
 
+    pprof:
+      # -- Enable pprof for hubble-relay
+      enabled: false
+      # -- Configure pprof listen address for hubble-relay
+      address: localhost
+      # -- Configure pprof listen port for hubble-relay
+      port: 6062
+
   ui:
     # -- Whether to enable the Hubble UI.
     enabled: false
@@ -1555,8 +1563,12 @@ nodePort:
 policyEnforcementMode: "default"
 
 pprof:
-  # -- Enable Go pprof debugging
+  # -- Enable pprof for cilium-agent
   enabled: false
+  # -- Configure pprof listen address for cilium-agent
+  address: localhost
+  # -- Configure pprof listen port for cilium-agent
+  port: 6060
 
 # -- Configure prometheus metrics on the configured port at /metrics
 prometheus:
@@ -1908,6 +1920,14 @@ operator:
 
   # -- Timeout for identity heartbeats.
   identityHeartbeatTimeout: "30m0s"
+
+  pprof:
+    # -- Enable pprof for cilium-operator
+    enabled: false
+    # -- Configure pprof listen address for cilium-operator
+    address: localhost
+    # -- Configure pprof listen port for cilium-operator
+    port: 6061
 
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
