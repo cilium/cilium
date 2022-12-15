@@ -26,7 +26,7 @@ var bpfTunnelListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf tunnel list")
 
 		tunnelList := make(map[string][]string)
-		if err := tunnel.TunnelMap.Dump(tunnelList); err != nil {
+		if err := tunnel.TunnelMap().Dump(tunnelList); err != nil {
 			os.Exit(1)
 		}
 

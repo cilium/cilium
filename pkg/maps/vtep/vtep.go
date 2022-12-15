@@ -6,6 +6,7 @@ package vtep
 import (
 	"fmt"
 	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
@@ -105,8 +106,16 @@ func NewMap(name string) *Map {
 
 var (
 	// VtepMAP is a mapping of all VTEP endpoint MAC, IPs
-	VtepMAP = NewMap(Name)
+	vtepMAP     *Map
+	vtepMapInit = &sync.Once{}
 )
+
+func VtepMap() *Map {
+	vtepMapInit.Do(func() {
+		vtepMAP = NewMap(Name)
+	})
+	return vtepMAP
+}
 
 // Function to update vtep map with VTEP CIDR
 func UpdateVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac.MAC) error {
@@ -130,5 +139,5 @@ func UpdateVTEPMapping(newCIDR *cidr.CIDR, newTunnelEndpoint net.IP, vtepMAC mac
 		logfields.Endpoint: newTunnelEndpoint,
 	}).Debug("Updating vtep map entry")
 
-	return VtepMAP.Update(&key, &value)
+	return VtepMap().Update(&key, &value)
 }
