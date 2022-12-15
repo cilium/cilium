@@ -4,13 +4,13 @@
 package watchers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
@@ -51,10 +51,10 @@ var (
 )
 
 // CiliumEndpointsSliceInit starts a CiliumEndpointWatcher and caches cesController locally.
-func CiliumEndpointsSliceInit(clientset k8sClient.Clientset,
+func CiliumEndpointsSliceInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset,
 	cbController *ces.CiliumEndpointSliceController) {
 	cesController = cbController
-	CiliumEndpointsInit(clientset, wait.NeverStop)
+	CiliumEndpointsInit(ctx, wg, clientset)
 }
 
 // identityIndexFunc index identities by ID.
@@ -71,7 +71,7 @@ func identityIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // CiliumEndpointsInit starts a CiliumEndpointWatcher
-func CiliumEndpointsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
+func CiliumEndpointsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	once.Do(func() {
 		CiliumEndpointStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
@@ -111,9 +111,14 @@ func CiliumEndpointsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) 
 			convertToCiliumEndpoint,
 			CiliumEndpointStore,
 		)
-		go ciliumEndpointInformer.Run(stopCh)
 
-		cache.WaitForCacheSync(stopCh, ciliumEndpointInformer.HasSynced)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ciliumEndpointInformer.Run(ctx.Done())
+		}()
+
+		cache.WaitForCacheSync(ctx.Done(), ciliumEndpointInformer.HasSynced)
 		close(CiliumEndpointsSynced)
 	})
 }

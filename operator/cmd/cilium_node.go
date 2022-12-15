@@ -69,7 +69,7 @@ func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager alloca
 	}
 }
 
-func (s *ciliumNodeSynchronizer) Start(ctx context.Context) error {
+func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) error {
 	var (
 		ciliumNodeKVStore      *store.SharedStore
 		err                    error
@@ -90,7 +90,10 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context) error {
 		// the operator without relying on the KVStore to be up.
 		// Start a go routine to GC all CiliumNodes from the KVStore that are
 		// no longer running.
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			log.Info("Starting to synchronize CiliumNode custom resources to KVStore")
 
 			ciliumNodeKVStore, err = store.JoinSharedStore(store.Configuration{
@@ -235,7 +238,10 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context) error {
 		ciliumNodeConvertFunc,
 	)
 
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
+
 		cache.WaitForCacheSync(ctx.Done(), ciliumNodeInformer.HasSynced)
 		close(s.k8sCiliumNodesCacheSynced)
 		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey{})
@@ -265,7 +271,14 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context) error {
 		}
 	}()
 
-	go ciliumNodeInformer.Run(ctx.Done())
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer kvStoreQueue.ShutDown()
+		defer ciliumNodeManagerQueue.ShutDown()
+
+		ciliumNodeInformer.Run(ctx.Done())
+	}()
 
 	return nil
 }
@@ -365,28 +378,43 @@ func (c *ciliumNodeUpdateImplementation) Update(origNode, node *cilium_v2.Cilium
 	return nil, nil
 }
 
-func RunCNPNodeStatusGC(clientset k8sClient.Clientset, nodeStore cache.Store) {
-	go runCNPNodeStatusGC("cnp-node-gc", false, clientset, nodeStore)
-	go runCNPNodeStatusGC("ccnp-node-gc", true, clientset, nodeStore)
+func RunCNPNodeStatusGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, nodeStore cache.Store) {
+	runCNPNodeStatusGC("cnp-node-gc", false, ctx, wg, clientset, nodeStore)
+	runCNPNodeStatusGC("ccnp-node-gc", true, ctx, wg, clientset, nodeStore)
 }
 
 // runCNPNodeStatusGC runs the node status garbage collector for cilium network
 // policies. The policy corresponds to CiliumClusterwideNetworkPolicy if the clusterwide
 // parameter is true and CiliumNetworkPolicy otherwise.
-func runCNPNodeStatusGC(name string, clusterwide bool, clientset k8sClient.Clientset, nodeStore cache.Store) {
+func runCNPNodeStatusGC(name string, clusterwide bool, ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, nodeStore cache.Store) {
 	parallelRequests := 4
 	removeNodeFromCNP := make(chan func(), 50)
+	wg.Add(parallelRequests)
 	for i := 0; i < parallelRequests; i++ {
 		go func() {
+			defer wg.Done()
 			for f := range removeNodeFromCNP {
 				f()
 			}
 		}()
 	}
 
-	controller.NewManager().UpdateController(name,
+	mgr := controller.NewManager()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController(name,
 		controller.ControllerParams{
 			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
+			StopFunc: func(context.Context) error {
+				close(removeNodeFromCNP)
+				return nil
+			},
 			DoFunc: func(ctx context.Context) error {
 				lastRun := v1.NewTime(v1.Now().Add(-operatorOption.Config.CNPNodeStatusGCInterval))
 				continueID := ""
@@ -466,6 +494,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, clientset k8sClient.Clien
 
 				return nil
 			},
+			Context: ctx,
 		})
 }
 

@@ -5,9 +5,9 @@ package cmd
 
 import (
 	"context"
+	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -32,7 +32,7 @@ func k8sEventMetric(scope, action string) {
 // clusterwide policies. Since, internally Clusterwide policies are implemented
 // using CiliumNetworkPolicy itself, the entire implementation uses the methods
 // associcated with CiliumNetworkPolicy.
-func enableCCNPWatcher(clientset k8sClient.Clientset) error {
+func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
 		log.Info("Starting a CCNP Status handover from kvstore to k8s")
@@ -117,9 +117,16 @@ func enableCCNPWatcher(clientset k8sClient.Clientset) error {
 		k8s.ConvertToCCNP,
 		ccnpStore,
 	)
-	go ciliumV2Controller.Run(wait.NeverStop)
+	mgr := controller.NewManager()
 
-	controller.NewManager().UpdateController("ccnp-to-groups",
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ciliumV2Controller.Run(ctx.Done())
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController("ccnp-to-groups",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)

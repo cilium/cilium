@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -391,10 +392,16 @@ type legacyOnLeader struct {
 	cancel    context.CancelFunc
 	clientset k8sClient.Clientset
 	resources SharedResources
+
+	wg sync.WaitGroup
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 	legacy.cancel()
+
+	// Wait for background goroutines to finish.
+	legacy.wg.Wait()
+
 	return nil
 }
 
@@ -407,16 +414,22 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	if legacy.clientset.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {
 		log.Info("Create and run CES controller, start CEP watcher")
 		// Initialize  the CES controller
-		cesController := ces.NewCESController(legacy.clientset,
+		cesController := ces.NewCESController(
+			legacy.ctx,
+			&legacy.wg,
+			legacy.clientset,
 			operatorOption.Config.CESMaxCEPsInCES,
 			operatorOption.Config.CESSlicingMode,
 			float64(legacy.clientset.Config().K8sClientQPS),
 			legacy.clientset.Config().K8sClientBurst)
-		stopCh := make(chan struct{})
 		// Start CEP watcher
-		operatorWatchers.CiliumEndpointsSliceInit(legacy.clientset, cesController)
+		operatorWatchers.CiliumEndpointsSliceInit(legacy.ctx, &legacy.wg, legacy.clientset, cesController)
 		// Start the CES controller, after current CEPs are synced locally in cache.
-		go cesController.Run(operatorWatchers.CiliumEndpointStore, stopCh)
+		legacy.wg.Add(1)
+		go func() {
+			defer legacy.wg.Done()
+			cesController.Run(operatorWatchers.CiliumEndpointStore, legacy.ctx.Done())
+		}()
 	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
@@ -429,7 +442,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	} else if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		go enableUnmanagedKubeDNSController(legacy.clientset)
+		legacy.wg.Add(1)
+		go func() {
+			defer legacy.wg.Done()
+			enableUnmanagedKubeDNSController(legacy.ctx, &legacy.wg, legacy.clientset)
+		}()
 	}
 
 	var (
@@ -472,7 +489,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		})
 
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(legacy.ctx, legacy.clientset, legacy.resources.Services, true, option.Config)
+			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.Services, true, option.Config)
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
@@ -545,8 +562,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if legacy.clientset.IsEnabled() &&
 		(operatorOption.Config.RemoveCiliumNodeTaints || operatorOption.Config.SetCiliumIsUpCondition) {
-		stopCh := make(chan struct{})
-
 		log.WithFields(logrus.Fields{
 			logfields.K8sNamespace:       operatorOption.Config.CiliumK8sNamespace,
 			"label-selector":             operatorOption.Config.CiliumPodLabels,
@@ -554,13 +569,13 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			"set-cilium-is-up-condition": operatorOption.Config.SetCiliumIsUpCondition,
 		}).Info("Removing Cilium Node Taints or Setting Cilium Is Up Condition for Kubernetes Nodes")
 
-		operatorWatchers.HandleNodeTolerationAndTaints(legacy.clientset, stopCh)
+		operatorWatchers.HandleNodeTolerationAndTaints(&legacy.wg, legacy.clientset, legacy.ctx.Done())
 	}
 
 	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
 
 	if legacy.clientset.IsEnabled() {
-		if err := ciliumNodeSynchronizer.Start(legacy.ctx); err != nil {
+		if err := ciliumNodeSynchronizer.Start(legacy.ctx, &legacy.wg); err != nil {
 			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
@@ -582,11 +597,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		}
 
 		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-			RunCNPNodeStatusGC(legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore)
+			RunCNPNodeStatusGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore)
 		}
 
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
 		}
 	}
 
@@ -612,6 +627,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			operatorOption.Config.IdentityGCRateInterval,
 			operatorOption.Config.IdentityGCRateLimit,
 		)
+		legacy.wg.Add(1)
+		go func() {
+			defer legacy.wg.Done()
+			<-legacy.ctx.Done()
+			identityRateLimiter.Stop()
+		}()
 	}
 
 	switch option.Config.IdentityAllocationMode {
@@ -620,10 +641,10 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
 
-		startManagingK8sIdentities(legacy.clientset)
+		startManagingK8sIdentities(legacy.ctx, &legacy.wg, legacy.clientset)
 
 		if operatorOption.Config.IdentityGCInterval != 0 {
-			go startCRDIdentityGC(legacy.clientset)
+			go startCRDIdentityGC(legacy.ctx, &legacy.wg, legacy.clientset)
 		}
 	case option.IdentityAllocationModeKVstore:
 		if operatorOption.Config.IdentityGCInterval != 0 {
@@ -633,21 +654,21 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if legacy.clientset.IsEnabled() {
 		if operatorOption.Config.EndpointGCInterval != 0 {
-			enableCiliumEndpointSyncGC(legacy.clientset, ciliumNodeSynchronizer, false)
+			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
 		} else {
 			// Even if the EndpointGC is disabled we still want it to run at least
 			// once. This is to prevent leftover CEPs from populating ipcache with
 			// stale entries.
-			enableCiliumEndpointSyncGC(legacy.clientset, ciliumNodeSynchronizer, true)
+			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
 		}
 
-		err = enableCNPWatcher(legacy.clientset)
+		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")
 		}
 
-		err = enableCCNPWatcher(legacy.clientset)
+		err = enableCCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CCNPWatcher").Fatal(
 				"Cannot connect to Kubernetes apiserver ")

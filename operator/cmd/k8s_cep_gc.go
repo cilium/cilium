@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -32,13 +33,13 @@ import (
 //     delete CEP if the corresponding pod does not exist
 //
 // CiliumEndpoint objects have the same name as the pod they represent
-func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool) {
+func enableCiliumEndpointSyncGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool) {
 	var (
 		controllerName = "to-k8s-ciliumendpoint-gc"
 		scopedLog      = log.WithField("controller", controllerName)
 		gcInterval     time.Duration
-		stopCh         = make(chan struct{})
 	)
+	ctx, cancel := context.WithCancel(ctx)
 
 	if once {
 		log.Info("Running the garbage collector only once to clean up leftover CiliumEndpoint custom resources")
@@ -49,26 +50,35 @@ func enableCiliumEndpointSyncGC(clientset k8sClient.Clientset, cns *ciliumNodeSy
 	}
 
 	// This functions will block until the resources are synced with k8s.
-	watchers.CiliumEndpointsInit(clientset, stopCh)
+	watchers.CiliumEndpointsInit(ctx, wg, clientset)
 	if !once {
 		// If we are running this function "once" it means that we
 		// will delete all CEPs in the cluster regardless of the pod
 		// state.
-		watchers.PodsInit(clientset, stopCh)
+		watchers.PodsInit(ctx, wg, clientset)
 	}
 	<-cns.k8sCiliumNodesCacheSynced
 
 	// this dummy manager is needed only to add this controller to the global list
-	controller.NewManager().UpdateController(controllerName,
+	mgr := controller.NewManager()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
-				return doCiliumEndpointSyncGC(ctx, clientset, cns, once, stopCh, scopedLog)
+				return doCiliumEndpointSyncGC(ctx, clientset, cns, once, cancel, scopedLog)
 			},
 		})
 }
 
-func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
+func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, cns *ciliumNodeSynchronizer, once bool, cancel context.CancelFunc, scopedLog *logrus.Entry) error {
 	ciliumClient := clientset.CiliumV2()
 	// For each CEP we fetched, check if we know about it
 	for _, cepObj := range watchers.CiliumEndpointStore.List() {
@@ -173,7 +183,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, 
 	// We have cleaned up all CEPs from Kubernetes so we can stop
 	// the k8s watchers.
 	if once {
-		close(stopCh)
+		cancel()
 	}
 	return nil
 }
