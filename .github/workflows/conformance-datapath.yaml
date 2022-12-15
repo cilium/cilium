@@ -225,8 +225,8 @@ jobs:
             kind delete cluster
 
       - name: Run encryption tests
-        if: ${{ matrix.encryption }} != 'disabled'
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        if: ${{ matrix.encryption != 'disabled' }}
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           provision: 'false'
           cmd: |
