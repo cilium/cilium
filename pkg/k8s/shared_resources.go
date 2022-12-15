@@ -46,19 +46,21 @@ var (
 			endpointsResource,
 			podsResource,
 			lrpResource,
+			cecResource,
 		),
 	)
 )
 
 type SharedResources struct {
 	cell.In
-	LocalNode        resource.Resource[*corev1.Node]
-	Services         resource.Resource[*slim_corev1.Service]
-	Namespaces       resource.Resource[*slim_corev1.Namespace]
-	Pods             resource.Resource[*slim_corev1.Pod]
-	Endpoints        resource.Resource[*Endpoints]
-	LBIPPools        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	RedirectPolicies resource.Resource[*cilium_v2.CiliumLocalRedirectPolicy]
+	LocalNode          resource.Resource[*corev1.Node]
+	Services           resource.Resource[*slim_corev1.Service]
+	Namespaces         resource.Resource[*slim_corev1.Namespace]
+	Pods               resource.Resource[*slim_corev1.Pod]
+	Endpoints          resource.Resource[*Endpoints]
+	LBIPPools          resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	RedirectPolicies   resource.Resource[*cilium_v2.CiliumLocalRedirectPolicy]
+	CiliumEnvoyConfigs resource.Resource[*cilium_v2.CiliumEnvoyConfig]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -194,4 +196,12 @@ func lrpResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cil
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_v2.CiliumLocalRedirectPolicyList](cs.CiliumV2().CiliumLocalRedirectPolicies(""))
 	return resource.New[*cilium_v2.CiliumLocalRedirectPolicy](lc, lw), nil
+}
+
+func cecResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_v2.CiliumEnvoyConfig], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_v2.CiliumEnvoyConfigList](cs.CiliumV2().CiliumEnvoyConfigs(""))
+	return resource.New[*cilium_v2.CiliumEnvoyConfig](lc, lw), nil
 }

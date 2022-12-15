@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/datapath/lb"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -36,6 +37,8 @@ func main() {
 		servicemanager.APIHandlersCell,
 
 		redirectpolicies.Cell,
+
+		envoy.Cell,
 
 		lb.Cell,
 

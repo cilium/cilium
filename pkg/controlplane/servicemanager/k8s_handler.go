@@ -42,7 +42,7 @@ type k8sHandlerParams struct {
 	Endpoints      resource.Resource[*k8s.Endpoints]
 }
 
-type serviceEntry struct {
+type k8sServiceEntry struct {
 	frontends []*Frontend
 	backends  map[string][]*Backend // keyed by endpoint slice name
 }
@@ -61,7 +61,7 @@ type k8sHandler struct {
 	// handle is the service manager handle for managing frontends and backends
 	handle ServiceHandle
 
-	entries map[serviceKey]*serviceEntry
+	entries map[serviceKey]*k8sServiceEntry
 }
 
 // UGH
@@ -78,7 +78,7 @@ func newK8sHandler(log logrus.FieldLogger, lc hive.Lifecycle, p k8sHandlerParams
 	handler := &k8sHandler{
 		params:          p,
 		handle:          p.ServiceManager.NewHandle("k8s-handler"),
-		entries:         make(map[serviceKey]*serviceEntry),
+		entries:         make(map[serviceKey]*k8sServiceEntry),
 		serviceRefCount: make(counter.Counter[serviceKey]),
 	}
 
@@ -114,8 +114,6 @@ func (k *k8sHandler) processLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			drain(services)
-			drain(endpoints)
 			return
 
 		case ev := <-services:
@@ -165,17 +163,17 @@ func (k *k8sHandler) updateService(key resource.Key, svc *slim_corev1.Service) {
 	entry.frontends = frontends
 
 	k.params.Log.Debugf("Updated frontends: %#v", entry.frontends)
-	k.processEntry(entry)
+	k.processEntry(key, entry)
 }
 
 func (k *k8sHandler) deleteService(key resource.Key, k8sSvc *slim_corev1.Service) {
 	k.params.Log.Debugf("deleteService(%s) UNIMPLEMENTED", key)
 }
 
-func (k *k8sHandler) getEntry(key serviceKey) *serviceEntry {
+func (k *k8sHandler) getEntry(key serviceKey) *k8sServiceEntry {
 	entry := k.entries[key]
 	if entry == nil {
-		entry = &serviceEntry{
+		entry = &k8sServiceEntry{
 			backends: make(map[string][]*Backend),
 		}
 		k.entries[key] = entry
@@ -201,7 +199,7 @@ func (k *k8sHandler) updateEndpoints(key resource.Key, eps *k8s.Endpoints) {
 
 	entry.addBackends(eps)
 	k.params.Log.Infof("updateEndpoints(%s): added backends: %#v", key, entry.backends)
-	k.processEntry(entry)
+	k.processEntry(serviceKey, entry)
 }
 
 func (k *k8sHandler) deleteEndpoints(key resource.Key, eps *k8s.Endpoints) {
@@ -213,20 +211,24 @@ func (k *k8sHandler) deleteEndpoints(key resource.Key, eps *k8s.Endpoints) {
 	// TODO remove the backends and process the updated entry.
 }
 
-func (k *k8sHandler) processEntry(entry *serviceEntry) {
+func (k *k8sHandler) processEntry(key serviceKey, entry *k8sServiceEntry) {
 	if len(entry.frontends) == 0 {
 		// No frontends yet as we've not processed the event for the service
 		// that the endpoints are referencing.
 		return
 	}
-	backends := entry.allBackends()
+	id := ServiceName{
+		Scope:     loadbalancer.ScopeSVC,
+		Namespace: key.Namespace,
+		Name:      key.Name,
+	}
+	k.handle.UpsertBackends(id, entry.allBackends()...)
 	for _, fe := range entry.frontends {
-		k.params.Log.Debugf("updateDatapath: Upserting %s with %d backends", fe.Address, len(backends))
-		k.handle.Upsert(fe, backends)
+		k.handle.UpsertFrontend(id, fe)
 	}
 }
 
-func (e *serviceEntry) addBackends(eps *k8s.Endpoints) {
+func (e *k8sServiceEntry) addBackends(eps *k8s.Endpoints) {
 	newBackends := []*Backend{}
 
 	for addr, k8sBackend := range eps.Backends {
@@ -238,7 +240,7 @@ func (e *serviceEntry) addBackends(eps *k8s.Endpoints) {
 	e.backends[eps.EndpointSliceID.EndpointSliceName] = newBackends
 }
 
-func (e *serviceEntry) allBackends() []*Backend {
+func (e *k8sServiceEntry) allBackends() []*Backend {
 	return flatten(maps.Values(e.backends))
 }
 
@@ -374,7 +376,7 @@ func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
 
 func parseBaseFrontend(svc *slim_corev1.Service) (Frontend, error) {
 	base := Frontend{}
-	base.Name = loadbalancer.ServiceName{Name: svc.Name, Namespace: svc.Namespace}
+	base.Name = loadbalancer.ServiceName{Scope: loadbalancer.ScopeSVC, Name: svc.Name, Namespace: svc.Namespace}
 	base.Type = loadbalancer.SVCTypeNone
 
 	switch svc.Spec.ExternalTrafficPolicy {

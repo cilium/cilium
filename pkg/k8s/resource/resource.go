@@ -49,7 +49,7 @@ type Resource[T k8sRuntime.Object] interface {
 	// and the rate limiter can be provided with WithRateLimiter().
 	//
 	// If events are needed only for specific object or objects in specific namespace
-	// the option FilterByKey() can be used which takes the predicate func(Key) bool.
+	// the option WithFilter() can be used which takes the predicate func(Key, T) bool.
 	Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T]
 
 	// Store retrieves the read-only store for the resource. Blocks until
@@ -178,9 +178,12 @@ func (r *resource[T]) Tracker(ctx context.Context) ObjectTracker[T] {
 	return newObjectTracker[T](ctx, r)
 }
 
-func (r *resource[T]) pushUpdate(key Key) {
+func (r *resource[T]) pushUpdate(key Key, obj any) {
 	r.mu.RLock()
 	for _, queue := range r.queues {
+		if queue.filterFunc != nil && !queue.filterFunc(obj) {
+			continue
+		}
 		queue.AddUpsert(key)
 	}
 	r.mu.RUnlock()
@@ -194,6 +197,9 @@ func (r *resource[T]) pushDelete(lastState any) {
 	}
 	r.mu.RLock()
 	for _, queue := range r.queues {
+		if queue.filterFunc != nil && !queue.filterFunc(obj) {
+			continue
+		}
 		queue.AddDelete(key, obj)
 	}
 	r.mu.RUnlock()
@@ -230,8 +236,8 @@ func (r *resource[T]) startWhenNeeded() {
 	// Construct the informer and run it.
 	handlerFuncs :=
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj)) },
-			UpdateFunc: func(old any, new any) { r.pushUpdate(NewKey(new)) },
+			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj), obj) },
+			UpdateFunc: func(old any, new any) { r.pushUpdate(NewKey(new), new) },
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
@@ -274,10 +280,10 @@ func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
 }
 
 type eventsOpts struct {
-	rateLimiter   workqueue.RateLimiter
-	errorHandler  ErrorHandler
-	keyFilterFunc func(Key) bool
-	requeues      chan Key
+	rateLimiter  workqueue.RateLimiter
+	errorHandler ErrorHandler
+	filterFunc   func(any) bool
+	requeues     chan Key
 }
 
 type EventsOpt func(*eventsOpts)
@@ -297,9 +303,9 @@ func WithErrorHandler(h ErrorHandler) EventsOpt {
 	}
 }
 
-func FilterByKey(keep func(Key) bool) EventsOpt {
+func WithFilter[T any](keep func(T) bool) EventsOpt {
 	return func(o *eventsOpts) {
-		o.keyFilterFunc = keep
+		o.filterFunc = func(obj any) bool { return keep(obj.(T)) }
 	}
 }
 
@@ -347,7 +353,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	queue := &keyQueue{
 		RateLimitingInterface: workqueue.NewRateLimitingQueue(options.rateLimiter),
 		errorHandler:          options.errorHandler,
-		keyFilter:             options.keyFilterFunc,
+		filterFunc:            options.filterFunc,
 	}
 	r.mu.Lock()
 	subId := r.subId
@@ -404,12 +410,13 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 				debugInfo))
 		}
 
+	loop:
 		for {
 			// Retrieve an item from the subscribers queue and then fetch the object
 			// from the store.
 			raw, shutdown := queue.Get()
 			if shutdown {
-				break
+				break loop
 			}
 			entry := raw.(queueEntry)
 
@@ -427,12 +434,10 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			switch entry := entry.(type) {
 			case syncEntry:
 				event.Kind = Sync
-				out <- event
 			case deleteEntry:
 				event.Kind = Delete
 				event.Key = entry.key
 				event.Object = entry.obj.(T)
-				out <- event
 			case upsertEntry:
 				obj, exists, err := store.GetByKey(entry.key)
 				if err != nil {
@@ -445,10 +450,20 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 					event.Done(nil)
 					break
 				}
+
+				if options.filterFunc != nil && !options.filterFunc(obj) {
+					break
+				}
+
 				event.Kind = Upsert
 				event.Key = entry.key
 				event.Object = obj
-				out <- event
+			}
+			select {
+			case <-ctx.Done():
+				event.Done(nil)
+				break loop
+			case out <- event:
 			}
 		}
 		r.mu.Lock()
@@ -491,7 +506,7 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 type keyQueue struct {
 	workqueue.RateLimitingInterface
 	errorHandler ErrorHandler
-	keyFilter    func(Key) bool
+	filterFunc   func(any) bool
 }
 
 func (kq *keyQueue) AddSync() {
@@ -499,19 +514,12 @@ func (kq *keyQueue) AddSync() {
 }
 
 func (kq *keyQueue) AddUpsert(key Key) {
-	if kq.keyFilter != nil && !kq.keyFilter(key) {
-		return
-	}
-
 	// The entries must be added by value and not by pointer in order for
 	// them to be compared by value and not by pointer.
 	kq.Add(upsertEntry{key})
 }
 
 func (kq *keyQueue) AddDelete(key Key, obj any) {
-	if kq.keyFilter != nil && !kq.keyFilter(key) {
-		return
-	}
 	kq.Add(deleteEntry{key, obj})
 }
 

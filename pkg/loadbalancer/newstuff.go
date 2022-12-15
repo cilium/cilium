@@ -2,13 +2,6 @@ package loadbalancer
 
 import "github.com/cilium/cilium/pkg/cidr"
 
-// A service is fully identified by the frontend and its type.
-// NodePort services have a port, but no L3 address.
-type FrontendID struct {
-	Address L3n4Addr
-	Type    SVCType
-}
-
 // TODO: Where does Frontend and Backend types live?
 // pkg/loadbalancer might not be so bad as it's shared by all layers.
 // TODO: remove 'type SVC struct'.
@@ -20,12 +13,79 @@ type Frontend struct {
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16      // Service health check node port
-	Name                      ServiceName // Fully qualified service name
+	HealthCheckNodePort       uint16 // Service health check node port
+	Name                      ServiceName
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16   // Non-zero for L7 LB services
 	L7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
 	LoopbackHostport          bool
+}
+
+// Alternative:
+type FE interface {
+	isFE()
+
+	ServiceName() ServiceName
+}
+
+type CommonFE struct {
+	Name ServiceName
+}
+
+func (c CommonFE) ServiceName() ServiceName { return c.Name }
+func (CommonFE) isFE()                      {}
+
+type FENodePort struct {
+	CommonFE
+	/* has no address as it's assigned by datapath */
+
+	// TODO: which ones share these?
+	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
+	SessionAffinity           bool
+	SessionAffinityTimeoutSec uint32
+	HealthCheckNodePort       uint16 // Service health check node port
+}
+
+type FEClusterIP struct {
+	CommonFE
+
+	Address L3n4Addr
+}
+
+type FEL7Proxy struct {
+	CommonFE
+	ProxyPort uint16
+
+	// The frontends that are redirected to the proxy. Should be left empty as
+	// it is filled in by ServiceManager.
+	RedirectedFrontends []FE
+}
+
+// TODO: Scoped to svc/.../...?
+// TODO: The backends are selected by pod labels and are not the same set as the
+// backends for the service, so this is a weirdo with its own backends and
+// if selected all the other backends for this service are ignored.
+type FELocalRedirectService struct {
+	CommonFE
+
+	// The frontends that are redirected to the local pods. Should be left empty as
+	// it is filled in by ServiceManager.
+	RedirectedFrontends []FE
+
+	LocalBackends []*Backend
+}
+
+// TODO: Scoped to lrp/.../... ?
+type FELocalRedirectAddress struct {
+	CommonFE
+
+	// TODO: ServiceManager will need to determine who wins when frontend
+	// addresses overlap. E.g. need to first reconcile on service name the
+	// winning frontends, and then globally on address.
+	Address L3n4Addr
+
+	LocalBackends []*Backend
 }
 
 /*

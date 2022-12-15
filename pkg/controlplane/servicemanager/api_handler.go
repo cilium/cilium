@@ -4,6 +4,9 @@
 package servicemanager
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
@@ -77,7 +80,6 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	frontend := loadbalancer.L3n4AddrID{
 		L3n4Addr: *f,
-		ID:       loadbalancer.ID(params.Config.ID),
 	}
 	backends := []*loadbalancer.Backend{}
 	for _, v := range params.Config.BackendAddresses {
@@ -114,21 +116,33 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 
 	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
 
-	var svcName, svcNamespace string
+	idParts := strings.SplitN(params.ID, "/", 2)
+	if len(idParts) != 2 {
+		return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("Invalid id: %q, expected <namespace>/<name>", params.ID))
+	}
+	var name ServiceName
+	name.Scope = loadbalancer.ScopeAPI // TODO or user definable?
+	name.Namespace = idParts[0]
+	name.Name = idParts[1]
+
 	if params.Config.Flags != nil {
-		svcName = params.Config.Flags.Name
-		svcNamespace = params.Config.Flags.Namespace
+		ok := name.Namespace != params.Config.Flags.Namespace
+		ok = ok || name.Name != params.Config.Flags.Name
+		if !ok {
+			panic("TODO deal with name mismatch in params.Config.Flags")
+		}
 	}
 
 	fe := &Frontend{
-		Name:                loadbalancer.ServiceName{Name: svcName, Namespace: svcNamespace},
+		Name:                name,
 		Type:                svcType,
 		Address:             frontend.L3n4Addr,
 		TrafficPolicy:       svcTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
 		// ...
 	}
-	h.svc.Upsert(fe, backends)
+	h.svc.UpsertBackends(name, backends...)
+	h.svc.UpsertFrontend(name, fe)
 
 	/*
 
@@ -165,6 +179,7 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
 	panic("TBD")
+
 	/*
 		found, err := h.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
 		switch {
@@ -205,29 +220,33 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 func getServiceList(svc ServiceHandle) []*models.Service {
-	it := svc.Iter()
 	list := []*models.Service{}
-	for fe, bes, ok := it.Next(); ok; fe, bes, ok = it.Next() {
-		m := &models.Service{}
-		spec := &models.ServiceSpec{}
-		m.Spec = spec
-		spec.FrontendAddress = fe.Address.GetModel()
-		spec.BackendAddresses = make([]*models.BackendAddress, len(bes))
-		for i, be := range bes {
-			spec.BackendAddresses[i] = be.GetBackendModel()
-		}
-		spec.Flags = &models.ServiceSpecFlags{
-			Type:                string(fe.Type),
-			TrafficPolicy:       string(fe.TrafficPolicy),
-			NatPolicy:           string(fe.NatPolicy),
-			HealthCheckNodePort: fe.HealthCheckNodePort,
-			Name:                fe.Name.Name,
-			Namespace:           fe.Name.Namespace,
-		}
-		m.Status = &models.ServiceStatus{
-			Realized: spec,
-		}
-		list = append(list, m)
+	for ev := range svc.Events(nil, true, nil) {
+		beAddrs := []*models.BackendAddress{}
+		ev.ForEachBackend(func(be Backend) {
+			beAddrs = append(beAddrs, be.GetBackendModel())
+		})
+
+		ev.ForEachActiveFrontend(func(fe Frontend) {
+			m := &models.Service{}
+			spec := &models.ServiceSpec{}
+			m.Spec = spec
+			spec.ID = fe.Name.String()
+			spec.FrontendAddress = fe.Address.GetModel()
+			spec.BackendAddresses = beAddrs
+			spec.Flags = &models.ServiceSpecFlags{
+				Type:                string(fe.Type),
+				TrafficPolicy:       string(fe.TrafficPolicy),
+				NatPolicy:           string(fe.NatPolicy),
+				HealthCheckNodePort: fe.HealthCheckNodePort,
+				Name:                fe.Name.Name,
+				Namespace:           fe.Name.Namespace,
+			}
+			m.Status = &models.ServiceStatus{
+				Realized: spec,
+			}
+			list = append(list, m)
+		})
 		// TODO rest
 	}
 	return list

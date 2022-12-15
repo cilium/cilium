@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -63,17 +64,14 @@ const (
 
 // LRPConfig is the internal representation of Cilium Local Redirect Policy.
 type LRPConfig struct {
-	// id is the parsed config name and namespace
-	id k8s.ServiceID
+	// key is the key for the CiliumLocalRedirect object
+	key resource.Key
 	// uid is the unique identifier assigned by Kubernetes
 	uid types.UID
 	// lrpType is the type of either address matcher or service matcher policy
 	lrpType lrpConfigType
 	// frontendType is the type for the parsed config frontend.
 	frontendType frontendConfigType
-	// frontendMappings is a slice of policy config frontend mappings that include
-	// frontend address, frontend port name, and a slice of its associated backends
-	frontendMappings []*feMapping
 	// serviceID is the parsed service name and namespace
 	serviceID *resource.Key
 	// backendSelector is an endpoint selector generated from the parsed policy selector
@@ -83,6 +81,9 @@ type LRPConfig struct {
 	// backendPortsByPortName is a map indexed by port name with the value as
 	// a pointer to bePortInfo for easy lookup into backendPorts
 	backendPortsByPortName map[portName]*bePortInfo
+
+	frontend   loadbalancer.FE
+	podUntrack func()
 }
 
 type frontend = loadbalancer.L3n4Addr
@@ -144,29 +145,16 @@ type policyID = resource.Key
 // Parse parses the specified cilium local redirect policy spec, and returns
 // a sanitized LRPConfig.
 func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LRPConfig, error) {
-	name := clrp.ObjectMeta.Name
-	if name == "" {
-		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
-	}
-
-	namespace := k8sUtils.ExtractNamespace(&clrp.ObjectMeta)
-	if namespace == "" {
-		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a non-empty namespace")
-	}
+	key := resource.NewKey(clrp)
 
 	if sanitize {
-		return getSanitizedLRPConfig(name, namespace, clrp.UID, clrp.Spec)
+		return getSanitizedLRPConfig(key, clrp.UID, clrp.Spec)
 	} else {
-		return &LRPConfig{
-			id: k8s.ServiceID{
-				Name:      name,
-				Namespace: namespace,
-			},
-		}, nil
+		return &LRPConfig{key: key}, nil
 	}
 }
 
-func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LRPConfig, error) {
+func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LRPConfig, error) {
 
 	var (
 		addrMatcher    = spec.RedirectFrontend.AddressMatcher
@@ -228,7 +216,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			return nil, fmt.Errorf("kubernetes service name can" +
 				"not be empty")
 		}
-		if namespace != "" && k8sSvc.Namespace != namespace {
+		if key.Namespace != "" && k8sSvc.Namespace != key.Namespace {
 			return nil, fmt.Errorf("kubernetes service namespace" +
 				"does not match with the CiliumLocalRedirectPolicy namespace")
 		}
@@ -312,24 +300,21 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 		backendPortsByPortName: bePortsMap,
 		lrpType:                lrpType,
 		frontendType:           frontendType,
-		id: k8s.ServiceID{
-			Name:      name,
-			Namespace: namespace,
-		},
+		key:                    key,
 	}, nil
 }
 
 // policyConfigSelectsPod determines if the given pod is selected by the policy
 // config based on matching labels of config and pod.
-func (config *LRPConfig) policyConfigSelectsPod(podInfo *podMetadata) bool {
-	return config.backendSelector.Matches(labels.Set(podInfo.labels))
+func (config *LRPConfig) policyConfigSelectsPod(pod *slim_corev1.Pod) bool {
+	return config.backendSelector.Matches(labels.Set(pod.Labels))
 }
 
 // checkNamespace returns true if config namespace matches with the given namespace.
 // The namespace check isn't applicable for clusterwide LRPs.
 func (config *LRPConfig) checkNamespace(namespace string) bool {
-	if config.id.Namespace != "" {
-		return namespace == config.id.Namespace
+	if config.key.Namespace != "" {
+		return namespace == config.key.Namespace
 	}
 	return true
 }
@@ -376,8 +361,8 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 
 	return &models.LRPSpec{
 		UID:              string(config.uid),
-		Name:             config.id.Name,
-		Namespace:        config.id.Namespace,
+		Name:             config.key.Name,
+		Namespace:        config.key.Namespace,
 		FrontendType:     feType,
 		LrpType:          lrpType,
 		ServiceID:        svcID,

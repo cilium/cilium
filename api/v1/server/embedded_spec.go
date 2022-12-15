@@ -3992,7 +3992,7 @@ func init() {
         },
         "id": {
           "description": "Unique identification",
-          "type": "integer"
+          "type": "string"
         },
         "updateServices": {
           "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
@@ -4401,7 +4401,7 @@ func init() {
       }
     },
     "service-id": {
-      "type": "integer",
+      "type": "string",
       "description": "ID of service",
       "name": "id",
       "in": "path",
@@ -5975,7 +5975,7 @@ func init() {
         "summary": "Retrieve configuration of a service",
         "parameters": [
           {
-            "type": "integer",
+            "type": "string",
             "description": "ID of service",
             "name": "id",
             "in": "path",
@@ -6001,7 +6001,7 @@ func init() {
         "summary": "Create or update service",
         "parameters": [
           {
-            "type": "integer",
+            "type": "string",
             "description": "ID of service",
             "name": "id",
             "in": "path",
@@ -6061,7 +6061,7 @@ func init() {
         "summary": "Delete a service",
         "parameters": [
           {
-            "type": "integer",
+            "type": "string",
             "description": "ID of service",
             "name": "id",
             "in": "path",
@@ -8955,7 +8955,7 @@ func init() {
         },
         "id": {
           "description": "Unique identification",
-          "type": "integer"
+          "type": "string"
         },
         "updateServices": {
           "description": "Update all services selecting the backends with their given states\n(id and frontend are ignored)\n",
@@ -9412,7 +9412,7 @@ func init() {
       }
     },
     "service-id": {
-      "type": "integer",
+      "type": "string",
       "description": "ID of service",
       "name": "id",
       "in": "path",

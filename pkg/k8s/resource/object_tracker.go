@@ -28,6 +28,9 @@ type ObjectTracker[Obj runtime.Object] interface {
 
 	// Untrack removes a key from the set of objects to be tracked.
 	Untrack(Key)
+
+	// TODO
+	TrackBy(func(Obj) bool) (untrack func())
 }
 
 type objectTracker[Obj runtime.Object] struct {
@@ -35,6 +38,9 @@ type objectTracker[Obj runtime.Object] struct {
 	resource Resource[Obj]
 	track    chan Key
 	untrack  chan Key
+}
+
+type trackRequest struct {
 }
 
 func newObjectTracker[Obj runtime.Object](ctx context.Context, res Resource[Obj]) ObjectTracker[Obj] {
@@ -56,6 +62,14 @@ func (ot *objectTracker[Obj]) Untrack(key Key) {
 	ot.untrack <- key
 }
 
+func (ot *objectTracker[Obj]) TrackBy(match func(Obj) bool) (untrack func()) {
+	// TODO idea was to use this for tracking endpoint slices that match specific
+	// services in pkg/k8s/service_dialer.go.
+	// TODO and use this in redirect policy handler to match on pods that are selected by the
+	// policy config.
+	panic("TBD")
+}
+
 func (ot *objectTracker[Obj]) Events() <-chan Event[Obj] {
 	return ot.events
 }
@@ -74,8 +88,8 @@ func (ot *objectTracker[Obj]) processLoop(ctx context.Context) {
 		ctx,
 
 		// Only process events for a specific key.
-		FilterByKey(func(key Key) bool {
-			_, ok := trackedKeys.Load(key)
+		WithFilter(func(obj Obj) bool {
+			_, ok := trackedKeys.Load(NewKey(obj))
 			return ok
 		}),
 		WithRequeues(requeues),

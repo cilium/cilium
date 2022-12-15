@@ -35,7 +35,7 @@ type ServiceSpec struct {
 	FrontendAddress *FrontendAddress `json:"frontend-address"`
 
 	// Unique identification
-	ID int64 `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
 
 	// Update all services selecting the backends with their given states
 	// (id and frontend are ignored)

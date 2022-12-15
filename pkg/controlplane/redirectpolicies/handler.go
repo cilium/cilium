@@ -3,17 +3,17 @@ package redirectpolicies
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
-	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
@@ -45,18 +45,14 @@ type lrpHandler struct {
 
 	log logrus.FieldLogger
 
-	serviceTracker  resource.ObjectTracker[*slim_corev1.Service]
-	serviceRefCount counter.Counter[serviceKey]
-
 	handle servicemanager.ServiceHandle
+
+	podTracker resource.ObjectTracker[*slim_corev1.Pod]
 
 	// Stores mapping of all the current redirect policy frontend to their
 	// respective policies
 	// Frontends are namespace agnostic
 	policyFrontendsByHash map[string]policyID
-	// Stores mapping of redirect policy serviceID to the corresponding policyID for
-	// easy lookup in policyConfigs
-	policyServices map[k8s.ServiceID]policyID
 	// Stores mapping of pods to redirect policies that select the pods
 	policyPods map[podID][]policyID
 	// Stores redirect policy configs indexed by policyID
@@ -71,17 +67,15 @@ func newLRPHandler(log logrus.FieldLogger, lc hive.Lifecycle, p lrpHandlerParams
 		return nil
 	}
 
-	handler := &lrpHandler{
-		params:          p,
-		log:             p.Log,
-		handle:          p.ServiceManager.NewHandle("redirect-policies"),
-		serviceRefCount: make(counter.Counter[serviceKey]),
-	}
-
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 
-	handler.serviceTracker = p.Services.Tracker(ctx)
+	handler := &lrpHandler{
+		params:     p,
+		log:        p.Log,
+		handle:     p.ServiceManager.NewHandle("redirect-policies"),
+		podTracker: p.Pods.Tracker(ctx),
+	}
 
 	lc.Append(
 		hive.Hook{
@@ -110,19 +104,56 @@ func (h *lrpHandler) getLRPs() []*models.LRPSpec {
 	return <-specs
 }
 
+func buffer[T any](in <-chan T, d time.Duration) <-chan []T {
+	out := make(chan []T)
+	go func() {
+		// Create a stopped timer. It will start running when an item
+		// is added to the buffer.
+		timer := time.NewTimer(d)
+		if !timer.Stop() {
+			<-timer.C
+		}
+
+		buf := []T{}
+
+	loop:
+		for {
+			select {
+			case x, ok := <-in:
+				if !ok {
+					break loop
+				}
+				if len(buf) == 0 {
+					// First item added, start the timer for
+					// draining the buffer.
+					timer.Reset(d)
+				}
+				buf = append(buf, x)
+			case <-timer.C:
+				if len(buf) > 0 {
+					out <- buf
+					buf = []T{}
+				}
+			}
+		}
+		if !timer.Stop() {
+			<-timer.C
+		}
+		if len(buf) > 0 {
+			out <- buf
+		}
+		close(out)
+	}()
+	return out
+}
+
 func (h *lrpHandler) processLoop(ctx context.Context) {
 	policies := h.params.RedirectPolicies.Events(ctx)
-	pods := h.params.Pods.Events(ctx)
-	services := h.serviceTracker.Events()
+	pods := buffer(h.podTracker.Events(), time.Second)
 
 	for {
 		select {
 		case <-ctx.Done():
-			// FIXME: would prefer `defer drain(xs)` but that'll block if there's an exception
-			// and context isn't actually cancelled. Otoh, maybe wrap ctx and defer cancel?
-			drain(services)
-			drain(policies)
-			drain(pods)
 			return
 
 		case ev := <-policies:
@@ -133,33 +164,36 @@ func (h *lrpHandler) processLoop(ctx context.Context) {
 				// need to wait for the referenced service to show up?
 				h.log.Info("Redirect policies now synced")
 			case resource.Upsert:
+				if _, ok := h.policyConfigs[ev.Key]; ok {
+					h.log.Warn("Local redirect policy updates are not handled")
+					break
+				}
 				config, err := Parse(ev.Object, true)
 				if err != nil {
 					// Probably no point in retrying. Update
 					// CiliumLocalRedirectPolicyStatus instead?
 					panic("TODO error")
 				}
-				h.updatePolicy(config)
+				h.addPolicy(config)
 
 			case resource.Delete:
 				h.deletePolicy(ev.Key)
 			}
 			ev.Done(nil)
 
-		case ev := <-pods:
-			if ev.Kind != resource.Sync {
-				h.log.Infof("Got pods event for %s", ev.Key)
+		case events := <-pods:
+			// TODO: Hmmm, with ObjectTracker we kind of want the sync event for each
+			// thing we've started tracking. Not clear how we'd do that with TrackBy()
+			// though, unless we associate some user-defined identifiers/data. Though
+			// maybe this buffering is reasonable enough?
+			for _, ev := range events {
+				ev.Done(nil)
 			}
-			ev.Done(nil)
-
-		case ev := <-services:
-			switch ev.Kind {
-			case resource.Upsert:
-				h.updateService(ev.Key, ev.Object)
-			case resource.Delete:
-				h.deleteService(ev.Key, ev.Object)
-			}
-			ev.Done(nil)
+			/*
+				if ev.Kind != resource.Sync {
+					h.log.Infof("Got pods event for %s", ev.Key)
+				}
+				ev.Done(nil)*/
 
 		case out := <-h.getRequests:
 			list := make([]*models.LRPSpec, 0, len(h.policyConfigs))
@@ -172,27 +206,36 @@ func (h *lrpHandler) processLoop(ctx context.Context) {
 	}
 }
 
-func (h *lrpHandler) updateService(key resource.Key, svc *slim_corev1.Service) {
-	panic("TBD")
-}
+func (h *lrpHandler) addPolicy(config *LRPConfig) {
+	// Start tracking the local pods that match the backend selector.
+	config.podUntrack = h.podTracker.TrackBy(config.policyConfigSelectsPod)
 
-func (h *lrpHandler) deleteService(key resource.Key, svc *slim_corev1.Service) {
-	panic("TBD")
-}
-
-func (h *lrpHandler) updatePolicy(config *LRPConfig) {
+	// Create the frontend. The backends will be filled in once matching pods
+	// appear.
 	if config.lrpType == lrpConfigTypeSvc {
-		if h.serviceRefCount.Add(*config.serviceID) {
-			// First to be interested in this service
-			// -> start tracking it.
-			h.serviceTracker.Track(*config.serviceID)
+		var fe loadbalancer.FELocalRedirectService
+		fe.Name = loadbalancer.ServiceName{
+			Scope:     loadbalancer.ScopeSVC,
+			Name:      config.serviceID.Name,
+			Namespace: config.serviceID.Namespace,
 		}
+		config.frontend = fe
 	}
-	panic("TBD")
+
+	h.policyConfigs[config.key] = config
 }
 
 func (h *lrpHandler) deletePolicy(id policyID) {
-	panic("TBD")
+	config, ok := h.policyConfigs[id]
+	if !ok {
+		panic("TODO deletePolicy, but no policy found")
+		return
+	}
+	// Stop tracking the pods matching the backend selector.
+	config.podUntrack()
+	// TODO h.handle.DeleteFrontend
+
+	delete(h.policyConfigs, id)
 }
 
 func flatten[E any](xs [][]E) []E {

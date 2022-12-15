@@ -19,7 +19,7 @@ func (c *Client) GetServices() ([]*models.Service, error) {
 }
 
 // GetServiceID returns a service by ID.
-func (c *Client) GetServiceID(id int64) (*models.Service, error) {
+func (c *Client) GetServiceID(id string) (*models.Service, error) {
 	params := service.NewGetServiceIDParams().WithID(id).WithTimeout(api.ClientTimeout)
 	resp, err := c.Service.GetServiceID(params)
 	if err != nil {
@@ -29,7 +29,7 @@ func (c *Client) GetServiceID(id int64) (*models.Service, error) {
 }
 
 // PutServiceID creates or updates a service. Returns true if service was created.
-func (c *Client) PutServiceID(id int64, svc *models.ServiceSpec) (bool, error) {
+func (c *Client) PutServiceID(id string, svc *models.ServiceSpec) (bool, error) {
 	svc.ID = id
 	params := service.NewPutServiceIDParams().WithID(id).WithConfig(svc).WithTimeout(api.ClientTimeout)
 	_, created, err := c.Service.PutServiceID(params)
@@ -37,7 +37,7 @@ func (c *Client) PutServiceID(id int64, svc *models.ServiceSpec) (bool, error) {
 }
 
 // DeleteServiceID deletes a service by ID.
-func (c *Client) DeleteServiceID(id int64) error {
+func (c *Client) DeleteServiceID(id string) error {
 	params := service.NewDeleteServiceIDParams().WithID(id).WithTimeout(api.ClientTimeout)
 	_, err := c.Service.DeleteServiceID(params)
 	return Hint(err)

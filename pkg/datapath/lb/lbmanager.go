@@ -257,7 +257,7 @@ func (m *lbManager) addBackend(key backendKey, be *loadbalancer.Backend) error {
 			be.L3n4Addr.String(), err)
 	}
 
-	//fmt.Printf("LBMANAGER: Created backend %s with id %d\n", be.L3n4Addr.String(), id)
+	fmt.Printf("LBMANAGER: Created backend %s with id %d\n", be.L3n4Addr.String(), id)
 	m.backendIDs[key] = id
 	return nil
 }
@@ -349,6 +349,8 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 		legacyBackends[key] = legacyBE
 	}
 
+	// FIXME "requireNodeLocalBackends()"
+
 	// Update the service entry
 	params := datapathTypes.UpsertServiceParams{
 		ID:                        state.id,
@@ -371,8 +373,8 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 		Name:                      frontend.Name,
 		LoopbackHostport:          frontend.LoopbackHostport,
 	}
-	fmt.Printf("LBMANAGER: Upserting frontend %s:%d (id %d) with %d backends\n",
-		params.IP.String(), params.Port, params.ID, len(params.ActiveBackends))
+	fmt.Printf("LBMANAGER: Upserting frontend %s (%s:%d) (id %d) with %d backends\n",
+		params.Name, params.IP.String(), params.Port, params.ID, len(params.ActiveBackends))
 
 	if err := m.lbmap.UpsertService(&params); err != nil {
 		// FIXME delete the created backends, or leave them around as we keep

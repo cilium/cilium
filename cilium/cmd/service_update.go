@@ -26,7 +26,7 @@ var (
 	k8sTrafficPolicy   string
 	k8sClusterInternal bool
 	localRedirect      bool
-	idU                uint64
+	id                 string
 	frontend           string
 	backends           []string
 	backendStates      []string
@@ -44,7 +44,7 @@ var serviceUpdateCmd = &cobra.Command{
 
 func init() {
 	serviceCmd.AddCommand(serviceUpdateCmd)
-	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
+	serviceUpdateCmd.Flags().StringVarP(&id, "id", "", "", "Identifier")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s ExternalIPs")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sNodePort, "k8s-node-port", "", false, "Set service as a k8s NodePort")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sLoadBalancer, "k8s-load-balancer", "", false, "Set service as a k8s LoadBalancer")
@@ -86,21 +86,20 @@ func boolToInt(set bool) int {
 }
 
 func updateService(cmd *cobra.Command, args []string) {
-	id := int64(idU)
 	fa := parseFrontendAddress(frontend)
 	skipFrontendCheck := false
 
 	var spec *models.ServiceSpec
 	svc, err := client.GetServiceID(id)
 	switch {
-	case id == 0 && frontend == "" && len(backends) != 0:
+	case id == "" && frontend == "" && len(backends) != 0:
 		// When service ID is 0 and frontend is not specified, the intended use
 		// of the API is to update backend state(s) for service(s) selecting those
 		// backend(s).
 		if len(backendStates) == 0 {
 			Fatalf("Cannot update empty backend states")
 		}
-		spec = &models.ServiceSpec{ID: 0}
+		spec = &models.ServiceSpec{ID: ""}
 		skipFrontendCheck = true
 		spec.UpdateServices = true
 		fmt.Printf("Updating backend states \n")

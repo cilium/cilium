@@ -55,7 +55,7 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 	fmt.Fprintln(w, "ID\tFrontend\tService Type\tBackend\t")
 
 	type ServiceOutput struct {
-		ID               int64
+		ID               string
 		ServiceType      string
 		FrontendAddress  string
 		BackendAddresses []string
@@ -107,13 +107,13 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 		var str string
 
 		if len(service.BackendAddresses) == 0 {
-			str = fmt.Sprintf("%d\t%s\t%s\t\t",
+			str = fmt.Sprintf("%s\t%s\t%s\t\t",
 				service.ID, service.FrontendAddress, service.ServiceType)
 			fmt.Fprintln(w, str)
 			continue
 		}
 
-		str = fmt.Sprintf("%d\t%s\t%s\t%s\t",
+		str = fmt.Sprintf("%s\t%s\t%s\t%s\t",
 			service.ID, service.FrontendAddress, service.ServiceType,
 			service.BackendAddresses[0])
 		fmt.Fprintln(w, str)

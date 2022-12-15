@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -40,15 +39,12 @@ var serviceDeleteCmd = &cobra.Command{
 		}
 
 		requireServiceID(cmd, args)
-		if id, err := strconv.ParseInt(args[0], 0, 64); err != nil {
+		id := args[0]
+		if err := client.DeleteServiceID(id); err != nil {
 			Fatalf("%s", err)
-		} else {
-			if err := client.DeleteServiceID(id); err != nil {
-				Fatalf("%s", err)
-			}
-
-			fmt.Printf("Service %d deleted successfully\n", id)
 		}
+
+		fmt.Printf("Service %q deleted successfully\n", id)
 	},
 }
 

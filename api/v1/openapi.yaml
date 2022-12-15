@@ -1038,7 +1038,7 @@ parameters:
     description: ID of service
     required: true
     in: path
-    type: integer
+    type: string
   service-address:
     name: address
     description: Service address configuration
@@ -2611,7 +2611,7 @@ definitions:
     properties:
       id:
         description: Unique identification
-        type: integer
+        type: string
       frontend-address:
         description: Frontend address
         "$ref": "#/definitions/FrontendAddress"

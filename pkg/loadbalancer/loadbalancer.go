@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -27,6 +28,19 @@ const (
 	SVCTypeLocalRedirect = SVCType("LocalRedirect")
 	SVCTypeL7Proxy       = SVCType("L7Proxy")
 )
+
+// SVCPriority determines which service frontend wins based on its
+// type when their addresses overlap.
+var SVCPriority = map[SVCType]int{
+	SVCTypeNone:          0,
+	SVCTypeHostPort:      1,
+	SVCTypeClusterIP:     2,
+	SVCTypeNodePort:      3,
+	SVCTypeExternalIPs:   4,
+	SVCTypeLoadBalancer:  5,
+	SVCTypeLocalRedirect: 6,
+	SVCTypeL7Proxy:       7,
+}
 
 // SVCTrafficPolicy defines which backends are chosen
 type SVCTrafficPolicy string
@@ -309,15 +323,26 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// FIXME does this overlap too much with the "FrontendAddressScope" stuff?
+type Scope string
+
+const (
+	ScopeSVC = Scope("svc")
+	ScopePod = Scope("pod")
+	ScopeAPI = Scope("api")
+	ScopeLRP = Scope("lrp")
+)
+
 // ServiceName represents the fully-qualified reference to the service by name,
 // including both the namespace and name of the service.
 type ServiceName struct {
+	Scope     Scope
 	Namespace string
 	Name      string
 }
 
 func (n ServiceName) String() string {
-	return n.Namespace + "/" + n.Name
+	return string(n.Scope) + "/" + n.Namespace + "/" + n.Name
 }
 
 // BackendID is the backend's ID.
@@ -382,7 +407,7 @@ func (s *SVC) GetModel() *models.Service {
 		return nil
 	}
 
-	id := int64(s.Frontend.ID)
+	id := ToServiceIDModel(s.Frontend.L3n4Addr, s.Type)
 	if s.NatPolicy != SVCNatPolicyNone {
 		natPolicy = string(s.NatPolicy)
 	}
@@ -417,6 +442,62 @@ func (s *SVC) GetModel() *models.Service {
 			Realized: spec,
 		},
 	}
+}
+
+// TODO move to method on Frontend struct.
+func ToServiceIDModel(addr L3n4Addr, svcType SVCType) string {
+	// addr:port:proto:type
+	return fmt.Sprintf("%s:%s:%s", addr.String(), addr.L4Addr.Protocol, svcType)
+}
+
+func FromServiceIDModel(s string) (addr L3n4Addr, typ SVCType, ok bool) {
+	// addr:port:proto:type
+	// FIXME IPv6 split, grab it first by looking for [...]:
+
+	var addrStr string
+	ipv6 := false
+	for i := range s {
+		if i == 0 && s[i] == '[' {
+			ipv6 = true
+		} else if ipv6 && s[i] == ']' {
+			ipv6 = false
+		} else if !ipv6 && s[i] == ':' {
+			addrStr = s[1 : i-1]
+			s = s[i+1:]
+			break
+		}
+	}
+
+	var err error
+	addr.AddrCluster, err = cmtypes.ParseAddrCluster(addrStr)
+	if err != nil {
+		fmt.Printf("invalid addr cluster: %s\n", err)
+		return
+	}
+
+	parts := strings.Split(s, ":")
+	if len(parts) != 3 {
+		return
+	}
+
+	// TODO scope?
+
+	addr.L4Addr.Protocol, err = NewL4Type(parts[1])
+	if err != nil {
+		fmt.Printf("invalid type: %s\n", err)
+		return
+	}
+
+	port, err := strconv.ParseUint(parts[0], 10, 16)
+	if err != nil {
+		fmt.Printf("invalid port: %s\n", err)
+		return
+	}
+	addr.L4Addr.Port = uint16(port)
+
+	typ = SVCType(parts[2])
+	ok = true
+	return
 }
 
 func IsValidStateTransition(old, new BackendState) bool {
