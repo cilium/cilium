@@ -1057,8 +1057,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 							   SECLABEL, info->sec_label,
 							   NOT_VTEP_DST,
 							   TRACE_REASON_CT_REPLY,
-							   TRACE_PAYLOAD_LEN,
-							   ifindex);
+							   monitor, ifindex);
 			}
 		}
 #endif
