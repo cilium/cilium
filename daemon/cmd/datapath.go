@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
@@ -321,6 +322,10 @@ func (d *Daemon) initMaps() error {
 	// appearing would require a regeneration of the endpoint anyway in
 	// order for the endpoint to gain the privilege of communication.
 	if _, err := ipcachemap.IPCache.OpenParallel(); err != nil {
+		return err
+	}
+
+	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
 		return err
 	}
 

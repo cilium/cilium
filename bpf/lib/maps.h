@@ -199,6 +199,30 @@ struct {
 	__uint(max_entries, 1);
 } ENCRYPT_MAP __section_maps_btf;
 
+struct node_key {
+	__u16 pad1;
+	__u8 pad2;
+	__u8 family;
+	union {
+		struct {
+			__u32 ip4;
+			__u32 pad4;
+			__u32 pad5;
+			__u32 pad6;
+		};
+		union v6addr    ip6;
+	};
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct node_key);
+	__type(value, __u16);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODE_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} NODE_MAP __section_maps_btf;
+
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {
 	__uint(type, LPM_MAP_TYPE);

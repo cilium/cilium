@@ -95,6 +95,7 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #define POLICY_CALL_MAP test_cilium_policy
 #define SOCK_OPS_MAP test_sock_ops_map
 #define IPCACHE_MAP test_cilium_ipcache
+#define NODE_MAP test_cilium_node_map
 #define ENCRYPT_MAP test_cilium_encrypt_state
 #define TUNNEL_MAP test_cilium_tunnel_map
 #define VTEP_MAP test_cilium_vtep_map
@@ -131,6 +132,7 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #define CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES	65536
 #define POLICY_MAP_SIZE 16384
 #define IPCACHE_MAP_SIZE 512000
+#define NODE_MAP_SIZE 16384
 #define EGRESS_POLICY_MAP_SIZE 16384
 #define POLICY_PROG_MAP_SIZE ENDPOINTS_MAP_SIZE
 #define IPV4_FRAG_DATAGRAMS_MAP test_cilium_ipv4_frag_datagrams
