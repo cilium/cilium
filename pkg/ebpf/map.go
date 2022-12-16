@@ -19,6 +19,7 @@ import (
 type MapSpec = ciliumebpf.MapSpec
 
 const (
+	Hash       = ciliumebpf.Hash
 	PerCPUHash = ciliumebpf.PerCPUHash
 	Array      = ciliumebpf.Array
 	HashOfMaps = ciliumebpf.HashOfMaps
