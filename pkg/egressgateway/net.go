@@ -90,7 +90,7 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 	return rules, nil
 }
 
-func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP, ifaceIndex int) error {
+func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, ifaceIndex int) error {
 	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
 
 	ipRule := route.Rule{

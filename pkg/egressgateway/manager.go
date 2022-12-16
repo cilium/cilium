@@ -439,7 +439,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 			logfields.LinkIndex:       gwc.ifaceIndex,
 		})
 
-		if err := addEgressIpRule(endpointIP, dstCIDR, gwc.egressIP.IP, gwc.ifaceIndex); err != nil {
+		if err := addEgressIpRule(endpointIP, dstCIDR, gwc.ifaceIndex); err != nil {
 			if isRetry {
 				logger.WithError(err).Warn("Can't add IP rule")
 			} else {
