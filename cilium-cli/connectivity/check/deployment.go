@@ -1067,8 +1067,8 @@ func (ct *ConnectivityTest) waitForPodDNS(ctx context.Context, srcPod, dstPod Po
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to server on pod %s to succeed",
-				target, srcPod.Name(), dstPod.Name(),
+			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
+				target, srcPod.Name(), dstPod.Name(), err,
 			)
 		default:
 		}
@@ -1097,7 +1097,7 @@ func (ct *ConnectivityTest) waitForServiceDNS(ctx context.Context, pod Pod) erro
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to succeed", target, pod.Name())
+			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to succeed (last error: %w)", target, pod.Name(), err)
 		default:
 		}
 
@@ -1144,7 +1144,7 @@ func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
 	retry:
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for pod IDs in ipcache of Cilium pod %s", pod.Name())
+			return fmt.Errorf("timeout reached waiting for pod IDs in ipcache of Cilium pod %s (last error: %w)", pod.Name(), err)
 		default:
 		}
 
@@ -1159,11 +1159,15 @@ func (ct *ConnectivityTest) waitForDeployments(ctx context.Context, client *k8s.
 	ctx, cancel := context.WithTimeout(ctx, ct.params.podReadyTimeout())
 	defer cancel()
 	for _, name := range deployments {
-		for client.CheckDeploymentStatus(ctx, ct.params.TestNamespace, name) != nil {
+		for {
+			err := client.CheckDeploymentStatus(ctx, ct.params.TestNamespace, name)
+			if err == nil {
+				break
+			}
 			select {
 			case <-time.After(time.Second):
 			case <-ctx.Done():
-				return fmt.Errorf("waiting for deployment %s to become ready has been interrupted: %w", name, ctx.Err())
+				return fmt.Errorf("waiting for deployment %s to become ready has been interrupted: %w (last error: %s)", name, ctx.Err(), err)
 			}
 		}
 	}
@@ -1184,12 +1188,6 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 	}
 
 	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for service %s", service.Name())
-		default:
-		}
-
 		// Don't retry lookups more often than once per second.
 		r := time.After(time.Second)
 
@@ -1220,6 +1218,12 @@ func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service)
 		}
 
 		ct.Debugf("Error waiting for service %s: %s: %s", service.Name(), err, stdout.String())
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
+		default:
+		}
 
 		// Wait for the pace timer to avoid busy polling.
 		<-r
@@ -1254,7 +1258,7 @@ func (ct *ConnectivityTest) waitForNodePorts(ctx context.Context, nodeIP string,
 
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s)", nodeIP, nodePort, service.Name())
+				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)", nodeIP, nodePort, service.Name(), err)
 			case <-time.After(time.Second):
 			}
 		}
@@ -1274,7 +1278,7 @@ func (ct *ConnectivityTest) waitForCiliumEndpoint(ctx context.Context, client *k
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("aborted waiting for CiliumEndpoint for pod %s to appear: %w", name, ctx.Err())
+			return fmt.Errorf("aborted waiting for CiliumEndpoint for pod %s to appear: %w (last error: %s)", name, ctx.Err(), err)
 		case <-time.After(2 * time.Second):
 			continue
 		}
