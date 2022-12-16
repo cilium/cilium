@@ -118,7 +118,8 @@ func compileAndLoadXDPProg(ctx context.Context, xdpDev, xdpMode string, extraCAr
 	}
 
 	objPath := path.Join(dirs.Output, prog.Output)
-	finalize, err := replaceDatapath(ctx, xdpDev, objPath, symbolFromHostNetdevEp, "", true, xdpMode)
+	progs := []progDefinition{{progSec: symbolFromHostNetdevEp, progDirection: ""}}
+	finalize, err := replaceDatapath(ctx, xdpDev, objPath, progs, true, xdpMode)
 	if err != nil {
 		return err
 	}

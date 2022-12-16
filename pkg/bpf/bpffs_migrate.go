@@ -24,12 +24,7 @@ const bpffsPending = ":pending"
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func StartBPFFSMigration(bpffsPath, elfPath string) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
-	}
-
+func StartBPFFSMigration(coll *ebpf.CollectionSpec, bpffsPath string) error {
 	for name, spec := range coll.Maps {
 		// Parse iproute2 bpf_elf_map's extra fields, if any.
 		if err := parseExtra(spec, coll); err != nil {
@@ -59,12 +54,7 @@ func StartBPFFSMigration(bpffsPath, elfPath string) error {
 // Takes a bpffsPath explicitly since it does not necessarily execute within
 // the same runtime as the agent. It is imported from a Cilium cmd that takes
 // its bpffs path from an env.
-func FinalizeBPFFSMigration(bpffsPath, elfPath string, revert bool) error {
-	coll, err := ebpf.LoadCollectionSpec(elfPath)
-	if err != nil {
-		return err
-	}
-
+func FinalizeBPFFSMigration(coll *ebpf.CollectionSpec, bpffsPath string, revert bool) error {
 	for name, spec := range coll.Maps {
 		// Parse iproute2 bpf_elf_map's extra fields, if any.
 		if err := parseExtra(spec, coll); err != nil {

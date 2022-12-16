@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/cilium/ebpf"
 	"os"
 	"path/filepath"
 
@@ -59,13 +60,21 @@ original locations. If the return code is 0, the :pending maps will be unpinned.
 			}
 
 			if start != "" {
-				if err := bpf.StartBPFFSMigration(bpffsPath, start); err != nil {
+				coll, err := ebpf.LoadCollectionSpec(start)
+				if err != nil {
+					return fmt.Errorf("loading eBPF ELF: %w", err)
+				}
+				if err := bpf.StartBPFFSMigration(coll, bpffsPath); err != nil {
 					return fmt.Errorf("error starting map migration for %q: %v", start, err)
 				}
 			}
 
 			if end != "" {
-				if err := bpf.FinalizeBPFFSMigration(bpffsPath, end, rc != 0); err != nil {
+				coll, err := ebpf.LoadCollectionSpec(end)
+				if err != nil {
+					return fmt.Errorf("loading eBPF ELF: %w", err)
+				}
+				if err := bpf.FinalizeBPFFSMigration(coll, bpffsPath, rc != 0); err != nil {
 					return fmt.Errorf("error finalizing map migration for %q: %v", end, err)
 				}
 			}

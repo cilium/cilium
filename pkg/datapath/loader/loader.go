@@ -251,7 +251,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	for i, interfaceName := range interfaceNames {
 		symbol := symbols[i]
-		finalize, err := replaceDatapath(ctx, interfaceName, objPaths[i], symbol, directions[i], false, "")
+		progs := []progDefinition{{progSec: symbol, progDirection: directions[i]}}
+		finalize, err := replaceDatapath(ctx, interfaceName, objPaths[i], progs, false, "")
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -282,7 +283,18 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+		progs := []progDefinition{{progSec: symbolFromEndpoint, progDirection: dirIngress}}
+
+		if ep.RequireEgressProg() {
+			progs = append(progs, progDefinition{progSec: symbolToEndpoint, progDirection: dirEgress})
+		} else {
+			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
+			if err != nil {
+				log.WithField("device", ep.InterfaceName()).Error(err)
+			}
+		}
+
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, false, "")
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -292,34 +304,11 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			// this log message should only represent failures with respect to
 			// loading the program.
 			if ctx.Err() == nil {
-				scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
+				scopedLog.WithError(err).Warn("JoinEP: Failed to load program(s)")
 			}
 			return err
 		}
 		defer finalize()
-
-		if ep.RequireEgressProg() {
-			finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolToEndpoint, dirEgress, false, "")
-			if err != nil {
-				scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-					logfields.Path: objPath,
-					logfields.Veth: ep.InterfaceName(),
-				})
-				// Don't log an error here if the context was canceled or timed out;
-				// this log message should only represent failures with respect to
-				// loading the program.
-				if ctx.Err() == nil {
-					scopedLog.WithError(err).Warn("JoinEP: Failed to load program")
-				}
-				return err
-			}
-			defer finalize()
-		} else {
-			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
-			if err != nil {
-				log.WithField("device", ep.InterfaceName()).Error(err)
-			}
-		}
 	}
 
 	if ep.RequireEndpointRoute() {
@@ -345,8 +334,9 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 	if err := compileNetwork(ctx); err != nil {
 		log.WithError(err).Fatal("failed to compile encryption programs")
 	}
+	progs := []progDefinition{{progSec: symbolFromNetwork, progDirection: dirIngress}}
 	for _, iface := range option.Config.EncryptInterface {
-		finalize, err := replaceDatapath(ctx, iface, networkObj, symbolFromNetwork, dirIngress, false, "")
+		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, false, "")
 		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
 		}

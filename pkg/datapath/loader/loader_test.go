@@ -197,11 +197,15 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
-	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	progs := []progDefinition{
+		{progSec: symbolFromEndpoint, progDirection: dirIngress},
+		{progSec: symbolToEndpoint, progDirection: dirEgress},
+	}
+	finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, false, "")
 	c.Assert(err, IsNil)
 	finalize()
 
-	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+	finalize, err = replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, false, "")
 	c.Assert(err, IsNil)
 	finalize()
 }
@@ -283,9 +287,10 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	}
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
+	progs := []progDefinition{{progSec: symbolFromEndpoint, progDirection: dirIngress}}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, symbolFromEndpoint, dirIngress, false, "")
+		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, false, "")
 		if err != nil {
 			b.Fatal(err)
 		}
