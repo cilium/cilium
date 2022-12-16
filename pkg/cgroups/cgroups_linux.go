@@ -63,7 +63,7 @@ func GetCgroupID(cgroupPath string) (uint64, error) {
 		return 0, fmt.Errorf("NameToHandleAt failed: %w", err)
 	}
 	b := handle.Bytes()[:8]
-	cgId := nl.NativeEndian().Uint64(b)
+	cgID := nl.NativeEndian().Uint64(b)
 
-	return cgId, nil
+	return cgID, nil
 }

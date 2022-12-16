@@ -248,7 +248,7 @@ func (mgr *EndpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 		if err != nil {
 			return nil, err
 		}
-		if n > endpointid.MaxEndpointId {
+		if n > endpointid.MaxEndpointID {
 			return nil, fmt.Errorf("%d: endpoint ID too large", n)
 		}
 		return mgr.lookupCiliumID(uint16(n)), nil

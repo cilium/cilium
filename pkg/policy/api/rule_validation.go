@@ -345,11 +345,24 @@ func (pr *L7Rules) sanitize(ports []PortProtocol) error {
 }
 
 func (pr *PortRule) sanitize(ingress bool) error {
-	haveZeroPort := false
+	hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
+	if ingress && hasDNSRules {
+		return fmt.Errorf("DNS rules are not allowed on ingress")
+	}
+
+	if len(pr.ServerNames) > 0 && !pr.Rules.IsEmpty() && pr.TerminatingTLS == nil {
+		return fmt.Errorf("ServerNames are not allowed with L7 rules without TLS termination")
+	}
+	for _, sn := range pr.ServerNames {
+		if sn == "" {
+			return fmt.Errorf("Empty server name is not allowed")
+		}
+	}
 
 	if len(pr.Ports) > maxPorts {
 		return fmt.Errorf("too many ports, the max is %d", maxPorts)
 	}
+	haveZeroPort := false
 	for i := range pr.Ports {
 		var isZero bool
 		var err error
@@ -359,7 +372,6 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		if isZero {
 			haveZeroPort = true
 		}
-		hasDNSRules := pr.Rules != nil && len(pr.Rules.DNS) > 0
 		// DNS L7 rules can be TCP, UDP or ANY, all others are TCP only.
 		switch {
 		case pr.Rules.IsEmpty(), hasDNSRules:
@@ -367,9 +379,22 @@ func (pr *PortRule) sanitize(ingress bool) error {
 		case pr.Ports[i].Protocol != ProtoTCP:
 			return fmt.Errorf("L7 rules can only apply to TCP (not %s) except for DNS rules", pr.Ports[i].Protocol)
 		}
+	}
 
-		if ingress && hasDNSRules {
-			return fmt.Errorf("DNS rules are not allowed on ingress")
+	listener := pr.Listener
+	if listener != nil {
+		// For now we have only tested custom listener support on the egress path.  TODO
+		// (jrajahalme): Lift this limitation in follow-up work once proper testing has been
+		// done on the ingress path.
+		if ingress {
+			return fmt.Errorf("Listener is not allowed on ingress (%s)", listener.Name)
+		}
+		// There is no quarantee that Listener will support Cilium policy enforcement.  Even
+		// now proxylib-based enforcement (e.g, Kafka) may work, but has not been tested.
+		// TODO (jrajahalme): Lift this limitation in follow-up work for proxylib based
+		// parsers if needed and when tested.
+		if !pr.Rules.IsEmpty() {
+			return fmt.Errorf("Listener is not allowed with L7 rules (%s)", listener.Name)
 		}
 	}
 

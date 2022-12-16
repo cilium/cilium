@@ -72,6 +72,10 @@ spec:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.etcd.init.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       containers:
       - name: etcd
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
@@ -103,6 +107,10 @@ spec:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.etcd.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}

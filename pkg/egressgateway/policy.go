@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -53,14 +52,13 @@ type gatewayConfig struct {
 	localNodeConfiguredAsGateway bool
 }
 
-// PolicyConfig is the internal representation of Cilium Egress NAT Policy.
+// PolicyConfig is the internal representation of CiliumEgressGatewayPolicy.
 type PolicyConfig struct {
 	// id is the parsed config name and namespace
 	id types.NamespacedName
 
 	endpointSelectors []api.EndpointSelector
 	dstCIDRs          []*net.IPNet
-	egressIP          net.IP
 
 	policyGwConfig *policyGatewayConfig
 
@@ -87,15 +85,6 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 }
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
-	if config.egressIP != nil {
-		config.gatewayConfig = gatewayConfig{
-			gatewayIP: config.egressIP,
-			egressIP:  net.IPNet{IP: config.egressIP, Mask: net.CIDRMask(32, 32)},
-		}
-
-		return
-	}
-
 	gwc := gatewayConfig{
 		egressIP: net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
 	}
@@ -113,9 +102,9 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
 			if err != nil {
 				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressNATPolicyName: config.id,
-					logfields.Interface:                 policyGwc.iface,
-					logfields.EgressIP:                  policyGwc.egressIP,
+					logfields.CiliumEgressGatewayPolicyName: config.id,
+					logfields.Interface:                     policyGwc.iface,
+					logfields.EgressIP:                      policyGwc.egressIP,
 				})
 
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
@@ -205,88 +194,6 @@ func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata
 	return false
 }
 
-// ParseCENP takes a CiliumEgressNATPolicy CR and converts to PolicyConfig,
-// the internal representation of the egress nat policy
-func ParseCENP(cenp *v2alpha1.CiliumEgressNATPolicy) (*PolicyConfig, error) {
-	var endpointSelectorList []api.EndpointSelector
-	var dstCidrList []*net.IPNet
-
-	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
-		Key:      k8sConst.PodNamespaceLabel,
-		Operator: slim_metav1.LabelSelectorOpExists,
-	}
-
-	name := cenp.ObjectMeta.Name
-	if name == "" {
-		return nil, fmt.Errorf("CiliumEgressNATPolicy must have a name")
-	}
-
-	log.WithFields(logrus.Fields{logfields.CiliumEgressNATPolicyName: name}).Warn("CiliumEgressNATPolicy is deprecated and will be removed in version 1.13. Use CiliumEgressGatewayPolicy instead.")
-
-	for _, cidrString := range cenp.Spec.DestinationCIDRs {
-		_, cidr, err := net.ParseCIDR(string(cidrString))
-		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressNATPolicyName: name}).Warn("Error parsing cidr.")
-			return nil, err
-		}
-		dstCidrList = append(dstCidrList, cidr)
-	}
-
-	for _, egressRule := range cenp.Spec.Egress {
-		if egressRule.NamespaceSelector != nil {
-			prefixedNsSelector := egressRule.NamespaceSelector
-			matchLabels := map[string]string{}
-			// We use our own special label prefix for namespace metadata,
-			// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-			for k, v := range egressRule.NamespaceSelector.MatchLabels {
-				matchLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
-			}
-
-			prefixedNsSelector.MatchLabels = matchLabels
-
-			// We use our own special label prefix for namespace metadata,
-			// thus we need to prefix that prefix to all NamespaceSelector.MatchLabels
-			for i, lsr := range egressRule.NamespaceSelector.MatchExpressions {
-				lsr.Key = policy.JoinPath(k8sConst.PodNamespaceMetaLabels, lsr.Key)
-				prefixedNsSelector.MatchExpressions[i] = lsr
-			}
-
-			// Empty namespace selector selects all namespaces (i.e., a namespace
-			// label exists).
-			if len(egressRule.NamespaceSelector.MatchLabels) == 0 && len(egressRule.NamespaceSelector.MatchExpressions) == 0 {
-				prefixedNsSelector.MatchExpressions = []slim_metav1.LabelSelectorRequirement{allowAllNamespacesRequirement}
-			}
-
-			endpointSelectorList = append(
-				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", prefixedNsSelector, egressRule.PodSelector))
-		} else if egressRule.PodSelector != nil {
-			endpointSelectorList = append(
-				endpointSelectorList,
-				api.NewESFromK8sLabelSelector("", egressRule.PodSelector))
-		} else {
-			return nil, fmt.Errorf("CiliumEgressNATPolicy cannot have both nil namespace selector and nil pod selector")
-		}
-	}
-
-	return &PolicyConfig{
-		endpointSelectors: endpointSelectorList,
-		dstCIDRs:          dstCidrList,
-		egressIP:          net.ParseIP(cenp.Spec.EgressSourceIP).To4(),
-		policyGwConfig:    nil,
-		id: types.NamespacedName{
-			Name: name,
-		},
-	}, nil
-}
-
-// ParseCENPConfigID takes a CiliumEgressNATPolicy CR and returns only the config id
-func ParseCENPConfigID(cenp *v2alpha1.CiliumEgressNATPolicy) types.NamespacedName {
-	return policyID{
-		Name: cenp.Name,
-	}
-}
-
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
@@ -363,7 +270,6 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	return &PolicyConfig{
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
-		egressIP:          nil,
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,

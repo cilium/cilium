@@ -12,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -93,82 +92,5 @@ func (k *K8sWatcher) addCiliumEgressGatewayPolicy(cegp *cilium_v2.CiliumEgressGa
 
 func (k *K8sWatcher) deleteCiliumEgressGatewayPolicy(cegp *cilium_v2.CiliumEgressGatewayPolicy) {
 	epID := egressgateway.ParseCEGPConfigID(cegp)
-	k.egressGatewayManager.OnDeleteEgressPolicy(epID)
-}
-
-func (k *K8sWatcher) ciliumEgressNATPolicyInit(ciliumNPClient client.Clientset) {
-	apiGroup := k8sAPIGroupCiliumEgressNATPolicyV2
-	_, egpController := informer.NewInformer(
-		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2alpha1().RESTClient(),
-			"ciliumegressnatpolicies", v1.NamespaceAll, fields.Everything()),
-		&cilium_v2alpha1.CiliumEgressNATPolicy{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricCreate, valid, equal) }()
-				if cenp := k8s.ObjToCENP(obj); cenp != nil {
-					valid = true
-					err := k.addCiliumEgressNATPolicy(cenp)
-					k.K8sEventProcessed(metricCENP, resources.MetricCreate, err == nil)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricUpdate, valid, equal) }()
-
-				newCenp := k8s.ObjToCENP(newObj)
-				if newCenp == nil {
-					return
-				}
-				valid = true
-				addErr := k.addCiliumEgressNATPolicy(newCenp)
-				k.K8sEventProcessed(metricCENP, resources.MetricUpdate, addErr == nil)
-			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricCENP, resources.MetricDelete, valid, equal) }()
-				cenp := k8s.ObjToCENP(obj)
-				if cenp == nil {
-					return
-				}
-				valid = true
-				k.deleteCiliumEgressNATPolicy(cenp)
-				k.K8sEventProcessed(metricCENP, resources.MetricDelete, true)
-			},
-		},
-		k8s.ConvertToCiliumEgressNATPolicy,
-	)
-
-	k.blockWaitGroupToSyncResources(
-		k.stop,
-		nil,
-		egpController.HasSynced,
-		k8sAPIGroupCiliumEgressNATPolicyV2,
-	)
-
-	go egpController.Run(k.stop)
-	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEgressNATPolicyV2)
-}
-
-func (k *K8sWatcher) addCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgressNATPolicy) error {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.CiliumEgressNATPolicyName: cenp.ObjectMeta.Name,
-		logfields.K8sUID:                    cenp.ObjectMeta.UID,
-		logfields.K8sAPIVersion:             cenp.TypeMeta.APIVersion,
-	})
-
-	ep, err := egressgateway.ParseCENP(cenp)
-	if err != nil {
-		scopedLog.WithError(err).Warn("Failed to add CiliumEgressNATPolicy: malformed policy config.")
-		return err
-	}
-	k.egressGatewayManager.OnAddEgressPolicy(*ep)
-
-	return err
-}
-
-func (k *K8sWatcher) deleteCiliumEgressNATPolicy(cenp *cilium_v2alpha1.CiliumEgressNATPolicy) {
-	epID := egressgateway.ParseCENPConfigID(cenp)
 	k.egressGatewayManager.OnDeleteEgressPolicy(epID)
 }

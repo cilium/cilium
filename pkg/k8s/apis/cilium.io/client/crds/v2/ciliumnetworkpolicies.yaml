@@ -231,7 +231,8 @@ spec:
                     toEntities:
                       description: ToEntities is a list of special entities to which
                         the endpoint subject to the rule is allowed to initiate connections.
-                        Supported entities are `world`, `cluster` and `host`
+                        Supported entities are `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`,
+                        `init`, `health`,`unmanaged` and `all`.
                       items:
                         description: Entity specifies the class of receiver/sender
                           endpoints that do not have individual identities.  Entities
@@ -342,6 +343,45 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            properties:
+                              envoyConfig:
+                                description: EnvoyConfig is a reference to the CEC
+                                  or CCNP resource in which the listener is defined.
+                                properties:
+                                  kind:
+                                    description: Kind is the resource type being referred
+                                      to. Defaults to CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+                                      respectively. The only case this is currently
+                                      explicitly needed is when referring to a CiliumClusterwideEnvoyConfig
+                                      from CiliumNetworkPolicy, as using a namespaced
+                                      listener from a cluster scoped policy is not
+                                      allowed.
+                                    enum:
+                                    - CiliumEnvoyConfig
+                                    - CiliumClusterwideEnvoyConfig
+                                    type: string
+                                  name:
+                                    description: Name is the resource name of the
+                                      CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      where the listener is defined in.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: Name is the name of the listener.
+                                minLength: 1
+                                type: string
+                            required:
+                            - envoyConfig
+                            - name
+                            type: object
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -673,6 +713,13 @@ spec:
                                   Key-value pair rules apply.
                                 type: string
                             type: object
+                          serverNames:
+                            description: ServerNames is a list of allowed TLS SNI
+                              values. If not empty, then TLS must be present and one
+                              of the provided SNIs must be indicated in the TLS handshake.
+                            items:
+                              type: string
+                            type: array
                           terminatingTLS:
                             description: TerminatingTLS is the TLS context for the
                               connection terminated by the L7 proxy.  For egress policy
@@ -1051,7 +1098,8 @@ spec:
                     toEntities:
                       description: ToEntities is a list of special entities to which
                         the endpoint subject to the rule is allowed to initiate connections.
-                        Supported entities are `world`, `cluster` and `host`
+                        Supported entities are `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`,
+                        `init`, `health`,`unmanaged` and `all`.
                       items:
                         description: Entity specifies the class of receiver/sender
                           endpoints that do not have individual identities.  Entities
@@ -1618,6 +1666,45 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          listener:
+                            description: listener specifies the name of a custom Envoy
+                              listener to which this traffic should be redirected
+                              to.
+                            properties:
+                              envoyConfig:
+                                description: EnvoyConfig is a reference to the CEC
+                                  or CCNP resource in which the listener is defined.
+                                properties:
+                                  kind:
+                                    description: Kind is the resource type being referred
+                                      to. Defaults to CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+                                      respectively. The only case this is currently
+                                      explicitly needed is when referring to a CiliumClusterwideEnvoyConfig
+                                      from CiliumNetworkPolicy, as using a namespaced
+                                      listener from a cluster scoped policy is not
+                                      allowed.
+                                    enum:
+                                    - CiliumEnvoyConfig
+                                    - CiliumClusterwideEnvoyConfig
+                                    type: string
+                                  name:
+                                    description: Name is the resource name of the
+                                      CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                      where the listener is defined in.
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: Name is the name of the listener.
+                                minLength: 1
+                                type: string
+                            required:
+                            - envoyConfig
+                            - name
+                            type: object
                           originatingTLS:
                             description: OriginatingTLS is the TLS context for the
                               connections originated by the L7 proxy.  For egress
@@ -1949,6 +2036,13 @@ spec:
                                   Key-value pair rules apply.
                                 type: string
                             type: object
+                          serverNames:
+                            description: ServerNames is a list of allowed TLS SNI
+                              values. If not empty, then TLS must be present and one
+                              of the provided SNIs must be indicated in the TLS handshake.
+                            items:
+                              type: string
+                            type: array
                           terminatingTLS:
                             description: TerminatingTLS is the TLS context for the
                               connection terminated by the L7 proxy.  For egress policy
@@ -2584,8 +2678,8 @@ spec:
                       toEntities:
                         description: ToEntities is a list of special entities to which
                           the endpoint subject to the rule is allowed to initiate
-                          connections. Supported entities are `world`, `cluster` and
-                          `host`
+                          connections. Supported entities are `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`,
+                          `init`, `health`,`unmanaged` and `all`.
                         items:
                           description: Entity specifies the class of receiver/sender
                             endpoints that do not have individual identities.  Entities
@@ -2699,6 +2793,46 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              properties:
+                                envoyConfig:
+                                  description: EnvoyConfig is a reference to the CEC
+                                    or CCNP resource in which the listener is defined.
+                                  properties:
+                                    kind:
+                                      description: Kind is the resource type being
+                                        referred to. Defaults to CiliumEnvoyConfig
+                                        or CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy
+                                        and CiliumClusterwideNetworkPolicy, respectively.
+                                        The only case this is currently explicitly
+                                        needed is when referring to a CiliumClusterwideEnvoyConfig
+                                        from CiliumNetworkPolicy, as using a namespaced
+                                        listener from a cluster scoped policy is not
+                                        allowed.
+                                      enum:
+                                      - CiliumEnvoyConfig
+                                      - CiliumClusterwideEnvoyConfig
+                                      type: string
+                                    name:
+                                      description: Name is the resource name of the
+                                        CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                        where the listener is defined in.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                name:
+                                  description: Name is the name of the listener.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - envoyConfig
+                              - name
+                              type: object
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress
@@ -3036,6 +3170,14 @@ spec:
                                     Key-value pair rules apply.
                                   type: string
                               type: object
+                            serverNames:
+                              description: ServerNames is a list of allowed TLS SNI
+                                values. If not empty, then TLS must be present and
+                                one of the provided SNIs must be indicated in the
+                                TLS handshake.
+                              items:
+                                type: string
+                              type: array
                             terminatingTLS:
                               description: TerminatingTLS is the TLS context for the
                                 connection terminated by the L7 proxy.  For egress
@@ -3420,8 +3562,8 @@ spec:
                       toEntities:
                         description: ToEntities is a list of special entities to which
                           the endpoint subject to the rule is allowed to initiate
-                          connections. Supported entities are `world`, `cluster` and
-                          `host`
+                          connections. Supported entities are `world`, `cluster`,`host`,`remote-node`,`kube-apiserver`,
+                          `init`, `health`,`unmanaged` and `all`.
                         items:
                           description: Entity specifies the class of receiver/sender
                             endpoints that do not have individual identities.  Entities
@@ -3994,6 +4136,46 @@ spec:
                           description: PortRule is a list of ports/protocol combinations
                             with optional Layer 7 rules which must be met.
                           properties:
+                            listener:
+                              description: listener specifies the name of a custom
+                                Envoy listener to which this traffic should be redirected
+                                to.
+                              properties:
+                                envoyConfig:
+                                  description: EnvoyConfig is a reference to the CEC
+                                    or CCNP resource in which the listener is defined.
+                                  properties:
+                                    kind:
+                                      description: Kind is the resource type being
+                                        referred to. Defaults to CiliumEnvoyConfig
+                                        or CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy
+                                        and CiliumClusterwideNetworkPolicy, respectively.
+                                        The only case this is currently explicitly
+                                        needed is when referring to a CiliumClusterwideEnvoyConfig
+                                        from CiliumNetworkPolicy, as using a namespaced
+                                        listener from a cluster scoped policy is not
+                                        allowed.
+                                      enum:
+                                      - CiliumEnvoyConfig
+                                      - CiliumClusterwideEnvoyConfig
+                                      type: string
+                                    name:
+                                      description: Name is the resource name of the
+                                        CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+                                        where the listener is defined in.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                name:
+                                  description: Name is the name of the listener.
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - envoyConfig
+                              - name
+                              type: object
                             originatingTLS:
                               description: OriginatingTLS is the TLS context for the
                                 connections originated by the L7 proxy.  For egress
@@ -4331,6 +4513,14 @@ spec:
                                     Key-value pair rules apply.
                                   type: string
                               type: object
+                            serverNames:
+                              description: ServerNames is a list of allowed TLS SNI
+                                values. If not empty, then TLS must be present and
+                                one of the provided SNIs must be indicated in the
+                                TLS handshake.
+                              items:
+                                type: string
+                              type: array
                             terminatingTLS:
                               description: TerminatingTLS is the TLS context for the
                                 connection terminated by the L7 proxy.  For egress

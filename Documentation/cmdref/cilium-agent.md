@@ -140,7 +140,7 @@ cilium-agent [flags]
       --enable-xdp-prefilter                                    Enable XDP prefiltering
       --enable-xt-socket-fallback                               Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                                Transparent encryption interface
-      --endpoint-queue-size int                                 size of EventQueue per-endpoint (default 25)
+      --endpoint-queue-size int                                 Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                 Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
       --envoy-config-timeout duration                           Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                        Path to a separate Envoy log file, if any
@@ -209,7 +209,7 @@ cilium-agent [flags]
       --k8s-service-proxy-name string                           Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --k8s-watcher-endpoint-selector string                    K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
       --keep-config                                             When restoring state, keeps containers' configuration in place
-      --kube-proxy-replacement string                           enable only selected features (will panic if any selected feature cannot be enabled) ("partial"), or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
+      --kube-proxy-replacement string                           Enable only selected features (will panic if any selected feature cannot be enabled) ("partial"), or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
       --kube-proxy-replacement-healthz-bind-address string      The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
       --kvstore string                                          Key-value store type
       --kvstore-connectivity-timeout duration                   Time after which an incomplete kvstore operation  is considered failed (default 2m0s)
@@ -233,7 +233,7 @@ cilium-agent [flags]
       --node-port-bind-protection                               Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-range strings                                 Set the min/max NodePort port range (default [30000,32767])
       --policy-audit-mode                                       Enable policy audit (non-drop) mode
-      --policy-queue-size int                                   size of queues for policy-related events (default 100)
+      --policy-queue-size int                                   Size of queues for policy-related events (default 100)
       --pprof                                                   Enable serving the pprof debugging API
       --pprof-port int                                          Port that the pprof listens on (default 6060)
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)

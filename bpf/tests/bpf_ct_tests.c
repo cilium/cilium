@@ -91,7 +91,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 
 	{
 		unsigned int data_len = ctx->data_end - ctx->data;
-		int offset = offset = pkt_size - 256 - 320 - data_len;
+		int offset = pkt_size - 256 - 320 - data_len;
 
 		ctx_adjust_troom(ctx, offset);
 

@@ -44,7 +44,8 @@ type UpdateSecurityGroupRuleDescriptionsIngressInput struct {
 	GroupId *string
 
 	// [EC2-Classic, default VPC] The name of the security group. You must specify
-	// either the security group ID or the security group name in the request.
+	// either the security group ID or the security group name in the request. For
+	// security groups in a nondefault VPC, you must specify the security group ID.
 	GroupName *string
 
 	// The IP permissions for the security group rule. You must specify either IP

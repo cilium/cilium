@@ -55,4 +55,5 @@ type RouterInterfaceType struct {
 	HasReservationData              string `json:"HasReservationData" xml:"HasReservationData"`
 	AccessPointId                   string `json:"AccessPointId" xml:"AccessPointId"`
 	Ipv6Status                      string `json:"Ipv6Status" xml:"Ipv6Status"`
+	FastLinkMode                    bool   `json:"FastLinkMode" xml:"FastLinkMode"`
 }

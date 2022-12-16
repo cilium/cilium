@@ -72,6 +72,7 @@ func (client *Client) InvokeCommandWithCallback(request *InvokeCommandRequest, c
 type InvokeCommandRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	ContainerName        string                 `position:"Query" name:"ContainerName"`
 	CommandId            string                 `position:"Query" name:"CommandId"`
 	Frequency            string                 `position:"Query" name:"Frequency"`
 	RepeatMode           string                 `position:"Query" name:"RepeatMode"`
@@ -81,6 +82,7 @@ type InvokeCommandRequest struct {
 	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string              `position:"Query" name:"InstanceId"  type:"Repeated"`
+	ContainerId          string                 `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
 	Username             string                 `position:"Query" name:"Username"`
 }

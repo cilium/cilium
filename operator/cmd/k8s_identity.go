@@ -117,7 +117,10 @@ func identityGCIteration(ctx context.Context, clientset k8sClient.Clientset) {
 				if identity.Annotations == nil {
 					identity.Annotations = make(map[string]string)
 				}
-				log.WithField(logfields.Identity, identity).Info("Marking identity for later deletion")
+				log.WithFields(logrus.Fields{
+					logfields.Identity: identity.Name,
+					logfields.K8sUID:   identity.UID,
+				}).Info("Marking identity for later deletion")
 				identity.Annotations[identitybackend.HeartBeatAnnotation] = timeNow.Format(time.RFC3339Nano)
 				err := updateIdentity(ctx, clientset, identity)
 				if err != nil {

@@ -38,14 +38,20 @@ func (r *Registry) Register(name string, p Plugin) {
 	r.mutex.Unlock()
 }
 
+type NamedHandler struct {
+	Name    string
+	Options Options
+	Handler Handler
+}
+
 // ConfigureHandlers enables a set of metric handlers and initializes them.
 // Only metrics handlers which have been previously registered via the
 // Register() function can be configured.
-func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map) (Handlers, error) {
+func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map) (*Handlers, error) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	initialized := make(Handlers, 0, len(enabled))
+	var enabledHandlers []NamedHandler
 	for name, opts := range enabled {
 		plugin, ok := r.handlers[name]
 		if !ok {
@@ -60,14 +66,13 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map)
 			}
 		}
 
-		handler := plugin.NewHandler()
-		if err := handler.Init(registry, opts); err != nil {
-			return nil, fmt.Errorf("unable to initialize metric '%s': %s", name, err)
+		h := NamedHandler{
+			Name:    name,
+			Options: opts,
+			Handler: plugin.NewHandler(),
 		}
-		r.log.WithFields(logrus.Fields{"name": name, "status": handler.Status()}).Info("Configured metrics plugin")
-
-		initialized = append(initialized, handler)
+		enabledHandlers = append(enabledHandlers, h)
 	}
 
-	return initialized, nil
+	return NewHandlers(r.log, registry, enabledHandlers)
 }

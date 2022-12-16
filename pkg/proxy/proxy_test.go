@@ -35,7 +35,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	p := StartProxySupport(10000, 20000, stateDir, nil, nil, mockDatapathUpdater, nil,
 		testipcache.NewMockIPCache())
 
-	port, err := p.AllocateProxyPort("listener1", true)
+	port, err := p.AllocateProxyPort("listener1", false)
 	c.Assert(err, IsNil)
 	c.Assert(port, Not(Equals), 0)
 
@@ -44,15 +44,15 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(port1, Equals, port)
 
 	// Another allocation for the same name gets the same port
-	port1a, err := p.AllocateProxyPort("listener1", true)
+	port1a, err := p.AllocateProxyPort("listener1", false)
 	c.Assert(err, IsNil)
 	c.Assert(port1a, Equals, port1)
 
-	name, pp := findProxyPortByType(ProxyTypeCRD, true)
+	name, pp := findProxyPortByType(ProxyTypeCRD, "listener1", false)
 	c.Assert(name, Equals, "listener1")
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
 	c.Assert(pp.proxyPort, Equals, port)
-	c.Assert(pp.ingress, Equals, true)
+	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.configured, Equals, true)
 	c.Assert(pp.isStatic, Equals, false)
 	c.Assert(pp.nRedirects, Equals, 0)
@@ -77,7 +77,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port2, Not(Equals), port)
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
-	c.Assert(pp.ingress, Equals, true)
+	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.proxyPort, Equals, port2)
 	c.Assert(pp.configured, Equals, true)
 	c.Assert(pp.isStatic, Equals, false)
@@ -129,7 +129,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(port3, Not(Equals), port2)
 	c.Assert(port3, Not(Equals), port1)
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
-	c.Assert(pp.ingress, Equals, true)
+	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.proxyPort, Equals, port3)
 	c.Assert(pp.configured, Equals, true)
 	c.Assert(pp.isStatic, Equals, false)
@@ -159,7 +159,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port4, Equals, port3)
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
-	c.Assert(pp.ingress, Equals, true)
+	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.proxyPort, Equals, port4)
 	c.Assert(pp.configured, Equals, true)
 	c.Assert(pp.isStatic, Equals, false)

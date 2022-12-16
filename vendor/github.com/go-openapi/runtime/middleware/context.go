@@ -195,6 +195,17 @@ func NewRoutableContext(spec *loads.Document, routableAPI RoutableAPI, routes Ro
 	if spec != nil {
 		an = analysis.New(spec.Spec())
 	}
+
+	return NewRoutableContextWithAnalyzedSpec(spec, an, routableAPI, routes)
+}
+
+// NewRoutableContextWithAnalyzedSpec is like NewRoutableContext but takes in input the analysed spec too
+func NewRoutableContextWithAnalyzedSpec(spec *loads.Document, an *analysis.Spec, routableAPI RoutableAPI, routes Router) *Context {
+	// Either there are no spec doc and analysis, or both of them.
+	if !((spec == nil && an == nil) || (spec != nil && an != nil)) {
+		panic(errors.New(http.StatusInternalServerError, "routable context requires either both spec doc and analysis, or none of them"))
+	}
+
 	ctx := &Context{spec: spec, api: routableAPI, analyzer: an, router: routes}
 	return ctx
 }

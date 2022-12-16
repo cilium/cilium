@@ -22,6 +22,7 @@ type Invocation struct {
 	PageSize           int64                                    `json:"PageSize" xml:"PageSize"`
 	Timed              bool                                     `json:"Timed" xml:"Timed"`
 	Frequency          string                                   `json:"Frequency" xml:"Frequency"`
+	ContainerId        string                                   `json:"ContainerId" xml:"ContainerId"`
 	Content            string                                   `json:"Content" xml:"Content"`
 	CommandContent     string                                   `json:"CommandContent" xml:"CommandContent"`
 	InvocationStatus   string                                   `json:"InvocationStatus" xml:"InvocationStatus"`
@@ -43,10 +44,11 @@ type Invocation struct {
 	InvokeId           string                                   `json:"InvokeId" xml:"InvokeId"`
 	RepeatMode         string                                   `json:"RepeatMode" xml:"RepeatMode"`
 	InvokeStatus       string                                   `json:"InvokeStatus" xml:"InvokeStatus"`
+	ContainerName      string                                   `json:"ContainerName" xml:"ContainerName"`
 	FileOwner          string                                   `json:"FileOwner" xml:"FileOwner"`
 	CommandDescription string                                   `json:"CommandDescription" xml:"CommandDescription"`
 	CommandType        string                                   `json:"CommandType" xml:"CommandType"`
-	InvocationResults  InvocationResults                        `json:"InvocationResults" xml:"InvocationResults"`
 	Tags               TagsInDescribeInvocations                `json:"Tags" xml:"Tags"`
+	InvocationResults  InvocationResults                        `json:"InvocationResults" xml:"InvocationResults"`
 	InvokeInstances    InvokeInstancesInDescribeSendFileResults `json:"InvokeInstances" xml:"InvokeInstances"`
 }

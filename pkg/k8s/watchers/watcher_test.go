@@ -43,6 +43,10 @@ func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
 	return false
 }
 
+func (f *fakeWatcherConfiguration) K8sGatewayAPIEnabled() bool {
+	return false
+}
+
 type fakePolicyManager struct {
 	OnTriggerPolicyUpdates func(force bool, reason string)
 	OnPolicyAdd            func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)

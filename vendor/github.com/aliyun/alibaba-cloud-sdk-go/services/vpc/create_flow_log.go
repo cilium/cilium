@@ -78,6 +78,8 @@ type CreateFlowLogRequest struct {
 	LogStoreName         string           `position:"Query" name:"LogStoreName"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	TrafficPath          *[]string        `position:"Query" name:"TrafficPath"  type:"Repeated"`
+	AggregationInterval  requests.Integer `position:"Query" name:"AggregationInterval"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	ResourceType         string           `position:"Query" name:"ResourceType"`
 	TrafficType          string           `position:"Query" name:"TrafficType"`

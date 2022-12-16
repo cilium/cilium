@@ -13,22 +13,27 @@ on:
       - Cilium L4LB XDP (ci-l4lb-1.10)
       - Cilium L4LB XDP (ci-l4lb-1.11)
       - Cilium L4LB XDP (ci-l4lb-1.12)
+      - Cilium L4LB XDP (ci-l4lb-1.13)
       - Conformance AWS-CNI (ci-awscni)
       - Conformance AWS-CNI (ci-awscni-1.10)
       - Conformance AWS-CNI (ci-awscni-1.11)
       - Conformance AWS-CNI (ci-awscni-1.12)
+      - Conformance AWS-CNI (ci-awscni-1.13)
       - ConformanceAKS (ci-aks)
       - ConformanceAKS (ci-aks-1.10)
       - ConformanceAKS (ci-aks-1.11)
       - ConformanceAKS (ci-aks-1.12)
+      - ConformanceAKS (ci-aks-1.13)
       - ConformanceEKS (ci-eks)
       - ConformanceEKS (ci-eks-1.10)
       - ConformanceEKS (ci-eks-1.11)
       - ConformanceEKS (ci-eks-1.12)
+      - ConformanceEKS (ci-eks-1.13)
       - ConformanceGKE (ci-gke)
       - ConformanceGKE (ci-gke-1.10)
       - ConformanceGKE (ci-gke-1.11)
       - ConformanceGKE (ci-gke-1.12)
+      - ConformanceGKE (ci-gke-1.13)
       - ConformanceIngress
       - ConformanceIngress (Dedicated LB)
       - ConformanceIngress (Shared LB)
@@ -39,6 +44,7 @@ on:
       - External workloads (ci-external-workloads-v1.10)
       - External workloads (ci-external-workloads-v1.11)
       - External workloads (ci-external-workloads-v1.12)
+      - External workloads (ci-external-workloads-v1.13)
       - Go-related checks
       - Hot Fix Image Release Build
       - Image CI Build
@@ -48,6 +54,7 @@ on:
       - Multicluster / Cluster mesh (ci-multicluster-1.10)
       - Multicluster / Cluster mesh (ci-multicluster-1.11)
       - Multicluster / Cluster mesh (ci-multicluster-1.12)
+      - Multicluster / Cluster mesh (ci-multicluster-1.13)
       - Nightly
       - Scruffy
       - Smoke Test with IPv6

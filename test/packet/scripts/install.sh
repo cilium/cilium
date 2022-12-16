@@ -5,7 +5,7 @@ set -e
 # Ensure no prompts from apt & co.
 export DEBIAN_FRONTEND=noninteractive
 
-GOLANG_VERSION="1.19.3"
+GOLANG_VERSION="1.19.4"
 VAGRANT_VERSION="2.2.16"
 PACKER_VERSION="1.3.5"
 
@@ -64,8 +64,8 @@ sudo ln -s /usr/local/go/bin/* /usr/local/bin/
 go version
 sudo mkdir /go/
 export GOPATH=/go/
-go install github.com/google/gops@db6b6e9ba07629c90654a7720c452fb44a864dfb # v0.3.22
-go install github.com/onsi/ginkgo/ginkgo@1ed6486197ba2a007858c59bdc4d1522631025d5 # v2.1.3
+go install github.com/google/gops@eebecad9f8eb8eab9cb9da639f1dd7942272c7d5 # v0.3.26
+go install github.com/onsi/ginkgo/ginkgo@d38b9d946d52cd175495d30143fbecc5aff98f13 # v1.16.5
 sudo ln -sf /go/bin/* /usr/local/bin/
 
 echo 'cd /root/go/src/github.com/cilium/cilium' >> /root/.bashrc

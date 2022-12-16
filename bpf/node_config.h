@@ -117,12 +117,12 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #define EP_POLICY_MAP test_cilium_ep_to_policy
 #define LB6_REVERSE_NAT_MAP test_cilium_lb6_reverse_nat
 #define LB6_SERVICES_MAP_V2 test_cilium_lb6_services
-#define LB6_BACKEND_MAP_V2 test_cilium_lb6_backends
+#define LB6_BACKEND_MAP test_cilium_lb6_backends
 #define LB6_REVERSE_NAT_SK_MAP test_cilium_lb6_reverse_sk
 #define LB6_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB4_REVERSE_NAT_MAP test_cilium_lb4_reverse_nat
 #define LB4_SERVICES_MAP_V2 test_cilium_lb4_services
-#define LB4_BACKEND_MAP_V2 test_cilium_lb4_backends
+#define LB4_BACKEND_MAP test_cilium_lb4_backends
 #define LB4_REVERSE_NAT_SK_MAP test_cilium_lb4_reverse_sk
 #define LB4_REVERSE_NAT_SK_MAP_SIZE 262144
 #define LB4_AFFINITY_MAP test_cilium_lb4_affinity

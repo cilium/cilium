@@ -107,7 +107,7 @@ func TestGetEnvName(t *testing.T) {
 }
 
 func (s *OptionSuite) TestReadDirConfig(c *C) {
-	vp := viper.GetViper()
+	vp := viper.New()
 	var dirName string
 	type args struct {
 		dirName string
@@ -131,7 +131,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				dirName = c.MkDir()
 
 				fs := flag.NewFlagSet("empty configuration", flag.ContinueOnError)
-				viper.BindPFlags(fs)
+				vp.BindPFlags(fs)
 			},
 			setupArgs: func() args {
 				return args{
@@ -162,7 +162,7 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 				fs := flag.NewFlagSet("single file configuration", flag.ContinueOnError)
 				fs.String("test", "", "")
 				BindEnv(vp, "test")
-				viper.BindPFlags(fs)
+				vp.BindPFlags(fs)
 
 				fmt.Println(fullPath)
 			},
@@ -190,26 +190,24 @@ func (s *OptionSuite) TestReadDirConfig(c *C) {
 		want := tt.setupWant()
 		m, err := ReadDirConfig(args.dirName)
 		c.Assert(err, want.errChecker, want.err, Commentf("Test Name: %s", tt.name))
-		err = MergeConfig(viper.GetViper(), m)
+		err = MergeConfig(vp, m)
 		c.Assert(err, IsNil)
-		c.Assert(viper.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
+		c.Assert(vp.AllSettings(), want.allSettingsChecker, want.allSettings, Commentf("Test Name: %s", tt.name))
 		tt.postTestRun()
 	}
 }
 
 func (s *OptionSuite) TestBindEnv(c *C) {
-	vp := viper.GetViper()
+	vp := viper.New()
 	optName1 := "foo-bar"
 	os.Setenv("LEGACY_FOO_BAR", "legacy")
 	os.Setenv(getEnvName(optName1), "new")
 	BindEnvWithLegacyEnvFallback(vp, optName1, "LEGACY_FOO_BAR")
-	c.Assert(viper.GetString(optName1), Equals, "new")
+	c.Assert(vp.GetString(optName1), Equals, "new")
 
 	optName2 := "bar-foo"
 	BindEnvWithLegacyEnvFallback(vp, optName2, "LEGACY_FOO_BAR")
-	c.Assert(viper.GetString(optName2), Equals, "legacy")
-
-	viper.Reset()
+	c.Assert(vp.GetString(optName2), Equals, "legacy")
 }
 
 func (s *OptionSuite) TestEnabledFunctions(c *C) {
@@ -885,7 +883,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 		totalMemory uint64
 		ratio       float64
 		want        sizes
-		preTestRun  func()
+		preTestRun  func(*viper.Viper)
 	}{
 		{
 			name: "static default sizes",
@@ -897,13 +895,13 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NeighMapSize:      NATMapEntriesGlobalDefault,
 				SockRevNatMapSize: SockRevNATMapEntriesDefault,
 			},
-			preTestRun: func() {
-				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault)
-				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault)
-				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault)
+			preTestRun: func(vp *viper.Viper) {
+				vp.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault)
+				vp.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault)
+				vp.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault)
 				// Neigh table has the same number of entries as NAT Map has.
-				viper.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault)
-				viper.Set(SockRevNatEntriesName, SockRevNATMapEntriesDefault)
+				vp.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault)
+				vp.Set(SockRevNatEntriesName, SockRevNATMapEntriesDefault)
 			},
 		},
 		{
@@ -916,13 +914,13 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NeighMapSize:      NATMapEntriesGlobalDefault + 256,
 				SockRevNatMapSize: SockRevNATMapEntriesDefault + 256,
 			},
-			preTestRun: func() {
-				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+128)
-				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault-64)
-				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
+			preTestRun: func(vp *viper.Viper) {
+				vp.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+128)
+				vp.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault-64)
+				vp.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
 				// Neigh table has the same number of entries as NAT Map has.
-				viper.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
-				viper.Set(SockRevNatEntriesName, SockRevNATMapEntriesDefault+256)
+				vp.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
+				vp.Set(SockRevNatEntriesName, SockRevNATMapEntriesDefault+256)
 			},
 		},
 		{
@@ -1032,8 +1030,8 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NeighMapSize:      131072,
 				SockRevNatMapSize: 65536,
 			},
-			preTestRun: func() {
-				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+1024)
+			preTestRun: func(vp *viper.Viper) {
+				vp.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+1024)
 			},
 		},
 		{
@@ -1059,27 +1057,26 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NeighMapSize:      524288,
 				SockRevNatMapSize: 607062,
 			},
-			preTestRun: func() {
-				viper.Set(CTMapEntriesGlobalTCPName, 524288)
-				viper.Set(CTMapEntriesGlobalAnyName, 262144)
+			preTestRun: func(vp *viper.Viper) {
+				vp.Set(CTMapEntriesGlobalTCPName, 524288)
+				vp.Set(CTMapEntriesGlobalAnyName, 262144)
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-
+			vp := viper.New()
 			if tt.preTestRun != nil {
-				tt.preTestRun()
+				tt.preTestRun(vp)
 			}
 
 			d := &DaemonConfig{
-				CTMapEntriesGlobalTCP: viper.GetInt(CTMapEntriesGlobalTCPName),
-				CTMapEntriesGlobalAny: viper.GetInt(CTMapEntriesGlobalAnyName),
-				NATMapEntriesGlobal:   viper.GetInt(NATMapEntriesGlobalName),
-				NeighMapEntriesGlobal: viper.GetInt(NeighMapEntriesGlobalName),
-				SockRevNatEntries:     viper.GetInt(SockRevNatEntriesName),
+				CTMapEntriesGlobalTCP: vp.GetInt(CTMapEntriesGlobalTCPName),
+				CTMapEntriesGlobalAny: vp.GetInt(CTMapEntriesGlobalAnyName),
+				NATMapEntriesGlobal:   vp.GetInt(NATMapEntriesGlobalName),
+				NeighMapEntriesGlobal: vp.GetInt(NeighMapEntriesGlobalName),
+				SockRevNatEntries:     vp.GetInt(SockRevNatEntriesName),
 			}
 
 			// cannot set these from the Sizeof* consts from
@@ -1092,7 +1089,7 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			)
 
 			if tt.totalMemory > 0 && tt.ratio > 0.0 {
-				d.calculateDynamicBPFMapSizes(viper.GetViper(), tt.totalMemory, tt.ratio)
+				d.calculateDynamicBPFMapSizes(vp, tt.totalMemory, tt.ratio)
 			}
 
 			got := sizes{

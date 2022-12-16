@@ -769,7 +769,6 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	ipcacheExpect("upsert", "2001:DB8::20")
 
 	ipcacheExpect("delete", "192.0.2.1")
-	ipcacheExpect("delete", "2001:DB8::1")
 	ipcacheExpect("delete", "192.0.2.2")
 	ipcacheExpect("delete", "2001:DB8::2")
 

@@ -17,9 +17,9 @@ import (
 // address is moved, it is no longer available for use in the EC2-Classic platform,
 // unless you move it back using the RestoreAddressToClassic request. You cannot
 // move an Elastic IP address that was originally allocated for use in the EC2-VPC
-// platform to the EC2-Classic platform. We are retiring EC2-Classic on August 15,
-// 2022. We recommend that you migrate from EC2-Classic to a VPC. For more
-// information, see Migrate from EC2-Classic to a VPC
+// platform to the EC2-Classic platform. We are retiring EC2-Classic. We recommend
+// that you migrate from EC2-Classic to a VPC. For more information, see Migrate
+// from EC2-Classic to a VPC
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
 // Amazon Elastic Compute Cloud User Guide.
 func (c *Client) MoveAddressToVpc(ctx context.Context, params *MoveAddressToVpcInput, optFns ...func(*Options)) (*MoveAddressToVpcOutput, error) {

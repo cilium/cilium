@@ -63,8 +63,6 @@ var (
 		Short: "Run " + binaryName,
 	}
 
-	shutdownSignal = make(chan struct{})
-
 	leaderElectionResourceLockName = "cilium-operator-resource-lock"
 
 	// Use a Go context so we can tell the leaderelection code when we
@@ -125,10 +123,11 @@ func Execute() {
 }
 
 func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+	apiServerShutdownSignal := make(chan struct{})
 
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			go runOperator(llc, clientset, shutdowner)
+			go runOperator(llc, clientset, shutdowner, apiServerShutdownSignal)
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
@@ -136,6 +135,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 				return err
 			}
 			doCleanup()
+			close(apiServerShutdownSignal)
 			return nil
 		},
 	})
@@ -194,7 +194,6 @@ func initEnv() {
 
 func doCleanup() {
 	IsLeader.Store(false)
-	close(shutdownSignal)
 
 	// Cancelling this conext here makes sure that if the operator hold the
 	// leader lease, it will be released.
@@ -236,14 +235,14 @@ func checkStatus(clientset k8sClient.Clientset) error {
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
+func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, apiServerShutdownSignal chan struct{}) {
 	log.Infof("Cilium Operator %s", version.Version)
 
 	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
 
 	// Configure API server for the operator.
-	srv, err := api.NewServer(shutdownSignal, allSystemsGo, getAPIServerAddr()...)
+	srv, err := api.NewServer(apiServerShutdownSignal, allSystemsGo, getAPIServerAddr()...)
 	if err != nil {
 		log.WithError(err).Fatalf("Unable to create operator apiserver")
 	}
@@ -558,9 +557,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		operatorWatchers.HandleNodeTolerationAndTaints(legacy.clientset, stopCh)
 	}
 
+	ciliumNodeSynchronizer := newCiliumNodeSynchronizer(legacy.clientset, nodeManager, withKVStore)
+
 	if legacy.clientset.IsEnabled() {
-		if err := startSynchronizingCiliumNodes(legacy.ctx, legacy.clientset, nodeManager, withKVStore); err != nil {
-			log.WithError(err).Fatal("Unable to setup node watcher")
+		if err := ciliumNodeSynchronizer.Start(legacy.ctx); err != nil {
+			log.WithError(err).Fatal("Unable to setup cilium node synchronizer")
 		}
 
 		if operatorOption.Config.SkipCNPStatusStartupClean {
@@ -581,11 +582,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		}
 
 		if operatorOption.Config.CNPNodeStatusGCInterval != 0 {
-			RunCNPNodeStatusGC(legacy.clientset, ciliumNodeStore)
+			RunCNPNodeStatusGC(legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore)
 		}
 
 		if operatorOption.Config.NodesGCInterval != 0 {
-			operatorWatchers.RunCiliumNodeGC(legacy.ctx, legacy.clientset, ciliumNodeStore, operatorOption.Config.NodesGCInterval)
+			operatorWatchers.RunCiliumNodeGC(legacy.ctx, legacy.clientset, ciliumNodeSynchronizer.ciliumNodeStore, operatorOption.Config.NodesGCInterval)
 		}
 	}
 
@@ -594,7 +595,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		// Once the CiliumNodes are synchronized with the operator we will
 		// be able to watch for K8s Node events which they will be used
 		// to create the remaining CiliumNodes.
-		<-ciliumNodeManagerQueueSynced
+		<-ciliumNodeSynchronizer.ciliumNodeManagerQueueSynced
 
 		// We don't want CiliumNodes that don't have podCIDRs to be
 		// allocated with a podCIDR already being used by another node.
@@ -632,12 +633,12 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if legacy.clientset.IsEnabled() {
 		if operatorOption.Config.EndpointGCInterval != 0 {
-			enableCiliumEndpointSyncGC(legacy.clientset, false)
+			enableCiliumEndpointSyncGC(legacy.clientset, ciliumNodeSynchronizer, false)
 		} else {
 			// Even if the EndpointGC is disabled we still want it to run at least
 			// once. This is to prevent leftover CEPs from populating ipcache with
 			// stale entries.
-			enableCiliumEndpointSyncGC(legacy.clientset, true)
+			enableCiliumEndpointSyncGC(legacy.clientset, ciliumNodeSynchronizer, true)
 		}
 
 		err = enableCNPWatcher(legacy.clientset)
@@ -685,13 +686,4 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	log.Info("Initialization complete")
 	return nil
-}
-
-// ResetCiliumNodesCacheSyncedStatus resets the current status of
-// cache synchronization in Cilium nodes as "not synced".
-// Should be used in control-plane testing only to reset the operator status
-// before executing the next test case.
-func ResetCiliumNodesCacheSyncedStatus() {
-	k8sCiliumNodesCacheSynced = make(chan struct{})
-	ciliumNodeManagerQueueSynced = make(chan struct{})
 }

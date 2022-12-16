@@ -47,6 +47,7 @@ type StatsSink struct {
 	// [#extension-category: envoy.stats_sinks]
 	//
 	// Types that are assignable to ConfigType:
+	//
 	//	*StatsSink_TypedConfig
 	ConfigType isStatsSink_ConfigType `protobuf_oneof:"config_type"`
 }
@@ -132,8 +133,8 @@ type StatsConfig struct {
 	//
 	// .. note::
 	//
-	//   If any default tags are specified twice, the config will be considered
-	//   invalid.
+	//	If any default tags are specified twice, the config will be considered
+	//	invalid.
 	//
 	// See :repo:`well_known_names.h <source/common/config/well_known_names.h>` for a list of the
 	// default tags in Envoy.
@@ -145,37 +146,38 @@ type StatsConfig struct {
 	// performance for Envoys running especially large configs.
 	//
 	// .. warning::
-	//   Excluding stats may affect Envoy's behavior in undocumented ways. See
-	//   `issue #8771 <https://github.com/envoyproxy/envoy/issues/8771>`_ for more information.
-	//   If any unexpected behavior changes are observed, please open a new issue immediately.
+	//
+	//	Excluding stats may affect Envoy's behavior in undocumented ways. See
+	//	`issue #8771 <https://github.com/envoyproxy/envoy/issues/8771>`_ for more information.
+	//	If any unexpected behavior changes are observed, please open a new issue immediately.
 	StatsMatcher *StatsMatcher `protobuf:"bytes,3,opt,name=stats_matcher,json=statsMatcher,proto3" json:"stats_matcher,omitempty"`
 	// Defines rules for setting the histogram buckets. Rules are evaluated in order, and the first
 	// match is applied. If no match is found (or if no rules are set), the following default buckets
 	// are used:
 	//
-	//   .. code-block:: json
+	//	.. code-block:: json
 	//
-	//     [
-	//       0.5,
-	//       1,
-	//       5,
-	//       10,
-	//       25,
-	//       50,
-	//       100,
-	//       250,
-	//       500,
-	//       1000,
-	//       2500,
-	//       5000,
-	//       10000,
-	//       30000,
-	//       60000,
-	//       300000,
-	//       600000,
-	//       1800000,
-	//       3600000
-	//     ]
+	//	  [
+	//	    0.5,
+	//	    1,
+	//	    5,
+	//	    10,
+	//	    25,
+	//	    50,
+	//	    100,
+	//	    250,
+	//	    500,
+	//	    1000,
+	//	    2500,
+	//	    5000,
+	//	    10000,
+	//	    30000,
+	//	    60000,
+	//	    300000,
+	//	    600000,
+	//	    1800000,
+	//	    3600000
+	//	  ]
 	HistogramBucketSettings []*HistogramBucketSettings `protobuf:"bytes,4,rep,name=histogram_bucket_settings,json=histogramBucketSettings,proto3" json:"histogram_bucket_settings,omitempty"`
 }
 
@@ -246,6 +248,7 @@ type StatsMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to StatsMatcher:
+	//
 	//	*StatsMatcher_RejectAll
 	//	*StatsMatcher_ExclusionList
 	//	*StatsMatcher_InclusionList
@@ -360,9 +363,10 @@ type TagSpecifier struct {
 	//
 	// .. note::
 	//
-	//   It is invalid to specify the same tag name twice in a config.
+	//	It is invalid to specify the same tag name twice in a config.
 	TagName string `protobuf:"bytes,1,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
 	// Types that are assignable to TagValue:
+	//
 	//	*TagSpecifier_Regex
 	//	*TagSpecifier_FixedValue
 	TagValue isTagSpecifier_TagValue `protobuf_oneof:"tag_value"`
@@ -443,55 +447,55 @@ type TagSpecifier_Regex struct {
 	// group is provided, the first will also be used to set the value of the tag.
 	// All other capture groups will be ignored.
 	//
-	// Example 1. a stat name ``cluster.foo_cluster.upstream_rq_timeout`` and
+	// Example 1. a stat name “cluster.foo_cluster.upstream_rq_timeout“ and
 	// one tag specifier:
 	//
 	// .. code-block:: json
 	//
-	//   {
-	//     "tag_name": "envoy.cluster_name",
-	//     "regex": "^cluster\\.((.+?)\\.)"
-	//   }
+	//	{
+	//	  "tag_name": "envoy.cluster_name",
+	//	  "regex": "^cluster\\.((.+?)\\.)"
+	//	}
 	//
-	// Note that the regex will remove ``foo_cluster.`` making the tag extracted
-	// name ``cluster.upstream_rq_timeout`` and the tag value for
-	// ``envoy.cluster_name`` will be ``foo_cluster`` (note: there will be no
-	// ``.`` character because of the second capture group).
+	// Note that the regex will remove “foo_cluster.“ making the tag extracted
+	// name “cluster.upstream_rq_timeout“ and the tag value for
+	// “envoy.cluster_name“ will be “foo_cluster“ (note: there will be no
+	// “.“ character because of the second capture group).
 	//
 	// Example 2. a stat name
-	// ``http.connection_manager_1.user_agent.ios.downstream_cx_total`` and two
+	// “http.connection_manager_1.user_agent.ios.downstream_cx_total“ and two
 	// tag specifiers:
 	//
 	// .. code-block:: json
 	//
-	//   [
-	//     {
-	//       "tag_name": "envoy.http_user_agent",
-	//       "regex": "^http(?=\\.).*?\\.user_agent\\.((.+?)\\.)\\w+?$"
-	//     },
-	//     {
-	//       "tag_name": "envoy.http_conn_manager_prefix",
-	//       "regex": "^http\\.((.*?)\\.)"
-	//     }
-	//   ]
+	//	[
+	//	  {
+	//	    "tag_name": "envoy.http_user_agent",
+	//	    "regex": "^http(?=\\.).*?\\.user_agent\\.((.+?)\\.)\\w+?$"
+	//	  },
+	//	  {
+	//	    "tag_name": "envoy.http_conn_manager_prefix",
+	//	    "regex": "^http\\.((.*?)\\.)"
+	//	  }
+	//	]
 	//
 	// The two regexes of the specifiers will be processed in the definition order.
 	//
-	// The first regex will remove ``ios.``, leaving the tag extracted name
-	// ``http.connection_manager_1.user_agent.downstream_cx_total``. The tag
-	// ``envoy.http_user_agent`` will be added with tag value ``ios``.
+	// The first regex will remove “ios.“, leaving the tag extracted name
+	// “http.connection_manager_1.user_agent.downstream_cx_total“. The tag
+	// “envoy.http_user_agent“ will be added with tag value “ios“.
 	//
-	// The second regex will remove ``connection_manager_1.`` from the tag
+	// The second regex will remove “connection_manager_1.“ from the tag
 	// extracted name produced by the first regex
-	// ``http.connection_manager_1.user_agent.downstream_cx_total``, leaving
-	// ``http.user_agent.downstream_cx_total`` as the tag extracted name. The tag
-	// ``envoy.http_conn_manager_prefix`` will be added with the tag value
-	// ``connection_manager_1``.
+	// “http.connection_manager_1.user_agent.downstream_cx_total“, leaving
+	// “http.user_agent.downstream_cx_total“ as the tag extracted name. The tag
+	// “envoy.http_conn_manager_prefix“ will be added with the tag value
+	// “connection_manager_1“.
 	Regex string `protobuf:"bytes,2,opt,name=regex,proto3,oneof"`
 }
 
 type TagSpecifier_FixedValue struct {
-	// Specifies a fixed tag value for the ``tag_name``.
+	// Specifies a fixed tag value for the “tag_name“.
 	FixedValue string `protobuf:"bytes,3,opt,name=fixed_value,json=fixedValue,proto3,oneof"`
 }
 
@@ -568,6 +572,7 @@ type StatsdSink struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to StatsdSpecifier:
+	//
 	//	*StatsdSink_Address
 	//	*StatsdSink_TcpClusterName
 	StatsdSpecifier isStatsdSink_StatsdSpecifier `protobuf_oneof:"statsd_specifier"`
@@ -577,16 +582,16 @@ type StatsdSink struct {
 	//
 	// .. code-block:: json
 	//
-	//   {
-	//     "prefix" : "envoy-prod"
-	//   }
+	//	{
+	//	  "prefix" : "envoy-prod"
+	//	}
 	//
 	// will change emitted stats to
 	//
 	// .. code-block:: cpp
 	//
-	//   envoy-prod.test_counter:1|c
-	//   envoy-prod.test_timer:5|ms
+	//	envoy-prod.test_counter:1|c
+	//	envoy-prod.test_timer:5|ms
 	//
 	// Note that the default prefix, "envoy", will be used if a prefix is not
 	// specified.
@@ -595,8 +600,8 @@ type StatsdSink struct {
 	//
 	// .. code-block:: cpp
 	//
-	//   envoy.test_counter:1|c
-	//   envoy.test_timer:5|ms
+	//	envoy.test_counter:1|c
+	//	envoy.test_timer:5|ms
 	Prefix string `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
 }
 
@@ -693,6 +698,7 @@ type DogStatsdSink struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to DogStatsdSpecifier:
+	//
 	//	*DogStatsdSink_Address
 	DogStatsdSpecifier isDogStatsdSink_DogStatsdSpecifier `protobuf_oneof:"dog_statsd_specifier"`
 	// Optional custom metric name prefix. See :ref:`StatsdSink's prefix field

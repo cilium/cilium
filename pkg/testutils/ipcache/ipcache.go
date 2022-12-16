@@ -11,13 +11,13 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 type MockIPCache struct{}
 
-func (m *MockIPCache) GetNamedPorts() policy.NamedPortMultiMap {
+func (m *MockIPCache) GetNamedPorts() types.NamedPortMultiMap {
 	return nil
 }
 

@@ -4,6 +4,8 @@ kind: RoleBinding
 metadata:
   name: clustermesh-apiserver-generate-certs
   namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role

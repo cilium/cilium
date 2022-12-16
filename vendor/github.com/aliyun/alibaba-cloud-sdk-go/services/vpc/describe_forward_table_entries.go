@@ -77,6 +77,7 @@ type DescribeForwardTableEntriesRequest struct {
 	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
 	ForwardEntryId       string           `position:"Query" name:"ForwardEntryId"`
 	PageSize             requests.Integer `position:"Query" name:"PageSize"`
+	NatGatewayId         string           `position:"Query" name:"NatGatewayId"`
 	ExternalIp           string           `position:"Query" name:"ExternalIp"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	IpProtocol           string           `position:"Query" name:"IpProtocol"`

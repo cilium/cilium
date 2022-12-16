@@ -252,7 +252,7 @@ type RateLimit struct {
 	//
 	// .. note::
 	//
-	//  The filter supports a range of 0 - 10 inclusively for stage numbers.
+	//	The filter supports a range of 0 - 10 inclusively for stage numbers.
 	Stage uint32 `protobuf:"varint,2,opt,name=stage,proto3" json:"stage,omitempty"`
 	// The type of requests the filter should apply to. The supported
 	// types are *internal*, *external* or *both*. A request is considered internal if
@@ -278,19 +278,19 @@ type RateLimit struct {
 	RateLimitService *v3.RateLimitServiceConfig `protobuf:"bytes,7,opt,name=rate_limit_service,json=rateLimitService,proto3" json:"rate_limit_service,omitempty"`
 	// Defines the standard version to use for X-RateLimit headers emitted by the filter:
 	//
-	// * ``X-RateLimit-Limit`` - indicates the request-quota associated to the
-	//   client in the current time-window followed by the description of the
-	//   quota policy. The values are returned by the rate limiting service in
-	//   :ref:`current_limit<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.current_limit>`
-	//   field. Example: `10, 10;w=1;name="per-ip", 1000;w=3600`.
-	// * ``X-RateLimit-Remaining`` - indicates the remaining requests in the
-	//   current time-window. The values are returned by the rate limiting service
-	//   in :ref:`limit_remaining<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.limit_remaining>`
-	//   field.
-	// * ``X-RateLimit-Reset`` - indicates the number of seconds until reset of
-	//   the current time-window. The values are returned by the rate limiting service
-	//   in :ref:`duration_until_reset<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.duration_until_reset>`
-	//   field.
+	//   - “X-RateLimit-Limit“ - indicates the request-quota associated to the
+	//     client in the current time-window followed by the description of the
+	//     quota policy. The values are returned by the rate limiting service in
+	//     :ref:`current_limit<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.current_limit>`
+	//     field. Example: `10, 10;w=1;name="per-ip", 1000;w=3600`.
+	//   - “X-RateLimit-Remaining“ - indicates the remaining requests in the
+	//     current time-window. The values are returned by the rate limiting service
+	//     in :ref:`limit_remaining<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.limit_remaining>`
+	//     field.
+	//   - “X-RateLimit-Reset“ - indicates the number of seconds until reset of
+	//     the current time-window. The values are returned by the rate limiting service
+	//     in :ref:`duration_until_reset<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.duration_until_reset>`
+	//     field.
 	//
 	// In case rate limiting policy specifies more then one time window, the values
 	// above represent the window that is closest to reaching its limit.
@@ -415,7 +415,7 @@ type RateLimitConfig struct {
 	//
 	// .. note::
 	//
-	//   The filter supports a range of 0 - 10 inclusively for stage numbers.
+	//	The filter supports a range of 0 - 10 inclusively for stage numbers.
 	Stage uint32 `protobuf:"varint,1,opt,name=stage,proto3" json:"stage,omitempty"`
 	// The key to be set in runtime to disable this rate limit configuration.
 	DisableKey string `protobuf:"bytes,2,opt,name=disable_key,json=disableKey,proto3" json:"disable_key,omitempty"`
@@ -570,6 +570,7 @@ type RateLimitConfig_Action struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ActionSpecifier:
+	//
 	//	*RateLimitConfig_Action_SourceCluster_
 	//	*RateLimitConfig_Action_DestinationCluster_
 	//	*RateLimitConfig_Action_RequestHeaders_
@@ -743,6 +744,7 @@ type RateLimitConfig_Override struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to OverrideSpecifier:
+	//
 	//	*RateLimitConfig_Override_DynamicMetadata_
 	OverrideSpecifier isRateLimitConfig_Override_OverrideSpecifier `protobuf_oneof:"override_specifier"`
 }
@@ -808,7 +810,7 @@ func (*RateLimitConfig_Override_DynamicMetadata_) isRateLimitConfig_Override_Ove
 //
 // .. code-block:: cpp
 //
-//   ("source_cluster", "<local service cluster>")
+//	("source_cluster", "<local service cluster>")
 //
 // <local service cluster> is derived from the :option:`--service-cluster` option.
 type RateLimitConfig_Action_SourceCluster struct {
@@ -853,18 +855,18 @@ func (*RateLimitConfig_Action_SourceCluster) Descriptor() ([]byte, []int) {
 //
 // .. code-block:: cpp
 //
-//   ("destination_cluster", "<routed target cluster>")
+//	("destination_cluster", "<routed target cluster>")
 //
 // Once a request matches against a route table rule, a routed cluster is determined by one of
 // the following :ref:`route table configuration <envoy_v3_api_msg_config.route.v3.RouteConfiguration>`
 // settings:
 //
-// * :ref:`cluster <envoy_v3_api_field_config.route.v3.RouteAction.cluster>` indicates the upstream cluster
-//   to route to.
-// * :ref:`weighted_clusters <envoy_v3_api_field_config.route.v3.RouteAction.weighted_clusters>`
-//   chooses a cluster randomly from a set of clusters with attributed weight.
-// * :ref:`cluster_header <envoy_v3_api_field_config.route.v3.RouteAction.cluster_header>` indicates which
-//   header in the request contains the target cluster.
+//   - :ref:`cluster <envoy_v3_api_field_config.route.v3.RouteAction.cluster>` indicates the upstream cluster
+//     to route to.
+//   - :ref:`weighted_clusters <envoy_v3_api_field_config.route.v3.RouteAction.weighted_clusters>`
+//     chooses a cluster randomly from a set of clusters with attributed weight.
+//   - :ref:`cluster_header <envoy_v3_api_field_config.route.v3.RouteAction.cluster_header>` indicates which
+//     header in the request contains the target cluster.
 type RateLimitConfig_Action_DestinationCluster struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -908,7 +910,7 @@ func (*RateLimitConfig_Action_DestinationCluster) Descriptor() ([]byte, []int) {
 //
 // .. code-block:: cpp
 //
-//   ("<descriptor_key>", "<header_value_queried_from_header>")
+//	("<descriptor_key>", "<header_value_queried_from_header>")
 type RateLimitConfig_Action_RequestHeaders struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -984,7 +986,7 @@ func (x *RateLimitConfig_Action_RequestHeaders) GetSkipIfAbsent() bool {
 //
 // .. code-block:: cpp
 //
-//   ("remote_address", "<trusted address from x-forwarded-for>")
+//	("remote_address", "<trusted address from x-forwarded-for>")
 type RateLimitConfig_Action_RemoteAddress struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1027,7 +1029,7 @@ func (*RateLimitConfig_Action_RemoteAddress) Descriptor() ([]byte, []int) {
 //
 // .. code-block:: cpp
 //
-//   ("generic_key", "<descriptor_value>")
+//	("generic_key", "<descriptor_value>")
 type RateLimitConfig_Action_GenericKey struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1090,7 +1092,7 @@ func (x *RateLimitConfig_Action_GenericKey) GetDescriptorKey() string {
 //
 // .. code-block:: cpp
 //
-//   ("header_match", "<descriptor_value>")
+//	("header_match", "<descriptor_value>")
 type RateLimitConfig_Action_HeaderValueMatch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1168,7 +1170,7 @@ func (x *RateLimitConfig_Action_HeaderValueMatch) GetHeaders() []*v32.HeaderMatc
 //
 // .. code-block:: cpp
 //
-//   ("<descriptor_key>", "<value_queried_from_metadata>")
+//	("<descriptor_key>", "<value_queried_from_metadata>")
 type RateLimitConfig_Action_MetaData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

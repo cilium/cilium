@@ -13,12 +13,12 @@ import (
 type Interface interface {
 	// CiliumBGPPeeringPolicies returns a CiliumBGPPeeringPolicyInformer.
 	CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer
-	// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
-	CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
+	// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
+	CiliumNodeConfigs() CiliumNodeConfigInformer
 }
 
 type version struct {
@@ -37,11 +37,6 @@ func (v *version) CiliumBGPPeeringPolicies() CiliumBGPPeeringPolicyInformer {
 	return &ciliumBGPPeeringPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// CiliumEgressNATPolicies returns a CiliumEgressNATPolicyInformer.
-func (v *version) CiliumEgressNATPolicies() CiliumEgressNATPolicyInformer {
-	return &ciliumEgressNATPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -50,4 +45,9 @@ func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 // CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
+func (v *version) CiliumNodeConfigs() CiliumNodeConfigInformer {
+	return &ciliumNodeConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

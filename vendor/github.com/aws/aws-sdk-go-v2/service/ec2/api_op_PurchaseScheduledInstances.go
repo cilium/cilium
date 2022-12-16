@@ -12,9 +12,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Purchases the Scheduled Instances with the specified schedule. Scheduled
-// Instances enable you to purchase Amazon EC2 compute capacity by the hour for a
-// one-year term. Before you can purchase a Scheduled Instance, you must call
+// You can no longer purchase Scheduled Instances. Purchases the Scheduled
+// Instances with the specified schedule. Scheduled Instances enable you to
+// purchase Amazon EC2 compute capacity by the hour for a one-year term. Before you
+// can purchase a Scheduled Instance, you must call
 // DescribeScheduledInstanceAvailability to check for available schedules and
 // obtain a purchase token. After you purchase a Scheduled Instance, you must call
 // RunScheduledInstances during each scheduled time period. After you purchase a

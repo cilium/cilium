@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -29,6 +30,10 @@ import (
 type remoteCluster struct {
 	// name is the name of the cluster
 	name string
+
+	// clusterConfig is a configuration of the remote cluster taken
+	// from remote kvstore.
+	config *cmtypes.CiliumClusterConfig
 
 	// configPath is the path to the etcd configuration to be used to
 	// connect to the etcd cluster of the remote cluster
@@ -123,6 +128,8 @@ func (rc *remoteCluster) releaseOldConnection() {
 	backend := rc.backend
 	rc.backend = nil
 
+	rc.config = nil
+
 	rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(0.0)
 	rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
 
@@ -177,9 +184,25 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 
 				rc.getLogger().Info("Connection to remote cluster established")
 
+				config, err := GetClusterConfig(rc.name, backend)
+				if err == nil && config == nil {
+					rc.getLogger().Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
+				} else if err == nil {
+					rc.getLogger().Info("Found remote cluster configuration")
+				} else {
+					rc.getLogger().WithError(err).Warning("Unable to get remote cluster configuration")
+					return err
+				}
+
+				if err := rc.mesh.canConnect(rc.name, config); err != nil {
+					rc.getLogger().WithError(err).Error("Unable to connect to the remote cluster")
+					return err
+				}
+
 				remoteNodes, err := store.JoinSharedStore(store.Configuration{
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
+					SharedKeyDeleteDelay:    rc.mesh.conf.NodesSharedKeyDeleteDelay,
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
 					Observer:                rc.mesh.conf.NodeObserver(),
@@ -190,7 +213,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 
 				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
+					Prefix:               path.Join(serviceStore.ServiceStorePrefix, rc.name),
+					SharedKeyDeleteDelay: rc.mesh.conf.ServicesSharedKeyDeleteDelay,
 					KeyCreator: func() store.Key {
 						svc := serviceStore.ClusterService{}
 						return &svc
@@ -224,6 +248,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.remoteNodes = remoteNodes
 				rc.remoteServices = remoteServices
 				rc.backend = backend
+				rc.config = config
 				rc.ipCacheWatcher = ipCacheWatcher
 				rc.remoteIdentityCache = remoteIdentityCache
 				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))

@@ -44,17 +44,32 @@ func (c *ciliumNodeName) GetKeyName() string {
 	return nodeTypes.GetKeyNodeName(c.cluster, c.name)
 }
 
-var (
+type ciliumNodeManagerQueueSyncedKey struct{}
+
+type ciliumNodeSynchronizer struct {
+	clientset   k8sClient.Clientset
+	nodeManager allocator.NodeEventHandler
+	withKVStore bool
+
 	// ciliumNodeStore contains all CiliumNodes present in k8s.
 	ciliumNodeStore cache.Store
 
-	k8sCiliumNodesCacheSynced    = make(chan struct{})
-	ciliumNodeManagerQueueSynced = make(chan struct{})
-)
+	k8sCiliumNodesCacheSynced    chan struct{}
+	ciliumNodeManagerQueueSynced chan struct{}
+}
 
-type ciliumNodeManagerQueueSyncedKey struct{}
+func newCiliumNodeSynchronizer(clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler, withKVStore bool) *ciliumNodeSynchronizer {
+	return &ciliumNodeSynchronizer{
+		clientset:   clientset,
+		nodeManager: nodeManager,
+		withKVStore: withKVStore,
 
-func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clientset, nodeManager allocator.NodeEventHandler, withKVStore bool) error {
+		k8sCiliumNodesCacheSynced:    make(chan struct{}),
+		ciliumNodeManagerQueueSynced: make(chan struct{}),
+	}
+}
+
+func (s *ciliumNodeSynchronizer) Start(ctx context.Context) error {
 	var (
 		ciliumNodeKVStore      *store.SharedStore
 		err                    error
@@ -70,7 +85,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 
 	// KVStore is enabled -> we will run the event handler to sync objects into
 	// KVStore.
-	if withKVStore {
+	if s.withKVStore {
 		// Connect to the KVStore asynchronously so that we are able to start
 		// the operator without relying on the KVStore to be up.
 		// Start a go routine to GC all CiliumNodes from the KVStore that are
@@ -88,12 +103,12 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 			}
 			close(connectedToKVStore)
 
-			<-k8sCiliumNodesCacheSynced
+			<-s.k8sCiliumNodesCacheSynced
 			// Since we processed all events received from k8s we know that
 			// at this point the list in ciliumNodeStore should be the source of
 			// truth and we need to delete all nodes in the kvNodeStore that are
 			// *not* present in the ciliumNodeStore.
-			listOfCiliumNodes := ciliumNodeStore.ListKeys()
+			listOfCiliumNodes := s.ciliumNodeStore.ListKeys()
 
 			kvStoreNodes := ciliumNodeKVStore.SharedKeysMap()
 
@@ -119,19 +134,19 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 		log.Info("Starting to synchronize CiliumNode custom resources")
 	}
 
-	if nodeManager != nil {
-		nodeManagerSyncHandler = syncHandlerConstructor(
+	if s.nodeManager != nil {
+		nodeManagerSyncHandler = s.syncHandlerConstructor(
 			func(node *cilium_v2.CiliumNode) {
-				nodeManager.Delete(node)
+				s.nodeManager.Delete(node)
 			},
 			func(node *cilium_v2.CiliumNode) {
 				// node is deep copied before it is stored in pkg/aws/eni
-				nodeManager.Update(node)
+				s.nodeManager.Update(node)
 			})
 	}
 
-	if withKVStore {
-		kvStoreSyncHandler = syncHandlerConstructor(
+	if s.withKVStore {
+		kvStoreSyncHandler = s.syncHandlerConstructor(
 			func(node *cilium_v2.CiliumNode) {
 				nodeDel := ciliumNodeName{
 					cluster: option.Config.ClusterName,
@@ -149,7 +164,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	// any watcher events, but we will need to keep all CiliumNodes in
 	// memory because 'ciliumNodeStore' is used across the operator
 	// to get the latest state of a CiliumNode.
-	if withKVStore || nodeManager != nil {
+	if s.withKVStore || s.nodeManager != nil {
 		resourceEventHandler = cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -157,10 +172,10 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 					log.WithError(err).Warning("Unable to process CiliumNode Add event")
 					return
 				}
-				if nodeManager != nil {
+				if s.nodeManager != nil {
 					ciliumNodeManagerQueue.Add(key)
 				}
-				if withKVStore {
+				if s.withKVStore {
 					kvStoreQueue.Add(key)
 				}
 			},
@@ -175,10 +190,10 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 							log.WithError(err).Warning("Unable to process CiliumNode Update event")
 							return
 						}
-						if nodeManager != nil {
+						if s.nodeManager != nil {
 							ciliumNodeManagerQueue.Add(key)
 						}
-						if withKVStore {
+						if s.withKVStore {
 							kvStoreQueue.Add(key)
 						}
 					} else {
@@ -194,10 +209,10 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 					log.WithError(err).Warning("Unable to process CiliumNode Delete event")
 					return
 				}
-				if nodeManager != nil {
+				if s.nodeManager != nil {
 					ciliumNodeManagerQueue.Add(key)
 				}
-				if withKVStore {
+				if s.withKVStore {
 					kvStoreQueue.Add(key)
 				}
 			},
@@ -212,8 +227,8 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	// CiliumNode resource, as the resource grows, we may want to consider
 	// introducing a slim version of it.
 	var ciliumNodeInformer cache.Controller
-	ciliumNodeStore, ciliumNodeInformer = informer.NewInformer(
-		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](clientset.CiliumV2().CiliumNodes()),
+	s.ciliumNodeStore, ciliumNodeInformer = informer.NewInformer(
+		utils.ListerWatcherFromTyped[*cilium_v2.CiliumNodeList](s.clientset.CiliumV2().CiliumNodes()),
 		&cilium_v2.CiliumNode{},
 		0,
 		resourceEventHandler,
@@ -222,7 +237,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 
 	go func() {
 		cache.WaitForCacheSync(ctx.Done(), ciliumNodeInformer.HasSynced)
-		close(k8sCiliumNodesCacheSynced)
+		close(s.k8sCiliumNodesCacheSynced)
 		ciliumNodeManagerQueue.Add(ciliumNodeManagerQueueSyncedKey{})
 		log.Info("CiliumNodes caches synced with Kubernetes")
 		// Only handle events if nodeManagerSyncHandler is not nil. If it is nil
@@ -230,7 +245,7 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 		if nodeManagerSyncHandler != nil {
 			go func() {
 				// infinite loop. run in a go routine to unblock code execution
-				for processNextWorkItem(ciliumNodeManagerQueue, nodeManagerSyncHandler) {
+				for s.processNextWorkItem(ciliumNodeManagerQueue, nodeManagerSyncHandler) {
 				}
 			}()
 		}
@@ -241,11 +256,11 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 		// running and handling IP Addresses with nodeManagerSyncHandler.
 		// Only handle events if kvStoreSyncHandler is not nil. If it is nil
 		// then there isn't any event handler set for CiliumNodes events.
-		if withKVStore && kvStoreSyncHandler != nil {
+		if s.withKVStore && kvStoreSyncHandler != nil {
 			<-connectedToKVStore
 			log.Info("Connected to the KVStore, syncing CiliumNodes to the KVStore")
 			// infinite loop it will block code execution
-			for processNextWorkItem(kvStoreQueue, kvStoreSyncHandler) {
+			for s.processNextWorkItem(kvStoreQueue, kvStoreSyncHandler) {
 			}
 		}
 	}()
@@ -255,14 +270,14 @@ func startSynchronizingCiliumNodes(ctx context.Context, clientset k8sClient.Clie
 	return nil
 }
 
-func syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
+func (s *ciliumNodeSynchronizer) syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), foundHandler func(node *cilium_v2.CiliumNode)) func(key string) error {
 	return func(key string) error {
 		_, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
 			log.WithError(err).Error("Unable to process CiliumNode event")
 			return err
 		}
-		obj, exists, err := ciliumNodeStore.GetByKey(name)
+		obj, exists, err := s.ciliumNodeStore.GetByKey(name)
 
 		// Delete handling
 		if !exists || errors.IsNotFound(err) {
@@ -298,7 +313,7 @@ func syncHandlerConstructor(notFoundHandler func(node *cilium_v2.CiliumNode), fo
 }
 
 // processNextWorkItem process all events from the workqueue.
-func processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func(key string) error) bool {
+func (s *ciliumNodeSynchronizer) processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func(key string) error) bool {
 	key, quit := queue.Get()
 	if quit {
 		return false
@@ -306,7 +321,7 @@ func processNextWorkItem(queue workqueue.RateLimitingInterface, syncHandler func
 	defer queue.Done(key)
 
 	if _, ok := key.(ciliumNodeManagerQueueSyncedKey); ok {
-		close(ciliumNodeManagerQueueSynced)
+		close(s.ciliumNodeManagerQueueSynced)
 		return true
 	}
 

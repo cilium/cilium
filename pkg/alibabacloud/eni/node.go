@@ -153,6 +153,10 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 	scopedLog = scopedLog.WithField(fieldENIID, eniID)
 	scopedLog.Info("Created new ENI")
 
+	if bestSubnet.CIDR != nil {
+		eni.VSwitch.CIDRBlock = bestSubnet.CIDR.String()
+	}
+
 	err = n.manager.api.AttachNetworkInterface(ctx, instanceID, eniID)
 	if err != nil {
 		err2 := n.manager.api.DeleteNetworkInterface(ctx, eniID)

@@ -21,8 +21,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-// This file is copied and adapted from k8s.io/kubernetes/pkg/util/workqueue/prometheus
-// which registers metrics to the default prometheus Registry. We require very
+// This file is copied and adapted from k8s.io/component-base/metrics/prometheus/workqueue
+// which registers metrics to the k8s legacy Registry. We require very
 // similar functionality, but must register metrics to a different Registry.
 
 // Metrics subsystem and all keys used by the workqueue.

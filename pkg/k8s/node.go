@@ -113,6 +113,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	newNode.Labels = k8sNode.GetLabels()
+	newNode.Annotations = k8sNode.GetAnnotations()
 
 	if !option.Config.AnnotateK8sNode {
 		return newNode

@@ -53,7 +53,7 @@ in sig apimachinery.
 
 You can reach the maintainers of this project at:
 
-- Slack channel: [#kubebuilder](http://slack.k8s.io/#kubebuilder)
+- Slack channel: [#controller-runtime](https://kubernetes.slack.com/archives/C02MRBMN00Z)
 - Google Group: [kubebuilder@googlegroups.com](https://groups.google.com/forum/#!forum/kubebuilder)
 
 ## Contributing

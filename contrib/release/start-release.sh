@@ -96,7 +96,7 @@ main() {
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
     sed -i 's/"[^"]*"/""/g' install/kubernetes/Makefile.digests
-    logrun make -C install/kubernetes all USE_DIGESTS=false
+    logrun make RELEASE=yes CILIUM_BRANCH="$branch" -C install/kubernetes all USE_DIGESTS=false
     if grep -q update-helm-values Documentation/Makefile; then
         logrun make -C Documentation update-helm-values
     fi
@@ -113,10 +113,9 @@ main() {
     else
       $DIR/prep-changelog.sh "$old_version" "$version"
     fi
-    git commit -a -s -m "Prepare for release $version"
 
     logecho "Next steps:"
-    logecho "* Check the new release commit with 'git show'"
+    logecho "* Check all changes and add to a new commit"
     logecho "  * If this is a prerelease, create a revert commit"
     logecho "* Push the PR to Github for review ('submit-release.sh')"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"

@@ -6,7 +6,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -15,6 +14,7 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -24,9 +24,10 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
 
 	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
-	// be registered for use in Cilium Enco Config CRDs:
+	// be registered for use in Cilium Envoy Config CRDs:
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
@@ -63,9 +64,42 @@ type PortAllocator interface {
 	ReleaseProxyPort(name string) error
 }
 
-// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources type
-// cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource names.
-func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator) (Resources, error) {
+// ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
+// to 'new'
+func (old *Resources) ListenersAddedOrDeleted(new *Resources) bool {
+	// Typically the number of listeners in a CEC is small (e.g, one), so it should be OK to
+	// scan the slices like here
+	for _, nl := range new.Listeners {
+		found := false
+		for _, ol := range old.Listeners {
+			if ol.Name == nl.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was added
+		}
+	}
+	for _, ol := range old.Listeners {
+		found := false
+		for _, nl := range new.Listeners {
+			if nl.Name == ol.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true // a listener was removed
+		}
+	}
+	return false
+}
+
+// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to Resources
+// type cecNamespace and cecName parameters, if not empty, will be prepended to the Envoy resource
+// names.
+func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XDSResource, validate bool, portAllocator PortAllocator, isL7LB bool) (Resources, error) {
 	resources := Resources{}
 	for _, r := range anySlice {
 		// Skip empty TypeURLs, which are left behind when Unmarshaling resource JSON fails
@@ -108,7 +142,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 			}
 			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, false, true))
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* not ingress */, !isL7LB, isL7LB))
 			}
 			// Inject listener socket option for Cilium datapath
 			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* not ingress */))
@@ -122,60 +156,77 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 						foundCiliumNetworkFilter = true
 					}
 					tc := filter.GetTypedConfig()
-					if tc == nil || tc.GetTypeUrl() != HttpConnectionManagerTypeURL {
+					if tc == nil {
 						continue
 					}
-					any, err := tc.UnmarshalNew()
-					if err != nil {
-						continue
-					}
-					hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
-					if !ok {
-						continue
-					}
-					updated := false
-					if rds := hcmConfig.GetRds(); rds != nil {
-						if rds.ConfigSource == nil {
-							rds.ConfigSource = ciliumXDS
-							updated = true
+					switch tc.GetTypeUrl() {
+					case HttpConnectionManagerTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
 						}
-						// Since we are prepending CEC namespace and name to Routes name,
-						// we must do the same here to point to the correct Route resource.
-						if rds.RouteConfigName != "" {
-							rds.RouteConfigName = resourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
-							updated = true
+						hcmConfig, ok := any.(*envoy_config_http.HttpConnectionManager)
+						if !ok {
+							continue
 						}
+						updated := false
+						if rds := hcmConfig.GetRds(); rds != nil {
+							// Since we are prepending CEC namespace and name to Routes name,
+							// we must do the same here to point to the correct Route resource.
+							if rds.RouteConfigName != "" {
+								rds.RouteConfigName = api.ResourceQualifiedName(cecNamespace, cecName, rds.RouteConfigName)
+								updated = true
+							}
+							if rds.ConfigSource == nil {
+								rds.ConfigSource = ciliumXDS
+								updated = true
+							}
+						}
+						if listener.GetAddress() == nil {
+							foundCiliumL7Filter := false
+						loop:
+							for j, httpFilter := range hcmConfig.HttpFilters {
+								switch httpFilter.Name {
+								case "cilium.l7policy":
+									foundCiliumL7Filter = true
+								case "envoy.filters.http.router":
+									if !foundCiliumL7Filter {
+										// Inject Cilium HTTP filter just before the HTTP Router filter
+										hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
+										hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
+										updated = true
+									}
+									break loop
+								}
+							}
+						}
+						if updated {
+							filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+								TypedConfig: toAny(hcmConfig),
+							}
+						}
+					case TCPProxyTypeURL:
+						any, err := tc.UnmarshalNew()
+						if err != nil {
+							continue
+						}
+						_, ok := any.(*envoy_config_tcp.TcpProxy)
+						if !ok {
+							continue
+						}
+					default:
+						continue
 					}
 					// Only inject Cilium policy enforcement filters for
 					// listeners for which Cilium agent allocates address
 					// for (see below)
 					if listener.GetAddress() == nil {
 						if !foundCiliumNetworkFilter {
-							// Inject Cilium network filter just before the HTTP Connection Manager filter
+							// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 							fc.Filters[i] = &envoy_config_listener.Filter{
 								Name: "cilium.network",
 							}
-						}
-						foundCiliumL7Filter := false
-						for j, httpFilter := range hcmConfig.HttpFilters {
-							switch httpFilter.Name {
-							case "cilium.l7policy":
-								foundCiliumL7Filter = true
-							case "envoy.filters.http.router":
-								if !foundCiliumL7Filter {
-									// Inject Cilium HTTP filter just before the HTTP Router filter
-									hcmConfig.HttpFilters = append(hcmConfig.HttpFilters[:j+1], hcmConfig.HttpFilters[j:]...)
-									hcmConfig.HttpFilters[j] = getCiliumHttpFilter()
-									updated = true
-								}
-								break
-							}
-						}
-					}
-					if updated {
-						filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
-							TypedConfig: toAny(hcmConfig),
 						}
 					}
 					break // Done with this filter chain
@@ -183,7 +234,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := listener.Name
-			listener.Name = resourceQualifiedName(cecNamespace, cecName, listener.Name)
+			listener.Name = api.ResourceQualifiedName(cecNamespace, cecName, listener.Name)
 			resources.Listeners = append(resources.Listeners, listener)
 
 			log.Debugf("ParseResources: Parsed listener %q: %v", name, listener)
@@ -209,7 +260,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			name := route.Name
-			route.Name = resourceQualifiedName(cecNamespace, cecName, route.Name)
+			route.Name = api.ResourceQualifiedName(cecNamespace, cecName, route.Name)
 			resources.Routes = append(resources.Routes, route)
 
 			log.Debugf("ParseResources: Parsed route %q: %v", name, route)
@@ -358,6 +409,13 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 		log.Debugf("UpsertEnvoyResources: Upserting %s...", msg)
 	}
 	var wg *completion.WaitGroup
+	// Listener config may fail if it refers to a cluster that has not been added yet, so we
+	// must wait for Envoy to ACK cluster config before adding Listeners to be sure Listener
+	// config does not fail for this reason.
+	// Enable wait before new Listeners are added if clusters are also added.
+	if len(resources.Listeners) > 0 && len(resources.Clusters) > 0 {
+		wg = completion.NewWaitGroup(ctx)
+	}
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Do not wait for the addition of routes, clusters, endpoints, routes,
 	// or secrets as there are no guarantees that these additions will be
@@ -366,6 +424,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	// in which case we could wait forever for the ACKs. This could also
 	// happen if there is no listener referring to these named
 	// resources to begin with.
+	// If both listeners and clusters are added then wait for clusters.
 	for _, r := range resources.Secrets {
 		log.Debugf("Envoy upsertSecret %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertSecret(r.Name, r, nil, nil))
@@ -376,11 +435,26 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	}
 	for _, r := range resources.Clusters {
 		log.Debugf("Envoy upsertCluster %s %v", r.Name, r)
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	for _, r := range resources.Routes {
 		log.Debugf("Envoy upsertRoute %s %v", r.Name, r)
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	// Wait before new Listeners are added if clusters were also added above.
+	if wg != nil {
+		start := time.Now()
+		log.Debug("UpsertEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		log.Debugf("UpsertEnvoyResources: Wait time for cluster updates %v (err: %s)", time.Since(start), err)
+
+		// revert all changes in case of failure
+		if err != nil {
+			revertFuncs.Revert(nil)
+			log.Debug("UpsertEnvoyResources: Finished reverting failed xDS transactions")
+			return err
+		}
+		wg = nil
 	}
 	// Wait only if new Listeners are added, as they will always be acked.
 	// (unreferenced routes or endpoints (and maybe clusters) are not ACKed or NACKed).
@@ -573,11 +647,22 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	}
 	// Add new Clusters
 	for _, r := range new.Clusters {
-		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, nil, nil))
+		revertFuncs = append(revertFuncs, s.upsertCluster(r.Name, r, wg, nil))
 	}
 	// Add new Routes
 	for _, r := range new.Routes {
 		revertFuncs = append(revertFuncs, s.upsertRoute(r.Name, r, nil, nil))
+	}
+	if wg != nil && len(new.Clusters) > 0 {
+		start := time.Now()
+		log.Debug("UpdateEnvoyResources: Waiting for cluster updates to complete...")
+		err := wg.Wait()
+		if err != nil {
+			log.Debug("UpdateEnvoyResources: cluster update failed: ", err)
+		}
+		log.Debug("UpdateEnvoyResources: Wait time for cluster updates: ", time.Since(start))
+		// new wait group for adds
+		wg = completion.NewWaitGroup(ctx)
 	}
 	// Add new Listeners
 	for _, r := range new.Listeners {
@@ -767,26 +852,4 @@ func fillInTransportSocketXDS(ts *envoy_config_core.TransportSocket) {
 			}
 		}
 	}
-}
-
-// resourceQualifiedName returns the qualified name of an Envoy resource,
-// prepending CEC namespace and CEC name to the resource name and using
-// '/' as a separator.
-//
-// In case of an empty CEC namespace or an empty CEC name, leading separators
-// are stripped away.
-func resourceQualifiedName(namespace, name, resource string) string {
-	var sb strings.Builder
-
-	if namespace != "" {
-		sb.WriteString(namespace)
-		sb.WriteRune('/')
-	}
-	if name != "" {
-		sb.WriteString(name)
-		sb.WriteRune('/')
-	}
-	sb.WriteString(resource)
-
-	return sb.String()
 }

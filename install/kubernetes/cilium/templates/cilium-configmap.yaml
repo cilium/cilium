@@ -11,7 +11,6 @@
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
-{{- $crdWaitTimeout := "5m" -}}
 {{- $defaultKubeProxyReplacement := "disabled" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 
@@ -94,8 +93,8 @@ data:
     {{- end }}
 {{- end }}
 
-{{- if hasKey .Values "conntrackGCInterval" }}
-  conntrack-gc-interval: {{ .Values.conntrackGCInterval | quote }}
+{{- if .Values.conntrackGCInterval }}
+  conntrack-gc-interval: {{ include "validateDuration" .Values.conntrackGCInterval | quote }}
 {{- end }}
 
 {{- if hasKey .Values "disableEnvoyVersionCheck" }}
@@ -127,13 +126,13 @@ data:
   disable-endpoint-crd: "{{ .Values.disableEndpointCRD }}"
 {{- end }}
 
-{{- if hasKey .Values "identityChangeGracePeriod" }}
+{{- if .Values.identityChangeGracePeriod }}
   # identity-change-grace-period is the grace period that needs to pass
   # before an endpoint that has changed its identity will start using
   # that new identity. During the grace period, the new identity has
   # already been allocated and other nodes in the cluster have a chance
   # to whitelist the new upcoming identity of the endpoint.
-  identity-change-grace-period: {{ default "5s" .Values.identityChangeGracePeriod | quote }}
+  identity-change-grace-period: {{ include "validateDuration" .Values.identityChangeGracePeriod | quote }}
 {{- end }}
 
 {{- if hasKey .Values "labels" }}
@@ -835,10 +834,8 @@ data:
   enable-k8s-event-handover: "true"
 {{- end }}
 
-{{- if hasKey .Values "crdWaitTimeout" }}
-  crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
-{{- else if ( ne $crdWaitTimeout "5m" ) }}
-  crd-wait-timeout: {{ $crdWaitTimeout | quote }}
+{{- if .Values.crdWaitTimeout }}
+  crd-wait-timeout: {{ include "validateDuration" .Values.crdWaitTimeout | quote }}
 {{- end }}
 
 {{- if .Values.enableK8sEndpointSlice }}

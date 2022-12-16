@@ -253,7 +253,7 @@ func (c *customChain) installFeeder(ipv4, ipv6 bool) error {
 				return err
 			}
 		}
-		if ipv6 && c.ipv6 == true {
+		if ipv6 && c.ipv6 {
 			if err := c.doInstallFeeder(ip6tables, feedArgs); err != nil {
 				return err
 			}

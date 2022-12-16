@@ -51,7 +51,7 @@ var nodeSampleJSON = `{
         "labels": {
             "kubernetes.io/arch": "amd64",
             "beta.kubernetes.io/fluentd-ds-ready": "true",
-            "beta.kubernetes.io/instance-type": "foo",
+            "node.kubernetes.io/instance-type": "foo",
             "kubernetes.io/os": "linux",
             "cloud.google.com/gke-nodepool": "default-pool",
             "cloud.google.com/gke-os-distribution": "cos",

@@ -215,7 +215,7 @@ func (p *ProbeManager) SystemConfigProbes() error {
 	var notFound bool
 	if !p.KernelConfigAvailable() {
 		notFound = true
-		log.Warn("Kernel Config file not found: If agent fail to start, Please check kernel requirements https://docs.cilium.io/en/stable/operations/system_requirements")
+		log.Info("Kernel config file not found: if the agent fails to start, check the system requirements at https://docs.cilium.io/en/stable/operations/system_requirements")
 	}
 	requiredParams := p.GetRequiredConfig()
 	for param, kernelOption := range requiredParams {

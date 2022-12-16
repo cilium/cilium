@@ -24,7 +24,6 @@ var _ = SkipDescribeIf(func() bool {
 		namespaceSelector = "ns=cilium-test"
 		testDS            = "zgroup=testDS"
 		testDSClient      = "zgroup=testDSClient"
-		testDSClient2     = "zgroup=testDSClient2"
 	)
 
 	var (
@@ -139,20 +138,17 @@ var _ = SkipDescribeIf(func() bool {
 			hostIP = k8s2IP
 		}
 
-		srcPod, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
-		srcPod2, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient2, hostIP, false, 1)
+		src, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
 
-		for _, src := range []string{srcPod, srcPod2} {
-			By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
-			ctEntriesBeforeConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
-			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
+		By("Testing that a request from pod %s to outside is SNATed with the egressIP %s", src, egressIP)
+		ctEntriesBeforeConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+		res := kubectl.ExecPodCmd(randomNamespace, src, helpers.CurlFail("http://%s:80", outsideIP))
 
-			res.ExpectSuccess()
-			res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
+		res.ExpectSuccess()
+		res.ExpectMatchesRegexp(fmt.Sprintf("client_address=::ffff:%s\n", egressIP))
 
-			ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
-			Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
-		}
+		ctEntriesAfterConnection := ctEntriesOnNode(helpers.K8s2, outsideIP, "80")
+		Expect(ctEntriesAfterConnection - ctEntriesBeforeConnection).Should(Equal(1))
 	}
 
 	testConnectivity := func(fromGateway bool, ciliumOpts map[string]string) {
@@ -167,24 +163,22 @@ var _ = SkipDescribeIf(func() bool {
 			hostName = k8s2Name
 			hostIP = k8s2IP
 		}
-		srcPod, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
-		srcPod2, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient2, hostIP, false, 1)
 
-		for _, src := range []string{srcPod, srcPod2} {
-			// Pod-to-node connectivity should work
-			By("Testing pod-to-node connectivity from %s to %s", src, k8s1IP)
-			res := kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s1IP, 1))
-			res.ExpectSuccess()
+		src, _ := fetchPodsWithOffset(kubectl, randomNamespace, "client", testDSClient, hostIP, false, 1)
 
-			By("Testing pod-to-node connectivity from %s to %s", src, k8s2IP)
-			res = kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s2IP, 1))
-			res.ExpectSuccess()
+		// Pod-to-node connectivity should work
+		By("Testing pod-to-node connectivity from %s to %s", src, k8s1IP)
+		res := kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s1IP, 1))
+		res.ExpectSuccess()
 
-			// DNS query should work (pod-to-pod connectivity)
-			By("Testing pod-to-pod connectivity for %s", src)
-			res = kubectl.ExecPodCmd(randomNamespace, src, "dig kubernetes +time=2")
-			res.ExpectSuccess()
-		}
+		By("Testing pod-to-node connectivity from %s to %s", src, k8s2IP)
+		res = kubectl.ExecPodCmd(randomNamespace, src, helpers.PingWithCount(k8s2IP, 1))
+		res.ExpectSuccess()
+
+		// DNS query should work (pod-to-pod connectivity)
+		By("Testing pod-to-pod connectivity for %s", src)
+		res = kubectl.ExecPodCmd(randomNamespace, src, "dig kubernetes +time=2")
+		res.ExpectSuccess()
 
 		// When connecting from outside the cluster to a nodeport service whose pods are
 		// selected by an egress policy, the reply traffic should not be SNATed with the
@@ -194,7 +188,7 @@ var _ = SkipDescribeIf(func() bool {
 		ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service %s", "test-external-ips")
 
 		By("Patching service %s to use externalIP %s", "test-external-ips", hostIP)
-		res := kubectl.Patch(randomNamespace, "service", "test-external-ips",
+		res = kubectl.Patch(randomNamespace, "service", "test-external-ips",
 			fmt.Sprintf(`{"spec":{"externalIPs":["%s"],  "externalTrafficPolicy": "Local"}}`, hostIP))
 		ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Error patching external IP service with node IP")
 
@@ -304,37 +298,6 @@ var _ = SkipDescribeIf(func() bool {
 					testConnectivity(true, ciliumOpts)
 				})
 			})
-
-			Context("egress gw policy upgrade", func() {
-				BeforeAll(func() {
-					applyEgressPolicy("egress-gateway-policy-upgrade.yaml")
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
-				})
-				AfterAll(func() {
-					kubectl.Delete(policyYAML)
-				})
-
-				AfterFailed(func() {
-					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
-				})
-
-				It("both egress gw and basic connectivity work", func() {
-					testEgressGateway(false)
-					testEgressGateway(true)
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
-
-					// see if things still work after ripping out the
-					// duplicated policy:
-					kubectl.DeleteResource("cenp", "cenp-sample-upgrade")
-					testEgressGateway(false)
-					testEgressGateway(true)
-					testConnectivity(false, ciliumOpts)
-					testConnectivity(true, ciliumOpts)
-				})
-			})
-
 		})
 	}
 

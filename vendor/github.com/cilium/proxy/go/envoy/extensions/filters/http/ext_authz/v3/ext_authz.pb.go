@@ -39,27 +39,28 @@ type ExtAuthz struct {
 	// External authorization service configuration.
 	//
 	// Types that are assignable to Services:
+	//
 	//	*ExtAuthz_GrpcService
 	//	*ExtAuthz_HttpService
 	Services isExtAuthz_Services `protobuf_oneof:"services"`
 	// API version for ext_authz transport protocol. This describes the ext_authz gRPC endpoint and
 	// version of messages used on the wire.
 	TransportApiVersion v3.ApiVersion `protobuf:"varint,12,opt,name=transport_api_version,json=transportApiVersion,proto3,enum=envoy.config.core.v3.ApiVersion" json:"transport_api_version,omitempty"`
-	//  Changes filter's behaviour on errors:
+	//	Changes filter's behaviour on errors:
 	//
-	//  1. When set to true, the filter will *accept* client request even if the communication with
-	//  the authorization service has failed, or if the authorization service has returned a HTTP 5xx
-	//  error.
+	//	1. When set to true, the filter will *accept* client request even if the communication with
+	//	the authorization service has failed, or if the authorization service has returned a HTTP 5xx
+	//	error.
 	//
-	//  2. When set to false, ext-authz will *reject* client requests and return a *Forbidden*
-	//  response if the communication with the authorization service has failed, or if the
-	//  authorization service has returned a HTTP 5xx error.
+	//	2. When set to false, ext-authz will *reject* client requests and return a *Forbidden*
+	//	response if the communication with the authorization service has failed, or if the
+	//	authorization service has returned a HTTP 5xx error.
 	//
 	// Note that errors can be *always* tracked in the :ref:`stats
 	// <config_http_filters_ext_authz_stats>`.
 	FailureModeAllow bool `protobuf:"varint,2,opt,name=failure_mode_allow,json=failureModeAllow,proto3" json:"failure_mode_allow,omitempty"`
 	// Enables filter to buffer the client request body and send it within the authorization request.
-	// A ``x-envoy-auth-partial-body: false|true`` metadata header will be added to the authorization
+	// A “x-envoy-auth-partial-body: false|true“ metadata header will be added to the authorization
 	// request message indicating if the body data is partial.
 	WithRequestBody *BufferSettings `protobuf:"bytes,5,opt,name=with_request_body,json=withRequestBody,proto3" json:"with_request_body,omitempty"`
 	// Clears route cache in order to allow the external authorization service to correctly affect
@@ -71,7 +72,6 @@ type ExtAuthz struct {
 	//
 	// 3. At least one *authorization response header* is added to the client request, or is used for
 	// altering another client request header.
-	//
 	ClearRouteCache bool `protobuf:"varint,6,opt,name=clear_route_cache,json=clearRouteCache,proto3" json:"clear_route_cache,omitempty"`
 	// Sets the HTTP status that is returned to the client when there is a network error between the
 	// filter and the authorization server. The default status is HTTP 403 Forbidden.
@@ -85,9 +85,8 @@ type ExtAuthz struct {
 	//
 	// .. code-block:: yaml
 	//
-	//    metadata_context_namespaces:
-	//    - envoy.filters.http.jwt_authn
-	//
+	//	metadata_context_namespaces:
+	//	- envoy.filters.http.jwt_authn
 	MetadataContextNamespaces []string `protobuf:"bytes,8,rep,name=metadata_context_namespaces,json=metadataContextNamespaces,proto3" json:"metadata_context_namespaces,omitempty"`
 	// Specifies if the filter is enabled.
 	//
@@ -117,16 +116,15 @@ type ExtAuthz struct {
 	//
 	// .. code-block:: yaml
 	//
-	//   http_filters:
-	//     - name: envoy.filters.http.ext_authz
-	//       typed_config:
-	//         "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
-	//         stat_prefix: waf # This emits ext_authz.waf.ok, ext_authz.waf.denied, etc.
-	//     - name: envoy.filters.http.ext_authz
-	//       typed_config:
-	//         "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
-	//         stat_prefix: blocker # This emits ext_authz.blocker.ok, ext_authz.blocker.denied, etc.
-	//
+	//	http_filters:
+	//	  - name: envoy.filters.http.ext_authz
+	//	    typed_config:
+	//	      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+	//	      stat_prefix: waf # This emits ext_authz.waf.ok, ext_authz.waf.denied, etc.
+	//	  - name: envoy.filters.http.ext_authz
+	//	    typed_config:
+	//	      "@type": type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
+	//	      stat_prefix: blocker # This emits ext_authz.blocker.ok, ext_authz.blocker.denied, etc.
 	StatPrefix string `protobuf:"bytes,13,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Optional labels that will be passed to :ref:`labels<envoy_v3_api_field_service.auth.v3.AttributeContext.Peer.labels>` in
 	// :ref:`destination<envoy_v3_api_field_service.auth.v3.AttributeContext.destination>`.
@@ -478,17 +476,16 @@ type AuthorizationRequest struct {
 	//
 	// .. note::
 	//
-	//   In addition to the the user's supplied matchers, ``Host``, ``Method``, ``Path``,
-	//   ``Content-Length``, and ``Authorization`` are **automatically included** to the list.
+	//	In addition to the the user's supplied matchers, ``Host``, ``Method``, ``Path``,
+	//	``Content-Length``, and ``Authorization`` are **automatically included** to the list.
 	//
 	// .. note::
 	//
-	//   By default, ``Content-Length`` header is set to ``0`` and the request to the authorization
-	//   service has no message body. However, the authorization request *may* include the buffered
-	//   client request body (controlled by :ref:`with_request_body
-	//   <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.with_request_body>`
-	//   setting) hence the value of its ``Content-Length`` reflects the size of its payload size.
-	//
+	//	By default, ``Content-Length`` header is set to ``0`` and the request to the authorization
+	//	service has no message body. However, the authorization request *may* include the buffered
+	//	client request body (controlled by :ref:`with_request_body
+	//	<envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.with_request_body>`
+	//	setting) hence the value of its ``Content-Length`` reflects the size of its payload size.
 	AllowedHeaders *v32.ListStringMatcher `protobuf:"bytes,1,opt,name=allowed_headers,json=allowedHeaders,proto3" json:"allowed_headers,omitempty"`
 	// Sets a list of headers that will be included to the request to authorization service. Note that
 	// client request of the same key will be overridden.
@@ -650,6 +647,7 @@ type ExtAuthzPerRoute struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Override:
+	//
 	//	*ExtAuthzPerRoute_Disabled
 	//	*ExtAuthzPerRoute_CheckSettings
 	Override isExtAuthzPerRoute_Override `protobuf_oneof:"override"`
@@ -746,8 +744,8 @@ type CheckSettings struct {
 	//
 	// .. note::
 	//
-	//   These settings are only applied to a filter configured with a
-	//   :ref:`grpc_service<envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.grpc_service>`.
+	//	These settings are only applied to a filter configured with a
+	//	:ref:`grpc_service<envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.grpc_service>`.
 	ContextExtensions map[string]string `protobuf:"bytes,1,rep,name=context_extensions,json=contextExtensions,proto3" json:"context_extensions,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	// When set to true, disable the configured :ref:`with_request_body
 	// <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.with_request_body>` for a route.

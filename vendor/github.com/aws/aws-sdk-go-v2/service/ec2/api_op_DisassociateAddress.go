@@ -14,9 +14,9 @@ import (
 // associated with. An Elastic IP address is for use in either the EC2-Classic
 // platform or in a VPC. For more information, see Elastic IP Addresses
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
-// in the Amazon Elastic Compute Cloud User Guide. We are retiring EC2-Classic on
-// August 15, 2022. We recommend that you migrate from EC2-Classic to a VPC. For
-// more information, see Migrate from EC2-Classic to a VPC
+// in the Amazon Elastic Compute Cloud User Guide. We are retiring EC2-Classic. We
+// recommend that you migrate from EC2-Classic to a VPC. For more information, see
+// Migrate from EC2-Classic to a VPC
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
 // Amazon Elastic Compute Cloud User Guide. This is an idempotent operation. If you
 // perform the operation more than once, Amazon EC2 doesn't return an error.

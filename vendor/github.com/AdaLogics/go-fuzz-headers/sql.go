@@ -16,7 +16,7 @@ func getKeyword(f *ConsumeFuzzer) (string, error) {
 			return k, nil
 		}
 	}
-	return keywords[0], fmt.Errorf("Could not get a kw")
+	return keywords[0], fmt.Errorf("could not get a kw")
 }
 
 // Simple utility function to check if a string
@@ -101,7 +101,8 @@ var keywords = []string{
 	"vitess_migration", "vitess_migrations", "vitess_replication_status",
 	"vitess_shards", "vitess_tablets", "vschema", "warnings", "when",
 	"where", "while", "window", "with", "without", "work", "write", "xor",
-	"year", "year_month", "zerofill"}
+	"year", "year_month", "zerofill",
+}
 
 // Keywords that could get an additional keyword
 var needCustomString = []string{
@@ -131,11 +132,15 @@ var alterTableTokens = [][]string{
 }
 
 var alterTokens = [][]string{
-	{"DATABASE", "SCHEMA", "DEFINER = ", "EVENT", "FUNCTION", "INSTANCE",
-		"LOGFILE GROUP", "PROCEDURE", "SERVER"},
+	{
+		"DATABASE", "SCHEMA", "DEFINER = ", "EVENT", "FUNCTION", "INSTANCE",
+		"LOGFILE GROUP", "PROCEDURE", "SERVER",
+	},
 	{"CUSTOM_FUZZ_STRING"},
-	{"ON SCHEDULE", "ON COMPLETION PRESERVE", "ON COMPLETION NOT PRESERVE",
-		"ADD UNDOFILE", "OPTIONS"},
+	{
+		"ON SCHEDULE", "ON COMPLETION PRESERVE", "ON COMPLETION NOT PRESERVE",
+		"ADD UNDOFILE", "OPTIONS",
+	},
 	{"RENAME TO", "INITIAL_SIZE = "},
 	{"ENABLE", "DISABLE", "DISABLE ON SLAVE", "ENGINE"},
 	{"COMMENT"},
@@ -150,9 +155,11 @@ var setTokens = [][]string{
 
 var dropTokens = [][]string{
 	{"TEMPORARY", "UNDO"},
-	{"DATABASE", "SCHEMA", "EVENT", "INDEX", "LOGFILE GROUP",
+	{
+		"DATABASE", "SCHEMA", "EVENT", "INDEX", "LOGFILE GROUP",
 		"PROCEDURE", "FUNCTION", "SERVER", "SPATIAL REFERENCE SYSTEM",
-		"TABLE", "TABLESPACE", "TRIGGER", "VIEW"},
+		"TABLE", "TABLESPACE", "TRIGGER", "VIEW",
+	},
 	{"IF EXISTS"},
 	{"CUSTOM_FUZZ_STRING"},
 	{"ON", "ENGINE = ", "RESTRICT", "CASCADE"},
@@ -172,15 +179,21 @@ var truncateTokens = [][]string{
 
 var createTokens = [][]string{
 	{"OR REPLACE", "TEMPORARY", "UNDO"}, // For create spatial reference system
-	{"UNIQUE", "FULLTEXT", "SPATIAL", "ALGORITHM = UNDEFINED", "ALGORITHM = MERGE",
-		"ALGORITHM = TEMPTABLE"},
-	{"DATABASE", "SCHEMA", "EVENT", "FUNCTION", "INDEX", "LOGFILE GROUP",
+	{
+		"UNIQUE", "FULLTEXT", "SPATIAL", "ALGORITHM = UNDEFINED", "ALGORITHM = MERGE",
+		"ALGORITHM = TEMPTABLE",
+	},
+	{
+		"DATABASE", "SCHEMA", "EVENT", "FUNCTION", "INDEX", "LOGFILE GROUP",
 		"PROCEDURE", "SERVER", "SPATIAL REFERENCE SYSTEM", "TABLE", "TABLESPACE",
-		"TRIGGER", "VIEW"},
+		"TRIGGER", "VIEW",
+	},
 	{"IF NOT EXISTS"},
 	{"CUSTOM_FUZZ_STRING"},
 }
 
+/*
+// For future use.
 var updateTokens = [][]string{
 	{"LOW_PRIORITY"},
 	{"IGNORE"},
@@ -189,6 +202,8 @@ var updateTokens = [][]string{
 	{"ORDER BY"},
 	{"LIMIT"},
 }
+*/
+
 var replaceTokens = [][]string{
 	{"LOW_PRIORITY", "DELAYED"},
 	{"INTO"},
@@ -196,6 +211,7 @@ var replaceTokens = [][]string{
 	{"CUSTOM_FUZZ_STRING"},
 	{"VALUES", "VALUE"},
 }
+
 var loadTokens = [][]string{
 	{"DATA"},
 	{"LOW_PRIORITY", "CONCURRENT", "LOCAL"},
@@ -271,22 +287,24 @@ var alter_table_options = []string{
 	"COMPACT", "SECONDARY_ENGINE_ATTRIBUTE", "STATS_AUTO_RECALC", "STATS_PERSISTENT",
 	"STATS_SAMPLE_PAGES", "ZLIB", "LZ4", "ENGINE_ATTRIBUTE", "KEY_BLOCK_SIZE", "MAX_ROWS",
 	"MIN_ROWS", "PACK_KEYS", "PASSWORD", "COMPRESSION", "CONNECTION", "DIRECTORY",
-	"DELAY_KEY_WRITE", "ENCRYPTION", "STORAGE", "DISK", "MEMORY", "UNION"}
+	"DELAY_KEY_WRITE", "ENCRYPTION", "STORAGE", "DISK", "MEMORY", "UNION",
+}
 
 // Creates an 'alter table' statement. 'alter table' is an exception
 // in that it has its own function. The majority of statements
 // are created by 'createStmt()'.
 func createAlterTableStmt(f *ConsumeFuzzer) (string, error) {
-	var stmt strings.Builder
-	stmt.WriteString("ALTER TABLE ")
 	maxArgs, err := f.GetInt()
 	if err != nil {
 		return "", err
 	}
 	maxArgs = maxArgs % 30
 	if maxArgs == 0 {
-		return "", fmt.Errorf("Could not create alter table stmt")
+		return "", fmt.Errorf("could not create alter table stmt")
 	}
+
+	var stmt strings.Builder
+	stmt.WriteString("ALTER TABLE ")
 	for i := 0; i < maxArgs; i++ {
 		// Calculate if we get existing token or custom string
 		tokenType, err := f.GetInt()
@@ -298,13 +316,13 @@ func createAlterTableStmt(f *ConsumeFuzzer) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			stmt.WriteString(fmt.Sprintf(" %s", customString))
+			stmt.WriteString(" " + customString)
 		} else {
 			tokenIndex, err := f.GetInt()
 			if err != nil {
 				return "", err
 			}
-			stmt.WriteString(fmt.Sprintf(" %s", alter_table_options[tokenIndex%len(alter_table_options)]))
+			stmt.WriteString(" " + alter_table_options[tokenIndex%len(alter_table_options)])
 		}
 	}
 	return stmt.String(), nil
@@ -316,7 +334,7 @@ func chooseToken(tokens []string, f *ConsumeFuzzer) (string, error) {
 		return "", err
 	}
 	var token strings.Builder
-	token.WriteString(fmt.Sprintf(" %s", tokens[index%len(tokens)]))
+	token.WriteString(tokens[index%len(tokens)])
 	if token.String() == "CUSTOM_FUZZ_STRING" {
 		customFuzzString, err := f.GetString()
 		if err != nil {
@@ -331,7 +349,7 @@ func chooseToken(tokens []string, f *ConsumeFuzzer) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		token.WriteString(fmt.Sprintf(" %s", customFuzzString))
+		token.WriteString(" " + customFuzzString)
 	}
 	return token.String(), nil
 }
@@ -398,21 +416,19 @@ func createStmt(f *ConsumeFuzzer) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	query.WriteString(fmt.Sprintf(" %s", queryArgs))
+	query.WriteString(" " + queryArgs)
 	return query.String(), nil
 }
 
 // Creates the arguments of a statements. In a select statement
 // that would be everything after "select".
 func createStmtArgs(tokenslice [][]string, f *ConsumeFuzzer) (string, error) {
-	var query strings.Builder
-	var token strings.Builder
+	var query, token strings.Builder
 
 	// We go through the tokens in the tokenslice,
 	// create the respective token and add it to
 	// "query"
 	for _, tokens := range tokenslice {
-
 		// For extra randomization, the fuzzer can
 		// choose to not include this token.
 		includeThisToken, err := f.GetBool()
@@ -429,7 +445,7 @@ func createStmtArgs(tokenslice [][]string, f *ConsumeFuzzer) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			query.WriteString(fmt.Sprintf(" %s", chosenToken))
+			query.WriteString(" " + chosenToken)
 		} else {
 			token.WriteString(tokens[0])
 
@@ -440,7 +456,7 @@ func createStmtArgs(tokenslice [][]string, f *ConsumeFuzzer) (string, error) {
 				if err != nil {
 					return "", err
 				}
-				query.WriteString(fmt.Sprintf(" %s", customFuzzString))
+				query.WriteString(" " + customFuzzString)
 				continue
 			}
 
@@ -470,7 +486,7 @@ func createQuery(f *ConsumeFuzzer) (string, error) {
 	}
 	maxLen := queryLen % 60
 	if maxLen == 0 {
-		return "", fmt.Errorf("Could not create a query")
+		return "", fmt.Errorf("could not create a query")
 	}
 	var query strings.Builder
 	for i := 0; i < maxLen; i++ {
@@ -484,25 +500,27 @@ func createQuery(f *ConsumeFuzzer) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			query.WriteString(fmt.Sprintf(" %s", keyword))
+			query.WriteString(" " + keyword)
 		} else {
 			customString, err := f.GetString()
 			if err != nil {
 				return "", err
 			}
-			query.WriteString(fmt.Sprintf(" %s", customString))
+			query.WriteString(" " + customString)
 		}
 	}
 	if query.String() == "" {
-		return "", fmt.Errorf("Could not create a query")
+		return "", fmt.Errorf("could not create a query")
 	}
 	return query.String(), nil
 }
 
-// This is the API that users will interact with.
+// GetSQLString is the API that users interact with.
+//
 // Usage:
-// f := NewConsumer(data)
-// sqlString, err := f.GetSQLString()
+//
+//	f := NewConsumer(data)
+//	sqlString, err := f.GetSQLString()
 func (f *ConsumeFuzzer) GetSQLString() (string, error) {
 	var query string
 	veryStructured, err := f.GetBool()
