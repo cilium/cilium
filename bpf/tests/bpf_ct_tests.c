@@ -16,6 +16,7 @@
 
 #define ENDPOINTS_MAP_SIZE 65536
 #define IPCACHE_MAP_SIZE 512000
+#define NODE_MAP_SIZE 16384
 #define METRICS_MAP_SIZE 65536
 #define EVENTS_MAP test_events_map
 
