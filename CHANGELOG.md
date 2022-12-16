@@ -1,5 +1,68 @@
 # Changelog
 
+## v1.12.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bpf: Implement downgrading path from v3 to v2 backend map (#22416, @YutaroHayakawa)
+
+**Bugfixes:**
+* Clear stale CNP status nodes if updates have been disabled (Backport PR #22500, Upstream PR #20366, @pippolo84)
+* docs: Update Cilium Sphinx RTD Theme reference (Backport PR #22500, Upstream PR #22321, @kimstacy)
+* Fail validate-cnp preflight check if a CiliumClusterwideNetworkPolicy is using an empty toEndpoints/fromEndpoints selector (Backport PR #22500, Upstream PR #21990, @thorn3r)
+* Fix bug that could lead to inconsistent pod IP information between agents, sometimes leading to a failure to decrypt IPsec traffic. (Backport PR #22308, Upstream PR #22127, @aanm)
+* Fix bug where configuring the API rate limiter options could fail when providing multiple options (Backport PR #22696, Upstream PR #22299, @thorn3r)
+* Fix Cilium fatal "Could not create or update CiliumNode resource, despite retries" on environments with `enable-ipv4-egress-gateway` (Backport PR #22308, Upstream PR #22298, @aanm)
+* Fix forwarding of the security identity by the DNS proxy which could cause random policy denials (Backport PR #22407, Upstream PR #22361, @aspsk)
+* Fix GC of CEPs that were not GCed by kube-apiserver (Backport PR #22308, Upstream PR #22213, @aanm)
+* fix: some tofqdn flags not being parsed (Backport PR #22500, Upstream PR #22346, @carloscastrojumo)
+* helm: Add relabelings config to ServiceMonitors and re-introduce node label on cilium/hubble metrics (Backport PR #22506, Upstream PR #22297, @chancez)
+* Improve garbage collection for FQDNs particularly with high-churn IP names such as Amazon S3. (Backport PR #22730, Upstream PR #22510, @joestringer)
+* Prevent cilium operator crash in AWS region with IPv6-only ENIs without subnet filters. (Backport PR #22308, Upstream PR #22075, @bimmlerd)
+
+**CI Changes:**
+* .github: Explicitly set build-commits job runner image version and install libtinfo5 (Backport PR #22328, Upstream PR #22315, @chancez)
+* .github: fix bpf-checks on ubuntu-latest runner (Backport PR #22328, Upstream PR #22322, @julianwiedmann)
+* Fix CODEOWNERS (#22292, @michi-covalent)
+
+**Misc Changes:**
+* .github/workflows: split the image tag update in two steps (Backport PR #22260, Upstream PR #22268, @aanm)
+* Add automatic creation of Cilium base images (Backport PR #22260, Upstream PR #22179, @aanm)
+* bpf: Remove FIB lookup for IPsec (Backport PR #22308, Upstream PR #22069, @pchaigno)
+* build(deps): bump actions/setup-go from 3.3.1 to 3.4.0 (#22486, @dependabot[bot])
+* build(deps): bump actions/setup-go from 3.4.0 to 3.5.0 (#22715, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.0 to 3.1.1 (#22271, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.32 to 2.1.35 (#22497, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.35 to 2.1.36 (#22632, @dependabot[bot])
+* build(deps): bump helm/kind-action from 1.4.0 to 1.5.0 (#22716, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.0 to 1.6.1 (#22595, @dependabot[bot])
+* chore(deps): update base-images (v1.12) (#22167, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.8 docker digest to 0936e74 (v1.12) (#22198, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.9 docker digest to c492f6b (v1.12) (#22728, @renovate[bot])
+* daemon/cmd: Fix error handling for getting proxy port (Backport PR #22500, Upstream PR #22296, @christarazi)
+* doc: add section to show how to customize cilium-agent metrics (Backport PR #22308, Upstream PR #22178, @ArthurChiao)
+* docs: add instructions to build the base images from external forks (Backport PR #22500, Upstream PR #22304, @aanm)
+* docs: clarifications about CNCF maintainer status (Backport PR #22500, Upstream PR #22351, @lizrice)
+* docs: Clarify wildcards and subdomains in FQDN policies (Backport PR #22308, Upstream PR #22206, @felfa01)
+* docs: describe Cilium Feature Proposals (Backport PR #22500, Upstream PR #22443, @lizrice)
+* docs: Fix `kubectl create` output in docs after some deployments have moved from K8s "extensions" to "apps". (Backport PR #22500, Upstream PR #22002, @cleverhu)
+* docs: update roadmap for graduation application (Backport PR #22500, Upstream PR #22422, @xmulligan)
+* fix 'egressIP' field indentation (Backport PR #22500, Upstream PR #22303, @yulng)
+* gha: Pin ubuntu-20.04 for conformance-test-ipv6 (Backport PR #22328, Upstream PR #22324, @sayboras)
+* Google Season of Docs is now over so it is removed from the docs (Backport PR #22500, Upstream PR #22442, @xmulligan)
+* Include DeleteNetworkInterface in ENI Required Privileges Docs (Backport PR #22500, Upstream PR #20472, @espringsteen)
+* k8s: don't consider 4xx a successful interaction (Backport PR #22500, Upstream PR #22393, @bimmlerd)
+* mtu, node: fix build on all non-linux platforms (Backport PR #22308, Upstream PR #22232, @tklauser)
+* pkg/datapath: return specific error message (Backport PR #22308, Upstream PR #22137, @aanm)
+* Update documentation related to metrics; fix incorrect FQDN metrics reference (Backport PR #22308, Upstream PR #22300, @christarazi)
+* v1.12: Update Go to 1.18.9 (#22599, @tklauser)
+
+**Other Changes:**
+* install: Update image digests for v1.12.4 (#22238, @michi-covalent)
+* v1.12: Update k8s versions in tests and vendored libraries (#22581, @tklauser)
+
 ## v1.12.4
 
 Summary of Changes
