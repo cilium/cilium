@@ -954,6 +954,18 @@ func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.
 	return svcs
 }
 
+// GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
+func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if svc, found := s.svcByHash[frontend.Hash()]; found {
+		return svc.deepCopyToLBSVC(), true
+	}
+
+	return nil, false
+}
+
 // RestoreServices restores services from BPF maps.
 //
 // It first restores all the service entries, followed by backend entries.
