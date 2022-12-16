@@ -911,7 +911,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 							  SECLABEL,
 							  NOT_VTEP_DST,
 							  TRACE_REASON_CT_REPLY,
-							  TRACE_PAYLOAD_LEN);
+							  monitor);
 				if (ret)
 					return ret;
 
