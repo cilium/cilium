@@ -375,7 +375,7 @@ func doFragmentedRequest(kubectl *helpers.Kubectl, srcPod string, srcPort, dstPo
 	ExpectWithOffset(2, []int{fragmentedPacketsAfterK8s1, fragmentedPacketsAfterK8s2}).To(SatisfyAny(
 		Equal([]int{fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2 + delta}),
 		Equal([]int{fragmentedPacketsBeforeK8s1 + delta, fragmentedPacketsBeforeK8s2}),
-	), "Failed to account for INGRESS IPv4 fragments in BPF metrics", dstIP)
+	), "Failed to account for INGRESS IPv4 fragments to %s in BPF metrics", dstIP)
 }
 
 func testNodePort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, bpfNodePort, testFromOutside bool, fails int) {
