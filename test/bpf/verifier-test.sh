@@ -152,8 +152,8 @@ function cg_prog_type_init {
 	#
 	# Only set it up if we determined kernel support above!
 	if [ "${#attach_types[@]}" -gt 1 ]; then
-		$MAPTOOL eppolicymap "test_cilium_ep_to_policy" 2>/dev/null
-		$MAPTOOL sockmap "test_sock_ops_map" 2>/dev/null
+		$MAPTOOL eppolicymap "test_cilium_ep_to_policy"
+		$MAPTOOL sockmap "test_sock_ops_map"
 	fi
 }
 

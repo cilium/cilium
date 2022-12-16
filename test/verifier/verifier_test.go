@@ -93,11 +93,11 @@ func TestVerifier(t *testing.T) {
 			hook:      HookTC,
 			macroName: "MAX_OVERLAY_OPTIONS",
 		},
-		{
-			name:      "bpf_sock",
-			hook:      HookCgroup,
-			macroName: "MAX_LB_OPTIONS",
-		},
+		//{
+		//	name:      "bpf_sock",
+		//	hook:      HookCgroup,
+		//	macroName: "MAX_LB_OPTIONS",
+		//},
 	} {
 		t.Run(bpfProgram.name, func(t *testing.T) {
 			file, err := os.Open(getDatapathConfigFile(t, ciKernelVersion, bpfProgram.name))
