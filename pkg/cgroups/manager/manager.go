@@ -22,10 +22,6 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroup-manager")
-	// example cgroup path in kubernetes environments
-	// /run/cilium/cgroupv2/kubepods/burstable/pod1858680e-b044-4fd5-9dd4-f137e30e2180/e275d1a37782ab30008aa3ae6666cccefe53b3a14a2ab5a8dc459939107c8c0
-	defaultCgroupBasePath = cgroups.GetCgroupRoot() + "/kubepods"
-	// example cgroup path in nested kubernetes environments like kind
 	// /run/cilium/cgroupv2/kubelet/kubepods/pod4841248b-fc2f-41f4-9981-a685bf840ab5/d8f227cc24940cfdce8d8e601f3b92242ac9661b0e83f0ea57fdea1cb6bc93ec
 	defaultNestedCgroupBasePath = cgroups.GetCgroupRoot() + "/kubelet" + "/kubepods"
 	cgroupBasePaths             = []string{defaultCgroupBasePath, defaultNestedCgroupBasePath}
@@ -170,12 +166,6 @@ type fs interface {
 
 type cgroup interface {
 	GetCgroupID(cgroupPath string) (uint64, error)
-}
-
-type fsImpl struct{}
-
-func (f fsImpl) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
 }
 
 type cgroupImpl struct{}
