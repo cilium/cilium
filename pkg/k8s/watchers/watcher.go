@@ -140,6 +140,7 @@ type policyRepository interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
+	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
 	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
