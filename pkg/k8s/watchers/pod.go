@@ -46,6 +46,7 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/k8s/watchers/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -773,6 +774,17 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	for _, dpSvc := range svcs {
+		svc, _ := k.svcManager.GetDeepCopyServiceByFrontend(dpSvc.Frontend.L3n4Addr)
+		// Check whether the service being deleted is in fact "owned" by the pod being deleted.
+		// We want to make sure that the pod being deleted is in fact the "current" backend that
+		// "owns" the hostPort service. Otherwise we might break hostPort connectivity for another
+		// pod which may have since claimed ownership for the same hostPort service, which was previously
+		// "owned" by the pod being deleted.
+		// See: https://github.com/cilium/cilium/issues/22460.
+		if svc != nil && !utils.DeepEqualBackends(svc.Backends, dpSvc.Backends) {
+			continue
+		}
+
 		if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
 			logger.WithError(err).Error("Error while deleting service in LB map")
 			return err
