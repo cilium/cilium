@@ -90,9 +90,7 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 	return rules, nil
 }
 
-func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
-
+func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, routingTableIdx int) error {
 	ipRule := route.Rule{
 		Priority: linux_defaults.RulePriorityEgressGateway,
 		From:     &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)},
@@ -113,9 +111,7 @@ func getFirstIPInHostRange(ip net.IPNet) net.IP {
 	return out
 }
 
-func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
-
+func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex, routingTableIdx int) error {
 	// The gateway for a subnet and VPC should always be the first IP of the
 	// host address range.
 	eniGatewayIP := getFirstIPInHostRange(egressIP)
