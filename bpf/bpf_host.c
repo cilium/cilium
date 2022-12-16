@@ -1194,10 +1194,7 @@ out:
 					      METRIC_EGRESS);
 #endif /* ENABLE_SRV6 */
 
-#if defined(ENABLE_NODEPORT) && \
-	(!defined(ENABLE_DSR) || \
-	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
-	 defined(ENABLE_MASQUERADE))
+#ifdef ENABLE_NODEPORT
 	if (!ctx_snat_done(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
