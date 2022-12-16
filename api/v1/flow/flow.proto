@@ -469,6 +469,9 @@ message FlowFilter {
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
 
+    //http_header filters flows based on list of HTTPHeaders
+    repeated HTTPHeader http_header = 29;
+
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;
 
@@ -482,8 +485,7 @@ message FlowFilter {
     // trace_id filters flows by trace ID
     repeated string trace_id = 28;
 
-    //http_header filters flows based on list of HTTPHeaders
-    repeated HTTPHeader http_header=29;
+    
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.

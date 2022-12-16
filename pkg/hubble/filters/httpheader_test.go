@@ -12,20 +12,6 @@ import (
 
 func TestHTTPHeaderFilter(t *testing.T) {
 
-	httpFlow := func(http *flowpb.HTTP) *v1.Event {
-		return &v1.Event{
-			Event: &flowpb.Flow{
-				EventType: &flowpb.CiliumEventType{
-					Type: api.MessageTypeAccessLog,
-				},
-				L7: &flowpb.Layer7{
-					Record: &flowpb.Layer7_Http{
-						Http: http,
-					},
-				}},
-		}
-	}
-
 	type args struct {
 		f  []*flowpb.FlowFilter
 		ev []*v1.Event
@@ -43,7 +29,7 @@ func TestHTTPHeaderFilter(t *testing.T) {
 					{
 						HttpHeader: []*flowpb.HTTPHeader{
 							{
-								Key:   "Content_Length",
+								Key:   "Content Length",
 								Value: "162",
 							},
 						},
@@ -62,15 +48,24 @@ func TestHTTPHeaderFilter(t *testing.T) {
 						HttpHeader: nil,
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -90,43 +85,28 @@ func TestHTTPHeaderFilter(t *testing.T) {
 						},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
 			want: true,
-		},
-
-		{
-			name: "header_key_and_value_empty_match",
-			args: args{
-				f: []*flowpb.FlowFilter{
-					{
-						HttpHeader: []*flowpb.HTTPHeader{
-							{
-								Key:   "",
-								Value: "",
-							}},
-					},
-				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{},
-						},
-					}),
-				},
-			},
-
-			want: false,
 		},
 
 		{
@@ -135,20 +115,29 @@ func TestHTTPHeaderFilter(t *testing.T) {
 				f: []*flowpb.FlowFilter{
 					{
 						HttpHeader: []*flowpb.HTTPHeader{
-							{Key: "Content_Length",
+							{Key: "Content Length",
 								Value: "",
 							}},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -166,15 +155,24 @@ func TestHTTPHeaderFilter(t *testing.T) {
 							}},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -187,21 +185,30 @@ func TestHTTPHeaderFilter(t *testing.T) {
 					{
 						HttpHeader: []*flowpb.HTTPHeader{
 							{
-								Key:   "Content_Length",
+								Key:   "Content Length",
 								Value: "162",
 							},
 						},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -220,15 +227,24 @@ func TestHTTPHeaderFilter(t *testing.T) {
 						},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -242,21 +258,30 @@ func TestHTTPHeaderFilter(t *testing.T) {
 					{
 						HttpHeader: []*flowpb.HTTPHeader{
 							{
-								Key:   "Content_Length",
+								Key:   "Content Length",
 								Value: "1652",
 							},
 						},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 
@@ -276,15 +301,24 @@ func TestHTTPHeaderFilter(t *testing.T) {
 						},
 					},
 				},
-				ev: []*v1.Event{
-					httpFlow(&flowpb.HTTP{
-						Headers: []*flowpb.HTTPHeader{
-							{
-								Key:   "Content_Length",
-								Value: "162",
+				ev: &v1.Event{
+					Event: &flowpb.Flow{
+						EventType: &flowpb.CiliumEventType{
+							Type: api.MessageTypeAccessLog,
+						},
+						L7: &flowpb.Layer7{
+							Record: &flowpb.Layer7_Http{
+								Http: &flowpb.HTTP{
+									Headers: []*flowpb.HTTPHeader{
+										{
+											Key:   "Content Length",
+											Value: "162",
+										},
+									},
+								},
 							},
 						},
-					}),
+					},
 				},
 			},
 

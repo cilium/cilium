@@ -13,7 +13,6 @@ import (
 )
 
 func filterByHTTPHeader(h []*flowpb.HTTPHeader) (FilterFunc, error) {
-
 	return func(ev *v1.Event) bool {
 		for _, w := range ev.GetFlow().L7.GetHttp().GetHeaders() {
 			for _, f := range h {
