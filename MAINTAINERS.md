@@ -60,6 +60,7 @@ by the "janitor role" which is rotated between all committers.
  * [Thomas Graf] (Isovalent)
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
+ * [Tom Hadlaw] (Isovalent)
  * [Tom Payne] (Isovalent)
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
