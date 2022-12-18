@@ -29,6 +29,10 @@ func newCmdSysdump() *cobra.Command {
 		Short: "Collects information required to troubleshoot issues with Cilium and Hubble",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Honor --namespace global flag in case it is set and --cilium-namespace is not set
+			if sysdumpOptions.CiliumNamespace == "" && cmd.Flags().Changed("namespace") {
+				sysdumpOptions.CiliumNamespace = namespace
+			}
 			// Silence klog to avoid displaying "throttling" messages - those are expected.
 			klog.SetOutput(io.Discard)
 			// Collect the sysdump.
@@ -54,7 +58,7 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 		"The labels used to target Cilium pods")
 	cmd.Flags().StringVar(&options.CiliumNamespace,
 		optionPrefix+"cilium-namespace", "",
-		"The namespace Cilium is running in")
+		"The namespace Cilium is running in. If not provided then the --namespace global flag is used (if provided)")
 	cmd.Flags().StringVar(&options.CiliumOperatorNamespace,
 		optionPrefix+"cilium-operator-namespace", "",
 		"The namespace Cilium operator is running in")
