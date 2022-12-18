@@ -881,6 +881,7 @@ sandboxing
 scalability
 scalable
 scp
+sctl
 sctp
 seLinuxOptions
 seccomp
