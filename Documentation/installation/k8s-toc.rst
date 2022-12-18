@@ -15,6 +15,7 @@ Installation with K8s distributions
    k8s-install-external-etcd
    k8s-install-openshift-okd
    k3s
+   k0s
    kind
    cni-chaining
 
