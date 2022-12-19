@@ -24,7 +24,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.12.12
   minikube_version: 1.28.0
-  gateway_api_version: v0.5.1
+  gateway_api_version: v0.6.0
   timeout: 5m
 
 jobs:
@@ -96,7 +96,7 @@ jobs:
           # Install Gateway CRDs
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_referencegrants.yaml
 
           # To make sure that Gateway API CRs are available
