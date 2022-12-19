@@ -101,6 +101,34 @@ type HTTPHeaderFilter struct {
 	HeadersToRemove []string `json:"headers_to_remove,omitempty"`
 }
 
+// HTTPRequestRedirectFilter holds configuration for a request redirect.
+type HTTPRequestRedirectFilter struct {
+	// Scheme is the scheme to be used in the value of the `Location` header in
+	// the response. When empty, the scheme of the request is used.
+	Scheme *string `json:"scheme,omitempty"`
+
+	// Hostname is the hostname to be used in the value of the `Location`
+	// header in the response.
+	// When empty, the hostname of the request is used.
+	Hostname *string `json:"hostname,omitempty"`
+
+	// Path defines parameters used to modify the path of the incoming request.
+	// The modified path is then used to construct the `Location` header. When
+	// empty, the request path is used as-is.
+	Path *StringMatch `json:"path,omitempty"`
+
+	// Port is the port to be used in the value of the `Location`
+	// header in the response.
+	// When empty, port (if specified) of the request is used.
+	Port *int32 `json:"port,omitempty"`
+
+	// StatusCode is the HTTP status code to be used in response.
+	//
+	// Note that values may be added to this enum, implementations
+	// must ensure that unknown values will not cause a crash.
+	StatusCode *int `json:"statusCode,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -125,6 +153,10 @@ type HTTPRoute struct {
 	// ResponseHeaderModifier can be used to add or remove an HTTP
 	//header from an HTTP response before it is sent to the client.
 	ResponseHeaderModifier *HTTPHeaderFilter `json:"response_header_modifier,omitempty"`
+
+	// RequestRedirect defines a schema for a filter that responds to the
+	// request with an HTTP redirection.
+	RequestRedirect *HTTPRequestRedirectFilter `json:"requestRedirect,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.

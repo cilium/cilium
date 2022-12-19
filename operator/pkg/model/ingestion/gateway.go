@@ -73,6 +73,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 
 				var requestHeaderFilter *model.HTTPHeaderFilter
 				var responseHeaderFilter *model.HTTPHeaderFilter
+				var requestRedirectFilter *model.HTTPRequestRedirectFilter
 				if len(rule.Filters) > 0 {
 					for _, f := range rule.Filters {
 						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier {
@@ -90,6 +91,10 @@ func GatewayAPI(input Input) []model.HTTPListener {
 								HeadersToRemove: f.ResponseHeaderModifier.Remove,
 							}
 						}
+
+						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestRedirect {
+							requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
+						}
 					}
 				}
 
@@ -100,6 +105,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 						DirectResponse:         dr,
 						RequestHeaderFilter:    requestHeaderFilter,
 						ResponseHeaderModifier: responseHeaderFilter,
+						RequestRedirect:        requestRedirectFilter,
 					})
 				}
 
@@ -114,6 +120,7 @@ func GatewayAPI(input Input) []model.HTTPListener {
 						DirectResponse:         dr,
 						RequestHeaderFilter:    requestHeaderFilter,
 						ResponseHeaderModifier: responseHeaderFilter,
+						RequestRedirect:        requestRedirectFilter,
 					})
 				}
 			}
@@ -139,6 +146,30 @@ func GatewayAPI(input Input) []model.HTTPListener {
 	}
 
 	return res
+}
+
+func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
+	if redirect == nil {
+		return nil
+	}
+	var pathModifier *model.StringMatch
+	if redirect.Path != nil {
+		pathModifier = &model.StringMatch{}
+
+		switch redirect.Path.Type {
+		case gatewayv1beta1.FullPathHTTPPathModifier:
+			pathModifier.Exact = *redirect.Path.ReplaceFullPath
+		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
+			pathModifier.Prefix = *redirect.Path.ReplacePrefixMatch
+		}
+	}
+	return &model.HTTPRequestRedirectFilter{
+		Scheme:     redirect.Scheme,
+		Hostname:   (*string)(redirect.Hostname),
+		Path:       pathModifier,
+		Port:       (*int32)(redirect.Port),
+		StatusCode: redirect.StatusCode,
+	}
 }
 
 func filterRoute(gw gatewayv1beta1.Gateway, listener gatewayv1beta1.Listener, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
