@@ -570,11 +570,11 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err := hubbleRes.WaitUntilMatchFilterLine(
-				`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 				fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : DROPPED 1`, endpointID, endpointIP.IPV4))
 			Expect(err).To(BeNil(), "Default drop on ingress failed")
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 				fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
 				"Unexpected ingress traffic to endpoint")
 		})
@@ -592,12 +592,12 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err := hubbleRes.WaitUntilMatchFilterLine(
-				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : DROPPED 1`, endpointID, hostIP))
 			Expect(err).To(BeNil(), "Default drop on egress failed")
 
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.source.labels} {.IP.source} -> {.destination.ID} : {.verdict} {.reply} {.event_type.type}`,
+				`{.flow.source.labels} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
 				fmt.Sprintf(`["reserved:host"] %s -> %s : FORWARDED true 4`, hostIP, endpointID),
 				"Unexpected reply traffic to endpoint")
 		})
@@ -634,12 +634,12 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				By("Testing hubble observe output")
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
-					`{.source.labels} -> {.IP.destination} : {.verdict} {.event_type.type}`,
+					`{.flow.source.labels} -> {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 					fmt.Sprintf(`["reserved:host"] -> %s : AUDIT 5`, endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				hubbleRes.ExpectContainsFilterLine(
-					`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+					`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 					fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
 					"No ingress traffic to endpoint")
 
@@ -674,12 +674,12 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				By("Testing hubble observe output")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				err := hubbleRes.WaitUntilMatchFilterLine(
-					`{.source.labels} {.IP.source} -> {.destination.ID} : {.verdict} {.reply} {.event_type.type}`,
+					`{.flow.source.labels} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
 					fmt.Sprintf(`["reserved:host"] %s -> %s : FORWARDED true 4`, hostIP, endpointID))
 				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 				// Checks for a ingress policy verdict event (type 5)
 				hubbleRes.ExpectContainsFilterLine(
-					`{.source.ID} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+					`{.flow.source.ID} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
 					fmt.Sprintf(`%s -> ["reserved:host"] %s : AUDIT 5`, endpointID, hostIP),
 					"Default policy verdict on egress failed")
 
@@ -739,13 +739,13 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
-				`{.source.labels} -> {.destination.ID} {.IP.destination} : {.verdict}`,
+				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict}`,
 				fmt.Sprintf(`["reserved:host"] -> %s %s : FORWARDED`, endpointID, endpointIP.IPV4), 10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 
 			// Drop Reason 133 is "Policy denied"
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.source.labels} -> {.destination.ID} {.IP.destination} : {.verdict} {.drop_reason}`,
+				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
 				fmt.Sprintf(`["reserved:host"] -> %s %s : DROPPED 133`, endpointID, endpointIP.IPV4),
 				"Unexpected drop")
 		})
@@ -774,14 +774,14 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
-				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict}`,
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict}`,
 				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : FORWARDED`, endpointID, hostIP),
 				10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 
 			// Drop Reason 133 is "Policy denied"
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict} {.drop_reason}`,
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
 				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : DROPPED 133`, endpointID, hostIP),
 				"Unexpected drop")
 		})
