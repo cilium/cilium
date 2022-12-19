@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -172,6 +172,23 @@ jobs:
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --chart-directory=./install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${{ steps.vars.outputs.sha }} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${{ steps.vars.outputs.sha }} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
+            --rollback=false \
+            --config monitor-aggregation=none \
+            --nodes-without-cilium=kind-worker3"
+
+          echo "cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
         with:
@@ -217,20 +234,8 @@ jobs:
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
-            ./cilium-cli install --wait \
-            --chart-directory=./install/kubernetes/cilium \
-            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --nodes-without-cilium=kind-worker3 --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}"
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
+              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}"
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
@@ -247,21 +252,9 @@ jobs:
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
-            ./cilium-cli install --wait \
-            --chart-directory=./install/kubernetes/cilium \
-            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --nodes-without-cilium=kind-worker3 --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
-            --encryption=${{ matrix.encryption }}
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
+              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
+              --encryption=${{ matrix.encryption }}
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
