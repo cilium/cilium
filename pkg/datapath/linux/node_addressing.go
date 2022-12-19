@@ -74,7 +74,17 @@ func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
 }
 
 func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
-	return listLocalAddresses(netlink.FAMILY_V4)
+	addrs, err := listLocalAddresses(netlink.FAMILY_V4)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if externalAddress := node.GetK8sExternalIPv4(); externalAddress != nil {
+		addrs = append(addrs, externalAddress)
+	}
+
+	return addrs, nil
 }
 
 // LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
@@ -100,7 +110,17 @@ func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
 }
 
 func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
-	return listLocalAddresses(netlink.FAMILY_V6)
+	addrs, err := listLocalAddresses(netlink.FAMILY_V6)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if externalAddress := node.GetK8sExternalIPv6(); externalAddress != nil {
+		addrs = append(addrs, externalAddress)
+	}
+
+	return addrs, nil
 }
 
 // LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
