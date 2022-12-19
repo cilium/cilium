@@ -127,7 +127,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel, struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused,
-					       bool from_host __maybe_unused)
+					       bool from_host __maybe_unused,
+					       bool hairpin_flow)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -147,6 +148,9 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
+
+	if (hairpin_flow)
+		return redirect_ep(ctx, ep->ifindex, from_host);
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
