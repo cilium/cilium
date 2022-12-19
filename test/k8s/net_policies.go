@@ -287,7 +287,7 @@ var _ = SkipDescribeIf(func() bool {
 				switch parser {
 				case policy.ParserTypeDNS:
 					// response DNS L7 flow
-					filter = "{.destination.namespace} {.l7.type} {.l7.dns.query}"
+					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.dns.query}"
 					expect = fmt.Sprintf(
 						"%s RESPONSE %s",
 						namespaceForTest,
@@ -299,7 +299,7 @@ var _ = SkipDescribeIf(func() bool {
 						curlCmd = helpers.CurlFail(resource)
 					}
 				case policy.ParserTypeHTTP:
-					filter = "{.destination.namespace} {.l7.type} {.l7.http.url} {.l7.http.code} {.l7.http.method}"
+					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.http.url} {.flow.l7.http.code} {.flow.l7.http.method}"
 					expect = fmt.Sprintf(
 						"%s RESPONSE %s 200 GET",
 						namespaceForTest,
@@ -357,7 +357,7 @@ var _ = SkipDescribeIf(func() bool {
 					res := kubectl.HubbleObserve(ciliumPod,
 						fmt.Sprintf("--last 1 --from-pod %s/%s --to-fqdn %q",
 							namespaceForTest, appPods[helpers.App2], "*.cilium.io"))
-					res.ExpectContainsFilterLine("{.destination_names[0]}", "vagrant-cache.ci.cilium.io")
+					res.ExpectContainsFilterLine("{.flow.destination_names[0]}", "vagrant-cache.ci.cilium.io")
 				}
 			}
 
