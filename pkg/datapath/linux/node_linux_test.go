@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/netns"
@@ -102,6 +103,10 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing types.No
 
 	tunnel.TunnelMap = tunnel.NewTunnelMap("test_cilium_tunnel_map")
 	_, err = tunnel.TunnelMap.OpenOrCreate()
+	c.Assert(err, check.IsNil)
+
+	nodemap.SetNodeMap(nodemap.NewNodeMap("test_cilium_node_map"))
+	err = nodemap.NodeMap().OpenOrCreate()
 	c.Assert(err, check.IsNil)
 }
 
