@@ -66,7 +66,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel,
 					       const struct endpoint_info *ep,
 					       __u8 direction,
-					       bool from_host __maybe_unused)
+					       bool from_host __maybe_unused,
+					       bool hairpin_flow __maybe_unused)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -87,6 +88,16 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
+
+#ifndef DISABLE_LOOPBACK_LB
+	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
+	 * traffic is destined to a local pod (more specifically, the same pod
+	 * the traffic originated from, we skip the tail call for ingress policy
+	 * enforcement, and directly redirect it to the endpoint).
+	 */
+	if (unlikely(hairpin_flow))
+		return redirect_ep(ctx, ep->ifindex, from_host);
+#endif /* DISABLE_LOOPBACK_LB */
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
@@ -115,7 +126,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 					       __u32 seclabel, struct iphdr *ip4,
 					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused,
-					       bool from_host __maybe_unused)
+					       bool from_host __maybe_unused,
+					       bool hairpin_flow __maybe_unused)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -135,6 +147,16 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
+
+#ifndef DISABLE_LOOPBACK_LB
+	/* Skip ingress policy enforcement for hairpin traffic.	As the hairpin
+	 * traffic is destined to a local pod (more specifically, the same pod the
+	 * traffic originated from, we skip the tail call for ingress policy
+	 * enforcement, and directly redirect it to the endpoint).
+	 */
+	if (unlikely(hairpin_flow))
+		return redirect_ep(ctx, ep->ifindex, from_host);
+#endif /* DISABLE_LOOPBACK_LB */
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
