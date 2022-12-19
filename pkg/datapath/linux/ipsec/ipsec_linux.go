@@ -151,16 +151,18 @@ func getGlobalIPsecKey(ip net.IP) *ipSecKey {
 // computeNodeIPsecKey computes per-node-pair IPsec keys from the global,
 // pre-shared key. The per-node-pair keys are computed with a SHA256 hash of
 // the global key, source node IP, destination node IP appended together.
-func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP []byte) []byte {
+func computeNodeIPsecKey(globalKey, srcNodeIP, dstNodeIP, srcBootID, dstBootID []byte) []byte {
 	input := append(globalKey, srcNodeIP...)
 	input = append(input, dstNodeIP...)
+	input = append(input, srcBootID...)
+	input = append(input, dstBootID...)
 	output := sha256.Sum256(input)
 	return output[:len(globalKey)]
 }
 
 // deriveNodeIPsecKey builds a per-node-pair ipSecKey object from the global
 // ipSecKey object.
-func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP) *ipSecKey {
+func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP, srcBootID, dstBootID string) *ipSecKey {
 	nodeKey := &ipSecKey{
 		Spi:   globalKey.Spi,
 		ReqID: globalKey.ReqID,
@@ -169,18 +171,18 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP) *ipSec
 	if globalKey.Aead != nil {
 		nodeKey.Aead = &netlink.XfrmStateAlgo{
 			Name:   globalKey.Aead.Name,
-			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP),
+			Key:    computeNodeIPsecKey(globalKey.Aead.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
 			ICVLen: globalKey.Aead.ICVLen,
 		}
 	} else {
 		nodeKey.Auth = &netlink.XfrmStateAlgo{
 			Name: globalKey.Auth.Name,
-			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP),
+			Key:  computeNodeIPsecKey(globalKey.Auth.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
 		}
 
 		nodeKey.Crypt = &netlink.XfrmStateAlgo{
 			Name: globalKey.Crypt.Name,
-			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP),
+			Key:  computeNodeIPsecKey(globalKey.Crypt.Key, srcNodeIP, dstNodeIP, []byte(srcBootID), []byte(dstBootID)),
 		}
 	}
 
@@ -188,23 +190,24 @@ func deriveNodeIPsecKey(globalKey *ipSecKey, srcNodeIP, dstNodeIP net.IP) *ipSec
 }
 
 // We want one IPsec key per node pair. For a pair of nodes A and B with IP
-// addresses a and b, we will therefore install two different keys:
+// addresses a and b, and boot ids x and y respectively, we will therefore
+// install two different keys:
 // Node A               <> Node B
-// XFRM IN:  key(b+a)      XFRM IN:  key(a+b)
-// XFRM OUT: key(a+b)      XFRM OUT: key(b+a)
+// XFRM IN:  key(b+a+y+x)      XFRM IN:  key(a+b+x+y)
+// XFRM OUT: key(a+b+x+y)      XFRM OUT: key(b+a+y+x)
 // This is done such that, for each pair of nodes A, B, the key used for
 // decryption on A (XFRM IN) is the same key used for encryption on B (XFRM
-// OUT), and vice versa.
-func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, dir netlink.Dir) *ipSecKey {
+// OUT), and vice versa. And its ESN automatically resets on each node reboot.
+func getNodeIPsecKey(localNodeIP, remoteNodeIP net.IP, localBootID, remoteBootID string, dir netlink.Dir) *ipSecKey {
 	globalKey := getGlobalIPsecKey(localNodeIP)
 	if globalKey == nil {
 		return nil
 	}
 
 	if dir == netlink.XFRM_DIR_OUT {
-		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP)
+		return deriveNodeIPsecKey(globalKey, localNodeIP, remoteNodeIP, localBootID, remoteBootID)
 	}
-	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP)
+	return deriveNodeIPsecKey(globalKey, remoteNodeIP, localNodeIP, remoteBootID, localBootID)
 }
 
 func ipSecNewState(keys *ipSecKey) *netlink.XfrmState {
@@ -427,8 +430,8 @@ func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
 		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
 }
 
-func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, netlink.XFRM_DIR_IN)
+func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string) (uint8, error) {
+	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -454,8 +457,8 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool)
 	return key.Spi, xfrmStateReplace(state)
 }
 
-func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error) {
-	key := getNodeIPsecKey(localIP, remoteIP, netlink.XFRM_DIR_OUT)
+func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16, localBootID, remoteBootID string) (uint8, error) {
+	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_OUT)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -753,7 +756,7 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, dir IPSecDir, outputMark bool) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, remoteBootID string, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -766,8 +769,9 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	 * state would need to be cached in the ipcache.
 	 */
 	if !outerLocal.Equal(outerRemote) {
+		localBootID := node.GetBootID()
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, remoteNodeID, outputMark); err != nil {
+			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %s", err)
 			}
 			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
@@ -783,7 +787,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID); err != nil {
+			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %s", err)
 			}
 
