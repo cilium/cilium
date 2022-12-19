@@ -39,9 +39,6 @@ type ServiceHandle interface {
 	UpsertBackends(id loadbalancer.ServiceName, backends ...*loadbalancer.Backend)
 	DeleteBackends(id loadbalancer.ServiceName, addrs ...loadbalancer.L3n4Addr)
 
-	UpsertFE(fe loadbalancer.FE)
-	DeleteFE(fe loadbalancer.FE)
-
 	// Events returns a channel of events.
 	// If emitCurrent is true, the current state of each service is emitted.
 	// Filters by ServiceName if non-nil.

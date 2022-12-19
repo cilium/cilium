@@ -1,11 +1,12 @@
 package loadbalancer
 
-import "github.com/cilium/cilium/pkg/cidr"
+import (
+	"github.com/cilium/cilium/pkg/cidr"
+)
 
 // TODO: Where does Frontend and Backend types live?
 // pkg/loadbalancer might not be so bad as it's shared by all layers.
 // TODO: remove 'type SVC struct'.
-// TODO: should things like L7LB fields be additional type specific options? seems like Frontend should be a sum-type. likely premature to do that.
 type Frontend struct {
 	Address                   L3n4Addr
 	Type                      SVCType
@@ -24,20 +25,22 @@ type Frontend struct {
 // Alternative:
 type FE interface {
 	isFE()
-
 	ServiceName() ServiceName
+	Address() L3n4Addr
 }
 
 type CommonFE struct {
 	Name ServiceName
 }
 
-func (c CommonFE) ServiceName() ServiceName { return c.Name }
-func (CommonFE) isFE()                      {}
+func (c *CommonFE) ServiceName() ServiceName { return c.Name }
+func (CommonFE) isFE()                       {}
 
 type FENodePort struct {
 	CommonFE
-	/* has no address as it's assigned by datapath */
+
+	L4Addr L4Addr
+	Scope  uint8
 
 	// TODO: which ones share these?
 	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
@@ -45,6 +48,15 @@ type FENodePort struct {
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16 // Service health check node port
+}
+
+func (fe *FENodePort) Address() L3n4Addr {
+	return L3n4Addr{
+		/* No L3 address. Assigned by datapath. */
+		// TODO still need some placeholder value?
+		L4Addr: fe.L4Addr,
+		Scope:  fe.Scope, // TODO: Can this be handled datapath side?
+	}
 }
 
 type FEClusterIP struct {
@@ -56,10 +68,11 @@ type FEClusterIP struct {
 type FEL7Proxy struct {
 	CommonFE
 	ProxyPort uint16
+	Inherits  FE
+}
 
-	// The frontends that are redirected to the proxy. Should be left empty as
-	// it is filled in by ServiceManager.
-	RedirectedFrontends []FE
+func (fe *FEL7Proxy) Address() L3n4Addr {
+	return fe.Inherits.Address()
 }
 
 // TODO: Scoped to svc/.../...?
@@ -68,12 +81,12 @@ type FEL7Proxy struct {
 // if selected all the other backends for this service are ignored.
 type FELocalRedirectService struct {
 	CommonFE
+	Inherits FE
+	Pods     []*Backend
+}
 
-	// The frontends that are redirected to the local pods. Should be left empty as
-	// it is filled in by ServiceManager.
-	RedirectedFrontends []FE
-
-	LocalBackends []*Backend
+func (fe FELocalRedirectService) Address() L3n4Addr {
+	return fe.Inherits.Address()
 }
 
 // TODO: Scoped to lrp/.../... ?
@@ -83,9 +96,13 @@ type FELocalRedirectAddress struct {
 	// TODO: ServiceManager will need to determine who wins when frontend
 	// addresses overlap. E.g. need to first reconcile on service name the
 	// winning frontends, and then globally on address.
-	Address L3n4Addr
+	L3n4Addr L3n4Addr
 
-	LocalBackends []*Backend
+	Pods []*Backend
+}
+
+func (fe *FELocalRedirectAddress) Address() L3n4Addr {
+	return fe.L3n4Addr
 }
 
 /*

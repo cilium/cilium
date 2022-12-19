@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -212,15 +211,16 @@ func (h *lrpHandler) addPolicy(config *LRPConfig) {
 
 	// Create the frontend. The backends will be filled in once matching pods
 	// appear.
-	if config.lrpType == lrpConfigTypeSvc {
-		var fe loadbalancer.FELocalRedirectService
-		fe.Name = loadbalancer.ServiceName{
-			Scope:     loadbalancer.ScopeSVC,
-			Name:      config.serviceID.Name,
-			Namespace: config.serviceID.Namespace,
-		}
-		config.frontend = fe
-	}
+	/*
+		if config.lrpType == lrpConfigTypeSvc {
+			var fe loadbalancer.FELocalRedirectService
+			fe.Name = loadbalancer.ServiceName{
+				Scope:     loadbalancer.ScopeSVC,
+				Name:      config.serviceID.Name,
+				Namespace: config.serviceID.Namespace,
+			}
+			config.frontend = fe
+		}*/
 
 	h.policyConfigs[config.key] = config
 }

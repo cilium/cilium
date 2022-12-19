@@ -19,7 +19,6 @@ subscribe to specific services cheaply?
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
@@ -127,6 +126,7 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 			case resource.Sync:
 				// TODO
 			case resource.Upsert:
+
 				spec := ev.Object.Spec
 				for _, svc := range spec.Services {
 					name := loadbalancer.ServiceName{
@@ -136,19 +136,21 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 					}
 					// Find the listener the service is to be redirected to
 					var proxyPort uint16
-					for _, l := range ev.Object.Listeners {
-						if svc.Listener == "" || l.Name == svc.Listener {
-							if addr := l.GetAddress(); addr != nil {
-								if sa := addr.GetSocketAddress(); sa != nil {
-									proxyPort = uint16(sa.GetPortValue())
+					panic("TODO find listener")
+					/*
+						for _, l := range svc.Listeners {
+							if svc.Listener == "" || l.Name == svc.Listener {
+								if addr := l.GetAddress(); addr != nil {
+									if sa := addr.GetSocketAddress(); sa != nil {
+										proxyPort = uint16(sa.GetPortValue())
+									}
 								}
 							}
 						}
-					}
-					if proxyPort == 0 {
-						fmt.Printf("TODO handle error: Listener %q not found in resources", svc.Listener)
-						continue
-					}
+						if proxyPort == 0 {
+							fmt.Printf("TODO handle error: Listener %q not found in resources", svc.Listener)
+							continue
+						}*/
 
 					fe := loadbalancer.Frontend{
 						Name:          name,
@@ -159,7 +161,7 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 					redirected[name] = svc
 				}
 			case resource.Delete:
-				for _, svc := range ev.Object.Services {
+				for _, svc := range ev.Object.Spec.Services {
 					name := loadbalancer.ServiceName{
 						Scope:     loadbalancer.ScopeSVC,
 						Namespace: svc.Namespace,

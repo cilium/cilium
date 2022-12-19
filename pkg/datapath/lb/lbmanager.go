@@ -21,7 +21,7 @@ import (
 
 type LoadBalancer interface {
 	Upsert(frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend)
-	Delete(frontendAddress loadbalancer.L3n4Addr)
+	Delete(addr loadbalancer.L3n4Addr)
 	GarbageCollect()
 
 	// TODO: some way querying the status if we need to report back up

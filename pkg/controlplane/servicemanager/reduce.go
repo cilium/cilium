@@ -26,9 +26,22 @@ func partition[T any](xs []T, f func(T) bool) ([]T, []T) {
 	return left, right
 }
 
-func byType[T lb.FE](fe lb.FE) bool {
-	_, ok := fe.(T)
-	return ok
+func isType[T lb.FE](fe lb.FE) bool {
+	switch fe.(type) {
+	case T:
+		return true
+	}
+	return false
+}
+
+func isVirtual(fe lb.FE) bool {
+	return isType[*lb.FEL7Proxy](fe) || isType[*lb.FELocalRedirectService](fe)
+}
+
+func not[T any](pred func(T) bool) func(T) bool {
+	return func(x T) bool {
+		return !pred(x)
+	}
 }
 
 func or[T any](a func(T) bool, b func(T) bool) func(T) bool {
@@ -37,29 +50,35 @@ func or[T any](a func(T) bool, b func(T) bool) func(T) bool {
 	}
 }
 
+// the rules:
+// - all frontends and backends are accepted, so that data is not dropped.
+// - there may be conflicts (both L7 and LRP), and in those cases the service
+//   manager will be in degraded state and picks arbitrarily which one wins.
+// - if there is ;w
+// 
+
+
 // reduceFrontends takes all frontends under a given service name and reduces
 // them to the list of active ones.
-func reduceFrontends(name ServiceName, frontends []lb.FE) []lb.FE {
+func reduceFEs(name ServiceName, fes []lb.FE) (out []lb.FE) {
 	// Local redirections are considered first.
-	redirs, frontends := partition(frontends, byType[lb.FELocalRedirectService])
+	redirs, fes := partition(fes, isType[*lb.FELocalRedirectService])
 	if len(redirs) > 0 { // TODO: what if many?
-		fe := redirs[0].(lb.FELocalRedirectService)
-		// TODO filter out L7?
-		fe.RedirectedFrontends = frontends
-		return []lb.FE{fe}
-	}
-
-	// Then L7
-	l7s, frontends := partition(frontends, byType[lb.FEL7Proxy])
-	if len(l7s) > 0 { // TODO: what if many?
-		fe := redirs[0].(lb.FEL7Proxy)
-		fe.RedirectedFrontends = frontends
-		return []lb.FE{fe}
+		redir := redirs[0].(*lb.FELocalRedirectService)
+		for _, fe := range fes {
+			out = append(out, &lb.FELocalRedirectService{
+				     CommonFE: redir.CommonFE,
+				     Inherits: fe,
+				     Pods: redir.Pods,
+			})
+		}
+		return
 	}
 
 	// TODO: resolve overlapping frontend addresses? Should UpsertFrontend already
 	// reject them or should we just revolve them by priority and report per-frontend
 	// status to the source (e.g. by updating Service.Status)?
 
-	return frontends
+	return fes
 }
+

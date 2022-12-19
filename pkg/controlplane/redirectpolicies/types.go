@@ -10,12 +10,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
-	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -292,9 +290,9 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LRPConfig{
-		uid:                    uid,
-		serviceID:              k8sSvc,
-		frontendMappings:       feMappings,
+		uid:       uid,
+		serviceID: k8sSvc,
+		//frontendMappings:       feMappings,
 		backendSelector:        selector,
 		backendPorts:           bePorts,
 		backendPortsByPortName: bePortsMap,
@@ -349,10 +347,12 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 		lrpType = "svc"
 	}
 
-	feMappingModelArray := make([]*models.FrontendMapping, 0, len(config.frontendMappings))
-	for _, feM := range config.frontendMappings {
-		feMappingModelArray = append(feMappingModelArray, feM.GetModel())
-	}
+	panic("TODO")
+	/*
+		feMappingModelArray := make([]*models.FrontendMapping, 0, len(config.frontendMappings))
+		for _, feM := range config.frontendMappings {
+			feMappingModelArray = append(feMappingModelArray, feM.GetModel())
+		}*/
 
 	var svcID string
 	if config.serviceID != nil {
@@ -360,12 +360,12 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 	}
 
 	return &models.LRPSpec{
-		UID:              string(config.uid),
-		Name:             config.key.Name,
-		Namespace:        config.key.Namespace,
-		FrontendType:     feType,
-		LrpType:          lrpType,
-		ServiceID:        svcID,
-		FrontendMappings: feMappingModelArray,
+		UID:          string(config.uid),
+		Name:         config.key.Name,
+		Namespace:    config.key.Namespace,
+		FrontendType: feType,
+		LrpType:      lrpType,
+		ServiceID:    svcID,
+		//FrontendMappings: feMappingModelArray,
 	}
 }
