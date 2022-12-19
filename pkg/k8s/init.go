@@ -271,7 +271,10 @@ func WaitForNodeInformation(ctx context.Context, k8sGetter k8sGetter) error {
 		node.SetLabels(n.Labels)
 
 		node.SetK8sExternalIPv4(n.GetExternalIP(false))
-		node.SetK8sExternalIPv6(n.GetExternalIP(true))
+		// Avoid removing the IPv4 if there is no IPv6.
+		if extIP6 := n.GetExternalIP(true); extIP6 != nil {
+			node.SetK8sExternalIPv6(extIP6)
+		}
 
 		// K8s Node IP is used by BPF NodePort devices auto-detection
 		node.SetK8sNodeIP(k8sNodeIP)
