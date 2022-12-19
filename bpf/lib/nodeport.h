@@ -882,6 +882,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 skip_service_lookup:
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->daddr)) {
+			ret = neigh_record_ip6(ctx);
+			if (ret < 0)
+				return ret;
 			if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr)) {
 				ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
 			} else {
