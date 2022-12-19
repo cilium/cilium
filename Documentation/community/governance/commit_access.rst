@@ -177,7 +177,7 @@ The process to grant commit access to a candidate is simple:
    of the candidate it should be accompanied by a reason for the vote.
 
 -  The nominator summarizes the result of the vote in a Slack message to all
-   existing committers.
+   existing committers. Report the votes after applying the :ref:`vote_limit`.
 
 -  If the vote to grant commit access passed, the candidate is contacted
    with an invitation to become a committer to the project which asks
@@ -186,11 +186,11 @@ The process to grant commit access to a candidate is simple:
 
 -  If the candidate agrees access is granted by setting up commit access
    to the repos. The new committer is invited to the #committers Slack channel,
-   *after* the nomination poll and related discussions have been deleted. The
-   name of the new committer is also added to the list in the MAINTAINERS.md_
-   file. The new committer is also added to the CNCF's list of Cilium
-   maintainers as documented `here
-   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__. 
+   *after* the nomination poll and related discussions have been deleted. There
+   is no need to delete the final vote summary. The name of the new committer
+   is also added to the list in the MAINTAINERS.md_ file. The new committer is
+   also added to the CNCF's list of Cilium maintainers as documented `here
+   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__.
 
 Revoking Commit Access
 ----------------------
@@ -331,6 +331,8 @@ which each committer and each maintainer receives one vote.
 Votes are done in the Slack channel #committers using Slack polls. A failure to
 vote is an implicit abstention.
 
+.. _vote_limit:
+
 Company Block Vote Limit
 ------------------------
 
@@ -382,6 +384,9 @@ Vote to Grant Commit Access
 
 Vote Results for Grant of Commit Access
 ---------------------------------------
+
+Vote results should be reported based on the vote count, i.e. after applying
+the :ref:`vote_limit`.
 
 ::
 
@@ -489,6 +494,9 @@ Vote to Revoke Commit Access
 
 Vote Results for Revocation of Commit Access
 --------------------------------------------
+
+Vote results should be reported based on the vote count, i.e. after applying
+the :ref:`vote_limit`.
 
 ::
 
