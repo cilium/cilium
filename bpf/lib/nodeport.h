@@ -1853,6 +1853,7 @@ skip_service_lookup:
 			ret = lb4_to_lb6(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
+			ctx_store_meta(ctx, CB_NAT_46X64, 0);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 #ifdef ENABLE_NAT_46X64_GATEWAY
 		} else if (l4_ports &&
@@ -1860,6 +1861,7 @@ skip_service_lookup:
 			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
+			ctx_store_meta(ctx, CB_NAT_46X64, 0);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 #endif
 		} else {
