@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -52,7 +54,12 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 			logfields.IPAddr: nodeIP,
 		}).Debug("Allocated new node ID for node IP address")
 	}
-	n.nodeIDsByIPs[nodeIP.String()] = nodeID
+	if err := n.mapNodeID(nodeIP.String(), nodeID); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.NodeID: nodeID,
+			logfields.IPAddr: nodeIP.String(),
+		}).Error("Failed to map node IP address to allocated ID")
+	}
 	return nodeID
 }
 
@@ -83,7 +90,16 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 	}
 
 	for _, addr := range node.IPAddresses {
-		n.nodeIDsByIPs[addr.IP.String()] = nodeID
+		ip := addr.IP.String()
+		if _, exists := n.nodeIDsByIPs[ip]; exists {
+			continue
+		}
+		if err := n.mapNodeID(ip, nodeID); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.NodeID: nodeID,
+				logfields.IPAddr: ip,
+			}).Error("Failed to map node IP address to allocated ID")
+		}
 	}
 	return nodeID
 }
@@ -114,7 +130,12 @@ func (n *linuxNodeHandler) DeallocateNodeID(nodeID uint16) {
 func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 	for ip, id := range n.nodeIDsByIPs {
 		if nodeID == id {
-			delete(n.nodeIDsByIPs, ip)
+			if err := n.unmapNodeID(ip); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.NodeID: nodeID,
+					logfields.IPAddr: ip,
+				}).Warn("Failed to remove a node IP to node ID mapping")
+			}
 		}
 	}
 
@@ -122,6 +143,51 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
 	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+}
+
+// mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
+// Node Manager and in the corresponding BPF map. If any of those map updates
+// fail, both are cancelled and the function returns an error.
+func (n *linuxNodeHandler) mapNodeID(ip string, id uint16) error {
+	if _, exists := n.nodeIDsByIPs[ip]; exists {
+		return fmt.Errorf("a mapping for node IP %s already exists", ip)
+	}
+
+	nodeIP := net.ParseIP(ip)
+	if nodeIP == nil {
+		return fmt.Errorf("invalid node IP %s", ip)
+	}
+
+	if err := nodemap.NodeMap().Update(nodeIP, id); err != nil {
+		return err
+	}
+
+	// We only add the IP <> ID mapping in memory once we are sure it was
+	// successfully added to the BPF map.
+	n.nodeIDsByIPs[ip] = id
+	return nil
+}
+
+// unmapNodeID removes a node ID <> IP mapping from the local in-memory map of
+// the Node Manager and from the corresponding BPF map. If any of those map
+// updates fail, it returns an error; in such a case, both are cancelled.
+func (n *linuxNodeHandler) unmapNodeID(ip string) error {
+	// Check error cases first, to avoid having to cancel anything.
+	if _, exists := n.nodeIDsByIPs[ip]; !exists {
+		return fmt.Errorf("cannot remove IP %s from node ID map as it doesn't exist", ip)
+	}
+	nodeIP := net.ParseIP(ip)
+	if nodeIP == nil {
+		return fmt.Errorf("invalid node IP %s", ip)
+	}
+
+	if err := nodemap.NodeMap().Delete(nodeIP); err != nil {
+		return err
+	}
+
+	delete(n.nodeIDsByIPs, ip)
+
+	return nil
 }
 
 // DumpNodeIDs returns all node IDs and their associated IP addresses.
