@@ -29,6 +29,7 @@ import (
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/mtu"
+	"github.com/cilium/cilium/pkg/node"
 	nodeaddressing "github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -96,6 +97,8 @@ func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 
+	node.SetTestLocalNodeStore()
+
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 
@@ -141,6 +144,7 @@ func (s *linuxPrivilegedIPv4AndIPv6TestSuite) SetUpTest(c *check.C) {
 
 func tearDownTest(c *check.C) {
 	ipsec.DeleteXfrm()
+	node.UnsetTestLocalNodeStore()
 	removeDevice(dummyHostDeviceName)
 	removeDevice(dummyExternalDeviceName)
 	err := tunnel.TunnelMap().Unpin()
