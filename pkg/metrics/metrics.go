@@ -177,6 +177,12 @@ const (
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
 
+	// LabelVersionRevision is the label for the version revision
+	LabelVersionRevision = "revision"
+
+	// LabelArch is the label for the platform architecture (e.g. linux/amd64)
+	LabelArch = "arch"
+
 	// LabelDirection is the label for traffic direction
 	LabelDirection = "direction"
 
@@ -1325,9 +1331,10 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "version",
 				Help:      "Cilium version",
-			}, []string{LabelVersion})
+			}, []string{LabelVersion, LabelVersionRevision, LabelArch})
 
-			VersionMetric.WithLabelValues(version.GetCiliumVersion().Version)
+			v := version.GetCiliumVersion()
+			VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 
 			collectors = append(collectors, VersionMetric)
 			c.VersionMetric = true
