@@ -4314,18 +4314,18 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
-// HubbleObserve runs `hubble observe --output=json <args>` on 'ns/pod' and
+// HubbleObserve runs `hubble observe --output=jsonpb <args>` on 'ns/pod' and
 // waits for its completion.
 func (kub *Kubectl) HubbleObserve(pod string, args string) *CmdRes {
 	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 	defer cancel()
-	return kub.ExecPodCmdContext(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --output=json %s", args))
+	return kub.ExecPodCmdContext(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --output=jsonpb %s", args))
 }
 
-// HubbleObserveFollow runs `hubble observe --follow --output=json <args>` on
+// HubbleObserveFollow runs `hubble observe --follow --output=jsonpb <args>` on
 // the Cilium pod 'ns/pod' in the background. The process is stopped when ctx is cancelled.
 func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) *CmdRes {
-	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=json %s", args))
+	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=jsonpb %s", args))
 }
 
 // WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"
