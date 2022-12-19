@@ -71,6 +71,7 @@ var (
 	archivePrefix      string
 	getPProf           bool
 	envoyDump          bool
+	envoyMetrics       bool
 	pprofPort          int
 	traceSeconds       int
 	parallelWorkers    int
@@ -81,6 +82,7 @@ func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
 	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
 	BugtoolRootCmd.Flags().BoolVar(&envoyDump, "envoy-dump", true, "When set, dump envoy configuration from unix socket")
+	BugtoolRootCmd.Flags().BoolVar(&envoyMetrics, "envoy-metrics", true, "When set, dump envoy prometheus metrics from unix socket")
 	BugtoolRootCmd.Flags().IntVar(&pprofPort,
 		"pprof-port", defaults.PprofPortAgent,
 		fmt.Sprintf(
@@ -208,8 +210,14 @@ func runTool() {
 		}
 	} else {
 		if envoyDump {
-			if err := dumpEnvoy(cmdDir); err != nil {
+			if err := dumpEnvoy(cmdDir, "http://admin/config_dump?include_eds", "envoy-config.json"); err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to dump envoy config: %s\n", err)
+			}
+		}
+
+		if envoyMetrics {
+			if err := dumpEnvoy(cmdDir, "http://admin/stats/prometheus", "envoy-metrics.txt"); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to retrieve envoy prometheus metrics: %s\n", err)
 			}
 		}
 
@@ -490,7 +498,7 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	return ciliumPods, nil
 }
 
-func dumpEnvoy(rootDir string) error {
+func dumpEnvoy(rootDir string, resource string, fileName string) error {
 	// curl --unix-socket /var/run/cilium/envoy-admin.sock http:/admin/config_dump\?include_eds > dump.json
 	c := &http.Client{
 		Transport: &http.Transport{
@@ -499,7 +507,7 @@ func dumpEnvoy(rootDir string) error {
 			},
 		},
 	}
-	return downloadToFile(c, "http://admin/config_dump?include_eds", filepath.Join(rootDir, "envoy-config.json"))
+	return downloadToFile(c, resource, filepath.Join(rootDir, fileName))
 }
 
 func pprofTraces(rootDir string) error {
