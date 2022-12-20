@@ -396,4 +396,16 @@ nat64_rfc8215(struct __ctx_buff *ctx __maybe_unused,
 	return ipv6_to_ipv4(ctx, src4, dst4);
 }
 
+#define NAT46x64_MODE_XLATE	1
+#define NAT46x64_MODE_ROUTE	2
+
+static __always_inline bool nat46x64_cb_route(struct __ctx_buff *ctx)
+{
+	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_ROUTE;
+}
+
+static __always_inline bool nat46x64_cb_xlate(struct __ctx_buff *ctx)
+{
+	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_XLATE;
+}
 #endif /* __LIB_NAT_46X64__ */
