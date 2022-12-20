@@ -252,7 +252,7 @@ func ipSecAttachPolicyTempl(policy *netlink.XfrmPolicy, keys *ipSecKey, srcIP, d
 // xfrmStateReplace attempts to add a new XFRM state only if one doesn't
 // already exist. If it doesn't but some other XFRM state conflicts, then
 // we attempt to remove the conflicting state before trying to add again.
-func xfrmStateReplace(new *netlink.XfrmState) error {
+func xfrmStateReplace(new *netlink.XfrmState, remoteRebooted bool) error {
 	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		return fmt.Errorf("Cannot get XFRM state: %s", err)
@@ -277,13 +277,28 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 				scopedLog.Info("Removing XFRM state with old IPsec key")
 				netlink.XfrmStateDel(&s)
 				break
-			} else if xfrmMarkEqual(s.OutputMark, new.OutputMark) {
-				return nil
-			} else {
+			}
+			if !xfrmMarkEqual(s.OutputMark, new.OutputMark) {
 				// If only the output-marks differ, then we should be able
 				// to simply update the XFRM state atomically.
 				return netlink.XfrmStateUpdate(new)
 			}
+			if remoteRebooted && new.ESN {
+				// This should happen only when a node reboots when the boot ID
+				// is used to compute the key (i.e., if ESN is also enabled).
+				// We can safely perform a non-atomic swap of the XFRM state
+				// for both the IN and OUT directions because:
+				// - For the IN direction, we can't leak anything. At most
+				//   we'll drop a few encrypted packets while updating.
+				// - For the OUT direction, we also can't leak anything due to
+				//   having an existing XFRM policy which will match and drop
+				//   packets if the state is missing. At most we will drop a
+				//   few encrypted packets while updating.
+				scopedLog.Info("Non-atomically updating IPsec XFRM state due to remote boot ID change")
+				netlink.XfrmStateDel(&s)
+				break
+			}
+			return nil
 		}
 	}
 
@@ -430,7 +445,7 @@ func xfrmKeyEqual(s1, s2 *netlink.XfrmState) bool {
 		bytes.Equal(s1.Auth.Key, s2.Auth.Key)
 }
 
-func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string) (uint8, error) {
+func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool, localBootID, remoteBootID string, remoteRebooted bool) (uint8, error) {
 	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_IN)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -454,10 +469,10 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, nodeID uint16, zeroMark bool,
 	// value is never needed after decryption.
 	state.OutputMark.Mask |= linux_defaults.IPsecMarkMaskNodeID
 
-	return key.Spi, xfrmStateReplace(state)
+	return key.Spi, xfrmStateReplace(state, remoteRebooted)
 }
 
-func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16, localBootID, remoteBootID string) (uint8, error) {
+func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16, localBootID, remoteBootID string, remoteRebooted bool) (uint8, error) {
 	key := getNodeIPsecKey(localIP, remoteIP, localBootID, remoteBootID, netlink.XFRM_DIR_OUT)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
@@ -470,7 +485,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16, localBootID, 
 		Value: linux_defaults.RouteMarkEncrypt,
 		Mask:  linux_defaults.OutputMarkMask,
 	}
-	return key.Spi, xfrmStateReplace(state)
+	return key.Spi, xfrmStateReplace(state, remoteRebooted)
 }
 
 func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
@@ -756,7 +771,7 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) error {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, remoteBootID string, dir IPSecDir, outputMark bool) (uint8, error) {
+func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, remoteNodeID uint16, remoteBootID string, dir IPSecDir, outputMark, remoteRebooted bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -771,7 +786,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	if !outerLocal.Equal(outerRemote) {
 		localBootID := node.GetBootID()
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID); err != nil {
+			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, remoteNodeID, outputMark, localBootID, remoteBootID, remoteRebooted); err != nil {
 				return 0, fmt.Errorf("unable to replace local state: %s", err)
 			}
 			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
@@ -787,7 +802,7 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID); err != nil {
+			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote, remoteNodeID, localBootID, remoteBootID, remoteRebooted); err != nil {
 				return 0, fmt.Errorf("unable to replace remote state: %s", err)
 			}
 
