@@ -106,7 +106,7 @@ jobs:
               - '!(test|Documentation)/**'
 
   setup-and-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest-4cores-16gb
     needs: check_changes
     name: Setup & Test
     if: |
@@ -189,14 +189,19 @@ jobs:
           done
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           test-name: datapath-conformance
           image-version: ${{ matrix.kernel }}
           host-mount: ./
+          cpu: 4
+          dns-resolver: '1.1.1.1'
+          install-dependencies: 'true'
+          cmd: |
+            git config --global --add safe.directory /host
 
       - name: Run kube-proxy tests
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           provision: 'false'
           cmd: |
@@ -226,7 +231,7 @@ jobs:
 
       - name: Run encryption tests
         if: ${{ matrix.encryption }} != 'disabled'
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           provision: 'false'
           cmd: |
@@ -256,7 +261,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@2a076423707ff588c2b0ed676d835e779b4c4af4
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           provision: 'false'
           cmd: |
