@@ -63,7 +63,7 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, NotNil)
 }
 
@@ -133,7 +133,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -151,7 +151,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -180,7 +180,7 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -199,11 +199,11 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	ipSecKeysGlobal["1.2.3.4"] = key
 	ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, IsNil)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -229,10 +229,44 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(c)
+}
+
+func (p *IPSecSuitePrivileged) TestUpdateExistingIPSecEndpoint(c *C) {
+	_, local, err := net.ParseCIDR("1.1.3.4/16")
+	c.Assert(err, IsNil)
+	_, remote, err := net.ParseCIDR("1.2.3.4/16")
+	c.Assert(err, IsNil)
+
+	_, authKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	_, cryptKey, err := decodeIPSecKey("0123456789abcdef0123456789abcdef")
+	c.Assert(err, IsNil)
+	key := &ipSecKey{
+		Spi:   1,
+		ReqID: 1,
+		Auth:  &netlink.XfrmStateAlgo{Name: "hmac(sha256)", Key: authKey},
+		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
+	}
+
+	ipSecKeysGlobal["1.1.3.4"] = key
+	ipSecKeysGlobal["1.2.3.4"] = key
+	ipSecKeysGlobal[""] = key
+
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, false)
+	c.Assert(err, IsNil)
+
+	// test updateExisting (xfrm delete + add)
+	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, 0, "remote-boot-id", IPSecDirBoth, false, true)
+	c.Assert(err, IsNil)
+
+	cleanIPSecStatesAndPolicies(c)
+	ipSecKeysGlobal["1.1.3.4"] = nil
+	ipSecKeysGlobal["1.2.3.4"] = nil
+	ipSecKeysGlobal[""] = nil
 }
 
 func cleanIPSecStatesAndPolicies(c *C) {
