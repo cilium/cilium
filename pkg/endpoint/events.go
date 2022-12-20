@@ -159,21 +159,21 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 		if e.IPv4.IsValid() {
 			if port > 0 {
 				err = e.owner.Datapath().InstallNoTrackRules(e.IPv4.String(), port, false)
-				log.Warnf("Error installing iptable NOTRACK rules %s", err)
+				log.WithError(err).Warn("Error installing iptable NOTRACK rules")
 			}
 			if e.noTrackPort > 0 {
 				err = e.owner.Datapath().RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
-				log.Warnf("Error removing iptable NOTRACK rules %s", err)
+				log.WithError(err).Warn("Error removing iptable NOTRACK rules")
 			}
 		}
 		if e.IPv6.IsValid() {
 			if port > 0 {
 				e.owner.Datapath().InstallNoTrackRules(e.IPv6.String(), port, true)
-				log.Warnf("Error installing iptable NOTRACK rules %s", err)
+				log.WithError(err).Warn("Error installing iptable NOTRACK rules")
 			}
 			if e.noTrackPort > 0 {
 				err = e.owner.Datapath().RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
-				log.Warnf("Error removing iptable NOTRACK rules %s", err)
+				log.WithError(err).Warn("Error removing iptable NOTRACK rules")
 			}
 		}
 		e.noTrackPort = port
