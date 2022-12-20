@@ -254,6 +254,7 @@ func TestNewSvcFlag(t *testing.T) {
 			want: serviceFlagExternalIPs | serviceFlagRoutable,
 		},
 		{
+			// Impossible combination, ClusterIP can't have externalTrafficPolicy=Local.
 			args: args{
 				svcType:     SVCTypeClusterIP,
 				svcExtLocal: true,
@@ -269,7 +270,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: false,
 				svcRoutable: true,
 			},
-			want: serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagRoutable,
+			want: serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagTwoScopes | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -278,7 +279,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: false,
 				svcRoutable: true,
 			},
-			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagRoutable,
+			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagTwoScopes | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -296,7 +297,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: true,
 				svcRoutable: true,
 			},
-			want: serviceFlagNodePort | serviceFlagIntLocalScope | serviceFlagRoutable,
+			want: serviceFlagNodePort | serviceFlagIntLocalScope | serviceFlagTwoScopes | serviceFlagRoutable,
 		},
 		{
 			args: args{
@@ -305,9 +306,10 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: true,
 				svcRoutable: true,
 			},
-			want: serviceFlagExternalIPs | serviceFlagIntLocalScope | serviceFlagRoutable,
+			want: serviceFlagExternalIPs | serviceFlagIntLocalScope | serviceFlagTwoScopes | serviceFlagRoutable,
 		},
 		{
+			// Impossible combination, ClusterIP can't have externalTrafficPolicy=Local.
 			args: args{
 				svcType:     SVCTypeClusterIP,
 				svcExtLocal: true,
@@ -341,7 +343,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: false,
 				svcRoutable: false,
 			},
-			want: serviceFlagExternalIPs | serviceFlagExtLocalScope,
+			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagTwoScopes,
 		},
 		{
 			args: args{
@@ -350,7 +352,7 @@ func TestNewSvcFlag(t *testing.T) {
 				svcIntLocal: true,
 				svcRoutable: false,
 			},
-			want: serviceFlagExternalIPs | serviceFlagIntLocalScope,
+			want: serviceFlagExternalIPs | serviceFlagIntLocalScope | serviceFlagTwoScopes,
 		},
 		{
 			args: args{
