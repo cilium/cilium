@@ -192,6 +192,7 @@ github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/epoll
 github.com/cilium/ebpf/internal/sys
 github.com/cilium/ebpf/internal/unix
+github.com/cilium/ebpf/link
 github.com/cilium/ebpf/perf
 github.com/cilium/ebpf/rlimit
 # github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
