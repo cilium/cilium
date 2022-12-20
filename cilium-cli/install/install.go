@@ -427,7 +427,7 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	k.Log("🚀 Creating ConfigMap for Cilium version %s...", k.chartVersion)
 
 	for key, value := range k.params.configOverwrites {
-		k.Log("ℹ️ Manual overwrite in ConfigMap: %s=%s", key, value)
+		k.Log("ℹ️  Manual overwrite in ConfigMap: %s=%s", key, value)
 		cm.Data[key] = value
 	}
 
