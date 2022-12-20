@@ -29,12 +29,11 @@ var Cell = cell.Module(
 type serverHandlers struct {
 	cell.In
 
-	PutServiceIDHandler
-	DeleteServiceIDHandler
-	GetServiceIDHandler
-	GetServiceHandler
-
-	GetLrpHandler
+	PutServiceIDHandler    `optional:"true"`
+	DeleteServiceIDHandler `optional:"true"`
+	GetServiceIDHandler    `optional:"true"`
+	GetServiceHandler      `optional:"true"`
+	GetLrpHandler          `optional:"true"`
 }
 
 type serverParams struct {

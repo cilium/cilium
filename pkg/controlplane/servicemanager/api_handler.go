@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-openapi/runtime/middleware"
+
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
 	"github.com/cilium/cilium/pkg/api"
@@ -14,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/go-openapi/runtime/middleware"
 )
 
 var APIHandlersCell = cell.Module(
