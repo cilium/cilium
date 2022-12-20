@@ -334,18 +334,16 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		r.mu.Unlock()
 
 		doneFinalizer := func(done *bool) {
-			if !*done {
-				// If you get here it is because an Event[T] was handed to a subscriber
-				// that forgot to call Event[T].Done().
-				//
-				// Calling Done() is needed to mark the event as handled. This allows
-				// the next event for the same key to be handled and is used to clear
-				// rate limiting and retry counts of prior failures.
-				panic(fmt.Sprintf(
-					"%s has a broken event handler that did not call Done() "+
-						"before event was garbage collected",
-					debugInfo))
-			}
+			// If you get here it is because an Event[T] was handed to a subscriber
+			// that forgot to call Event[T].Done().
+			//
+			// Calling Done() is needed to mark the event as handled. This allows
+			// the next event for the same key to be handled and is used to clear
+			// rate limiting and retry counts of prior failures.
+			panic(fmt.Sprintf(
+				"%s has a broken event handler that did not call Done() "+
+					"before event was garbage collected",
+				debugInfo))
 		}
 
 	loop:
@@ -359,16 +357,19 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 			entry := raw.(queueEntry)
 
 			var (
-				eventDone = new(bool)
-				event     Event[T]
+				// eventDoneSentinel is a heap allocated object referenced by Done().
+				// If Done() is not called, a finalizer set on this object will be invoked
+				// which panics. If Done() is called, the finalizer is unset.
+				eventDoneSentinel = new(bool)
+				event             Event[T]
 			)
 			event.Done = func(err error) {
-				*eventDone = true
+				runtime.SetFinalizer(eventDoneSentinel, nil)
 				queue.eventDone(entry, err)
 			}
 
 			// Add a finalizer to catch forgotten calls to Done().
-			runtime.SetFinalizer(eventDone, doneFinalizer)
+			runtime.SetFinalizer(eventDoneSentinel, doneFinalizer)
 
 			switch entry := entry.(type) {
 			case syncEntry:
