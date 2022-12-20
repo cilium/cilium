@@ -1391,7 +1391,7 @@ func (k *K8sClusterMesh) DeleteExternalWorkload(ctx context.Context, names []str
 	if count > 0 {
 		k.Log("✅ Removed %d external workload resources.", count)
 	} else {
-		k.Log("ℹ️ No external workload resources to remove.")
+		k.Log("ℹ️  No external workload resources to remove.")
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, ", "))
