@@ -64,6 +64,7 @@ const (
 	serviceFlagL7LoadBalancer  = 1 << 10
 	serviceFlagLoopback        = 1 << 11
 	serviceFlagIntLocalScope   = 1 << 12
+	serviceFlagTwoScopes       = 1 << 13
 )
 
 type SvcFlagParam struct {
@@ -122,6 +123,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.L7LoadBalancer {
 		flags |= serviceFlagL7LoadBalancer
+	}
+	if p.SvcExtLocal != p.SvcIntLocal && p.SvcType != SVCTypeClusterIP {
+		flags |= serviceFlagTwoScopes
 	}
 
 	return flags
@@ -188,6 +192,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagIntLocalScope != 0 {
 		str = append(str, "Internal"+string(SVCTrafficPolicyLocal))
+	}
+	if s&serviceFlagTwoScopes != 0 {
+		str = append(str, "two-scopes")
 	}
 	if s&serviceFlagSessionAffinity != 0 {
 		str = append(str, "sessionAffinity")
