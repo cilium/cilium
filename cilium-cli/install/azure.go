@@ -74,7 +74,7 @@ func (k *K8sInstaller) azureAutodetect(ctx context.Context) error {
 // If provided, it bypasses auto-detection and `--azure-subscription`.
 func (k *K8sInstaller) azureRetrieveSubscriptionID(ctx context.Context) error {
 	if k.params.Azure.SubscriptionID != "" {
-		k.Log("ℹ️ Using manually configured Azure subscription ID %s", k.params.Azure.SubscriptionID)
+		k.Log("ℹ️  Using manually configured Azure subscription ID %s", k.params.Azure.SubscriptionID)
 		return nil
 	}
 
@@ -123,7 +123,7 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo(ctx context.Context) error {
 	// user know what they're doing and we are not in BYOCNI mode because this
 	// flag is not necessary for BYOCNI, so we skip auto-detection.
 	if k.params.Azure.AKSNodeResourceGroup != "" {
-		k.Log("ℹ️ Using manually configured Azure AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
+		k.Log("ℹ️  Using manually configured Azure AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
 		return nil
 	}
 
@@ -191,7 +191,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 		}
 
 		k.Log("✅ Created Azure Service Principal for Cilium Azure operator with App ID %s and Tenant ID %s", p.AppID, p.Tenant)
-		k.Log("ℹ️ Its RBAC privileges are restricted to the AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
+		k.Log("ℹ️  Its RBAC privileges are restricted to the AKS node resource group %s", k.params.Azure.AKSNodeResourceGroup)
 		k.params.Azure.TenantID = p.Tenant
 		k.params.Azure.ClientID = p.AppID
 		k.params.Azure.ClientSecret = p.Password
@@ -204,7 +204,7 @@ func (k *K8sInstaller) azureSetupServicePrincipal(ctx context.Context) error {
 			return fmt.Errorf("missing at least one of Azure Service Principal parameters")
 		}
 
-		k.Log("ℹ️ Using manually configured Azure Service Principal for Cilium Azure operator with App ID %s and Tenant ID %s",
+		k.Log("ℹ️  Using manually configured Azure Service Principal for Cilium Azure operator with App ID %s and Tenant ID %s",
 			k.params.Azure.ClientID, k.params.Azure.TenantID)
 	}
 
