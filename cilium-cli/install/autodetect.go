@@ -55,7 +55,7 @@ func (k *K8sUninstaller) autodetect(ctx context.Context) {
 
 func (k *K8sInstaller) detectDatapathMode(ctx context.Context, withKPR bool) error {
 	if k.params.DatapathMode != "" {
-		k.Log("ℹ️ Custom datapath mode: %s", k.params.DatapathMode)
+		k.Log("ℹ️  Custom datapath mode: %s", k.params.DatapathMode)
 		return nil
 	}
 
@@ -146,7 +146,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 	// TODO: remove when removing "ipam" flag (marked as deprecated), kept for
 	// backwards compatibility
 	if k.params.IPAM != "" {
-		k.Log("ℹ️ Custom IPAM mode: %s", k.params.IPAM)
+		k.Log("ℹ️  Custom IPAM mode: %s", k.params.IPAM)
 	}
 
 	if strings.Contains(k.params.ClusterName, ".") {
@@ -196,7 +196,7 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
 	}
 	apiServerHost, apiServerPort := k.client.GetAPIServerHostAndPort()
 	if k.flavor.Kind == k8s.KindKind {
-		k.Log("ℹ️ Detecting real Kubernetes API server addr and port on Kind")
+		k.Log("ℹ️  Detecting real Kubernetes API server addr and port on Kind")
 
 		// When we are using Kind, the API server addr & port is port forwarded
 		eps, err := k.client.GetEndpoints(ctx, "default", "kubernetes", metav1.GetOptions{})
@@ -229,7 +229,7 @@ func (k *K8sInstaller) autodetectKubeProxy(ctx context.Context) error {
 
 	if apiServerHost != "" && apiServerPort != "" {
 		k.Log("🔮 Auto-detected kube-proxy has not been installed")
-		k.Log("ℹ️ Cilium will fully replace all functionalities of kube-proxy")
+		k.Log("ℹ️  Cilium will fully replace all functionalities of kube-proxy")
 		// Use HelmOpts to set auto kube-proxy installation
 		k.params.HelmOpts.Values = append(k.params.HelmOpts.Values,
 			"kubeProxyReplacement=strict",
