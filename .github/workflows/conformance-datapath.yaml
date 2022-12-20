@@ -124,7 +124,6 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
-            endpoint-routes: 'true'
             encryption: 'ipsec'
 
           - kernel: '5.4-main'
@@ -138,23 +137,30 @@ jobs:
             kube-proxy: 'none'
             kpr: 'strict'
             lb-mode: 'snat'
+            tunnel: 'vxlan'
             encryption: 'wireguard'
 
           - kernel: '5.15-main'
             kube-proxy: 'none'
             kpr: 'strict'
             lb-mode: 'dsr'
+            tunnel: 'disabled'
             encryption: 'wireguard'
 
           - kernel: '6.0-main'
-            kpr: 'strict'
-            encryption: 'wireguard'
             kube-proxy: 'none'
+            kpr: 'strict'
+            lb-mode: 'snat'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
 
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
+            lb-mode: 'dsr'
+            tunnel: 'disabled'
             encryption: 'wireguard'
+
     timeout-minutes: 60
     steps:
       - name: Set up job variables
@@ -187,7 +193,14 @@ jobs:
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3"
 
-          echo "cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS}" >> $GITHUB_OUTPUT
+          TUNNEL="--helm-set-string=tunnel=vxlan"
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+          fi
+
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL}"
+
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
