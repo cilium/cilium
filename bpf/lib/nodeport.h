@@ -676,9 +676,13 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
+#else
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+#endif
 	ret = DROP_MISSED_TAIL_CALL;
-	goto drop_err;
 
  drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1639,14 +1643,23 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 
 	/* At this point we know that a reverse SNAT mapping exists.
 	 * Otherwise, we would have tail-called back to
-	 * CALL_IPV4_FROM_NETDEV in the code above. The existence of the
-	 * mapping is an indicator that the packet might be a reply from
-	 * a remote backend. So handle the service reverse DNAT (if
-	 * needed)
+	 * CALL_IPV4_FROM_NETDEV in the code above.
+	 */
+#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
+    (defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE))
+	/* If we're not in full DSR mode, reply traffic from remote backends
+	 * might pass back through the LB node and requires revDNAT.
+	 *
+	 * Also let rev_nodeport_lb4() redirect EgressGW reply traffic into
+	 * tunnel (see there for details).
 	 */
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
+#else
+	/* There's no reason to continue in the RevDNAT path, just recircle back. */
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+#endif
 	ret = DROP_MISSED_TAIL_CALL;
-	goto drop_err;
 
  drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
