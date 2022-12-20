@@ -584,7 +584,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	// synchronously enqueued.
 	resChan, err := e.eventQueue.Enqueue(epEvent)
 	if err != nil {
-		e.getLogger().Errorf("enqueue of EndpointRegenerationEvent failed: %s", err)
+		e.getLogger().WithError(err).Error("Enqueue of EndpointRegenerationEvent failed")
 		done <- false
 		close(done)
 		return done
