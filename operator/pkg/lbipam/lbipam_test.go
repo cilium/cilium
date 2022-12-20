@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s_testing "k8s.io/client-go/testing"
 
@@ -17,6 +18,10 @@ import (
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
 // internally disables one of the pools, and notifies the user via a status update.
@@ -48,6 +53,7 @@ func TestConflictResolution(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Pool B has not been marked conflicting")
@@ -127,6 +133,7 @@ func TestPoolInternalConflict(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected pool to be marked conflicting")
@@ -224,6 +231,7 @@ func TestAllocHappyPath(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service to be updated")
@@ -355,6 +363,7 @@ func TestServiceDelete(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status to be updated")
@@ -447,6 +456,7 @@ func TestReallocOnInit(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service to be updated")
@@ -523,6 +533,7 @@ func TestAllocOnInit(t *testing.T) {
 	}, 100*time.Millisecond)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	<-initDone
 
@@ -553,6 +564,7 @@ func TestPoolSelectorBasic(t *testing.T) {
 	}, true, true, nil)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	await := fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -682,6 +694,7 @@ func TestPoolSelectorNamespace(t *testing.T) {
 	}, true, true, nil)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	await := fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -830,6 +843,7 @@ func TestChangeServiceType(t *testing.T) {
 	}, 100*time.Millisecond)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	<-initDone
 
@@ -1037,6 +1051,7 @@ func TestRangesFull(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	<-initDone
 
@@ -1084,6 +1099,7 @@ func TestRequestIPs(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1252,6 +1268,7 @@ func TestAddPool(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1322,6 +1339,7 @@ func TestAddRange(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1395,6 +1413,7 @@ func TestDisablePool(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1406,7 +1425,7 @@ func TestDisablePool(t *testing.T) {
 		}
 
 		return true
-	}, 100*time.Millisecond)
+	}, 500*time.Millisecond)
 
 	poolA.Spec.Disabled = true
 
@@ -1538,6 +1557,7 @@ func TestPoolDelete(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1615,6 +1635,7 @@ func TestRangeDelete(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1626,7 +1647,7 @@ func TestRangeDelete(t *testing.T) {
 		}
 
 		return true
-	}, 100*time.Millisecond)
+	}, 500*time.Millisecond)
 
 	// Add a new CIDR, this should not have any effect on the existing service.
 	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
@@ -1894,6 +1915,7 @@ func TestRemoveServiceLabel(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -1969,6 +1991,7 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 	}, 100*time.Millisecond)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if !await.Block() {
 		t.Fatal("Unexpected service status update")
@@ -2017,6 +2040,7 @@ func TestRemoveRequestedIP(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
@@ -2097,6 +2121,7 @@ func TestNonMatchingLBClass(t *testing.T) {
 	}, 100*time.Millisecond)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if !await.Block() {
 		t.Fatal("Unexpected service status update")
@@ -2145,6 +2170,7 @@ func TestChangePoolSelector(t *testing.T) {
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
+	defer fixture.hive.Stop(context.Background())
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
