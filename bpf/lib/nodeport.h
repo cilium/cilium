@@ -655,7 +655,7 @@ drop_err:
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
-	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
+	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -694,7 +694,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS)
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
-	const bool nat_46x64 = ctx_load_meta(ctx, CB_NAT_46X64);
+	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -888,7 +888,7 @@ skip_service_lookup:
 			if (is_v4_in_v6_rfc8215((union v6addr *)&ip6->saddr)) {
 				ep_tail_call(ctx, CILIUM_CALL_IPV64_RFC8215);
 			} else {
-				ctx_store_meta(ctx, CB_NAT_46X64, 1);
+				ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_XLATE);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_EGRESS);
 			}
 			return DROP_MISSED_TAIL_CALL;
@@ -978,10 +978,10 @@ redo:
 	return DROP_MISSED_TAIL_CALL;
 }
 
-/* See comment in tail_rev_nodeport_lb4(). */
 static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifindex,
 					    int *ext_err)
 {
+	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
 	int ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1002,7 +1002,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
-
+#ifdef ENABLE_NAT_46X64_GATEWAY
+	if (nat_46x64_fib)
+		goto skip_rev_dnat;
+#endif
 	l4_off = l3_off + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
@@ -1036,7 +1039,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 			}
 		}
 #endif
-
+#ifdef ENABLE_NAT_46X64_GATEWAY
+skip_rev_dnat:
+#endif
 		fib_params.family = AF_INET6;
 		fib_params.ifindex = ctx_get_ifindex(ctx);
 
@@ -1044,8 +1049,14 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		ipv6_addr_copy((union v6addr *)&fib_params.ipv6_dst, &tuple.daddr);
 
 		fib_ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), 0);
-
-		if (fib_ret == 0)
+		/* See comment in rev_nodeport_lb4() on why we only set ifindex
+		 * on successful fib_ret. In case no neighbor has been found, we
+		 * still take the fib_params.ifindex for the NAT46x64 case since
+		 * ct_state.ifindex is not set in this case as this was not a
+		 * service related entry where the original inbound interface was
+		 * stored in the CT.
+		 */
+		if (fib_ret == 0 || nat_46x64_fib)
 			*ifindex = fib_params.ifindex;
 
 		ret = maybe_add_l2_hdr(ctx, *ifindex, &l2_hdr_required);
@@ -1849,7 +1860,7 @@ skip_service_lookup:
 			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
-			ctx_store_meta(ctx, CB_NAT_46X64, 0);
+			ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 #endif
 		} else {
@@ -2003,7 +2014,6 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		fib_params.ipv4_dst = ip4->daddr;
 
 		fib_ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), 0);
-
 		if (fib_ret == 0)
 			/* If the FIB lookup was successful, use the outgoing
 			 * iface from its result. Otherwise, we will fallback
