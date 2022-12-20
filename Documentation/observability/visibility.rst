@@ -62,6 +62,10 @@ endpoint of that pod, for example:
     NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
     coredns-7d7f5b7685-wvzwb   1959          104           false                 false                OK                  ready            10.16.75.193   f00d::a10:0:0:2c7
 
+In order for Cilium to populate the ``INGRESS ENFORCEMENT``, ``EGRESS ENFORCEMENT``
+and ``VISIBILITY POLICY`` fields, it must run with ``--endpoint-status=policy``
+to make field values visible.
+
 Troubleshooting
 ---------------
 
