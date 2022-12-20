@@ -59,8 +59,8 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		iface = "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
 	} else {
 		cmd := []string{"/bin/sh", "-c",
-			fmt.Sprintf("ip -o r g %s from %s | grep -oP '(?<=dev )[^ ]+'",
-				server.Pod.Status.PodIP, client.Pod.Status.PodIP)}
+			fmt.Sprintf("ip -o r g %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
+				server.Pod.Status.PodIP)}
 		t.Debugf("Running %s", strings.Join(cmd, " "))
 		dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
 			clientHost.Pod.Name, "", cmd)
