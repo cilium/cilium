@@ -285,19 +285,13 @@ static __always_inline bool lb_skip_l4_dnat(void)
 static __always_inline
 bool lb4_svc_is_two_scopes(const struct lb4_service *svc)
 {
-	return !!(svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE) !=
-	       !!(svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE) &&
-	       ((svc->flags & SVC_FLAGS_NOT_CLUSTERIP_MASK) |
-		(svc->flags2 & SVC_FLAGS2_NOT_CLUSTERIP_MASK));
+	return svc->flags2 & SVC_FLAG_TWO_SCOPES;
 }
 
 static __always_inline
 bool lb6_svc_is_two_scopes(const struct lb6_service *svc)
 {
-	return !!(svc->flags & SVC_FLAG_EXT_LOCAL_SCOPE) !=
-	       !!(svc->flags2 & SVC_FLAG_INT_LOCAL_SCOPE) &&
-	       ((svc->flags & SVC_FLAGS_NOT_CLUSTERIP_MASK) |
-		(svc->flags2 & SVC_FLAGS2_NOT_CLUSTERIP_MASK));
+	return svc->flags2 & SVC_FLAG_TWO_SCOPES;
 }
 
 static __always_inline
