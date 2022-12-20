@@ -134,30 +134,26 @@ jobs:
             encryption: 'ipsec'
 
           - kernel: '5.10-main'
-            kube-proxy: 'none'
+            kube-proxy: 'iptables'
             kpr: 'strict'
-            lb-mode: 'snat'
             tunnel: 'vxlan'
             encryption: 'wireguard'
 
           - kernel: '5.15-main'
-            kube-proxy: 'none'
+            kube-proxy: 'iptables'
             kpr: 'strict'
-            lb-mode: 'dsr'
             tunnel: 'disabled'
             encryption: 'wireguard'
 
           - kernel: '6.0-main'
             kube-proxy: 'none'
             kpr: 'strict'
-            lb-mode: 'snat'
             tunnel: 'vxlan'
             encryption: 'wireguard'
 
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
-            lb-mode: 'dsr'
             tunnel: 'disabled'
             encryption: 'wireguard'
 
@@ -221,7 +217,7 @@ jobs:
       - name: Install cilium-cli
         shell: bash
         run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:f12c196096e72d0bc2fa394b6a242d3e3cd7b7a4 ls)
           docker cp $cid:/usr/local/bin/cilium ./cilium-cli
           docker rm $cid
 
