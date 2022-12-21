@@ -138,24 +138,28 @@ jobs:
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            lb-mode: 'snat'
 
           - kernel: '5.15-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            lb-mode: 'dsr'
 
           - kernel: '6.0-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            lb-mode: 'snat'
 
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            lb-mode: 'dsr'
 
     timeout-minutes: 60
     steps:
@@ -187,12 +191,17 @@ jobs:
             --helm-set=hubble.relay.image.tag=${SHA} \
             --rollback=false \
             --config monitor-aggregation=none \
-            --nodes-without-cilium=kind-worker3"
+            --nodes-without-cilium=kind-worker3 \
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnel=vxlan"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
           fi
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL}"
+          LB_MODE=""
+          if [ "${{ matrix.lb-mode }}" != "" ]; then
+            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
+          fi
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE}"
 
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
@@ -246,8 +255,7 @@ jobs:
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
-              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}"
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
@@ -265,7 +273,6 @@ jobs:
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
-              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
               --encryption=${{ matrix.encryption }}
 
             ./cilium-cli status --wait
