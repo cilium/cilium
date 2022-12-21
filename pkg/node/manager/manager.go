@@ -12,6 +12,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/workerpool"
+
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -33,8 +35,12 @@ import (
 )
 
 var (
-	baseBackgroundSyncInterval = time.Minute
 	randGen                    = rand.NewSafeRand(time.Now().UnixNano())
+	baseBackgroundSyncInterval = time.Minute
+)
+
+const (
+	numBackgroundWorkers = 1
 )
 
 type nodeEntry struct {
@@ -98,8 +104,8 @@ type manager struct {
 	// events.
 	nodeHandlers map[datapath.NodeHandler]struct{}
 
-	// closeChan is closed when the manager is closed
-	closeChan chan struct{}
+	// workerpool manages background workers
+	workerpool *workerpool.WorkerPool
 
 	// name is the name of the manager. It must be unique and feasibility
 	// to be used a prometheus metric name.
@@ -169,7 +175,7 @@ func New(name string, c Configuration) (*manager, error) {
 		conf:              c,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
-		closeChan:         make(chan struct{}),
+		workerpool:        workerpool.New(numBackgroundWorkers),
 	}
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -207,29 +213,21 @@ func (m *manager) SetIPCache(ipc IPCache) {
 }
 
 func (m *manager) Start(hive.HookContext) error {
-	go m.backgroundSync()
-	return nil
+	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
 // Stop shuts down a node manager
 func (m *manager) Stop(hive.HookContext) error {
+	if err := m.workerpool.Close(); err != nil {
+		return err
+	}
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
-	close(m.closeChan)
 
 	metrics.Unregister(m.metricNumNodes)
 	metrics.Unregister(m.metricEventsReceived)
 	metrics.Unregister(m.metricDatapathValidations)
-
-	// delete all nodes to clean up the datapath for each node
-	for _, n := range m.nodes {
-		n.mutex.Lock()
-		m.Iter(func(nh datapath.NodeHandler) {
-			nh.NodeDelete(n.node)
-		})
-		n.mutex.Unlock()
-	}
 
 	return nil
 }
@@ -272,7 +270,7 @@ func (m *manager) backgroundSyncInterval() time.Duration {
 
 // backgroundSync ensures that local node has a valid datapath in-place for
 // each node in the cluster. See NodeValidateImplementation().
-func (m *manager) backgroundSync() {
+func (m *manager) backgroundSync(ctx context.Context) error {
 	syncTimer, syncTimerDone := inctimer.New()
 	defer syncTimerDone()
 	for {
@@ -303,8 +301,8 @@ func (m *manager) backgroundSync() {
 		}
 
 		select {
-		case <-m.closeChan:
-			return
+		case <-ctx.Done():
+			return nil
 		case <-syncTimer.After(syncInterval):
 		}
 	}
