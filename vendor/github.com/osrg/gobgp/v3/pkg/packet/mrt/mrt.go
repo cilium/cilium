@@ -884,7 +884,7 @@ func (m *BGP4MPMessage) String() string {
 	return fmt.Sprintf("%s: PeerAS [%d] LocalAS [%d] InterfaceIndex [%d] PeerIP [%s] LocalIP [%s] BGPMessage [%v]", title, m.PeerAS, m.LocalAS, m.InterfaceIndex, m.PeerIpAddress, m.LocalIpAddress, m.BGPMessage)
 }
 
-//This function can be passed into a bufio.Scanner.Split() to read buffered mrt msgs
+// This function can be passed into a bufio.Scanner.Split() to read buffered mrt msgs
 func SplitMrt(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if atEOF && len(data) == 0 {
 		return 0, nil, nil
