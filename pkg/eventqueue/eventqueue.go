@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
@@ -163,8 +164,9 @@ type Event struct {
 	enqueued int32
 }
 
+// eventStatistics contains statistics about the event and its queue. These
+// statistics are reported as metrics as well.
 type eventStatistics struct {
-
 	// waitEnqueue shows how long a given event was waiting on the queue before
 	// it was actually processed.
 	waitEnqueue spanstat.SpanStat
@@ -202,13 +204,22 @@ func (ev *Event) WasCancelled() bool {
 	}
 }
 
-func (ev *Event) printStats(q *EventQueue) {
+func (ev *Event) reportStats(q *EventQueue) {
+	typ := reflect.TypeOf(ev.Metadata).String()
+	handling := ev.stats.durationStat.Total()
+	wait := ev.stats.waitEnqueue.Total()
+	consume := ev.stats.waitConsumeOffQueue.Total()
+
+	metrics.EventqueueHandleDuration.WithLabelValues(typ).Set(handling.Seconds())
+	metrics.EventqueueEnqueueDuration.WithLabelValues(typ).Set(wait.Seconds())
+	metrics.EventqueueConsumeDuration.WithLabelValues(typ).Set(consume.Seconds())
+
 	if option.Config.Debug {
 		q.getLogger().WithFields(logrus.Fields{
-			"eventType":                    reflect.TypeOf(ev.Metadata).String(),
-			"eventHandlingDuration":        ev.stats.durationStat.Total(),
-			"eventEnqueueWaitTime":         ev.stats.waitEnqueue.Total(),
-			"eventConsumeOffQueueWaitTime": ev.stats.waitConsumeOffQueue.Total(),
+			"eventType":                    typ,
+			"eventHandlingDuration":        handling,
+			"eventEnqueueWaitTime":         wait,
+			"eventConsumeOffQueueWaitTime": consume,
 		}).Debug("EventQueue event processing statistics")
 	}
 }
@@ -238,7 +249,7 @@ func (q *EventQueue) run() {
 				ev.stats.waitConsumeOffQueue.End(false)
 				close(ev.cancelled)
 				close(ev.eventResults)
-				ev.printStats(q)
+				ev.reportStats(q)
 			default:
 				ev.stats.waitConsumeOffQueue.End(true)
 				ev.stats.durationStat.Start()
@@ -247,7 +258,7 @@ func (q *EventQueue) run() {
 				ev.stats.durationStat.End(true)
 				// Ensures that no more results can be sent as the event has
 				// already been processed.
-				ev.printStats(q)
+				ev.reportStats(q)
 				close(ev.eventResults)
 			}
 		}

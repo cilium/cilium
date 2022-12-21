@@ -522,6 +522,21 @@ var (
 	// ArpingRequestsTotal is the counter of the number of sent
 	// (successful and failed) arping requests
 	ArpingRequestsTotal = NoOpCounterVec
+
+	// Eventqueue
+
+	// EventqueueHandleDuration is the gauge representing the handling /
+	// processing time of an event.
+	EventqueueHandleDuration = NoOpGaugeVec
+
+	// EventqueueEnqueueDuration is the gauge representing the time to enqueue
+	// an event into a queue.
+	EventqueueEnqueueDuration = NoOpGaugeVec
+
+	// EventqueueConsumeDuration is the gauge representing the full consumption
+	// time of an event inside a queue, including wait time inside the queue
+	// and handling time of the event.
+	EventqueueConsumeDuration = NoOpGaugeVec
 )
 
 type Configuration struct {
@@ -542,6 +557,9 @@ type Configuration struct {
 	IdentityCountEnabled                    bool
 	EventTSEnabled                          bool
 	EventLagK8sEnabled                      bool
+	EventqueueHandleDurationEnabled         bool
+	EventqueueEnqueueDurationEnabled        bool
+	EventqueueConsumeDurationEnabled        bool
 	ProxyRedirectsEnabled                   bool
 	ProxyPolicyL7Enabled                    bool
 	ProxyParseErrorsEnabled                 bool
@@ -1465,8 +1483,37 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, NodeConnectivityLatency)
 			c.NodeConnectivityLatencyEnabled = true
-		}
 
+		case Namespace + "_eventqueue_handle_duration_seconds":
+			EventqueueHandleDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "eventqueue_handle_duration_seconds",
+				Help:      "Handling / processing time of the event off of the queue",
+			}, []string{LabelType})
+
+			collectors = append(collectors, EventqueueHandleDuration)
+			c.EventqueueHandleDurationEnabled = true
+
+		case Namespace + "_eventqueue_enqueue_duration_seconds":
+			EventqueueEnqueueDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "eventqueue_enqueue_duration_seconds",
+				Help:      "Time to enqueue a new event into the queue",
+			}, []string{LabelType})
+
+			collectors = append(collectors, EventqueueEnqueueDuration)
+			c.EventqueueEnqueueDurationEnabled = true
+
+		case Namespace + "_eventqueue_consume_duration_seconds":
+			EventqueueConsumeDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Name:      "eventqueue_consume_duration_seconds",
+				Help:      "Time to fully consume event off of the queue including wait time inside queue",
+			}, []string{LabelType})
+
+			collectors = append(collectors, EventqueueConsumeDuration)
+			c.EventqueueConsumeDurationEnabled = true
+		}
 	}
 
 	return c, collectors
