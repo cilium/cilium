@@ -542,8 +542,6 @@ type Configuration struct {
 	IdentityCountEnabled                    bool
 	EventTSEnabled                          bool
 	EventLagK8sEnabled                      bool
-	EventTSContainerdEnabled                bool
-	EventTSAPIEnabled                       bool
 	ProxyRedirectsEnabled                   bool
 	ProxyPolicyL7Enabled                    bool
 	ProxyParseErrorsEnabled                 bool
