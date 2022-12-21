@@ -234,17 +234,8 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	_, ok = nodes[n1.Identity()]
 	c.Assert(ok, check.Equals, false)
 
-	mngr.Stop(context.TODO())
-	select {
-	case nodeEvent := <-dp.NodeDeleteEvent:
-		c.Assert(nodeEvent, checker.DeepEquals, n2)
-	case nodeEvent := <-dp.NodeAddEvent:
-		c.Errorf("Unexpected NodeAdd() event %#v", nodeEvent)
-	case nodeEvent := <-dp.NodeUpdateEvent:
-		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
-	case <-time.After(3 * time.Second):
-		c.Errorf("timeout while waiting for NodeDelete() event for node2")
-	}
+	err = mngr.Stop(context.TODO())
+	c.Assert(err, check.IsNil)
 }
 
 func (s *managerTestSuite) TestMultipleSources(c *check.C) {
