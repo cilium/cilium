@@ -26,6 +26,7 @@ sphinxcontrib-httpdomain==1.7.0
 sphinxcontrib-openapi==0.3.2
 sphinxcontrib-spelling==4.2.1
 sphinxcontrib-websupport==1.1.0
+sphinxcontrib-googleanalytics==0.3
 sphinx-tabs==1.1.13
 sphinx-version-warning==1.1.2
 typing==3.6.6
