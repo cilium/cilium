@@ -400,7 +400,7 @@ func (a *Agent) State() *models.MonitorStatus {
 	return &status
 }
 
-// notifyPerfEventLocked notifies all consumers about an agent event.
+// notifyAgentEvent notifies all consumers about an agent event.
 func (a *Agent) notifyAgentEvent(typ int, message interface{}) {
 	a.Lock()
 	defer a.Unlock()
