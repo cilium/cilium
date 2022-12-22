@@ -93,9 +93,9 @@ rollOutCiliumPods: false
 # -- Agent container image.
 image:
   override: ~
-  repository: "quay.io/cilium/cilium-ci"
-  tag: "latest"
-  pullPolicy: "Always"
+  repository: "quay.io/cilium/cilium"
+  tag: "v1.13.0-rc4"
+  pullPolicy: "IfNotPresent"
   # cilium-digest
   digest: ""
   useDigest: false
@@ -788,7 +788,7 @@ certgen:
     override: ~
     repository: "quay.io/cilium/certgen"
     tag: "v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
@@ -960,12 +960,12 @@ hubble:
     # -- Hubble-relay container image.
     image:
       override: ~
-      repository: "quay.io/cilium/hubble-relay-ci"
-      tag: "latest"
+      repository: "quay.io/cilium/hubble-relay"
+      tag: "v1.13.0-rc4"
        # hubble-relay-digest
       digest: ""
       useDigest: false
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
 
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
@@ -1156,7 +1156,7 @@ hubble:
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
         tag: "v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
-        pullPolicy: "Always"
+        pullPolicy: "IfNotPresent"
 
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
@@ -1176,7 +1176,7 @@ hubble:
         override: ~
         repository: "quay.io/cilium/hubble-ui"
         tag: "v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
-        pullPolicy: "Always"
+        pullPolicy: "IfNotPresent"
 
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
@@ -1680,7 +1680,7 @@ etcd:
     override: ~
     repository: "quay.io/cilium/cilium-etcd-operator"
     tag: "v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for cilium-etcd-operator
   priorityClassName: ""
@@ -1773,7 +1773,7 @@ operator:
   image:
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "latest"
+    tag: "v1.13.0-rc4"
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -1783,8 +1783,8 @@ operator:
     # operator-alibabacloud-digest
     alibabacloudDigest: ""
     useDigest: false
-    pullPolicy: "Always"
-    suffix: "-ci"
+    pullPolicy: "IfNotPresent"
+    suffix: ""
 
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
@@ -1947,7 +1947,7 @@ nodeinit:
     override: ~
     repository: "quay.io/cilium/startup-script"
     tag: "d69851597ea019af980891a4628fb36b7880ec26"
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for the nodeinit pod.
   priorityClassName: ""
@@ -2020,12 +2020,12 @@ preflight:
   # -- Cilium pre-flight image.
   image:
     override: ~
-    repository: "quay.io/cilium/cilium-ci"
-    tag: "latest"
+    repository: "quay.io/cilium/cilium"
+    tag: "v1.13.0-rc4"
     # cilium-digest
     digest: ""
     useDigest: false
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
 
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -2157,12 +2157,12 @@ clustermesh:
     # -- Clustermesh API server image.
     image:
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver-ci"
-      tag: "latest"
+      repository: "quay.io/cilium/clustermesh-apiserver"
+      tag: "v1.13.0-rc4"
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
 
     etcd:
       # -- Clustermesh API server etcd image.
@@ -2170,7 +2170,7 @@ clustermesh:
         override: ~
         repository: "quay.io/coreos/etcd"
         tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
-        pullPolicy: "Always"
+        pullPolicy: "IfNotPresent"
 
       # -- Specifies the resources for etcd container in the apiserver
       resources: {}
