@@ -25,11 +25,29 @@
 #include "host_firewall.h"
 #include "stubs.h"
 #include "proxy_hairpin.h"
-#include "neigh.h"
 
 #define CB_SRC_IDENTITY	0
 
 #ifdef ENABLE_NODEPORT
+#ifdef ENABLE_IPV4
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __be32);	/* ipv4 addr */
+	__type(value, union macaddr);	/* hw addr */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
+} NODEPORT_NEIGH4 __section_maps_btf;
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, union v6addr);	/* ipv6 addr */
+	__type(value, union macaddr);	/* hw addr */
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
+} NODEPORT_NEIGH6 __section_maps_btf;
+
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
 	__u8 nexthdr;
@@ -40,6 +58,7 @@ struct dsr_opt_v6 {
 	__be16 port;
 	__u16 pad;
 };
+#endif /* ENABLE_IPV6 */
 
 static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
@@ -905,8 +924,11 @@ skip_service_lookup:
 	backend_local = __lookup_ip6_endpoint(&tuple.daddr);
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
+
 	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
 		struct ct_state ct_state = {};
+		union macaddr smac = {0};
+		union macaddr *mac;
 
 		ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				 CT_EGRESS, &ct_state, &monitor);
@@ -932,9 +954,19 @@ redo:
 			return DROP_UNKNOWN_CT;
 		}
 
-		ret = neigh_record_ip6(ctx);
-		if (ret < 0)
-			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
+
+		mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
+		if (!mac || eth_addrcmp(mac, &smac)) {
+			ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr,
+					      &smac, 0);
+			if (ret < 0)
+				return ret;
+		}
+
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
@@ -1062,7 +1094,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 			}
 
 			/* See comment in rev_nodeport_lb4(). */
-			dmac = neigh_lookup_ip6(&tuple.daddr);
+			dmac = map_lookup_elem(&NODEPORT_NEIGH6, &tuple.daddr);
 			if (unlikely(!dmac)) {
 				*ext_err = fib_ret;
 				return DROP_NO_FIB;
@@ -1856,11 +1888,14 @@ skip_service_lookup:
 	backend_local = __lookup_ip4_endpoint(tuple.daddr);
 	if (!backend_local && lb4_svc_is_hostport(svc))
 		return DROP_INVALID;
-	/* Reply from DSR packet is never seen on this node again
-	 * hence no need to track in here.
+
+	/* Reply from DSR packet is never seen on this node again hence no
+	 * need to track in here.
 	 */
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
+		union macaddr smac = {0};
+		union macaddr *mac;
 
 		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
 				 CT_EGRESS, &ct_state, &monitor);
@@ -1889,9 +1924,19 @@ redo:
 			return DROP_UNKNOWN_CT;
 		}
 
-		ret = neigh_record_ip4(ctx);
-		if (ret < 0)
-			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
+
+		mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
+		if (!mac || eth_addrcmp(mac, &smac)) {
+			ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr,
+					      &smac, 0);
+			if (ret < 0)
+				return ret;
+		}
+
 		if (backend_local) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
@@ -2035,7 +2080,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 			 * table instead where we recorded the client
 			 * address in nodeport_lb4().
 			 */
-			dmac = neigh_lookup_ip4(&tuple.daddr);
+			dmac = map_lookup_elem(&NODEPORT_NEIGH4, &tuple.daddr);
 			if (unlikely(!dmac)) {
 				*ext_err = fib_ret;
 				return DROP_NO_FIB;
