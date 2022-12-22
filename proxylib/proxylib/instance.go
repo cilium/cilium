@@ -183,7 +183,7 @@ func (ins *Instance) PolicyUpdate(resp *envoy_service_discovery.DiscoveryRespons
 			return fmt.Errorf("NPDS: Policy has no endpoint_ips")
 		}
 		for _, ip := range ips {
-			logrus.Infof("NPDS: Endpoint IP: %s", ip)
+			logrus.Debugf("NPDS: Endpoint IP: %s", ip)
 		}
 		// Locate the old version, if any
 		oldPolicy, found := oldMap[ips[0]]
