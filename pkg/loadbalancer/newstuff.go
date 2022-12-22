@@ -77,6 +77,7 @@ func (fe *FEExternalIPs) ToSVC() *SVC {
 type FELoadBalancer struct {
 	CommonFE
 	L3n4Addr L3n4Addr
+	// TODO LoadBalancerSourceRanges
 }
 
 func (fe *FELoadBalancer) Address() *L3n4Addr {

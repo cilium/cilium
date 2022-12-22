@@ -43,6 +43,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -104,10 +105,14 @@ type compositeClientset struct {
 	log           logrus.FieldLogger
 	closeAllConns func()
 	restConfig    *rest.Config
+	reporter      status.Reporter
 }
 
-func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Clientset, error) {
+func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config, r status.Reporter) (Clientset, error) {
 	if !cfg.isEnabled() {
+		if r != nil {
+			r.Down("Kubernetes client disabled via config")
+		}
 		return &compositeClientset{disabled: true}, nil
 	}
 
@@ -120,6 +125,7 @@ func newClientset(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config) (Client
 		log:        log,
 		controller: controller.NewManager(),
 		config:     cfg,
+		reporter:   r,
 	}
 
 	restConfig, err := createConfig(cfg.K8sAPIServer, cfg.K8sKubeConfigPath, cfg.K8sClientQPS, cfg.K8sClientBurst)
@@ -207,6 +213,10 @@ func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
 		return nil
 	}
 
+	if c.reporter != nil {
+		c.reporter.Degraded("Waiting to connect")
+	}
+
 	if err := c.waitForConn(startCtx); err != nil {
 		return err
 	}
@@ -223,6 +233,10 @@ func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
 	}
 
 	c.started = true
+
+	if c.reporter != nil {
+		c.reporter.OK()
+	}
 
 	return nil
 }
@@ -474,7 +488,7 @@ func NewStandaloneClientset(cfg Config) (Clientset, error) {
 	log := logging.DefaultLogger
 	lc := &standaloneLifecycle{}
 
-	clientset, err := newClientset(lc, log, cfg)
+	clientset, err := newClientset(lc, log, cfg, nil)
 	if err != nil {
 		return nil, err
 	}

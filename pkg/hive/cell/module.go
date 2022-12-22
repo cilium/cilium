@@ -8,8 +8,10 @@ import (
 	"regexp"
 
 	"github.com/sirupsen/logrus"
+	"go.uber.org/dig"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/status"
 )
 
 // Module creates a scoped set of cells with a given identifier.
@@ -55,10 +57,20 @@ func (m *module) logger(log logrus.FieldLogger) logrus.FieldLogger {
 	return log.WithField(logfields.LogSubsys, m.id)
 }
 
+func (m *module) statusReporter(p *status.Provider) status.Reporter {
+	return p.ForModule(m.id)
+}
+
 func (m *module) Apply(c container) error {
 	scope := c.Scope(m.id)
 
+	// Provide a logger scoped by the module id
 	if err := scope.Decorate(m.logger); err != nil {
+		return err
+	}
+
+	// Provide a status reporter for the module.
+	if err := scope.Provide(m.statusReporter, dig.Export(false)); err != nil {
 		return err
 	}
 

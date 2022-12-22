@@ -11,6 +11,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -39,6 +40,8 @@ type k8sHandlerParams struct {
 	Log            logrus.FieldLogger
 	Services       resource.Resource[*slim_corev1.Service]
 	Endpoints      resource.Resource[*k8s.Endpoints]
+
+	Reporter status.Reporter
 }
 
 type k8sHandler struct {
@@ -52,6 +55,7 @@ type k8sHandler struct {
 
 func newK8sHandler(log logrus.FieldLogger, lc hive.Lifecycle, p k8sHandlerParams) *k8sHandler {
 	if p.Services == nil {
+		p.Reporter.Down("Kubernetes not enabled")
 		log.Info("K8s Services not available, not starting K8sHandler")
 		return nil
 	}
@@ -70,6 +74,7 @@ func (k *k8sHandler) Start(hive.HookContext) error {
 }
 
 func (k *k8sHandler) Stop(hive.HookContext) error {
+	defer k.handle.Close()
 	return k.workerpool.Close()
 }
 
@@ -78,6 +83,9 @@ func (k *k8sHandler) processLoop(ctx context.Context) error {
 	servicesSynced := false
 	endpoints := k.params.Endpoints.Events(ctx)
 	endpointsSynced := false
+
+	k.params.Reporter.Degraded("Synchronizing")
+	defer k.params.Reporter.Down("Stopped")
 
 	for {
 		select {
@@ -92,6 +100,7 @@ func (k *k8sHandler) processLoop(ctx context.Context) error {
 			case resource.Sync:
 				servicesSynced = true
 				if servicesSynced && endpointsSynced {
+					k.params.Reporter.OK()
 					k.handle.Synchronized()
 				}
 			case resource.Upsert:
@@ -109,6 +118,7 @@ func (k *k8sHandler) processLoop(ctx context.Context) error {
 			case resource.Sync:
 				endpointsSynced = true
 				if servicesSynced && endpointsSynced {
+					k.params.Reporter.OK()
 					k.handle.Synchronized()
 				}
 			case resource.Upsert:

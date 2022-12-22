@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/test/controlplane/helpers"
 )
@@ -41,8 +42,8 @@ var Cell = cell.Module(
 // newLBWorker creates a new load-balancer worker that implements LoadBalancer API.
 // The worker applies requests sequentially and retries failed requests. Requests
 // for the same frontend will be coalesced.
-func newLBWorker(lc hive.Lifecycle, m *lbManager) LoadBalancer {
-	return (*lbWorker)(newWorker[frontendKey](lc, m))
+func newLBWorker(lc hive.Lifecycle, m *lbManager, r status.Reporter) LoadBalancer {
+	return (*lbWorker)(newWorker[frontendKey](lc, m, r))
 }
 
 type (
@@ -509,20 +510,20 @@ type request[Key comparable, Manager any] interface {
 }
 
 type worker[Key comparable, Manager any] struct {
-	mgr        Manager
-	unrealized map[Key]request[Key, Manager]
-	wq         workqueue.RateLimitingInterface
-	requests   chan request[Key, Manager]
-	work       chan Key
+	mgr      Manager
+	wq       workqueue.RateLimitingInterface
+	requests chan request[Key, Manager]
+	work     chan Key
+	reporter status.Reporter
 }
 
-func newWorker[Key comparable, Manager any](lc hive.Lifecycle, m Manager) *worker[Key, Manager] {
+func newWorker[Key comparable, Manager any](lc hive.Lifecycle, m Manager, r status.Reporter) *worker[Key, Manager] {
 	w := &worker[Key, Manager]{
-		mgr:        m,
-		unrealized: make(map[Key]request[Key, Manager]),
-		wq:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		requests:   make(chan request[Key, Manager]),
-		work:       make(chan Key),
+		mgr:      m,
+		wq:       workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		requests: make(chan request[Key, Manager]),
+		work:     make(chan Key),
+		reporter: r,
 	}
 
 	wp := workerpool.New(2)
@@ -549,7 +550,6 @@ func newWorker[Key comparable, Manager any](lc hive.Lifecycle, m Manager) *worke
 
 func (w *worker[Key, Manager]) queueGetter(context.Context) error {
 	defer close(w.work)
-
 	for {
 		item, shutdown := w.wq.Get()
 		if shutdown {
@@ -560,18 +560,34 @@ func (w *worker[Key, Manager]) queueGetter(context.Context) error {
 }
 
 func (w *worker[Key, Manager]) processLoop(ctx context.Context) error {
+	retries := container.NewSet[Key]()
+	unrealized := make(map[Key]request[Key, Manager])
+
+	w.reporter.OK()
+	defer w.reporter.Down("Stopped")
+
+	statusUpdate := func() {
+		if len(retries) > 0 {
+			w.reporter.Degraded(
+				fmt.Sprintf("%d unrealized, %d queued, %d being retried",
+					len(unrealized), w.wq.Len(), len(retries)))
+		} else {
+			w.reporter.OK()
+		}
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			// Shut down the queue and drain the work channel.
-			w.wq.ShutDownWithDrain()
+			w.wq.ShutDown()
 			for range w.work {
 			}
 			close(w.requests)
 			return nil
 
 		case hash := <-w.work:
-			req, ok := w.unrealized[hash]
+			req, ok := unrealized[hash]
 			if !ok {
 				// Since the entry is gone we've already processed it.
 				continue
@@ -583,14 +599,20 @@ func (w *worker[Key, Manager]) processLoop(ctx context.Context) error {
 				// onError callback?
 				fmt.Printf("WORKER: req.apply err: %s\n", err)
 				w.wq.AddRateLimited(hash)
+				retries.Add(hash)
+				statusUpdate()
 			} else {
 				w.wq.Forget(hash)
-				delete(w.unrealized, hash)
+				delete(unrealized, hash)
+				if len(retries) > 0 {
+					retries.Delete(hash)
+					statusUpdate()
+				}
 			}
 			w.wq.Done(hash)
 
 		case req := <-w.requests:
-			w.unrealized[req.key()] = req
+			unrealized[req.key()] = req
 			w.wq.Add(req.key())
 		}
 	}

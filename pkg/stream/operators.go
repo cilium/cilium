@@ -14,6 +14,31 @@ import (
 // Operators transform the observable.
 //
 
+// Concat concatenates the observables
+func Concat[T any](src Observable[T], srcs ...Observable[T]) Observable[T] {
+	return FuncObservable[T](
+		func(ctx context.Context, next func(T), complete func(error)) {
+			var observeNextSrc func(error)
+			observeNextSrc = func(err error) {
+				if err != nil {
+					complete(err)
+					return
+				}
+				if len(srcs) == 0 {
+					complete(nil)
+					return
+				}
+				src := srcs[0]
+				srcs = srcs[1:]
+				src.Observe(
+					ctx,
+					next,
+					observeNextSrc)
+			}
+			src.Observe(ctx, next, observeNextSrc)
+		})
+}
+
 // Map applies a function onto values of an observable and emits the resulting values.
 func Map[A, B any](src Observable[A], apply func(A) B) Observable[B] {
 	return FuncObservable[B](

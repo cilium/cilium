@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/status"
 )
 
 var (
@@ -130,21 +131,32 @@ func (h *Hive) Viper() *viper.Viper {
 type defaults struct {
 	dig.Out
 
-	Flags       *pflag.FlagSet
-	Lifecycle   Lifecycle
-	Logger      logrus.FieldLogger
-	Shutdowner  Shutdowner
-	InvokerList cell.InvokerList
+	Flags          *pflag.FlagSet
+	Lifecycle      Lifecycle
+	Logger         logrus.FieldLogger
+	Shutdowner     Shutdowner
+	InvokerList    cell.InvokerList
+	StatusProvider *status.Provider
 }
 
 func (h *Hive) provideDefaults() error {
 	return h.container.Provide(func() defaults {
+		// TODO: figure out a cleaner way to integrate status.
+		// maybe implement it in pkg/hive/cell?
+		statusProvider := status.New()
+		h.lifecycle.Append(Hook{
+			OnStop: func(HookContext) error {
+				statusProvider.Stop()
+				return nil
+			},
+		})
 		return defaults{
-			Flags:       h.flags,
-			Lifecycle:   h.lifecycle,
-			Logger:      log,
-			Shutdowner:  h,
-			InvokerList: h,
+			Flags:          h.flags,
+			Lifecycle:      h.lifecycle,
+			Logger:         log,
+			Shutdowner:     h,
+			InvokerList:    h,
+			StatusProvider: statusProvider,
 		}
 	})
 }

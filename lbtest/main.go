@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controlplane/apiserver"
@@ -16,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -45,6 +51,8 @@ func main() {
 		lb.Cell,
 
 		fakeLBMapCell,
+
+		cell.Invoke(printStatusReports),
 	)
 	h.RegisterFlags(cmd.Flags())
 
@@ -120,4 +128,31 @@ func fakeServiceHandler(s servicemanager.ServiceManager) {
 
 	h.Synchronized()
 
+}
+
+func printStatusReports(p *status.Provider) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, unix.SIGUSR1)
+
+	go func() {
+		for range signals {
+			printStatusOnSIGUSR1(p)
+		}
+	}()
+
+	go func() {
+		for s := range p.Stream(context.TODO()) {
+			fmt.Printf("%s status: %s: %s\n", s.ModuleID, s.Level, s.Message)
+		}
+
+	}()
+}
+
+func printStatusOnSIGUSR1(p *status.Provider) {
+	fmt.Printf("--- status report ---\n")
+	for _, s := range p.All() {
+		fmt.Printf("%s: %s: %q (%.1fs ago)\n", s.ModuleID, s.Level, s.Message,
+			time.Now().Sub(s.LastUpdated).Seconds())
+	}
+	fmt.Printf("---------------------\n")
 }

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/status"
 )
 
 // exampleCell is a module providing a configuration
@@ -30,7 +32,7 @@ var exampleCell = cell.Module(
 )
 
 func main() {
-	dotGraph := pflag.Bool("dot-graph", false, "Dump graphviz dot graph")
+	//dotGraph := pflag.Bool("dot-graph", false, "Dump graphviz dot graph")
 
 	// Create a hive from a set of cells.
 	hive := hive.New(
@@ -46,6 +48,14 @@ func main() {
 		// Modules that provide a service should usually not have any invoke
 		// functions that force object construction whether or not it is needed.
 		cell.Invoke(func(*ExampleObject) {}),
+
+		cell.Invoke(func(p *status.Provider) {
+			go func() {
+				for ms := range p.Stream(context.TODO()) {
+					fmt.Printf(">>> %#v\n", ms)
+				}
+			}()
+		}),
 	)
 
 	// Register the flags and parse them.
@@ -54,10 +64,10 @@ func main() {
 
 	// If dot graph is requested, dump it to stdout.
 	// Try piping it to "dot -Tx11" to visualize (or -Tpng on macOS).
-	if *dotGraph {
+	/*if *dotGraph {
 		hive.PrintDotGraph()
 		return
-	}
+	}*/
 
 	// PrintObjects can be used to visualize all the cells to inspect
 	// what objects can be constructed, or in what order start hooks
@@ -120,8 +130,9 @@ func newPrivateObject() *privateObject {
 }
 
 type ExampleObject struct {
-	cfg ExampleConfig
-	log logrus.FieldLogger
+	cfg      ExampleConfig
+	log      logrus.FieldLogger
+	reporter status.Reporter
 }
 
 // onStart is a lifecycle hook that is executed when the hive is started.
@@ -133,6 +144,7 @@ type ExampleObject struct {
 // performed directly from the start hook.
 func (o *ExampleObject) onStart(hive.HookContext) error {
 	o.log.Infof("onStart: Config: %#v", o.cfg)
+	o.reporter.OK()
 	return nil
 }
 
@@ -141,6 +153,7 @@ func (o *ExampleObject) onStart(hive.HookContext) error {
 // All stop hooks are executed regardless if one fails.
 func (o *ExampleObject) onStop(hive.HookContext) error {
 	o.log.Info("onStop")
+	o.reporter.Down("Stopped")
 	return nil
 }
 
@@ -158,8 +171,8 @@ func (o *ExampleObject) onStop(hive.HookContext) error {
 // Finally it depends on logrus.FieldLogger which is globally available to all cells.
 // If the cell is wrapped in a cell.Module the logger will be scoped to that module
 // with the subsys field set to module name.
-func newExampleObject(lc hive.Lifecycle, cfg ExampleConfig, p *privateObject, log logrus.FieldLogger) *ExampleObject {
-	obj := &ExampleObject{cfg: cfg, log: log}
+func newExampleObject(lc hive.Lifecycle, cfg ExampleConfig, p *privateObject, log logrus.FieldLogger, r status.Reporter) *ExampleObject {
+	obj := &ExampleObject{cfg: cfg, log: log, reporter: r}
 	lc.Append(hive.Hook{OnStart: obj.onStart, OnStop: obj.onStop})
 	log.Info("ExampleObject constructed")
 	return obj
