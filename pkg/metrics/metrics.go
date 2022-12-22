@@ -679,6 +679,9 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 	for _, metricName := range metricsEnabled {
 		switch metricName {
+		default:
+			logrus.WithField("metric", metricName).Warning("Metric does not exist, skipping")
+
 		case Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":
 			APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 				Namespace: Namespace,
