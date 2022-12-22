@@ -10,6 +10,7 @@ import (
 
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	monitorConsumer "github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -25,6 +26,7 @@ type consumer struct {
 	observer      Observer
 	numEventsLost uint64
 	lostLock      lock.Mutex
+	logLimiter    logging.Limiter
 }
 
 // NewConsumer returns an initialized pointer to consumer.
@@ -32,6 +34,7 @@ func NewConsumer(observer Observer) monitorConsumer.MonitorConsumer {
 	mc := &consumer{
 		observer:      observer,
 		numEventsLost: 0,
+		logLimiter:    logging.NewLimiter(10*time.Second, 3),
 	}
 	return mc
 }
@@ -61,7 +64,7 @@ func (c *consumer) sendNumLostEvents() {
 		// We now now safely reset the counter, as at this point have
 		// successfully notified the observer about the amount of events
 		// that were lost since the previous LostEvent message
-		c.observer.GetLogger().Warningf("hubble events queue is processing messages again: %d messages were lost", c.numEventsLost)
+		c.observer.GetLogger().Infof("hubble events queue is processing messages again: %d messages were lost", c.numEventsLost)
 		c.numEventsLost = 0
 	default:
 		// We do not need to bump the numEventsLost counter here, as we will
@@ -90,8 +93,8 @@ func (c *consumer) sendEvent(event *observerTypes.MonitorEvent) {
 func (c *consumer) logStartedDropping() {
 	c.lostLock.Lock()
 	defer c.lostLock.Unlock()
-	if c.numEventsLost == 0 {
-		c.observer.GetLogger().Warning("hubble events queue is full; dropping messages")
+	if c.numEventsLost == 0 && c.logLimiter.Allow() {
+		c.observer.GetLogger().Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
 	}
 	c.numEventsLost++
 }
