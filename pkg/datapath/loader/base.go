@@ -125,6 +125,19 @@ func addENIRules(logger *slog.Logger, sysSettings []tables.Sysctl) ([]tables.Sys
 		Val:       "2",
 		IgnoreErr: false,
 	})
+	// Delete old nodeport rule if it exists
+	oldRule := route.Rule{
+		Priority: linux_defaults.RulePriorityNodeport,
+		Mark:     linux_defaults.MarkMultinodeNodeport,
+		Mask:     linux_defaults.MaskMultinodeNodeport,
+		Table:    route.MainTable,
+	}
+	if err := route.DeleteRule(netlink.FAMILY_V4, oldRule); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("unable to delete old ip rule for ENI multi-node NodePort: %w", err)
+		}
+	}
+	// Install updated ip rule for ENI multi-node NodePort
 	if err := route.ReplaceRule(route.Rule{
 		Priority: linux_defaults.RulePriorityNodeport,
 		Mark:     linux_defaults.MarkMultinodeNodeport,
