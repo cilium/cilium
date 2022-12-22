@@ -4,8 +4,10 @@
 DIGESTS_PATH:=Makefile.digests
 include $(DIGESTS_PATH)
 export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+export RELEASE := yes
 
 ifeq ($(RELEASE),yes)
+    export CILIUM_BRANCH:=v1.13
     export PULL_POLICY:=IfNotPresent
     export CILIUM_REPO:=quay.io/cilium/cilium
     export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
