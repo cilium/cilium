@@ -6,7 +6,6 @@ package watchers
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -71,12 +70,12 @@ func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 	// for node you'll want to go via e.g. NodeManager, or LocalNodeStore. At the very least
 	// one must not depend on both Services resource and ServiceCache!
 
-	svcID := k8s.ParseServiceID(svc)
+	//svcID := k8s.ParseServiceID(svc)
 	if option.Config.EnableLocalRedirectPolicy {
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
 			// The local redirect policies currently support services of type
 			// clusterIP only.
-			k.redirectPolicyManager.OnAddService(svcID)
+			//k.redirectPolicyManager.OnAddService(svcID)
 		}
 	}
 	if option.Config.BGPAnnounceLBIP {
@@ -86,10 +85,10 @@ func (k *K8sWatcher) upsertK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stop
 }
 
 func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
-	svcID := k8s.ParseServiceID(svc)
+	//svcID := k8s.ParseServiceID(svc)
 	if option.Config.EnableLocalRedirectPolicy {
 		if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
-			k.redirectPolicyManager.OnDeleteService(svcID)
+			//k.redirectPolicyManager.OnDeleteService(svcID)
 		}
 	}
 	if option.Config.BGPAnnounceLBIP {

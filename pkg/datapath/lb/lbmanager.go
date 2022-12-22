@@ -6,6 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cilium/workerpool"
+	"k8s.io/client-go/util/workqueue"
+
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/counter"
@@ -15,12 +18,10 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 	"github.com/cilium/cilium/test/controlplane/helpers"
-	"github.com/cilium/workerpool"
-	"k8s.io/client-go/util/workqueue"
 )
 
 type LoadBalancer interface {
-	Upsert(frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend)
+	Upsert(svc *loadbalancer.SVC)
 	Delete(addr loadbalancer.L3n4Addr)
 	GarbageCollect()
 
@@ -56,7 +57,7 @@ type (
 // state and on retry only the remaining changes are processed.
 type feState struct {
 	id       uint16 // FIXME overlap with "id" in FrontendID
-	fe       *loadbalancer.Frontend
+	svc      *loadbalancer.SVC
 	backends container.Set[backendKey]
 	// ... ?
 }
@@ -154,10 +155,10 @@ func (m *lbManager) deleteFrontend(key frontendKey) error {
 	}
 
 	err := m.lbmap.DeleteService(
-		loadbalancer.L3n4AddrID{L3n4Addr: state.fe.Address, ID: loadbalancer.ID(state.id)},
+		loadbalancer.L3n4AddrID{L3n4Addr: state.svc.Frontend.L3n4Addr, ID: loadbalancer.ID(state.id)},
 		len(state.backends),
-		useMaglev(m.config, state.fe),
-		state.fe.NatPolicy,
+		useMaglev(m.config, state.svc),
+		state.svc.NatPolicy,
 	)
 	if err != nil {
 		return err
@@ -189,28 +190,28 @@ var dummyNodePortFrontendIPs = []string{
 	"2.3.4.5",
 }
 
-func (m *lbManager) expandNodePortFrontends(frontend *loadbalancer.Frontend) []*loadbalancer.Frontend {
+func (m *lbManager) expandNodePortFrontends(frontend *loadbalancer.SVC) []*loadbalancer.SVC {
 	// TODO implement the real thing.
-	fes := make([]*loadbalancer.Frontend, len(dummyNodePortFrontendIPs))
+	fes := make([]*loadbalancer.SVC, len(dummyNodePortFrontendIPs))
 	for i, ip := range dummyNodePortFrontendIPs {
 		fe := *frontend
-		fe.Address.AddrCluster = cmtypes.MustParseAddrCluster(ip)
+		fe.Frontend.AddrCluster = cmtypes.MustParseAddrCluster(ip)
 		fes[i] = &fe
 	}
 
 	return fes
 }
 
-func (m *lbManager) upsertFrontend(frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend) error {
+func (m *lbManager) upsertFrontend(frontend *loadbalancer.SVC) error {
 	if frontend.Type == loadbalancer.SVCTypeNodePort {
-		hash := frontend.Address.Hash()
+		hash := frontend.Frontend.Hash()
 
 		// FIXME: expand to real frontends based on device IPs and call upsert() on each.
 		// Need to maintain a mapping from "frontend" to the expanded ones.
 		keys := container.NewSet[frontendKey]()
 		for _, fe := range m.expandNodePortFrontends(frontend) {
-			keys.Add(fe.Address.Hash())
-			if err := m.upsertSingle(fe, backends); err != nil {
+			keys.Add(fe.Frontend.Hash())
+			if err := m.upsertSingle(fe); err != nil {
 				// TODO: rewind? we might be leaving orphan frontends.
 				return err
 			}
@@ -226,7 +227,7 @@ func (m *lbManager) upsertFrontend(frontend *loadbalancer.Frontend, backends []*
 
 		return nil
 	} else {
-		return m.upsertSingle(frontend, backends)
+		return m.upsertSingle(frontend)
 	}
 
 }
@@ -276,7 +277,8 @@ func (m *lbManager) deleteBackend(key backendKey) error {
 	return nil
 }
 
-func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*loadbalancer.Backend) error {
+func (m *lbManager) upsertSingle(frontend *loadbalancer.SVC) error {
+	backends := frontend.Backends
 	// This method is written to be idempotent and thus retryable. The state of the frontend is updated after each
 	// successful step. On early return of an error the upsert request will be retried and this
 	// method continues from where it last failed based on the state. The assumption is that
@@ -284,12 +286,12 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 	// full (ENOSPC) and retrying (with backoff) allows user intervention to make more space and
 	// to eventually recover.
 
-	fmt.Printf("LBMANAGER: upsert: fe[%s]=%s, nbackends=%d\n", frontend.Type, frontend.Address.String(), len(backends))
+	fmt.Printf("LBMANAGER: upsert: fe[%s]=%s, nbackends=%d\n", frontend.Type, frontend.Frontend.String(), len(backends))
 
-	frontendKey := frontend.Address.Hash()
+	frontendKey := frontend.Frontend.Hash()
 	state, ok := m.states[frontendKey]
 	if !ok {
-		addrId, err := m.frontendIDAlloc.acquireLocalID(frontend.Address, 0)
+		addrId, err := m.frontendIDAlloc.acquireLocalID(frontend.Frontend.L3n4Addr, 0)
 		if err != nil {
 			// FIXME more information to error. We probably want to classify errors
 			// into few categories and provide useful hints to the operator on how
@@ -298,7 +300,7 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 		}
 		state = &feState{
 			id:       uint16(addrId.ID),
-			fe:       frontend,
+			svc:      frontend,
 			backends: container.NewSet[backendKey](),
 		}
 		m.states[frontendKey] = state
@@ -313,7 +315,7 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 		state.backends.Add(key)
 
 		if !oldBackends.Contains(key) {
-			if err := m.addBackend(key, backend); err != nil {
+			if err := m.addBackend(key, &backend); err != nil {
 				return err
 			}
 			m.backendRefCount.Add(frontendKey)
@@ -354,17 +356,17 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 	// Update the service entry
 	params := datapathTypes.UpsertServiceParams{
 		ID:                        state.id,
-		IP:                        frontend.Address.AddrCluster.AsNetIP(),
-		Port:                      frontend.Address.Port,
+		IP:                        frontend.Frontend.AddrCluster.AsNetIP(),
+		Port:                      frontend.Frontend.Port,
 		ActiveBackends:            legacyBackends,
 		NonActiveBackends:         nil,               // FIXME
 		PreferredBackends:         nil,               // FIXME
 		PrevBackendsCount:         prevBackendsCount, // Used to clean up unused slots.
-		IPv6:                      frontend.Address.IsIPv6(),
+		IPv6:                      frontend.Frontend.IsIPv6(),
 		Type:                      frontend.Type,
 		NatPolicy:                 frontend.NatPolicy,
 		Local:                     false, // FIXME svcInfo.requireNodeLocalBackends
-		Scope:                     frontend.Address.Scope,
+		Scope:                     frontend.Frontend.Scope,
 		SessionAffinity:           frontend.SessionAffinity,
 		SessionAffinityTimeoutSec: frontend.SessionAffinityTimeoutSec,
 		CheckSourceRange:          false, // FIXME need to update and stuff, see service.go:1298
@@ -391,14 +393,14 @@ func (m *lbManager) upsertSingle(frontend *loadbalancer.Frontend, backends []*lo
 
 	fmt.Printf("LBMANAGER: upsert OK: type=%s, name=%s, frontend=%s, backends=%s\n",
 		frontend.Type,
-		frontend.Name, frontend.Address.String(), strings.Join(backendAddrs, ", "))
+		frontend.Name, frontend.Frontend.String(), strings.Join(backendAddrs, ", "))
 
 	helpers.WriteLBMapAsTable(os.Stdout, m.lbmap.(*mockmaps.LBMockMap))
 
 	return nil
 }
 
-func useMaglev(config Config, fe *loadbalancer.Frontend) bool {
+func useMaglev(config Config, fe *loadbalancer.SVC) bool {
 	if config.NodePortAlg != NodePortAlgMaglev {
 		return false
 	}
@@ -410,7 +412,7 @@ func useMaglev(config Config, fe *loadbalancer.Frontend) bool {
 		return false
 	}
 	// Wildcarded frontend is not exposed for external traffic.
-	if fe.Type == loadbalancer.SVCTypeNodePort && isWildcardAddr(fe.Address) {
+	if fe.Type == loadbalancer.SVCTypeNodePort && isWildcardAddr(fe.Frontend.L3n4Addr) {
 		return false
 	}
 	// Only provision the Maglev LUT for service types which are reachable
@@ -448,18 +450,17 @@ var _ LoadBalancer = &lbWorker{}
 type lbRequest = request[frontendKey, *lbManager]
 
 type upsertRequest struct {
-	frontend *loadbalancer.Frontend
-	backends []*loadbalancer.Backend
+	*loadbalancer.SVC
 }
 
-func (r *upsertRequest) key() string { return r.frontend.Address.Hash() }
+func (r *upsertRequest) key() string { return r.Frontend.Hash() }
 
 func (r *upsertRequest) apply(m *lbManager) error {
-	return m.upsertFrontend(r.frontend, r.backends)
+	return m.upsertFrontend(r.SVC)
 }
 
-func (w *lbWorker) Upsert(fe *loadbalancer.Frontend, backends []*loadbalancer.Backend) {
-	w.requests <- &upsertRequest{frontend: fe, backends: backends}
+func (w *lbWorker) Upsert(fe *loadbalancer.SVC) {
+	w.requests <- &upsertRequest{fe}
 }
 
 type deleteRequest struct {

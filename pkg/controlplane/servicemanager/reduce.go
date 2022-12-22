@@ -1,9 +1,6 @@
 package servicemanager
 
-import (
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
-)
-
+/*
 func filter[T any](xs []T, f func(T) bool) []T {
 	out := []T{}
 	for i := range xs {
@@ -14,13 +11,14 @@ func filter[T any](xs []T, f func(T) bool) []T {
 	return out
 }
 
-func partition[T any](xs []T, f func(T) bool) ([]T, []T) {
-	left, right := []T{}, []T{}
+func partition[T lb.FE](xs []lb.FE) ([]T, []lb.FE) {
+	left, right := []T{}, []lb.FE{}
 	for i := range xs {
-		if f(xs[i]) {
-			left = append(left, xs[i])
-		} else {
-			right = append(right, xs[i])
+		switch x := xs[i].(type) {
+		case T:
+			left = append(left, x)
+		default:
+			right = append(right, x)
 		}
 	}
 	return left, right
@@ -50,27 +48,69 @@ func or[T any](a func(T) bool, b func(T) bool) func(T) bool {
 	}
 }
 
-// the rules:
-// - all frontends and backends are accepted, so that data is not dropped.
-// - there may be conflicts (both L7 and LRP), and in those cases the service
-//   manager will be in degraded state and picks arbitrarily which one wins.
-// - if there is ;w
-// 
 
+// TODO: Define this conversion as methods in FExxx?
+func convert(fe lb.FE) *lb.SVC {
+	switch fe := fe.(type) {
+	case *lb.FENodePort:
+		svc := &lb.SVC{}
+		svc.Frontend.L4Addr = fe.L4Addr
+		svc.Frontend.Scope = fe.Scope
+		svc.TrafficPolicy = fe.TrafficPolicy
+		svc.NatPolicy = fe.NatPolicy
+		svc.SessionAffinity = fe.SessionAffinity
+		svc.SessionAffinityTimeoutSec = fe.SessionAffinityTimeoutSec
+		svc.HealthCheckNodePort = fe.HealthCheckNodePort
+		return svc
 
-// reduceFrontends takes all frontends under a given service name and reduces
-// them to the list of active ones.
-func reduceFEs(name ServiceName, fes []lb.FE) (out []lb.FE) {
-	// Local redirections are considered first.
-	redirs, fes := partition(fes, isType[*lb.FELocalRedirectService])
-	if len(redirs) > 0 { // TODO: what if many?
-		redir := redirs[0].(*lb.FELocalRedirectService)
+	default:
+		// Virtual frontend
+		return nil
+	}
+}
+
+// TODO: This and Frontend type should be defined by pkg/datapath/lb, e.g.
+// it'd be the "datapath LoadBalancer entry" type.
+// "LBService"?
+type FrontAndBack struct {
+	lb.Frontend
+	Backends []*lb.Backend
+}
+
+func reduceFEs(name ServiceName, fes []lb.FE, serviceBackends []*lb.Backend) (out []*lb.SVC) {
+	// Consider first virtual frontends that inherit the addresses of other frontends.
+	// Local redirection goes first.
+	redirs, fes := partition[*lb.FELocalRedirectService](fes)
+	if len(redirs) > 0 {
+		// TODO: what if many? maintain an invariant in upsert and reject duplicates?
+		redir := redirs[0]
+		svc := lb.SVC{
+			Name: redir.Name,
+			Type: lb.SVCTypeLocalRedirect,
+			Backends: redir.Pods,
+			TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		}
 		for _, fe := range fes {
-			out = append(out, &lb.FELocalRedirectService{
-				     CommonFE: redir.CommonFE,
-				     Inherits: fe,
-				     Pods: redir.Pods,
-			})
+			addr := address(fe)
+			if addr == nil { continue }
+			svc := svc
+			svc.Frontend.L3n4Addr = *addr
+			out = append(out, &svc)
+		}
+		return
+	}
+	l7s, fes := partition[*lb.FEL7Proxy](fes)
+	if len(l7s) > 0 {
+		l7 := l7s[0]
+		for _, fe := range fes {
+			f, ok := convert(fe)
+			if !ok { continue }
+			f.L7LBProxyPort = l7.ProxyPort
+			out = append(out,
+			             FrontAndBack{
+				             Frontend: f,
+				             Backends: serviceBackends,
+			             })
 		}
 		return
 	}
@@ -79,6 +119,22 @@ func reduceFEs(name ServiceName, fes []lb.FE) (out []lb.FE) {
 	// reject them or should we just revolve them by priority and report per-frontend
 	// status to the source (e.g. by updating Service.Status)?
 
-	return fes
+	for _, fe := range fes {
+		f, ok := convert(fe)
+		if !ok { continue }
+		out = append(out,
+		             FrontAndBack{
+			             Frontend: f,
+			             Backends: serviceBackends,
+		             })
+	}
+
+
+	return
 }
 
+
+
+
+
+*/

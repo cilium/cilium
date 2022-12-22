@@ -154,7 +154,7 @@ func WriteLBMapAsTable(w io.Writer, lbmap *mockmaps.LBMockMap) {
 
 }
 
-func showBackendIDs(idMap map[lb.BackendID]int, bes []*lb.Backend) string {
+func showBackendIDs(idMap map[lb.BackendID]int, bes []lb.Backend) string {
 	var ids []int
 	for _, be := range bes {
 		ids = append(ids, idMap[be.ID])

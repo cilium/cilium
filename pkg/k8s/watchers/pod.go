@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -46,14 +45,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -231,7 +228,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		err = k.updatePodHostData(nil, pod, nil, podIPs)
 
 		if option.Config.EnableLocalRedirectPolicy {
-			k.redirectPolicyManager.OnAddPod(pod)
+			//k.redirectPolicyManager.OnAddPod(pod)
 		}
 	}
 
@@ -323,7 +320,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		newPodReady := k8sUtils.GetLatestPodReadiness(newK8sPod.Status)
 
 		if lrpNeedsReassign || (oldPodReady != newPodReady) {
-			k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
+			//k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
 		}
 	}
 
@@ -469,7 +466,7 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	})
 
 	if option.Config.EnableLocalRedirectPolicy {
-		k.redirectPolicyManager.OnDeletePod(pod)
+		//k.redirectPolicyManager.OnDeletePod(pod)
 	}
 	k.cgroupManager.OnDeletePod(pod)
 
@@ -498,6 +495,7 @@ func netnsCookieSupported() bool {
 	return _netnsCookieSupported
 }
 
+/*
 func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *logrus.Entry) []loadbalancer.SVC {
 	var (
 		svcs       []loadbalancer.SVC
@@ -726,7 +724,7 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	return nil
-}
+}*/
 
 func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIPs, newPodIPs k8sTypes.IPSlice) error {
 	if newPod.Spec.HostNetwork {
@@ -774,12 +772,12 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 	hostIPEqual := oldPod != nil && newPod.Status.HostIP != oldPod.Status.HostIP
 
 	// only upsert HostPort Mapping if spec or ip slice is different
-	if !specEqual || !ipSliceEqual {
+	/*if !specEqual || !ipSliceEqual {
 		err := k.upsertHostPortMapping(oldPod, newPod, oldPodIPs, newPodIPs)
 		if err != nil {
 			return fmt.Errorf("cannot upsert hostPort for PodIPs: %s", newPodIPs)
 		}
-	}
+	}*/
 
 	// is spec and hostIPs are the same there no need to perform the remaining
 	// operations
@@ -873,7 +871,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		return true, nil
 	}
 
-	k.deleteHostPortMapping(pod, podIPs)
+	//k.deleteHostPortMapping(pod, podIPs)
 
 	var (
 		errs    []string

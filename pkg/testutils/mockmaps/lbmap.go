@@ -39,13 +39,13 @@ func (m *LBMockMap) UpsertService(p *datapathTypes.UpsertServiceParams) error {
 	defer m.Unlock()
 
 	backendIDs := p.GetOrderedBackends()
-	backendsList := make([]*lb.Backend, 0, len(backendIDs))
+	backendsList := make([]lb.Backend, 0, len(backendIDs))
 	for _, backendID := range backendIDs {
 		b, found := m.BackendByID[backendID]
 		if !found {
 			return fmt.Errorf("backend %d not found", p.ID)
 		}
-		backendsList = append(backendsList, b)
+		backendsList = append(backendsList, *b)
 	}
 	backends := p.ActiveBackends
 	if len(p.PreferredBackends) > 0 {

@@ -673,29 +673,29 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 	hash := fe.Hash()
 	lbsvc, ok := svcs[hash]
 	if !ok {
-		var bes []*loadbalancer.Backend
+		var bes []loadbalancer.Backend
 		if beIndex == 0 {
-			bes = make([]*loadbalancer.Backend, 1)
-			bes[0] = be
+			bes = make([]loadbalancer.Backend, 1)
+			bes[0] = *be
 		} else {
-			bes = make([]*loadbalancer.Backend, beIndex)
-			bes[beIndex-1] = be
+			bes = make([]loadbalancer.Backend, beIndex)
+			bes[beIndex-1] = *be
 		}
 		lbsvc = loadbalancer.SVC{
 			Frontend: *fe,
 			Backends: bes,
 		}
 	} else {
-		var bes []*loadbalancer.Backend
+		var bes []loadbalancer.Backend
 		if len(lbsvc.Backends) < beIndex {
-			bes = make([]*loadbalancer.Backend, beIndex)
+			bes = make([]loadbalancer.Backend, beIndex)
 			copy(bes, lbsvc.Backends)
 			lbsvc.Backends = bes
 		}
 		if beIndex == 0 {
-			lbsvc.Backends = append(lbsvc.Backends, be)
+			lbsvc.Backends = append(lbsvc.Backends, *be)
 		} else {
-			lbsvc.Backends[beIndex-1] = be
+			lbsvc.Backends[beIndex-1] = *be
 		}
 	}
 

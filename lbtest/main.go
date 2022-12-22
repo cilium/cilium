@@ -13,6 +13,8 @@ import (
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
@@ -26,10 +28,10 @@ func main() {
 	}
 
 	h = hive.New(
-		/*client.Cell,
+		client.Cell,
 		k8s.SharedResourcesCell,
 		servicemanager.K8sHandlerCell,
-		redirectpolicies.Cell,
+		/*redirectpolicies.Cell,
 		envoy.Cell,
 		*/
 
@@ -97,13 +99,13 @@ func fakeServiceHandler(s servicemanager.ServiceManager) {
 		loadbalancer.ScopeExternal,
 	)
 
-	fe := &loadbalancer.Frontend{
-		Address: *feAddr,
-		Type:    loadbalancer.SVCTypeClusterIP,
-		Name:    name,
+	fe := &loadbalancer.FEClusterIP{
+		CommonFE: loadbalancer.CommonFE{
+			Name: name,
+		},
+		L3n4Addr: *feAddr,
 	}
-
-	h.UpsertFrontend(name, fe)
+	h.UpsertFrontend(fe)
 
 	beAddr := loadbalancer.NewL3n4Addr(
 		"tcp",
@@ -111,13 +113,10 @@ func fakeServiceHandler(s servicemanager.ServiceManager) {
 		2345,
 		loadbalancer.ScopeExternal,
 	)
-	be := &loadbalancer.Backend{
-		FEPortName: "http",
-		NodeName:   "quux",
-		L3n4Addr:   *beAddr,
-	}
 
-	h.UpsertBackends(name, be)
+	h.UpsertBackends(name,
+		loadbalancer.Backend{FEPortName: "http", NodeName: "quux", L3n4Addr: *beAddr},
+	)
 
 	h.Synchronized()
 

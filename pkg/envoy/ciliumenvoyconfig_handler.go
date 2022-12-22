@@ -21,11 +21,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -101,25 +102,29 @@ func newCECHandler(log logrus.FieldLogger, lc hive.Lifecycle, p cecHandlerParams
 
 func (h *cecHandler) processLoop(ctx context.Context) {
 	cecs := h.params.CECs.Events(ctx)
-	serviceEvents := h.handle.Events(ctx, false, nil)
+
+	backendChanges := make(chan servicemanager.BackendsChanged, 1)
+	defer close(backendChanges)
 
 	redirected := map[loadbalancer.ServiceName]*cilium_v2.ServiceListener{}
 
 	for {
 		select {
 		case <-ctx.Done():
+			h.handle.Close()
 			return
 
-		case ev := <-serviceEvents:
-			_, ok := redirected[ev.Name()]
+		case ev := <-backendChanges:
+			_, ok := redirected[ev.Name]
 			if !ok {
 				continue
 			}
 			backends := map[string][]*loadbalancer.Backend{}
-			ev.ForEachBackend(func(be loadbalancer.Backend) {
+			for i := range ev.Backends {
+				be := ev.Backends[i]
 				backends[be.FEPortName] = append(backends[be.FEPortName], &be)
-			})
-			h.params.EnvoyCache.UpsertEnvoyEndpoints(ev.Name(), backends)
+			}
+			h.params.EnvoyCache.UpsertEnvoyEndpoints(ev.Name, backends)
 
 		case ev := <-cecs:
 			switch ev.Kind {
@@ -151,13 +156,8 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 							fmt.Printf("TODO handle error: Listener %q not found in resources", svc.Listener)
 							continue
 						}*/
+					h.handle.SetProxyRedirect(name, proxyPort, backendChanges)
 
-					fe := loadbalancer.Frontend{
-						Name:          name,
-						Type:          loadbalancer.SVCTypeL7Proxy,
-						L7LBProxyPort: proxyPort,
-					}
-					h.handle.UpsertFrontend(name, &fe)
 					redirected[name] = svc
 				}
 			case resource.Delete:
@@ -167,7 +167,7 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 						Namespace: svc.Namespace,
 						Name:      svc.Name,
 					}
-					h.handle.DeleteFrontend(name, loadbalancer.L3n4Addr{}, loadbalancer.SVCTypeL7Proxy)
+					h.handle.RemoveProxyRedirect(name)
 				}
 			}
 			ev.Done(nil)

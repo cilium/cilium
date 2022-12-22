@@ -4,16 +4,11 @@
 package servicemanager
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/go-openapi/runtime/middleware"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -74,77 +69,80 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		return NewPutServiceIDOK()
 	}*/
 
-	f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
-	if err != nil {
-		return api.Error(PutServiceIDInvalidFrontendCode, err)
-	}
-
-	frontend := loadbalancer.L3n4AddrID{
-		L3n4Addr: *f,
-	}
-	backends := []*loadbalancer.Backend{}
-	for _, v := range params.Config.BackendAddresses {
-		b, err := loadbalancer.NewBackendFromBackendModel(v)
+	panic("TODO")
+	/*
+		f, err := loadbalancer.NewL3n4AddrFromModel(params.Config.FrontendAddress)
 		if err != nil {
-			return api.Error(PutServiceIDInvalidBackendCode, err)
+			return api.Error(PutServiceIDInvalidFrontendCode, err)
 		}
-		backends = append(backends, b)
-	}
 
-	var svcType loadbalancer.SVCType
-	switch params.Config.Flags.Type {
-	case models.ServiceSpecFlagsTypeExternalIPs:
-		svcType = loadbalancer.SVCTypeExternalIPs
-	case models.ServiceSpecFlagsTypeNodePort:
-		svcType = loadbalancer.SVCTypeNodePort
-	case models.ServiceSpecFlagsTypeLoadBalancer:
-		svcType = loadbalancer.SVCTypeLoadBalancer
-	case models.ServiceSpecFlagsTypeHostPort:
-		svcType = loadbalancer.SVCTypeHostPort
-	case models.ServiceSpecFlagsTypeLocalRedirect:
-		svcType = loadbalancer.SVCTypeLocalRedirect
-	default:
-		svcType = loadbalancer.SVCTypeClusterIP
-	}
-
-	var svcTrafficPolicy loadbalancer.SVCTrafficPolicy
-	switch params.Config.Flags.TrafficPolicy {
-	case models.ServiceSpecFlagsTrafficPolicyLocal:
-		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
-	default:
-		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
-	}
-
-	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
-
-	idParts := strings.SplitN(params.ID, "/", 2)
-	if len(idParts) != 2 {
-		return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("Invalid id: %q, expected <namespace>/<name>", params.ID))
-	}
-	var name ServiceName
-	name.Scope = loadbalancer.ScopeAPI // TODO or user definable?
-	name.Namespace = idParts[0]
-	name.Name = idParts[1]
-
-	if params.Config.Flags != nil {
-		ok := name.Namespace != params.Config.Flags.Namespace
-		ok = ok || name.Name != params.Config.Flags.Name
-		if !ok {
-			panic("TODO deal with name mismatch in params.Config.Flags")
+		frontend := loadbalancer.L3n4AddrID{
+			L3n4Addr: *f,
 		}
-	}
+		backends := []*loadbalancer.Backend{}
+		for _, v := range params.Config.BackendAddresses {
+			b, err := loadbalancer.NewBackendFromBackendModel(v)
+			if err != nil {
+				return api.Error(PutServiceIDInvalidBackendCode, err)
+			}
+			backends = append(backends, b)
+		}
 
-	fe := &Frontend{
-		Name:                name,
-		Type:                svcType,
-		Address:             frontend.L3n4Addr,
-		TrafficPolicy:       svcTrafficPolicy,
-		HealthCheckNodePort: svcHealthCheckNodePort,
-		// ...
-	}
-	h.svc.UpsertBackends(name, backends...)
-	h.svc.UpsertFrontend(name, fe)
+		var svcType loadbalancer.SVCType
+		switch params.Config.Flags.Type {
+		case models.ServiceSpecFlagsTypeExternalIPs:
+			svcType = loadbalancer.SVCTypeExternalIPs
+		case models.ServiceSpecFlagsTypeNodePort:
+			svcType = loadbalancer.SVCTypeNodePort
+		case models.ServiceSpecFlagsTypeLoadBalancer:
+			svcType = loadbalancer.SVCTypeLoadBalancer
+		case models.ServiceSpecFlagsTypeHostPort:
+			svcType = loadbalancer.SVCTypeHostPort
+		case models.ServiceSpecFlagsTypeLocalRedirect:
+			svcType = loadbalancer.SVCTypeLocalRedirect
+		default:
+			svcType = loadbalancer.SVCTypeClusterIP
+		}
 
+		var svcTrafficPolicy loadbalancer.SVCTrafficPolicy
+		switch params.Config.Flags.TrafficPolicy {
+		case models.ServiceSpecFlagsTrafficPolicyLocal:
+			svcTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+		default:
+			svcTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+		}
+
+		svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
+
+		idParts := strings.SplitN(params.ID, "/", 2)
+		if len(idParts) != 2 {
+			return api.Error(PutServiceIDInvalidBackendCode, fmt.Errorf("Invalid id: %q, expected <namespace>/<name>", params.ID))
+		}
+		var name loadbalancer.ServiceName
+		name.Scope = loadbalancer.ScopeAPI // TODO or user definable?
+		name.Namespace = idParts[0]
+		name.Name = idParts[1]
+
+		if params.Config.Flags != nil {
+			ok := name.Namespace != params.Config.Flags.Namespace
+			ok = ok || name.Name != params.Config.Flags.Name
+			if !ok {
+				panic("TODO deal with name mismatch in params.Config.Flags")
+			}
+		}*/
+
+	/*
+		fe := &lb.SVC{
+			Name:                name,
+			Type:                svcType,
+			Address:             frontend.L3n4Addr,
+			TrafficPolicy:       svcTrafficPolicy,
+			HealthCheckNodePort: svcHealthCheckNodePort,
+			// ...
+		}
+		h.svc.UpsertBackends(name, backends...)
+		h.svc.UpsertFrontend(name, fe)
+	*/
 	/*
 
 		p := &loadbalancer.SVC{
@@ -221,34 +219,39 @@ func (h *getService) Handle(params GetServiceParams) middleware.Responder {
 }
 
 func getServiceList(svc ServiceHandle) []*models.Service {
-	list := []*models.Service{}
-	for ev := range svc.Events(nil, true, nil) {
-		beAddrs := []*models.BackendAddress{}
-		ev.ForEachBackend(func(be Backend) {
-			beAddrs = append(beAddrs, be.GetBackendModel())
-		})
+	panic("TODO")
+	/*
+	   list := []*models.Service{}
 
-		ev.ForEachActiveFrontend(func(fe Frontend) {
-			m := &models.Service{}
-			spec := &models.ServiceSpec{}
-			m.Spec = spec
-			spec.ID = fe.Name.String()
-			spec.FrontendAddress = fe.Address.GetModel()
-			spec.BackendAddresses = beAddrs
-			spec.Flags = &models.ServiceSpecFlags{
-				Type:                string(fe.Type),
-				TrafficPolicy:       string(fe.TrafficPolicy),
-				NatPolicy:           string(fe.NatPolicy),
-				HealthCheckNodePort: fe.HealthCheckNodePort,
-				Name:                fe.Name.Name,
-				Namespace:           fe.Name.Namespace,
-			}
-			m.Status = &models.ServiceStatus{
-				Realized: spec,
-			}
-			list = append(list, m)
-		})
-		// TODO rest
-	}
-	return list
+	   	for ev := range svc.Events(nil, true, nil) {
+	   		beAddrs := []*models.BackendAddress{}
+	   		ev.ForEachBackend(func(be Backend) {
+	   			beAddrs = append(beAddrs, be.GetBackendModel())
+	   		})
+
+	   		ev.ForEachActiveFrontend(func(fe Frontend) {
+	   			m := &models.Service{}
+	   			spec := &models.ServiceSpec{}
+	   			m.Spec = spec
+	   			spec.ID = fe.Name.String()
+	   			spec.FrontendAddress = fe.Address.GetModel()
+	   			spec.BackendAddresses = beAddrs
+	   			spec.Flags = &models.ServiceSpecFlags{
+	   				Type:                string(fe.Type),
+	   				TrafficPolicy:       string(fe.TrafficPolicy),
+	   				NatPolicy:           string(fe.NatPolicy),
+	   				HealthCheckNodePort: fe.HealthCheckNodePort,
+	   				Name:                fe.Name.Name,
+	   				Namespace:           fe.Name.Namespace,
+	   			}
+	   			m.Status = &models.ServiceStatus{
+	   				Realized: spec,
+	   			}
+	   			list = append(list, m)
+	   		})
+	   		// TODO rest
+	   	}
+
+	   return list
+	*/
 }

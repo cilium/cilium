@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -84,8 +85,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
-	"github.com/cilium/cilium/pkg/redirectpolicy"
-	serviceManager "github.com/cilium/cilium/pkg/service"
 	serviceCache "github.com/cilium/cilium/pkg/service/cache"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
@@ -114,7 +113,7 @@ type Daemon struct {
 	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
-	svc              serviceManager.ServiceManager
+	svc              servicemanager.ServiceManager
 	rec              *recorder.Recorder
 	policy           *policy.Repository
 	policyUpdater    *policy.Updater
@@ -181,8 +180,6 @@ type Daemon struct {
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
-
-	redirectPolicyManager *redirectpolicy.Manager
 
 	bgpSpeaker *speaker.MetalLBSpeaker
 
@@ -382,7 +379,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
 	serviceCache serviceCache.ServiceCache,
-	serviceManager serviceManager.ServiceManager,
+	serviceManager servicemanager.ServiceManager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -644,7 +641,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	serviceManager.SetMonitorNotify(&d)
 	serviceManager.SetEnvoyCache(d.l7Proxy)
 
-	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+	//d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		d.bgpSpeaker, err = speaker.New(ctx, clientset, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
@@ -668,9 +665,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		d.nodeDiscovery,
 		&d,
 		d.policy,
-		d.svc,
+		//d.svc,
 		d.datapath,
-		d.redirectPolicyManager,
+		//d.redirectPolicyManager,
 		d.bgpSpeaker,
 		d.egressGatewayManager,
 		d.l7Proxy,
