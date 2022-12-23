@@ -9,6 +9,20 @@
 Development Setup
 =================
 
+Dev Container
+~~~~~~~~~~~~~
+
+Cilium provides `Dev Container <https://code.visualstudio.com/docs/devcontainers/containers>`_ configuration for Visual Studio Code Remote Containers
+and `Github Codespaces <https://docs.github.com/en/codespaces/setting-up-your-project-for-codespaces/introduction-to-dev-containers>`_.
+This allows you to use a preconfigured development environment in the cloud or locally.
+The container is based on the official Cilium builder image and provides all the dependencies
+required to build Cilium.
+
+.. note::
+
+    The current Dev Container is running as root. Non-root user support requires non-root
+    user in Cilium builder image, which is related to :gh-issue:`23217`.
+
 Verifying Your Development Setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -656,15 +670,15 @@ These options enable logging functions in the datapath: ``cilium_dbg()``,
    monitor``.  In this case, ``bpftool prog tracelog`` can be used to retrieve
    debugging information from the eBPF based datapath. Both ``cilium_dbg()`` and
    ``printk()`` functions are available from the ``bpf/lib/dbg.h`` header file.
-   
+
 The image below shows the options that could be used as startup options by
 ``cilium-agent`` (see upper blue box) or could be changed at runtime by running
 ``cilium config <option(s)>`` for an already running agent (see lower blue box).
 Along with each option, there is one or more logging function associated with it:
 ``cilium_dbg()`` and ``printk()``, for ``DEBUG`` and ``cilium_dbg_lb()`` for
-``DEBUG_LB``. 
+``DEBUG_LB``.
 
-.. image:: _static/cilium-debug-datapath-options.svg 
+.. image:: _static/cilium-debug-datapath-options.svg
   :align: center
   :alt: Cilium debug datapath options
 

@@ -24,6 +24,7 @@ Cheng
 Chewbacca
 Chun
 Cloudflare
+Codespaces
 ConnectX
 Corefile
 CronJob
