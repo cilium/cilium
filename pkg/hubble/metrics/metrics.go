@@ -41,6 +41,17 @@ var (
 	podDeletionHandler *PodDeletionHandler
 )
 
+// Additional metrics - they're not counting flows, so are not served via
+// Hubble metrics API, but belong to the same Prometheus namespace.
+var (
+	labelSource = "source"
+	LostEvents  = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: api.DefaultPrometheusNamespace,
+		Name:      "lost_events_total",
+		Help:      "Number of lost events",
+	}, []string{labelSource})
+)
+
 // ProcessFlow processes a flow and updates metrics
 func ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	if enabledMetrics != nil {
@@ -101,6 +112,7 @@ func initMetrics(address string, enabled api.Map, grpcMetrics *grpc_prometheus.S
 	enabledMetrics = e
 
 	registry.MustRegister(grpcMetrics)
+	registry.MustRegister(LostEvents)
 
 	errChan := make(chan error, 1)
 
