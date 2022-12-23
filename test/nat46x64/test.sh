@@ -60,8 +60,8 @@ WORKER_IP4=$(nsenter -t $NGINX_PID -n ip -o -4 a s eth0 | awk '{print $4}' | cut
 WORKER_IP6=$(nsenter -t $NGINX_PID -n ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 WORKER_MAC=$(nsenter -t $NGINX_PID -n ip -o l show dev eth0 | grep -oP '(?<=link/ether )[^ ]+')
 
-# NAT 4->6 test suite
-#####################
+# NAT 4->6 test suite (services)
+################################
 
 LB_VIP="10.0.0.4"
 
@@ -76,7 +76,7 @@ MAG_V4=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr
 MAG_V6=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
 if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
-    ${CILIUM_EXEC} cilium bpf lb maglev list
+	${CILIUM_EXEC} cilium bpf lb maglev list
 	exit 1
 fi
 
@@ -157,14 +157,16 @@ for i in $(seq 1 10); do
     curl -o /dev/null "[${LB_ALT}]:80"
 done
 
-# Check if restore for both is proper
+# Check if restore for both is proper and that this also works
+# under nat46x64-gateway enabled.
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT
+# Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-mode=snat \
+    --enable-nat46x64-gateway=true
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -179,8 +181,8 @@ done
 ${CILIUM_EXEC} cilium service delete 1
 ${CILIUM_EXEC} cilium service delete 2
 
-# NAT 6->4 test suite
-#####################
+# NAT 6->4 test suite (services)
+################################
 
 LB_VIP="fd00:cafe::1"
 
@@ -269,14 +271,16 @@ for i in $(seq 1 10); do
     curl -o /dev/null "${LB_ALT}:80"
 done
 
-# Check if restore for both is proper
+# Check if restore for both is proper and that this also works
+# under nat46x64-gateway enabled.
 
-# Install Cilium as standalone L4LB: tc/Maglev/SNAT
+# Install Cilium as standalone L4LB: tc/Maglev/SNAT/GW
 cilium_install \
     --bpf-lb-algorithm=maglev \
     --bpf-lb-dsr-dispatch=ipip \
     --bpf-lb-acceleration=disabled \
-    --bpf-lb-mode=snat
+    --bpf-lb-mode=snat \
+    --enable-nat46x64-gateway=true
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
@@ -290,6 +294,9 @@ done
 
 ${CILIUM_EXEC} cilium service delete 1
 ${CILIUM_EXEC} cilium service delete 2
+
+# Misc compilation tests
+########################
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: tc
 cilium_install \
