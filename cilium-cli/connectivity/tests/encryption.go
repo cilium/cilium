@@ -16,6 +16,35 @@ import (
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
+type requestType int
+
+const (
+	requestHTTP requestType = iota
+	requestICMPEcho
+)
+
+// getInterNodeIface determines on which netdev iface to capture pkts. In the
+// case of tunneling, we don't expect to see unencrypted pkts on a corresponding
+// tunneling iface, so the choice is obvious. In the native routing mode, we run
+// "ip route get $DST_IP" from the client pod's node.
+func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod, dstIP string) string {
+	tunnelFeat, ok := t.Context().Feature(check.FeatureTunnel)
+	if ok && tunnelFeat.Enabled {
+		return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+	}
+
+	cmd := []string{"/bin/sh", "-c",
+		fmt.Sprintf("ip -o r g %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
+			dstIP)}
+	t.Debugf("Running %s", strings.Join(cmd, " "))
+	dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
+		clientHost.Pod.Name, "", cmd)
+	if err != nil {
+		t.Fatalf("Failed to get IP route: %s", err)
+	}
+	return strings.TrimRight(dev.String(), "\n\r")
+}
+
 // PodToPodEncryption is a test case which checks the following:
 //   - There is a connectivity between pods on different nodes when any
 //     encryption mode is on (either WireGuard or IPsec).
@@ -50,27 +79,12 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	// the host netns.
 	clientHost := ct.HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 
-	// Determine on which netdev iface to capture pkts. In the case of tunneling,
-	// we don't expect to see unencrypted pkts on a corresponding tunneling iface,
-	// so the choice is obvious. In the native routing mode, we run
-	// "ip route get $SERVER_POD_IP" from the client pod's node.
-	iface := ""
-	tunnelFeat, ok := ct.Feature(check.FeatureTunnel)
-	if ok && tunnelFeat.Enabled {
-		iface = "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
-	} else {
-		cmd := []string{"/bin/sh", "-c",
-			fmt.Sprintf("ip -o r g %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
-				server.Pod.Status.PodIP)}
-		t.Debugf("Running %s", strings.Join(cmd, " "))
-		dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
-			clientHost.Pod.Name, "", cmd)
-		if err != nil {
-			t.Fatalf("Failed to get IP route: %s", err)
-		}
-		iface = strings.TrimRight(dev.String(), "\n\r")
-	}
+	testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP)
+}
 
+func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
+	client, server, clientHost *check.Pod, reqType requestType) {
+	iface := getInterNodeIface(ctx, t, clientHost, (*server).Pod.Status.PodIP)
 	t.Debugf("Detected %s iface for communication among client and server nodes",
 		iface)
 
@@ -80,17 +94,24 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	killCmdCtx, killCmd := context.WithCancel(context.Background())
 	// Start kubectl exec in bg (=goroutine)
 	go func() {
+		protoFilter := ""
+		switch reqType {
+		case requestHTTP:
+			protoFilter = "tcp"
+		case requestICMPEcho:
+			protoFilter = "icmp"
+		}
 		// Run tcpdump with -w instead of directly printing captured pkts. This
 		// is to avoid a race after sending ^C (triggered by bgCancel()) which
 		// might terminate the tcpdump process before it gets a chance to dump
 		// its captures.
 		cmd := []string{
-			"tcpdump", "-i", iface, "--immediate-mode", "-w", "/tmp/foo.pcap",
+			"tcpdump", "-i", iface, "--immediate-mode", "-w", fmt.Sprintf("/tmp/%s.pcap", t.Name()),
 			// Capture pod egress traffic.
 			// Unfortunately, we cannot use "host %s and host %s" filter here,
 			// as IPsec recirculates replies to the iface netdev, which would
 			// make tcpdump to capture the pkts (false positive).
-			fmt.Sprintf("src host %s and dst host %s", client.Pod.Status.PodIP, server.Pod.Status.PodIP),
+			fmt.Sprintf("src host %s and dst host %s and %s", client.Pod.Status.PodIP, server.Pod.Status.PodIP, protoFilter),
 			// Only one pkt is enough, as we don't expect any unencrypted pkt
 			// to be captured
 			"-c", "1"}
@@ -122,10 +143,20 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	// Curl the server from the client to generate some traffic
-	t.NewAction(s, "curl", client, server).Run(func(a *check.Action) {
-		a.ExecInPod(ctx, ct.CurlCommand(server))
-	})
+	switch reqType {
+	case requestHTTP:
+		// Curl the server from the client to generate some traffic
+		t.NewAction(s, "curl", client, server).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, t.Context().CurlCommand(server))
+		})
+	case requestICMPEcho:
+		// Ping the server from the client to generate some traffic
+		t.NewAction(s, "ping", client, server).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, t.Context().PingCommand(server))
+		})
+	default:
+		t.Fatalf("Invalid request type: %d", reqType)
+	}
 
 	// Wait until tcpdump has exited
 	killCmd()
@@ -134,7 +165,7 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	// Redirect stderr to /dev/null, as tcpdump logs to stderr, and ExecInPod
 	// will return an error if any char is written to stderr. Anyway, the count
 	// is written to stdout.
-	cmd := []string{"/bin/sh", "-c", "tcpdump -r /tmp/foo.pcap --count 2>/dev/null"}
+	cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r /tmp/%s.pcap --count 2>/dev/null", t.Name())}
 	count, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace, clientHost.Pod.Name, "", cmd)
 	if err != nil {
 		t.Fatalf("Failed to retrieve tcpdump pkt count: %s", err)
@@ -175,4 +206,41 @@ func (b *safeBuffer) ReadString(d byte) (string, error) {
 	b.Lock()
 	defer b.Unlock()
 	return b.b.ReadString(d)
+}
+
+func NodeToNodeEncryption() check.Scenario {
+	return &nodeToNodeEncryption{}
+}
+
+type nodeToNodeEncryption struct{}
+
+func (s *nodeToNodeEncryption) Name() string {
+	return "node-to-node-encryption"
+}
+
+func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
+	client := t.Context().RandomClientPod()
+
+	var server check.Pod
+	for _, pod := range t.Context().EchoPods() {
+		// Make sure that the server pod is on another node than client
+		if pod.Pod.Status.HostIP != client.Pod.Status.HostIP {
+			server = pod
+			break
+		}
+	}
+
+	// clientHost is a pod running on the same node as the client pod, just in
+	// the host netns.
+	clientHost := t.Context().HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
+	// serverHost is a pod running in a remote node's host netns.
+	serverHost := t.Context().HostNetNSPodsByNode()[server.Pod.Spec.NodeName]
+
+	// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
+	// does not have a HTTP server running)
+	testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho)
+	// Test host-to-remote-host
+	testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, requestICMPEcho)
+	// Test host-to-remote-pod
+	testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, requestHTTP)
 }

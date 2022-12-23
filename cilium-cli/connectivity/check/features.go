@@ -42,7 +42,8 @@ const (
 
 	FeatureHealthChecking Feature = "health-checking"
 
-	FeatureEncryption Feature = "encryption"
+	FeatureEncryptionPod  Feature = "encryption-pod"
+	FeatureEncryptionNode Feature = "encryption-node"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -200,6 +201,10 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		Enabled: cfg.EnableHealthChecking && cfg.EnableEndpointHealthChecking,
 	}
 
+	result[FeatureEncryptionNode] = FeatureStatus{
+		Enabled: cfg.EncryptNode,
+	}
+
 	return nil
 }
 
@@ -302,7 +307,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if enc := st.Encryption; enc != nil {
 		mode = enc.Mode
 	}
-	result[FeatureEncryption] = FeatureStatus{
+	result[FeatureEncryptionPod] = FeatureStatus{
 		Enabled: mode != "Disabled",
 		Mode:    mode,
 	}
