@@ -4,11 +4,14 @@
 package monitor
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/metrics"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -85,20 +88,20 @@ func (c *consumer) sendEvent(event *observerTypes.MonitorEvent) {
 	select {
 	case c.observer.GetEventsChannel() <- event:
 	default:
-		c.logStartedDropping()
+		c.countDroppedEvent()
 	}
 }
 
-// logStartedDropping logs that the events channel is full
-// and starts couting exactly how many messages it has
-// lost until the consumer can recover.
-func (c *consumer) logStartedDropping() {
+// countDroppedEvent logs that the events channel is full
+// and counts how many messages it has lost.
+func (c *consumer) countDroppedEvent() {
 	c.lostLock.Lock()
 	defer c.lostLock.Unlock()
 	if c.numEventsLost == 0 && c.logLimiter.Allow() {
 		c.observer.GetLogger().Warning("hubble events queue is full: dropping messages; consider increasing the queue size (hubble-event-queue-size) or provisioning more CPU")
 	}
 	c.numEventsLost++
+	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_OBSERVER_EVENTS_QUEUE.String())).Inc()
 }
 
 // NotifyAgentEvent implements monitorConsumer.MonitorConsumer
@@ -139,4 +142,5 @@ func (c *consumer) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
 			CPU:           cpu,
 		},
 	})
+	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_PERF_EVENT_RING_BUFFER.String())).Add(float64(numLostEvents))
 }
