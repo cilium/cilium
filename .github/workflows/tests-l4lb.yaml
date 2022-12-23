@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -195,7 +195,7 @@ jobs:
 
       - name: Run NAT46x64 test
         run: |
-          cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}
+          cd ${{ github.workspace }}/pull-request/test/nat46x64 && sudo ./test.sh ${{ github.repository_owner}} ${{ steps.vars.outputs.sha }}
 
       - name: Fetch cilium-sysdump
         if: ${{ !success() }}
