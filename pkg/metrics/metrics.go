@@ -1409,7 +1409,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
 
-		case Namespace + "_arping_requests_total":
+		case Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":
 			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemNodeNeigh,
