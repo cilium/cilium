@@ -296,7 +296,6 @@ ${CILIUM_EXEC} cilium service delete 2
 
 NAT_PREFIX="64:ff9b::"
 NAT_GW_IP=$(docker exec -t lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
-ip -6 r a "${NAT_PREFIX}/96" via "$NAT_GW_IP"
 
 LIST=$(${CILIUM_EXEC} cilium bpf lb list | tail +2)
 if [ ! -z "$LIST" ]; then
@@ -312,10 +311,17 @@ cilium_install \
     --bpf-lb-mode=snat \
     --enable-nat46x64-gateway=true
 
+ip -6 r a "${NAT_PREFIX}/96" via "$NAT_GW_IP"
+
+ping -c3 $NAT_GW_IP
+ip -6 r get ${NAT_PREFIX}${WORKER_IP4}
+
 # Issue 10 requests to WORKER_IP4 embedded in NAT_PREFIX
 for i in $(seq 1 10); do
     curl -o /dev/null "[${NAT_PREFIX}${WORKER_IP4}]:80"
 done
+
+exit 1
 
 # Install Cilium as standalone gateway: XDP/Random/SNAT/Gateway
 cilium_install \
