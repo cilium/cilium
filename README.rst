@@ -5,18 +5,18 @@
       <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
-|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa|
+|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa| |codespaces|
 
 Cilium is a networking, observability, and security solution with an eBPF-based
-dataplane. It provides a simple flat Layer 3 network with the ability to span 
-multiple clusters in either a native routing or overlay mode. It is L7-protocol 
-aware and can enforce network policies on L3-L7 using an identity based security 
+dataplane. It provides a simple flat Layer 3 network with the ability to span
+multiple clusters in either a native routing or overlay mode. It is L7-protocol
+aware and can enforce network policies on L3-L7 using an identity based security
 model that is decoupled from network addressing.
 
-Cilium implements distributed load balancing for traffic between pods and to 
-external services, and is able to fully replace kube-proxy, using efficient 
-hash tables in eBPF allowing for almost unlimited scale. It also supports 
-advanced functionality like integrated ingress and egress gateway, bandwidth 
+Cilium implements distributed load balancing for traffic between pods and to
+external services, and is able to fully replace kube-proxy, using efficient
+hash tables in eBPF allowing for almost unlimited scale. It also supports
+advanced functionality like integrated ingress and egress gateway, bandwidth
 management and service mesh, and provides deep network and security visibility and monitoring.
 
 A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
@@ -356,3 +356,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |fossa| image:: https://app.fossa.com/api/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git.svg?type=shield
     :alt: FOSSA Status
     :target: https://app.fossa.com/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git?ref=badge_shield
+
+.. |codespaces| image:: https://github.com/codespaces/badge.svg
+    :alt: Github Codespaces
+    :target: https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=48109239&machine=standardLinux32gb&location=WestEurope

@@ -216,6 +216,7 @@
 /CONTRIBUTING.md @cilium/contributing
 /.authors.aux @cilium/tophat
 /.clomonitor.yml @cilium/tophat
+/.devcontainer @cilium/contributing
 /.gitattributes @cilium/tophat
 /.github/ @cilium/contributing
 /.github/workflows/ @cilium/github-sec @cilium/ci-structure
