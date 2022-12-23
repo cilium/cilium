@@ -5,12 +5,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+
 	"github.com/cilium/cilium/api/v1/models"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/sirupsen/logrus"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/status"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -20,7 +26,7 @@ type serviceKey = resource.Key
 
 var Cell = cell.Module(
 	"redirect-policies",
-	"Manages redirect policies based on CiliumLocalRedirectPolicy CRDs",
+	"Manages local redirect policies based on CiliumLocalRedirectPolicy CRDs",
 
 	cell.Provide(
 		newLRPHandler,
@@ -36,33 +42,22 @@ type lrpHandlerParams struct {
 	RedirectPolicies resource.Resource[*cilium_v2.CiliumLocalRedirectPolicy]
 	Services         resource.Resource[*slim_corev1.Service]
 	Pods             resource.Resource[*slim_corev1.Pod]
+	Reporter         status.Reporter
 }
 
 // TODO rename to redirectPoliciesManager?
 type lrpHandler struct {
-	params lrpHandlerParams
-
-	log logrus.FieldLogger
-
-	handle servicemanager.ServiceHandle
-
-	podTracker resource.ObjectTracker[*slim_corev1.Pod]
-
-	// Stores mapping of all the current redirect policy frontend to their
-	// respective policies
-	// Frontends are namespace agnostic
-	policyFrontendsByHash map[string]policyID
-	// Stores mapping of pods to redirect policies that select the pods
-	policyPods map[podID][]policyID
-	// Stores redirect policy configs indexed by policyID
-	policyConfigs map[policyID]*LRPConfig
-
-	getRequests chan chan []*models.LRPSpec
+	params        lrpHandlerParams
+	log           logrus.FieldLogger
+	handle        servicemanager.ServiceHandle
+	podTracker    resource.ObjectTracker[*slim_corev1.Pod]
+	policyConfigs map[resource.Key]*LRPConfig
+	getRequests   chan chan []*models.LRPSpec
 }
 
 func newLRPHandler(log logrus.FieldLogger, lc hive.Lifecycle, p lrpHandlerParams) *lrpHandler {
 	if p.Services == nil {
-		log.Info("K8s not available, not registering handler for redirect policies")
+		p.Reporter.Down("Kubernetes not enabled")
 		return nil
 	}
 
@@ -101,6 +96,191 @@ func (h *lrpHandler) getLRPs() []*models.LRPSpec {
 	defer close(specs)
 	h.getRequests <- specs
 	return <-specs
+}
+
+func (h *lrpHandler) processLoop(ctx context.Context) {
+	policies := h.params.RedirectPolicies.Events(ctx)
+	pods := h.podTracker.Events()
+
+	h.params.Reporter.OK()
+	defer h.params.Reporter.Down("Stopped")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case ev := <-policies:
+			switch ev.Kind {
+			case resource.Sync:
+				// TODO: Would want to wait for pods? With ObjectTracker
+				// we don't get sync events per pod. Need another way.
+				h.handle.Synchronized()
+			case resource.Upsert:
+				config, err := Parse(ev.Object, true)
+				if err != nil {
+					// Probably no point in retrying. Update
+					// CiliumLocalRedirectPolicy.Status instead?
+					panic("TODO error")
+				}
+				h.upsertPolicy(ev.Key, config)
+
+			case resource.Delete:
+				h.deletePolicy(ev.Key)
+			}
+			ev.Done(nil)
+
+		case ev := <-pods:
+			// TODO: if we match on multiple pods we'll end up with many calls to
+			// datapath. Should we buffer here or leave that to lower layers?
+			switch ev.Kind {
+			case resource.Upsert:
+				h.upsertPod(ev.Key, ev.Object)
+			case resource.Delete:
+				h.deletePod(ev.Key)
+			}
+			ev.Done(nil)
+
+		case out := <-h.getRequests:
+			list := make([]*models.LRPSpec, 0, len(h.policyConfigs))
+			for _, v := range h.policyConfigs {
+				list = append(list, v.GetModel())
+			}
+			out <- list
+
+		}
+	}
+}
+
+func applyLRPConfig(h servicemanager.ServiceHandle, c *LRPConfig) {
+	redirectConfig := servicemanager.LocalRedirectConfig{}
+	for _, feM := range c.frontendMappings {
+		redirectConfig.FrontendPorts = append(
+			redirectConfig.FrontendPorts,
+			feM.feAddr.L4Addr.Port)
+	}
+	redirectConfig.LocalBackends = flatten(maps.Values(c.podBackends)) // TODO efficiency
+	name := lb.ServiceName{Scope: lb.ScopeSVC, Name: c.serviceID.Name, Namespace: c.serviceID.Namespace}
+	h.SetLocalRedirects(name, redirectConfig)
+}
+
+// upsertPod looks up matching policies and updates the matching pod backends
+// in the config.
+// TODO: Why are we looking at pods at all and not the local endpoints???
+func (h *lrpHandler) upsertPod(key resource.Key, pod *slim_corev1.Pod) {
+	if k8sUtils.GetLatestPodReadiness(pod.Status) != slim_corev1.ConditionTrue {
+		return
+	}
+
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+	podAddrs := make([]cmtypes.AddrCluster, 0, len(podIPs))
+	for _, podIP := range podIPs {
+		addr, err := cmtypes.ParseAddrCluster(podIP)
+		if err != nil {
+			// TODO: This needs to be reported somehow.
+			continue
+		}
+		podAddrs = append(podAddrs, addr)
+	}
+	if len(podAddrs) == 0 {
+		return
+	}
+
+	for _, c := range h.policyConfigs {
+		if c.checkNamespace(pod.Namespace) && c.policyConfigSelectsPod(pod) {
+			h.updateConfigForPod(c, key, pod, podAddrs)
+			break
+		}
+	}
+}
+
+func (h *lrpHandler) updateConfigForPod(config *LRPConfig, key resource.Key, pod *slim_corev1.Pod, podAddrs []cmtypes.AddrCluster) {
+	var podBackends []lb.Backend
+	for _, podAddr := range podAddrs {
+		for _, container := range pod.Spec.Containers {
+			for _, port := range container.Ports {
+				if port.Name == "" {
+					continue
+				}
+				l4type, err := lb.NewL4Type(string(port.Protocol))
+				if err != nil {
+					continue
+				}
+				l4addr := lb.L4Addr{Protocol: l4type, Port: uint16(port.ContainerPort)}
+
+				// If backend ports were specified, check if this is a match.
+				if len(config.backendPorts) > 0 {
+					match := false
+					for _, bePort := range config.backendPorts {
+						if bePort.name != "" && bePort.name != port.Name {
+							continue
+						}
+						if bePort.l4Addr.DeepEqual(&l4addr) {
+							match = true
+							break
+						}
+					}
+					if !match {
+						continue
+					}
+				}
+				l3n4 := lb.L3n4Addr{AddrCluster: podAddr, L4Addr: l4addr}
+				podBackends = append(podBackends, lb.Backend{FEPortName: port.Name, L3n4Addr: l3n4})
+			}
+		}
+	}
+
+	config.podBackends[key] = podBackends
+	applyLRPConfig(h.handle, config)
+}
+
+func (h *lrpHandler) deletePod(key resource.Key) {
+	// TODO efficiency
+	for _, c := range h.policyConfigs {
+		if _, ok := c.podBackends[key]; ok {
+			delete(c.podBackends, key)
+			applyLRPConfig(h.handle, c)
+		}
+	}
+}
+
+func (h *lrpHandler) upsertPolicy(key resource.Key, config *LRPConfig) {
+	if config.lrpType != lrpConfigTypeSvc {
+		panic("TODO other lrp config types")
+		// For the address one the difference is that we'll use a different
+		// scope (lb.ScopeLRP) and we don't call SetLocalRedirects but rather
+		// upsert a FELocalRedirectAddress.
+	}
+
+	// Start tracking the local pods that match the backend selector.
+	// TODO: Use a single efficient TrackBy function. This does not scale!
+	// We could have a "loose" match on pods, e.g. by namespace and then
+	// do label-based matching by iterating over configs.
+	config.podUntrack = h.podTracker.TrackBy(config.policyConfigSelectsPod)
+	h.policyConfigs[key] = config
+}
+
+func (h *lrpHandler) deletePolicy(id policyID) {
+	config, ok := h.policyConfigs[id]
+	if !ok {
+		panic("TODO deletePolicy, but no policy found")
+	}
+	config.podUntrack()
+	delete(h.policyConfigs, id)
+	name := lb.ServiceName{Scope: lb.ScopeSVC, Name: config.serviceID.Name, Namespace: config.serviceID.Namespace}
+
+	// FIXME: might have multiple policies targeting same service name
+	h.handle.RemoveLocalRedirects(name)
+}
+
+func flatten[E any](xs [][]E) []E {
+	out := []E{}
+	for i := range xs {
+		for j := range xs[i] {
+			out = append(out, xs[i][j])
+		}
+	}
+	return out
 }
 
 func buffer[T any](in <-chan T, d time.Duration) <-chan []T {
@@ -144,111 +324,4 @@ func buffer[T any](in <-chan T, d time.Duration) <-chan []T {
 		close(out)
 	}()
 	return out
-}
-
-func (h *lrpHandler) processLoop(ctx context.Context) {
-	policies := h.params.RedirectPolicies.Events(ctx)
-	pods := buffer(h.podTracker.Events(), time.Second)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case ev := <-policies:
-			switch ev.Kind {
-			case resource.Sync:
-				// FIXME mark handle as synced after policies
-				// have been applied to datapath. SWG since we
-				// need to wait for the referenced service to show up?
-				h.log.Info("Redirect policies now synced")
-			case resource.Upsert:
-				if _, ok := h.policyConfigs[ev.Key]; ok {
-					h.log.Warn("Local redirect policy updates are not handled")
-					break
-				}
-				config, err := Parse(ev.Object, true)
-				if err != nil {
-					// Probably no point in retrying. Update
-					// CiliumLocalRedirectPolicyStatus instead?
-					panic("TODO error")
-				}
-				h.addPolicy(config)
-
-			case resource.Delete:
-				h.deletePolicy(ev.Key)
-			}
-			ev.Done(nil)
-
-		case events := <-pods:
-			// TODO: Hmmm, with ObjectTracker we kind of want the sync event for each
-			// thing we've started tracking. Not clear how we'd do that with TrackBy()
-			// though, unless we associate some user-defined identifiers/data. Though
-			// maybe this buffering is reasonable enough?
-			for _, ev := range events {
-				ev.Done(nil)
-			}
-			/*
-				if ev.Kind != resource.Sync {
-					h.log.Infof("Got pods event for %s", ev.Key)
-				}
-				ev.Done(nil)*/
-
-		case out := <-h.getRequests:
-			list := make([]*models.LRPSpec, 0, len(h.policyConfigs))
-			for _, v := range h.policyConfigs {
-				list = append(list, v.GetModel())
-			}
-			out <- list
-
-		}
-	}
-}
-
-func (h *lrpHandler) addPolicy(config *LRPConfig) {
-	// Start tracking the local pods that match the backend selector.
-	config.podUntrack = h.podTracker.TrackBy(config.policyConfigSelectsPod)
-
-	// Create the frontend. The backends will be filled in once matching pods
-	// appear.
-	/*
-		if config.lrpType == lrpConfigTypeSvc {
-			var fe loadbalancer.FELocalRedirectService
-			fe.Name = loadbalancer.ServiceName{
-				Scope:     loadbalancer.ScopeSVC,
-				Name:      config.serviceID.Name,
-				Namespace: config.serviceID.Namespace,
-			}
-			config.frontend = fe
-		}*/
-
-	h.policyConfigs[config.key] = config
-}
-
-func (h *lrpHandler) deletePolicy(id policyID) {
-	config, ok := h.policyConfigs[id]
-	if !ok {
-		panic("TODO deletePolicy, but no policy found")
-		return
-	}
-	// Stop tracking the pods matching the backend selector.
-	config.podUntrack()
-	// TODO h.handle.DeleteFrontend
-
-	delete(h.policyConfigs, id)
-}
-
-func flatten[E any](xs [][]E) []E {
-	out := []E{}
-	for i := range xs {
-		for j := range xs[i] {
-			out = append(out, xs[i][j])
-		}
-	}
-	return out
-}
-
-func drain[T any](ch <-chan T) {
-	for range ch {
-	}
 }

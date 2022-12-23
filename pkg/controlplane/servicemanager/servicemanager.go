@@ -2,8 +2,10 @@ package servicemanager
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cilium/workerpool"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	datapathlb "github.com/cilium/cilium/pkg/datapath/lb"
@@ -18,6 +20,7 @@ func New(p params) ServiceManager {
 		datapath:   p.DPLB,
 		handlesSWG: lock.NewStoppableWaitGroup(),
 		entries:    make(map[lb.ServiceName]serviceEntry),
+		handles:    make(map[string]*serviceHandle),
 	}
 	return sm
 }
@@ -30,10 +33,11 @@ type serviceManager struct {
 
 	entries map[lb.ServiceName]serviceEntry
 
-	handlesSWG *lock.StoppableWaitGroup
-	wp         *workerpool.WorkerPool
+	wp *workerpool.WorkerPool
 
-	datapath datapathlb.LoadBalancer
+	datapath   datapathlb.LoadBalancer
+	handles    map[string]*serviceHandle
+	handlesSWG *lock.StoppableWaitGroup
 }
 
 var _ ServiceManager = &serviceManager{}
@@ -43,6 +47,9 @@ func (sm *serviceManager) Start(hive.HookContext) error {
 }
 
 func (sm *serviceManager) Stop(hive.HookContext) error {
+	if len(sm.handles) != 0 {
+		return fmt.Errorf("unclosed handles remain: %v", maps.Keys(sm.handles))
+	}
 	return sm.wp.Close()
 }
 
@@ -62,12 +69,29 @@ func (sm *serviceManager) synchronize(ctx context.Context) error {
 
 func (sm *serviceManager) NewHandle(name string) ServiceHandle {
 	sm.handlesSWG.Add()
-	return &serviceHandle{sm, name}
+
+	h := &serviceHandle{serviceManager: sm, name: name, events: make(chan Event)}
+	sm.handles[name] = h
+	return h
 }
 
 type serviceHandle struct {
 	*serviceManager
-	name string
+	synchronized bool
+	name         string
+	events       chan Event
+}
+
+func (h *serviceHandle) Observe(name lb.ServiceName) {
+	h.modifyEntry(name, func(e *serviceEntry) {
+		e.observers.Add(h)
+	})
+}
+
+func (h *serviceHandle) Unobserve(name lb.ServiceName) {
+	h.modifyEntry(name, func(e *serviceEntry) {
+		e.observers.Delete(h)
+	})
 }
 
 func (h *serviceHandle) modifyEntry(name lb.ServiceName, mod func(e *serviceEntry)) {
@@ -90,9 +114,8 @@ func (h *serviceHandle) UpsertBackends(name lb.ServiceName, backends ...lb.Backe
 			e.backends.upsert(backend)
 		}
 		e.apply(h.datapath)
-
-		if e.overrideProxyRedirect != nil {
-			e.overrideProxyRedirect.backendChanges <- BackendsChanged{
+		for o := range e.observers {
+			o.events <- Event{
 				Name:     name,
 				Backends: slices.Clone(e.backends),
 			}
@@ -106,9 +129,8 @@ func (h *serviceHandle) DeleteBackends(name lb.ServiceName, addrs ...lb.L3n4Addr
 			e.backends.delete(&addr)
 		}
 		e.apply(h.datapath)
-
-		if e.overrideProxyRedirect != nil {
-			e.overrideProxyRedirect.backendChanges <- BackendsChanged{
+		for o := range e.observers {
+			o.events <- Event{
 				Name:     name,
 				Backends: slices.Clone(e.backends),
 			}
@@ -131,9 +153,9 @@ func (h *serviceHandle) DeleteFrontend(frontend lb.FE) {
 	})
 }
 
-func (h *serviceHandle) SetProxyRedirect(name lb.ServiceName, proxyPort uint16, backendChanges chan<- BackendsChanged) {
+func (h *serviceHandle) SetProxyRedirect(name lb.ServiceName, proxyPort uint16) {
 	h.modifyEntry(name, func(e *serviceEntry) {
-		e.overrideProxyRedirect = &overrideProxyRedirect{proxyPort: proxyPort, backendChanges: backendChanges}
+		e.overrideProxyRedirect = &overrideProxyRedirect{owner: h, proxyPort: proxyPort}
 		e.apply(h.datapath)
 	})
 }
@@ -145,29 +167,47 @@ func (h *serviceHandle) RemoveProxyRedirect(name lb.ServiceName) {
 	})
 }
 
-func (h *serviceHandle) SetLocalRedirect(name lb.ServiceName, localBackends []lb.Backend) {
+func (h *serviceHandle) SetLocalRedirects(name lb.ServiceName, config LocalRedirectConfig) {
 	h.modifyEntry(name, func(e *serviceEntry) {
 		e.overrideLocalRedirect = &overrideLocalRedirect{
-			localBackends: localBackends,
+			localBackends: config.LocalBackends,
 		}
 		e.apply(h.datapath)
 	})
 }
 
-func (h *serviceHandle) RemoveLocalRedirect(name lb.ServiceName) {
+func (h *serviceHandle) RemoveLocalRedirects(name lb.ServiceName) {
 	h.modifyEntry(name, func(e *serviceEntry) {
 		e.overrideLocalRedirect = nil
 		e.apply(h.datapath)
 	})
 }
 
+func (h *serviceHandle) Events() <-chan Event {
+	return h.events
+}
+
 func (h *serviceHandle) Synchronized() {
-	h.handlesSWG.Done()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if !h.synchronized {
+		h.synchronized = true
+		h.handlesSWG.Done()
+	}
 }
 
 func (h *serviceHandle) Close() {
-	panic("TODO fix proxy redirect backend changes sending")
-	// on close() need to make all sends to backendChanges channels registered by this handle into no-ops.
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	delete(h.handles, h.name)
+
+	if !h.synchronized {
+		h.handlesSWG.Done()
+		h.synchronized = true
+	}
+	close(h.events)
 }
 
 var _ ServiceHandle = &serviceHandle{}

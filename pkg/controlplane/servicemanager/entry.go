@@ -3,6 +3,7 @@ package servicemanager
 import (
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/pkg/container"
 	datapathlb "github.com/cilium/cilium/pkg/datapath/lb"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 )
@@ -26,13 +27,16 @@ type serviceEntry struct {
 
 	frontends l3n4Set[lb.FE]
 	backends  l3n4Set[lb.Backend]
+
+	observers container.Set[*serviceHandle]
 }
 
 func (e *serviceEntry) isZero() bool {
 	return len(e.frontends) == 0 &&
 		len(e.backends) == 0 &&
 		e.overrideLocalRedirect == nil &&
-		e.overrideProxyRedirect == nil
+		e.overrideProxyRedirect == nil &&
+		len(e.observers) == 0
 }
 
 func (e *serviceEntry) apply(dp datapathlb.LoadBalancer) {
@@ -78,8 +82,8 @@ func (s *l3n4Set[T]) delete(addr *lb.L3n4Addr) {
 }
 
 type overrideProxyRedirect struct {
-	backendChanges chan<- BackendsChanged
-	proxyPort      uint16
+	owner     *serviceHandle
+	proxyPort uint16
 }
 
 func (o *overrideProxyRedirect) apply(e *serviceEntry, dp datapathlb.LoadBalancer) {

@@ -44,44 +44,16 @@ const (
 	lrpConfigTypeSvc
 )
 
-type frontendConfigType = int
-
-const (
-	frontendTypeUnknown = iota
-	// Get frontends for service with clusterIP and all service ports.
-	svcFrontendAll
-	// Get frontends for service with clusterIP and parsed config named ports.
-	svcFrontendNamedPorts
-	// Get a frontend for service with clusterIP and parsed config port.
-	svcFrontendSinglePort
-	// Get a frontend with parsed config frontend IP and port.
-	addrFrontendSinglePort
-	// Get frontends with parsed config frontend IPs and named ports.
-	addrFrontendNamedPorts
-)
-
 // LRPConfig is the internal representation of Cilium Local Redirect Policy.
 type LRPConfig struct {
-	// key is the key for the CiliumLocalRedirect object
-	key resource.Key
-	// uid is the unique identifier assigned by Kubernetes
-	uid types.UID
-	// lrpType is the type of either address matcher or service matcher policy
-	lrpType lrpConfigType
-	// frontendType is the type for the parsed config frontend.
-	frontendType frontendConfigType
-	// serviceID is the parsed service name and namespace
-	serviceID *resource.Key
-	// backendSelector is an endpoint selector generated from the parsed policy selector
-	backendSelector api.EndpointSelector
-	// backendPorts is a slice of backend port and protocol along with the port name
-	backendPorts []bePortInfo
-	// backendPortsByPortName is a map indexed by port name with the value as
-	// a pointer to bePortInfo for easy lookup into backendPorts
-	backendPortsByPortName map[portName]*bePortInfo
-
-	frontend   loadbalancer.FE
-	podUntrack func()
+	key              resource.Key         // key of the CiliumLocalRedirectPolicy
+	lrpType          lrpConfigType        // address or service matcher
+	serviceID        *resource.Key        // service name and namespace if service redirect
+	backendSelector  api.EndpointSelector // pod selector as specified by policy
+	backendPorts     []bePortInfo         // the optional backend ports
+	frontendMappings []*feMapping         // the frontend ports we should match
+	podBackends      map[resource.Key][]lb.Backend
+	podUntrack       func()
 }
 
 type frontend = loadbalancer.L3n4Addr
@@ -110,24 +82,8 @@ type portName = string
 
 // feMapping stores frontend address and a list of associated backend addresses.
 type feMapping struct {
-	feAddr      *frontend
-	podBackends []backend
-	fePort      portName
-}
-
-func (feM *feMapping) GetModel() *models.FrontendMapping {
-	bes := make([]*models.LRPBackend, 0, len(feM.podBackends))
-	for _, be := range feM.podBackends {
-		bes = append(bes, be.GetModel())
-	}
-	return &models.FrontendMapping{
-		FrontendAddress: &models.FrontendAddress{
-			IP:       feM.feAddr.AddrCluster.String(),
-			Protocol: feM.feAddr.Protocol,
-			Port:     feM.feAddr.Port,
-		},
-		Backends: bes,
-	}
+	feAddr     lb.L3n4Addr
+	fePortName portName
 }
 
 type bePortInfo struct {
@@ -148,7 +104,7 @@ func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LRPConfig, error
 	if sanitize {
 		return getSanitizedLRPConfig(key, clrp.UID, clrp.Spec)
 	} else {
-		return &LRPConfig{key: key}, nil
+		return &LRPConfig{}, nil
 	}
 }
 
@@ -158,7 +114,6 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 		addrMatcher    = spec.RedirectFrontend.AddressMatcher
 		svcMatcher     = spec.RedirectFrontend.ServiceMatcher
 		redirectTo     = spec.RedirectBackend
-		frontendType   = frontendTypeUnknown
 		checkNamedPort = false
 		lrpType        lrpConfigType
 		k8sSvc         *resource.Key
@@ -185,9 +140,7 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 		if len(addrMatcher.ToPorts) > 1 {
 			// If there are multiple ports, then the ports must be named.
 			checkNamedPort = true
-			frontendType = addrFrontendNamedPorts
 		} else if len(addrMatcher.ToPorts) == 1 {
-			frontendType = addrFrontendSinglePort
 		}
 		feMappings = make([]*feMapping, len(addrMatcher.ToPorts))
 		for i, portInfo := range addrMatcher.ToPorts {
@@ -198,8 +151,8 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 			// Set the scope to ScopeExternal as the externalTrafficPolicy is set to Cluster.
 			fe = loadbalancer.NewL3n4Addr(proto, addrCluster, p, loadbalancer.ScopeExternal)
 			feM := &feMapping{
-				feAddr: fe,
-				fePort: pName,
+				feAddr:     *fe,
+				fePortName: pName,
 			}
 			feMappings[i] = feM
 		}
@@ -218,15 +171,6 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 			return nil, fmt.Errorf("kubernetes service namespace" +
 				"does not match with the CiliumLocalRedirectPolicy namespace")
 		}
-		switch len(svcMatcher.ToPorts) {
-		case 0:
-			frontendType = svcFrontendAll
-		case 1:
-			frontendType = svcFrontendSinglePort
-		default:
-			frontendType = svcFrontendNamedPorts
-			checkNamedPort = true
-		}
 		feMappings = make([]*feMapping, len(svcMatcher.ToPorts))
 		for i, portInfo := range svcMatcher.ToPorts {
 			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
@@ -237,17 +181,13 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 			// frontend ip will later be populated with the clusterIP of the service.
 			fe = loadbalancer.NewL3n4Addr(proto, cmtypes.AddrCluster{}, p, loadbalancer.ScopeExternal)
 			feM := &feMapping{
-				feAddr: fe,
-				fePort: pName,
+				feAddr:     *fe,
+				fePortName: pName,
 			}
 			feMappings[i] = feM
 		}
 		lrpType = lrpConfigTypeSvc
 	default:
-		return nil, fmt.Errorf("invalid local redirect policy %v", spec)
-	}
-
-	if lrpType == lrpConfigTypeNone || frontendType == frontendTypeUnknown {
 		return nil, fmt.Errorf("invalid local redirect policy %v", spec)
 	}
 
@@ -290,15 +230,11 @@ func getSanitizedLRPConfig(key resource.Key, uid types.UID, spec v2.CiliumLocalR
 	selector := api.NewESFromK8sLabelSelector("", &redirectTo.LocalEndpointSelector)
 
 	return &LRPConfig{
-		uid:       uid,
-		serviceID: k8sSvc,
-		//frontendMappings:       feMappings,
-		backendSelector:        selector,
-		backendPorts:           bePorts,
-		backendPortsByPortName: bePortsMap,
-		lrpType:                lrpType,
-		frontendType:           frontendType,
-		key:                    key,
+		serviceID:        k8sSvc,
+		frontendMappings: feMappings,
+		backendSelector:  selector,
+		backendPorts:     bePorts,
+		lrpType:          lrpType,
 	}, nil
 }
 
@@ -323,21 +259,7 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 	}
 
 	var feType, lrpType string
-	switch config.frontendType {
-	case frontendTypeUnknown:
-		feType = "unknown"
-	case svcFrontendAll:
-		feType = "clusterIP + all svc ports"
-	case svcFrontendNamedPorts:
-		feType = "clusterIP + named ports"
-	case svcFrontendSinglePort:
-		feType = "clusterIP + port"
-	case addrFrontendSinglePort:
-		feType = "IP + port"
-	case addrFrontendNamedPorts:
-		feType = "IP + named ports"
-	}
-
+	feType = "TODO"
 	switch config.lrpType {
 	case lrpConfigTypeNone:
 		lrpType = "none"
@@ -360,12 +282,10 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 	}
 
 	return &models.LRPSpec{
-		UID:          string(config.uid),
 		Name:         config.key.Name,
 		Namespace:    config.key.Namespace,
 		FrontendType: feType,
 		LrpType:      lrpType,
 		ServiceID:    svcID,
-		//FrontendMappings: feMappingModelArray,
 	}
 }
