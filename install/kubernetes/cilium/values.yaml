@@ -1586,9 +1586,9 @@ prometheus:
         replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
-  # -- Metrics that should be enabled or disabled from the default metric
-  # list. (+metric_foo to enable metric_foo , -metric_bar to disable
-  # metric_bar).
+  # -- Metrics that should be enabled or disabled from the default metric list.
+  # The list is expected to be separated by a space. (+metric_foo to enable
+  # metric_foo , -metric_bar to disable metric_bar).
   # ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
   metrics: ~
 
