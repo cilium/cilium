@@ -59,6 +59,10 @@
 #define CT_MAP_ANY6 test_cilium_ct_any6_65535
 #define CT_MAP_TCP4 test_cilium_ct_tcp4_65535
 #define CT_MAP_ANY4 test_cilium_ct_any4_65535
+#define PER_CLUSTER_CT_TCP6 test_cilium_per_cluster_ct_tcp6
+#define PER_CLUSTER_CT_ANY6 test_cilium_per_cluster_ct_any6
+#define PER_CLUSTER_CT_TCP4 test_cilium_per_cluster_ct_tcp4
+#define PER_CLUSTER_CT_ANY4 test_cilium_per_cluster_ct_any4
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP test_cilium_calls_65535
