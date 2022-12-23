@@ -60,8 +60,8 @@ WORKER_IP4=$(nsenter -t $NGINX_PID -n ip -o -4 a s eth0 | awk '{print $4}' | cut
 WORKER_IP6=$(nsenter -t $NGINX_PID -n ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
 WORKER_MAC=$(nsenter -t $NGINX_PID -n ip -o l show dev eth0 | grep -oP '(?<=link/ether )[^ ]+')
 
-# NAT 4->6 test suite
-#####################
+# NAT 4->6 test suite (services)
+################################
 
 LB_VIP="10.0.0.4"
 
@@ -76,7 +76,7 @@ MAG_V4=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v4}' | tr
 MAG_V6=$(${CILIUM_EXEC} cilium bpf lb maglev list -o=jsonpath='{.\[1\]/v6}' | tr -d '\r')
 if [ ! -z "$MAG_V4" -o -z "$MAG_V6" ]; then
 	echo "Invalid content of Maglev table!"
-    ${CILIUM_EXEC} cilium bpf lb maglev list
+	${CILIUM_EXEC} cilium bpf lb maglev list
 	exit 1
 fi
 
@@ -179,8 +179,8 @@ done
 ${CILIUM_EXEC} cilium service delete 1
 ${CILIUM_EXEC} cilium service delete 2
 
-# NAT 6->4 test suite
-#####################
+# NAT 6->4 test suite (services)
+################################
 
 LB_VIP="fd00:cafe::1"
 
@@ -290,6 +290,47 @@ done
 
 ${CILIUM_EXEC} cilium service delete 1
 ${CILIUM_EXEC} cilium service delete 2
+
+# NAT 6->4 test suite (stateful gateway)
+########################################
+
+NAT_PREFIX="64:ff9b::"
+NAT_GW_IP=$(docker exec -t lb-node ip -o -6 a s eth0 | awk '{print $4}' | cut -d/ -f1 | head -n1)
+ip -6 r a "${NAT_PREFIX}/96" via "$NAT_GW_IP"
+
+LIST=$(${CILIUM_EXEC} cilium bpf lb list | tail +2)
+if [ ! -z "$LIST" ]; then
+	echo "Service table is not empty!"
+	${CILIUM_EXEC} cilium service list
+	exit 1
+fi
+
+# Install Cilium as standalone gateway: tc/Random/SNAT/Gateway
+cilium_install \
+    --bpf-lb-algorithm=random \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat \
+    --enable-nat46x64-gateway=true
+
+# Issue 10 requests to WORKER_IP4 embedded in NAT_PREFIX
+for i in $(seq 1 10); do
+    curl -o /dev/null "[${NAT_PREFIX}${WORKER_IP4}]:80"
+done
+
+# Install Cilium as standalone gateway: XDP/Random/SNAT/Gateway
+cilium_install \
+    --bpf-lb-algorithm=random \
+    --bpf-lb-acceleration=disabled \
+    --bpf-lb-mode=snat \
+    --enable-nat46x64-gateway=true
+
+# Issue 10 requests to WORKER_IP4 embedded in NAT_PREFIX
+for i in $(seq 1 10); do
+    curl -o /dev/null "[${NAT_PREFIX}${WORKER_IP4}]:80"
+done
+
+# Misc compilation tests
+########################
 
 # Install Cilium as standalone L4LB & NAT46/64 GW: tc
 cilium_install \
