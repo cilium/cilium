@@ -173,9 +173,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				tests.OutsideToNodePort(),
 			)
 		ct.NewTest("pod-to-pod-encryption").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryption)).
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod)).
 			WithScenarios(
 				tests.PodToPodEncryption(),
+			)
+		ct.NewTest("node-to-node-encryption").
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionNode),
+				check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
+			WithScenarios(
+				tests.NodeToNodeEncryption(),
 			)
 
 		return ct.Run(ctx)
