@@ -11,6 +11,15 @@ const (
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
 
+	// Component is the field denoting the component when logging
+	Component = "component"
+
+	// Asn is the field denoting the asn when logging
+	Asn = "asn"
+
+	// Allocated is the field denoting the allocated when logging
+	Allocated = "allocated"
+
 	// Signal is the field to print os signals on exit etc.
 	Signal = "signal"
 
@@ -240,6 +249,9 @@ const (
 
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
+
+	// ClusteId is the id of the cluster
+	ClusterID = "clusterID"
 
 	// ServiceID is the orchestration unique ID of a service
 	ServiceID = "serviceID"
@@ -522,6 +534,9 @@ const (
 
 	// Key is the identity of the encryption key
 	Key = "key"
+
+	// Value is the identity of the key
+	Value = "value"
 
 	// URL represents a Uniform Resource Locator.
 	URL = "url"

@@ -25,6 +25,7 @@ import (
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
 
@@ -108,8 +109,8 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	var (
 		svcID = k8s.ParseServiceID(svc)
 		l     = log.WithFields(logrus.Fields{
-			"component":  "MetalLBSpeaker.OnUpdateService",
-			"service-id": svcID,
+			logfields.Component: "MetalLBSpeaker.OnUpdateService",
+			logfields.ServiceID: svcID,
 		})
 		meta = fence.Meta{}
 	)
@@ -147,8 +148,8 @@ func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
 	var (
 		svcID = k8s.ParseServiceID(svc)
 		l     = log.WithFields(logrus.Fields{
-			"component":  "MetalLBSpeaker.OnDeleteService",
-			"service-id": svcID,
+			logfields.Component: "MetalLBSpeaker.OnDeleteService",
+			logfields.ServiceID: svcID,
 		})
 		meta = fence.Meta{}
 	)
@@ -183,8 +184,8 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 	var (
 		svcID = k8s.ParseEndpointsID(eps)
 		l     = log.WithFields(logrus.Fields{
-			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
-			"service-id": svcID,
+			logfields.Component: "MetalLBSpeaker.OnUpdateEndpoints",
+			logfields.ServiceID: svcID,
 		})
 		meta = fence.Meta{}
 	)
@@ -218,8 +219,8 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointS
 	var (
 		sliceID, _ = k8s.ParseEndpointSliceV1(eps)
 		l          = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1",
-			"slice-id":  sliceID,
+			logfields.Component: "MetalLBSpeaker.OnUpdateEndpointSliceV1",
+			"slice-id":          sliceID,
 		})
 		meta = fence.Meta{}
 	)
@@ -253,8 +254,8 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1
 	var (
 		sliceID, _ = k8s.ParseEndpointSliceV1Beta1(eps)
 		l          = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
-			"slice-id":  sliceID,
+			logfields.Component: "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
+			"slice-id":          sliceID,
 		})
 		meta = fence.Meta{}
 	)
@@ -290,9 +291,9 @@ func (s *MetalLBSpeaker) notifyNodeEvent(op Op, nodeMeta *metav1.ObjectMeta, pod
 	}
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.notifyNodeEvent",
-			"op":        op.String(),
-			"node":      nodeMeta.Name,
+			logfields.Component: "MetalLBSpeaker.notifyNodeEvent",
+			"op":                op.String(),
+			"node":              nodeMeta.Name,
 		})
 		meta = fence.Meta{}
 	)

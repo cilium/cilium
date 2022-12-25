@@ -179,7 +179,7 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 	if storedConfig == nil {
 		return fmt.Errorf("local redirect policy to be deleted not found")
 	}
-	log.WithFields(logrus.Fields{"policyID": config.id}).
+	log.WithFields(logrus.Fields{logfields.PolicyID: config.id}).
 		Debug("Delete local redirect policy")
 
 	switch storedConfig.lrpType {

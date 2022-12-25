@@ -271,7 +271,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 			log.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
-				"container-id":         cId,
+				logfields.ContainerID:  cId,
 			}).Error("unexpected container ID")
 			continue
 		}
@@ -291,7 +291,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 			log.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
-				"container-id":         cId,
+				logfields.ContainerID:  cId,
 			}).WithError(err).Debugf("failed to get container metadata")
 			continue
 		}

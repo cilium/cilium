@@ -34,9 +34,9 @@ func startKvstoreIdentityGC() {
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 
 	log.WithFields(map[string]interface{}{
-		"min":        minID,
-		"max":        maxID,
-		"cluster-id": option.Config.ClusterID,
+		"min":               minID,
+		"max":               maxID,
+		logfields.ClusterID: option.Config.ClusterID,
 	}).Info("Garbage Collecting identities between range")
 	a := allocator.NewAllocatorForGC(backend, allocator.WithMin(minID), allocator.WithMax(maxID))
 

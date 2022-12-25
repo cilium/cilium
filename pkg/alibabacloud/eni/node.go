@@ -17,6 +17,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
 )
 
@@ -247,9 +248,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (*ipam.AllocationAct
 			continue
 		}
 		scopedLog.WithFields(logrus.Fields{
-			fieldENIID:  e.NetworkInterfaceID,
-			"ipv4Limit": l.IPv4,
-			"allocated": len(e.PrivateIPSets),
+			fieldENIID:          e.NetworkInterfaceID,
+			"ipv4Limit":         l.IPv4,
+			logfields.Allocated: len(e.PrivateIPSets),
 		}).Debug("Considering ENI for allocation")
 
 		availableOnENI := math.IntMax(l.IPv4-len(e.PrivateIPSets), 0)

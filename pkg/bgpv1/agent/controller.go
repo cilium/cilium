@@ -228,7 +228,7 @@ func (c *Controller) Stop(ctx hive.HookContext) error {
 func (c *Controller) Run(ctx context.Context) {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "Controller.Run",
+			logfields.Component: "Controller.Run",
 		})
 	)
 	l.Debug("Starting informers")
@@ -270,7 +270,7 @@ func (c *Controller) Run(ctx context.Context) {
 func PolicySelection(ctx context.Context, labels map[string]string, policies []*v2alpha1api.CiliumBGPPeeringPolicy) (*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "PolicySelection",
+			logfields.Component: "PolicySelection",
 		})
 	)
 	// determine which policies match our node's labels.
@@ -319,7 +319,7 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 func (c *Controller) Reconcile(ctx context.Context) error {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "Controller.Reconcile",
+			logfields.Component: "Controller.Reconcile",
 		})
 	)
 

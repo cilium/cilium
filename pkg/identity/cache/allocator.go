@@ -186,9 +186,9 @@ func (m *CachingIdentityAllocator) InitIdentityAllocator(client clientset.Interf
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
 
 	log.WithFields(map[string]interface{}{
-		"min":        minID,
-		"max":        maxID,
-		"cluster-id": option.Config.ClusterID,
+		"min":               minID,
+		"max":               maxID,
+		logfields.ClusterID: option.Config.ClusterID,
 	}).Info("Allocating identities between range")
 
 	// Asynchronously set up the global identity allocator since it connects

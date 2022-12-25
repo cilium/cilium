@@ -12,6 +12,7 @@ import (
 	metallbspr "go.universe.tf/metallb/pkg/speaker"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
@@ -43,7 +44,7 @@ func (cs CidrSlice) ToAdvertisements() []*metallbbgp.Advertisement {
 func (s *MetalLBSpeaker) withdraw() {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.withdraw",
+			logfields.Component: "MetalLBSpeaker.withdraw",
 		})
 	)
 	// flip this bool so we start rejecting new events from
@@ -77,7 +78,7 @@ func (s *MetalLBSpeaker) withdraw() {
 func (s *MetalLBSpeaker) announcePodCIDRs(cidrs CidrSlice) error {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.announcePodCidrs",
+			logfields.Component: "MetalLBSpeaker.announcePodCidrs",
 		})
 	)
 

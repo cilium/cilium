@@ -113,7 +113,7 @@ func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, cstate *agent.ControlPlaneState) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.ConfigurePeers",
+			logfields.Component: "gobgp.RouterManager.ConfigurePeers",
 		},
 	)
 
@@ -156,7 +156,7 @@ func (m *BGPRouterManager) ConfigurePeers(ctx context.Context, policy *v2alpha1a
 func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.add",
+			logfields.Component: "gobgp.RouterManager.add",
 		},
 	)
 	for _, asn := range rd.register {
@@ -183,7 +183,7 @@ func (m *BGPRouterManager) register(ctx context.Context, rd *reconcileDiff) erro
 func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.registerBGPServer",
+			logfields.Component: "gobgp.RouterManager.registerBGPServer",
 		},
 	)
 
@@ -261,7 +261,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 func (m *BGPRouterManager) withdraw(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.remove",
+			logfields.Component: "gobgp.RouterManager.remove",
 		},
 	)
 	for _, asn := range rd.withdraw {
@@ -299,7 +299,7 @@ func (m *BGPRouterManager) withdrawAll(ctx context.Context, rd *reconcileDiff) e
 func (m *BGPRouterManager) reconcile(ctx context.Context, rd *reconcileDiff) error {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "gobgp.RouterManager.reconcile",
+			logfields.Component: "gobgp.RouterManager.reconcile",
 		},
 	)
 	for _, asn := range rd.reconcile {

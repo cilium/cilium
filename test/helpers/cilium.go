@@ -173,7 +173,7 @@ func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, exp
 	logger := s.logger.WithFields(logrus.Fields{
 		logfields.EndpointID: endpointID,
 		"option":             optionName,
-		"value":              expectedValue})
+		logfields.Value:      expectedValue})
 	body := func() bool {
 		logger.Infof("Setting endpoint configuration")
 		status := s.EndpointSetConfig(endpointID, optionName, expectedValue)
@@ -758,7 +758,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 func (s *SSHMeta) PprofReport() {
 	PProfCadence := 5 * time.Minute
 	ticker := time.NewTicker(PProfCadence)
-	log := s.logger.WithField("subsys", "pprofReport")
+	log := s.logger.WithField(logfields.LogSubsys, "pprofReport")
 
 	for {
 		select {

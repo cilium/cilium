@@ -20,6 +20,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // ConfigReconciler is a interface for reconciling a particular aspect
@@ -77,7 +78,7 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.preflightReconciler",
+				logfields.Component: "gobgp.preflightReconciler",
 			},
 		)
 	)
@@ -206,7 +207,7 @@ func neighborReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWith
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.neighborReconciler",
+				logfields.Component: "gobgp.neighborReconciler",
 			},
 		)
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
@@ -338,7 +339,7 @@ func exportPodCIDRReconciler(ctx context.Context, _ *BGPRouterManager, sc *Serve
 	var (
 		l = log.WithFields(
 			logrus.Fields{
-				"component": "gobgp.exportPodCIDRReconciler",
+				logfields.Component: "gobgp.exportPodCIDRReconciler",
 			},
 		)
 		// holds pod cidr advertisements which must be advertised

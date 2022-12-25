@@ -294,7 +294,7 @@ func updateIdentity(obj interface{}) {
 	}
 
 	keyEncoded := []byte(kvstore.Client().Encode(key))
-	log.WithFields(logrus.Fields{"key": keyPath, "value": string(keyEncoded)}).Info("Updating identity in etcd")
+	log.WithFields(logrus.Fields{logfields.Key: keyPath, logfields.Value: string(keyEncoded)}).Info("Updating identity in etcd")
 
 	_, err := kvstore.Client().UpdateIfDifferent(context.Background(), keyPath, keyEncoded, true)
 	if err != nil {
@@ -554,8 +554,8 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 
 func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) {
 	log.WithFields(logrus.Fields{
-		"cluster-name": cfg.clusterName,
-		"cluster-id":   clusterID,
+		"cluster-name":      cfg.clusterName,
+		logfields.ClusterID: clusterID,
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {

@@ -497,8 +497,8 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 		}
 
 		log.WithFields(logrus.Fields{
-			"cidrs":     cidrs.String(),
-			"allocated": allocated,
+			logfields.CIDRS:     cidrs.String(),
+			logfields.Allocated: allocated,
 		}).Debug("Allocated new CIDRs")
 	} else {
 		cidrs, err = parsePodCIDRs(node.Spec.IPAM.PodCIDRs)
@@ -517,8 +517,8 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 			return
 		}
 		log.WithFields(logrus.Fields{
-			"cidrs":                 cidrs.String(),
-			"allocated":             allocated,
+			logfields.CIDRS:         cidrs.String(),
+			logfields.Allocated:     allocated,
 			"n.canAllocatePodCIDRs": n.canAllocatePodCIDRs,
 		}).Debug("Allocated existing CIDRs")
 		if !allocated {

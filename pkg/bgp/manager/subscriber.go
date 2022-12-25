@@ -24,8 +24,8 @@ func (m *Manager) OnAddService(obj *slim_corev1.Service) error {
 	var (
 		svcName = obj.Name
 		l       = log.WithFields(logrus.Fields{
-			"component":    "Manager.OnAddService",
-			"service-name": svcName,
+			logfields.Component:   "Manager.OnAddService",
+			logfields.ServiceName: svcName,
 		})
 	)
 	key, err := cache.MetaNamespaceKeyFunc(obj)
@@ -44,8 +44,8 @@ func (m *Manager) OnUpdateService(oldObj, newObj *slim_corev1.Service) error {
 	var (
 		svcName = newObj.Name
 		l       = log.WithFields(logrus.Fields{
-			"component":    "Manager.OnUpdateService",
-			"service-name": svcName,
+			logfields.Component:   "Manager.OnUpdateService",
+			logfields.ServiceName: svcName,
 		})
 	)
 	key, err := cache.MetaNamespaceKeyFunc(newObj)
@@ -64,8 +64,8 @@ func (m *Manager) OnDeleteService(obj *slim_corev1.Service) error {
 	var (
 		svcName = obj.Name
 		l       = log.WithFields(logrus.Fields{
-			"component":    "Manager.OnDeleteService",
-			"service-name": svcName,
+			logfields.Component:   "Manager.OnDeleteService",
+			logfields.ServiceName: svcName,
 		})
 	)
 	key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
@@ -92,7 +92,7 @@ type svcEvent string
 // Adapted from go.universe.tf/metallb/pkg/k8s/k8s.go.
 func (m *Manager) run() {
 	l := log.WithFields(logrus.Fields{
-		"component": "Manager.run",
+		logfields.Component: "Manager.run",
 	})
 	for {
 		ev, quit := m.queue.Get()

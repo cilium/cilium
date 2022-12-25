@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
@@ -1266,7 +1267,7 @@ func (kub *Kubectl) MonitorEndpointStart(pod string, epID int64) (res *CmdRes, c
 func (kub *Kubectl) PprofReport() {
 	PProfCadence := 5 * time.Minute
 	ticker := time.NewTicker(PProfCadence)
-	log := kub.Logger().WithField("subsys", "pprofReport")
+	log := kub.Logger().WithField(logfields.LogSubsys, "pprofReport")
 
 	retrievePProf := func(pod, testPath string) {
 		res := kub.ExecPodCmd(CiliumNamespace, pod, "gops pprof-cpu 1")

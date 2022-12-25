@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Op enumerates the operation an event
@@ -91,7 +92,7 @@ type nodeEvent struct {
 func (s *MetalLBSpeaker) run(ctx context.Context) {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "MetalLBSpeaker.run",
+			logfields.Component: "MetalLBSpeaker.run",
 		},
 	)
 	for {
@@ -135,7 +136,7 @@ func (s *MetalLBSpeaker) run(ctx context.Context) {
 func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 	l := log.WithFields(
 		logrus.Fields{
-			"component": "MetalLBSpeaker.do",
+			logfields.Component: "MetalLBSpeaker.do",
 		},
 	)
 	switch k := key.(type) {
@@ -149,7 +150,7 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 			return types.SyncStateSuccess
 		}
 
-		l.WithField("service-id", k.id.String()).Debug("announcing load balancer from service")
+		l.WithField(logfields.ServiceID, k.id.String()).Debug("announcing load balancer from service")
 
 		st := s.speaker.SetService(k.id.String(), k.svc, k.eps)
 		if st == types.SyncStateSuccess && k.op == Delete {
@@ -196,9 +197,9 @@ func (s *MetalLBSpeaker) do(key interface{}) types.SyncState {
 func (s *MetalLBSpeaker) handleNodeEvent(k nodeEvent) types.SyncState {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.handleNodeEvent",
-			"labels":    k.labels,
-			"cidrs":     k.podCIDRs,
+			logfields.Component: "MetalLBSpeaker.handleNodeEvent",
+			logfields.Labels:    k.labels,
+			logfields.CIDRS:     k.podCIDRs,
 		})
 	)
 

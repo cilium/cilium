@@ -153,7 +153,7 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	if err != nil {
 		log.WithFields(
 			logrus.Fields{
-				"container-id": event.Actor.ID,
+				logfields.ContainerID: event.Actor.ID,
 			},
 		).WithError(err).Error("Unable to inspect container")
 	}
@@ -195,10 +195,10 @@ func (driver *driver) updateCiliumEP(event events.Message) {
 	if err != nil {
 		log.WithFields(
 			logrus.Fields{
-				"container-id": event.Actor.ID,
-				"endpoint-id":  epID,
-				"labels":       cont.Config.Labels,
-				"error":        err,
+				logfields.ContainerID: event.Actor.ID,
+				logfields.EndpointID:  epID,
+				logfields.Labels:      cont.Config.Labels,
+				"error":               err,
 			}).
 			Error("Error while patching the endpoint labels of container")
 	}

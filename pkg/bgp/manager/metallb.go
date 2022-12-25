@@ -20,6 +20,7 @@ import (
 	bgpk8s "github.com/cilium/cilium/pkg/bgp/k8s"
 	bgplog "github.com/cilium/cilium/pkg/bgp/log"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -68,8 +69,8 @@ func newMetalLBController(ctx context.Context, cs client.Clientset) (Controller,
 func (c *metalLBController) SetBalancer(name string, srvRo *v1.Service, eps k8s.EpsOrSlices) types.SyncState {
 	var (
 		l = log.WithFields(logrus.Fields{
-			"component": "metalLBController.SetBalancer",
-			"service":   name,
+			logfields.Component: "metalLBController.SetBalancer",
+			"service":           name,
 		})
 	)
 	l.Debug("assigning load balancer ip for service")
