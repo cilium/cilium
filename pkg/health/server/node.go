@@ -23,7 +23,12 @@ func (n *healthNode) PrimaryIP() string {
 	if n.NodeElement.PrimaryAddress.IPV4.Enabled {
 		return n.NodeElement.PrimaryAddress.IPV4.IP
 	}
-	return n.NodeElement.PrimaryAddress.IPV6.IP
+
+	if n.NodeElement.PrimaryAddress.IPV6.Enabled {
+		return n.NodeElement.PrimaryAddress.IPV6.IP
+	}
+	return ""
+
 }
 
 // SecondaryIPs return a list of IP addresses corresponding to secondary addresses
