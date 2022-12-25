@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 )
 
-// policyGetCmd represents the policy_get command
+// policyCacheGetCmd represents the policy selectors command
 var policyCacheGetCmd = &cobra.Command{
 	Use:   "selectors",
 	Short: "Display cached information about selectors",
