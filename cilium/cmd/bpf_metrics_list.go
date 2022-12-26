@@ -76,6 +76,11 @@ func listMetrics(m metricsmap.MetricsMap) {
 }
 
 func listJSONMetrics(bpfMetricsList []*metricsRow) {
+	if len(bpfMetricsList) == 0 {
+		fmt.Fprintf(os.Stderr, "No entries found.\n")
+		return
+	}
+
 	metricsByReason := map[int]jsonMetric{}
 
 	for _, row := range bpfMetricsList {
