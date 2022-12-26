@@ -128,6 +128,25 @@ struct {
 #endif
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 256);
+	__array(values, struct {
+		__uint(type, NAT_MAP_TYPE);
+		__type(key, struct ipv4_ct_tuple);
+		__type(value, struct ipv4_nat_entry);
+		__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
+#ifndef HAVE_LRU_HASH_MAP_TYPE
+		__uint(map_flags, CONDITIONAL_PREALLOC);
+#endif
+	});
+} PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf;
+#endif
+
 #ifdef ENABLE_IP_MASQ_AGENT
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
@@ -918,6 +937,25 @@ struct {
 	__uint(map_flags, CONDITIONAL_PREALLOC);
 #endif
 } SNAT_MAPPING_IPV6 __section_maps_btf;
+
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 256);
+	__array(values, struct {
+		__uint(type, NAT_MAP_TYPE);
+		__type(key, struct ipv6_ct_tuple);
+		__type(value, struct ipv6_nat_entry);
+		__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
+#ifndef HAVE_LRU_HASH_MAP_TYPE
+		__uint(map_flags, CONDITIONAL_PREALLOC);
+#endif
+	});
+} PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
+#endif
 
 static __always_inline
 struct ipv6_nat_entry *snat_v6_lookup(struct ipv6_ct_tuple *tuple)
