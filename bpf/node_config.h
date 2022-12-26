@@ -79,6 +79,7 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 # endif /* ENABLE_MASQUERADE */
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
+#define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
@@ -89,6 +90,7 @@ DEFINE_U32(SECCTX_FROM_IPCACHE, 1);
 #ifdef ENABLE_IPV6
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
+#define PER_CLUSTER_SNAT_MAPPING_IPV6 test_cilium_per_cluster_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
 #define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
