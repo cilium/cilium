@@ -474,13 +474,13 @@ func IsValidStateTransition(old, new BackendState) bool {
 
 func GetBackendState(state string) (BackendState, error) {
 	switch strings.ToLower(state) {
-	case "active", "":
+	case models.BackendAddressStateActive, "":
 		return BackendStateActive, nil
-	case "terminating":
+	case models.BackendAddressStateTerminating:
 		return BackendStateTerminating, nil
-	case "quarantined":
+	case models.BackendAddressStateQuarantined:
 		return BackendStateQuarantined, nil
-	case "maintenance":
+	case models.BackendAddressStateMaintenance:
 		return BackendStateMaintenance, nil
 	default:
 		return BackendStateInvalid, fmt.Errorf("invalid backend state %s", state)
@@ -490,13 +490,13 @@ func GetBackendState(state string) (BackendState, error) {
 func (state BackendState) String() (string, error) {
 	switch state {
 	case BackendStateActive:
-		return "active", nil
+		return models.BackendAddressStateActive, nil
 	case BackendStateTerminating:
-		return "terminating", nil
+		return models.BackendAddressStateTerminating, nil
 	case BackendStateQuarantined:
-		return "quarantined", nil
+		return models.BackendAddressStateQuarantined, nil
 	case BackendStateMaintenance:
-		return "maintenance", nil
+		return models.BackendAddressStateMaintenance, nil
 	default:
 		return "", fmt.Errorf("invalid backend state %d", state)
 	}
