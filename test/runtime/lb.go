@@ -141,8 +141,8 @@ var _ = Describe("RuntimeDatapathLB", func() {
 		frontend2 := "2.2.2.3:8080"
 		backend1 := "1.1.1.2:8080"
 		backend2 := "1.1.1.3:8080"
-		activeState := "active"
-		quarantineState := "quarantined"
+		activeState := models.BackendAddressStateActive
+		quarantineState := models.BackendAddressStateQuarantined
 		type backendCheckTest struct {
 			frontend string
 			backend  string
