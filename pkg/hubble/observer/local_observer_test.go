@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -106,7 +107,12 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
-		data := testutils.MustCreateL3L4Payload(tn)
+		macOnly := func(m net.HardwareAddr, _ error) net.HardwareAddr { return m }
+		data := testutils.MustCreateL3L4Payload(tn, &layers.Ethernet{
+			SrcMAC: macOnly(net.ParseMAC("00:00:5e:00:53:01")),
+			DstMAC: macOnly(net.ParseMAC("00:00:5e:00:53:02")),
+		})
+
 		event := &observerTypes.MonitorEvent{
 			Timestamp: time.Unix(int64(i), 0),
 			NodeName:  fmt.Sprintf("node #%03d", i),
