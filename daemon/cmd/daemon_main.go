@@ -1087,6 +1087,10 @@ func initializeFlags() {
 	flags.Duration(option.IPAMCiliumNodeUpdateRate, 15*time.Second, "Maximum rate at which the CiliumNode custom resource is updated")
 	option.BindEnv(Vp, option.IPAMCiliumNodeUpdateRate)
 
+	flags.Bool(option.EnableK8sNetworkPolicy, defaults.EnableK8sNetworkPolicy, "Enable support for K8s NetworkPolicy")
+	flags.MarkHidden(option.EnableK8sNetworkPolicy)
+	option.BindEnv(Vp, option.EnableK8sNetworkPolicy)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
