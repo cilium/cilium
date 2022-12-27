@@ -6,11 +6,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
@@ -29,12 +29,21 @@ var (
 	lastPodRestart = map[string]time.Time{}
 )
 
-func enableUnmanagedController(clientset k8sClient.Clientset) {
+func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	// These functions will block until the resources are synced with k8s.
-	watchers.CiliumEndpointsInit(clientset, wait.NeverStop)
-	watchers.UnmanagedPodsInit(clientset)
+	watchers.CiliumEndpointsInit(ctx, wg, clientset)
+	watchers.UnmanagedPodsInit(ctx, wg, clientset)
 
-	controller.NewManager().UpdateController("restart-unmanaged-pods",
+	mgr := controller.NewManager()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController("restart-unmanaged-pods",
 		controller.ControllerParams{
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {

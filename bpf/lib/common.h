@@ -297,7 +297,7 @@ struct policy_entry {
 	__be16		proxy_port;
 	__u8		deny:1,
 			pad:7;
-	__u8		pad0;
+	__u8		auth_type;
 	__u16		pad1;
 	__u16		pad2;
 	__u64		packets;
@@ -505,6 +505,7 @@ enum {
 #define DROP_MISSING_SRV6_STATE	-186
 #define DROP_NAT46		-187
 #define DROP_NAT64		-188
+#define DROP_POLICY_AUTH_REQUIRED	-189
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100
@@ -720,7 +721,7 @@ enum ct_status {
 enum {
 	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* External IPs */
 	SVC_FLAG_NODEPORT     = (1 << 1),  /* NodePort service */
-	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* externalTrafficPolicy=Local */
+	SVC_FLAG_EXT_LOCAL_SCOPE = (1 << 2), /* externalTrafficPolicy=Local */
 	SVC_FLAG_HOSTPORT     = (1 << 3),  /* hostPort forwarding */
 	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
@@ -734,6 +735,8 @@ enum {
 	SVC_FLAG_NAT_46X64      = (1 << 1),  /* NAT-46/64 entry */
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
 	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
+	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
+	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* two sets of backends are used for external/internal connections */
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
@@ -796,7 +799,8 @@ struct ct_entry {
 	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
 	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      reserved:7;
+	      auth_required:1,
+	      reserved:6;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -847,6 +851,11 @@ struct lb6_backend {
 	__be16 port;
 	__u8 proto;
 	__u8 flags;
+	__u8 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 pad[3];
 };
 
 struct lb6_health {
@@ -901,6 +910,11 @@ struct lb4_backend {
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
 	__u8 flags;
+	__u8 cluster_id;	/* With this field, we can distinguish two
+				 * backends that have the same IP address,
+				 * but belong to the different cluster.
+				 */
+	__u8 pad[3];
 };
 
 struct lb4_health {
@@ -973,7 +987,8 @@ struct ct_state {
 	      syn:1,
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      reserved:10;
+	      auth_required:1,
+	      reserved:9;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;

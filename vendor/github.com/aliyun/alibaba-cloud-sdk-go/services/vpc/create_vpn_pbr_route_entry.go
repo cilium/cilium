@@ -81,6 +81,7 @@ type CreateVpnPbrRouteEntryRequest struct {
 	Weight               requests.Integer `position:"Query" name:"Weight"`
 	VpnGatewayId         string           `position:"Query" name:"VpnGatewayId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	Priority             requests.Integer `position:"Query" name:"Priority"`
 	RouteDest            string           `position:"Query" name:"RouteDest"`
 	NextHop              string           `position:"Query" name:"NextHop"`
 	OverlayMode          string           `position:"Query" name:"OverlayMode"`
@@ -99,6 +100,7 @@ type CreateVpnPbrRouteEntryResponse struct {
 	OverlayMode   string `json:"OverlayMode" xml:"OverlayMode"`
 	RouteSource   string `json:"RouteSource" xml:"RouteSource"`
 	VpnInstanceId string `json:"VpnInstanceId" xml:"VpnInstanceId"`
+	Priority      int    `json:"Priority" xml:"Priority"`
 }
 
 // CreateCreateVpnPbrRouteEntryRequest creates a request to invoke CreateVpnPbrRouteEntry API

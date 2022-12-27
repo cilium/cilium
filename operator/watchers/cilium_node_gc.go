@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,8 +53,8 @@ func (c *ciliumNodeGCCandidate) Delete(nodeName string) {
 }
 
 // RunCiliumNodeGC performs garbage collector for cilium node resource
-func RunCiliumNodeGC(ctx context.Context, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration) {
-	nodesInit(clientset.Slim(), ctx.Done())
+func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, ciliumNodeStore cache.Store, interval time.Duration) {
+	nodesInit(wg, clientset.Slim(), ctx.Done())
 
 	// wait for k8s nodes synced is done
 	select {
@@ -76,6 +77,13 @@ func RunCiliumNodeGC(ctx context.Context, clientset k8sClient.Clientset, ciliumN
 			RunInterval: interval,
 		},
 	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		ctrlMgr.RemoveControllerAndWait("cilium-node-gc")
+	}()
 }
 
 func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterface, ciliumNodeStore cache.Store,

@@ -41,8 +41,6 @@ var _ = SkipDescribeIf(func() bool {
 		l3Policy             string
 		l7PolicyTLS          string
 		TLSCaCerts           string
-		TLSArtiiCrt          string
-		TLSArtiiKey          string
 		TLSLyftCrt           string
 		TLSLyftKey           string
 		TLSCa                string
@@ -60,8 +58,6 @@ var _ = SkipDescribeIf(func() bool {
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l7PolicyTLS = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-TLS.yaml")
 		TLSCaCerts = helpers.ManifestGet(kubectl.BasePath(), "testCA.crt")
-		TLSArtiiCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-artii.crt")
-		TLSArtiiKey = helpers.ManifestGet(kubectl.BasePath(), "internal-artii.key")
 		TLSLyftCrt = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.crt")
 		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
@@ -69,6 +65,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		daemonCfg = map[string]string{
 			"tls.secretsBackend": "k8s",
+			"debug.verbose":      "envoy",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
@@ -149,30 +146,18 @@ var _ = SkipDescribeIf(func() bool {
 			res = kubectl.CreateSecret("generic", "test-client", "default", "--from-file="+TLSCa)
 			res.ExpectSuccess("Cannot create secret %s", "test-client")
 
-			res = kubectl.CreateSecret("tls", "artii-server", "default", "--cert="+TLSArtiiCrt+" --key="+TLSArtiiKey)
-			res.ExpectSuccess("Cannot create secret %s", "artii-server")
-
 			res = kubectl.CreateSecret("tls", "lyft-server", "default", "--cert="+TLSLyftCrt+" --key="+TLSLyftKey)
 			res.ExpectSuccess("Cannot create secret %s", "lyft-server")
 
 			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App2], TLSCaCerts, "/cacert.pem")
 			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App2])
 
+			res = kubectl.CopyFileToPod(namespaceForTest, appPods[helpers.App3], TLSCaCerts, "/cacert.pem")
+			res.ExpectSuccess("Cannot copy certs to %s", appPods[helpers.App3])
+
 			_, err := kubectl.CiliumPolicyAction(
 				namespaceForTest, l7PolicyTLS, helpers.KubectlApply, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot install %q policy", l7PolicyTLS)
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 --max-time 15 %s 'https://artii.herokuapp.com/make?text=cilium&font=univers'", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectSuccess("Cannot connect from %q to 'https://artii.herokuapp.com/make?text=cilium&font=univers'",
-				appPods[helpers.App2])
-
-			res = kubectl.ExecPodCmd(
-				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlWithRetries("-4 %s 'https://artii.herokuapp.com:443/fonts_list'", 5, true, "-v --cacert /cacert.pem"))
-			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://artii.herokuapp.com:443/fonts_list'",
-				appPods[helpers.App2])
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
@@ -185,6 +170,15 @@ var _ = SkipDescribeIf(func() bool {
 				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
 				appPods[helpers.App2])
+
+			By("Testing L7 Policy with TLS without HTTP rules")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
+			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
+				appPods[helpers.App3])
+
 		}, 500)
 
 		It("Invalid Policy report status correctly", func() {
@@ -293,7 +287,7 @@ var _ = SkipDescribeIf(func() bool {
 				switch parser {
 				case policy.ParserTypeDNS:
 					// response DNS L7 flow
-					filter = "{.destination.namespace} {.l7.type} {.l7.dns.query}"
+					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.dns.query}"
 					expect = fmt.Sprintf(
 						"%s RESPONSE %s",
 						namespaceForTest,
@@ -305,7 +299,7 @@ var _ = SkipDescribeIf(func() bool {
 						curlCmd = helpers.CurlFail(resource)
 					}
 				case policy.ParserTypeHTTP:
-					filter = "{.destination.namespace} {.l7.type} {.l7.http.url} {.l7.http.code} {.l7.http.method}"
+					filter = "{.flow.destination.namespace} {.flow.l7.type} {.flow.l7.http.url} {.flow.l7.http.code} {.flow.l7.http.method}"
 					expect = fmt.Sprintf(
 						"%s RESPONSE %s 200 GET",
 						namespaceForTest,
@@ -363,7 +357,7 @@ var _ = SkipDescribeIf(func() bool {
 					res := kubectl.HubbleObserve(ciliumPod,
 						fmt.Sprintf("--last 1 --from-pod %s/%s --to-fqdn %q",
 							namespaceForTest, appPods[helpers.App2], "*.cilium.io"))
-					res.ExpectContainsFilterLine("{.destination_names[0]}", "vagrant-cache.ci.cilium.io")
+					res.ExpectContainsFilterLine("{.flow.destination_names[0]}", "vagrant-cache.ci.cilium.io")
 				}
 			}
 

@@ -23,6 +23,7 @@ The service implemented is defined in:
 https://github.com/grpc/grpc/blob/master/src/proto/grpc/reflection/v1alpha/reflection.proto.
 
 To register server reflection on a gRPC server:
+
 	import "google.golang.org/grpc/reflection"
 
 	s := grpc.NewServer()
@@ -32,7 +33,6 @@ To register server reflection on a gRPC server:
 	reflection.Register(s)
 
 	s.Serve(lis)
-
 */
 package reflection // import "google.golang.org/grpc/reflection"
 
@@ -74,7 +74,7 @@ func Register(s GRPCServer) {
 // for a custom implementation to return zero values for the
 // grpc.ServiceInfo values in the map.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This type is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -85,7 +85,7 @@ type ServiceInfoProvider interface {
 // ExtensionResolver is the interface used to query details about extensions.
 // This interface is satisfied by protoregistry.GlobalTypes.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This type is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -96,7 +96,7 @@ type ExtensionResolver interface {
 
 // ServerOptions represents the options used to construct a reflection server.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This type is EXPERIMENTAL and may be changed or removed in a
 // later release.
@@ -120,7 +120,7 @@ type ServerOptions struct {
 // This can be used to customize behavior of the reflection service. Most usages
 // should prefer to use Register instead.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This function is EXPERIMENTAL and may be changed or removed in a
 // later release.

@@ -53,7 +53,7 @@ const (
 	serviceFlagNone            = 0
 	serviceFlagExternalIPs     = 1 << 0
 	serviceFlagNodePort        = 1 << 1
-	serviceFlagLocalScope      = 1 << 2
+	serviceFlagExtLocalScope   = 1 << 2
 	serviceFlagHostPort        = 1 << 3
 	serviceFlagSessionAffinity = 1 << 4
 	serviceFlagLoadBalancer    = 1 << 5
@@ -63,12 +63,15 @@ const (
 	serviceFlagNat46x64        = 1 << 9
 	serviceFlagL7LoadBalancer  = 1 << 10
 	serviceFlagLoopback        = 1 << 11
+	serviceFlagIntLocalScope   = 1 << 12
+	serviceFlagTwoScopes       = 1 << 13
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
-	SvcLocal         bool
+	SvcExtLocal      bool
+	SvcIntLocal      bool
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
@@ -103,8 +106,11 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagNat46x64
 	}
 
-	if p.SvcLocal {
-		flags |= serviceFlagLocalScope
+	if p.SvcExtLocal {
+		flags |= serviceFlagExtLocalScope
+	}
+	if p.SvcIntLocal {
+		flags |= serviceFlagIntLocalScope
 	}
 	if p.SessionAffinity {
 		flags |= serviceFlagSessionAffinity
@@ -117,6 +123,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.L7LoadBalancer {
 		flags |= serviceFlagL7LoadBalancer
+	}
+	if p.SvcExtLocal != p.SvcIntLocal && p.SvcType != SVCTypeClusterIP {
+		flags |= serviceFlagTwoScopes
 	}
 
 	return flags
@@ -140,10 +149,20 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
-// SVCTrafficPolicy returns a service traffic policy from the flags
-func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
+// SVCExtTrafficPolicy returns a service traffic policy from the flags
+func (s ServiceFlags) SVCExtTrafficPolicy() SVCTrafficPolicy {
 	switch {
-	case s&serviceFlagLocalScope != 0:
+	case s&serviceFlagExtLocalScope != 0:
+		return SVCTrafficPolicyLocal
+	default:
+		return SVCTrafficPolicyCluster
+	}
+}
+
+// SVCIntTrafficPolicy returns a service traffic policy from the flags
+func (s ServiceFlags) SVCIntTrafficPolicy() SVCTrafficPolicy {
+	switch {
+	case s&serviceFlagIntLocalScope != 0:
 		return SVCTrafficPolicyLocal
 	default:
 		return SVCTrafficPolicyCluster
@@ -168,8 +187,14 @@ func (s ServiceFlags) String() string {
 	var str []string
 
 	str = append(str, string(s.SVCType()))
-	if s&serviceFlagLocalScope != 0 {
+	if s&serviceFlagExtLocalScope != 0 {
 		str = append(str, string(SVCTrafficPolicyLocal))
+	}
+	if s&serviceFlagIntLocalScope != 0 {
+		str = append(str, "Internal"+string(SVCTrafficPolicyLocal))
+	}
+	if s&serviceFlagTwoScopes != 0 {
+		str = append(str, "two-scopes")
 	}
 	if s&serviceFlagSessionAffinity != 0 {
 		str = append(str, "sessionAffinity")
@@ -358,7 +383,8 @@ type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
 	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
-	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	ExtTrafficPolicy          SVCTrafficPolicy // Service external traffic policy
+	IntTrafficPolicy          SVCTrafficPolicy // Service internal traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
@@ -391,7 +417,9 @@ func (s *SVC) GetModel() *models.Service {
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
-			TrafficPolicy:       string(s.TrafficPolicy),
+			TrafficPolicy:       string(s.ExtTrafficPolicy),
+			ExtTrafficPolicy:    string(s.ExtTrafficPolicy),
+			IntTrafficPolicy:    string(s.IntTrafficPolicy),
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
@@ -518,7 +546,8 @@ func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
 // includes the lookup scope for frontend addresses which is used in service
-// handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
+// handling for externalTrafficPolicy=Local and internalTrafficPolicy=Local,
+// that is, Scope{External,Internal}.
 //
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true

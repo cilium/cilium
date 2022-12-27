@@ -86,8 +86,8 @@ type CreateBgpPeerRequest struct {
 // CreateBgpPeerResponse is the response struct for api CreateBgpPeer
 type CreateBgpPeerResponse struct {
 	*responses.BaseResponse
-	RequestId string `json:"RequestId" xml:"RequestId"`
 	BgpPeerId string `json:"BgpPeerId" xml:"BgpPeerId"`
+	RequestId string `json:"RequestId" xml:"RequestId"`
 }
 
 // CreateCreateBgpPeerRequest creates a request to invoke CreateBgpPeer API

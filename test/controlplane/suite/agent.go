@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -29,6 +30,10 @@ type agentHandle struct {
 }
 
 func (h *agentHandle) tearDown() {
+	if h == nil {
+		return
+	}
+
 	// If hive is nil, we have not yet started.
 	if h.hive != nil {
 		if err := h.hive.Stop(context.TODO()); err != nil {
@@ -60,6 +65,7 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 		cell.Provide(
 			func() k8sClient.Clientset { return clientset },
 			func() datapath.Datapath { return fdp },
+			func() *option.DaemonConfig { return option.Config },
 		),
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {

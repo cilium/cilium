@@ -176,8 +176,7 @@ type DescribeNetworkInterfacesInput struct {
 	// same request.
 	MaxResults *int32
 
-	// One or more network interface IDs. Default: Describes all your network
-	// interfaces.
+	// The network interface IDs. Default: Describes all your network interfaces.
 	NetworkInterfaceIds []string
 
 	// The token to retrieve the next page of results.

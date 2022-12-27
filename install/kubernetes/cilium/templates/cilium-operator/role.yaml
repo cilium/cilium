@@ -3,8 +3,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: cilium-operator-secrets
+  name: cilium-operator-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""
@@ -17,16 +19,15 @@ rules:
   - patch
 {{- end }}
 
-# Only create if namespace is different from Ingress secret namespace or Ingress is not enabled.
-{{- if and .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.create .Values.gatewayAPI.secretsNamespace.name
-  (or (not (and .Values.ingressController.enabled .Values.ingressController.secretsNamespace.create .Values.ingressController.secretsNamespace.name))
-      (ne .Values.gatewayAPI.secretsNamespace.name .Values.ingressController.secretsNamespace.name)) }}
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.sync .Values.gatewayAPI.secretsNamespace.name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: cilium-operator-secrets
+  name: cilium-operator-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""

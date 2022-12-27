@@ -809,6 +809,11 @@ message ServiceSpec {
   // +optional
   optional string externalTrafficPolicy = 11;
 
+  // internalTrafficPolicy denotes if this Service desires to route internal
+  // traffic to node-local or cluster-wide endpoints.
+  // +optional
+  optional string internalTrafficPolicy = 22;
+
   // healthCheckNodePort specifies the healthcheck nodePort for the service.
   // This only applies when type is set to LoadBalancer and
   // externalTrafficPolicy is set to Local. If a value is specified, is
@@ -844,6 +849,31 @@ message ServiceSpec {
   // +listType=atomic
   // +optional
   repeated string ipFamilies = 19;
+
+  // IPFamilyPolicy represents the dual-stack-ness requested or required by
+  // this Service. If there is no value provided, then this field will be set
+  // to SingleStack. Services can be "SingleStack" (a single IP family),
+  // "PreferDualStack" (two IP families on dual-stack configured clusters or
+  // a single IP family on single-stack clusters), or "RequireDualStack"
+  // (two IP families on dual-stack configured clusters, otherwise fail). The
+  // ipFamilies and clusterIPs fields depend on the value of this field. This
+  // field will be wiped when updating a service to type ExternalName.
+  // +optional
+  optional string ipFamilyPolicy = 17;
+
+  // loadBalancerClass is the class of the load balancer implementation this Service belongs to.
+  // If specified, the value of this field must be a label-style identifier, with an optional prefix,
+  // e.g. "internal-vip" or "example.com/internal-vip". Unprefixed names are reserved for end-users.
+  // This field can only be set when the Service type is 'LoadBalancer'. If not set, the default load
+  // balancer implementation is used, today this is typically done through the cloud provider integration,
+  // but should apply for any default implementation. If set, it is assumed that a load balancer
+  // implementation is watching for Services with a matching class. Any default load balancer
+  // implementation (e.g. cloud providers) should ignore Services that set this field.
+  // This field can only be set when creating or updating a Service to type 'LoadBalancer'.
+  // Once set, it can not be changed. This field will be wiped when a service is updated to a non 'LoadBalancer' type.
+  // +featureGate=LoadBalancerClass
+  // +optional
+  optional string loadBalancerClass = 21;
 }
 
 // ServiceStatus represents the current status of a service.
@@ -852,6 +882,14 @@ message ServiceStatus {
   // if one is present.
   // +optional
   optional LoadBalancerStatus loadBalancer = 1;
+
+  // Current service state
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=type
+  repeated github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Condition conditions = 2;
 }
 
 // SessionAffinityConfig represents the configurations of session affinity.

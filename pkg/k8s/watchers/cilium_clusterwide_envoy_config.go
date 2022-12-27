@@ -93,6 +93,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		ccec.Spec.Resources,
 		true,
 		k.envoyConfigManager,
+		len(ccec.Spec.Services) > 0,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
@@ -112,6 +113,14 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		return err
 	}
 
+	if len(resources.Listeners) > 0 {
+		// TODO: Policy does not need to be recomputed for this, but if we do not 'force'
+		// the bpf maps are not updated with the new proxy ports either. Move from the
+		// simple boolean to an enum that can more selectively skip regeneration steps (like
+		// we do for the datapath recompilations already?)
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners added")
+	}
+
 	scopedLog.Debug("Added CiliumClusterwideEnvoyConfig")
 	return err
 }
@@ -129,6 +138,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		oldCCEC.Spec.Resources,
 		false,
 		k.envoyConfigManager,
+		len(oldCCEC.Spec.Services) > 0,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
@@ -140,6 +150,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		newCCEC.Spec.Resources,
 		true,
 		k.envoyConfigManager,
+		len(newCCEC.Spec.Services) > 0,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
@@ -163,6 +174,10 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		return err
 	}
 
+	if oldResources.ListenersAddedOrDeleted(&newResources) {
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners added or deleted")
+	}
+
 	scopedLog.Debug("Updated CiliumClusterwideEnvoyConfig")
 	return nil
 }
@@ -180,6 +195,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		ccec.Spec.Resources,
 		false,
 		k.envoyConfigManager,
+		len(ccec.Spec.Services) > 0,
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
@@ -197,6 +213,10 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 	if err = k.envoyConfigManager.DeleteEnvoyResources(ctx, resources, k.envoyConfigManager); err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete Envoy resources")
 		return err
+	}
+
+	if len(resources.Listeners) > 0 {
+		k.policyManager.TriggerPolicyUpdates(true, "Envoy Listeners deleted")
 	}
 
 	scopedLog.Debug("Deleted CiliumClusterwideEnvoyConfig")

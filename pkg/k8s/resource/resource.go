@@ -5,6 +5,8 @@ package resource
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/promise"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // Resource provides access to a Kubernetes resource through either
@@ -28,16 +29,24 @@ import (
 // goroutine forked from the start hook as it blocks until the store
 // has been synchronized.
 //
-// The subscriber can process the event synchronously with the
-// Event[T].Handle function, or asynchronously by calling Event[T].Done
-// once the event has been processed. On errors the object's key is requeued
-// for later processing. Once maximum number of retries is reached the subscriber's
-// event stream will be completed with the error from the last retry attempt.
+// The subscriber can process the events from Events() asynchronously and in
+// parallel, but for each event the Done() function must be called to mark
+// the event as handled. If not done no new events will be emitted for this key.
+// If an event handling is marked as failed the configured error handler is called
+// (WithErrorHandler). The default error handler will requeue the event (by its key) for
+// later retried processing. The requeueing is rate limited and can be configured with
+// WithRateLimiter option to Events().
 //
 // The resource is lazy, e.g. it will not start the informer until a call
-// has been made to Observe() or Store().
+// has been made to Events() or Store().
 type Resource[T k8sRuntime.Object] interface {
-	stream.Observable[Event[T]]
+	// Events returns a channel of events. Each event must be marked as handled
+	// with a call to Done(), otherwise no new events for this key will be emitted.
+	//
+	// When Done() is called with non-nil error the error handler is invoked, which
+	// can ignore, requeue the event or close the channel. The default error handler
+	// will requeue.
+	Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T]
 
 	// Store retrieves the read-only store for the resource. Blocks until
 	// the store has been synchronized or the context cancelled.
@@ -58,33 +67,39 @@ type Resource[T k8sRuntime.Object] interface {
 //				)
 //		 		return resource.New(lc, lw)
 //		 	}
-//			// Use the resource:
-//			newExample,
 //		}),
 //		...
 //	)
-//	func newExample(pods resource.Resource[*slim_corev1.Pod]) *Example {
-//		e := &Example{...}
-//		pods.Observe(e.ctx, e.onPodUpdated, e.onPodsComplete)
+//
+//	func usePods(pods resource.Resource[*slim_corev1.Pod]) {
+//		go func() {
+//			for ev := range podEvents {
+//		   		onPodEvent(ev)
+//		   	}
+//		}
 //		return e
 //	}
-//	func (e *Example) onPodUpdated(key resource.Key, pod *slim_core.Pod) error {
-//		// Process event ...
-//	}
-//	func (e *Example) onPodsComplete(err error) {
-//		// Handle error ...
+//	func onPodEvent(event resource.Event[*slim_core.Pod]) {
+//		switch event.Kind {
+//		case resource.Sync:
+//			// Pods have now been synced and the set of Upsert events
+//			// received thus far forms a coherent snapshot.
+//
+//			// Must always call event.Done(error) to mark the event as processed.
+//			event.Done(nil)
+//		case resource.Upsert:
+//			event.Done(onPodUpsert(event.Object))
+//		case resource.Delete:
+//			event.Done(onPodDelete(event.Object))
+//		}
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...Option) Resource[T] {
+func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher) Resource[T] {
 	r := &resource[T]{
 		queues: make(map[uint64]*keyQueue),
 		needed: make(chan struct{}, 1),
-		opts:   defaultOptions(),
 		lw:     lw,
-	}
-	for _, applyOpt := range opts {
-		applyOpt(&r.opts)
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.storeResolver, r.storePromise = promise.New[Store[T]]()
@@ -103,8 +118,8 @@ type resource[T k8sRuntime.Object] struct {
 	queues map[uint64]*keyQueue
 	subId  uint64
 
-	lw   cache.ListerWatcher
-	opts options
+	lw           cache.ListerWatcher
+	synchronized bool // flipped to true when informer has synced.
 
 	storePromise  promise.Promise[Store[T]]
 	storeResolver promise.Resolver[Store[T]]
@@ -114,13 +129,25 @@ var _ Resource[*corev1.Node] = &resource[*corev1.Node]{}
 
 func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 	r.markNeeded()
+
+	// Wait until store has synchronized to avoid querying a store
+	// that has not finished the initial listing.
+	hasSynced := func() bool {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		return r.synchronized
+	}
+	if !cache.WaitForCacheSync(ctx.Done(), hasSynced) {
+		return nil, ctx.Err()
+	}
+
 	return r.storePromise.Await(ctx)
 }
 
 func (r *resource[T]) pushUpdate(key Key) {
 	r.mu.RLock()
 	for _, queue := range r.queues {
-		queue.Add(&updateEntry{key})
+		queue.AddUpsert(key)
 	}
 	r.mu.RUnlock()
 }
@@ -133,12 +160,12 @@ func (r *resource[T]) pushDelete(lastState any) {
 	}
 	r.mu.RLock()
 	for _, queue := range r.queues {
-		queue.Add(&deleteEntry{key, obj})
+		queue.AddDelete(key, obj)
 	}
 	r.mu.RUnlock()
 }
 
-func (r *resource[T]) Start(startCtx hive.HookContext) error {
+func (r *resource[T]) Start(hive.HookContext) error {
 	r.wg.Add(1)
 	go r.startWhenNeeded()
 	return nil
@@ -176,6 +203,7 @@ func (r *resource[T]) startWhenNeeded() {
 		}
 
 	store, informer := cache.NewInformer(r.lw, objType, 0, handlerFuncs)
+	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)
 	go func() {
@@ -183,14 +211,17 @@ func (r *resource[T]) startWhenNeeded() {
 		informer.Run(r.ctx.Done())
 	}()
 
-	// Wait for cache to be synced before resolving the store
-	if !cache.WaitForCacheSync(r.ctx.Done(), informer.HasSynced) {
-		// The context is cancelled when stopping and all dependees of Resource[T] are
-		// stopped before it, but to be safe, resolve the store with nil to catch
-		// misbehaving dependees.
-		r.storeResolver.Reject(r.ctx.Err())
-	} else {
-		r.storeResolver.Resolve(&typedStore[T]{store})
+	// Wait for cache to be synced before emitting the sync events.
+	if cache.WaitForCacheSync(r.ctx.Done(), informer.HasSynced) {
+		// Emit the sync event for all subscribers. Subscribers
+		// that subscribe afterwards will emit it by checking
+		// r.synchronized.
+		r.mu.Lock()
+		for _, queue := range r.queues {
+			queue.AddSync()
+		}
+		r.synchronized = true
+		r.mu.Unlock()
 	}
 }
 
@@ -200,19 +231,71 @@ func (r *resource[T]) Stop(stopCtx hive.HookContext) error {
 	return nil
 }
 
-func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), complete func(error)) {
+type eventsOpts struct {
+	rateLimiter  workqueue.RateLimiter
+	errorHandler ErrorHandler
+}
+
+type EventsOpt func(*eventsOpts)
+
+// WithRateLimiter sets the rate limiting algorithm to be used when requeueing failed events.
+func WithRateLimiter(r workqueue.RateLimiter) EventsOpt {
+	return func(o *eventsOpts) {
+		o.rateLimiter = r
+	}
+}
+
+// WithErrorHandler specifies the error handling strategy for failed events. By default
+// the strategy is to always requeue the processing of a failed event.
+func WithErrorHandler(h ErrorHandler) EventsOpt {
+	return func(o *eventsOpts) {
+		o.errorHandler = h
+	}
+}
+
+// Events subscribes the caller to resource events.
+//
+// Each subscriber has their own queues and can process events at their own
+// rate. Only object keys are queued and if an object is changed multiple times
+// before the subscriber can handle the event only the latest state of object
+// is emitted.
+//
+// The 'ctx' is used to cancel the subscription. If cancelled, the subscriber
+// must drain the event channel.
+//
+// Options are supported to configure rate limiting of retries
+// (WithRateLimiter), error handling strategy (WithErrorHandler).
+//
+// By default all errors are retried, the default rate limiter of workqueue
+// package is used and the channel is unbuffered.
+func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T] {
+	_, callerFile, callerLine, _ := runtime.Caller(1)
+	debugInfo := fmt.Sprintf("%T.Events() called from %s:%d", r, callerFile, callerLine)
+
+	options := eventsOpts{
+		errorHandler: AlwaysRetry, // Default error handling is to always retry.
+		rateLimiter:  workqueue.DefaultControllerRateLimiter(),
+	}
+	for _, apply := range opts {
+		apply(&options)
+	}
+
+	// Mark the resource as needed. This will start the informer if it was not already.
 	r.markNeeded()
 
-	subCtx, subCancel := context.WithCancel(subCtx)
+	ctx, subCancel := context.WithCancel(ctx)
 
+	// Create a queue for receiving the events from the informer.
 	queue := &keyQueue{
-		RateLimitingInterface: workqueue.NewRateLimitingQueue(r.opts.rateLimiter()),
-		errorHandler:          r.opts.errorHandler,
+		RateLimitingInterface: workqueue.NewRateLimitingQueue(options.rateLimiter),
+		errorHandler:          options.errorHandler,
 	}
 	r.mu.Lock()
 	subId := r.subId
 	r.subId++
 	r.mu.Unlock()
+
+	out := make(chan Event[T])
 
 	// Fork a goroutine to pop elements from the queue and pass them to the subscriber.
 	r.wg.Add(1)
@@ -224,26 +307,46 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 		// leak the (*delayingType).waitingLoop.
 		defer queue.ShutDown()
 
-		// Wait for the store so we can emit the initial items and the sync event.
-		store, err := r.storePromise.Await(subCtx)
+		defer close(out)
+
+		// Grab a handle to the store. Asynchronous as informer is started in the background.
+		store, err := r.storePromise.Await(ctx)
 		if err != nil {
-			complete(err)
+			// Subscriber cancelled before the informer started, bail out.
 			return
 		}
 
 		r.mu.Lock()
 		r.queues[subId] = queue
 
-		// Append the initial set of keys to the queue + sentinel for the sync event.
-		// We go through the queue instead of directly emitting to avoid a race between
-		// the queue add and listing keys, plus to have one error handling path for Event.Done().
+		// Append the current set of keys to the queue.
 		keyIter := store.IterKeys()
 		for keyIter.Next() {
-			queue.Add(&updateEntry{keyIter.Key()})
+			queue.AddUpsert(keyIter.Key())
 		}
-		queue.Add(&syncEntry{})
+
+		// If the informer is already synchronized, then the above set of keys is a consistent
+		// snapshot and we can queue the sync entry. If we're not yet synchronized the sync will
+		// be queued from startWhenNeeded() after the informer has synchronized.
+		if r.synchronized {
+			queue.AddSync()
+		}
 		r.mu.Unlock()
 
+		doneFinalizer := func(done *bool) {
+			// If you get here it is because an Event[T] was handed to a subscriber
+			// that forgot to call Event[T].Done().
+			//
+			// Calling Done() is needed to mark the event as handled. This allows
+			// the next event for the same key to be handled and is used to clear
+			// rate limiting and retry counts of prior failures.
+			panic(fmt.Sprintf(
+				"%s has a broken event handler that did not call Done() "+
+					"before event was garbage collected",
+				debugInfo))
+		}
+
+	loop:
 		for {
 			// Retrieve an item from the subscribers queue and then fetch the object
 			// from the store.
@@ -252,31 +355,53 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 				break
 			}
 			entry := raw.(queueEntry)
-			baseEvent := baseEvent{
-				func(err error) { queue.eventDone(entry, err) },
+
+			var (
+				// eventDoneSentinel is a heap allocated object referenced by Done().
+				// If Done() is not called, a finalizer set on this object will be invoked
+				// which panics. If Done() is called, the finalizer is unset.
+				eventDoneSentinel = new(bool)
+				event             Event[T]
+			)
+			event.Done = func(err error) {
+				runtime.SetFinalizer(eventDoneSentinel, nil)
+				queue.eventDone(entry, err)
 			}
+
+			// Add a finalizer to catch forgotten calls to Done().
+			runtime.SetFinalizer(eventDoneSentinel, doneFinalizer)
+
 			switch entry := entry.(type) {
-			case *syncEntry:
-				next(&SyncEvent[T]{baseEvent})
-			case *deleteEntry:
-				next(&DeleteEvent[T]{baseEvent, entry.key, entry.obj.(T)})
-			case *updateEntry:
+			case syncEntry:
+				event.Kind = Sync
+			case deleteEntry:
+				event.Kind = Delete
+				event.Key = entry.key
+				event.Object = entry.obj.(T)
+			case upsertEntry:
 				obj, exists, err := store.GetByKey(entry.key)
-				if err != nil {
-					queue.setError(err)
-					break
+				// If the item didn't exist, then it's been deleted and a delete event will
+				// follow soon.
+				if err != nil || !exists {
+					event.Done(nil)
+					continue loop
 				}
-				// Emit the update event if the item exists, if it doesn't, then
-				// it has been deleted and a delete will follow soon.
-				if exists {
-					next(&UpdateEvent[T]{baseEvent, entry.key, obj})
-				}
+				event.Kind = Upsert
+				event.Key = entry.key
+				event.Object = obj
+			default:
+				panic(fmt.Sprintf("%T: unknown entry type %T", r, entry))
+			}
+
+			select {
+			case out <- event:
+			case <-ctx.Done():
+				// Subscriber cancelled or resource is shutting down. We're not requiring
+				// the subscriber to drain the channel, so we're marking the event done here
+				// and not sending it. Will keep going until queue has been drained.
+				event.Done(nil)
 			}
 		}
-		r.mu.Lock()
-		delete(r.queues, subId)
-		r.mu.Unlock()
-		complete(queue.getError())
 	}()
 
 	// Fork a goroutine to wait for either the subscriber cancelling or the resource
@@ -286,36 +411,37 @@ func (r *resource[T]) Observe(subCtx context.Context, next func(Event[T]), compl
 		defer r.wg.Done()
 		select {
 		case <-r.ctx.Done():
-		case <-subCtx.Done():
+		case <-ctx.Done():
 		}
+		r.mu.Lock()
+		delete(r.queues, subId)
+		r.mu.Unlock()
 		subCancel()
 		queue.ShutDownWithDrain()
 	}()
+
+	return out
 }
 
 // keyQueue wraps the workqueue to implement the error retry logic for a single subscriber,
 // e.g. it implements the eventDone() method called by Event[T].Done().
 type keyQueue struct {
-	lock.Mutex
 	workqueue.RateLimitingInterface
-
 	errorHandler ErrorHandler
-
-	err error
 }
 
-func (kq *keyQueue) getError() error {
-	kq.Lock()
-	defer kq.Unlock()
-	return kq.err
+func (kq *keyQueue) AddSync() {
+	kq.Add(syncEntry{})
 }
 
-func (kq *keyQueue) setError(err error) {
-	kq.Lock()
-	defer kq.Unlock()
-	if kq.err == nil {
-		kq.err = err
-	}
+func (kq *keyQueue) AddUpsert(key Key) {
+	// The entries must be added by value and not by pointer in order for
+	// them to be compared by value and not by pointer.
+	kq.Add(upsertEntry{key})
+}
+
+func (kq *keyQueue) AddDelete(key Key, obj any) {
+	kq.Add(deleteEntry{key, obj})
 }
 
 func (kq *keyQueue) eventDone(entry queueEntry, err error) {
@@ -330,22 +456,25 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 
 		var action ErrorAction
 		switch entry := entry.(type) {
-		case *syncEntry:
-			action = ErrorActionStop
-		case *updateEntry:
+		case syncEntry:
+			action = kq.errorHandler(Key{}, numRequeues, err)
+		case upsertEntry:
 			action = kq.errorHandler(entry.key, numRequeues, err)
-		case *deleteEntry:
+		case deleteEntry:
 			action = kq.errorHandler(entry.key, numRequeues, err)
+		default:
+			panic(fmt.Sprintf("keyQueue: unhandled entry %T", entry))
 		}
 
 		switch action {
 		case ErrorActionRetry:
-			go kq.AddRateLimited(entry)
+			kq.AddRateLimited(entry)
 		case ErrorActionStop:
-			kq.setError(err)
 			kq.ShutDown()
 		case ErrorActionIgnore:
 			kq.Forget(entry)
+		default:
+			panic(fmt.Sprintf("keyQueue: unknown action %q from error handler %v", action, kq.errorHandler))
 		}
 	} else {
 		// As the object was processed successfully we can "forget" it.
@@ -355,6 +484,12 @@ func (kq *keyQueue) eventDone(entry queueEntry, err error) {
 	}
 }
 
+// queueEntry restricts the set of types we use when type-switching over the
+// queue entries, so that we'll get a compiler error on impossible types.
+//
+// The queue entries must be kept comparable and not be pointers as we want
+// to be able to coalesce multiple upsertEntry's into a single element in the
+// queue.
 type queueEntry interface {
 	isQueueEntry()
 }
@@ -363,11 +498,11 @@ type syncEntry struct{}
 
 func (syncEntry) isQueueEntry() {}
 
-type updateEntry struct {
+type upsertEntry struct {
 	key Key
 }
 
-func (updateEntry) isQueueEntry() {}
+func (upsertEntry) isQueueEntry() {}
 
 type deleteEntry struct {
 	key Key

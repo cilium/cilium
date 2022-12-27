@@ -69,6 +69,12 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if convertReview.Request == nil {
+		log.Error(nil, "conversion request is nil")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	// TODO(droot): may be move the conversion logic to a separate module to
 	// decouple it from the http layer ?
 	resp, err := wh.handleConvertRequest(convertReview.Request)

@@ -25,6 +25,10 @@ spec:
     interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics
+    {{- with .Values.hubble.metrics.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with .Values.hubble.metrics.serviceMonitor.metricRelabelings }}
     metricRelabelings:
     {{- toYaml . | nindent 4 }}

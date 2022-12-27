@@ -62,19 +62,3 @@ spec:
       matchLabels:
         cilium.io/ci-node: k8s2
     egressIP: INPUT_EGRESS_IP
----
-apiVersion: cilium.io/v2alpha1
-kind: CiliumEgressNATPolicy
-metadata:
-  name: cenp-sample
-spec:
-  egress:
-  - podSelector:
-      matchLabels:
-        zgroup: testDSClient2
-    namespaceSelector:
-      matchLabels:
-        ns: cilium-test
-  destinationCIDRs:
-  - INPUT_OUTSIDE_NODE_IP/32
-  egressSourceIP: INPUT_EGRESS_IP

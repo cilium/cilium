@@ -125,7 +125,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.Local, p.NatPolicy,
+	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -284,9 +284,9 @@ func deleteBackendByIDFamily(id loadbalancer.BackendID, ipv6 bool) error {
 	var key BackendKey
 
 	if ipv6 {
-		key = NewBackend6KeyV2(loadbalancer.BackendID(id))
+		key = NewBackend6KeyV3(loadbalancer.BackendID(id))
 	} else {
-		key = NewBackend4KeyV2(loadbalancer.BackendID(id))
+		key = NewBackend4KeyV3(loadbalancer.BackendID(id))
 	}
 
 	if err := deleteBackendLocked(key); err != nil {
@@ -466,7 +466,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	if option.Config.EnableIPv4 {
 		// TODO(brb) optimization: instead of dumping the backend map, we can
 		// pass its content to the function.
-		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -478,7 +478,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	if option.Config.EnableIPv6 {
 		// TODO(brb) same ^^ optimization applies here as well.
-		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -495,7 +495,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
 		svc.Type = flagsCache[host].SVCType()
-		svc.TrafficPolicy = flagsCache[host].SVCTrafficPolicy()
+		svc.ExtTrafficPolicy = flagsCache[host].SVCExtTrafficPolicy()
+		svc.IntTrafficPolicy = flagsCache[host].SVCIntTrafficPolicy()
 		svc.NatPolicy = flagsCache[host].SVCNatPolicy(svc.Frontend.L3n4Addr)
 		newSVCList = append(newSVCList, &svc)
 	}
@@ -517,14 +518,14 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	}
 
 	if option.Config.EnableIPv4 {
-		err := Backend4MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend4MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb4 backends map: %s", err)
 		}
 	}
 
 	if option.Config.EnableIPv6 {
-		err := Backend6MapV2.DumpWithCallback(parseBackendEntries)
+		err := Backend6MapV3.DumpWithCallback(parseBackendEntries)
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
 		}
@@ -553,7 +554,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 }
 
 func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
+	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
@@ -566,7 +567,8 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 	zeroValue.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
-		SvcLocal:         svcLocal,
+		SvcExtLocal:      svcExtLocal,
+		SvcIntLocal:      svcIntLocal,
 		SvcNatPolicy:     svcNatPolicy,
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,
@@ -600,10 +602,10 @@ func getBackend(backend *loadbalancer.Backend, ipv6 bool) (Backend, error) {
 	}
 
 	if ipv6 {
-		lbBackend, err = NewBackend6V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend6V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
 			backend.State)
 	} else {
-		lbBackend, err = NewBackend4V2(backend.ID, backend.AddrCluster.AsNetIP(), backend.Port, u8proto.ANY,
+		lbBackend, err = NewBackend4V3(backend.ID, backend.AddrCluster, backend.Port, u8proto.ANY,
 			backend.State)
 	}
 	if err != nil {

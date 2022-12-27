@@ -117,12 +117,12 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.CiliumEgressNATPolicyName, config.id.Name)
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.Name)
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
-		logger.Debug("Added CiliumEgressNATPolicy")
+		logger.Debug("Added CiliumEgressGatewayPolicy")
 	} else {
-		logger.Debug("Updated CiliumEgressNATPolicy")
+		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
 	manager.policyConfigs[config.id] = &config
@@ -136,14 +136,14 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithField(logfields.CiliumEgressNATPolicyName, configID.Name)
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, configID.Name)
 
 	if manager.policyConfigs[configID] == nil {
-		logger.Warn("Can't delete CiliumEgressNATPolicy: policy not found")
+		logger.Warn("Can't delete CiliumEgressGatewayPolicy: policy not found")
 		return
 	}
 
-	logger.Debug("Deleted CiliumEgressNATPolicy")
+	logger.Debug("Deleted CiliumEgressGatewayPolicy")
 
 	delete(manager.policyConfigs, configID)
 
@@ -364,7 +364,7 @@ func (manager *Manager) addMissingEgressRules() {
 }
 
 // removeUnusedEgressRules is responsible for removing any entry in the egress policy BPF map which
-// is not baked by an actual k8s CiliumEgressNATPolicy.
+// is not baked by an actual k8s CiliumEgressGatewayPolicy.
 func (manager *Manager) removeUnusedEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	egressmap.EgressPolicyMap.IterateWithCallback(

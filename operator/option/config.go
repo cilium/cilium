@@ -31,10 +31,16 @@ const (
 
 	// CESSlicingModeDefault is default method for grouping CEP in a CES.
 	CESSlicingModeDefault = "cesSliceModeIdentity"
+
+	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
+	CNPStatusCleanupQPSDefault = 10
+
+	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
+	CNPStatusCleanupBurstDefault = 20
 )
 
 const (
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP = "bgp-announce-lb-ip"
 
 	// BGPConfigPath is the file path to the BGP configuration. It is
@@ -53,6 +59,19 @@ const (
 	// CNPStatusUpdateInterval is the interval between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval = "cnp-status-update-interval"
+
+	// SkipCNPStatusStartupClean specifies if the cleanup of all the CNP
+	// NodeStatus updates at startup must be skipped.
+	SkipCNPStatusStartupClean = "skip-cnp-status-startup-clean"
+
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS = "cnp-status-cleanup-qps"
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst = "cnp-status-cleanup-burst"
 
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
@@ -232,6 +251,15 @@ const (
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode = "ces-slice-mode"
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
+	LoadBalancerL7 = "loadbalancer-l7"
+
+	// LoadBalancerL7Ports is a list of service ports that will be automatically redirected to backend.
+	LoadBalancerL7Ports = "loadbalancer-l7-ports"
+
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm = "loadbalancer-l7-algorithm"
+
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
@@ -308,6 +336,19 @@ type OperatorConfig struct {
 	// NodesGCInterval is the GC interval for CiliumNodes
 	NodesGCInterval time.Duration
 
+	// SkipCNPStatusStartupClean disables the cleanup of all the CNP
+	// NodeStatus updates at startup.
+	SkipCNPStatusStartupClean bool
+
+	// CNPStatusCleanupQPS is the rate at which the cleanup operation of the status
+	// nodes updates in CNPs is carried out. It is expressed as queries per second,
+	// and for each query a single CNP status update will be deleted.
+	CNPStatusCleanupQPS float64
+
+	// CNPStatusCleanupBurst is the maximum burst of queries allowed for the cleanup
+	// operation of the status nodes updates in CNPs.
+	CNPStatusCleanupBurst int
+
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
 
@@ -362,7 +403,7 @@ type OperatorConfig struct {
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
 
-	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP.
+	// BGPAnnounceLBIP announces service IPs of type LoadBalancer via BGP beta (deprecated)
 	BGPAnnounceLBIP bool
 
 	// BGPConfigPath is the file path to the BGP configuration. It is
@@ -491,6 +532,15 @@ type OperatorConfig struct {
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode string
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services.
+	LoadBalancerL7 string
+
+	// EnvoyLoadBalancerPorts is a list of service ports that will be automatically redirected to Envoy
+	LoadBalancerL7Ports []string
+
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm string
+
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
 
@@ -552,6 +602,9 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPNodeStatusGCInterval = vp.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = vp.GetDuration(CNPStatusUpdateInterval)
 	c.NodesGCInterval = vp.GetDuration(NodesGCInterval)
+	c.SkipCNPStatusStartupClean = vp.GetBool(SkipCNPStatusStartupClean)
+	c.CNPStatusCleanupQPS = vp.GetFloat64(CNPStatusCleanupQPS)
+	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)
@@ -575,6 +628,9 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
+	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
+	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
+	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)

@@ -6,7 +6,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -73,7 +72,7 @@ func Test_getMapNameEvents(t *testing.T) {
 	}
 	fp := &fakeProducer{}
 	resp.WriteResponse(mw, fp)
-	d, err := ioutil.ReadAll(w.Body)
+	d, err := io.ReadAll(w.Body)
 	assert.NoError(err)
 	assert.Equal(`{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
 }

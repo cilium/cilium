@@ -37,8 +37,8 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// This member is required.
 	NetworkInterfaceId *string
 
-	// Information about the interface attachment. If modifying the 'delete on
-	// termination' attribute, you must specify the ID of the interface attachment.
+	// Information about the interface attachment. If modifying the delete on
+	// termination attribute, you must specify the ID of the interface attachment.
 	Attachment *types.NetworkInterfaceAttachmentChanges
 
 	// A description for the network interface.
@@ -49,6 +49,10 @@ type ModifyNetworkInterfaceAttributeInput struct {
 	// required permissions, the error response is DryRunOperation. Otherwise, it is
 	// UnauthorizedOperation.
 	DryRun *bool
+
+	// Updates the ENA Express configuration for the network interface that’s attached
+	// to the instance.
+	EnaSrdSpecification *types.EnaSrdSpecification
 
 	// Changes the security groups for the network interface. The new set of groups you
 	// specify replaces the current set. You must specify at least one group, even if

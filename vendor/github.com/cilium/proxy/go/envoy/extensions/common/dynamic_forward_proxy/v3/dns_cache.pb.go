@@ -118,21 +118,21 @@ type DnsCacheConfig struct {
 	//
 	// .. note:
 	//
-	//   The TTL is only checked at the time of DNS refresh, as specified by *dns_refresh_rate*. This
-	//   means that if the configured TTL is shorter than the refresh rate the host may not be removed
-	//   immediately.
+	//	 The TTL is only checked at the time of DNS refresh, as specified by *dns_refresh_rate*. This
+	//	 means that if the configured TTL is shorter than the refresh rate the host may not be removed
+	//	 immediately.
 	//
-	//  .. note:
+	//	.. note:
 	//
-	//   The TTL has no relation to DNS TTL and is only used to control Envoy's resource usage.
+	//	 The TTL has no relation to DNS TTL and is only used to control Envoy's resource usage.
 	HostTtl *durationpb.Duration `protobuf:"bytes,4,opt,name=host_ttl,json=hostTtl,proto3" json:"host_ttl,omitempty"`
 	// The maximum number of hosts that the cache will hold. If not specified defaults to 1024.
 	//
 	// .. note:
 	//
-	//   The implementation is approximate and enforced independently on each worker thread, thus
-	//   it is possible for the maximum hosts in the cache to go slightly above the configured
-	//   value depending on timing. This is similar to how other circuit breakers work.
+	//	The implementation is approximate and enforced independently on each worker thread, thus
+	//	it is possible for the maximum hosts in the cache to go slightly above the configured
+	//	value depending on timing. This is similar to how other circuit breakers work.
 	MaxHosts *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=max_hosts,json=maxHosts,proto3" json:"max_hosts,omitempty"`
 	// If the DNS failure refresh rate is specified,
 	// this is used as the cache's DNS refresh rate when DNS requests are failing. If this setting is

@@ -904,15 +904,117 @@ type KubeProxyReplacementFeaturesNat46X64 struct {
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
+
+	// gateway
+	Gateway *KubeProxyReplacementFeaturesNat46X64Gateway `json:"gateway,omitempty"`
+
+	// service
+	Service *KubeProxyReplacementFeaturesNat46X64Service `json:"service,omitempty"`
 }
 
 // Validate validates this kube proxy replacement features nat46 x64
 func (m *KubeProxyReplacementFeaturesNat46X64) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateGateway(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateService(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
 	return nil
 }
 
-// ContextValidate validates this kube proxy replacement features nat46 x64 based on context it is used
+func (m *KubeProxyReplacementFeaturesNat46X64) validateGateway(formats strfmt.Registry) error {
+	if swag.IsZero(m.Gateway) { // not required
+		return nil
+	}
+
+	if m.Gateway != nil {
+		if err := m.Gateway.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNat46X64) validateService(formats strfmt.Registry) error {
+	if swag.IsZero(m.Service) { // not required
+		return nil
+	}
+
+	if m.Service != nil {
+		if err := m.Service.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nat46X64" + "." + "service")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64" + "." + "service")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this kube proxy replacement features nat46 x64 based on the context it is used
 func (m *KubeProxyReplacementFeaturesNat46X64) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateGateway(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateService(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateGateway(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Gateway != nil {
+		if err := m.Gateway.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64" + "." + "gateway")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNat46X64) contextValidateService(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Service != nil {
+		if err := m.Service.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "nat46X64" + "." + "service")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("features" + "." + "nat46X64" + "." + "service")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -927,6 +1029,87 @@ func (m *KubeProxyReplacementFeaturesNat46X64) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *KubeProxyReplacementFeaturesNat46X64) UnmarshalBinary(b []byte) error {
 	var res KubeProxyReplacementFeaturesNat46X64
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// KubeProxyReplacementFeaturesNat46X64Gateway
+//
+// +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesNat46X64Gateway
+type KubeProxyReplacementFeaturesNat46X64Gateway struct {
+
+	// enabled
+	Enabled bool `json:"enabled,omitempty"`
+
+	// prefixes
+	Prefixes []string `json:"prefixes"`
+}
+
+// Validate validates this kube proxy replacement features nat46 x64 gateway
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features nat46 x64 gateway based on context it is used
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementFeaturesNat46X64Gateway
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// KubeProxyReplacementFeaturesNat46X64Service
+//
+// +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesNat46X64Service
+type KubeProxyReplacementFeaturesNat46X64Service struct {
+
+	// enabled
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Validate validates this kube proxy replacement features nat46 x64 service
+func (m *KubeProxyReplacementFeaturesNat46X64Service) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this kube proxy replacement features nat46 x64 service based on context it is used
+func (m *KubeProxyReplacementFeaturesNat46X64Service) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesNat46X64Service) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesNat46X64Service) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementFeaturesNat46X64Service
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

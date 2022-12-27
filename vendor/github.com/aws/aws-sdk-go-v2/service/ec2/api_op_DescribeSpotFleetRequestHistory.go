@@ -18,7 +18,7 @@ import (
 // miss a recorded event. Spot Fleet events are available for 48 hours. For more
 // information, see Monitor fleet events using Amazon EventBridge
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/fleet-monitor.html) in the
-// Amazon EC2 User Guide for Linux Instances.
+// Amazon EC2 User Guide.
 func (c *Client) DescribeSpotFleetRequestHistory(ctx context.Context, params *DescribeSpotFleetRequestHistoryInput, optFns ...func(*Options)) (*DescribeSpotFleetRequestHistoryOutput, error) {
 	if params == nil {
 		params = &DescribeSpotFleetRequestHistoryInput{}

@@ -37,7 +37,9 @@ var (
 	dotGraphCmd = &cobra.Command{
 		Use:   "dot-graph",
 		Short: "Output the internal dependencies of cilium-agent in graphviz dot format",
-		Run:   func(cmd *cobra.Command, args []string) { agentHive.PrintDotGraph() },
+		Run: func(cmd *cobra.Command, args []string) {
+			agentHive.PrintDotGraph()
+		},
 	}
 
 	objectsCmd = &cobra.Command{

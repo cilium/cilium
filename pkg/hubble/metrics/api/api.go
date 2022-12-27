@@ -5,9 +5,11 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -39,8 +41,11 @@ func ParseMetricList(enabledMetrics []string) (m Map) {
 	return
 }
 
-// Handlers is a slice of metric handler
-type Handlers []Handler
+// Handlers contains all the metrics handlers.
+type Handlers struct {
+	handlers       []Handler
+	flowProcessors []FlowProcessor
+}
 
 // Plugin is a metric plugin. A metric plugin is associated a name and is
 // responsible to spawn metric handlers of a certain type.
@@ -61,29 +66,50 @@ type PluginConflicts interface {
 	ConflictingPlugins() []string
 }
 
-// Handler is a metric handler. It is called upon receival of raw event data
-// and is responsible to perform metrics accounting according to the scope of
-// the metrics plugin.
+// Handler is a basic metric handler.
 type Handler interface {
 	// Init must initialize the metric handler by validating and parsing
 	// the options and then registering all required metrics with the
 	// specifies Prometheus registry
 	Init(registry *prometheus.Registry, options Options) error
 
+	// Status returns the configuration status of the metric handler
+	Status() string
+}
+
+// FlowProcessor is a metric handler which requires flows to perform metrics
+// accounting.
+// It is called upon receival of raw event data and is responsible
+// to perform metrics accounting according to the scope of the metrics plugin.
+type FlowProcessor interface {
 	// ProcessFlow must processes a flow event and perform metrics
 	// accounting
 	ProcessFlow(ctx context.Context, flow *pb.Flow) error
+}
 
-	// Status returns the configuration status of the metric handler
-	Status() string
+func NewHandlers(log logrus.FieldLogger, registry *prometheus.Registry, in []NamedHandler) (*Handlers, error) {
+	var handlers Handlers
+	for _, item := range in {
+		handlers.handlers = append(handlers.handlers, item.Handler)
+		if fp, ok := item.Handler.(FlowProcessor); ok {
+			handlers.flowProcessors = append(handlers.flowProcessors, fp)
+		}
+
+		if err := item.Handler.Init(registry, item.Options); err != nil {
+			return nil, fmt.Errorf("unable to initialize metric '%s': %s", item.Name, err)
+		}
+
+		log.WithFields(logrus.Fields{"name": item.Name, "status": item.Handler.Status()}).Info("Configured metrics plugin")
+	}
+	return &handlers, nil
 }
 
 // ProcessFlow processes a flow by calling ProcessFlow it on to all enabled
 // metric handlers
 func (h Handlers) ProcessFlow(ctx context.Context, flow *pb.Flow) error {
 	var processingErr error
-	for _, mh := range h {
-		err := mh.ProcessFlow(ctx, flow)
+	for _, fp := range h.flowProcessors {
+		err := fp.ProcessFlow(ctx, flow)
 		// Continue running the remaining metrics handlers, since one failing
 		// shouldn't impact the other metrics handlers.
 		processingErr = multierr.Append(processingErr, err)

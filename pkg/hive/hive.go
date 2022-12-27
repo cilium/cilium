@@ -278,8 +278,12 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
-	h.shutdown <- o.err
-	close(h.shutdown)
+
+	// If there already is an error in the channel, no-op
+	select {
+	case h.shutdown <- o.err:
+	default:
+	}
 }
 
 func (h *Hive) PrintObjects() {

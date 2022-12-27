@@ -145,4 +145,5 @@ func (request *RoaRequest) initWithCommonRequest(commonRequest *CommonRequest) {
 	request.pathPattern = commonRequest.PathPattern
 	request.locationServiceCode = commonRequest.ServiceCode
 	request.locationEndpointType = ""
+	request.span = commonRequest.span
 }

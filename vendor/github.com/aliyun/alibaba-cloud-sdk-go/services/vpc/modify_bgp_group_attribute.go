@@ -71,18 +71,21 @@ func (client *Client) ModifyBgpGroupAttributeWithCallback(request *ModifyBgpGrou
 // ModifyBgpGroupAttributeRequest is the request struct for api ModifyBgpGroupAttribute
 type ModifyBgpGroupAttributeRequest struct {
 	*requests.RpcRequest
-	AuthKey              string           `position:"Query" name:"AuthKey"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	BgpGroupId           string           `position:"Query" name:"BgpGroupId"`
-	Description          string           `position:"Query" name:"Description"`
-	PeerAsn              requests.Integer `position:"Query" name:"PeerAsn"`
-	IsFakeAsn            requests.Boolean `position:"Query" name:"IsFakeAsn"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Name                 string           `position:"Query" name:"Name"`
-	LocalAsn             requests.Integer `position:"Query" name:"LocalAsn"`
+	AuthKey                  string           `position:"Query" name:"AuthKey"`
+	ResourceOwnerId          requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken              string           `position:"Query" name:"ClientToken"`
+	BgpGroupId               string           `position:"Query" name:"BgpGroupId"`
+	Description              string           `position:"Query" name:"Description"`
+	PeerAsn                  requests.Integer `position:"Query" name:"PeerAsn"`
+	IsFakeAsn                requests.Boolean `position:"Query" name:"IsFakeAsn"`
+	ClearAuthKey             requests.Boolean `position:"Query" name:"ClearAuthKey"`
+	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`
+	RouteQuota               requests.Integer `position:"Query" name:"RouteQuota"`
+	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
+	RouteUsageAlarmThreshold requests.Integer `position:"Query" name:"RouteUsageAlarmThreshold"`
+	Name                     string           `position:"Query" name:"Name"`
+	LocalAsn                 requests.Integer `position:"Query" name:"LocalAsn"`
 }
 
 // ModifyBgpGroupAttributeResponse is the response struct for api ModifyBgpGroupAttribute

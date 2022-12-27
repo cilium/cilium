@@ -4,9 +4,11 @@
 package watchers
 
 import (
+	"context"
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -48,7 +50,7 @@ func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-func PodsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
+func PodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var podInformer cache.Controller
 	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
 		PodNodeNameIndex: podNodeNameIndexFunc,
@@ -63,10 +65,13 @@ func PodsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 		convertToPod,
 		PodStore,
 	)
-	go podInformer.Run(stopCh)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		podInformer.Run(ctx.Done())
+	}()
 
-	cache.WaitForCacheSync(stopCh, podInformer.HasSynced)
-	close(PodStoreSynced)
+	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced)
 }
 
 // convertToPod stores a minimal version of the pod as it is only intended
@@ -121,7 +126,7 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedPodsInit(clientset k8sClient.Clientset) {
+func UnmanagedPodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var unmanagedPodInformer cache.Controller
 	UnmanagedPodStore, unmanagedPodInformer = informer.NewInformer(
 		k8sUtils.ListerWatcherWithModifier(
@@ -135,10 +140,13 @@ func UnmanagedPodsInit(clientset k8sClient.Clientset) {
 		cache.ResourceEventHandlerFuncs{},
 		convertToUnmanagedPod,
 	)
-	go unmanagedPodInformer.Run(wait.NeverStop)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		unmanagedPodInformer.Run(ctx.Done())
+	}()
 
-	cache.WaitForCacheSync(wait.NeverStop, unmanagedPodInformer.HasSynced)
-	close(UnmanagedPodStoreSynced)
+	cache.WaitForCacheSync(ctx.Done(), unmanagedPodInformer.HasSynced)
 }
 
 func convertToUnmanagedPod(obj interface{}) interface{} {

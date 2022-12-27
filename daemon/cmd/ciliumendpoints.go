@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiTypes "k8s.io/apimachinery/pkg/types"
 
@@ -80,8 +81,13 @@ func (d *Daemon) deleteCiliumEndpoint(
 	if cepUID == nil && endpointSliceEnabled {
 		cep, err := ciliumClient.CiliumEndpoints(cepNamespace).Get(ctx, cepName, metav1.GetOptions{})
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
-				Error("Failed to get possibly stale ciliumendpoints from apiserver, skipping.")
+			if k8serrors.IsNotFound(err) {
+				log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
+					Info("CEP no longer exists, skipping staleness check")
+			} else {
+				log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
+					Error("Failed to get possibly stale ciliumendpoints from apiserver, skipping.")
+			}
 			return
 		}
 		if cep.Status.Networking.NodeIP != node.GetCiliumEndpointNodeIP() {
@@ -104,7 +110,13 @@ func (d *Daemon) deleteCiliumEndpoint(
 			UID: cepUID,
 		},
 	}); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace}).
-			Error("Could not delete stale CEP")
+		logger := log.WithError(err).WithFields(logrus.Fields{logfields.CEPName: cepName, logfields.K8sNamespace: cepNamespace})
+		if k8serrors.IsNotFound(err) {
+			// CEP not found, likely already deleted. Do not log as an error as that
+			// will fail CI runs.
+			logger.Debug("Could not delete stale CEP")
+		} else {
+			logger.Error("Could not delete stale CEP")
+		}
 	}
 }

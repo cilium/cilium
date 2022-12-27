@@ -12,10 +12,14 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a network interface in the specified subnet. For more information about
-// network interfaces, see Elastic Network Interfaces
+// Creates a network interface in the specified subnet. The number of IP addresses
+// you can assign to a network interface varies by instance type. For more
+// information, see IP Addresses Per ENI Per Instance Type
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
+// in the Amazon Virtual Private Cloud User Guide. For more information about
+// network interfaces, see Elastic network interfaces
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html) in the
-// Amazon Virtual Private Cloud User Guide.
+// Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateNetworkInterface(ctx context.Context, params *CreateNetworkInterfaceInput, optFns ...func(*Options)) (*CreateNetworkInterfaceOutput, error) {
 	if params == nil {
 		params = &CreateNetworkInterfaceInput{}
@@ -31,7 +35,6 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, params *CreateNetwo
 	return out, nil
 }
 
-// Contains the parameters for CreateNetworkInterface.
 type CreateNetworkInterfaceInput struct {
 
 	// The ID of the subnet to associate with the network interface.
@@ -61,33 +64,39 @@ type CreateNetworkInterfaceInput struct {
 	InterfaceType types.NetworkInterfaceCreationType
 
 	// The number of IPv4 prefixes that Amazon Web Services automatically assigns to
-	// the network interface. You cannot use this option if you use the Ipv4 Prefixes
-	// option.
+	// the network interface. You can't specify a count of IPv4 prefixes if you've
+	// specified one of the following: specific IPv4 prefixes, specific private IPv4
+	// addresses, or a count of private IPv4 addresses.
 	Ipv4PrefixCount *int32
 
-	// One or more IPv4 prefixes assigned to the network interface. You cannot use this
-	// option if you use the Ipv4PrefixCount option.
+	// The IPv4 prefixes assigned to the network interface. You can't specify IPv4
+	// prefixes if you've specified one of the following: a count of IPv4 prefixes,
+	// specific private IPv4 addresses, or a count of private IPv4 addresses.
 	Ipv4Prefixes []types.Ipv4PrefixSpecificationRequest
 
 	// The number of IPv6 addresses to assign to a network interface. Amazon EC2
-	// automatically selects the IPv6 addresses from the subnet range. You can't use
-	// this option if specifying specific IPv6 addresses. If your subnet has the
-	// AssignIpv6AddressOnCreation attribute set to true, you can specify 0 to override
-	// this setting.
+	// automatically selects the IPv6 addresses from the subnet range. You can't
+	// specify a count of IPv6 addresses using this parameter if you've specified one
+	// of the following: specific IPv6 addresses, specific IPv6 prefixes, or a count of
+	// IPv6 prefixes. If your subnet has the AssignIpv6AddressOnCreation attribute set,
+	// you can override that setting by specifying 0 as the IPv6 address count.
 	Ipv6AddressCount *int32
 
-	// One or more specific IPv6 addresses from the IPv6 CIDR block range of your
-	// subnet. You can't use this option if you're specifying a number of IPv6
-	// addresses.
+	// The IPv6 addresses from the IPv6 CIDR block range of your subnet. You can't
+	// specify IPv6 addresses using this parameter if you've specified one of the
+	// following: a count of IPv6 addresses, specific IPv6 prefixes, or a count of IPv6
+	// prefixes.
 	Ipv6Addresses []types.InstanceIpv6Address
 
 	// The number of IPv6 prefixes that Amazon Web Services automatically assigns to
-	// the network interface. You cannot use this option if you use the Ipv6Prefixes
-	// option.
+	// the network interface. You can't specify a count of IPv6 prefixes if you've
+	// specified one of the following: specific IPv6 prefixes, specific IPv6 addresses,
+	// or a count of IPv6 addresses.
 	Ipv6PrefixCount *int32
 
-	// One or more IPv6 prefixes assigned to the network interface. You cannot use this
-	// option if you use the Ipv6PrefixCount option.
+	// The IPv6 prefixes assigned to the network interface. You can't specify IPv6
+	// prefixes if you've specified one of the following: a count of IPv6 prefixes,
+	// specific IPv6 addresses, or a count of IPv6 addresses.
 	Ipv6Prefixes []types.Ipv6PrefixSpecificationRequest
 
 	// The primary private IPv4 address of the network interface. If you don't specify
@@ -97,17 +106,18 @@ type CreateNetworkInterfaceInput struct {
 	// designated as primary).
 	PrivateIpAddress *string
 
-	// One or more private IPv4 addresses.
+	// The private IPv4 addresses. You can't specify private IPv4 addresses if you've
+	// specified one of the following: a count of private IPv4 addresses, specific IPv4
+	// prefixes, or a count of IPv4 prefixes.
 	PrivateIpAddresses []types.PrivateIpAddressSpecification
 
 	// The number of secondary private IPv4 addresses to assign to a network interface.
 	// When you specify a number of secondary IPv4 addresses, Amazon EC2 selects these
 	// IP addresses within the subnet's IPv4 CIDR range. You can't specify this option
-	// and specify more than one private IP address using privateIpAddresses. The
-	// number of IP addresses you can assign to a network interface varies by instance
-	// type. For more information, see IP Addresses Per ENI Per Instance Type
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html#AvailableIpPerENI)
-	// in the Amazon Virtual Private Cloud User Guide.
+	// and specify more than one private IP address using privateIpAddresses. You can't
+	// specify a count of private IPv4 addresses if you've specified one of the
+	// following: specific private IPv4 addresses, specific IPv4 prefixes, or a count
+	// of IPv4 prefixes.
 	SecondaryPrivateIpAddressCount *int32
 
 	// The tags to apply to the new network interface.
@@ -116,7 +126,6 @@ type CreateNetworkInterfaceInput struct {
 	noSmithyDocumentSerde
 }
 
-// Contains the output of CreateNetworkInterface.
 type CreateNetworkInterfaceOutput struct {
 
 	// The token to use to retrieve the next page of results. This value is null when

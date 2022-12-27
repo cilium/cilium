@@ -71,18 +71,11 @@ func (client *Client) DeleteImageComponentWithCallback(request *DeleteImageCompo
 // DeleteImageComponentRequest is the request struct for api DeleteImageComponent
 type DeleteImageComponentRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer                   `position:"Query" name:"ResourceOwnerId"`
-	ImageComponentId     string                             `position:"Query" name:"ImageComponentId"`
-	TemplateTag          *[]DeleteImageComponentTemplateTag `position:"Query" name:"TemplateTag"  type:"Repeated"`
-	ResourceOwnerAccount string                             `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                             `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer                   `position:"Query" name:"OwnerId"`
-}
-
-// DeleteImageComponentTemplateTag is a repeated param struct in DeleteImageComponentRequest
-type DeleteImageComponentTemplateTag struct {
-	Key   string `name:"Key"`
-	Value string `name:"Value"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ImageComponentId     string           `position:"Query" name:"ImageComponentId"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }
 
 // DeleteImageComponentResponse is the response struct for api DeleteImageComponent

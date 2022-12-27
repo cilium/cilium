@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
+	"github.com/cilium/workerpool"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 
@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 // PrintServices for the pkg/k8s/resource which observers pods and services and once a second prints the list of
@@ -83,9 +82,7 @@ var printServicesCell = cell.Module(
 )
 
 type PrintServices struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	wp *workerpool.WorkerPool
 
 	pods     resource.Resource[*corev1.Pod]
 	services resource.Resource[*corev1.Service]
@@ -103,33 +100,28 @@ func newPrintServices(p printServicesParams) (*PrintServices, error) {
 	if p.Pods == nil || p.Services == nil {
 		return nil, fmt.Errorf("Resources not available. Missing --k8s-kubeconfig-path?")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	ps := &PrintServices{
-		ctx:      ctx,
-		cancel:   cancel,
 		pods:     p.Pods,
 		services: p.Services,
+		wp:       workerpool.New(1),
 	}
 	p.Lifecycle.Append(ps)
 	return ps, nil
 }
 
 func (ps *PrintServices) Start(startCtx hive.HookContext) error {
-	ps.wg.Add(1)
+	ps.wp.Submit("processLoop", ps.processLoop)
 
 	// Using the start context, do a blocking dump of all
 	// services. Using the start context here makes sure that
 	// this operation is aborted if it blocks too long.
 	ps.printServices(startCtx)
 
-	go ps.run()
-
 	return nil
 }
 
 func (ps *PrintServices) Stop(hive.HookContext) error {
-	ps.cancel()
-	ps.wg.Wait()
+	ps.wp.Close()
 	return nil
 }
 
@@ -152,28 +144,15 @@ func (ps *PrintServices) printServices(ctx context.Context) {
 
 }
 
-func (ps *PrintServices) run() {
-	defer ps.wg.Done()
-
-	// Always restart unless we're being stopped.
-	for ps.ctx.Err() == nil {
-		log.Info("Starting to print periodic updates to service to pod mappings")
-		ps.processLoop()
-	}
-}
-
 // processLoop observes changes to pods and services and periodically prints the
 // services and the pods that each service selects.
-func (ps *PrintServices) processLoop() {
+func (ps *PrintServices) processLoop(ctx context.Context) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	// Subscribe to pods and services. Use a shared channel for errors
-	// and make it buffered so unsubscribing from the resource does not get
-	// blocked.
-	errs := make(chan error, 2)
-	pods := stream.ToChannel[resource.Event[*corev1.Pod]](ps.ctx, errs, ps.pods)
-	services := stream.ToChannel[resource.Event[*corev1.Service]](ps.ctx, errs, ps.services)
+	// Subscribe to pods and services.
+	pods := ps.pods.Events(ctx)
+	services := ps.services.Events(ctx)
 
 	// State:
 	podLabels := make(map[resource.Key]labels.Labels)
@@ -206,23 +185,26 @@ func (ps *PrintServices) processLoop() {
 				continue
 			}
 
-			// Event can be handled synchronously with 'Handle()':
-			ev.Handle(
-				func() error {
-					log.Info("Pods synced")
-					return nil
-				},
-				func(k resource.Key, pod *corev1.Pod) error {
-					log.Infof("Pod %s updated", k)
-					podLabels[k] = labels.Map2Labels(pod.Labels, "k8s")
-					return nil
-				},
-				func(k resource.Key, deletedPod *corev1.Pod) error {
-					log.Infof("Pod %s deleted", k)
-					delete(podLabels, k)
-					return nil
-				},
-			)
+			switch ev.Kind {
+			case resource.Sync:
+				// Pods have now been synced and the set of Upsert events
+				// received thus far forms a coherent snapshot of the pods
+				// at a specific point in time. This is usually used in the context
+				// of garbage collection at startup: we now know what is the set of pods that
+				// existed at the api-server brief moment ago and can remove persisted
+				// data of pods that are not part of this set.
+			case resource.Upsert:
+				log.Infof("Pod %s updated", ev.Key)
+				podLabels[ev.Key] = labels.Map2Labels(ev.Object.Labels, "k8s")
+			case resource.Delete:
+				log.Infof("Pod %s deleted", ev.Key)
+				delete(podLabels, ev.Key)
+			}
+
+			// Always mark the event as processed. This tells the resource that more
+			// events can be now emitted for this key and if error is nil it clears
+			// any rate limiting state related to failed attempts.
+			ev.Done(nil)
 
 		case ev, ok := <-services:
 			if !ok {
@@ -238,33 +220,21 @@ func (ps *PrintServices) processLoop() {
 				continue
 			}
 
-			// Event can also be handled with a type switch and call to 'Done()'
-			// (which allows parallel processing of events):
-			switch ev := ev.(type) {
-			case *resource.SyncEvent[*corev1.Service]:
+			switch ev.Kind {
+			case resource.Sync:
 				log.Info("Services synced")
-			case *resource.UpdateEvent[*corev1.Service]:
+			case resource.Upsert:
 				log.Infof("Service %s updated", ev.Key)
 				if len(ev.Object.Spec.Selector) > 0 {
 					serviceSelectors[ev.Key] = labels.Map2Labels(ev.Object.Spec.Selector, "k8s")
 				}
-			case *resource.DeleteEvent[*corev1.Service]:
+			case resource.Delete:
 				log.Infof("Service %s deleted", ev.Key)
 				delete(serviceSelectors, ev.Key)
 			}
-			// We must now call 'Done()' directly. If we would call it with a non-nil
-			// error the processing for this object would be retried later, with possible
-			// a newer version of the object. If retries fail, the stream would complete
-			// with the error.
 			ev.Done(nil)
 		}
 	}
 
-	// Log errors if any
-	close(errs)
-	for err := range errs {
-		if err != nil {
-			log.WithError(err).Error("Error occurred processing updates")
-		}
-	}
+	return nil
 }

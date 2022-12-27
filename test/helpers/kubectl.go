@@ -2865,9 +2865,21 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	// changes did not fix the isse, and we need to make this workaround to
 	// avoid Kubectl issue.
 	// https://github.com/openshift/origin/issues/16246
+	//
+	// Sometimes kubectl returns -1 exit code, when the command has been killed
+	// with the stderr "signal: killed" (or generically when a process has been
+	// killed by a signal [1]), where the same command succeeds in a
+	// forthcoming sysdump. Keep trying also in this case until the
+	// 'limitTimes' retries has been exhausted.
+	// https://github.com/cilium/cilium/issues/22476
+	// [1]: https://github.com/golang/go/blob/go1.20rc1/src/os/exec_posix.go#L128-L130
 	for i := 0; i < limitTimes; i++ {
 		res = execute()
-		if res.GetExitCode() != 126 {
+		switch res.GetExitCode() {
+		case -1, 126:
+			// Retry.
+		default:
+			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
@@ -3033,17 +3045,17 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	defer cancel()
 	res := kub.CiliumExecContext(ctx, pod, "cilium policy get -o json")
 	if !res.WasSuccessful() {
-		return -1, fmt.Errorf("cannot get the revision %s", res.Stdout())
+		return -1, fmt.Errorf("cannot get policy revision: %q", res.Stdout())
 	}
 
 	revision, err := res.Filter("{.revision}")
 	if err != nil {
-		return -1, fmt.Errorf("cannot get revision from json output '%s': %s", res.CombineOutput(), err)
+		return -1, fmt.Errorf("unable to find revision from json output %q: %s", res.CombineOutput(), err)
 	}
 
 	revi, err := strconv.Atoi(strings.Trim(revision.String(), "\n"))
 	if err != nil {
-		kub.Logger().Errorf("revision on pod '%s' is not valid '%s'", pod, res.CombineOutput())
+		kub.Logger().Errorf("Found invalid policy revision on pod %q: %q", pod, res.CombineOutput())
 		return -1, err
 	}
 	return revi, nil
@@ -3065,7 +3077,7 @@ func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
 		revision, err := kub.CiliumPolicyRevision(pod)
 		if err != nil {
 			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
-			return nil, fmt.Errorf("Cannot retrieve cilium pod %s policy revision: %s", pod, err)
+			return nil, fmt.Errorf("Cannot retrieve %q's policy revision: %s", pod, err)
 		}
 		revisions[pod] = revision
 	}
@@ -4162,7 +4174,7 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 	trafficPolicy = strings.Title(strings.ToLower(trafficPolicy))
 	switch trafficPolicy {
 	case "Cluster", "Local":
-		opts = append(opts, "--k8s-traffic-policy "+trafficPolicy)
+		opts = append(opts, "--k8s-ext-traffic-policy "+trafficPolicy)
 	default:
 		return fmt.Errorf("invalid traffic policy: %q", svcType)
 	}
@@ -4302,18 +4314,18 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
 
-// HubbleObserve runs `hubble observe --output=json <args>` on 'ns/pod' and
+// HubbleObserve runs `hubble observe --output=jsonpb <args>` on 'ns/pod' and
 // waits for its completion.
 func (kub *Kubectl) HubbleObserve(pod string, args string) *CmdRes {
 	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 	defer cancel()
-	return kub.ExecPodCmdContext(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --output=json %s", args))
+	return kub.ExecPodCmdContext(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --output=jsonpb %s", args))
 }
 
-// HubbleObserveFollow runs `hubble observe --follow --output=json <args>` on
+// HubbleObserveFollow runs `hubble observe --follow --output=jsonpb <args>` on
 // the Cilium pod 'ns/pod' in the background. The process is stopped when ctx is cancelled.
 func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) *CmdRes {
-	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=json %s", args))
+	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, "cilium-agent", fmt.Sprintf("hubble observe --follow --output=jsonpb %s", args))
 }
 
 // WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"

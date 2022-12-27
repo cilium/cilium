@@ -34,6 +34,7 @@ type PathMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Rule:
+	//
 	//	*PathMatcher_Path
 	Rule isPathMatcher_Rule `protobuf_oneof:"rule"`
 }

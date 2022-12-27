@@ -36,6 +36,7 @@ type VpnGateway struct {
 	BusinessStatus    string                    `json:"BusinessStatus" xml:"BusinessStatus"`
 	SslVpn            string                    `json:"SslVpn" xml:"SslVpn"`
 	Name              string                    `json:"Name" xml:"Name"`
+	NetworkType       string                    `json:"NetworkType" xml:"NetworkType"`
 	ReservationData   ReservationData           `json:"ReservationData" xml:"ReservationData"`
 	Tags              TagsInDescribeVpnGateways `json:"Tags" xml:"Tags"`
 }

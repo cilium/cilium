@@ -15,20 +15,20 @@ type FakeCiliumV2alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCiliumV2alpha1) CiliumBGPLoadBalancerIPPools() v2alpha1.CiliumBGPLoadBalancerIPPoolInterface {
-	return &FakeCiliumBGPLoadBalancerIPPools{c}
-}
-
 func (c *FakeCiliumV2alpha1) CiliumBGPPeeringPolicies() v2alpha1.CiliumBGPPeeringPolicyInterface {
 	return &FakeCiliumBGPPeeringPolicies{c}
 }
 
-func (c *FakeCiliumV2alpha1) CiliumEgressNATPolicies() v2alpha1.CiliumEgressNATPolicyInterface {
-	return &FakeCiliumEgressNATPolicies{c}
-}
-
 func (c *FakeCiliumV2alpha1) CiliumEndpointSlices() v2alpha1.CiliumEndpointSliceInterface {
 	return &FakeCiliumEndpointSlices{c}
+}
+
+func (c *FakeCiliumV2alpha1) CiliumLoadBalancerIPPools() v2alpha1.CiliumLoadBalancerIPPoolInterface {
+	return &FakeCiliumLoadBalancerIPPools{c}
+}
+
+func (c *FakeCiliumV2alpha1) CiliumNodeConfigs(namespace string) v2alpha1.CiliumNodeConfigInterface {
+	return &FakeCiliumNodeConfigs{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

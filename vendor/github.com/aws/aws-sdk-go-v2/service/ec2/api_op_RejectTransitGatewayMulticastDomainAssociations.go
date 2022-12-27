@@ -50,7 +50,7 @@ type RejectTransitGatewayMulticastDomainAssociationsInput struct {
 
 type RejectTransitGatewayMulticastDomainAssociationsOutput struct {
 
-	// Describes the multicast domain associations.
+	// Information about the multicast domain associations.
 	Associations *types.TransitGatewayMulticastDomainAssociations
 
 	// Metadata pertaining to the operation's result.

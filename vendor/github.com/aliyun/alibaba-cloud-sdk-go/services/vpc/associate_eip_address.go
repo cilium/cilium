@@ -77,11 +77,13 @@ type AssociateEipAddressRequest struct {
 	Mode                 string           `position:"Query" name:"Mode"`
 	InstanceRegionId     string           `position:"Query" name:"InstanceRegionId"`
 	InstanceType         string           `position:"Query" name:"InstanceType"`
+	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	PrivateIpAddress     string           `position:"Query" name:"PrivateIpAddress"`
 	InstanceId           string           `position:"Query" name:"InstanceId"`
+	VpcId                string           `position:"Query" name:"VpcId"`
 }
 
 // AssociateEipAddressResponse is the response struct for api AssociateEipAddress

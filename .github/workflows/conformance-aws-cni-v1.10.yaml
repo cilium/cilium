@@ -63,10 +63,11 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
+  k8s_version: 1.21
   cilium_base_version: "1.10"
   cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  eksctl_version: v0.101.0
+  eksctl_version: v0.122.0
   kubectl_version: v1.23.6
 
 jobs:
@@ -181,7 +182,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Install helm
-        uses: azure/setup-helm@f382f75448129b3be48f8121b9857be18d815a82
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78
         with:
           # Due to the below issue, v3.8.2 is pinned currently to avoid
           # exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
@@ -204,6 +205,7 @@ jobs:
             metadata:
               name: ${{ env.clusterName }}
               region: ${{ env.region }}
+              version: "${{ env.k8s_version }}"
               tags:
                usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
                owner: "${{ steps.vars.outputs.owner }}"
@@ -290,7 +292,7 @@ jobs:
           cilium connectivity test \
             --base-version=v${{ env.cilium_base_version }} \
             --flow-validation=disabled --hubble=false \
-            --test '!fqdn,!l7' # L7 policies are not supported in chaining mode.
+            --test '!fqdn,!l7,!/pod-to-world,!/pod-to-cidr' # L7 policies are not supported in chaining mode.
 
       - name: Post-test information gathering
         if: ${{ !success() }}

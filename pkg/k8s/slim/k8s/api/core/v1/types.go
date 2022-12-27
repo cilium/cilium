@@ -368,7 +368,7 @@ type PodStatus struct {
 	// +optional
 	// +patchMergeKey=type
 	// +patchStrategy=merge
-	ContainerStatuses []ContainerStatus `json:"statuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
+	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 
 	// The Quality of Service (QOS) classification assigned to the pod based on resource requirements
 	// See PodQOSClass type for available QOS classes
@@ -484,12 +484,30 @@ const (
 	ServiceExternalTrafficPolicyTypeCluster ServiceExternalTrafficPolicyType = "Cluster"
 )
 
+// Service Internal Traffic Policy Type string
+// +enum
+type ServiceInternalTrafficPolicyType string
+
+const (
+	// ServiceInternalTrafficPolicyTypeLocal specifies node-local endpoints behavior.
+	ServiceInternalTrafficPolicyTypeLocal ServiceInternalTrafficPolicyType = "Local"
+	// ServiceInternalTrafficPolicyTypeCluster specifies node-global (legacy) behavior.
+	ServiceInternalTrafficPolicyTypeCluster ServiceInternalTrafficPolicyType = "Cluster"
+)
+
 // ServiceStatus represents the current status of a service.
 type ServiceStatus struct {
 	// LoadBalancer contains the current status of the load-balancer,
 	// if one is present.
 	// +optional
 	LoadBalancer LoadBalancerStatus `json:"loadBalancer,omitempty" protobuf:"bytes,1,opt,name=loadBalancer"`
+	// Current service state
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []slim_metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.
@@ -531,6 +549,34 @@ const (
 	// IPv6Protocol indicates that this IP is IPv6 protocol
 	IPv6Protocol IPFamily = "IPv6"
 )
+
+// IPFamilyPolicy represents the dual-stack-ness requested or required by a Service
+// +enum
+type IPFamilyPolicy string
+
+const (
+	// IPFamilyPolicySingleStack indicates that this service is required to have a single IPFamily.
+	// The IPFamily assigned is based on the default IPFamily used by the cluster
+	// or as identified by service.spec.ipFamilies field
+	IPFamilyPolicySingleStack IPFamilyPolicy = "SingleStack"
+	// IPFamilyPolicyPreferDualStack indicates that this service prefers dual-stack when
+	// the cluster is configured for dual-stack. If the cluster is not configured
+	// for dual-stack the service will be assigned a single IPFamily. If the IPFamily is not
+	// set in service.spec.ipFamilies then the service will be assigned the default IPFamily
+	// configured on the cluster
+	IPFamilyPolicyPreferDualStack IPFamilyPolicy = "PreferDualStack"
+	// IPFamilyPolicyRequireDualStack indicates that this service requires dual-stack. Using
+	// IPFamilyPolicyRequireDualStack on a single stack cluster will result in validation errors. The
+	// IPFamilies (and their order) assigned  to this service is based on service.spec.ipFamilies. If
+	// service.spec.ipFamilies was not provided then it will be assigned according to how they are
+	// configured on the cluster. If service.spec.ipFamilies has only one entry then the alternative
+	// IPFamily will be added by apiserver
+	IPFamilyPolicyRequireDualStack IPFamilyPolicy = "RequireDualStack"
+)
+
+// for backwards compat
+// +enum
+type IPFamilyPolicyType = IPFamilyPolicy
 
 // ServiceSpec describes the attributes that a user creates on a service.
 type ServiceSpec struct {
@@ -660,6 +706,11 @@ type ServiceSpec struct {
 	// +optional
 	ExternalTrafficPolicy ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty" protobuf:"bytes,11,opt,name=externalTrafficPolicy"`
 
+	// internalTrafficPolicy denotes if this Service desires to route internal
+	// traffic to node-local or cluster-wide endpoints.
+	// +optional
+	InternalTrafficPolicy ServiceInternalTrafficPolicyType `json:"internalTrafficPolicy,omitempty" protobuf:"bytes,22,opt,name=internalTrafficPolicy"`
+
 	// healthCheckNodePort specifies the healthcheck nodePort for the service.
 	// This only applies when type is set to LoadBalancer and
 	// externalTrafficPolicy is set to Local. If a value is specified, is
@@ -695,6 +746,31 @@ type ServiceSpec struct {
 	// +listType=atomic
 	// +optional
 	IPFamilies []IPFamily `json:"ipFamilies,omitempty" protobuf:"bytes,19,opt,name=ipFamilies,casttype=IPFamily"`
+
+	// IPFamilyPolicy represents the dual-stack-ness requested or required by
+	// this Service. If there is no value provided, then this field will be set
+	// to SingleStack. Services can be "SingleStack" (a single IP family),
+	// "PreferDualStack" (two IP families on dual-stack configured clusters or
+	// a single IP family on single-stack clusters), or "RequireDualStack"
+	// (two IP families on dual-stack configured clusters, otherwise fail). The
+	// ipFamilies and clusterIPs fields depend on the value of this field. This
+	// field will be wiped when updating a service to type ExternalName.
+	// +optional
+	IPFamilyPolicy *IPFamilyPolicy `json:"ipFamilyPolicy,omitempty" protobuf:"bytes,17,opt,name=ipFamilyPolicy,casttype=IPFamilyPolicy"`
+
+	// loadBalancerClass is the class of the load balancer implementation this Service belongs to.
+	// If specified, the value of this field must be a label-style identifier, with an optional prefix,
+	// e.g. "internal-vip" or "example.com/internal-vip". Unprefixed names are reserved for end-users.
+	// This field can only be set when the Service type is 'LoadBalancer'. If not set, the default load
+	// balancer implementation is used, today this is typically done through the cloud provider integration,
+	// but should apply for any default implementation. If set, it is assumed that a load balancer
+	// implementation is watching for Services with a matching class. Any default load balancer
+	// implementation (e.g. cloud providers) should ignore Services that set this field.
+	// This field can only be set when creating or updating a Service to type 'LoadBalancer'.
+	// Once set, it can not be changed. This field will be wiped when a service is updated to a non 'LoadBalancer' type.
+	// +featureGate=LoadBalancerClass
+	// +optional
+	LoadBalancerClass *string `json:"loadBalancerClass,omitempty" protobuf:"bytes,21,opt,name=loadBalancerClass"`
 }
 
 // ServicePort contains information on service's port.

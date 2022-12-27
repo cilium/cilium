@@ -5,6 +5,7 @@ AdapterLimitViaAPI
 Alemayhu
 Alibaba
 Anthos
+Automount
 BIGTCP
 BPF
 Bertin
@@ -163,6 +164,7 @@ aksbyocni
 alibabacloud
 allocator
 allocators
+allowedConfigOverrides
 amd
 analytics
 annotateK
@@ -214,6 +216,7 @@ bgp
 bgpControlPlane
 binPath
 bindProtection
+blockedConfigOverrides
 blog
 bnxt
 bookinfo
@@ -287,6 +290,7 @@ confPath
 config
 configMap
 configMapKey
+configSources
 configmap
 configs
 conformant
@@ -333,6 +337,7 @@ decrypted
 deepcopy
 deletetopic
 demux
+dependant
 dereference
 deserialization
 destinationContext
@@ -403,6 +408,7 @@ ethernet
 ethtool
 eventBufferCapacity
 eventQueueSize
+extTrafficPolicy
 extendable
 extensibility
 extern
@@ -482,7 +488,6 @@ herokuapp
 hexData
 hoc
 hostAliases
-hostBoot
 hostConfDirMountPath
 hostFirewall
 hostLegacyRouting
@@ -529,6 +534,7 @@ inlined
 inlines
 inlining
 inodes
+insecureNodePort
 installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
@@ -603,6 +609,7 @@ kvstore
 labelsContext
 latencies
 lbExternalClusterIP
+lbIPAM
 lbMapMax
 leia
 libbpf
@@ -627,6 +634,7 @@ livenessProbe
 llc
 llvm
 loadBalancer
+loadBalancerClass
 loadbalancer
 loadbalancerIP
 loadbalancerMode
@@ -682,7 +690,6 @@ monitorAggregation
 monitorFlags
 monitorInterval
 mountCgroup
-mountHostBoot
 mountPath
 mov
 mul
@@ -747,6 +754,7 @@ orchestrator
 org
 originatingTLS
 pahole
+parsable
 parserfactory
 parsers
 passthrough
@@ -835,6 +843,7 @@ refreshPeriod
 regenerations
 regex
 regexes
+relabelings
 relocations
 remoteNodeIdentity
 removeNodeTaints
@@ -873,11 +882,14 @@ sandboxing
 scalability
 scalable
 scp
+sctl
 sctp
+seLinuxOptions
 seccomp
 secretName
 secretsBackend
 secretsNamespace
+secureNodePort
 securityContext
 selftest
 selftests
@@ -900,6 +912,7 @@ sid
 sidecarImageRegex
 sig
 skb
+skipCNPStatusStartupClean
 skipCRDCreation
 skipUnknownCGroupIDs
 skipteardown

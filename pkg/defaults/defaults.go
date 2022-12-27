@@ -41,6 +41,12 @@ const (
 	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDRBase = "f00d::"
 
+	// IPv6NAT46x64CIDR is the default prefix for NAT46x64 gateway
+	IPv6NAT46x64CIDR = IPv6NAT46x64CIDRBase + "/96"
+
+	// IPv6NAT46x64CIDRBase is the default base for IPv6NAT46x64CIDR
+	IPv6NAT46x64CIDRBase = "64:ff9b::"
+
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
 
@@ -138,6 +144,11 @@ const (
 	// previously active connections with expired DNS lookups are
 	// still considered alive
 	ToFQDNsIdleConnectionGracePeriod = 0 * time.Second
+
+	// FQDNProxyResponseMaxDelay The maximum time the DNS proxy holds an allowed
+	// DNS response before sending it along. Responses are sent as soon as the
+	//datapath is updated with the new IP information.
+	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
 
 	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
 	// global cache on startup.

@@ -12,8 +12,11 @@ import (
 )
 
 // Import single or multi-volume disk images or EBS snapshots into an Amazon
-// Machine Image (AMI). For more information, see Importing a VM as an image using
-// VM Import/Export
+// Machine Image (AMI). Amazon Web Services VM Import/Export strongly recommends
+// specifying a value for either the --license-type or --usage-operation parameter
+// when you create a new VM Import task. This ensures your operating system is
+// licensed appropriately and your billing is optimized. For more information, see
+// Importing a VM as an image using VM Import/Export
 // (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html)
 // in the VM Import/Export User Guide.
 func (c *Client) ImportImage(ctx context.Context, params *ImportImageInput, optFns ...func(*Options)) (*ImportImageOutput, error) {
@@ -104,12 +107,13 @@ type ImportImageInput struct {
 	LicenseSpecifications []types.ImportImageLicenseConfigurationRequest
 
 	// The license type to be used for the Amazon Machine Image (AMI) after importing.
-	// By default, we detect the source-system operating system (OS) and apply the
-	// appropriate license. Specify AWS to replace the source-system license with an
-	// Amazon Web Services license, if appropriate. Specify BYOL to retain the
-	// source-system license, if appropriate. To use BYOL, you must have existing
-	// licenses with rights to use these licenses in a third party cloud, such as
-	// Amazon Web Services. For more information, see Prerequisites
+	// Specify AWS to replace the source-system license with an Amazon Web Services
+	// license or BYOL to retain the source-system license. Leaving this parameter
+	// undefined is the same as choosing AWS when importing a Windows Server operating
+	// system, and the same as choosing BYOL when importing a Windows client operating
+	// system (such as Windows 10) or a Linux operating system. To use BYOL, you must
+	// have existing licenses with rights to use these licenses in a third party cloud,
+	// such as Amazon Web Services. For more information, see Prerequisites
 	// (https://docs.aws.amazon.com/vm-import/latest/userguide/vmimport-image-import.html#prerequisites-image)
 	// in the VM Import/Export User Guide.
 	LicenseType *string

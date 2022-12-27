@@ -34,6 +34,9 @@ type CertificateManager interface {
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
+	// return the namespace in which the policy rule is being resolved
+	GetNamespace() string
+
 	// return the SelectorCache
 	GetSelectorCache() *SelectorCache
 
@@ -68,12 +71,17 @@ type policyContext struct {
 	isDeny bool
 }
 
+// GetNamespace() returns the namespace for the policy rule being resolved
+func (p *policyContext) GetNamespace() string {
+	return p.ns
+}
+
 // GetSelectorCache() returns the selector cache used by the Repository
 func (p *policyContext) GetSelectorCache() *SelectorCache {
 	return p.repo.GetSelectorCache()
 }
 
-// GetSelectorCache() returns the selector cache used by the Repository
+// GetTLSContext() returns data for TLS Context via a CertificateManager
 func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private string, err error) {
 	if p.repo.certManager == nil {
 		return "", "", "", fmt.Errorf("No Certificate Manager set on Policy Repository")

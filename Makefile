@@ -265,12 +265,12 @@ manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumexternalworkloads.yaml
 	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumlocalredirectpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumegressgatewaypolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumegressnatpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumegressnatpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumendpointslices.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumendpointslices.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwideenvoyconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumclusterwideenvoyconfigs.yaml
 	mv ${TMPDIR}/cilium.io_ciliumenvoyconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2/ciliumenvoyconfigs.yaml
 	mv ${TMPDIR}/cilium.io_ciliumbgppeeringpolicies.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumbgppeeringpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumbgploadbalancerippools.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumbgploadbalancerippools.yaml
+	mv ${TMPDIR}/cilium.io_ciliumloadbalancerippools.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumloadbalancerippools.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnodeconfigs.yaml ./pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumnodeconfigs.yaml
 	rm -rf $(TMPDIR)
 
 generate-api: api/v1/openapi.yaml ## Generate cilium-agent client, model and server code from openapi spec.
@@ -567,8 +567,8 @@ endif
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
 	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
 	$(QUIET) contrib/scripts/lock-check.sh
-	@$(ECHO_CHECK) contrib/scripts/check-viper-unusable-api.sh
-	$(QUIET) contrib/scripts/check-viper-unusable-api.sh
+	@$(ECHO_CHECK) contrib/scripts/check-viper.sh
+	$(QUIET) contrib/scripts/check-viper.sh
 ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/custom-vet-check.sh
 	$(QUIET) contrib/scripts/custom-vet-check.sh

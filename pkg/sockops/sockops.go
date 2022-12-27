@@ -276,7 +276,7 @@ func bpfLoadMapProg(object string, load string) error {
 		return err
 	}
 
-	_mapID, err := bpftoolGetMapID("bpf_sockops", sockMap)
+	_mapID, err := bpftoolGetMapID(eSockops, sockMap)
 	mapID := strconv.Itoa(_mapID)
 	if err != nil {
 		return err

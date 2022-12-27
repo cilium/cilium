@@ -68,7 +68,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_cli_version: v0.12.7
+  cilium_cli_version: v0.12.11
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
@@ -171,7 +171,8 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
+            --test '!/pod-to-world,!/pod-to-cidr'"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
@@ -322,22 +323,25 @@ jobs:
           cilium clustermesh vm status
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
-          cilium sysdump --output-filename cilium-sysdump-out
+          cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE cluster and VM
         if: ${{ always() }}
         run: |
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterName }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
           gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
           gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
-          name: cilium-sysdump-out.zip
-          path: cilium-sysdump-out.zip
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success

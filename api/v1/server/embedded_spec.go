@@ -3055,6 +3055,30 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "gateway": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "prefixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "service": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             },
@@ -3942,10 +3966,26 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "extTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
               "format": "uint16"
+            },
+            "intTrafficPolicy": {
+              "description": "Service internal traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
@@ -3965,7 +4005,7 @@ func init() {
               ]
             },
             "trafficPolicy": {
-              "description": "Service traffic policy",
+              "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
               "type": "string",
               "enum": [
                 "Cluster",
@@ -7744,6 +7784,30 @@ func init() {
               "properties": {
                 "enabled": {
                   "type": "boolean"
+                },
+                "gateway": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "prefixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "service": {
+                  "description": "\n\n+k8s:deepcopy-gen=true",
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               }
             },
@@ -7896,6 +7960,30 @@ func init() {
           "properties": {
             "enabled": {
               "type": "boolean"
+            },
+            "gateway": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "prefixes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "service": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -8012,6 +8100,54 @@ func init() {
       }
     },
     "KubeProxyReplacementFeaturesNat46X64": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gateway": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "prefixes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "service": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64Gateway": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNat46X64Service": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
@@ -8905,10 +9041,26 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "extTrafficPolicy": {
+              "description": "Service external traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
+            },
             "healthCheckNodePort": {
               "description": "Service health check node port",
               "type": "integer",
               "format": "uint16"
+            },
+            "intTrafficPolicy": {
+              "description": "Service internal traffic policy",
+              "type": "string",
+              "enum": [
+                "Cluster",
+                "Local"
+              ]
             },
             "name": {
               "description": "Service name  (e.g. Kubernetes service name)",
@@ -8928,7 +9080,7 @@ func init() {
               ]
             },
             "trafficPolicy": {
-              "description": "Service traffic policy",
+              "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
               "type": "string",
               "enum": [
                 "Cluster",
@@ -8967,10 +9119,26 @@ func init() {
       "description": "Optional service configuration flags",
       "type": "object",
       "properties": {
+        "extTrafficPolicy": {
+          "description": "Service external traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
+        },
         "healthCheckNodePort": {
           "description": "Service health check node port",
           "type": "integer",
           "format": "uint16"
+        },
+        "intTrafficPolicy": {
+          "description": "Service internal traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
         },
         "name": {
           "description": "Service name  (e.g. Kubernetes service name)",
@@ -8990,7 +9158,7 @@ func init() {
           ]
         },
         "trafficPolicy": {
-          "description": "Service traffic policy",
+          "description": "Service external traffic policy (deprecated in favor of extTrafficPolicy)",
           "type": "string",
           "enum": [
             "Cluster",

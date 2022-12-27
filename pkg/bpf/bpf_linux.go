@@ -415,7 +415,7 @@ func ObjGet(pathname string) (int, error) {
 	return int(fd), nil
 }
 
-type bpfAttrFdFromId struct {
+type bpfAttrFdFromID struct {
 	ID     uint32
 	NextID uint32
 	Flags  uint32
@@ -423,7 +423,7 @@ type bpfAttrFdFromId struct {
 
 // MapFdFromID retrieves a file descriptor based on a map ID.
 func MapFdFromID(id int) (int, error) {
-	uba := bpfAttrFdFromId{
+	uba := bpfAttrFdFromID{
 		ID: uint32(id),
 	}
 
@@ -594,7 +594,7 @@ recreate:
 			maxEntries,
 			flags,
 		)
-		if redo == true {
+		if redo {
 			ObjClose(fd)
 			goto recreate
 		}

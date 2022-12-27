@@ -138,7 +138,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	backend.port = tcp_svc_one;
 	backend.proto = IPPROTO_SCTP;
 	backend.flags = 0;
-	map_update_elem(&LB4_BACKEND_MAP_V2, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* Add an IPCache entry for pod 1 */
 	cache_key.lpm_key.prefixlen = 32;

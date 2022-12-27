@@ -21,7 +21,7 @@ import (
 // Private constructors with a module (ProvidePrivate) are only accessible
 // within this module and its sub-modules.
 func Module(id, title string, cells ...Cell) Cell {
-	validateIdAndTitle(id, title)
+	validateIDAndTitle(id, title)
 	return &module{id, title, cells}
 }
 
@@ -30,7 +30,7 @@ var (
 	titleRegex = regexp.MustCompile(`^[a-zA-Z0-9_\- ]{1,80}$`)
 )
 
-func validateIdAndTitle(id, title string) {
+func validateIDAndTitle(id, title string) {
 	if !idRegex.MatchString(id) {
 		panic(fmt.Sprintf("Invalid hive.Module id: %q, expected to id match %s", id, idRegex))
 	}

@@ -190,12 +190,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
-	cDefinesMap["LB6_BACKEND_MAP_V2"] = "cilium_lb6_backends_v2"
+	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends_v3"
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat6MapName
 	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat6MapEntries)
 	cDefinesMap["LB4_REVERSE_NAT_MAP"] = "cilium_lb4_reverse_nat"
 	cDefinesMap["LB4_SERVICES_MAP_V2"] = "cilium_lb4_services_v2"
-	cDefinesMap["LB4_BACKEND_MAP_V2"] = "cilium_lb4_backends_v2"
+	cDefinesMap["LB4_BACKEND_MAP"] = "cilium_lb4_backends_v3"
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat4MapName
 	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.MaxSockRevNat4MapEntries)
 
@@ -248,10 +248,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_TPROXY"] = "1"
 	}
 
-	if option.Config.EncryptNode {
-		cDefinesMap["ENCRYPT_NODE"] = "1"
-	}
-
 	if option.Config.EnableXDPPrefilter {
 		cDefinesMap["ENABLE_PREFILTER"] = "1"
 	}
@@ -295,6 +291,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	cDefinesMap["NAT_46X64_PREFIX_0"] = "0"
+	cDefinesMap["NAT_46X64_PREFIX_1"] = "0"
+	cDefinesMap["NAT_46X64_PREFIX_2"] = "0"
+	cDefinesMap["NAT_46X64_PREFIX_3"] = "0"
+
 	if option.Config.EnableNodePort {
 		if option.Config.EnableHealthDatapath {
 			cDefinesMap["ENABLE_HEALTH_CHECK"] = "1"
@@ -329,8 +330,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["LB6_HEALTH_MAP"] = lbmap.HealthProbe6MapName
 			}
 		}
-		if option.Config.EnableStatelessNat46X64 {
-			cDefinesMap["ENABLE_NAT_46X64_STATELESS"] = "1"
+		if option.Config.EnableNat46X64Gateway {
+			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
+			base := option.Config.IPv6NAT46x64CIDRBase.AsSlice()
+			cDefinesMap["NAT_46X64_PREFIX_0"] = fmt.Sprintf("%d", base[0])
+			cDefinesMap["NAT_46X64_PREFIX_1"] = fmt.Sprintf("%d", base[1])
+			cDefinesMap["NAT_46X64_PREFIX_2"] = fmt.Sprintf("%d", base[2])
+			cDefinesMap["NAT_46X64_PREFIX_3"] = fmt.Sprintf("%d", base[3])
 		}
 		if option.Config.NodePortNat46X64 {
 			cDefinesMap["ENABLE_NAT_46X64"] = "1"
@@ -769,6 +775,10 @@ func (h *HeaderfileWriter) writeNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 			fmt.Fprintf(w, "%d,", prefix)
 		}
 		fmt.Fprint(w, "\n")
+	}
+
+	if option.Config.EnableEndpointRoutes {
+		fmt.Fprint(w, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
 }
 

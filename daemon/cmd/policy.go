@@ -18,6 +18,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/auth"
+	authMonitor "github.com/cilium/cilium/pkg/auth/monitor"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -62,6 +64,8 @@ func (d *Daemon) initPolicy(epMgr *endpointmanager.EndpointManager) error {
 	if err != nil {
 		return fmt.Errorf("failed to create policy update trigger: %w", err)
 	}
+
+	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager(epMgr)))
 
 	return nil
 }

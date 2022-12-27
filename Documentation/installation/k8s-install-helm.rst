@@ -153,14 +153,14 @@ Install Cilium
 
        .. include:: requirements-eks.rst
 
-       **Delete VPC CNI (``aws-node`` DaemonSet)**
+       **Patch VPC CNI (aws-node DaemonSet)**
 
        Cilium will manage ENIs instead of VPC CNI, so the ``aws-node``
-       DaemonSet has to be deleted to prevent conflict behavior.
+       DaemonSet has to be patched to prevent conflict behavior.
 
        .. code-block:: shell-session
 
-          kubectl -n kube-system delete daemonset aws-node
+          kubectl -n kube-system patch daemonset aws-node --type='strategic' -p='{"spec":{"template":{"spec":{"nodeSelector":{"io.cilium/aws-node-enabled":"true"}}}}}'
 
        **Install Cilium:**
 

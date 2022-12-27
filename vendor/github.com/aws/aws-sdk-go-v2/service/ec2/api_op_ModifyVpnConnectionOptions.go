@@ -65,7 +65,7 @@ type ModifyVpnConnectionOptionsInput struct {
 
 type ModifyVpnConnectionOptionsOutput struct {
 
-	// Describes a VPN connection.
+	// Information about the VPN connection.
 	VpnConnection *types.VpnConnection
 
 	// Metadata pertaining to the operation's result.

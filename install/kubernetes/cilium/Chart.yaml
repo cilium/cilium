@@ -2,8 +2,8 @@ apiVersion: v2
 name: cilium
 displayName: Cilium
 home: https://cilium.io/
-version: 1.12.90
-appVersion: 1.12.90
+version: 1.13.90
+appVersion: 1.13.90
 kubeVersion: ">= 1.16.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
@@ -83,13 +83,6 @@ annotations:
         Cilium Endpoint Slice represents the status of groups of pods or nodes
         in the cluster which are managed by Cilium, including enforcement status,
         IP addressing and whether the networking is succesfully operational.
-    - kind: CiliumEgressNATPolicy
-      version: v2alpha1
-      name: ciliumegressnatpolicies.cilium.io
-      displayName: Cilium Egress NAT Policy
-      description: |
-        Cilium Egress NAT Policy provides control over the way that traffic
-        leaves the cluster and which source addresses to use for that traffic.
     - kind: CiliumEgressGatewayPolicy
       version: v2
       name: ciliumegressgatewaypolicies.cilium.io
@@ -118,10 +111,16 @@ annotations:
       description: |
         Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
         configurations.
-    - kind: CiliumBGPLoadBalancerIPPool
+    - kind: CiliumLoadBalancerIPPool
       version: v2alpha1
-      name: ciliumbgploadbalancerippools.cilium.io
-      displayName: Cilium BGP Load Balancer IP Pool
+      name: ciliumloadbalancerippools.cilium.io
+      displayName: Cilium Load Balancer IP Pool
       description: |
-        Defining a Cilium BGP Load Balancer IP Pool instructs Cilium to assign and
-        advertise LoadBalancer Services to BGP peers defined by Cilium BGP Peering Policies.
+        Defining a Cilium Load Balancer IP Pool instructs Cilium to assign IPs to LoadBalancer Services.
+    - kind: CiliumNodeConfig
+      version: v2alpha1
+      name: ciliumnodeconfigs.cilium.io
+      displayName: Cilium Node Configuration
+      description: |
+        CiliumNodeConfig is a list of configuration key-value pairs. It is applied to
+        nodes indicated by a label selector.

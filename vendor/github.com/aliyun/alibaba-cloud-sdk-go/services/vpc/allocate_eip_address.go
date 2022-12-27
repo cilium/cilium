@@ -72,6 +72,7 @@ func (client *Client) AllocateEipAddressWithCallback(request *AllocateEipAddress
 type AllocateEipAddressRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	PublicIpAddressPoolId   string           `position:"Query" name:"PublicIpAddressPoolId"`
 	ClientToken             string           `position:"Query" name:"ClientToken"`
 	ISP                     string           `position:"Query" name:"ISP"`
 	Description             string           `position:"Query" name:"Description"`

@@ -92,8 +92,8 @@ jobs:
         id: pr
         run: |
           curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
-          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
         uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
@@ -106,7 +106,7 @@ jobs:
               - '!(test|Documentation)/**'
 
   setup-and-test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest-4cores-16gb
     needs: check_changes
     name: Setup & Test
     if: |
@@ -119,7 +119,44 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kernel: ['4.19-main', '5.4-main', '5.10-main', '5.15-main', 'bpf-next-main']
+        include:
+          # See https://github.com/cilium/cilium/issues/20606 for configuration table
+          - kernel: '4.19-main'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+
+          - kernel: '5.4-main'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+
+          - kernel: '5.10-main'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+
+          - kernel: '5.15-main'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
+
+          - kernel: '6.0-main'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            encryption: 'wireguard'
+
+          - kernel: 'bpf-next-main'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'wireguard'
+
     timeout-minutes: 60
     steps:
       - name: Set up job variables
@@ -135,7 +172,29 @@ jobs:
             SHA=${{ github.sha }}
           fi
 
-          echo ::set-output name=sha::${SHA}
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --chart-directory=./install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --rollback=false \
+            --config monitor-aggregation=none \
+            --nodes-without-cilium=kind-worker3"
+          TUNNEL="--helm-set-string=tunnel=vxlan"
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
+          fi
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL}"
+
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
@@ -160,6 +219,18 @@ jobs:
           docker cp $cid:/usr/local/bin/cilium ./cilium-cli
           docker rm $cid
 
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
+        with:
+          test-name: datapath-conformance
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          dns-resolver: '1.1.1.1'
+          install-dependencies: 'true'
+          cmd: |
+            git config --global --add safe.directory /host
+
       - name: Wait for images to be available
         timeout-minutes: 10
         shell: bash
@@ -168,62 +239,44 @@ jobs:
             until docker manifest inspect quay.io/${{ github.repository_owner }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Derive kube-proxy requirements
-        shell: bash
-        run: |
-            if [[ ${{ matrix.kernel }} == "4.19-"* ]]; then
-              # Only kube-proxy
-              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
-              echo 'KPR=disabled' >> $GITHUB_ENV
-            elif [[ ${{ matrix.kernel }} == "5.4-"* ]]; then
-              # Mixed mode
-              echo 'KUBE_PROXY=iptables' >> $GITHUB_ENV
-              echo 'KPR=strict' >> $GITHUB_ENV
-            else
-              # Only kube-proxy-replacement
-              echo 'KUBE_PROXY=none' >> $GITHUB_ENV
-              echo 'KPR=strict' >> $GITHUB_ENV
-            fi
-
-      - name: Run tests
-        uses: cilium/little-vm-helper@9bb7d6016e00968adff49dae192a0be87d9c3aef
+      - name: Run kube-proxy tests
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
-          test-name: datapath-conformance
-          image: kind
-          lvh-version: 'v0.0.1'
-          image-version: ${{ matrix.kernel }}
-          host-mount: ./
+          provision: 'false'
           cmd: |
-            set -eux
-
-            echo 'nameserver 1.1.1.1' > /etc/resolv.conf
-
             cd /host/
-
-
-            ./contrib/scripts/kind.sh "" 3 "" "" "${{ env.KUBE_PROXY }}"
-            ./cilium-cli install --wait \
-            --chart-directory=./install/kubernetes/cilium \
-            --helm-set=image.repository=quay.io/${{ github.repository_owner }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.repository=quay.io/${{ github.repository_owner }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ github.repository_owner }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${{ steps.vars.outputs.sha }} \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --nodes-without-cilium=kind-worker3 --helm-set-string="kubeProxyReplacement=${{ env.KPR }}"
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
+              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}"
 
             ./cilium-cli status --wait
-            ./cilium-cli connectivity test --datapath
-            ./cilium-cli connectivity test -t -d
+            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
+            ./cilium-cli connectivity test --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
+            kind delete cluster
+
+      - name: Run encryption tests
+        if: ${{ matrix.encryption != 'disabled' }}
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
+              --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
+              --encryption=${{ matrix.encryption }}
+
+            ./cilium-cli status --wait
+            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
+            ./cilium-cli connectivity test --collect-sysdump-on-failure \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.kernel }}-<ts>"
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@9bb7d6016e00968adff49dae192a0be87d9c3aef
+        uses: cilium/little-vm-helper@c3dbeb9d505b31aa5e960ebb258f4dd5f96f0202
         with:
           provision: 'false'
           cmd: |
@@ -231,14 +284,14 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
-            ./cilium-cli sysdump --output-filename cilium-sysdumps/cilium-sysdump-datapath-conformance-${{ matrix.kernel }}
+            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.kernel }}-final
 
       - name: Upload artifacts
         if: ${{ !success() }}
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
         with:
           name: cilium-sysdumps
-          path: ./cilium-sysdumps
+          path: cilium-sysdump-*.zip
           retention-days: 5
 
       - name: Set commit status to success

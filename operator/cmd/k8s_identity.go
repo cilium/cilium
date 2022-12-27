@@ -5,11 +5,11 @@ package cmd
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/operator/identity"
@@ -117,7 +117,10 @@ func identityGCIteration(ctx context.Context, clientset k8sClient.Clientset) {
 				if identity.Annotations == nil {
 					identity.Annotations = make(map[string]string)
 				}
-				log.WithField(logfields.Identity, identity).Info("Marking identity for later deletion")
+				log.WithFields(logrus.Fields{
+					logfields.Identity: identity.Name,
+					logfields.K8sUID:   identity.UID,
+				}).Info("Marking identity for later deletion")
 				identity.Annotations[identitybackend.HeartBeatAnnotation] = timeNow.Format(time.RFC3339Nano)
 				err := updateIdentity(ctx, clientset, identity)
 				if err != nil {
@@ -161,14 +164,23 @@ func identityGCIteration(ctx context.Context, clientset k8sClient.Clientset) {
 	identityHeartbeat.GC()
 }
 
-func startCRDIdentityGC(clientset k8sClient.Clientset) {
+func startCRDIdentityGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	if operatorOption.Config.EndpointGCInterval == 0 {
 		log.Fatal("The CiliumIdentity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 	}
 
 	log.WithField(logfields.Interval, operatorOption.Config.IdentityGCInterval).Info("Starting CRD identity garbage collector")
 
-	controller.NewManager().UpdateController("crd-identity-gc",
+	mgr := controller.NewManager()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		mgr.RemoveAllAndWait()
+	}()
+
+	mgr.UpdateController("crd-identity-gc",
 		controller.ControllerParams{
 			RunInterval: operatorOption.Config.IdentityGCInterval,
 			DoFunc: func(ctx context.Context) error {
@@ -178,7 +190,7 @@ func startCRDIdentityGC(clientset k8sClient.Clientset) {
 		})
 }
 
-func startManagingK8sIdentities(clientset k8sClient.Clientset) {
+func startManagingK8sIdentities(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	identityHeartbeat = identity.NewIdentityHeartbeatStore(operatorOption.Config.IdentityHeartbeatTimeout)
 
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -227,5 +239,9 @@ func startManagingK8sIdentities(clientset k8sClient.Clientset) {
 		identityStore,
 	)
 
-	go identityInformer.Run(wait.NeverStop)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		identityInformer.Run(ctx.Done())
+	}()
 }

@@ -350,6 +350,9 @@ enum DropReason {
     INVALID_TC_BUFFER = 184;
     NO_SID = 185;
     MISSING_SRV6_STATE = 186;
+    NAT46 = 187;
+    NAT64 = 188;
+    AUTH_REQUIRED = 189;
 }
 
 enum TrafficDirection {
@@ -661,9 +664,11 @@ message ServiceUpsertNotification {
     ServiceUpsertNotificationAddr frontend_address = 2;
     repeated ServiceUpsertNotificationAddr backend_addresses = 3;
     string type = 4;
-    string traffic_policy = 5;
+    string traffic_policy = 5 [deprecated = true];
     string name = 6;
     string namespace = 7;
+    string ext_traffic_policy = 8;
+    string int_traffic_policy = 9;
 }
 
 message ServiceDeleteNotification {

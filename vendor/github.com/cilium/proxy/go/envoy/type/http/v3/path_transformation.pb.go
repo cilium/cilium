@@ -82,6 +82,7 @@ type PathTransformation_Operation struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to OperationSpecifier:
+	//
 	//	*PathTransformation_Operation_NormalizePathRfc_3986
 	//	*PathTransformation_Operation_MergeSlashes_
 	OperationSpecifier isPathTransformation_Operation_OperationSpecifier `protobuf_oneof:"operation_specifier"`

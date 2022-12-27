@@ -23,4 +23,5 @@ type VcoHealthCheck struct {
 	Interval int    `json:"Interval" xml:"Interval"`
 	Status   string `json:"Status" xml:"Status"`
 	Retry    int    `json:"Retry" xml:"Retry"`
+	Policy   string `json:"Policy" xml:"Policy"`
 }

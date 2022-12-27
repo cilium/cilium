@@ -76,6 +76,7 @@ type CreateSnatEntryRequest struct {
 	SourceCIDR           string           `position:"Query" name:"SourceCIDR"`
 	SnatIp               string           `position:"Query" name:"SnatIp"`
 	SourceVSwitchId      string           `position:"Query" name:"SourceVSwitchId"`
+	EipAffinity          requests.Integer `position:"Query" name:"EipAffinity"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	SnatTableId          string           `position:"Query" name:"SnatTableId"`

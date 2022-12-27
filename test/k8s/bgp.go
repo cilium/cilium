@@ -115,7 +115,7 @@ var _ = SkipDescribeIf(
 					context.TODO(),
 					ciliumPodK8s1,
 					fmt.Sprintf(
-						"hubble observe debug-events --since %v -o json",
+						"hubble observe debug-events --since %v -o jsonpb",
 						testStartTime.Format(time.RFC3339),
 					),
 				)
@@ -127,7 +127,7 @@ var _ = SkipDescribeIf(
 					context.TODO(),
 					ciliumPodK8s2,
 					fmt.Sprintf(
-						"hubble observe debug-events --since %v -o json",
+						"hubble observe debug-events --since %v -o jsonpb",
 						testStartTime.Format(time.RFC3339),
 					),
 				)

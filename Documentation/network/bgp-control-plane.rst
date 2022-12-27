@@ -1,3 +1,11 @@
+.. only:: not (epub or latex or html)
+
+    WARNING: You are looking at unreleased Cilium documentation.
+    Please use the official rendered version released here:
+    https://docs.cilium.io
+
+.. _bgp_control_plane:
+
 Cilium BGP Control Plane
 ========================
 
@@ -66,6 +74,8 @@ Fields
     virtualRouters: One or more peering configurations outlined below. Each peering configuration can be thought of as a BGP router instance.
 
        virtualRouters[*].localASN: The local ASN for this peering configuration
+
+       virtualRouters[*].serviceSelector: Services which are selected by this label selector will be announced.
 
        virtualRouters[*].exportPodCIDR: Whether to export the private pod CIDR block to the listed neighbors
 
@@ -230,6 +240,38 @@ If this is desired the following annotation can be provided
 ::
 
    cilium.io/bgp-virtual-router.{asn}="local-port=45450"
+
+Service announcements
+---------------------
+
+By default, virtual routers will not announce services. Virtual routers will announce
+the ingress IPs of any LoadBalancer services that matches the ``.serviceSelector``
+of the virtual router.
+
+If you wish to announce ALL services within the cluster, a ``NotIn`` match expression 
+without values can be used like:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   #[...]
+   virtualRouters: # []CiliumBGPVirtualRouter
+    - localASN: 64512
+      # [...]
+      serviceSelector:
+         matchExpressions:
+            - {key: somekey, operator: NotIn, values: []}
+
+There are a few special purpose selector fields which don't match on labels but
+instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
+
+=============================== ===================
+Selector                        Field
+------------------------------- -------------------
+io.kubernetes.service.namespace ``.meta.namespace``
+io.kubernetes.service.name      ``.meta.name``
+=============================== ===================
 
 Architecture
 ------------

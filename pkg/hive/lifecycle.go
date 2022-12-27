@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/hive/internal"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // HookContext is a context passed to a lifecycle hook that is cancelled
@@ -66,15 +67,22 @@ type Lifecycle interface {
 // to Lifecycle. It is exported for use in applications that have nested lifecycles
 // (e.g. operator).
 type DefaultLifecycle struct {
+	mu         lock.Mutex
 	hooks      []HookInterface
 	numStarted int
 }
 
 func (lc *DefaultLifecycle) Append(hook HookInterface) {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+
 	lc.hooks = append(lc.hooks, hook)
 }
 
 func (lc *DefaultLifecycle) Start(ctx context.Context) error {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+
 	// Wrap the context to make sure it gets cancelled after
 	// start hooks have completed in order to discourage using
 	// the context for unintended purposes.
@@ -105,6 +113,9 @@ func (lc *DefaultLifecycle) Start(ctx context.Context) error {
 }
 
 func (lc *DefaultLifecycle) Stop(ctx context.Context) error {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+
 	// Wrap the context to make sure it gets cancelled after
 	// stop hooks have completed in order to discourage using
 	// the context for unintended purposes.
@@ -137,6 +148,9 @@ func (lc *DefaultLifecycle) Stop(ctx context.Context) error {
 }
 
 func (lc *DefaultLifecycle) PrintHooks() {
+	lc.mu.Lock()
+	defer lc.mu.Unlock()
+
 	fmt.Printf("Start hooks:\n\n")
 	for _, hook := range lc.hooks {
 		fnName, exists := getHookFuncName(hook, true)

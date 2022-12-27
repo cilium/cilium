@@ -26,14 +26,15 @@ var wrapperList = []ServerErrorWrapper{
 }
 
 type ServerError struct {
-	RespHeaders map[string][]string
-	httpStatus  int
-	requestId   string
-	hostId      string
-	errorCode   string
-	recommend   string
-	message     string
-	comment     string
+	RespHeaders        map[string][]string
+	httpStatus         int
+	requestId          string
+	hostId             string
+	errorCode          string
+	recommend          string
+	message            string
+	comment            string
+	accessDeniedDetail map[string]interface{}
 }
 
 type ServerErrorWrapper interface {
@@ -41,6 +42,10 @@ type ServerErrorWrapper interface {
 }
 
 func (err *ServerError) Error() string {
+	if err.accessDeniedDetail != nil {
+		return fmt.Sprintf("SDK.ServerError\nErrorCode: %s\nRecommend: %s\nRequestId: %s\nMessage: %s\nRespHeaders: %s\nAccessDeniedDetail: %s",
+			err.errorCode, err.comment+err.recommend, err.requestId, err.message, err.RespHeaders, err.accessDeniedDetail)
+	}
 	return fmt.Sprintf("SDK.ServerError\nErrorCode: %s\nRecommend: %s\nRequestId: %s\nMessage: %s\nRespHeaders: %s",
 		err.errorCode, err.comment+err.recommend, err.requestId, err.message, err.RespHeaders)
 }
@@ -60,6 +65,7 @@ func NewServerError(httpStatus int, responseContent, comment string) Error {
 		errorCode, _ := jmespath.Search("Code", data)
 		recommend, _ := jmespath.Search("Recommend", data)
 		message, _ := jmespath.Search("Message", data)
+		accessDeniedDetail, _ := jmespath.Search("AccessDeniedDetail", data)
 
 		if requestId != nil {
 			result.requestId = requestId.(string)
@@ -75,6 +81,9 @@ func NewServerError(httpStatus int, responseContent, comment string) Error {
 		}
 		if message != nil {
 			result.message = message.(string)
+		}
+		if accessDeniedDetail != nil {
+			result.accessDeniedDetail = accessDeniedDetail.(map[string]interface{})
 		}
 	}
 
@@ -121,4 +130,8 @@ func (err *ServerError) Recommend() string {
 
 func (err *ServerError) Comment() string {
 	return err.comment
+}
+
+func (err *ServerError) AccessDeniedDetail() map[string]interface{} {
+	return err.accessDeniedDetail
 }

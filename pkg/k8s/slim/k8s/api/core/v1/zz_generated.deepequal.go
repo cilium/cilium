@@ -1197,6 +1197,9 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	if in.ExternalTrafficPolicy != other.ExternalTrafficPolicy {
 		return false
 	}
+	if in.InternalTrafficPolicy != other.InternalTrafficPolicy {
+		return false
+	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {
 		return false
 	}
@@ -1225,6 +1228,22 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 		}
 	}
 
+	if (in.IPFamilyPolicy == nil) != (other.IPFamilyPolicy == nil) {
+		return false
+	} else if in.IPFamilyPolicy != nil {
+		if *in.IPFamilyPolicy != *other.IPFamilyPolicy {
+			return false
+		}
+	}
+
+	if (in.LoadBalancerClass == nil) != (other.LoadBalancerClass == nil) {
+		return false
+	} else if in.LoadBalancerClass != nil {
+		if *in.LoadBalancerClass != *other.LoadBalancerClass {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -1237,6 +1256,23 @@ func (in *ServiceStatus) DeepEqual(other *ServiceStatus) bool {
 
 	if !in.LoadBalancer.DeepEqual(&other.LoadBalancer) {
 		return false
+	}
+
+	if ((in.Conditions != nil) && (other.Conditions != nil)) || ((in.Conditions == nil) != (other.Conditions == nil)) {
+		in, other := &in.Conditions, &other.Conditions
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
 	}
 
 	return true

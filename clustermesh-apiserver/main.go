@@ -18,6 +18,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -29,6 +30,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
+	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -41,6 +44,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -104,6 +108,7 @@ func init() {
 	rootHive = hive.New(
 		gops.Cell(defaults.GopsPortApiserver),
 		k8sClient.Cell,
+		k8s.SharedResourcesCell,
 		healthAPIServerCell,
 
 		cell.Invoke(registerHooks),
@@ -112,14 +117,14 @@ func init() {
 	vp = rootHive.Viper()
 }
 
-func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset) error {
+func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
 	if !clientset.IsEnabled() {
 		return errors.New("Kubernetes client not configured, cannot continue.")
 	}
 
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
-			startServer(ctx, clientset)
+			startServer(ctx, clientset, services)
 			return nil
 		},
 	})
@@ -547,7 +552,7 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   clusterID,
@@ -562,6 +567,14 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 	var err error
 	if err = kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
 		log.WithError(err).Fatal("Unable to connect to etcd")
+	}
+
+	config := cmtypes.CiliumClusterConfig{
+		ID: clusterID,
+	}
+
+	if err := clustermesh.SetClusterConfig(cfg.clusterName, &config, kvstore.Client()); err != nil {
+		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
 	_, err = store.JoinSharedStore(store.Configuration{
@@ -589,7 +602,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset) {
 		synchronizeIdentities(clientset)
 		synchronizeNodes(clientset)
 		synchronizeCiliumEndpoints(clientset)
-		operatorWatchers.StartSynchronizingServices(clientset, false, cfg)
+		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, clientset, services, false, cfg)
 	}
 
 	go func() {

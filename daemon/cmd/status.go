@@ -284,8 +284,21 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableK8sTerminatingEndpoint {
 		features.GracefulTermination.Enabled = true
 	}
-	if option.Config.NodePortNat46X64 {
+	if option.Config.NodePortNat46X64 || option.Config.EnableNat46X64Gateway {
 		features.Nat46X64.Enabled = true
+		gw := &models.KubeProxyReplacementFeaturesNat46X64Gateway{
+			Enabled:  option.Config.EnableNat46X64Gateway,
+			Prefixes: make([]string, 0),
+		}
+		if option.Config.EnableNat46X64Gateway {
+			gw.Prefixes = append(gw.Prefixes, option.Config.IPv6NAT46x64CIDR)
+		}
+		features.Nat46X64.Gateway = gw
+
+		svc := &models.KubeProxyReplacementFeaturesNat46X64Service{
+			Enabled: option.Config.NodePortNat46X64,
+		}
+		features.Nat46X64.Service = svc
 	}
 
 	return &models.KubeProxyReplacement{

@@ -75,6 +75,7 @@ type ListEnhanhcedNatGatewayAvailableZonesRequest struct {
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	AcceptLanguage       string           `position:"Query" name:"AcceptLanguage"`
 }
 
 // ListEnhanhcedNatGatewayAvailableZonesResponse is the response struct for api ListEnhanhcedNatGatewayAvailableZones

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -16,6 +17,14 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 )
 
+var warnIdTypeDeprecationOnce sync.Once
+
+func warnIdTypeDeprecation() {
+	warnIdTypeDeprecationOnce.Do(func() {
+		log.Warning("Deprecation: The type of {id} in /service/{id} will change from int to string in v1.14")
+	})
+}
+
 type putServiceID struct {
 	svc *service.Service
 }
@@ -25,6 +34,8 @@ func NewPutServiceIDHandler(svc *service.Service) PutServiceIDHandler {
 }
 
 func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
+	warnIdTypeDeprecation()
+
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
 
 	if params.Config.ID == 0 {
@@ -79,12 +90,20 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		svcType = loadbalancer.SVCTypeClusterIP
 	}
 
-	var svcTrafficPolicy loadbalancer.SVCTrafficPolicy
-	switch params.Config.Flags.TrafficPolicy {
-	case models.ServiceSpecFlagsTrafficPolicyLocal:
-		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	var svcExtTrafficPolicy loadbalancer.SVCTrafficPolicy
+	switch params.Config.Flags.ExtTrafficPolicy {
+	case models.ServiceSpecFlagsExtTrafficPolicyLocal:
+		svcExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	default:
-		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+		svcExtTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+	}
+
+	var svcIntTrafficPolicy loadbalancer.SVCTrafficPolicy
+	switch params.Config.Flags.IntTrafficPolicy {
+	case models.ServiceSpecFlagsIntTrafficPolicyLocal:
+		svcIntTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	default:
+		svcIntTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
 	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
@@ -100,7 +119,8 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		Type:                svcType,
 		Frontend:            frontend,
 		Backends:            backends,
-		TrafficPolicy:       svcTrafficPolicy,
+		ExtTrafficPolicy:    svcExtTrafficPolicy,
+		IntTrafficPolicy:    svcIntTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
 	}
 	created, id, err := h.svc.UpsertService(p)
@@ -126,6 +146,8 @@ func NewDeleteServiceIDHandler(svc *service.Service) DeleteServiceIDHandler {
 }
 
 func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
+	warnIdTypeDeprecation()
+
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
 	found, err := h.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
@@ -150,6 +172,8 @@ func NewGetServiceIDHandler(svc *service.Service) GetServiceIDHandler {
 }
 
 func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
+	warnIdTypeDeprecation()
+
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
 
 	if svc, ok := h.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {

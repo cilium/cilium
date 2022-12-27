@@ -311,6 +311,10 @@ Annotations:
 
 1.13 Upgrade Notes
 ------------------
+* The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
+  ``spec.eni.max-above-watermark`` fields has been removed, those fields are
+  no longer functional. Please use their semantically equivalent ``spec.ipam``
+  replacements instead.
 
 * The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
   In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
@@ -332,6 +336,8 @@ Removed Options
   has been removed. Users of the ``probe`` option are advised either to use
   ``strict`` or ``partial`` with individual options configured. Please refer to
   :ref:`kubeproxy-free` for more info.
+* The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
+  by the ``CiliumEgressGatewayPolicy`` CRD.
 
 
 Deprecated Options
@@ -373,6 +379,11 @@ Helm Options
   If you were leveraging ``securityContext.extraCapabilities``, you need to review
   ``securityContext.capabilities.cilium_agent``.
 * ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default) 
+
+CRD Changes
+~~~~~~~~~~~
+
+* ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
 
 .. _earlier_upgrade_notes:
 
