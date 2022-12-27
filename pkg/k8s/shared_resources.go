@@ -35,6 +35,7 @@ var (
 			localCiliumNodeResource,
 			namespaceResource,
 			lbIPPoolsResource,
+			ciliumIdentityResource,
 		),
 	)
 )
@@ -46,6 +47,7 @@ type SharedResources struct {
 	Services        resource.Resource[*slim_corev1.Service]
 	Namespaces      resource.Resource[*slim_corev1.Namespace]
 	LBIPPools       resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
+	Identities      resource.Resource[*cilium_api_v2.CiliumIdentity]
 }
 
 func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
@@ -107,4 +109,14 @@ func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 		cs.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw), nil
+}
+
+func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](
+		cs.CiliumV2().CiliumIdentities(),
+	)
+	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
 }
