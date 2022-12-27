@@ -323,6 +323,10 @@ nextEvent:
 					Flow: ev,
 				},
 			}
+			if req.Experimental.GetTransmitNodenameOnce() && eventsReader.eventCount > 1 {
+				// Clear the field to save bytes on transmission
+				resp.NodeName = ""
+			}
 		case *flowpb.LostEvent:
 			// Don't increment eventsReader.eventCount as a LostEvent is an
 			// event type that is never explicitly requested by the user (e.g.

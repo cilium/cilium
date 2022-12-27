@@ -42,12 +42,21 @@ func retrieveFlowsFromPeer(
 	if err != nil {
 		return err
 	}
+	nodeName := ""
 	for {
 		flow, err := c.Recv()
 		switch err {
 		case io.EOF, context.Canceled:
 			return nil
 		case nil:
+			if req.Experimental.GetTransmitNodenameOnce() {
+				// This information can't be reconstructed on a client.
+				if flow.NodeName != "" {
+					nodeName = flow.NodeName
+				} else {
+					flow.NodeName = nodeName
+				}
+			}
 			select {
 			case flows <- flow:
 			case <-ctx.Done():
