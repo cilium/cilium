@@ -1445,6 +1445,10 @@
      - Configure Kubernetes specific configuration
      - object
      - ``{}``
+   * - k8sNetworkPolicy.enabled
+     - Enable support for K8s NetworkPolicy
+     - bool
+     - ``true``
    * - k8sServiceHost
      - Kubernetes service host
      - string

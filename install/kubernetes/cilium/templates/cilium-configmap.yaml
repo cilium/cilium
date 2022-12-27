@@ -700,6 +700,9 @@ data:
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
 {{- end }}
+{{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
+  enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
+{{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
