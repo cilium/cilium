@@ -286,6 +286,10 @@ func (s *LocalObserverServer) GetFlows(
 		flow = new(flowpb.Flow)
 		mask.alloc(flow.ProtoReflect())
 	}
+	var seen map[uint32]*flowpb.Endpoint
+	if req.Experimental.GetTransmitEndpointOnce() {
+		seen = make(map[uint32]*flowpb.Endpoint)
+	}
 
 nextEvent:
 	for ; ; i++ {
@@ -309,6 +313,18 @@ nextEvent:
 					return err
 				case stop:
 					continue nextEvent
+				}
+			}
+			if req.Experimental.GetTransmitEndpointOnce() {
+				if endpoint, ok := seen[ev.Source.ID]; ok {
+					ev.Source = endpoint
+				} else {
+					seen[ev.Source.ID] = &flowpb.Endpoint{ID: ev.Source.ID}
+				}
+				if endpoint, ok := seen[ev.Destination.ID]; ok {
+					ev.Destination = endpoint
+				} else {
+					seen[ev.Destination.ID] = &flowpb.Endpoint{ID: ev.Destination.ID}
 				}
 			}
 			if mask.active() {
