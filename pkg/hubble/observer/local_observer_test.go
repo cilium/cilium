@@ -15,6 +15,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/tools/cache"
 
@@ -83,7 +85,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
-			output = append(output, response.GetFlow())
+			output = append(output, proto.Clone(response.GetFlow()).(*flowpb.Flow))
 			i++
 			return nil
 		},
@@ -139,7 +141,9 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	// 1, because the last event is inaccessible due to how the ring buffer
 	// works.
 	last10Input := input[numFlows-11 : numFlows-1]
-	assert.Equal(t, last10Input, output)
+	for i := range output {
+		assert.True(t, proto.Equal(last10Input[i], output[i]))
+	}
 
 	// Clear out the output slice, as we're making another request
 	output = nil
@@ -151,7 +155,46 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	assert.Equal(t, req.Number, uint64(i))
 
 	first10Input := input[0:10]
-	assert.Equal(t, first10Input, output)
+	for i := range output {
+		assert.True(t, proto.Equal(first10Input[i], output[i]))
+	}
+
+	// Clear out the output slice, as we're making another request
+	output = nil
+	i = 0
+	// testing getting subset of fields with field mask
+	req = &observerpb.GetFlowsRequest{
+		Number: uint64(10),
+		Experimental: &observerpb.GetFlowsRequest_Experimental{
+			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"trace_observation_point", "ethernet.source"}},
+		},
+	}
+	err = s.GetFlows(req, fakeServer)
+	assert.NoError(t, err)
+	assert.Equal(t, req.Number, uint64(i))
+
+	for i, out := range output {
+		assert.Equal(t, last10Input[i].TraceObservationPoint, out.TraceObservationPoint)
+		assert.Equal(t, last10Input[i].Ethernet.Source, out.Ethernet.Source)
+		assert.Empty(t, out.Ethernet.Destination)
+		assert.Empty(t, out.Verdict)
+		assert.Empty(t, out.Summary)
+		// Keeps original as is
+		assert.NotEmpty(t, last10Input[i].Summary)
+	}
+
+	// Clear out the output slice, as we're making another request
+	output = nil
+	i = 0
+	// testing getting all fields with field mask
+	req = &observerpb.GetFlowsRequest{
+		Number: uint64(10),
+		Experimental: &observerpb.GetFlowsRequest_Experimental{
+			FieldMask: &fieldmaskpb.FieldMask{Paths: []string{""}},
+		},
+	}
+	err = s.GetFlows(req, fakeServer)
+	assert.EqualError(t, err, "invalid fieldmask")
 }
 
 func TestLocalObserverServer_GetAgentEvents(t *testing.T) {
