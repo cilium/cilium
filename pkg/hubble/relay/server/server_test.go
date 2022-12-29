@@ -20,7 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
@@ -121,8 +123,9 @@ func newHubbleObserver(t testing.TB, nodeName string, numFlows int) *observer.Lo
 				EthernetType: layers.EthernetTypeIPv4,
 			},
 			&layers.IPv4{
-				SrcIP: endpoints[srcIP].IPv4,
-				DstIP: endpoints[dstIP].IPv4,
+				SrcIP:    endpoints[srcIP].IPv4,
+				DstIP:    endpoints[dstIP].IPv4,
+				Protocol: layers.IPProtocolTCP,
 			},
 			&layers.TCP{
 				SrcPort: 123,
@@ -169,7 +172,7 @@ func newHubblePeer(t testing.TB, ctx context.Context, address string, hubbleObse
 	}()
 }
 
-func BenchmarkRelayGetFlows(b *testing.B) {
+func benchmarkRelayGetFlows(b *testing.B, withFieldMask bool) {
 	tmp, err := os.MkdirTemp("", "hubble")
 	require.NoError(b, err)
 	defer os.RemoveAll(tmp)
@@ -257,9 +260,23 @@ func BenchmarkRelayGetFlows(b *testing.B) {
 	require.NoError(b, err)
 	require.Equal(b, numPeers, len(nodesResp.Nodes))
 
+	getFlowsReq := new(observerpb.GetFlowsRequest)
+	if withFieldMask {
+		fieldmask, err := fieldmaskpb.New(&flowpb.Flow{}, "time",
+			"verdict", "drop_reason",
+			"traffic_direction", "trace_observation_point", "Summary",
+			"source.ID", "source.pod_name", "source.namespace",
+			"destination.ID", "destination.pod_name", "destination.namespace",
+			"l4.TCP.source_port",
+		)
+		require.NoError(b, err)
+		getFlowsReq.Experimental = &observerpb.GetFlowsRequest_Experimental{
+			FieldMask: fieldmask,
+		}
+	}
 	found := make([]*observerpb.Flow, 0, numFlows)
 	b.StartTimer()
-	c, err := client.GetFlows(ctx, &observerpb.GetFlowsRequest{})
+	c, err := client.GetFlows(ctx, getFlowsReq)
 	require.NoError(b, err)
 
 	for {
@@ -282,5 +299,14 @@ func BenchmarkRelayGetFlows(b *testing.B) {
 		assert.NotEmpty(b, f.Destination.PodName)
 		assert.NotZero(b, f.Time)
 		assert.NotEmpty(b, f.Summary)
+		assert.NotZero(b, f.L4.GetTCP().SourcePort)
 	}
+}
+
+func BenchmarkRelayGetFlowsWithFieldMask(b *testing.B) {
+	benchmarkRelayGetFlows(b, true)
+}
+
+func BenchmarkRelayGetFlowsWithoutFieldMask(b *testing.B) {
+	benchmarkRelayGetFlows(b, false)
 }
