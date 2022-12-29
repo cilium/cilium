@@ -96,8 +96,8 @@ jobs:
         id: pr
         run: |
           curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "::set-output name=base::$(jq -r '.base.sha' pr.json)"
-          echo "::set-output name=head::$(jq -r '.head.sha' pr.json)"
+          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
         uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
@@ -173,12 +173,12 @@ jobs:
             --test '!/pod-to-world,!/pod-to-cidr'"
           CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --apiserver-version=${SHA}"
-          echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
-          echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
-          echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
-          echo ::set-output name=clustermesh_enable_defaults::${CLUSTERMESH_ENABLE_DEFAULTS}
-          echo ::set-output name=sha::${SHA}
-          echo ::set-output name=owner::${OWNER}
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+          echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+          echo clustermesh_enable_defaults=${CLUSTERMESH_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f
