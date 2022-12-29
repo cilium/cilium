@@ -38,6 +38,7 @@ func getLatestStableVersion() string {
 }
 
 func newCmdVersion() *cobra.Command {
+	var clientOnly bool
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Display detailed version information",
@@ -46,6 +47,9 @@ func newCmdVersion() *cobra.Command {
 			fmt.Printf("cilium-cli: %s compiled with %v on %v/%v\n", Version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 			fmt.Printf("cilium image (default): %s\n", defaults.Version)
 			fmt.Printf("cilium image (stable): %s\n", getLatestStableVersion())
+			if clientOnly {
+				return nil
+			}
 			version, err := k8sClient.GetRunningCiliumVersion(context.Background(), namespace)
 			if version == "" || err != nil {
 				fmt.Printf("cilium image (running): unknown. Unable to obtain cilium version, no cilium pods found in namespace %q\n", namespace)
@@ -56,5 +60,6 @@ func newCmdVersion() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&clientOnly, "client", false, "If true, shows client version only (no server required)")
 	return cmd
 }
