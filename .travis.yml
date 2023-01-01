@@ -7,7 +7,6 @@ go: "1.19.5"
 
 jobs:
   include:
-    - arch: amd64
     - arch: arm64-graviton2
       virt: vm
       group: edge
