@@ -1040,8 +1040,10 @@ skip_rev_dnat:
 		fib_params.family = AF_INET6;
 		fib_params.ifindex = ctx_get_ifindex(ctx);
 
-		ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src, &tuple.saddr);
-		ipv6_addr_copy((union v6addr *)&fib_params.ipv6_dst, &tuple.daddr);
+		ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src,
+			       (union v6addr *)&ip6->saddr);
+		ipv6_addr_copy((union v6addr *)&fib_params.ipv6_dst,
+			       (union v6addr *)&ip6->daddr);
 
 		fib_ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), 0);
 		/* See comment in rev_nodeport_lb4() on why we only set ifindex
@@ -1071,7 +1073,7 @@ skip_rev_dnat:
 			}
 
 			/* See comment in rev_nodeport_lb4(). */
-			dmac = neigh_lookup_ip6(&tuple.daddr);
+			dmac = neigh_lookup_ip6((union v6addr *)&fib_params.ipv6_dst);
 			if (unlikely(!dmac)) {
 				*ext_err = fib_ret;
 				return DROP_NO_FIB;
@@ -2057,7 +2059,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 			 * table instead where we recorded the client
 			 * address in nodeport_lb4().
 			 */
-			dmac = neigh_lookup_ip4(&tuple.daddr);
+			dmac = neigh_lookup_ip4(&fib_params.ipv4_dst);
 			if (unlikely(!dmac)) {
 				*ext_err = fib_ret;
 				return DROP_NO_FIB;
