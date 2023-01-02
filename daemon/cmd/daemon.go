@@ -734,7 +734,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
-		log.Info("Waiting for all endpoints' go routines to be stopped.")
+		log.Info("Waiting for all endpoints' goroutines to be stopped.")
 		var wg sync.WaitGroup
 
 		eps := d.endpointManager.GetEndpoints()

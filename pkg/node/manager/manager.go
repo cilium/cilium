@@ -711,7 +711,7 @@ func (m *Manager) StartNeighborRefresh(nh datapath.NodeHandler) {
 	controller.NewManager().UpdateController("neighbor-table-refresh",
 		controller.ControllerParams{
 			DoFunc: func(controllerCtx context.Context) error {
-				// Cancel previous go routines from previous controller run
+				// Cancel previous goroutines from previous controller run
 				cancel()
 				ctx, cancel = context.WithCancel(controllerCtx)
 				m.mutex.RLock()

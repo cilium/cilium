@@ -88,7 +88,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 	if s.withKVStore {
 		// Connect to the KVStore asynchronously so that we are able to start
 		// the operator without relying on the KVStore to be up.
-		// Start a go routine to GC all CiliumNodes from the KVStore that are
+		// Start a goroutine to GC all CiliumNodes from the KVStore that are
 		// no longer running.
 		wg.Add(1)
 		go func() {
@@ -250,7 +250,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 		// then there isn't any event handler set for CiliumNodes events.
 		if nodeManagerSyncHandler != nil {
 			go func() {
-				// infinite loop. run in a go routine to unblock code execution
+				// infinite loop. run in a goroutine to unblock code execution
 				for s.processNextWorkItem(ciliumNodeManagerQueue, nodeManagerSyncHandler) {
 				}
 			}()

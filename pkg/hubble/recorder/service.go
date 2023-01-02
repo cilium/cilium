@@ -113,7 +113,7 @@ func (s *Service) Record(stream recorderpb.Recorder_RecordServer) error {
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	// Spawn a go routine that forwards any received messages in order to be
+	// Spawn a goroutine that forwards any received messages in order to be
 	// able to use select on it
 	reqCh := make(chan *recorderpb.RecordRequest)
 	errCh := make(chan error, 1)
@@ -147,7 +147,7 @@ func (s *Service) Record(stream recorderpb.Recorder_RecordServer) error {
 			return fmt.Errorf("received invalid request %q, expected start request", req)
 		}
 
-		// The startRecording helper spawns a clean up go routine to remove all
+		// The startRecording helper spawns a clean up goroutine to remove all
 		// state associated with this recording when the context ctx is cancelled.
 		recording, filePath, err = s.startRecording(ctx, startRecording)
 		if err != nil {

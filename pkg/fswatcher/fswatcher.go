@@ -86,7 +86,7 @@ func New(trackedFiles []string) (*Watcher, error) {
 	}
 
 	// We add all paths in the constructor avoid the need for additional
-	// synchronization, as the loop go routine below will call updateWatchedPath
+	// synchronization, as the loop goroutine below will call updateWatchedPath
 	// concurrently
 	for _, f := range trackedFiles {
 		err := w.updateWatchedPath(f)

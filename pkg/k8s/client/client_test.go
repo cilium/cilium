@@ -57,7 +57,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 	)
 
 	// We need to polling for the condition instead of using a time.After to
-	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	// give the opportunity for scheduler to run the goroutine inside runHeartbeat
 	err := testutils.WaitUntil(func() bool {
 		select {
 		case <-called:
@@ -96,7 +96,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 	)
 
 	// We need to polling for the condition instead of using a time.After to
-	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	// give the opportunity for scheduler to run the goroutine inside runHeartbeat
 	err = testutils.WaitUntil(func() bool {
 		select {
 		case <-called:
@@ -151,7 +151,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 	)
 
 	// We need to polling for the condition instead of using a time.After to
-	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	// give the opportunity for scheduler to run the goroutine inside runHeartbeat
 	err = testutils.WaitUntil(func() bool {
 		select {
 		case <-called:
@@ -186,7 +186,7 @@ func (s *K8sClientSuite) Test_runHeartbeat(c *C) {
 	)
 
 	// We need to polling for the condition instead of using a time.After to
-	// give the opportunity for scheduler to run the go routine inside runHeartbeat
+	// give the opportunity for scheduler to run the goroutine inside runHeartbeat
 	err = testutils.WaitUntil(func() bool {
 		select {
 		case <-called:

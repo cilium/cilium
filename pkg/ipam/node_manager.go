@@ -216,7 +216,7 @@ func (n *NodeManager) instancesAPIResync(ctx context.Context) (time.Time, bool) 
 }
 
 // Start kicks of the NodeManager by performing the initial state
-// synchronization and starting the background sync go routine
+// synchronization and starting the background sync goroutine
 func (n *NodeManager) Start(ctx context.Context) error {
 	// Trigger the initial resync in a blocking manner
 	if _, ok := n.instancesAPIResync(ctx); !ok {
@@ -502,7 +502,7 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 		}(node, &stats)
 	}
 
-	// Acquire the full semaphore, this requires all go routines to
+	// Acquire the full semaphore, this requires all goroutines to
 	// complete and thus blocks until all nodes are synced
 	sem.Acquire(ctx, n.parallelWorkers)
 

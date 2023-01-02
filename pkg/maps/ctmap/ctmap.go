@@ -491,7 +491,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	}
 
 	// We serialize the deletions in order to avoid forced map walk restarts
-	// when keys are being evicted underneath us from concurrent go routines.
+	// when keys are being evicted underneath us from concurrent goroutines.
 	globalDeleteLock[m.mapType].Lock()
 	stats.dumpError = m.DumpReliablyWithCallback(filterCallback, stats.DumpStats)
 	globalDeleteLock[m.mapType].Unlock()
