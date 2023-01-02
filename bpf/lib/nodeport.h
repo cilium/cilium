@@ -655,18 +655,13 @@ drop_err:
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 {
-	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
-	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct ipv6_nat_target target = {
+		.addr = IPV6_DIRECT_ROUTING,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
 	int ret;
-
-	if (nat_46x64)
-		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
-	target.addr = tmp;
 
 	ret = snat_v6_rev_nat(ctx, &target);
 	if (IS_ERR(ret)) {
