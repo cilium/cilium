@@ -990,6 +990,11 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
+#ifdef ENABLE_NAT_46X64_GATEWAY
+	if (nat_46x64_fib)
+		goto skip_rev_dnat;
+#endif
+
 	tuple.nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
@@ -997,10 +1002,6 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
 	if (hdrlen < 0)
 		return hdrlen;
-#ifdef ENABLE_NAT_46X64_GATEWAY
-	if (nat_46x64_fib)
-		goto skip_rev_dnat;
-#endif
 	l4_off = l3_off + hdrlen;
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
