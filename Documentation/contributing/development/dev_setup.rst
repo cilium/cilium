@@ -230,7 +230,7 @@ This will first destroy any CI VMs you may have running on the current
 ``K8S_VERSION``, and then create a local Vagrant box if not already
 created. This can take some time.
 
-VM preloading can be turned off by exporting ``VM_PRELOAD=false``. You
+VM preloading can be turned off by exporting ``PRELOAD_VM=false``. You
 can run ``make clean`` in ``test`` to delete the cached vagrant box.
 
 To start the CI runtime VM locally, run:
