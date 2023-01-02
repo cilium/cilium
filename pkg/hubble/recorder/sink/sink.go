@@ -26,7 +26,7 @@ type sink struct {
 	lastError error
 }
 
-// startSink creates a queue and go routine for the sink. The spawned go
+// startSink creates a queue and goroutine for the sink. The spawned go
 // routine will run until one of the following happens:
 //   - sink.stop is called
 //   - a p.StopCondition is reached

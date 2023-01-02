@@ -75,7 +75,7 @@ type Agent struct {
 // Internally, the agent spawns a singleton goroutine reading events from
 // the BPF perf ring buffer and provides an interface to pass in non-BPF events.
 // The instance can be stopped by cancelling ctx, which will stop the perf reader
-// go routine and close all registered listeners.
+// goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
 func NewAgent(ctx context.Context) *Agent {
