@@ -5,12 +5,10 @@ package manager
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/checker"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -31,8 +29,6 @@ type cgroupMock struct {
 	cgroupIds map[string]uint64
 }
 
-type fsMock map[string]struct{}
-
 func (cg cgroupMock) GetCgroupID(cgroupPath string) (uint64, error) {
 	if o, ok := cg.cgroupIds[cgroupPath]; ok {
 		return o, nil
@@ -40,12 +36,17 @@ func (cg cgroupMock) GetCgroupID(cgroupPath string) (uint64, error) {
 	return 0, fmt.Errorf("")
 }
 
-func (fs fsMock) Stat(file string) (info os.FileInfo, err error) {
-	if _, ok := fs[file]; ok {
-		return nil, nil
-	}
+type providerMock struct {
+	paths map[string]string
+}
 
-	return nil, fmt.Errorf("")
+func (pm providerMock) getContainerPath(podId string, containerId string, qos slimcorev1.PodQOSClass) (string, error) {
+	return pm.paths[containerId], nil
+}
+
+func (pm providerMock) getBasePath() (string, error) {
+	return "", nil
+
 }
 
 var (
@@ -54,10 +55,10 @@ var (
 	pod3IP         = slimcorev1.PodIP{IP: "7.8.7.8"}
 	c1Id           = "d8f227cc24940cfdce8d8e601f3b92242ac9661b0e83f0ea57fdea1cb6bc93ec"
 	c3Id           = "e8f227cc24940cfdce8d8e601f3b92242ac9661b0e83f0ea57fdea1cb6bc93ed"
-	pod1C1CgrpPath = cgroups.GetCgroupRoot() + "/kubepods/burstable/pod1858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
-	pod2C1CgrpPath = cgroups.GetCgroupRoot() + "/kubepods/pod1858680e-b044-4fd5-9dd4-f137e30e2181/e8f227cc24940cfdce8d8e601f3b92242ac9661b0e83f0ea57fdea1cb6bc93ed"
-	pod3C1CgrpPath = cgroups.GetCgroupRoot() + "/kubelet" + "/kubepods/burstable/pod2858680e-b044-4fd5-9dd4-f137e30e2180/" + c3Id
-	pod3C2CgrpPath = cgroups.GetCgroupRoot() + "/kubelet" + "/kubepods/burstable/pod2858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
+	pod1C1CgrpPath = cgroupRoot + "/kubepods/burstable/pod1858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
+	pod2C1CgrpPath = cgroupRoot + "/kubepods/pod1858680e-b044-4fd5-9dd4-f137e30e2181/" + c3Id
+	pod3C1CgrpPath = cgroupRoot + "/kubelet" + "/kubepods/burstable/pod2858680e-b044-4fd5-9dd4-f137e30e2180/" + c3Id
+	pod3C2CgrpPath = cgroupRoot + "/kubelet" + "/kubepods/burstable/pod2858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
 	pod1Ips        = []slimcorev1.PodIP{pod1IP}
 	pod2Ips        = []slimcorev1.PodIP{pod2IP}
 	pod3Ips        = []slimcorev1.PodIP{pod3IP}
@@ -129,14 +130,18 @@ var (
 	}
 )
 
-func newCgroupManagerTest(fs fs, cg cgroup) *CgroupManager {
+func newCgroupManagerTest(pMock providerMock, cg cgroup) *CgroupManager {
 	// Unbuffered channel tests to detect any issues on the caller side.
-	return initManager(fs, cg, 0)
+	return initManager(pMock, cg, 0)
 }
 
 func (m *ManagerSuite) SetUpTest(c *C) {
 	option.Config.EnableSocketLBTracing = true
 	nodetypes.SetName("n1")
+}
+
+func getFullPath(path string) string {
+	return cgroupRoot + path
 }
 
 func (m *ManagerSuite) TestGetPodMetadataOnPodAdd(c *C) {
@@ -147,12 +152,12 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodAdd(c *C) {
 		pod1C1CgrpPath: c1CId,
 		pod2C1CgrpPath: c2CId,
 	}}
-	// Fs with regular cgroup base path.
-	fsMock := fsMock{
-		defaultCgroupBasePath: struct{}{},
-	}
+	provMock := providerMock{paths: map[string]string{
+		c1Id: pod1C1CgrpPath,
+		c3Id: pod2C1CgrpPath,
+	}}
 	pod10 := pod1.DeepCopy()
-	mm := newCgroupManagerTest(fsMock, cgMock)
+	mm := newCgroupManagerTest(provMock, cgMock)
 
 	type test struct {
 		input  *slimcorev1.Pod
@@ -184,11 +189,11 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodUpdate(c *C) {
 		pod3C1CgrpPath: c3CId,
 		pod3C2CgrpPath: c1CId,
 	}}
-	// Fs with nested cgroup base paths.
-	fsMock := fsMock{
-		defaultNestedCgroupBasePath: struct{}{},
-	}
-	mm := newCgroupManagerTest(fsMock, cgMock)
+	provMock := providerMock{paths: map[string]string{
+		c3Id: pod3C1CgrpPath,
+		c1Id: pod3C2CgrpPath,
+	}}
+	mm := newCgroupManagerTest(provMock, cgMock)
 	newPod := pod3.DeepCopy()
 	cs := slimcorev1.ContainerStatus{
 		State:       slimcorev1.ContainerState{Running: &slimcorev1.ContainerStateRunning{}},
@@ -218,7 +223,7 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodUpdate(c *C) {
 func (m *ManagerSuite) TestGetPodMetadataOnManagerDisabled(c *C) {
 	// Disable the feature flag.
 	option.Config.EnableSocketLBTracing = false
-	m.mm = newCgroupManagerTest(fsMock{}, cgroupMock{})
+	m.mm = newCgroupManagerTest(providerMock{}, cgroupMock{})
 	c1CId := uint64(1234)
 
 	m.mm.OnAddPod(pod1)
