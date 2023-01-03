@@ -288,9 +288,18 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	var (
 		routes []route.Route
 		gw     string
+		ip     netip.Addr
 	)
 
-	ip, err := netip.ParseAddr(ipAddr)
+	// This handles both scenarios for handling IPaddress as CIDR as well as IPaddress
+	// from delegated Ipam and cilium-agent
+	ipPrefix, err := netip.ParsePrefix(ipAddr)
+	if err != nil {
+		ip, err = netip.ParseAddr(ipAddr)
+	} else {
+		ip = ipPrefix.Addr()
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}
