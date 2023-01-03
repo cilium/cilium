@@ -60,11 +60,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		ret = nodeport_lb6(ctx, ip6, *identity, ext_err);
 		if (ret < 0)
 			return ret;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
 	}
 #endif
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	/* Lookup the source in the ipcache. After decryption this will be the
 	 * inner source IP to get the source security identity.
@@ -314,10 +314,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 		if (ret < 0)
 			return ret;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
 	}
 #endif
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	/* Lookup the source in the ipcache. After decryption this will be the
 	 * inner source IP to get the source security identity.

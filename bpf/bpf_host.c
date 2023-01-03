@@ -179,6 +179,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			 */
 			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
+
+			/* Verifier workaround: modified ctx access. */
+			if (!revalidate_data(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
 		}
 	}
 #endif /* ENABLE_NODEPORT */
@@ -191,10 +195,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			need_hostfw = true;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
-		/* Verifier workaround: R5 invalid mem access 'scalar'. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-
 		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
 			if (unlikely(ct_buffer.ret < 0))
 				return ct_buffer.ret;
@@ -566,6 +566,10 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			 */
 			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
+
+			/* Verifier workaround: modified ctx access. */
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
 		}
 	}
 #endif /* ENABLE_NODEPORT */
@@ -580,10 +584,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
-		/* Verifier workaround: R5 invalid mem access 'scalar'. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
 		/* We're on the ingress path of the native device. */
 		if (ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer)) {
 			if (unlikely(ct_buffer.ret < 0))
