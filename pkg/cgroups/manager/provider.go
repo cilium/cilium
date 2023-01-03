@@ -38,8 +38,10 @@ var (
 	containerdPrefix = "cri-containerd-"
 	// Prefix added to container cgroup sub-path by crio runtime
 	crioPrefix = "crio-"
-	// List of container runtime prefixes that can appear in container cgroup paths.
-	containerRuntimePrefixes = []string{containerdPrefix, crioPrefix}
+	// Prefix added to container cgroup sub-path by crio runtime
+	dockerPrefix = "docker-"
+	// List of container runtime prefixes that can appear in container cgroup paths in systemd environments.
+	containerRuntimePrefixes = []string{containerdPrefix, crioPrefix, dockerPrefix}
 	// Suffix added to cgroup sub-paths for systemd
 	systemdSuffix = ".slice"
 	// Suffix added to container cgroup sub-paths for systemd
@@ -84,7 +86,7 @@ func newDefaultProvider() defaultProvider {
 }
 
 func newSystemdProvider() systemdProvider {
-	return systemdProvider{systemdCgroupBasePath}
+	return systemdProvider{basePath: systemdCgroupBasePath}
 }
 
 func newNestedProvider() nestedProvider {
@@ -198,11 +200,7 @@ func (f fsImpl) Stat(name string) (os.FileInfo, error) {
 
 // Following helpers are adapted from: https://github.com/kubernetes/kubernetes/blob/master/pkg/kubelet/cm/cgroup_manager_linux.go.
 
-func escapeSystemdCgroupName(part string) string {
-	return strings.Replace(part, "-", "_", -1)
-}
-
-// cgroupName.ToSystemd converts the internal cgroup name to a systemd name.
+// toSystemd converts the given cgroup name to a systemd name.
 // For example, the name {"kubepods", "burstable", "pod1234-abcd-5678-efgh"} becomes
 // "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod1234_abcd_5678_efgh.slice"
 func toSystemd(cgroupName []string) (string, error) {
@@ -217,6 +215,10 @@ func toSystemd(cgroupName []string) (string, error) {
 		return "", fmt.Errorf("error converting cgroup name [%v] to systemd format: %v", cgroupName, err)
 	}
 	return result, nil
+}
+
+func escapeSystemdCgroupName(part string) string {
+	return strings.Replace(part, "-", "_", -1)
 }
 
 // systemd represents slice hierarchy using `-`, so we need to follow suit when
