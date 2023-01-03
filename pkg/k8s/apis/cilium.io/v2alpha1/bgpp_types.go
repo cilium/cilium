@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	gobgp "github.com/osrg/gobgp/v3/api"
 )
 
 // +genclient
@@ -107,4 +108,43 @@ type CiliumBGPVirtualRouter struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	Neighbors []CiliumBGPNeighbor `json:"neighbors"`
+	// AdditionalRoutes is a list of BGP Routes to be announced for this virtual router
+	//
+	// +kubebuilder:validation:Optional
+	AdditionalRoutes []CiliumBGPAdditionalRoutes `json:"additionalRoutes,omitempty"`
+}
+
+// these should likely be merged with gobgp.GoBGPIPv{4,6}Family
+// but are used slightly differently for CiliumBGPAdditionalRoutes
+var (
+	FamilyAfiMap = map[string]gobgp.Family_Afi{
+		"ipv4": gobgp.Family_AFI_IP,
+		"ipv6": gobgp.Family_AFI_IP6,
+	}
+
+	FamilySafiMap = map[string]gobgp.Family_Safi{
+		"unicast": gobgp.Family_SAFI_UNICAST,
+	}
+)
+
+// CiliumBGPAdditionalRoutes defines a manually injected route
+type CiliumBGPAdditionalRoutes struct {
+	// AFI is the Address Family Indicator, one of 'ipv4' or 'ipv6'
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=ipv4;ipv6
+	AFI string `json:"afi"`
+
+	// SAFI is the Subsequent Address Family Indicator, currently only 'unicast' is supported
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=unicast
+	SAFI string `json:"safi"`
+
+	// CIDRs is a list of Routes to be advertised
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	// +kubebuilder:validation:MinItems=1
+	CIDRs []string `json:"cidrs"`
 }

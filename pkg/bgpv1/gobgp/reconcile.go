@@ -38,6 +38,7 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewNeighborReconciler,
 	NewExportPodCIDRReconciler,
 	NewLBServiceReconciler,
+	NewAdditionalRouteReconciler,
 )
 
 type preflightReconcilerOut struct {
@@ -715,4 +716,158 @@ func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
 	svcLabels["io.kubernetes.service.name"] = svc.Name
 	svcLabels["io.kubernetes.service.namespace"] = svc.Namespace
 	return labels.Set(svcLabels)
+}
+
+type additionalRouteReconcilerOut struct {
+	cell.Out
+
+	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
+}
+
+type additionalRouteReconciler struct{}
+
+func NewAdditionalRouteReconciler() additionalRouteReconcilerOut {
+	return additionalRouteReconcilerOut{
+		Reconciler: &additionalRouteReconciler{},
+	}
+}
+
+func (r *additionalRouteReconciler) Priority() int {
+	return 50
+}
+
+func (r *additionalRouteReconciler) Reconcile(ctx context.Context, m *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+	return exportAdditionalRoutesReconciler(ctx, m, sc, newc, cstate)
+}
+
+// exportAdditionalRoutesReconciler is a ConfigReconcilerFunc which reconciles the
+// advertisement of the additional user-specified routes.
+func exportAdditionalRoutesReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, _ *agent.ControlPlaneState) error {
+	if newc == nil {
+		return fmt.Errorf("attempted injected route export reconciliation with nil CiliumBGPPeeringPolicy")
+	}
+	if sc == nil {
+		return fmt.Errorf("attempted injected route export reconciliation with nil ServerWithConfig")
+	}
+	var (
+		l = log.WithFields(
+			logrus.Fields{
+				"component": "gobgp.exportInjectedRoutesReconciler",
+			},
+		)
+
+		// holds injected routes which must be advertised
+		toAdvertise []Advertisement
+		// holds injected routes which must remain in place
+		toKeep []Advertisement
+		// holds injected routes which must be removed
+		toWithdraw []Advertisement
+		// a concat of toKeep + the result of advertising toAdvertise.
+		// stashed onto sc.InjectedRoutes field for book keeping.
+		newAdverts []Advertisement
+	)
+
+	l.Debugf("Begin reconciling injected route advertisements for virtual router with local ASN %v", newc.LocalASN)
+
+	// an aset member which book keeps which universe it exists in
+	type member struct {
+		a     bool
+		b     bool
+		advrt *Advertisement
+	}
+	aset := map[string]*member{}
+
+	// populate injected route advrts that must be present, universe a
+	for _, route := range newc.AdditionalRoutes {
+		var (
+			m  *member
+			ok bool
+		)
+		for _, cidr := range route.CIDRs {
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				return fmt.Errorf("failed to parse injected route cidr %s: %w", route, err)
+			}
+			key := ipNet.String()
+			if m, ok = aset[key]; !ok {
+				aset[key] = &member{
+					a: true,
+					advrt: &Advertisement{
+						Net: ipNet,
+						Path: &gobgp.Path{
+							Family: &gobgp.Family{
+								Afi:  v2alpha1api.FamilyAfiMap[route.AFI],
+								Safi: v2alpha1api.FamilySafiMap[route.SAFI],
+							},
+						},
+					},
+				}
+				continue
+			}
+			m.a = true
+		}
+	}
+
+	// populate the route advrts that are current advertised
+	for _, advrt := range sc.AdditionalRoutes {
+		var (
+			m  *member
+			ok bool
+		)
+		key := advrt.Net.String()
+		if m, ok = aset[key]; !ok {
+			aset[key] = &member{
+				b:     true,
+				advrt: &advrt,
+			}
+			continue
+		}
+		m.b = true
+	}
+
+	for _, m := range aset {
+		// present in configured injected routes (set a) but not in advertised routes
+		// (set b)
+		if m.a && !m.b {
+			toAdvertise = append(toAdvertise, *m.advrt)
+		}
+		// present in advertised injected routes (set b) but no in configured injected routes
+		// (set b)
+		if m.b && !m.a {
+			toWithdraw = append(toWithdraw, *m.advrt)
+		}
+		// present in both configured (set a) and advertised (set b) add this to
+		// injectedroutes to leave advertised.
+		if m.b && m.a {
+			toKeep = append(toKeep, *m.advrt)
+		}
+	}
+
+	if len(toAdvertise) == 0 && len(toWithdraw) == 0 {
+		l.Debugf("No reconciliation necessary")
+		return nil
+	}
+
+	// create new adverts
+	for _, advrt := range toAdvertise {
+		l.Debugf("Advertising injected route %v for policy with local ASN: %v", advrt.Net.String(), newc.LocalASN)
+		advrt, err := sc.AdvertisePath(ctx, advrt.Net)
+		if err != nil {
+			return fmt.Errorf("failed to advertise injected route prefix %v: %w", advrt.Net, err)
+		}
+		newAdverts = append(newAdverts, advrt)
+	}
+
+	// withdraw uneeded adverts
+	for _, advrt := range toWithdraw {
+		l.Debugf("Withdrawing injected route %v for policy with local ASN: %v", advrt.Net, newc.LocalASN)
+		if err := sc.WithdrawPath(ctx, advrt); err != nil {
+			return err
+		}
+	}
+
+	// concat our toKeep and newAdverts slices to store the latest reconciliation
+	sc.AdditionalRoutes = append(toKeep, newAdverts...)
+
+	return nil
 }

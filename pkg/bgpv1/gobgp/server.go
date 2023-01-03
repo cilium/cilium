@@ -64,6 +64,8 @@ type ServerWithConfig struct {
 	PodCIDRAnnouncements []Advertisement
 	// Holds any announced Service routes.
 	ServiceAnnouncements map[resource.Key][]Advertisement
+	// Holds additional user-specified routes
+	AdditionalRoutes []Advertisement
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing startReq
@@ -102,6 +104,7 @@ func NewServerWithConfig(ctx context.Context, startReq *gobgp.StartBgpRequest) (
 		Config:               nil,
 		PodCIDRAnnouncements: []Advertisement{},
 		ServiceAnnouncements: make(map[resource.Key][]Advertisement),
+		AdditionalRoutes:     []Advertisement{},
 	}, nil
 }
 

@@ -63,6 +63,11 @@ The policy in ``yaml`` form is defined below:
       neighbors: # []CiliumBGPNeighbor
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
+      additionalRoutes: # []CiliumBGPAdditionalRoutes
+      - afi: ipv4
+        safi: unicast
+        cidrs:
+        - '10.0.10.0/24'
 
 Fields
 ^^^^^^
@@ -82,6 +87,11 @@ Fields
        virtualRouters[*].neighbors: A list of neighbors to peer with
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerASN: The ASN of the peer
+
+       virtualRouters[*].additionalRoutes: Additional user-specified routes for announcement
+           neighbors[*].additionalRoutes.afi: One of 'ipv4' or 'ipv6'
+           neighbors[*].additionalRoutes.safi: 'unicast'
+           neighbors[*].additionalRoutes.cidrs: List of cidrs to be announced
 
 .. note::
 

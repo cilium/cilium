@@ -986,3 +986,131 @@ func TestLBServiceReconciler(t *testing.T) {
 		})
 	}
 }
+
+func TestExportInjectedRoutesReconciler(t *testing.T) {
+	var table = []struct {
+		// name of the test case
+		name string
+		// the advertised InjectedRoutes the test begins with
+		advertised []*net.IPNet
+		// the updated InjectedRoutes to reconcile, these are string encoded
+		// for the convenience of attaching directly to the NodeSpec.InjectedRoutes
+		// field.
+		updated []string
+		// error nil or not
+		err error
+	}{
+		{
+			name: "no change",
+			advertised: []*net.IPNet{
+				{
+					IP:   net.ParseIP("192.168.0.0"),
+					Mask: net.IPv4Mask(255, 255, 255, 0),
+				},
+			},
+			updated: []string{"192.168.0.0/24"},
+		},
+		{
+			name: "additional network",
+			advertised: []*net.IPNet{
+				{
+					IP:   net.ParseIP("192.168.0.0"),
+					Mask: net.IPv4Mask(255, 255, 255, 0),
+				},
+			},
+			updated: []string{"192.168.0.0/24", "192.168.1.0/24"},
+		},
+		{
+			name: "removal of network",
+			advertised: []*net.IPNet{
+				{
+					IP:   net.ParseIP("192.168.0.0"),
+					Mask: net.IPv4Mask(255, 255, 255, 0),
+				},
+				{
+					IP:   net.ParseIP("192.168.1.0"),
+					Mask: net.IPv4Mask(255, 255, 255, 0),
+				},
+			},
+			updated: []string{"192.168.0.0/24"},
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			// setup our test server, create a BgpServer, advertise the tt.advertised
+			// networks, and store each returned Advertisement in testSC.InjectedRoutes
+			startReq := &gobgp.StartBgpRequest{
+				Global: &gobgp.Global{
+					Asn:        64125,
+					RouterId:   "127.0.0.1",
+					ListenPort: -1,
+				},
+			}
+			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:  64125,
+				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
+			}
+			testSC, err := NewServerWithConfig(context.Background(), startReq)
+			if err != nil {
+				t.Fatalf("failed to create test bgp server: %v", err)
+			}
+			testSC.Config = oldc
+			for _, cidr := range tt.advertised {
+				advrt, err := testSC.AdvertisePath(context.Background(), cidr)
+				if err != nil {
+					t.Fatalf("failed to advertise initial injected routes: %v", err)
+				}
+				testSC.AdditionalRoutes = append(testSC.AdditionalRoutes, advrt)
+			}
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:         64125,
+				Neighbors:        []v2alpha1api.CiliumBGPNeighbor{},
+				AdditionalRoutes: []v2alpha1api.CiliumBGPAdditionalRoutes{{CIDRs: tt.updated}},
+			}
+
+			err = exportAdditionalRoutesReconciler(context.Background(), nil, testSC, newc, nil)
+			if err != nil {
+				t.Fatalf("failed to reconcile new injected advertisements: %v", err)
+			}
+
+			// ensure we see tt.updated in testSC.InjectedRoutes
+			for _, cidr := range tt.updated {
+				_, parsed, err := net.ParseCIDR(cidr)
+				if err != nil {
+					t.Fatalf("failed to parse updated cidr: %v", err)
+				}
+				var seen bool
+				for _, advrt := range testSC.AdditionalRoutes {
+					if advrt.Net.String() == parsed.String() {
+						seen = true
+						break
+					}
+				}
+				if !seen {
+					t.Fatalf("failed to advertise %v", cidr)
+				}
+			}
+
+			// ensure testSC.InjectedRoutes does not contain advertisements
+			// not in tt.updated
+			for _, advrt := range testSC.AdditionalRoutes {
+				var seen bool
+				for _, cidr := range tt.updated {
+					_, parsed, err := net.ParseCIDR(cidr)
+					if err != nil {
+						t.Fatalf("failed to parse updated cidr: %v", err)
+					}
+					if advrt.Net.String() == parsed.String() {
+						seen = true
+						break
+					}
+				}
+				if !seen {
+					t.Fatalf("unwanted advert %+v", advrt)
+				}
+			}
+
+		})
+	}
+}
