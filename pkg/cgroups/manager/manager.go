@@ -4,9 +4,7 @@
 package manager
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -22,9 +20,6 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroup-manager")
-	// /run/cilium/cgroupv2/kubelet/kubepods/pod4841248b-fc2f-41f4-9981-a685bf840ab5/d8f227cc24940cfdce8d8e601f3b92242ac9661b0e83f0ea57fdea1cb6bc93ec
-	defaultNestedCgroupBasePath = cgroups.GetCgroupRoot() + "/kubelet" + "/kubepods"
-	cgroupBasePaths             = []string{defaultCgroupBasePath, defaultNestedCgroupBasePath}
 	// Channel buffer size for pod events in order to not block callers
 	podEventsChannelSize = 20
 )
@@ -45,26 +40,23 @@ const (
 // The manager's internals are synchronized via a channel, and must not be
 // accessed/updated outside this channel.
 //
-// During initialization, the manager checks for a valid base cgroup path from
-// known defaults. In case of environments using non-default paths, manager will
-// fail to get a valid cgroup base path, and ignore all the subsequent pod events.
+// During initialization, the manager checks for a valid cgroup path pathProvider.
+// If it fails to find a pathProvider, it will ignore all the subsequent pod events.
 type CgroupManager struct {
 	// Map of pod metadata indexed by their UIDs
 	podMetadataById map[podUID]*podMetadata
 	// Map of container metadata indexed by their cgroup ids
 	containerMetadataByCgrpId map[uint64]*containerMetadata
-	// Set to the valid cgroup base path if found
-	templateCgroupBasePath string
 	// Buffered channel to receive pod events
 	podEvents chan podEvent
-	// Object to check cgroup base path
-	checkCgroupPath *sync.Once
+	// Cgroup path provider
+	pathProvider cgroupPathProvider
+	// Object to get cgroup path provider
+	checkPathProvider *sync.Once
 	// Flag to check if manager is enabled, and processing events
 	enabled bool
 	// Channel to shut down manager
 	shutdown chan struct{}
-	// Interface to do file operations
-	fschecker fs
 	// Interface to do cgroups related operations
 	cgroupsChecker cgroup
 }
@@ -78,7 +70,7 @@ type PodMetadata struct {
 
 // NewCgroupManager returns an initialized version of CgroupManager.
 func NewCgroupManager() *CgroupManager {
-	return initManager(fsImpl{}, cgroupImpl{}, podEventsChannelSize)
+	return initManager(nil, cgroupImpl{}, podEventsChannelSize)
 }
 
 func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
@@ -174,16 +166,16 @@ func (c cgroupImpl) GetCgroupID(cgroupPath string) (uint64, error) {
 	return cgroups.GetCgroupID(cgroupPath)
 }
 
-func initManager(fs fs, cg cgroup, channelSize int) *CgroupManager {
+func initManager(provider cgroupPathProvider, cg cgroup, channelSize int) *CgroupManager {
 	m := &CgroupManager{
 		podMetadataById:           make(map[string]*podMetadata),
 		containerMetadataByCgrpId: make(map[uint64]*containerMetadata),
 		podEvents:                 make(chan podEvent, channelSize),
 		shutdown:                  make(chan struct{}),
 	}
-	m.fschecker = fs
 	m.cgroupsChecker = cg
-	m.checkCgroupPath = new(sync.Once)
+	m.checkPathProvider = new(sync.Once)
+	m.pathProvider = provider
 
 	m.enable()
 	go m.processPodEvents()
@@ -197,15 +189,12 @@ func (m *CgroupManager) enable() {
 		return
 	}
 	m.enabled = true
-	m.checkCgroupPath.Do(func() {
-		for _, path := range cgroupBasePaths {
-			if _, err := m.fschecker.Stat(path); err != nil {
-				continue
-			}
-			m.templateCgroupBasePath = path
-			break
+	m.checkPathProvider.Do(func() {
+		if m.pathProvider != nil {
+			return
 		}
-		if m.templateCgroupBasePath == "" {
+		var err error
+		if m.pathProvider, err = getCgroupPathProvider(); err != nil {
 			log.Warn("No valid cgroup base path found: socket " +
 				"load-balancing tracing feature will not work. File a GitHub issue" +
 				"with an example cgroup path for a pod by running command on Kubernetes node: " +
@@ -297,7 +286,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 		currContainers[cId] = struct{}{}
 
 		// Container could've been gone, so don't log any errors.
-		cgrpPath, err := m.getContainerCgroupPath(id, cId, pod.Status.QOSClass)
+		cgrpPath, err := m.pathProvider.getContainerPath(id, cId, pod.Status.QOSClass)
 		if err != nil {
 			log.WithFields(logrus.Fields{
 				logfields.K8sPodName:   pod.Name,
@@ -376,20 +365,4 @@ func (m *CgroupManager) getPodMetadata(cgroupId uint64, podMetadataOut chan *Pod
 
 	podMetadataOut <- &podMetadata
 	close(podMetadataOut)
-}
-
-func (m *CgroupManager) baseCgroupPathForQos(path string, qos v1.PodQOSClass) string {
-	if qos == v1.PodQOSGuaranteed {
-		return path
-	}
-	return filepath.Join(path, strings.ToLower(string(qos)))
-}
-
-func (m *CgroupManager) getContainerCgroupPath(podId string, containerId string, containerQos v1.PodQOSClass) (string, error) {
-	if m.templateCgroupBasePath == "" {
-		return "", fmt.Errorf("failed to get cgroup path for (%s)", containerId)
-	}
-
-	podIdStr := fmt.Sprintf("pod%s", podId)
-	return filepath.Join(m.baseCgroupPathForQos(m.templateCgroupBasePath, containerQos), podIdStr, containerId), nil
 }
