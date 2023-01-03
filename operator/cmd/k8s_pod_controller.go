@@ -21,18 +21,18 @@ import (
 )
 
 const (
-	minimalPodRestartInterval  = 5 * time.Minute
-	unmanagedKubeDnsMinimalAge = 30 * time.Second
+	minimalPodRestartInterval = 5 * time.Minute
+	unmanagedPodMinimalAge    = 30 * time.Second
 )
 
 var (
 	lastPodRestart = map[string]time.Time{}
 )
 
-func enableUnmanagedKubeDNSController(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
+func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	// These functions will block until the resources are synced with k8s.
 	watchers.CiliumEndpointsInit(ctx, wg, clientset)
-	watchers.UnmanagedKubeDNSPodsInit(ctx, wg, clientset)
+	watchers.UnmanagedPodsInit(ctx, wg, clientset)
 
 	mgr := controller.NewManager()
 
@@ -43,7 +43,7 @@ func enableUnmanagedKubeDNSController(ctx context.Context, wg *sync.WaitGroup, c
 		mgr.RemoveAllAndWait()
 	}()
 
-	mgr.UpdateController("restart-unmanaged-kube-dns",
+	mgr.UpdateController("restart-unmanaged-pods",
 		controller.ControllerParams{
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
@@ -52,7 +52,7 @@ func enableUnmanagedKubeDNSController(ctx context.Context, wg *sync.WaitGroup, c
 						delete(lastPodRestart, podName)
 					}
 				}
-				for _, podItem := range watchers.UnmanagedKubeDNSPodStore.List() {
+				for _, podItem := range watchers.UnmanagedPodStore.List() {
 					pod, ok := podItem.(*slim_corev1.Pod)
 					if !ok {
 						log.Errorf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{})
@@ -72,20 +72,20 @@ func enableUnmanagedKubeDNSController(ctx context.Context, wg *sync.WaitGroup, c
 						log.WithFields(logrus.Fields{
 							logfields.K8sPodName: podID,
 							logfields.Identity:   cep.Status.ID,
-						}).Debug("Found kube-dns pod")
+						}).Debug("Found Unmanaged pod")
 					} else {
-						log.WithField(logfields.K8sPodName, podID).Debugf("Found unmanaged kube-dns pod")
+						log.WithField(logfields.K8sPodName, podID).Debugf("Found unmanaged pod")
 						if startTime := pod.Status.StartTime; startTime != nil {
-							if age := time.Since((*startTime).Time); age > unmanagedKubeDnsMinimalAge {
+							if age := time.Since((*startTime).Time); age > unmanagedPodMinimalAge {
 								if lastRestart, ok := lastPodRestart[podID]; ok {
 									if timeSinceRestart := time.Since(lastRestart); timeSinceRestart < minimalPodRestartInterval {
 										log.WithField(logfields.K8sPodName, podID).
-											Debugf("Not restaring kube-dns pod, only %s since last restart", timeSinceRestart)
+											Debugf("Not restaring unmanaged pod, only %s since last restart", timeSinceRestart)
 										continue
 									}
 								}
 
-								log.WithField(logfields.K8sPodName, podID).Infof("Restarting unmanaged kube-dns pod, started %s ago", age)
+								log.WithField(logfields.K8sPodName, podID).Infof("Restarting unmanaged pod, started %s ago", age)
 								if err := clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 									log.WithError(err).WithField(logfields.K8sPodName, podID).Warning("Unable to restart pod")
 								} else {
