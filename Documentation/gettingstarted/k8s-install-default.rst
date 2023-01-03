@@ -180,7 +180,7 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: minikube
 
-       Install minikube >= v1.12 as per minikube documentation:
+       Install minikube ≥ v1.28.0 as per minikube documentation:
        `Install Minikube <https://kubernetes.io/docs/tasks/tools/install-minikube/>`_.
        The following command will bring up a single node minikube cluster prepared for installing cilium.
 
