@@ -51,6 +51,10 @@ var (
 )
 
 func TestBPF(t *testing.T) {
+	if err := rlimit.RemoveMemlock(); err != nil {
+		t.Fatal("rlimit.RemoveMemlock: ", err)
+	}
+
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-test-path to run BPF tests")
 	}
