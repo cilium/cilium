@@ -194,6 +194,10 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
           ``--cni=cilium`` parameter in ``minikube start`` command. However, this may not
           install the latest version of cilium.
 
+          MacOS M1 users using a Minikube version < v1.28.0 with ``--cni=false`` will also need to run
+          ``minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf`` in order to mount the BPF filesystem
+          ``bpffs`` to ``/sys/fs/bpf``.
+
     .. group-tab:: Rancher Desktop
 
        Install Rancher Desktop >= v1.1.0 as per Rancher Desktop documentation:
