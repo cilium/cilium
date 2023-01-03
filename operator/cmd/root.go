@@ -443,7 +443,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		legacy.wg.Add(1)
 		go func() {
 			defer legacy.wg.Done()
-			enableUnmanagedKubeDNSController(legacy.ctx, &legacy.wg, legacy.clientset)
+			enableUnmanagedController(legacy.ctx, &legacy.wg, legacy.clientset)
 		}()
 	}
 

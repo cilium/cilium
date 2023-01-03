@@ -81,6 +81,7 @@ cilium-operator [flags]
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
+      --pod-restart-selector string               cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
       --pprof                                     Enable pprof debugging endpoint
       --pprof-port int                            Port that the pprof listens on (default 6061)
       --remove-cilium-node-taints                 Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
