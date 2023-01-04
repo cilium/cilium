@@ -536,6 +536,38 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 			       NULL);
 }
 
+static __always_inline int
+lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int *l4_off,
+		  struct ipv6_ct_tuple *tuple)
+{
+	int ret;
+
+	tuple->nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+
+	ret = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	if (ret < 0)
+		return ret;
+
+	*l4_off = ETH_HLEN + ret;
+
+	switch (tuple->nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		if (l4_load_ports(ctx, *l4_off, &tuple->dport) < 0)
+			return DROP_CT_INVALID_HDR;
+		return 0;
+	case IPPROTO_ICMPV6:
+		return DROP_NO_SERVICE;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
+}
+
 static __always_inline
 bool lb6_src_range_ok(const struct lb6_service *svc __maybe_unused,
 		      const union v6addr *saddr __maybe_unused)
@@ -1160,6 +1192,31 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 		csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
 	return extract_l4_port(ctx, ip4->protocol, l4_off, CT_EGRESS, &key->dport, ip4);
+}
+
+static __always_inline int
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int *l4_off,
+		  struct ipv4_ct_tuple *tuple)
+{
+	tuple->nexthdr = ip4->protocol;
+	tuple->daddr = ip4->daddr;
+	tuple->saddr = ip4->saddr;
+
+	*l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+
+	switch (tuple->nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		return ipv4_ct_extract_l4_ports(ctx, *l4_off, CT_EGRESS,
+						tuple, NULL);
+	case IPPROTO_ICMP:
+		return DROP_NO_SERVICE;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
 }
 
 static __always_inline
