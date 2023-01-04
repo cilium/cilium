@@ -51,7 +51,7 @@ static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry
  * - Non-zero if this flow has not been monitored recently.
  */
 static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
-						 __u32 lifetime, int dir,
+						 __u32 lifetime, enum ct_dir dir,
 						 union tcp_flags flags,
 						 __u8 report_mask)
 {
@@ -123,7 +123,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
  * last_updated timestamp and returns true. Otherwise returns false.
  */
 static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
-					       bool tcp, int dir,
+					       bool tcp, enum ct_dir dir,
 					       union tcp_flags seen_flags)
 {
 	__u32 lifetime = dir == CT_SERVICE ?
@@ -174,7 +174,7 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 }
 
 static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
-					const void *tuple, int action, int dir,
+					const void *tuple, int action, enum ct_dir dir,
 					struct ct_state *ct_state,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
@@ -331,7 +331,7 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 static __always_inline int ct_lookup6(const void *map,
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, int l4_off,
-				      int dir, struct ct_state *ct_state,
+				      enum ct_dir dir, struct ct_state *ct_state,
 				      __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
@@ -758,7 +758,7 @@ out:
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const int dir,
+				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
 				      bool proxy_redirect, bool from_l7lb,
 				      bool auth_required)
@@ -829,7 +829,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 static __always_inline int ct_create4(const void *map_main,
 				      const void *map_related,
 				      struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, const int dir,
+				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
 				      bool proxy_redirect, bool from_l7lb,
 				      bool auth_required)
