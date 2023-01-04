@@ -940,16 +940,23 @@ update_state:
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	ipv6_addr_copy(&tuple->daddr, &backend->address);
-	addr = &tuple->daddr;
 	state->rev_nat_index = svc->rev_nat_index;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return lb_skip_l4_dnat() ? CTX_ACT_OK :
-	       lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+
+	ipv6_addr_copy(&tuple->daddr, &backend->address);
+	addr = &tuple->daddr;
+
+	if (lb_skip_l4_dnat())
+		return CTX_ACT_OK;
+
+	if (likely(backend->port))
+		tuple->sport = backend->port;
+
+	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend, skip_l3_xlate);
 drop_no_service:
 	tuple->flags = flags;
@@ -1662,8 +1669,14 @@ update_state:
 #endif
 		tuple->daddr = backend->address;
 
-	return lb_skip_l4_dnat() ? CTX_ACT_OK :
-	       lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
+	if (lb_skip_l4_dnat())
+		return CTX_ACT_OK;
+
+	/* CT tuple contains ports in reverse order: */
+	if (likely(backend->port))
+		tuple->sport = backend->port;
+
+	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
