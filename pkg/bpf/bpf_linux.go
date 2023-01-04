@@ -7,6 +7,7 @@ package bpf
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -295,7 +296,7 @@ func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintp
 
 	// BPF_MAP_GET_NEXT_KEY returns ENOENT when all keys have been iterated
 	// translate that to io.EOF to signify there are no next keys
-	if err == unix.ENOENT {
+	if errors.Is(err, unix.ENOENT) {
 		return io.EOF
 	}
 

@@ -642,7 +642,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 	value := make([]byte, m.ReadValueSize)
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		return err
@@ -686,7 +686,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 		copy(key, nextKey)
 
 		if err := GetNextKeyFromPointers(m.fd, bpfCurrentKeyPtr, bpfCurrentKeySize); err != nil {
-			if err == io.EOF { // end of map, we're done iterating
+			if errors.Is(err, io.EOF) { // end of map, we're done iterating
 				return nil
 			}
 			return err
@@ -736,7 +736,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&currentKey[0])); err != nil {
 		stats.Lookup = 1
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// map is empty, nothing to clean up.
 			stats.Completed = true
 			return nil
@@ -813,7 +813,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 		}
 
 		if nextKeyErr != nil {
-			if nextKeyErr == io.EOF {
+			if errors.Is(nextKeyErr, io.EOF) {
 				stats.Completed = true
 				return nil // end of map, we're done iterating
 			}
@@ -1061,7 +1061,7 @@ func (m *Map) DeleteAll() error {
 	defer m.deleteAllMapEvent(err)
 	for {
 		if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
