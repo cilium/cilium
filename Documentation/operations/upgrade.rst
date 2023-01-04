@@ -325,6 +325,9 @@ Annotations:
   default only matters if no explicit selection of the subnet occurs, i.e.
   specifying subnet IDs or tags still takes precedence.
 
+* NodeExternalIP of the local node is now correctly included into the ``host``
+  :ref:`entity <Entities based>` (it used to belong to the world entity).
+
 Removed Options
 ~~~~~~~~~~~~~~~
 
@@ -384,6 +387,13 @@ CRD Changes
 ~~~~~~~~~~~
 
 * ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
+
+Deprecated API Fields
+~~~~~~~~~~~~~~~~~~~~~
+
+* ``trafficPolicy`` has been renamed to ``extTrafficPolicy`` in ``ServiceSpec.flags`` and
+  ``ServiceUpsertNotification``, in order to emphasize the distinction between the external and
+  internal traffic policies. The old name remains for backward compatibility.
 
 .. _earlier_upgrade_notes:
 
