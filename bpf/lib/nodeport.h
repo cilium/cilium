@@ -982,7 +982,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 					    int *ext_err)
 {
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
-	int ret, fib_ret, ret2, l3_off = ETH_HLEN, l4_off, hdrlen;
+	int ret, fib_ret, ret2, l4_off;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1000,14 +1000,16 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 		goto skip_rev_dnat;
 #endif
 
-	tuple.nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+	if (ret) {
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			goto out;
+		return ret;
+	}
 
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
-	l4_off = l3_off + hdrlen;
+	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple))
+		goto out;
+
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
@@ -1098,6 +1100,7 @@ skip_rev_dnat:
 		return CTX_ACT_REDIRECT;
 	}
 
+out:
 	if (bpf_skip_recirculation(ctx))
 		return DROP_NAT_NO_MAPPING;
 
@@ -2002,11 +2005,17 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		goto encap_redirect;
 #endif /* ENABLE_EGRESS_GATEWAY */
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+	if (ret) {
+		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			goto out;
+		return ret;
+	}
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
+	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple))
+		goto out;
+
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
@@ -2101,6 +2110,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 		return CTX_ACT_REDIRECT;
 	}
 
+out:
 	if (bpf_skip_recirculation(ctx))
 		return DROP_NAT_NO_MAPPING;
 
