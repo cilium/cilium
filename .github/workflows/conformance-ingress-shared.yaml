@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -56,7 +56,7 @@ jobs:
           echo ::set-output name=sha::${SHA}
 
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -78,7 +78,7 @@ jobs:
           ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           # Use the forked repo with retry mechanism
           # Please refer to https://github.com/sayboras/ingress-controller-conformance/pull/2 for more details.
