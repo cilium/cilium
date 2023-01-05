@@ -190,3 +190,43 @@ func TestAddrCluster_String(t *testing.T) {
 		})
 	}
 }
+
+func TestParsePrefixCluster(t *testing.T) {
+	tests := []struct {
+		name    string
+		arg     string
+		wantErr bool
+	}{
+		{"valid bare IPv4 prefix", "10.0.0.0/24", false},
+		{"invalid bare IPv4 prefix 1", "10.0.0.0", true},
+		{"invalid bare IPv4 prefix 2", "257.0.0.0/24", true},
+
+		{"valid IPv4 prefix and valid cluster-id", "10.0.0.0/24@1", false},
+		{"invalid IPv4 prefix and valid cluster-id", "257.0.0.0/24@1", true},
+		{"valid IPv4 prefix and invalid cluster-id", "10.0.0.0/24@foo", true},
+		{"valid IPv4 prefix and empty cluster-id", "10.0.0.0/24@", true},
+
+		{"valid bare IPv6 prefix", "a::/64", false},
+		{"invalid bare IPv6 prefix", "g::/64", true},
+
+		{"valid IPv6 prefix and valid cluster-id", "a::/64@1", false},
+		{"invalid IPv6 prefix and valid cluster-id", "g::/64@1", true},
+		{"valid IPv6 prefix and invalid cluster-id", "a::/64@foo", true},
+		{"valid IPv6 prefix and empty cluster-id", "a::/64@", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParsePrefixCluster(tt.arg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParsePrefixCluster() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+
+	// Ensure bare IP address equals to ClusterID = 0
+	if MustParsePrefixCluster("10.0.0.0/24") != MustParsePrefixCluster("10.0.0.0/24@0") {
+		t.Errorf("ParsePrefixCluster() returns different results for bare IP prefix and IP prefix with zero ClusterID")
+		return
+	}
+}
