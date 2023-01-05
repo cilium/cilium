@@ -625,6 +625,10 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
+func RunsOnJenkins() bool {
+	return os.Getenv("JENKINS_HOME") != ""
+}
+
 // HasSocketLB returns true if the given Cilium pod has TCP and/or
 // UDP host reachable services are enabled.
 func (kub *Kubectl) HasSocketLB(pod string) bool {
