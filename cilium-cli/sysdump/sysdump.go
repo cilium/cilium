@@ -522,6 +522,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Cilium Node Configs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumNodeConfigs(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium Node configs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumNodeConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium Node configs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting Ingresses",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -559,6 +573,34 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteYAML(ciliumEnvoyConfigsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium BGP Peering Policies",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
+				}
+				if err := c.WriteYAML(ciliumBPGPeeringPoliciesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium BGP Peering policies: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Cilium LoadBalancer IP Pools",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumBGPPeeringPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
+				}
+				if err := c.WriteYAML(ciliumLoadBalancerIPPoolsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium LoadBalancer IP Pools: %w", err)
 				}
 				return nil
 			},
