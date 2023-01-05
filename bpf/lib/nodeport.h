@@ -1402,8 +1402,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
 
-		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(*ip4) + 12,
-				   &tcp_flags, 2) < 0)
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + sizeof(*ip4), &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		/* Setting the option is required only for the first packet
