@@ -17,6 +17,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -198,6 +199,18 @@ type execResult struct {
 type fakeClient struct {
 	nodeList *corev1.NodeList
 	execs    map[execRequest]execResult
+}
+
+func (c *fakeClient) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
+	panic("implement me")
+}
+
+func (c *fakeClient) ListCiliumNodeConfigs(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error) {
+	panic("implement me")
 }
 
 func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
