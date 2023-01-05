@@ -395,6 +395,31 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 	return 0;
 }
 
+static __always_inline int
+lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
+	    struct csum_offset *csum_off, __be16 dport, __be16 backend_port)
+{
+	if (likely(backend_port) && dport != backend_port) {
+		int ret;
+
+#ifdef ENABLE_SCTP
+		/* This will change the SCTP checksum, which we cannot fix right now.
+		 * This will likely need kernel changes before we can remove this.
+		 */
+		if (nexthdr == IPPROTO_SCTP)
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
+
+		/* Port offsets for UDP and TCP are the same */
+		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
+				     backend_port, dport);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	return CTX_ACT_OK;
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct csum_offset *csum_off,
@@ -688,27 +713,8 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 	}
 
 l4_xlate:
-#ifdef ENABLE_SCTP
-	/* This will change the SCTP checksum, which we cannot fix right now.
-	 * This will likely need kernel changes before we can remove this.
-	 */
-	if (likely(backend->port) && key->dport != backend->port &&
-	    nexthdr == IPPROTO_SCTP)
-		return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-	if (likely(backend->port) && key->dport != backend->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
-		__be16 tmp = backend->port;
-		int ret;
-
-		/* Port offsets for UDP and TCP are the same */
-		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
-				     tmp, key->dport);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
+	return lb_l4_xlate(ctx, nexthdr, l4_off, csum_off, key->dport,
+			   backend->port);
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1385,27 +1391,9 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 	}
 
 l4_xlate:
-#ifdef ENABLE_SCTP
-	/* This will change the SCTP checksum, which we cannot fix right now.
-	 * This will likely need kernel changes before we can remove this.
-	 */
-	if (likely(backend->port) && key->dport != backend->port &&
-	    nexthdr == IPPROTO_SCTP)
-		return DROP_CSUM_L4;
-#endif  /* ENABLE_SCTP */
-	if (likely(backend->port) && key->dport != backend->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
-	    has_l4_header) {
-		__be16 tmp = backend->port;
-
-		/* Port offsets for UDP, TCP, and SCTP are the same */
-		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off,
-				     tmp, key->dport);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
-	return CTX_ACT_OK;
+	return has_l4_header ? lb_l4_xlate(ctx, nexthdr, l4_off, csum_off,
+					   key->dport, backend->port) :
+			       CTX_ACT_OK;
 }
 
 #ifdef ENABLE_SESSION_AFFINITY
