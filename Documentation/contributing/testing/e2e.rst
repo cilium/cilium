@@ -472,6 +472,7 @@ This mode expects:
 - The current directory is ``cilium/test``
 
 - A test focus with ``--focus``. ``--focus="K8s"`` selects all kubernetes tests.
+  If not passing ``--focus=K8s`` then you must pass ``-cilium.testScope=K8s``.
 
 - Cilium images as full URLs specified with the ``--cilium.image`` and
   ``--cilium.operator-image`` options.
@@ -493,6 +494,14 @@ An example invocation is
 .. code-block:: shell-session
 
   CNI_INTEGRATION=eks K8S_VERSION=1.16 ginkgo --focus="K8s" --tags=integration_tests -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium-ci" -cilium.operator-image="quay.io/cilium/operator" -cilium.operator-suffix="-ci" -cilium.passCLIEnvironment=true
+
+
+To run tests with Kind, try
+
+.. code-block:: shell-session
+
+  K8S_VERSION=1.25 ginkgo --focus=K8s -- -cilium.provision=false --cilium.image=localhost:5000/cilium/cilium-dev -cilium.tag=local  --cilium.operator-image=localhost:5000/cilium/operator -cilium.operator-tag=local -cilium.kubeconfig=`echo ~/.kube/config` -cilium.provision-k8s=false  -cilium.testScope=K8s -cilium.operator-suffix=
+
 
 Running in GKE
 ^^^^^^^^^^^^^^
