@@ -31,15 +31,6 @@ static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry
 	return rx_syn && tx_syn;
 }
 
-union tcp_flags {
-	struct {
-		__u8 upper_bits;
-		__u8 lower_bits;
-		__u16 pad;
-	};
-	__u32 value;
-};
-
 /**
  * Update the CT timeout and TCP flags for the specified entry.
  *
@@ -404,7 +395,7 @@ static __always_inline int ct_lookup6(const void *map,
 
 	case IPPROTO_TCP:
 		if (1) {
-			if (ctx_load_bytes(ctx, l4_off + 12, &tcp_flags, 2) < 0)
+			if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
@@ -715,7 +706,7 @@ static __always_inline int ct_lookup4(const void *map,
 		action = ACTION_CREATE;
 
 		if (has_l4_header) {
-			if (ctx_load_bytes(ctx, off + 12, &tcp_flags, 2) < 0)
+			if (l4_load_tcp_flags(ctx, off, &tcp_flags) < 0)
 				return DROP_CT_INVALID_HDR;
 
 			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
