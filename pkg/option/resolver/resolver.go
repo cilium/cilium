@@ -275,11 +275,18 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 		if len(override.Spec.Defaults) == 0 {
 			continue
 		}
-		ls, err := metav1.LabelSelectorAsSelector(&override.Spec.NodeSelector)
-		if err != nil { // unreachable
-			return nil, nil, fmt.Errorf("invalid selector in CiliumNodeConfig %s: %w", override.Name, err)
-		}
-		if ls.Matches(labels.Set(node.Labels)) {
+
+		// if we're selecting on a list, then evaluate the node selector
+		if name == "" && override.Spec.NodeSelector != nil {
+			ls, err := metav1.LabelSelectorAsSelector(override.Spec.NodeSelector)
+			if err != nil { // unreachable
+				return nil, nil, fmt.Errorf("invalid selector in CiliumNodeConfig %s: %w", override.Name, err)
+			}
+			if ls.Matches(labels.Set(node.Labels)) {
+				matching[override.Name] = override
+				matchingNames = append(matchingNames, override.Name)
+			}
+		} else if name != "" {
 			matching[override.Name] = override
 			matchingNames = append(matchingNames, override.Name)
 		}

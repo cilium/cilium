@@ -408,7 +408,11 @@ func (in *CiliumNodeConfigSpec) DeepCopyInto(out *CiliumNodeConfigSpec) {
 			(*out)[key] = val
 		}
 	}
-	in.NodeSelector.DeepCopyInto(&out.NodeSelector)
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = new(metav1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
