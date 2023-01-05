@@ -651,6 +651,10 @@ func (c *Client) DeleteCiliumNetworkPolicy(ctx context.Context, namespace, name 
 	return c.CiliumClientset.CiliumV2().CiliumNetworkPolicies(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) ListCiliumBGPPeeringPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumBGPPeeringPolicyList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies().List(ctx, opts)
+}
+
 func (c *Client) ListCiliumClusterwideNetworkPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumClusterwideNetworkPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx, opts)
 }
@@ -746,6 +750,10 @@ func (c *Client) ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIden
 
 func (c *Client) ListCiliumNodes(ctx context.Context) (*ciliumv2.CiliumNodeList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumNodes().List(ctx, metav1.ListOptions{})
+}
+
+func (c *Client) ListCiliumNodeConfigs(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumNodeConfigs(namespace).List(ctx, opts)
 }
 
 func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, sinceTime time.Time, limitBytes int64, previous bool) (string, error) {
@@ -855,6 +863,10 @@ func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) 
 
 func (c *Client) ListCiliumEgressGatewayPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2.CiliumEgressGatewayPolicyList, error) {
 	return c.CiliumClientset.CiliumV2().CiliumEgressGatewayPolicies().List(ctx, opts)
+}
+
+func (c *Client) ListCiliumLoadBalancerIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumLoadBalancerIPPoolList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumLoadBalancerIPPools().List(ctx, opts)
 }
 
 func (c *Client) ListCiliumLocalRedirectPolicies(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumLocalRedirectPolicyList, error) {
