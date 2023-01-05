@@ -125,8 +125,8 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
-						 const union v6addr *addr)
+static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
+						  const union v6addr *addr)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -1178,14 +1178,14 @@ static __always_inline int handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	union v6addr addr = IPV6_DIRECT_ROUTING;
 #endif
 
-	return nodeport_nat_ipv6_fwd(ctx, &addr);
+	return nodeport_snat_fwd_ipv6(ctx, &addr);
 }
 
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
 			       is_defined(ENABLE_IPV6)),
 			 __and(is_defined(ENABLE_HOST_FIREWALL),
 			       is_defined(IS_BPF_HOST))),
-		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
+		    CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -1213,7 +1213,7 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
+static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -2169,7 +2169,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 
 static __always_inline int handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	return nodeport_nat_ipv4_fwd(ctx);
+	return nodeport_snat_fwd_ipv4(ctx);
 }
 
 declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
@@ -2177,7 +2177,7 @@ declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
 			  __and(is_defined(ENABLE_HOST_FIREWALL),
 				is_defined(IS_BPF_HOST)),
 			  is_defined(ENABLE_EGRESS_GATEWAY)),
-		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
+		    CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	int ret;
@@ -2306,7 +2306,7 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 					 __and(is_defined(ENABLE_HOST_FIREWALL),
 					       is_defined(IS_BPF_HOST)),
 					 is_defined(ENABLE_EGRESS_GATEWAY)),
-				   CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT,
+				   CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
 				   handle_nat_fwd_ipv4);
 		break;
 #endif /* ENABLE_IPV4 */
@@ -2316,7 +2316,7 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
 					      is_defined(ENABLE_IPV6)),
 					__and(is_defined(ENABLE_HOST_FIREWALL),
 					      is_defined(IS_BPF_HOST))),
-				   CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT,
+				   CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
 				   handle_nat_fwd_ipv6);
 		break;
 #endif /* ENABLE_IPV6 */
