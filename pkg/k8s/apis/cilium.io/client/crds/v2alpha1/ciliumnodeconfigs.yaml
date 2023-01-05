@@ -52,7 +52,8 @@ spec:
                 type: object
               nodeSelector:
                 description: NodeSelector is a label selector that determines to which
-                  nodes this configuration applies.
+                  nodes this configuration applies. If not supplied, then this config
+                  applies to no nodes. If empty, then it applies to all nodes.
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.
