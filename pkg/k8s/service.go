@@ -637,8 +637,8 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 	// These comparisons must match the ParseClusterService() function above.
 	if ip.UnsortedIPListsAreEqual(s.FrontendIPs, feIPs) &&
 		s.IsHeadless == (len(svc.Frontends) == 0) &&
-		s.IncludeExternal == true &&
-		s.Shared == true &&
+		s.IncludeExternal &&
+		s.Shared &&
 		s.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
 		s.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
 		s.HealthCheckNodePort == 0 &&

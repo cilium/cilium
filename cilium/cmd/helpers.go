@@ -409,7 +409,7 @@ func getIpv6EnableStatus() bool {
 	if _, err := client.Daemon.GetHealthz(params); err == nil {
 		if resp, err := client.ConfigGet(); err == nil {
 			if resp.Status != nil {
-				return resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled == true
+				return resp.Status.Addressing.IPV6 != nil && resp.Status.Addressing.IPV6.Enabled
 			}
 		}
 	} else { // else read the EnableIPv6 status from the file-system

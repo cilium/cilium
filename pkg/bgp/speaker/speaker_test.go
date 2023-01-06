@@ -496,7 +496,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	}
 
 	// confirm speaker rejects any further events.
-	if spkr.shutDown() != true {
+	if !spkr.shutDown() {
 		t.Fatalf("wanted speaker to be shutdown")
 	}
 	if err := spkr.OnAddNode(nil, nil); !errors.Is(err, ErrShutDown) {

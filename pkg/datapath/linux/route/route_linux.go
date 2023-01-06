@@ -447,7 +447,7 @@ func replaceRule(spec Rule, family int) error {
 	if err != nil {
 		return err
 	}
-	if exists == true {
+	if exists {
 		return nil
 	}
 	rule := netlink.NewRule()
