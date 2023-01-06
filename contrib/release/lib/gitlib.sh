@@ -20,7 +20,7 @@
 ###############################################################################
 # CONSTANTS
 ###############################################################################
-GHCURL="curl -s --fail --retry 10 -u ${GITHUB_TOKEN:-$FLAGS_github_token}:x-oauth-basic"
+GHCURL="curl -s --fail --retry 10 -u x-access-token:${GITHUB_TOKEN:-$FLAGS_github_token}"
 JCURL="curl -g -s --fail --retry 10"
 CILIUM_GITHUB_API='https://api.github.com/repos/cilium/cilium'
 CILIUM_GITHUB_RAW_ORG='https://raw.githubusercontent.com/cilium'
