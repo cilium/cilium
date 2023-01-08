@@ -236,7 +236,10 @@ restart:
 			}
 
 			if option.Config.Debug {
-				scopedLog = log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key})
+				scopedLog = log.WithFields(logrus.Fields{
+					"kvstore-event": event.Typ.String(),
+					"key":           event.Key,
+				})
 				scopedLog.Debug("Received event")
 			}
 
@@ -271,8 +274,10 @@ restart:
 				var ipIDPair identity.IPIdentityPair
 				err := json.Unmarshal(event.Value, &ipIDPair)
 				if err != nil {
-					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-						WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
+					log.WithFields(logrus.Fields{
+						"kvstore-event": event.Typ.String(),
+						"key":           event.Key,
+					}).WithError(err).Error("Not adding entry to ip cache; error unmarshaling data from key-value store")
 					continue
 				}
 				ip := ipIDPair.PrefixString()
@@ -292,8 +297,10 @@ restart:
 					for _, np := range ipIDPair.NamedPorts {
 						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
 						if err != nil {
-							log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-								WithError(err).Error("Parsing named port failed")
+							log.WithFields(logrus.Fields{
+								"kvstore-event": event.Typ.String(),
+								"key":           event.Key,
+							}).WithError(err).Error("Parsing named port failed")
 						}
 					}
 				}
@@ -325,8 +332,10 @@ restart:
 				// need to convert kvstore key to IP.
 				ipnet, isHost, err := keyToIPNet(event.Key)
 				if err != nil {
-					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-						WithError(err).Error("Error parsing IP from key")
+					log.WithFields(logrus.Fields{
+						"kvstore-event": event.Typ.String(),
+						"key":           event.Key,
+					}).WithError(err).Error("Error parsing IP from key")
 					continue
 				}
 				var ip string

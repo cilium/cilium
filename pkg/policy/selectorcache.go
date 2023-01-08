@@ -993,10 +993,15 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 	// prepopulated with all matching numeric identities.
 	for numericID := range deleted {
 		if old, exists := sc.idCache[numericID]; exists {
-			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: old.lbls}).Debug("UpdateIdentities: Deleting identity")
+			log.WithFields(logrus.Fields{
+				logfields.Identity: numericID,
+				logfields.Labels:   old.lbls,
+			}).Debug("UpdateIdentities: Deleting identity")
 			delete(sc.idCache, numericID)
 		} else {
-			log.WithFields(logrus.Fields{logfields.Identity: numericID}).Warning("UpdateIdentities: Skipping Delete of a non-existing identity")
+			log.WithFields(logrus.Fields{
+				logfields.Identity: numericID,
+			}).Warning("UpdateIdentities: Skipping Delete of a non-existing identity")
 			delete(deleted, numericID)
 		}
 	}
@@ -1007,7 +1012,9 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 			// sorted for the kv-store, so there should
 			// not be too many false negatives.
 			if lbls.Equals(old.lbls) {
-				log.WithFields(logrus.Fields{logfields.Identity: numericID}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
+				log.WithFields(logrus.Fields{
+					logfields.Identity: numericID,
+				}).Debug("UpdateIdentities: Skipping add of an existing identical identity")
 				delete(added, numericID)
 				continue
 			}
@@ -1027,7 +1034,10 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 				scopedLog.Warning(msg)
 			}
 		} else {
-			log.WithFields(logrus.Fields{logfields.Identity: numericID, logfields.Labels: lbls}).Debug("UpdateIdentities: Adding a new identity")
+			log.WithFields(logrus.Fields{
+				logfields.Identity: numericID,
+				logfields.Labels:   lbls,
+			}).Debug("UpdateIdentities: Adding a new identity")
 		}
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}

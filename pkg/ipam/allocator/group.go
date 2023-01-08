@@ -59,12 +59,18 @@ func (g *PoolGroupAllocator) ReserveAddresses(iterator AddressIterator) {
 		ip := net.ParseIP(ipString)
 		if ip != nil {
 			if err := g.Allocate(types.PoolID(poolID), ip); err != nil {
-				log.WithFields(logrus.Fields{"instance": instanceID, "interface": interfaceID, "ip": ipString}).
-					WithError(err).Warning("Unable to allocate IP in internal allocator")
+				log.WithFields(logrus.Fields{
+					"instance":  instanceID,
+					"interface": interfaceID,
+					"ip":        ipString,
+				}).WithError(err).Warning("Unable to allocate IP in internal allocator")
 			}
 		} else {
-			log.WithFields(logrus.Fields{"instance": instanceID, "interface": interfaceID, "ip": ipString}).
-				Warning("Unable to parse IP")
+			log.WithFields(logrus.Fields{
+				"instance":  instanceID,
+				"interface": interfaceID,
+				"ip":        ipString,
+			}).Warning("Unable to parse IP")
 		}
 		return nil
 	})
