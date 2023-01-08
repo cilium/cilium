@@ -703,7 +703,10 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.C
 					log.Debug("Service not found in the service IP getter")
 				}
 			} else {
-				log.WithFields(logrus.Fields{"url-host": u.Host, "url": s}).Debug("Unable to parse etcd service URL into a service ID")
+				log.WithFields(logrus.Fields{
+					"url-host": u.Host,
+					"url":      s,
+				}).Debug("Unable to parse etcd service URL into a service ID")
 			}
 			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 		} else {

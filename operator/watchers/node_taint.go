@@ -99,10 +99,14 @@ func checkAndMarkNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeNam
 		if isCiliumPodRunning(node.GetName()) {
 			markNode(c, nodeGetter, node.GetName(), options)
 		} else {
-			log.WithFields(logrus.Fields{logfields.NodeName: node.GetName()}).Debug("Cilium pod not running for node")
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: node.GetName(),
+			}).Debug("Cilium pod not running for node")
 		}
 	} else {
-		log.WithFields(logrus.Fields{logfields.NodeName: node.GetName()}).Debug("Node without taint and with CiliumIsUp condition")
+		log.WithFields(logrus.Fields{
+			logfields.NodeName: node.GetName(),
+		}).Debug("Node without taint and with CiliumIsUp condition")
 	}
 	return true
 }
