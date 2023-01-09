@@ -856,6 +856,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
+#if __ctx_is == __ctx_xdp
+			return CTX_ACT_OK;
+#endif
 			send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
 					  bpf_ntohs((__u16)svc->l7_lb_proxy_port), 0,
 					  TRACE_REASON_POLICY, monitor);
@@ -1811,6 +1814,13 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return DROP_NOT_IN_SRC_RANGE;
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
+#if __ctx_is == __ctx_xdp
+			/* We cannot redirect from the XDP layer to cilium_host.
+			 * Therefore, let the bpf_host to handle the L7 ingress
+			 * request.
+			 */
+			return CTX_ACT_OK;
+#endif
 			send_trace_notify(ctx, TRACE_TO_PROXY, src_identity, 0,
 					  bpf_ntohs((__u16)svc->l7_lb_proxy_port), 0,
 					  TRACE_REASON_POLICY, monitor);
