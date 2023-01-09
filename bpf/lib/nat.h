@@ -526,7 +526,7 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 	tuple.saddr = ip4->daddr;
 	tuple.flags = NAT_DIR_EGRESS;
 
-	off = ((void *)ip4 - data) + ipv4_hdrlen(ip4);
+	off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
@@ -1275,7 +1275,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->daddr);
 	tuple.flags = NAT_DIR_EGRESS;
 
-	off = ((void *)ip6 - data) + hdrlen;
+	off = ETH_HLEN + hdrlen;
 
 	switch (tuple.nexthdr) {
 	case IPPROTO_TCP:
