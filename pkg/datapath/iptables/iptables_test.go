@@ -102,7 +102,7 @@ func (s *iptablesTestSuite) TestRenameCustomChain(c *check.C) {
 	mockIp4tables := &mockIptables{c: c, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
 		{
-			args: "-t mangle -L CILIUM_PRE_mangle",
+			args: "-t mangle -S CILIUM_PRE_mangle",
 		},
 		{
 			args: "-t mangle -E CILIUM_PRE_mangle OLD_CILIUM_PRE_mangle",

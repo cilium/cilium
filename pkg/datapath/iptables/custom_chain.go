@@ -97,7 +97,7 @@ var ciliumChains = []customChain{
 }
 
 func (c *customChain) exists(prog iptablesInterface) (bool, error) {
-	args := []string{"-t", c.table, "-L", c.name}
+	args := []string{"-t", c.table, "-S", c.name}
 
 	output, err := prog.runProgOutput(args)
 	if err != nil {
