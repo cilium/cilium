@@ -92,10 +92,12 @@ func (adj *AdjRib) Update(pathList []*Path) {
 	}
 }
 
-/* The provided pathList is expected to be the real candidate routes after policy evaluation.
-   For routes that are filtered by policy, there could be a mismatch between display
-   and actual rib sent to the peer (if softreset out was not run).
-   Only used to display adj-out because we do not maintain a separate adj-out table
+/*
+The provided pathList is expected to be the real candidate routes after policy evaluation.
+
+	For routes that are filtered by policy, there could be a mismatch between display
+	and actual rib sent to the peer (if softreset out was not run).
+	Only used to display adj-out because we do not maintain a separate adj-out table
 */
 func (adj *AdjRib) UpdateAdjRibOut(pathList []*Path) {
 	for _, path := range pathList {

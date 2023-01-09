@@ -81,6 +81,7 @@ const (
 	SAFI_EVPN                     = 70
 	SAFI_LS                       = 71
 	SAFI_SRPOLICY                 = 73
+	SAFI_MUP                      = 85
 	SAFI_MPLS_VPN                 = 128
 	SAFI_MPLS_VPN_MULTICAST       = 129
 	SAFI_ROUTE_TARGET_CONSTRAINTS = 132
@@ -127,6 +128,7 @@ const (
 	EC_TYPE_COS_CAPABILITY                        ExtendedCommunityAttrType = 0x05
 	EC_TYPE_EVPN                                  ExtendedCommunityAttrType = 0x06
 	EC_TYPE_FLOWSPEC_REDIRECT_MIRROR              ExtendedCommunityAttrType = 0x08
+	EC_TYPE_MUP                                   ExtendedCommunityAttrType = 0x0c
 	EC_TYPE_NON_TRANSITIVE_TWO_OCTET_AS_SPECIFIC  ExtendedCommunityAttrType = 0x40
 	EC_TYPE_NON_TRANSITIVE_LINK_BANDWIDTH         ExtendedCommunityAttrType = 0x40
 	EC_TYPE_NON_TRANSITIVE_IP6_SPECIFIC           ExtendedCommunityAttrType = 0x40 // RFC5701
@@ -165,6 +167,8 @@ const (
 
 	EC_SUBTYPE_ORIGIN_VALIDATION ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x43
 
+	EC_SUBTYPE_MUP_DIRECT_SEG ExtendedCommunityAttrSubType = 0x00 // EC_TYPE: 0x0c
+
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_RATE   ExtendedCommunityAttrSubType = 0x06 // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_TRAFFIC_ACTION ExtendedCommunityAttrSubType = 0x07 // EC_TYPE: 0x80
 	EC_SUBTYPE_FLOWSPEC_REDIRECT       ExtendedCommunityAttrSubType = 0x08 // EC_TYPE: 0x80
@@ -179,6 +183,55 @@ const (
 
 	EC_SUBTYPE_UUID_BASED_RT ExtendedCommunityAttrSubType = 0x11
 )
+
+// RFC6624
+type Layer2EncapsulationType uint8
+
+const (
+	LAYER2ENCAPSULATION_TYPE_FRAMERELAY      Layer2EncapsulationType = 1
+	LAYER2ENCAPSULATION_TYPE_ATM_AAL5        Layer2EncapsulationType = 2
+	LAYER2ENCAPSULATION_TYPE_ATM_TRANSPARENT Layer2EncapsulationType = 3
+	LAYER2ENCAPSULATION_TYPE_ETHERNET_VLAN   Layer2EncapsulationType = 4
+	LAYER2ENCAPSULATION_TYPE_ETHERNET_RAW    Layer2EncapsulationType = 5
+	LAYER2ENCAPSULATION_TYPE_CISCO_HDLC      Layer2EncapsulationType = 6
+	LAYER2ENCAPSULATION_TYPE_PPP             Layer2EncapsulationType = 7
+	LAYER2ENCAPSULATION_TYPE_SONET           Layer2EncapsulationType = 8
+	LAYER2ENCAPSULATION_TYPE_ATM_VCC         Layer2EncapsulationType = 9
+	LAYER2ENCAPSULATION_TYPE_ATM_VPC         Layer2EncapsulationType = 10
+	LAYER2ENCAPSULATION_TYPE_IP_LAYER2       Layer2EncapsulationType = 11
+	LAYER2ENCAPSULATION_TYPE_VPLS            Layer2EncapsulationType = 19
+)
+
+func (l Layer2EncapsulationType) String() string {
+	switch l {
+	case LAYER2ENCAPSULATION_TYPE_FRAMERELAY:
+		return "framerelay"
+	case LAYER2ENCAPSULATION_TYPE_ATM_AAL5:
+		return "atm-aal5"
+	case LAYER2ENCAPSULATION_TYPE_ATM_TRANSPARENT:
+		return "atm-transparent"
+	case LAYER2ENCAPSULATION_TYPE_ETHERNET_VLAN:
+		return "ethernet-vlan"
+	case LAYER2ENCAPSULATION_TYPE_ETHERNET_RAW:
+		return "ethernet-raw"
+	case LAYER2ENCAPSULATION_TYPE_CISCO_HDLC:
+		return "cisco-hdlc"
+	case LAYER2ENCAPSULATION_TYPE_PPP:
+		return "ppp"
+	case LAYER2ENCAPSULATION_TYPE_SONET:
+		return "sonet"
+	case LAYER2ENCAPSULATION_TYPE_ATM_VCC:
+		return "atm-vcc"
+	case LAYER2ENCAPSULATION_TYPE_ATM_VPC:
+		return "atm-vpc"
+	case LAYER2ENCAPSULATION_TYPE_IP_LAYER2:
+		return "ip-layer2"
+	case LAYER2ENCAPSULATION_TYPE_VPLS:
+		return "vpls"
+	default:
+		return fmt.Sprintf("Layer2EncapsulationType(%d)", uint8(l))
+	}
+}
 
 type TunnelType uint16
 
@@ -2310,10 +2363,13 @@ func (esi *EthernetSegmentIdentifier) String() string {
 // the special keyword for all zeroed ESI.
 // For the "ARBITRARY" Value field (Type 0), it should be the colon separated
 // hex values and the number of elements should be 9 at most.
-//   e.g.) args := []string{"ARBITRARY", "11:22:33:44:55:66:77:88:99"}
+//
+//	e.g.) args := []string{"ARBITRARY", "11:22:33:44:55:66:77:88:99"}
+//
 // For the other types, the Value field format is the similar to the string
 // format of ESI.
-//   e.g.) args := []string{"lacp", "aa:bb:cc:dd:ee:ff", "100"}
+//
+//	e.g.) args := []string{"lacp", "aa:bb:cc:dd:ee:ff", "100"}
 func ParseEthernetSegmentIdentifier(args []string) (EthernetSegmentIdentifier, error) {
 	esi := EthernetSegmentIdentifier{}
 	argLen := len(args)
@@ -4675,12 +4731,11 @@ func (n *FlowSpecNLRI) MarshalJSON() ([]byte, error) {
 
 }
 
-//
 // CompareFlowSpecNLRI(n, m) returns
 // -1 when m has precedence
-//  0 when n and m have same precedence
-//  1 when n has precedence
 //
+//	0 when n and m have same precedence
+//	1 when n has precedence
 func CompareFlowSpecNLRI(n, m *FlowSpecNLRI) (int, error) {
 	family := AfiSafiToRouteFamily(n.AFI(), n.SAFI())
 	if family != AfiSafiToRouteFamily(m.AFI(), m.SAFI()) {
@@ -4996,6 +5051,7 @@ const (
 	LS_PROTOCOL_DIRECT
 	LS_PROTOCOL_STATIC
 	LS_PROTOCOL_OSPF_V3
+	LS_PROTOCOL_BGP
 )
 
 func (l LsProtocolID) String() string {
@@ -5012,6 +5068,8 @@ func (l LsProtocolID) String() string {
 		return "STATIC"
 	case LS_PROTOCOL_OSPF_V3:
 		return "OSPFv3"
+	case LS_PROTOCOL_BGP:
+		return "BGP"
 	default:
 		return fmt.Sprintf("LsProtocolID(%d)", uint8(l))
 	}
@@ -5588,8 +5646,8 @@ const (
 	LS_TLV_BGP_LS_ID                = 513
 	LS_TLV_OSPF_AREA                = 514
 	LS_TLV_IGP_ROUTER_ID            = 515
-	LS_TLV_BGP_ROUTER_ID            = 516 // draft-ietf-idr-bgpls-segment-routing-epe, TODO
-	LS_TLV_BGP_CONFEDERATION_MEMBER = 517 // draft-ietf-idr-bgpls-segment-routing-epe, TODO
+	LS_TLV_BGP_ROUTER_ID            = 516 // RFC9086
+	LS_TLV_BGP_CONFEDERATION_MEMBER = 517 // RFC9086, TODO
 
 	LS_TLV_NODE_FLAG_BITS        = 1024
 	LS_TLV_OPAQUE_NODE_ATTR      = 1025
@@ -5618,9 +5676,9 @@ const (
 	LS_TLV_LINK_NAME                = 1098
 	LS_TLV_ADJACENCY_SID            = 1099 // draft-ietf-idr-bgp-ls-segment-routing-ext
 	LS_TLV_LAN_ADJACENCY_SID        = 1100 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
-	LS_TLV_PEER_NODE_SID            = 1101 // draft-ietf-idr-bgpls-segment-routing-epe, TODO
-	LS_TLV_PEER_ADJACENCY_SID       = 1102 // draft-ietf-idr-bgpls-segment-routing-epe, TODO
-	LS_TLV_PEER_SET_SID             = 1103 // draft-ietf-idr-bgpls-segment-routing-epe, TODO
+	LS_TLV_PEER_NODE_SID            = 1101 // RFC9086
+	LS_TLV_PEER_ADJACENCY_SID       = 1102 // RFC9086
+	LS_TLV_PEER_SET_SID             = 1103 // RFC9086
 
 	LS_TLV_RTM_CAPABILITY = 1105 // RFC8169, TODO
 
@@ -6471,6 +6529,52 @@ func (l *LsTLVOspfAreaID) MarshalJSON() ([]byte, error) {
 	}{
 		Type:   l.Type,
 		AreaID: l.AreaID,
+	})
+}
+
+type LsTLVBgpRouterID struct {
+	LsTLV
+	RouterID net.IP
+}
+
+func (l *LsTLVBgpRouterID) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_BGP_ROUTER_ID {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://tools.ietf.org/html/rfc9086#section-4.1
+	// 4 is the only valid value.
+	if len(value) != 4 {
+		return malformedAttrListErr(fmt.Sprintf("Incorrect BGP Router ID length: %d", len(value)))
+	}
+
+	l.RouterID = net.IP(value)
+
+	return nil
+}
+
+func (l *LsTLVBgpRouterID) Serialize() ([]byte, error) {
+	var buf [4]byte
+	copy(buf[:], l.RouterID)
+	return l.LsTLV.Serialize(buf[:])
+}
+
+func (l *LsTLVBgpRouterID) String() string {
+	return fmt.Sprintf("{BGP Router ID: %v}", l.RouterID)
+}
+
+func (l *LsTLVBgpRouterID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type     LsTLVType `json:"type"`
+		RouterID string    `json:"bgp_router_id"`
+	}{
+		Type:     l.Type,
+		RouterID: fmt.Sprintf("%v", l.RouterID),
 	})
 }
 
@@ -7348,6 +7452,219 @@ func (l *LsTLVAdjacencySID) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type LsTLVPeerNodeSID struct {
+	LsTLV
+	Flags  uint8
+	Weight uint8
+	SID    uint32
+}
+
+func (l *LsTLVPeerNodeSID) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_PEER_NODE_SID {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://tools.ietf.org/html/rfc9086#section-5
+	if len(value) != 7 && len(value) != 8 {
+		return malformedAttrListErr("Incorrect Peer Node SID length")
+	}
+
+	l.Flags = value[0]
+	l.Weight = value[1]
+
+	v := value[4:]
+	if len(v) == 4 {
+		l.SID = binary.BigEndian.Uint32(v)
+	} else {
+		buf := []byte{0, 0, 0, 0}
+		for i := 1; i < len(buf); i++ {
+			buf[i] = v[i-1]
+		}
+		// Label is represented by 20 rightmost bits.
+		l.SID = binary.BigEndian.Uint32(buf) & 0xfffff
+	}
+
+	return nil
+}
+
+func (l *LsTLVPeerNodeSID) Serialize() ([]byte, error) {
+	buf := make([]byte, 0)
+	buf = append(buf, l.Flags)
+	buf = append(buf, l.Weight)
+	// Reserved
+	buf = append(buf, []byte{0, 0}...)
+
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:4], l.SID)
+
+	if l.Length == 7 {
+		return l.LsTLV.Serialize(append(buf, b[1:]...))
+	}
+
+	return l.LsTLV.Serialize(append(buf, b[:]...))
+}
+
+func (l *LsTLVPeerNodeSID) String() string {
+	return fmt.Sprintf("{Peer Node SID: %v}", l.SID)
+}
+
+func (l *LsTLVPeerNodeSID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type LsTLVType `json:"type"`
+		SID  uint32    `json:"peer_node_sid"`
+	}{
+		Type: l.Type,
+		SID:  l.SID,
+	})
+}
+
+type LsTLVPeerAdjacencySID struct {
+	LsTLV
+	Flags  uint8
+	Weight uint8
+	SID    uint32
+}
+
+func (l *LsTLVPeerAdjacencySID) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_PEER_ADJACENCY_SID {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://tools.ietf.org/html/rfc9086#section-5
+	if len(value) != 7 && len(value) != 8 {
+		return malformedAttrListErr("Incorrect Peer Adjacency SID length")
+	}
+
+	l.Flags = value[0]
+	l.Weight = value[1]
+
+	v := value[4:]
+	if len(v) == 4 {
+		l.SID = binary.BigEndian.Uint32(v)
+	} else {
+		buf := []byte{0, 0, 0, 0}
+		for i := 1; i < len(buf); i++ {
+			buf[i] = v[i-1]
+		}
+		// Label is represented by 20 rightmost bits.
+		l.SID = binary.BigEndian.Uint32(buf) & 0xfffff
+	}
+
+	return nil
+}
+
+func (l *LsTLVPeerAdjacencySID) Serialize() ([]byte, error) {
+	buf := make([]byte, 0)
+	buf = append(buf, l.Flags)
+	buf = append(buf, l.Weight)
+	// Reserved
+	buf = append(buf, []byte{0, 0}...)
+
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:4], l.SID)
+
+	if l.Length == 7 {
+		return l.LsTLV.Serialize(append(buf, b[1:]...))
+	}
+
+	return l.LsTLV.Serialize(append(buf, b[:]...))
+}
+
+func (l *LsTLVPeerAdjacencySID) String() string {
+	return fmt.Sprintf("{Peer Adjacency SID: %v}", l.SID)
+}
+
+func (l *LsTLVPeerAdjacencySID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type LsTLVType `json:"type"`
+		SID  uint32    `json:"peer_adjacency_sid"`
+	}{
+		Type: l.Type,
+		SID:  l.SID,
+	})
+}
+
+type LsTLVPeerSetSID struct {
+	LsTLV
+	Flags  uint8
+	Weight uint8
+	SID    uint32
+}
+
+func (l *LsTLVPeerSetSID) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+
+	if l.Type != LS_TLV_PEER_SET_SID {
+		return malformedAttrListErr("Unexpected TLV type")
+	}
+
+	// https://tools.ietf.org/html/rfc9086#section-5
+	if len(value) != 7 && len(value) != 8 {
+		return malformedAttrListErr("Incorrect Peer Set SID length")
+	}
+
+	l.Flags = value[0]
+	l.Weight = value[1]
+
+	v := value[4:]
+	if len(v) == 4 {
+		l.SID = binary.BigEndian.Uint32(v)
+	} else {
+		buf := []byte{0, 0, 0, 0}
+		for i := 1; i < len(buf); i++ {
+			buf[i] = v[i-1]
+		}
+		// Label is represented by 20 rightmost bits.
+		l.SID = binary.BigEndian.Uint32(buf) & 0xfffff
+	}
+
+	return nil
+}
+
+func (l *LsTLVPeerSetSID) Serialize() ([]byte, error) {
+	buf := make([]byte, 0)
+	buf = append(buf, l.Flags)
+	buf = append(buf, l.Weight)
+	// Reserved
+	buf = append(buf, []byte{0, 0}...)
+
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:4], l.SID)
+
+	if l.Length == 7 {
+		return l.LsTLV.Serialize(append(buf, b[1:]...))
+	}
+
+	return l.LsTLV.Serialize(append(buf, b[:]...))
+}
+
+func (l *LsTLVPeerSetSID) String() string {
+	return fmt.Sprintf("{Peer Set SID: %v}", l.SID)
+}
+
+func (l *LsTLVPeerSetSID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type LsTLVType `json:"type"`
+		SID  uint32    `json:"peer_set_sid"`
+	}{
+		Type: l.Type,
+		SID:  l.SID,
+	})
+}
+
 type LsTLVSIDLabel struct {
 	LsTLV
 	SID uint32
@@ -7770,6 +8087,8 @@ func (l *LsTLVNodeDescriptor) DecodeFromBytes(data []byte) error {
 			subTLV = &LsTLVOspfAreaID{}
 		case LS_TLV_IGP_ROUTER_ID:
 			subTLV = &LsTLVIgpRouterID{}
+		case LS_TLV_BGP_ROUTER_ID:
+			subTLV = &LsTLVBgpRouterID{}
 
 		default:
 			tlv = tlv[sub.Len():]
@@ -7784,7 +8103,11 @@ func (l *LsTLVNodeDescriptor) DecodeFromBytes(data []byte) error {
 		tlv = tlv[subTLV.Len():]
 	}
 
-	if _, ok := m[LS_TLV_IGP_ROUTER_ID]; !ok {
+	_, lsTLVIgpRouterIDExists := m[LS_TLV_IGP_ROUTER_ID]
+	_, lsTLVBgpRouterIDExists := m[LS_TLV_BGP_ROUTER_ID]
+	_, lsTLVAutonomousSystemExists := m[LS_TLV_AS]
+
+	if !(lsTLVIgpRouterIDExists || (lsTLVBgpRouterIDExists && lsTLVAutonomousSystemExists)) {
 		return malformedAttrListErr("Required TLV missing")
 	}
 
@@ -7808,7 +8131,11 @@ func (l *LsTLVNodeDescriptor) Serialize() ([]byte, error) {
 func (l *LsTLVNodeDescriptor) String() string {
 	nd := l.Extract()
 
-	return fmt.Sprintf("{ASN: %v, BGP LS ID: %v, OSPF AREA: %v, IGP ROUTER ID: %v}", nd.Asn, nd.BGPLsID, nd.OspfAreaID, nd.IGPRouterID)
+	if nd.BGPRouterID == nil {
+		return fmt.Sprintf("{ASN: %v, BGP LS ID: %v, OSPF AREA: %v, IGP ROUTER ID: %v}", nd.Asn, nd.BGPLsID, nd.OspfAreaID, nd.IGPRouterID)
+	}
+
+	return fmt.Sprintf("{ASN: %v, BGP LS ID: %v, OSPF AREA: %v, IGP ROUTER ID: %v, BGP ROUTER ID: %v}", nd.Asn, nd.BGPLsID, nd.OspfAreaID, nd.IGPRouterID, nd.BGPRouterID)
 }
 
 func (l *LsTLVNodeDescriptor) MarshalJSON() ([]byte, error) {
@@ -7827,6 +8154,7 @@ type LsNodeDescriptor struct {
 	OspfAreaID  uint32 `json:"ospf_area_id"`
 	PseudoNode  bool   `json:"pseudo_node"`
 	IGPRouterID string `json:"igp_router_id"`
+	BGPRouterID net.IP `json:"bgp_router_id"`
 }
 
 func parseIGPRouterID(id []byte) (string, bool) {
@@ -7865,6 +8193,8 @@ func (l *LsTLVNodeDescriptor) Extract() *LsNodeDescriptor {
 			nd.OspfAreaID = v.AreaID
 		case *LsTLVIgpRouterID:
 			nd.IGPRouterID, nd.PseudoNode = parseIGPRouterID(v.RouterID)
+		case *LsTLVBgpRouterID:
+			nd.BGPRouterID = v.RouterID
 		}
 	}
 
@@ -8017,10 +8347,17 @@ type LsAttributePrefix struct {
 	SrPrefixSID *uint32 `json:"sr_prefix_sid,omitempty"`
 }
 
+type LsAttributeBgpPeerSegment struct {
+	BgpPeerNodeSid      *uint32 `json:"bgp_peer_node_sid,omitempty"`
+	BgpPeerAdjacencySid *uint32 `json:"bgp_peer_adjacency_sid,omitempty"`
+	BgpPeerSetSid       *uint32 `json:"bgp_peer_set_sid,omitempty"`
+}
+
 type LsAttribute struct {
-	Node   LsAttributeNode   `json:"node"`
-	Link   LsAttributeLink   `json:"link"`
-	Prefix LsAttributePrefix `json:"prefix"`
+	Node           LsAttributeNode           `json:"node"`
+	Link           LsAttributeLink           `json:"link"`
+	Prefix         LsAttributePrefix         `json:"prefix"`
+	BgpPeerSegment LsAttributeBgpPeerSegment `json:"bgp_peer_segment"`
 }
 
 type PathAttributeLs struct {
@@ -8106,6 +8443,15 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 
 		case *LsTLVPrefixSID:
 			l.Prefix.SrPrefixSID = &v.SID
+
+		case *LsTLVPeerNodeSID:
+			l.BgpPeerSegment.BgpPeerNodeSid = &v.SID
+
+		case *LsTLVPeerAdjacencySID:
+			l.BgpPeerSegment.BgpPeerAdjacencySid = &v.SID
+
+		case *LsTLVPeerSetSID:
+			l.BgpPeerSegment.BgpPeerSetSid = &v.SID
 		}
 	}
 
@@ -8207,6 +8553,16 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 		case LS_TLV_PREFIX_SID:
 			tlv = &LsTLVPrefixSID{}
 
+		// BGP-EPE related TLVs (https://tools.ietf.org/html/rfc9086)
+		case LS_TLV_PEER_NODE_SID:
+			tlv = &LsTLVPeerNodeSID{}
+
+		case LS_TLV_PEER_ADJACENCY_SID:
+			tlv = &LsTLVPeerAdjacencySID{}
+
+		case LS_TLV_PEER_SET_SID:
+			tlv = &LsTLVPeerSetSID{}
+
 		default:
 			tlvs = tlvs[t.Len():]
 			continue
@@ -8301,6 +8657,8 @@ const (
 	RF_LS             RouteFamily = AFI_LS<<16 | SAFI_LS
 	RF_SR_POLICY_IPv4 RouteFamily = AFI_IP<<16 | SAFI_SRPOLICY
 	RF_SR_POLICY_IPv6 RouteFamily = AFI_IP6<<16 | SAFI_SRPOLICY
+	RF_MUP_IPv4       RouteFamily = AFI_IP<<16 | SAFI_MUP
+	RF_MUP_IPv6       RouteFamily = AFI_IP6<<16 | SAFI_MUP
 )
 
 var AddressFamilyNameMap = map[RouteFamily]string{
@@ -8328,6 +8686,8 @@ var AddressFamilyNameMap = map[RouteFamily]string{
 	RF_LS:             "ls",
 	RF_SR_POLICY_IPv4: "ipv4-srpolicy",
 	RF_SR_POLICY_IPv6: "ipv6-srpolicy",
+	RF_MUP_IPv4:       "ipv4-mup",
+	RF_MUP_IPv6:       "ipv6-mup",
 }
 
 var AddressFamilyValueMap = map[string]RouteFamily{
@@ -8355,6 +8715,8 @@ var AddressFamilyValueMap = map[string]RouteFamily{
 	AddressFamilyNameMap[RF_LS]:             RF_LS,
 	AddressFamilyNameMap[RF_SR_POLICY_IPv4]: RF_SR_POLICY_IPv4,
 	AddressFamilyNameMap[RF_SR_POLICY_IPv6]: RF_SR_POLICY_IPv6,
+	AddressFamilyNameMap[RF_MUP_IPv4]:       RF_MUP_IPv4,
+	AddressFamilyNameMap[RF_MUP_IPv6]:       RF_MUP_IPv6,
 }
 
 func GetRouteFamily(name string) (RouteFamily, error) {
@@ -8400,6 +8762,8 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		prefix = NewLabeledIPv6AddrPrefix(0, "", *NewMPLSLabelStack())
 	case RF_EVPN:
 		prefix = NewEVPNNLRI(0, nil)
+	case RF_VPLS:
+		prefix = &VPLSNLRI{}
 
 	// TODO (sbezverk) Add processing SR Policy NLRI
 	case RF_SR_POLICY_IPv4:
@@ -8434,6 +8798,10 @@ func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (pref
 		prefix = &OpaqueNLRI{}
 	case RF_LS:
 		prefix = &LsAddrPrefix{}
+	case RF_MUP_IPv4:
+		prefix = NewMUPNLRI(AFI_IP, 0, 0, nil)
+	case RF_MUP_IPv6:
+		prefix = NewMUPNLRI(AFI_IP6, 0, 0, nil)
 	default:
 		err = fmt.Errorf("unknown route family. AFI: %d, SAFI: %d", afi, safi)
 	}
@@ -11223,10 +11591,10 @@ func NewTrafficRemarkExtended(dscp uint8) *TrafficRemarkExtended {
 	}
 }
 
-func parseFlowSpecExtended(data []byte) (ExtendedCommunityInterface, error) {
+func parseGenericTransitiveExperimentalExtended(data []byte) (ExtendedCommunityInterface, error) {
 	typ := ExtendedCommunityAttrType(data[0])
 	if typ != EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL && typ != EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL2 && typ != EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL3 {
-		return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("ext comm type is not EC_TYPE_FLOWSPEC: %d", data[0]))
+		return nil, NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("ext comm type is not EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL: %d", data[0]))
 	}
 	subType := ExtendedCommunityAttrSubType(data[1])
 	switch subType {
@@ -11262,6 +11630,13 @@ func parseFlowSpecExtended(data []byte) (ExtendedCommunityInterface, error) {
 		ipv6 := net.IP(data[2:18]).String()
 		localAdmin := binary.BigEndian.Uint16(data[18:20])
 		return NewRedirectIPv6AddressSpecificExtended(ipv6, localAdmin), nil
+	case EC_SUBTYPE_L2_INFO:
+		switch data[2] {
+		case byte(LAYER2ENCAPSULATION_TYPE_VPLS):
+			controlFlags := uint8(data[3])
+			mtu := binary.BigEndian.Uint16(data[4:6])
+			return NewVPLSExtended(controlFlags, mtu), nil
+		}
 	}
 	return &UnknownExtended{
 		Type:  ExtendedCommunityAttrType(data[0]),
@@ -11390,7 +11765,9 @@ func ParseExtended(data []byte) (ExtendedCommunityInterface, error) {
 	case EC_TYPE_EVPN:
 		return parseEvpnExtended(data)
 	case EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL, EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL2, EC_TYPE_GENERIC_TRANSITIVE_EXPERIMENTAL3:
-		return parseFlowSpecExtended(data)
+		return parseGenericTransitiveExperimentalExtended(data)
+	case EC_TYPE_MUP:
+		return parseMUPExtended(data)
 	default:
 		return &UnknownExtended{
 			Type:  ExtendedCommunityAttrType(data[0]),
