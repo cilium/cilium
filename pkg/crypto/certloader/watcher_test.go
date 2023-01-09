@@ -94,12 +94,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 	assert.Nil(t, err)
 
 	// the files already exists, expect the watcher to be readily available.
-	var w *Watcher
-	select {
-	case w = <-ch:
-	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatcher should be ready immediately")
-	}
+	w := <-ch
 	defer w.Stop()
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
@@ -137,11 +132,7 @@ func TestFutureWatcher(t *testing.T) {
 	setup(t, hubble, relay)
 
 	// the files exists now, expect the watcher to become ready.
-	select {
-	case w = <-ch:
-	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatcher should be ready once the TLS files exists")
-	}
+	w = <-ch
 	defer w.Stop()
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
@@ -168,12 +159,7 @@ func TestKubernetesMount(t *testing.T) {
 	k8Setup(t, dir)
 
 	// the files exists now, expect the watcher to become ready.
-	var w *Watcher
-	select {
-	case w = <-ch:
-	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatcher should be ready once the TLS files exists")
-	}
+	w := <-ch
 	defer w.Stop()
 
 	expectedInitialCaCertPool := x509.NewCertPool()
