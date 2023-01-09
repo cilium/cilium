@@ -42,6 +42,21 @@ type HTTPListener struct {
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
+	// Service configuration
+	Service *Service `json:"service,omitempty"`
+}
+
+// Service holds the configuration for desired Service details
+type Service struct {
+	// Type is the type of service that is being used for Listener (e.g. Load Balancer or Node port)
+	// Defaults to Load Balancer type
+	Type string `json:"serviceType,omitempty"`
+	// InsecureNodePort is the back-end port of the service that is being used for HTTP Listener
+	// Applicable only if Type is Node NodePort
+	InsecureNodePort *uint32 `json:"insecureNodePort,omitempty"`
+	// SecureNodePort is the back-end port of the service that is being used for HTTPS Listener
+	// Applicable only if Type is Node NodePort
+	SecureNodePort *uint32 `json:"secureNodePort,omitempty"`
 }
 
 // FullyQualifiedResource stores the full details of a Kubernetes resource, including
