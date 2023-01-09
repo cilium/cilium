@@ -65,8 +65,20 @@ func TestRotation(t *testing.T) {
 	assert.Nil(t, err)
 	defer w.Stop()
 
+	prevKeypairGeneration, prevCaCertPoolGeneration := w.generations()
 	rotate(t, hubble, relay)
-	<-time.After(testReloadDelay)
+
+	// wait until both keypair and caCertPool have been reloaded
+	ticker := time.NewTicker(testReloadDelay)
+	defer ticker.Stop()
+	for range ticker.C {
+		keypairGeneration, caCertPoolGeneration := w.generations()
+		keypairUpdated := keypairGeneration > prevKeypairGeneration
+		caCertPoolUpdated := caCertPoolGeneration > prevCaCertPoolGeneration
+		if keypairUpdated && caCertPoolUpdated {
+			break
+		}
+	}
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
@@ -173,8 +185,20 @@ func TestKubernetesMount(t *testing.T) {
 	assert.Equal(t, &expectedInitialKeypair, keypair)
 	assert.Equal(t, expectedInitialCaCertPool.Subjects(), caCertPool.Subjects())
 
+	prevKeypairGeneration, prevCaCertPoolGeneration := w.generations()
 	k8sRotate(t, dir)
-	<-time.After(testReloadDelay)
+
+	// wait until both keypair and caCertPool have been reloaded
+	ticker := time.NewTicker(testReloadDelay)
+	defer ticker.Stop()
+	for range ticker.C {
+		keypairGeneration, caCertPoolGeneration := w.generations()
+		keypairUpdated := keypairGeneration > prevKeypairGeneration
+		caCertPoolUpdated := caCertPoolGeneration > prevCaCertPoolGeneration
+		if keypairUpdated && caCertPoolUpdated {
+			break
+		}
+	}
 
 	expectedRotatedCaCertPool := x509.NewCertPool()
 	if ok := expectedRotatedCaCertPool.AppendCertsFromPEM(rotatedHubbleServerCA); !ok {
