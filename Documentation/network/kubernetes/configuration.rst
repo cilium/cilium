@@ -129,7 +129,7 @@ CNI
 delegate networking configuration. You can find additional information on the
 :term:`CNI` project website.
 
-.. note:: Kubernetes `` >= 1.3.5`` requires the ``loopback`` :term:`CNI` plugin to be
+.. note:: Kubernetes ``>= 1.3.5`` requires the ``loopback`` :term:`CNI` plugin to be
           installed on all worker nodes. The binary is typically provided by
           most Kubernetes distributions. See section :ref:`install_cni` for
           instructions on how to install :term:`CNI` in case the ``loopback`` binary
