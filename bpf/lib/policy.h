@@ -34,7 +34,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	 * 1. id/proto/port  (L3/L4)
 	 * 2. ANY/proto/port (L4-only)
 	 * 3. id/proto/ANY   (L3-proto)
-	 * 4. ANY/proto/ANY  (Proto-only) <--- case not implemented below
+	 * 4. ANY/proto/ANY  (Proto-only)
 	 * 5. id/ANY/ANY     (L3-only)
 	 * 6. ANY/ANY/ANY    (All)
 	 */
@@ -58,9 +58,9 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 			return DROP_POLICY_DENY;
 		return policy->proxy_port;
 	}
-	key.sec_label = identity;
 
 	/* Check L3-proto policy */
+	key.sec_label = identity;
 	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 3. id/proto/ANY */
@@ -71,7 +71,19 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 		return CTX_ACT_OK;
 	}
 
+	/* Check Proto-only policy */
+	key.sec_label = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {					/* 4. ANY/proto/ANY */
+		/* FIXME: Need byte counter */
+		__sync_fetch_and_add(&policy->packets, 1);
+		if (unlikely(policy->deny))
+			return DROP_POLICY_DENY;
+		return CTX_ACT_OK;
+	}
+
 	/* If L4 policy check misses, fall back to L3-only. */
+	key.sec_label = identity;
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 5. id/ANY/ANY */
@@ -185,7 +197,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	/* Policy match precedence:
 	 * 1. id/proto/port  (L3/L4)
 	 * 2. ANY/proto/port (L4-only)
-	 * 3. id/proto/ANY   (L3-proto) <--- case not implemented below
+	 * 3. id/proto/ANY   (L3-proto)
 	 * 4. ANY/proto/ANY  (Proto-only)
 	 * 5. id/ANY/ANY     (L3-only)
 	 * 6. ANY/ANY/ANY    (All)
@@ -212,9 +224,18 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		}
 	}
 
+	/* Check L3-proto policy */
+	key.sec_label = remote_id;
+	key.dport = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		account(ctx, policy);
+		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
+		goto policy_check_entry;
+	}
+
 	/* Check Proto-only policy */
 	key.sec_label = 0;
-	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
 		account(ctx, policy);
