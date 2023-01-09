@@ -14,3 +14,7 @@ spec:
     - ports:
       - port: "22"
         protocol: TCP
+  - icmps:
+    - fields:
+      - type: 8
+        family: IPv4
