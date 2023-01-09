@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -340,7 +341,12 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 	if ep == nil {
 		return nil
 	}
-	names := ep.DNSHistory.LookupIP(ip)
+
+	addr, ok := ippkg.AddrFromIP(ip)
+	if !ok {
+		return nil
+	}
+	names := ep.DNSHistory.LookupIP(addr)
 
 	for i := range names {
 		names[i] = strings.TrimSuffix(names[i], ".")

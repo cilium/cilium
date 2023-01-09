@@ -443,11 +443,11 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 // maintains the latest-expiring entry per-name per-IP. This means that multiple
 // names referrring to the same IP will expire from the cache at different times,
 // and only 1 entry for each name-IP pair is internally retained.
-func (c *DNSCache) LookupIP(ip net.IP) (names []string) {
+func (c *DNSCache) LookupIP(ip netip.Addr) (names []string) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.lookupIPByTime(c.lastCleanup, ippkg.MustAddrFromIP(ip))
+	return c.lookupIPByTime(c.lastCleanup, ip)
 }
 
 // lookupIPByTime takes a timestamp for expiration comparisons, and is
