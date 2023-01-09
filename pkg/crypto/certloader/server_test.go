@@ -150,8 +150,20 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	assert.NotNil(t, s)
 	defer s.Stop()
 
+	prevKeypairGeneration, prevCaCertPoolGeneration := s.generations()
 	rotate(t, hubble, relay)
-	<-time.After(testReloadDelay)
+
+	// wait until both keypair and caCertPool have been reloaded
+	ticker := time.NewTicker(testReloadDelay)
+	defer ticker.Stop()
+	for range ticker.C {
+		keypairGeneration, caCertPoolGeneration := s.generations()
+		keypairUpdated := keypairGeneration > prevKeypairGeneration
+		caCertPoolUpdated := caCertPoolGeneration > prevCaCertPoolGeneration
+		if keypairUpdated && caCertPoolUpdated {
+			break
+		}
+	}
 
 	generator := s.ServerConfig(&tls.Config{
 		MinVersion: tls.VersionTLS13,
