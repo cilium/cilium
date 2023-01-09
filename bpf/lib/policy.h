@@ -210,20 +210,20 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			*match_type = POLICY_MATCH_L4_ONLY;	/* 2. ANY/proto/port */
 			goto policy_check_entry;
 		}
+	}
 
-		/* Check Proto-only policy */
-		key.dport = 0;
-		policy = map_lookup_elem(map, &key);
-		if (likely(policy)) {
-			account(ctx, policy);
-			*match_type = POLICY_MATCH_PROTO_ONLY;	/* 4. ANY/proto/ANY */
-			goto policy_check_entry;
-		}
-		key.sec_label = remote_id;
+	/* Check Proto-only policy */
+	key.sec_label = 0;
+	key.dport = 0;
+	policy = map_lookup_elem(map, &key);
+	if (likely(policy)) {
+		account(ctx, policy);
+		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
+		goto policy_check_entry;
 	}
 
 	/* If L4 policy check misses, fall back to L3-only. */
-	key.dport = 0;
+	key.sec_label = remote_id;
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
