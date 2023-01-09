@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/golang/protobuf/proto"
 	"github.com/vishvananda/netlink/nl"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -40,6 +41,10 @@ var testPath = flag.String("bpf-test-path", "", "Path to the eBPF tests")
 func TestBPF(t *testing.T) {
 	if testPath == nil || *testPath == "" {
 		t.Fatal("-bpf-test-path is a required flag")
+	}
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		t.Log(err)
 	}
 
 	entries, err := os.ReadDir(*testPath)
@@ -171,9 +176,21 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 		mspec.Pinning = ebpf.PinNone
 	}
 
-	// Detect program type mismatches
 	var progTestType ebpf.ProgramType
-	for _, prog := range spec.Programs {
+	for progName, prog := range spec.Programs {
+		switch prog.Type {
+		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS:
+		case ebpf.UnspecifiedProgram:
+		default:
+			t.Logf(
+				"program '%s' has program type '%s' which doesn't have BPF_PROG_RUN support, not loading it",
+				prog.Name,
+				prog.Type,
+			)
+			delete(spec.Programs, progName)
+			continue
+		}
+
 		if progTestType != prog.Type {
 			if progTestType == ebpf.UnspecifiedProgram {
 				progTestType = prog.Type
