@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/datapath/lb"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -40,6 +41,8 @@ func main() {
 		/*redirectpolicies.Cell,
 		envoy.Cell,
 		*/
+		envoy.EnvoyConfigHandlerCell,
+		cell.Provide(fakeEnvoyCache),
 
 		fakeServiceHandlerCell,
 
@@ -155,4 +158,37 @@ func printStatusOnSIGUSR1(p *status.Provider) {
 			time.Now().Sub(s.LastUpdated).Seconds())
 	}
 	fmt.Printf("---------------------\n")
+}
+
+type fakeEC struct{}
+
+// AckProxyPort implements envoy.EnvoyCache
+func (*fakeEC) AckProxyPort(ctx context.Context, name string) error {
+	panic("unimplemented")
+}
+
+// AllocateProxyPort implements envoy.EnvoyCache
+func (*fakeEC) AllocateProxyPort(name string, ingress bool) (uint16, error) {
+	panic("unimplemented")
+}
+
+// ReleaseProxyPort implements envoy.EnvoyCache
+func (*fakeEC) ReleaseProxyPort(name string) error {
+	panic("unimplemented")
+}
+
+// UpsertEnvoyEndpoints implements envoy.EnvoyCache
+func (*fakeEC) UpsertEnvoyEndpoints(loadbalancer.ServiceName, map[string][]*loadbalancer.Backend) error {
+	panic("unimplemented")
+}
+
+// UpsertEnvoyResources implements envoy.EnvoyCache
+func (*fakeEC) UpsertEnvoyResources(context.Context, envoy.Resources) error {
+	panic("unimplemented")
+}
+
+var _ envoy.EnvoyCache = &fakeEC{}
+
+func fakeEnvoyCache() envoy.EnvoyCache {
+	return &fakeEC{}
 }

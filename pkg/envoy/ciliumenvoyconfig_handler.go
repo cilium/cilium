@@ -19,10 +19,12 @@ subscribe to specific services cheaply?
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/container"
 	"github.com/cilium/cilium/pkg/controlplane/servicemanager"
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -34,13 +36,12 @@ import (
 
 type serviceKey = resource.Key
 
-var Cell = cell.Module(
+var EnvoyConfigHandlerCell = cell.Module(
 	"envoy-cec-handler",
-	"Manages L7 proxy redirection based on CiliumEnvoyConfig CRDs",
+	"Handles L7 proxy redirection based on CiliumEnvoyConfig CRDs",
 
-	cell.Provide(
-		newCECHandler,
-	),
+	cell.Provide(newCECHandler),
+	cell.Invoke(func(*cecHandler) {}),
 )
 
 type cecHandlerParams struct {
@@ -49,12 +50,15 @@ type cecHandlerParams struct {
 	ServiceManager servicemanager.ServiceManager
 	Log            logrus.FieldLogger
 	CECs           resource.Resource[*cilium_v2.CiliumEnvoyConfig]
+	CCECs          resource.Resource[*cilium_v2.CiliumClusterwideEnvoyConfig]
 	EnvoyCache     EnvoyCache
 }
 
 // TODO replace with real thing:
 type EnvoyCache interface {
 	UpsertEnvoyEndpoints(loadbalancer.ServiceName, map[string][]*loadbalancer.Backend) error
+	UpsertEnvoyResources(context.Context, Resources) error
+	PortAllocator
 }
 
 type cecHandler struct {
@@ -62,19 +66,23 @@ type cecHandler struct {
 
 	log logrus.FieldLogger
 
-	handle servicemanager.ServiceHandle
+	handle         servicemanager.ServiceHandle
+	configServices map[resource.Key]container.Set[loadbalancer.ServiceName]
+	redirected     map[loadbalancer.ServiceName]*cilium_v2.ServiceListener
 }
 
 func newCECHandler(log logrus.FieldLogger, lc hive.Lifecycle, p cecHandlerParams) *cecHandler {
 	if p.CECs == nil {
-		log.Info("K8s not available, not registering handler for redirect policies")
+		log.Info("K8s not available, not starting the handler for CiliumEnvoyConfig")
 		return nil
 	}
 
 	handler := &cecHandler{
-		params: p,
-		log:    p.Log,
-		handle: p.ServiceManager.NewHandle("l7proxy"),
+		params:         p,
+		log:            p.Log,
+		handle:         p.ServiceManager.NewHandle("l7proxy"),
+		configServices: map[resource.Key]container.Set[loadbalancer.ServiceName]{},
+		redirected:     map[loadbalancer.ServiceName]*cilium_v2.ServiceListener{},
 	}
 
 	var wg sync.WaitGroup
@@ -102,11 +110,9 @@ func newCECHandler(log logrus.FieldLogger, lc hive.Lifecycle, p cecHandlerParams
 
 func (h *cecHandler) processLoop(ctx context.Context) {
 	cecs := h.params.CECs.Events(ctx)
-
-	backendChanges := make(chan servicemanager.BackendsChanged, 1)
-	defer close(backendChanges)
-
-	redirected := map[loadbalancer.ServiceName]*cilium_v2.ServiceListener{}
+	ccecs := h.params.CCECs.Events(ctx)
+	cecsSynced, ccecsSynced := false, false
+	serviceEvents := h.handle.Events()
 
 	for {
 		select {
@@ -114,8 +120,8 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 			h.handle.Close()
 			return
 
-		case ev := <-backendChanges:
-			_, ok := redirected[ev.Name]
+		case ev := <-serviceEvents:
+			_, ok := h.redirected[ev.Name]
 			if !ok {
 				continue
 			}
@@ -124,53 +130,102 @@ func (h *cecHandler) processLoop(ctx context.Context) {
 				be := ev.Backends[i]
 				backends[be.FEPortName] = append(backends[be.FEPortName], &be)
 			}
+
+			// TODO: context for UpsertEnvoyEndpoints. timeout? use a work queue?
+			// should be implemented by proxy/UpsertEnvoyEndpoints.
 			h.params.EnvoyCache.UpsertEnvoyEndpoints(ev.Name, backends)
 
 		case ev := <-cecs:
 			switch ev.Kind {
 			case resource.Sync:
-				// TODO
+				cecsSynced = true
+				if cecsSynced && ccecsSynced {
+					h.handle.Synchronized()
+				}
 			case resource.Upsert:
-
-				spec := ev.Object.Spec
-				for _, svc := range spec.Services {
-					name := loadbalancer.ServiceName{
-						Scope:     loadbalancer.ScopeSVC,
-						Namespace: svc.Namespace,
-						Name:      svc.Name,
-					}
-					// Find the listener the service is to be redirected to
-					var proxyPort uint16
-					panic("TODO find listener")
-					/*
-						for _, l := range svc.Listeners {
-							if svc.Listener == "" || l.Name == svc.Listener {
-								if addr := l.GetAddress(); addr != nil {
-									if sa := addr.GetSocketAddress(); sa != nil {
-										proxyPort = uint16(sa.GetPortValue())
-									}
-								}
-							}
-						}
-						if proxyPort == 0 {
-							fmt.Printf("TODO handle error: Listener %q not found in resources", svc.Listener)
-							continue
-						}*/
-					h.handle.SetProxyRedirect(name, proxyPort, backendChanges)
-
-					redirected[name] = svc
-				}
+				h.upsert(ev.Key, &ev.Object.Spec)
 			case resource.Delete:
-				for _, svc := range ev.Object.Spec.Services {
-					name := loadbalancer.ServiceName{
-						Scope:     loadbalancer.ScopeSVC,
-						Namespace: svc.Namespace,
-						Name:      svc.Name,
-					}
-					h.handle.RemoveProxyRedirect(name)
+				h.delete(ev.Key, &ev.Object.Spec)
+			}
+			ev.Done(nil)
+
+		case ev := <-ccecs:
+			switch ev.Kind {
+			case resource.Sync:
+				ccecsSynced = true
+				if cecsSynced && ccecsSynced {
+					h.handle.Synchronized()
 				}
+			case resource.Upsert:
+				h.upsert(ev.Key, &ev.Object.Spec)
+			case resource.Delete:
+				h.delete(ev.Key, &ev.Object.Spec)
 			}
 			ev.Done(nil)
 		}
 	}
+}
+
+func (h *cecHandler) delete(key resource.Key, spec *cilium_v2.CiliumEnvoyConfigSpec) {
+	for _, svc := range spec.Services {
+		name := loadbalancer.ServiceName{
+			Scope:     loadbalancer.ScopeSVC,
+			Namespace: svc.Namespace,
+			Name:      svc.Name,
+		}
+		h.handle.RemoveProxyRedirect(name)
+		h.handle.Unobserve(name)
+	}
+	delete(h.configServices, key)
+}
+
+func (h *cecHandler) upsert(key resource.Key, spec *cilium_v2.CiliumEnvoyConfigSpec) {
+	resources, err := ParseResources(
+		key.Namespace,
+		key.Name,
+		spec.Resources,
+		true,
+		h.params.EnvoyCache,
+	)
+	if err != nil {
+		fmt.Printf("TODO handle error: bad envoy config: %q", err)
+		return
+	}
+
+	removedServices := h.configServices[key].Clone()
+	h.configServices[key] = container.NewSet[loadbalancer.ServiceName]()
+	for _, svc := range spec.Services {
+		name := loadbalancer.ServiceName{
+			Scope:     loadbalancer.ScopeSVC,
+			Namespace: svc.Namespace,
+			Name:      svc.Name,
+		}
+		// Find the listener the service is to be redirected to
+		var proxyPort uint16
+		for _, l := range resources.Listeners {
+			if svc.Listener == "" || l.Name == svc.Listener {
+				if addr := l.GetAddress(); addr != nil {
+					if sa := addr.GetSocketAddress(); sa != nil {
+						proxyPort = uint16(sa.GetPortValue())
+					}
+				}
+			}
+		}
+		if proxyPort == 0 {
+			fmt.Printf("TODO handle error: Listener %q not found in resources", svc.Listener)
+			continue
+		}
+		h.handle.SetProxyRedirect(name, proxyPort)
+		if _, ok := h.redirected[name]; !ok {
+			h.handle.Observe(name)
+		}
+		h.redirected[name] = svc
+		h.configServices[key].Add(name)
+		removedServices.Delete(name)
+	}
+	for name := range removedServices {
+		h.handle.RemoveProxyRedirect(name)
+		h.handle.Unobserve(name)
+	}
+
 }
