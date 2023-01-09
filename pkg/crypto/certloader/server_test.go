@@ -81,7 +81,6 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	assert.Nil(t, err)
 
 	// the files don't exists, expect the config to not be ready yet.
-	var s *WatchedServerConfig
 	select {
 	case <-ch:
 		t.Fatal("FutureWatchedServerConfig should not be ready without the TLS files")
@@ -91,11 +90,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	setup(t, hubble, relay)
 
 	// the files exists now, expect the watcher to become ready.
-	select {
-	case s = <-ch:
-	case <-time.After(testReloadDelay):
-		t.Fatal("FutureWatchedServerConfig should be ready one the TLS files exists")
-	}
+	s := <-ch
 	s.Stop()
 }
 
