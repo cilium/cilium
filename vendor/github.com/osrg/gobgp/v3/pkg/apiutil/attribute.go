@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"google.golang.org/protobuf/proto"
 	apb "google.golang.org/protobuf/types/known/anypb"
@@ -372,6 +373,23 @@ func MarshalSRv6TLVs(tlvs []bgp.PrefixSIDTLVInterface) ([]*apb.Any, error) {
 				return nil, err
 			}
 			r = o
+		case *bgp.SRv6ServiceTLV:
+			switch t.TLV.Type {
+			case bgp.TLVTypeSRv6L3Service:
+				o := &api.SRv6L3ServiceTLV{}
+				o.SubTlvs, err = MarshalSRv6SubTLVs(t.SubTLVs)
+				if err != nil {
+					return nil, err
+				}
+				r = o
+			case bgp.TLVTypeSRv6L2Service:
+				o := &api.SRv6L2ServiceTLV{}
+				o.SubTlvs, err = MarshalSRv6SubTLVs(t.SubTLVs)
+				if err != nil {
+					return nil, err
+				}
+				r = o
+			}
 		default:
 			return nil, fmt.Errorf("invalid prefix sid tlv type to marshal %v", t)
 		}
@@ -429,8 +447,8 @@ func MarshalSRv6SubSubTLVs(tlvs []bgp.PrefixSIDTLVInterface) (map[uint32]*api.SR
 		switch t := tlv.(type) {
 		case *bgp.SRv6SIDStructureSubSubTLV:
 			o := &api.SRv6StructureSubSubTLV{
-				LocalBlockLength:    uint32(t.LocalBlockLength),
-				LocalNodeLength:     uint32(t.LocatorNodeLength),
+				LocatorBlockLength:  uint32(t.LocatorBlockLength),
+				LocatorNodeLength:   uint32(t.LocatorNodeLength),
 				FunctionLength:      uint32(t.FunctionLength),
 				ArgumentLength:      uint32(t.ArgumentLength),
 				TranspositionLength: uint32(t.TranspositionLength),
@@ -630,6 +648,7 @@ func MarshalLsNodeDescriptor(d *bgp.LsNodeDescriptor) (*api.LsNodeDescriptor, er
 		OspfAreaId:  d.OspfAreaID,
 		Pseudonode:  d.PseudoNode,
 		IgpRouterId: d.IGPRouterID,
+		BgpRouterId: d.BGPRouterID.String(),
 	}, nil
 }
 
@@ -1010,6 +1029,51 @@ func MarshalNLRI(value bgp.AddrPrefixInterface) (*apb.Any, error) {
 			Color:         v.Color,
 			Endpoint:      v.Endpoint,
 		}
+	case *bgp.MUPNLRI:
+		switch r := v.RouteTypeData.(type) {
+		case *bgp.MUPInterworkSegmentDiscoveryRoute:
+			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			nlri = &api.MUPInterworkSegmentDiscoveryRoute{
+				Rd:     rd,
+				Prefix: r.Prefix.String(),
+			}
+		case *bgp.MUPDirectSegmentDiscoveryRoute:
+			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			nlri = &api.MUPDirectSegmentDiscoveryRoute{
+				Rd:      rd,
+				Address: r.Address.String(),
+			}
+		case *bgp.MUPType1SessionTransformedRoute:
+			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			nlri = &api.MUPType1SessionTransformedRoute{
+				Rd:                    rd,
+				Prefix:                r.Prefix.String(),
+				Teid:                  r.TEID,
+				Qfi:                   uint32(r.QFI),
+				EndpointAddressLength: uint32(r.EndpointAddressLength),
+				EndpointAddress:       r.EndpointAddress.String(),
+			}
+		case *bgp.MUPType2SessionTransformedRoute:
+			rd, err := MarshalRD(r.RD)
+			if err != nil {
+				return nil, err
+			}
+			nlri = &api.MUPType2SessionTransformedRoute{
+				Rd:                    rd,
+				EndpointAddressLength: uint32(r.EndpointAddressLength),
+				EndpointAddress:       r.EndpointAddress.String(),
+				Teid:                  r.TEID,
+			}
+		}
 	}
 
 	an, _ := apb.New(nlri)
@@ -1166,6 +1230,50 @@ func UnmarshalNLRI(rf bgp.RouteFamily, an *apb.Any) (bgp.AddrPrefixInterface, er
 		case bgp.RF_FS_L2_VPN:
 			nlri = bgp.NewFlowSpecL2VPN(rd, rules)
 		}
+	case *api.MUPInterworkSegmentDiscoveryRoute:
+		rd, err := UnmarshalRD(v.Rd)
+		if err != nil {
+			return nil, err
+		}
+		prefix, err := netip.ParsePrefix(v.Prefix)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPInterworkSegmentDiscoveryRoute(rd, prefix)
+	case *api.MUPDirectSegmentDiscoveryRoute:
+		rd, err := UnmarshalRD(v.Rd)
+		if err != nil {
+			return nil, err
+		}
+		address, err := netip.ParseAddr(v.Address)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPDirectSegmentDiscoveryRoute(rd, address)
+	case *api.MUPType1SessionTransformedRoute:
+		rd, err := UnmarshalRD(v.Rd)
+		if err != nil {
+			return nil, err
+		}
+		prefix, err := netip.ParsePrefix(v.Prefix)
+		if err != nil {
+			return nil, err
+		}
+		ea, err := netip.ParseAddr(v.EndpointAddress)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType1SessionTransformedRoute(rd, prefix, v.Teid, uint8(v.Qfi), ea)
+	case *api.MUPType2SessionTransformedRoute:
+		rd, err := UnmarshalRD(v.Rd)
+		if err != nil {
+			return nil, err
+		}
+		ea, err := netip.ParseAddr(v.EndpointAddress)
+		if err != nil {
+			return nil, err
+		}
+		nlri = bgp.NewMUPType2SessionTransformedRoute(rd, ea, v.Teid)
 	}
 
 	if nlri == nil {
@@ -1391,6 +1499,12 @@ func NewExtendedCommunitiesAttributeFromNative(a *bgp.PathAttributeExtendedCommu
 			community = &api.TrafficRemarkExtended{
 				Dscp: uint32(v.DSCP),
 			}
+		case *bgp.MUPExtended:
+			community = &api.MUPExtended{
+				SubType:    uint32(v.SubType),
+				SegmentId2: uint32(v.SegmentID2),
+				SegmentId4: v.SegmentID4,
+			}
 		case *bgp.UnknownExtended:
 			community = &api.UnknownExtended{
 				Type:  uint32(v.Type),
@@ -1454,6 +1568,8 @@ func unmarshalExComm(a *api.ExtendedCommunitiesAttribute) (*bgp.PathAttributeExt
 			community = bgp.NewRedirectFourOctetAsSpecificExtended(v.Asn, uint16(v.LocalAdmin))
 		case *api.TrafficRemarkExtended:
 			community = bgp.NewTrafficRemarkExtended(uint8(v.Dscp))
+		case *api.MUPExtended:
+			community = bgp.NewMUPExtended(uint16(v.SegmentId2), v.SegmentId4)
 		case *api.UnknownExtended:
 			community = bgp.NewUnknownExtended(bgp.ExtendedCommunityAttrType(v.Type), v.Value)
 		}
@@ -1537,7 +1653,8 @@ func NewTunnelEncapAttributeFromNative(a *bgp.PathAttributeTunnelEncap) (*api.Tu
 				if err != nil {
 					return nil, err
 				}
-				subTlv = t
+				subTlv = &api.TunnelEncapSubTLVSRBindingSID{
+					Bsid: t}
 				// TODO (sbezverk) Add processing of SRv6 Binding SID when it gets assigned ID
 			case *bgp.TunnelEncapSubTLVSRCandidatePathName:
 				subTlv = &api.TunnelEncapSubTLVSRCandidatePathName{
@@ -1716,6 +1833,11 @@ func NewLsAttributeFromNative(a *bgp.PathAttributeLs) (*api.LsAttribute, error) 
 			Opaque: bytesOrDefault(attr.Prefix.Opaque),
 
 			SrPrefixSid: uint32OrDefault(attr.Prefix.SrPrefixSID),
+		},
+		BgpPeerSegment: &api.LsAttributeBgpPeerSegment{
+			BgpPeerNodeSid:      uint32OrDefault(attr.BgpPeerSegment.BgpPeerNodeSid),
+			BgpPeerAdjacencySid: uint32OrDefault(attr.BgpPeerSegment.BgpPeerAdjacencySid),
+			BgpPeerSetSid:       uint32OrDefault(attr.BgpPeerSegment.BgpPeerSetSid),
 		},
 	}
 
@@ -2271,8 +2393,8 @@ func UnmarshalSubSubTLVs(stlvs map[uint32]*api.SRv6TLV) (uint16, []bgp.PrefixSID
 					return 0, nil, err
 				}
 				structureProto := raw.(*api.SRv6StructureSubSubTLV)
-				structure.LocalBlockLength = uint8(structureProto.LocalBlockLength)
-				structure.LocatorNodeLength = uint8(structureProto.LocalNodeLength)
+				structure.LocatorBlockLength = uint8(structureProto.LocatorBlockLength)
+				structure.LocatorNodeLength = uint8(structureProto.LocatorNodeLength)
 				structure.FunctionLength = uint8(structureProto.FunctionLength)
 				structure.ArgumentLength = uint8(structureProto.ArgumentLength)
 				structure.TranspositionLength = uint8(structureProto.TranspositionLength)

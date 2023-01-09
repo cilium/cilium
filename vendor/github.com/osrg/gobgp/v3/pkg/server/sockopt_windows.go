@@ -12,8 +12,8 @@
 // implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:build !linux && !openbsd && !windows
-// +build !linux,!openbsd,!windows
+//go:build windows
+// +build windows
 
 package server
 
@@ -25,23 +25,45 @@ import (
 	"github.com/osrg/gobgp/v3/pkg/log"
 )
 
+const (
+	tcpMD5SIG       = 14   // TCP MD5 Signature (RFC2385)
+	ipv6MinHopCount = 73   // Generalized TTL Security Mechanism (RFC5082)
+	IP_MINTTL       = 0x15 // pulled from https://golang.org/pkg/syscall/?GOOS=linux#IP_MINTTL
+)
+
 func setTCPMD5SigSockopt(l *net.TCPListener, address string, key string) error {
-	return setTcpMD5SigSockopt(l, address, key)
-}
-
-func setTCPTTLSockopt(conn *net.TCPConn, ttl int) error {
-	return setTcpTTLSockopt(conn, ttl)
-}
-
-func setTCPMinTTLSockopt(conn *net.TCPConn, ttl int) error {
-	return setTcpMinTTLSockopt(conn, ttl)
+	return fmt.Errorf("setting md5 is not supported")
 }
 
 func setBindToDevSockopt(sc syscall.RawConn, device string) error {
 	return fmt.Errorf("binding connection to a device is not supported")
 }
 
-func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, password string, bindInterface string) error {
+func setTCPTTLSockopt(conn *net.TCPConn, ttl int) error {
+	family := extractFamilyFromTCPConn(conn)
+	sc, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	return setsockoptIpTtl(sc, family, ttl)
+}
+
+func setTCPMinTTLSockopt(conn *net.TCPConn, ttl int) error {
+	family := extractFamilyFromTCPConn(conn)
+	sc, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	level := syscall.IPPROTO_IP
+	name := IP_MINTTL
+	if family == syscall.AF_INET6 {
+		level = syscall.IPPROTO_IPV6
+		name = ipv6MinHopCount
+	}
+	return setsockOptInt(sc, level, name, ttl)
+}
+
+func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, ttlMin uint8, password string, bindInterface string) error {
 	if password != "" {
 		logger.Warn("setting md5 for active connection is not supported",
 			log.Fields{
@@ -54,7 +76,7 @@ func dialerControl(logger log.Logger, network, address string, c syscall.RawConn
 				"Topic": "Peer",
 				"Key":   address})
 	}
-	if minTtl != 0 {
+	if ttlMin != 0 {
 		logger.Warn("setting min ttl for active connection is not supported",
 			log.Fields{
 				"Topic": "Peer",

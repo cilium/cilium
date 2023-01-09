@@ -40,4 +40,8 @@ const (
 	ENDT_WITH_PSP_USD     SRBehavior = 37
 	ENDT_WITH_USP_USD     SRBehavior = 38
 	ENDT_WITH_PSP_USP_USD SRBehavior = 39
+	ENDM_GTP6D            SRBehavior = 69 // 0x0045
+	ENDM_GTP6DI           SRBehavior = 70 // 0x0046
+	ENDM_GTP6E            SRBehavior = 71 // 0x0047
+	ENDM_GTP4E            SRBehavior = 72 // 0x0048
 )
