@@ -515,6 +515,12 @@ const (
 
 	// PolicyMatchAll is the value of MatchType indicating an allow-all match
 	PolicyMatchAll = 4
+
+	// PolicyMatchL3Proto is the value of MatchType indicating a L3 and protocol match
+	PolicyMatchL3Proto = 5
+
+	// PolicyMatchProtoOnly is the value of MatchType indicating only a protocol match
+	PolicyMatchProtoOnly = 6
 )
 
 type PolicyMatchType int
@@ -531,7 +537,10 @@ func (m PolicyMatchType) String() string {
 		return "all"
 	case PolicyMatchNone:
 		return "none"
-
+	case PolicyMatchL3Proto:
+		return "L3-Proto"
+	case PolicyMatchProtoOnly:
+		return "Proto-Only"
 	}
 	return "unknown"
 }
