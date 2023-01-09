@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/cilium/cilium/operator/pkg/ingress/annotations"
 	"github.com/cilium/cilium/operator/pkg/model"
+	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // Ingress translates an Ingress resource to a HTTPListener.
@@ -62,7 +65,8 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 						backend,
 					},
 				}},
-			Port: 80,
+			Port:    80,
+			Service: getService(ing),
 		}
 
 		l.Sources = model.AddSource(l.Sources, sourceResource)
@@ -115,6 +119,7 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 			}
 			route.Backends = append(route.Backends, backend)
 			l.Routes = append(l.Routes, route)
+			l.Service = getService(ing)
 		}
 
 		insecureListenerMap[host] = l
@@ -150,6 +155,7 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 			}
 			l.Port = 443
 			l.Hostname = host
+			l.Service = getService(ing)
 			secureListenerMap[host] = l
 
 			defaultListener, ok := insecureListenerMap["*"]
@@ -180,6 +186,32 @@ func Ingress(ing slim_networkingv1.Ingress) []model.HTTPListener {
 
 	return listenerSlice
 
+}
+
+func getService(ing slim_networkingv1.Ingress) *model.Service {
+	if annotations.GetAnnotationServiceType(&ing) != string(corev1.ServiceTypeNodePort) {
+		return nil
+	}
+
+	m := &model.Service{
+		Type: string(corev1.ServiceTypeNodePort),
+	}
+	scopedLog := log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name)
+	secureNodePort, err := annotations.GetAnnotationSecureNodePort(&ing)
+	if err != nil {
+		scopedLog.WithError(err).Warn("Invalid secure node port annotation, random port will be used")
+	} else {
+		m.SecureNodePort = secureNodePort
+	}
+
+	insureNodePort, err := annotations.GetAnnotationInsecureNodePort(&ing)
+	if err != nil {
+		scopedLog.WithError(err).Warn("Invalid insecure node port annotation, random port will be used")
+	} else {
+		m.InsecureNodePort = insureNodePort
+	}
+
+	return m
 }
 
 // appendValuesInKeyOrder ensures that the slice of listeners is stably sorted by

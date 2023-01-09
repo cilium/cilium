@@ -6,13 +6,16 @@ package annotations
 import (
 	"strconv"
 
-	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-
 	"github.com/cilium/cilium/pkg/annotation"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
 const (
-	LBModeAnnotation = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
+	LBModeAnnotation           = annotation.Prefix + ".ingress" + "/loadbalancer-mode"
+	ServiceTypeAnnotation      = annotation.Prefix + ".ingress" + "/service-type"
+	InsecureNodePortAnnotation = annotation.Prefix + ".ingress" + "/insecure-node-port"
+	SecureNodePortAnnotation   = annotation.Prefix + ".ingress" + "/secure-node-port"
 
 	TCPKeepAliveEnabledAnnotation          = annotation.Prefix + "/tcp-keep-alive"
 	TCPKeepAliveIdleAnnotation             = annotation.Prefix + "/tcp-keep-alive-idle"
@@ -33,6 +36,44 @@ const (
 // GetAnnotationIngressLoadbalancerMode returns the loadbalancer mode for the ingress if possible.
 func GetAnnotationIngressLoadbalancerMode(ingress *slim_networkingv1.Ingress) string {
 	return ingress.GetAnnotations()[LBModeAnnotation]
+}
+
+// GetAnnotationServiceType returns the service type for the ingress if possible.
+// Defaults to LoadBalancer
+func GetAnnotationServiceType(ingress *slim_networkingv1.Ingress) string {
+	val, exists := ingress.GetAnnotations()[ServiceTypeAnnotation]
+	if !exists {
+		return string(slim_corev1.ServiceTypeLoadBalancer)
+	}
+	return val
+}
+
+// GetAnnotationSecureNodePort returns the secure node port for the ingress if possible.
+func GetAnnotationSecureNodePort(ingress *slim_networkingv1.Ingress) (*uint32, error) {
+	val, exists := ingress.GetAnnotations()[SecureNodePortAnnotation]
+	if !exists {
+		return nil, nil
+	}
+	intVal, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	res := uint32(intVal)
+	return &res, nil
+}
+
+// GetAnnotationInsecureNodePort returns the insecure node port for the ingress if possible.
+func GetAnnotationInsecureNodePort(ingress *slim_networkingv1.Ingress) (*uint32, error) {
+	val, exists := ingress.GetAnnotations()[InsecureNodePortAnnotation]
+	if !exists {
+		return nil, nil
+	}
+	intVal, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	res := uint32(intVal)
+	return &res, nil
 }
 
 // GetAnnotationTCPKeepAliveEnabled returns 1 if enabled (default), 0 if disabled

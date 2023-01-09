@@ -56,6 +56,15 @@ Supported Ingress Annotations
    * - ``io.cilium.ingress/loadbalancer-mode``
      - The loadbalancer mode for the ingress. Applicable values are ``dedicated`` and ``shared``.
      - Defaults to Helm option ``ingressController.loadbalancerMode`` value.
+   * - ``io.cilium.ingress/service-type``
+     - The Service type for dedicated Ingress. Applicable values are ``LoadBalancer`` and ``NodePort``.
+     - Defaults to ``LoadBalancer`` if unspecified.
+   * - ``io.cilium.ingress/insecure-node-port``
+     - The NodePort to use for the HTTP Ingress. Applicable only if ``io.cilium.ingress/service-type`` is ``NodePort``.
+     - If unspecified, a random NodePort will be allocated by kubernetes.
+   * - ``io.cilium.ingress/secure-node-port``
+     - The NodePort to use for the HTTPS Ingress. Applicable only if ``io.cilium.ingress/service-type`` is ``NodePort``.
+     - If unspecified, a random NodePort will be allocated by kubernetes.
    * - ``io.cilium/tcp-keep-alive``
      - Enable TCP keep-alive
      - 1 (enabled)
