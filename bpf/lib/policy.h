@@ -41,22 +41,14 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	/* Start with L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 1. id/proto/port */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+		goto policy_check_entry;
 	}
 
 	/* L4-only lookup. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 2. ANY/proto/port */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return policy->proxy_port;
+		goto policy_check_entry;
 	}
 
 	/* Check L3-proto policy */
@@ -64,22 +56,14 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 3. id/proto/ANY */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		goto policy_check_entry;
 	}
 
 	/* Check Proto-only policy */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 4. ANY/proto/ANY */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		goto policy_check_entry;
 	}
 
 	/* If L4 policy check misses, fall back to L3-only. */
@@ -87,25 +71,24 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 5. id/ANY/ANY */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		goto policy_check_entry;
 	}
 
 	/* Final fallback if allow-all policy is in place. */
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 6. ANY/ANY/ANY */
-		/* FIXME: Need byte counter */
-		__sync_fetch_and_add(&policy->packets, 1);
-		if (unlikely(policy->deny))
-			return DROP_POLICY_DENY;
-		return CTX_ACT_OK;
+		goto policy_check_entry;
 	}
 
 	return DROP_POLICY;
+
+policy_check_entry:
+	/* FIXME: Need byte counter */
+	__sync_fetch_and_add(&policy->packets, 1);
+	if (unlikely(policy->deny))
+		return DROP_POLICY_DENY;
+	return policy->proxy_port;
 }
 #else
 static __always_inline void
@@ -209,7 +192,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		if (likely(policy)) {
 			cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 				    dport << 16 | proto);
-			account(ctx, policy);
 			*match_type = POLICY_MATCH_L3_L4;	/* 1. id/proto/port */
 			goto policy_check_entry;
 		}
@@ -218,7 +200,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		key.sec_label = 0;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
-			account(ctx, policy);
 			*match_type = POLICY_MATCH_L4_ONLY;	/* 2. ANY/proto/port */
 			goto policy_check_entry;
 		}
@@ -229,7 +210,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		account(ctx, policy);
 		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
 		goto policy_check_entry;
 	}
@@ -238,7 +218,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		account(ctx, policy);
 		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
 		goto policy_check_entry;
 	}
@@ -248,7 +227,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {
-		account(ctx, policy);
 		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
 		goto policy_check_entry;
 	}
@@ -257,7 +235,6 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	key.sec_label = 0;
 	policy = map_lookup_elem(map, &key);
 	if (policy) {
-		account(ctx, policy);
 		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
 		goto policy_check_entry;
 	}
@@ -274,6 +251,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	return DROP_POLICY;
 
 policy_check_entry:
+	account(ctx, policy);
+
 	if (unlikely(policy->deny))
 		return DROP_POLICY_DENY;
 
