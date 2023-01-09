@@ -361,7 +361,8 @@ Added Metrics
 Modified Metrics
 ~~~~~~~~~~~~~~~~~~
 
-* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>`` after the detected L7 protocol of the flow.
+* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>``
+  after the detected L7 protocol of the flow (for example: ``l7/http``).
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
