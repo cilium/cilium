@@ -31,12 +31,12 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 		return CTX_ACT_OK;
 
 	/* Policy match precedence:
-	 * 1. id/proto/port
-	 * 2. ANY/proto/port
-	 * 3. id/proto/ANY
-	 * 4. ANY/proto/ANY <--- case not implemented below
-	 * 5. id/ANY/ANY
-	 * 6. ANY/ANY/ANY
+	 * 1. id/proto/port  (L3/L4)
+	 * 2. ANY/proto/port (L4-only)
+	 * 3. id/proto/ANY   (L3-proto)
+	 * 4. ANY/proto/ANY  (Proto-only) <--- case not implemented below
+	 * 5. id/ANY/ANY     (L3-only)
+	 * 6. ANY/ANY/ANY    (All)
 	 */
 	/* Start with L3/L4 lookup. */
 	policy = map_lookup_elem(map, &key);
@@ -60,7 +60,7 @@ policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
 	}
 	key.sec_label = identity;
 
-	/* Check L3/L4 any port policy */
+	/* Check L3-proto policy */
 	key.dport = 0;
 	policy = map_lookup_elem(map, &key);
 	if (likely(policy)) {					/* 3. id/proto/ANY */
@@ -183,12 +183,12 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 #endif /* ENABLE_ICMP_RULE */
 
 	/* Policy match precedence:
-	 * 1. id/proto/port
-	 * 2. ANY/proto/port
-	 * 3. id/proto/ANY <--- case not implemented below
-	 * 4. ANY/proto/ANY
-	 * 5. id/ANY/ANY
-	 * 6. ANY/ANY/ANY
+	 * 1. id/proto/port  (L3/L4)
+	 * 2. ANY/proto/port (L4-only)
+	 * 3. id/proto/ANY   (L3-proto) <--- case not implemented below
+	 * 4. ANY/proto/ANY  (Proto-only)
+	 * 5. id/ANY/ANY     (L3-only)
+	 * 6. ANY/ANY/ANY    (All)
 	 */
 	/* L4 lookup can't be done on untracked fragments. */
 	if (!is_untracked_fragment) {
@@ -211,18 +211,18 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 			goto policy_check_entry;
 		}
 
-		/* Check L4 any port policy */
+		/* Check Proto-only policy */
 		key.dport = 0;
 		policy = map_lookup_elem(map, &key);
 		if (likely(policy)) {
 			account(ctx, policy);
-			*match_type = POLICY_MATCH_L4_ONLY;	/* 4. ANY/proto/ANY */
+			*match_type = POLICY_MATCH_PROTO_ONLY;	/* 4. ANY/proto/ANY */
 			goto policy_check_entry;
 		}
 		key.sec_label = remote_id;
 	}
 
-	/* If L4 policy check misses, fall back to L3. */
+	/* If L4 policy check misses, fall back to L3-only. */
 	key.dport = 0;
 	key.protocol = 0;
 	policy = map_lookup_elem(map, &key);
