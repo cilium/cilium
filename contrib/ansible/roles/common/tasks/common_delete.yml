@@ -1,0 +1,17 @@
+---
+
+- name: Remove common build essentials
+  apt: name={{item}} state=absent
+  with_items:
+    - build-essential
+    - git
+    - bc
+    - pkg-config
+    - libssl-dev
+    - bison
+    - flex
+    - libncurses5-dev
+    - curl
+    - gcc-multilib
+    - libseccomp2
+    - libsystemd-journal0

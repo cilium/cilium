@@ -1,0 +1,185 @@
+---
+swagger: '2.0'
+info:
+  title: Cilium-Health API
+  description: Cilium Health Checker
+  version: v1beta
+x-schemes:
+- unix
+basePath: "/v1beta"
+produces:
+- application/json
+consumes:
+- application/json
+paths:
+  "/healthz":
+    get:
+      summary: Get health of Cilium node
+      description: |
+        Returns health and status information of the local node including
+        load and uptime, as well as the status of related components including
+        the Cilium daemon.
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/HealthResponse"
+        '500':
+          description: Failed to contact local Cilium daemon
+          x-go-name: Failed
+          schema:
+            "$ref": "../openapi.yaml#/definitions/Error"
+  "/status/probe":
+    put:
+      summary: Run synchronous connectivity probe to determine status of the Cilium cluster
+      description: |
+        Runs a synchronous probe to all other cilium-health instances and
+        returns the connectivity status.
+      tags:
+      - connectivity
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/HealthStatusResponse"
+        '500':
+          description: Internal error occurred while conducting connectivity probe
+          x-go-name: Failed
+          schema:
+            "$ref": "../openapi.yaml#/definitions/Error"
+  "/status":
+    get:
+      summary: Get connectivity status of the Cilium cluster
+      description: |
+        Returns the connectivity status to all other cilium-health instances
+        using interval-based probing.
+      tags:
+      - connectivity
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/HealthStatusResponse"
+definitions:
+  StatusResponse:
+    type: object
+    description: Status of Cilium daemon
+    x-go-type:
+      type: StatusResponse
+      import:
+        package: "github.com/cilium/cilium/api/v1/models"
+        alias: "ciliumModels"
+      hint:
+        kind: object
+        nullable: true
+  HealthResponse:
+    description: Health and status information of local node
+    type: object
+    properties:
+      cilium:
+        description: Status of Cilium daemon
+        "$ref": "#/definitions/StatusResponse"
+      uptime:
+        description: Uptime of cilium-health instance
+        type: string
+      system-load:
+        description: System load on node
+        "$ref": "#/definitions/LoadResponse"
+  LoadResponse:
+    description: System load on node
+    type: object
+    properties:
+      last1min:
+        description: Load average over the past minute
+        type: string
+      last5min:
+        description: Load average over the past 5 minutes
+        type: string
+      last15min:
+        description: Load average over the past 15 minutes
+        type: string
+  HealthStatusResponse:
+    description: Connectivity status to other daemons
+    type: object
+    properties:
+      timestamp:
+        type: string
+      local:
+        description: Description of the local node
+        "$ref": "#/definitions/SelfStatus"
+      nodes:
+        description: Connectivity status to each other node
+        type: array
+        items:
+          "$ref": "#/definitions/NodeStatus"
+  SelfStatus:
+    description: Description of the cilium-health node
+    type: object
+    properties:
+      name:
+        description: Name associated with this node
+        type: string
+  NodeStatus:
+    description: Connectivity status of a remote cilium-health instance
+    type: object
+    properties:
+      name:
+        description: Identifying name for the node
+        type: string
+      host:
+        description: Connectivity status to cilium-health instance on node IP
+        "$ref": "#/definitions/HostStatus"
+      health-endpoint:
+        description: Connectivity status to simulated endpoint on the node
+        "$ref": "#/definitions/EndpointStatus"
+      endpoint:
+        description: |
+          DEPRECATED: Please use the health-endpoint field instead, which
+          supports reporting the status of different addresses for the endpoint
+        "$ref": "#/definitions/PathStatus"
+  HostStatus:
+    description: |
+      Connectivity status to host cilium-health instance via different paths,
+      probing via all known IP addresses
+    properties:
+      primary-address:
+        "$ref": "#/definitions/PathStatus"
+      secondary-addresses:
+        type: array
+        items:
+          "$ref": "#/definitions/PathStatus"
+  EndpointStatus:
+    description: |
+      Connectivity status to host cilium-health endpoints via different paths
+    properties:
+      primary-address:
+        "$ref": "#/definitions/PathStatus"
+      secondary-addresses:
+        type: array
+        items:
+          "$ref": "#/definitions/PathStatus"
+  PathStatus:
+    description: |
+      Connectivity status via different paths, for example using different
+      policies or service redirection
+    type: object
+    properties:
+      ip:
+        description: IP address queried for the connectivity status
+        type: string
+      icmp:
+        description: Basic ping connectivity status to node IP
+        "$ref": "#/definitions/ConnectivityStatus"
+      http:
+        description: Connectivity status without policy applied
+        "$ref": "#/definitions/ConnectivityStatus"
+  ConnectivityStatus:
+    description: Connectivity status of a path
+    type: object
+    properties:
+      latency:
+        description: Round trip time to node in nanoseconds
+        type: integer
+      status:
+        type: string
+        description: Human readable status/error/warning message

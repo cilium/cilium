@@ -1,0 +1,141 @@
+# The default family of the cluster is IPv4 so we have V4 version of these
+# services as defaults in the manifests/ directory.
+# For IPv6 we can have different configuration for different Kubernetes
+# versions. Therefore v6 services manifests are placed in version specific
+# directories inside manifests/.
+apiVersion: v1
+kind: Service
+metadata:
+  name: testds-service-ipv6
+spec:
+  ipFamily: IPv6
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    targetPort: 69
+    protocol: UDP
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-affinity-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  sessionAffinity: ClientIP
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local-k8s2-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: test-k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-k8s2-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: test-k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-external-ips-ipv6
+spec:
+  ipFamily: IPv6
+  type: NodePort
+  ports:
+  - port: 20080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 20069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  externalIPs:
+  - fd03::999
+  selector:
+    zgroup: testDS

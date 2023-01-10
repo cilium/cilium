@@ -1,0 +1,24 @@
+{{- if and .Values.etcd.managed .Values.etcd.podDisruptionBudget.enabled }}
+{{- $component := .Values.etcd.podDisruptionBudget }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: cilium-etcd-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    io.cilium/app: etcd-operator
+    name: cilium-etcd-operator
+    app.kubernetes.io/name: cilium-etcd-operator
+    app.kubernetes.io/part-of: cilium
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      io.cilium/app: etcd-operator
+      name: cilium-etcd-operator
+{{- end }}

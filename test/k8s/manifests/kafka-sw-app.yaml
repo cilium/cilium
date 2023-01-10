@@ -1,0 +1,158 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-broker
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+      zgroup: kafkaTestApp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kafka
+        zgroup: kafkaTestApp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: kafka
+        image: docker.io/cilium/kafkaproxy:1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9092
+        env:
+        - name: ADVERTISED_HOST
+          value: kafka-service
+        - name: ADVERTISED_PORT
+          value: "9092"
+        - name: CONSUMER_THREADS
+          value: "1"
+        - name: ZK_CONNECT
+          value: "zk.connect=localhost:2181/root/path"
+        - name: GROUP_ID
+          value: "groupid=test"
+        - name: TOPICS
+          value: "empire-announce,deathstar-plans,test-topic"
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          failureThreshold: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 9092
+    name: kafka-port
+    targetPort: 9092
+    protocol: TCP
+  selector:
+    app: kafka
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-hq
+spec:
+  selector:
+    matchLabels:
+      app: empire-hq
+      zgroup: kafkaTestApp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-hq
+        zgroup: kafkaTestApp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: empire-hq
+        image: docker.io/cilium/kafkaclient:1.0
+        imagePullPolicy: IfNotPresent
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-outpost-8888
+spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "8888"
+      zgroup: kafkaTestApp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "8888"
+        zgroup: kafkaTestApp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: empire-outpost-8888
+        image: docker.io/cilium/kafkaclient:1.0
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-outpost-9999
+spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+      outpostid: "9999"
+      zgroup: kafkaTestApp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+        outpostid: "9999"
+        zgroup: kafkaTestApp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: empire-outpost-9999
+        image: docker.io/cilium/kafkaclient:1.0
+        imagePullPolicy: IfNotPresent
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-backup
+spec:
+  selector:
+    matchLabels:
+      app: empire-backup
+      zgroup: kafkaTestApp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-backup
+        zgroup: kafkaTestApp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: empire-backup
+        image: docker.io/cilium/kafkaclient:1.0
+        imagePullPolicy: IfNotPresent

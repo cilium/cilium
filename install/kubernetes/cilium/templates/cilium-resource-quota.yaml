@@ -1,0 +1,35 @@
+{{- if or .Values.resourceQuotas.enabled (and (ne .Release.Namespace "kube-system") .Values.gke.enabled) }}
+{{- if .Values.agent }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cilium-resource-quota
+  namespace: {{ .Release.Namespace }}
+spec:
+  hard:
+    pods: {{ .Values.resourceQuotas.cilium.hard.pods | quote }}
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values:
+      - system-node-critical
+{{- end }}
+{{- if .Values.operator.enabled }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cilium-operator-resource-quota
+  namespace: {{ .Release.Namespace }}
+spec:
+  hard:
+    pods: {{ .Values.resourceQuotas.operator.hard.pods | quote }}
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values:
+      - system-cluster-critical
+{{- end }}
+{{- end }}

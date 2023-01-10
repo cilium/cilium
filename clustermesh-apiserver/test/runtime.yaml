@@ -1,0 +1,8 @@
+apiVersion: cilium.io/v2
+kind: CiliumExternalWorkload
+metadata:
+  name: runtime
+  labels:
+    app: runtime
+spec:
+  ipv4-alloc-cidr: 10.192.1.0/30

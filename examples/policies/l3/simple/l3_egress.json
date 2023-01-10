@@ -1,0 +1,9 @@
+[{
+    "labels": [{"key": "name", "value": "l3-egress-rule"}],
+    "endpointSelector": {"matchLabels": {"role":"frontend"}},
+    "egress": [{
+        "toEndpoints": [
+          {"matchLabels":{"role":"backend"}}
+        ]
+    }]
+}]

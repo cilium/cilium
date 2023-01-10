@@ -1,0 +1,16 @@
+---
+
+- name: Delete old kernel and modules
+  command: "{{ item }}"
+  with_items:
+    - bash -c "\rm -Rf /lib/modules/*"
+    - bash -c "\rm /boot/*-custom"
+  ignore_errors: yes
+
+- name: Install kernel and modules
+  command: "{{ item }} chdir={{ kernel_home }}/net-next"
+  with_items:
+    - make modules_install
+    - make install
+    - make headers_install INSTALL_HDR_PATH=/usr/
+    - make -C tools/perf install

@@ -1,0 +1,56 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "secure-empire-kafka"
+specs:
+  - description: Allow only permitted Kafka requests to empire Kafka broker
+    endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-hq
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - role: "produce"
+            topic: "deathstar-plans"
+          - role: "produce"
+            topic: "empire-announce"
+    - fromEndpoints:
+      - matchLabels:
+          app: kafka
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-outpost
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - role: "consume"
+            topic: "empire-announce"
+  - endpointSelector:
+      matchLabels:
+        app: kafka
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          app: empire-backup
+      toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
+          kafka:
+          - role: "consume"
+            topic: "deathstar-plans"

@@ -1,0 +1,20 @@
+---
+
+- name: Install common build essentials
+  apt: name={{item}} state=present
+  with_items:
+    - build-essential
+    - git
+    - bc
+    - pkg-config
+    - libssl-dev
+    - bison
+    - flex
+    - libncurses5-dev
+    - curl
+    - gcc-multilib
+    - libseccomp2
+    - libsystemd-journal0
+    - curl
+    - clang-7
+    - llvm-7

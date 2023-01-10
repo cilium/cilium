@@ -1,0 +1,6 @@
+---
+trusted-ca-file: /var/lib/cilium/etcd-secrets/ca.crt
+key-file: /var/lib/cilium/etcd-secrets/tls.key
+cert-file: /var/lib/cilium/etcd-secrets/tls.crt
+endpoints:
+- https://127.0.0.1:2379

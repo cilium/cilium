@@ -1,0 +1,21 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: istio-sidecar
+specs:
+  - endpointSelector:
+      matchLabels:
+        "reserved:init": ""
+    ingress:
+    - fromEntities:
+      - host
+    egress:
+    - toEntities:
+      - all
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: UDP
+    - toEndpoints:
+      - matchLabels:
+          "k8s:io.kubernetes.pod.namespace": "istio-system"

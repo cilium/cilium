@@ -1,0 +1,22 @@
+{{- if (and (.Values.preflight.enabled) (not (.Values.agent)) (not (.Values.operator.enabled))) }}
+    You have successfully ran the preflight check.
+    Now make sure to check the number of READY pods is the same as the number of running cilium pods.
+    Then make sure the cilium preflight deployment is also marked READY 1/1.
+    If you have an issues please refer to the CNP Validation section in the upgrade guide.
+{{- else if (and (.Values.hubble.enabled) (.Values.hubble.relay.enabled)) }}
+    {{- if (.Values.hubble.ui.enabled) }}
+        You have successfully installed {{ title .Chart.Name }} with Hubble Relay and Hubble UI.
+    {{- else }}
+        You have successfully installed {{ title .Chart.Name }} with Hubble Relay.
+    {{- end }}
+{{- else if .Values.hubble.enabled }}
+    You have successfully installed {{ title .Chart.Name }} with Hubble.
+{{- else if (and (.Values.hubble.ui.enabled) (.Values.hubble.ui.standalone.enabled)) }}
+    You have successfully installed {{ title .Chart.Name }} with standalone Hubble UI.
+{{- else }}
+    You have successfully installed {{ title .Chart.Name }}.
+{{- end }}
+
+Your release version is {{ .Chart.Version }}.
+
+For any further help, visit https://docs.cilium.io/en/v{{ (semver .Chart.Version).Major }}.{{ (semver .Chart.Version).Minor }}/gettinghelp

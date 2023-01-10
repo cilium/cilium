@@ -1,0 +1,36 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: productpage-v2
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        "k8s:app": productpage
+        "k8s:version": v2
+    ingress:
+    - toPorts:
+      - ports:
+        - port: "9080"
+          protocol: TCP
+        rules:
+          http:
+          - method: GET
+            path: "/"
+          - method: GET
+            path: "/index.html"
+          - method: POST
+            path: "/login"
+          - method: GET
+            path: "/logout"
+          - method: GET
+            path: "/productpage"
+          - method: GET
+            path: "/api/v1/products"
+          - method: GET
+            path: "/api/v1/products/[0-9]*"
+#          - method: GET
+#            path: "/api/v1/products/[0-9]*/reviews"
+#          - method: GET
+#            path: "/api/v1/products/[0-9]*/ratings"
+

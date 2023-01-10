@@ -1,0 +1,45 @@
+{{/* validate hubble config */}}
+{{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
+  {{- if not .Values.hubble.relay.enabled }}
+    {{ fail "Hubble UI requires .Values.hubble.relay.enabled=true" }}
+  {{- end }}
+{{- end }}
+{{- if and .Values.hubble.ui.enabled .Values.hubble.ui.standalone.enabled .Values.hubble.relay.tls.server.enabled }}
+  {{- if not .Values.hubble.ui.standalone.tls.certsVolume }}
+    {{ fail "Hubble UI in standalone with Hubble Relay server TLS enabled requires providing .Values.hubble.ui.standalone.tls.certsVolume for mounting client certificates in the backend pod" }}
+  {{- end }}
+{{- end }}
+{{- if .Values.hubble.relay.enabled }}
+  {{- if not .Values.hubble.enabled }}
+    {{ fail "Hubble Relay requires .Values.hubble.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate service monitoring CRDs */}}
+{{- if and .Values.prometheus.enabled (or .Values.prometheus.serviceMonitor.enabled .Values.operator.prometheus.serviceMonitor.enabled) }}
+  {{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+      {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate hubble-ui specific config */}}
+{{- if and .Values.hubble.ui.enabled
+  (ne .Values.hubble.ui.backend.image.tag "latest")
+  (ne .Values.hubble.ui.frontend.image.tag "latest") }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.backend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.backend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.frontend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+{{- end }}
+
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if hasKey .Values "kubeProxyReplacement" }}
+    {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
+      {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+    {{- end }}
+  {{- else }}
+    {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+  {{- end }}
+{{- end }}

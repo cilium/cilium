@@ -1,0 +1,7 @@
+---
+
+- name: Fetch bpf-wip iproute2 package
+  git: repo=git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+       dest={{ iproute2_home }}/iproute2
+       version=master
+  register: iproute2_fetch

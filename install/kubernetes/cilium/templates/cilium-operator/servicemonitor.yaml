@@ -1,0 +1,40 @@
+{{- if and .Values.operator.enabled .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cilium-operator
+  namespace: {{ .Values.operator.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-operator
+    {{- with .Values.operator.prometheus.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.operator.prometheus.serviceMonitor.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      io.cilium/app: operator
+      name: cilium-operator
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.operator.prometheus.serviceMonitor.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.operator.prometheus.serviceMonitor.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.operator.prometheus.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  targetLabels:
+  - io.cilium/app
+{{- end }}

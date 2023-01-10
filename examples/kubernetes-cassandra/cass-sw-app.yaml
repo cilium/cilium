@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cass-server
+spec:
+  selector:
+    matchLabels:
+      app: cass-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cass-server
+    spec:
+      containers:
+      - name: cassandra
+        image: docker.io/cassandra
+        ports:
+        - containerPort: 9042
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra-svc
+  labels:
+    app: cass-server
+spec:
+  ports:
+  - port: 9042
+    name: cassandra-port
+    targetPort: 9042
+    protocol: TCP
+  selector:
+    app: cass-server
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-hq
+spec:
+  selector:
+    matchLabels:
+      app: empire-hq
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-hq
+    spec:
+      containers:
+      - name: empire-hq
+        image: docker.io/cassandra
+        command: ["sleep"]
+        args: ["30000"]
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: empire-outpost
+spec:
+  selector:
+    matchLabels:
+      app: empire-outpost
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: empire-outpost
+    spec:
+      containers:
+      - name: empire-outpost
+        image: docker.io/cassandra
+        command: ["sleep"]
+        args: ["30000"]

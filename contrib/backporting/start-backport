@@ -1,0 +1,45 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright Authors of Cilium
+
+source $(dirname $(readlink -ne $BASH_SOURCE))/../release/lib/common.sh
+source $TOOL_LIB_PATH/gitlib.sh
+source $(dirname $(readlink -ne $BASH_SOURCE))/common.sh
+
+require_linux
+
+# Validate command-line
+common::argc_validate 1
+
+BRANCH="${1:-}"
+if [ "$BRANCH" = "" ]; then
+    BRANCH=$(git symbolic-ref --short HEAD)
+fi
+BRANCH=$(echo "$BRANCH" | sed 's/^v//')
+
+# Extra optional suffix in cases where there are multiple backport PRs that
+# have the same conflicting branch name.
+SUFFIX="${2}"
+
+REMOTE=$(get_remote)
+git fetch "${REMOTE}"
+if ! git branch -a | grep -q "${REMOTE}/v$BRANCH$" ; then
+    echo "usage: start-backport <branch version> [suffix]" 1>&2
+    echo "  (detected branch $BRANCH)" 1>&2
+    common::exit 1
+fi
+
+DATE=$(date --rfc-3339=date)
+PRBRANCH="pr/v${BRANCH}-backport-${DATE}${SUFFIX}"
+
+if (git --no-pager branch | grep -q "${PRBRANCH}"); then
+    echo "Error: branch '${PRBRANCH}' already exists"
+    echo "Consider passing a suffix as the second parameter"
+    echo
+    echo "Example:"
+    echo "  ./contrib/backporting/start-backport ${BRANCH} \"-2\""
+    common::exit 1
+fi
+
+git checkout -b "${PRBRANCH}" "${REMOTE}/v${BRANCH}"
+contrib/backporting/check-stable $BRANCH v$BRANCH-backport-$DATE.txt

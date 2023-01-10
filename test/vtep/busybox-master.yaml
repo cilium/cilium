@@ -1,0 +1,16 @@
+#kubectl label node kind-control-plane  dedicated=master
+##kubectl taint nodes --all node-role.kubernetes.io/master-
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox-master
+  labels:
+    app: busybox
+spec:
+  nodeSelector:
+    dedicated: master
+  containers:
+  - name: busybox
+    image: busybox
+    imagePullPolicy: IfNotPresent
+    command: ['sh', '-c', 'echo Container 1 is Running ; sleep 3600']

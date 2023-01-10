@@ -1,0 +1,21 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "rule2"
+spec:
+  description: "enable outposts to consume empire-announce"
+  endpointSelector:
+    matchLabels:
+      app: kafka
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: empire-outpost
+    toPorts:
+    - ports:
+      - port: "9092"
+        protocol: TCP
+      rules:
+        kafka:
+        - role: "consume"
+          topic: "empire-announce"

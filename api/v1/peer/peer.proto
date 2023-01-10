@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Hubble
+
+syntax = "proto3";
+
+package peer;
+
+option go_package = "github.com/cilium/cilium/api/v1/peer";
+
+// Peer lists  hubble peers and notifies of changes.
+service Peer {
+    // Notify sends information about hubble peers in the cluster.
+    // When Notify is called, it sends information about all the peers that are
+    // already part of the cluster (with the type as PEER_ADDED). It
+    // subsequently notifies of any change.
+    rpc Notify(NotifyRequest) returns (stream ChangeNotification) {}
+}
+
+message NotifyRequest {}
+
+// ChangeNotification indicates a change regarding a hubble peer.
+message ChangeNotification {
+    // Name is the name of the peer, typically the hostname. The name includes
+    // the cluster name if a value other than default has been specified.
+    // This value can be used to uniquely identify the host.
+    // When the cluster name is not the default, the cluster name is prepended
+    // to the peer name and a forward slash is added.
+    //
+    // Examples:
+    //  - runtime1
+    //  - testcluster/runtime1
+    string name = 1;
+
+    // Address is the address of the peer's gRPC service.
+    string address = 2;
+
+    // ChangeNotificationType indicates the type of change, ie whether the peer
+    // was added, deleted or updated.
+    ChangeNotificationType type = 3;
+
+    // TLS provides information to connect to the Address with TLS enabled.
+    // If not set, TLS shall be assumed to be disabled.
+    TLS tls = 4;
+}
+
+// ChangeNotificationType defines the peer change notification type.
+enum ChangeNotificationType {
+    UNKNOWN = 0;
+    PEER_ADDED = 1;
+    PEER_DELETED = 2;
+    PEER_UPDATED = 3;
+}
+
+// TLS provides information to establish a TLS connection to the peer.
+message TLS {
+    // ServerName is used to verify the hostname on the returned certificate.
+    string server_name = 1;
+}

@@ -1,0 +1,11 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "empire-default-deny"
+spec:
+  description: "Default-deny ingress policy for the empire"
+  endpointSelector:
+    matchLabels:
+      org: empire
+  ingress:
+  - {}

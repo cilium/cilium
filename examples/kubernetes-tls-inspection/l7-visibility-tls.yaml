@@ -1,0 +1,35 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l7-visibility-tls"
+spec:
+  description: L7 policy with TLS
+  endpointSelector:
+    matchLabels:
+      org: empire
+      class: mediabot
+  egress:
+  - toFQDNs:
+    - matchName: "artii.herokuapp.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      terminatingTLS:
+        secret:
+          namespace: "kube-system"
+          name: "artii-tls-data"
+      originatingTLS:
+        secret:
+          namespace: "kube-system"
+          name: "tls-orig-data"
+      rules:
+        http:
+        - {}
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+          - matchPattern: "*"

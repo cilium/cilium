@@ -1,0 +1,1342 @@
+---
+metadata:
+  name: echo-a
+  labels:
+    name: echo-a
+    topology: any
+    component: network-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-a
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-a-container
+        env:
+        - name: PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+  selector:
+    matchLabels:
+      name: echo-a
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-b
+  labels:
+    name: echo-b
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-b
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-b-container
+        env:
+        - name: PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+          hostPort: 40000
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+  selector:
+    matchLabels:
+      name: echo-b
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-b-host
+  labels:
+    name: echo-b-host
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-b-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-b-host-container
+        env:
+        - name: PORT
+          value: "41000"
+        ports: []
+        image: quay.io/cilium/json-mock:v1.3.0@sha256:2729064827fa9dbfface8d3df424feb6c792a0ba07117b844349635c93c06d2b
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: echo-b-host
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-a
+  labels:
+    name: pod-to-a
+    topology: any
+    component: network-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-a
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-a-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a:8080/public
+  selector:
+    matchLabels:
+      name: pod-to-a
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-external-1111
+  labels:
+    name: pod-to-external-1111
+    topology: any
+    component: network-check
+    traffic: external
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-external-1111
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-external-1111-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - https://1.1.1.1
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - https://1.1.1.1
+  selector:
+    matchLabels:
+      name: pod-to-external-1111
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-a-denied-cnp
+  labels:
+    name: pod-to-a-denied-cnp
+    topology: any
+    component: policy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-a-denied-cnp
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-a-denied-cnp-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
+  selector:
+    matchLabels:
+      name: pod-to-a-denied-cnp
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-a-allowed-cnp
+  labels:
+    name: pod-to-a-allowed-cnp
+    topology: any
+    component: policy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-a-allowed-cnp
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-a-allowed-cnp-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a:8080/public
+  selector:
+    matchLabels:
+      name: pod-to-a-allowed-cnp
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-external-fqdn-allow-google-cnp
+  labels:
+    name: pod-to-external-fqdn-allow-google-cnp
+    topology: any
+    component: policy-check
+    traffic: external
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-external-fqdn-allow-google-cnp
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-external-fqdn-allow-google-cnp-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - www.google.com
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - www.google.com
+  selector:
+    matchLabels:
+      name: pod-to-external-fqdn-allow-google-cnp
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-multi-node-clusterip
+  labels:
+    name: pod-to-b-multi-node-clusterip
+    topology: multi-node
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-clusterip
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-clusterip-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b:8080/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-clusterip
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-multi-node-headless
+  labels:
+    name: pod-to-b-multi-node-headless
+    topology: multi-node
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-headless
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-headless-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless:8080/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-headless
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: host-to-b-multi-node-clusterip
+  labels:
+    name: host-to-b-multi-node-clusterip
+    topology: multi-node
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: host-to-b-multi-node-clusterip
+    spec:
+      hostNetwork: true
+      containers:
+      - name: host-to-b-multi-node-clusterip-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b:8080/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      dnsPolicy: ClusterFirstWithHostNet
+  selector:
+    matchLabels:
+      name: host-to-b-multi-node-clusterip
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: host-to-b-multi-node-headless
+  labels:
+    name: host-to-b-multi-node-headless
+    topology: multi-node
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: host-to-b-multi-node-headless
+    spec:
+      hostNetwork: true
+      containers:
+      - name: host-to-b-multi-node-headless-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless:8080/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless:8080/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      dnsPolicy: ClusterFirstWithHostNet
+  selector:
+    matchLabels:
+      name: host-to-b-multi-node-headless
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-multi-node-nodeport
+  labels:
+    name: pod-to-b-multi-node-nodeport
+    topology: multi-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-nodeport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-intra-node-nodeport
+  labels:
+    name: pod-to-b-intra-node-nodeport
+    topology: intra-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-intra-node-nodeport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-a
+  labels:
+    name: echo-a
+    topology: any
+    component: network-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-a
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b
+  labels:
+    name: echo-b
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+    nodePort: 31414
+  type: NodePort
+  selector:
+    name: echo-b
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b-headless
+  labels:
+    name: echo-b-headless
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-b
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b-host-headless
+  labels:
+    name: echo-b-host-headless
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports: []
+  type: ClusterIP
+  selector:
+    name: echo-b-host
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pod-to-a-denied-cnp
+spec:
+  podSelector:
+    matchLabels:
+      name: pod-to-a-denied-cnp
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+---
+metadata:
+  name: pod-to-b-multi-node-hostport
+  labels:
+    name: pod-to-b-multi-node-hostport
+    topology: multi-node
+    component: hostport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-hostport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-hostport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-hostport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-intra-node-hostport
+  labels:
+    name: pod-to-b-intra-node-hostport
+    topology: intra-node
+    component: hostport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-hostport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-intra-node-hostport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-hostport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-multi-node-nodeport
+  labels:
+    name: pod-to-b-multi-node-nodeport
+    topology: multi-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-nodeport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-intra-node-nodeport
+  labels:
+    name: pod-to-b-intra-node-nodeport
+    topology: intra-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-intra-node-nodeport-container
+        ports: []
+        image: quay.io/cilium/alpine-curl:v1.3.0@sha256:1d928912e5d9dc9994b038b5df7434790c4bb9bd64f60570d78c1dee13befc76
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31414/public
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-a
+  labels:
+    name: echo-a
+    topology: any
+    component: network-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-a
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b
+  labels:
+    name: echo-b
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+    nodePort: 31414
+  type: NodePort
+  selector:
+    name: echo-b
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-c
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b-headless
+  labels:
+    name: echo-b-headless
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-b
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-b-host-headless
+  labels:
+    name: echo-b-host-headless
+    topology: any
+    component: services-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports: []
+  type: ClusterIP
+  selector:
+    name: echo-b-host
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-c-headless
+  labels:
+    name: echo-c-headless
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-c
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-c-host-headless
+  labels:
+    name: echo-c-host-headless
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports: []
+  type: ClusterIP
+  selector:
+    name: echo-c-host
+  clusterIP: None
+apiVersion: v1
+kind: Service
+---

@@ -1,0 +1,63 @@
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+spec:
+  services:
+    - name: echo-service-1
+      namespace: default
+    - name: echo-service-2
+      namespace: default
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: envoy-lb-listener
+                rds:
+                  route_config_name: lb_route
+                http_filters:
+                  - name: envoy.filters.http.router
+    - "@type": type.googleapis.com/envoy.config.route.v3.RouteConfiguration
+      name: lb_route
+      virtual_hosts:
+        - name: "lb_route"
+          domains: [ "*" ]
+          routes:
+            - match:
+                prefix: "/"
+              route:
+                weighted_clusters:
+                  clusters:
+                    - name: "default/echo-service-1"
+                      weight: 50
+                    - name: "default/echo-service-2"
+                      weight: 50
+                retry_policy:
+                  retry_on: 5xx
+                  num_retries: 3
+                  per_try_timeout: 1s
+                regex_rewrite:
+                  pattern:
+                    google_re2: { }
+                    regex: "^/foo.*$"
+                  substitution: "/"
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: "default/echo-service-1"
+      connect_timeout: 5s
+      lb_policy: ROUND_ROBIN
+      type: EDS
+      outlier_detection:
+        split_external_local_origin_errors: true
+        consecutive_local_origin_failure: 2
+    - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: "default/echo-service-2"
+      connect_timeout: 3s
+      lb_policy: ROUND_ROBIN
+      type: EDS
+      outlier_detection:
+        split_external_local_origin_errors: true
+        consecutive_local_origin_failure: 2

@@ -1,0 +1,11 @@
+---
+
+- name: Restart machine
+  shell: sleep 2 && shutdown -r now "rebooting ..."
+  async: 1
+  poll: 0
+  ignore_errors: yes
+
+- name: Waiting for machine to come back up
+  local_action: wait_for host={{ inventory_hostname }} state=started delay=10 timeout=30 connect_timeout=15
+  sudo: false

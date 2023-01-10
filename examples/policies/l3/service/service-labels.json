@@ -1,0 +1,24 @@
+[{
+    "labels": [{"key": "name", "value": "service-labels-rule"}],
+    "endpointSelector": {
+        "matchLabels": {
+            "id": "app2"
+        }
+    },
+    "egress": [
+        {
+            "toServices": [
+                {
+                    "k8sServiceSelector": {
+                        "selector": {
+                            "matchLabels": {
+                                "head": "none"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
+]

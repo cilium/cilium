@@ -1,0 +1,4 @@
+---
+
+- name: Remove docker
+  apt: name=docker-engine state=absent

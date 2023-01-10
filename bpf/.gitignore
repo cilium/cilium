@@ -1,0 +1,5 @@
+# when updating this file, make sure to update `BPF_SRCFILES_IGNORE` in `Makefile.defs`
+compile_commands.json
+*.i
+*.s
+.rebuild_all

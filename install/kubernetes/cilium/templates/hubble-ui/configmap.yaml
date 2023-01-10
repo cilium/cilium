@@ -1,0 +1,10 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ui-nginx
+  namespace: {{ .Release.Namespace }}
+data:
+  nginx.conf: {{ include "hubble-ui.nginx.conf" . | trim | quote }}
+{{- end }}

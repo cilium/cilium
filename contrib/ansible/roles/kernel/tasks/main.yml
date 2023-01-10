@@ -1,0 +1,14 @@
+---
+
+- include: kernel_fetch.yml
+  tags: ["kernel", "kernel:fetch"]
+
+- include: kernel_build.yml
+  tags: ["kernel", "kernel:build"]
+
+- include: kernel_install.yml
+  tags: ["kernel", "kernel:install"]
+
+- include: kernel_clean.yml
+  tags: ["kernel", "kernel:clean"]
+

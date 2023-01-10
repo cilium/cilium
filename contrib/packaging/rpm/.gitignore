@@ -1,0 +1,5 @@
+cilium*
+version*
+output
+env
+!cilium.spec.envsubst

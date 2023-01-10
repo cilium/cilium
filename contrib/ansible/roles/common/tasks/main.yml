@@ -1,0 +1,7 @@
+---
+
+- include: common_install.yml
+  tags: ["common", "common:install"]
+
+- include: common_delete.yml
+  tags: ["common", "common:delete"]

@@ -1,0 +1,20 @@
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
+apiVersion: {{ include "cronjob.apiVersion" . }}
+kind: CronJob
+metadata:
+  name: hubble-generate-certs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-generate-certs
+    app.kubernetes.io/name: hubble-generate-certs
+    app.kubernetes.io/part-of: cilium
+  annotations:
+    {{- with .Values.certgen.annotations.cronJob }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  schedule: {{ .Values.hubble.tls.auto.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    {{- include "hubble-generate-certs.job.spec" . | nindent 4 }}
+{{- end }}

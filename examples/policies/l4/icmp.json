@@ -1,0 +1,10 @@
+[{
+  "labels": [{"key": "name", "value": "icmp-rule"}],
+  "endpointSelector": {"matchLabels":{"app":"myService"}},
+  "egress": [{
+    "icmps": [
+      {"fields":[ {"type": 8, "family": "IPv4"}]},
+      {"fields":[ {"type": 128, "family": "IPv6"}]}
+    ]
+  }]
+}]

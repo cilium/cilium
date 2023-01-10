@@ -1,0 +1,59 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: tls-gateway
+spec:
+  gatewayClassName: cilium
+  listeners:
+  - name: https-1
+    protocol: HTTPS
+    port: 443
+    hostname: "bookinfo.cilium.rocks"
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: demo-cert
+  - name: https-2
+    protocol: HTTPS
+    port: 443
+    hostname: "hipstershop.cilium.rocks"
+    tls:
+      certificateRefs:
+      - kind: Secret
+        name: demo-cert
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: https-app-route-1
+spec:
+  parentRefs:
+  - name: tls-gateway
+  hostnames:
+  - "bookinfo.cilium.rocks"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /details
+    backendRefs:
+    - name: details
+      port: 9080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: https-app-route-2
+spec:
+  parentRefs:
+  - name: tls-gateway
+  hostnames:
+  - "hipstershop.cilium.rocks"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: productpage
+      port: 9080

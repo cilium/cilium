@@ -1,0 +1,25 @@
+schemaVersion: "2.0.0"
+
+fileExistenceTests:
+- name: '/usr/local/bin/protoc'
+  path: '/usr/local/bin/protoc'
+  shouldExist: true
+  permissions: '-rwxr-xr-x'
+- name: '/usr/local/readme.txt'
+  path: '/usr/local/readme.txt'
+  shouldExist: false
+- name: '/usr/local/include/google/protobuf'
+  path: '/usr/local/include/google/protobuf'
+  shouldExist: true
+  permissions: 'drwxr-xr-x'
+
+commandTests:
+- name: "protoc command is in path"
+  command: "which"
+  args: ["protoc"]
+  expectedOutput: ["/usr/local/bin/protoc"]
+- name: "protoc --version"
+  command: "protoc"
+  args: ["--version"]
+  expectedOutput:
+  - 'libprotoc\ 3\.20\.1'

@@ -1,0 +1,41 @@
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.sync .Values.ingressController.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-operator-ingress-secrets
+  namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - update
+  - patch
+{{- end }}
+
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.sync .Values.gatewayAPI.secretsNamespace.name }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-operator-gateway-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - update
+  - patch
+{{- end }}

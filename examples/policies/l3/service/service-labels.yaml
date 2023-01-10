@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "service-labels-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      id: app2
+  egress:
+  - toServices:
+    - k8sServiceSelector:
+        selector:
+          matchLabels:
+            head: none

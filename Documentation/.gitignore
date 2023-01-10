@@ -1,0 +1,6 @@
+_build
+_api
+_preview
+_exts/__pycache__
+Pipfile
+Pipfile.lock

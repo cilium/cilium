@@ -1,0 +1,17 @@
+version: "{build}"
+
+branches:
+  only:
+    - master
+
+environment:
+  GOPATH: c:\gopath
+
+install:
+  - set PATH=%GOPATH%\bin;c:\go\bin;%PATH%
+  - mkdir c:\gopath
+  - go get github.com/mikioh/ipaddr
+
+build_script:
+  - go test -v -race
+  - go test -v -run=none -bench=. -benchmem

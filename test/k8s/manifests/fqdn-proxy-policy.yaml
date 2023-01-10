@@ -1,0 +1,19 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fqdn-proxy-policy.yaml"
+spec:
+  description: "fqdn-proxy-policy.yaml"
+  endpointSelector:
+    matchLabels:
+      id: app2
+  egress:
+  - toPorts:
+    - ports:
+      - port: '53'
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    - matchPattern: "vagrant-cache.ci.cilium.io"

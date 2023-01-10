@@ -1,0 +1,47 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+DIGESTS_PATH:=Makefile.digests
+include $(DIGESTS_PATH)
+export USE_DIGESTS ?= $(shell if grep -q '""' $(DIGESTS_PATH); then echo "false"; else echo "true"; fi)
+
+ifeq ($(RELEASE),yes)
+    export PULL_POLICY:=IfNotPresent
+    export CILIUM_REPO:=quay.io/cilium/cilium
+    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
+    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
+else
+    export CILIUM_BRANCH:=master
+    export PULL_POLICY:=Always
+    export CILIUM_REPO:=quay.io/cilium/cilium-ci
+    export CILIUM_OPERATOR_SUFFIX=-ci
+    export CILIUM_VERSION:=latest
+    export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver-ci
+    export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay-ci
+endif
+
+ifndef CILIUM_BRANCH
+$(error "CILIUM_BRANCH needs to be defined")
+endif
+
+export CERTGEN_REPO:=quay.io/cilium/certgen
+export CERTGEN_VERSION:=v0.1.8
+export CERTGEN_DIGEST:=sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd
+
+export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
+export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7
+export CILIUM_ETCD_OPERATOR_DIGEST:=sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
+export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
+export CILIUM_NODEINIT_VERSION:=d69851597ea019af980891a4628fb36b7880ec26
+export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
+
+export ETCD_REPO:=quay.io/coreos/etcd
+export ETCD_VERSION:=v3.5.7
+export ETCD_DIGEST:=sha256:7238b08a6bad494e84ed1c632a62d39bdeed1f929950a05c1a32b6d4490a0047
+
+export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
+export HUBBLE_UI_BACKEND_VERSION:=v0.10.0
+export HUBBLE_UI_BACKEND_DIGEST:=sha256:cc5e2730b3be6f117b22176e25875f2308834ced7c3aa34fb598aa87a2c0a6a4
+export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
+export HUBBLE_UI_FRONTEND_VERSION:=v0.10.0
+export HUBBLE_UI_FRONTEND_DIGEST:=sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a

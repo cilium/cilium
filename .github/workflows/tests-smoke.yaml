@@ -1,0 +1,202 @@
+name: Smoke test
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+      - ft/master/**
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  cilium_cli_version: v0.12.12
+  KIND_VERSION: v0.17.0
+  KIND_CONFIG: .github/kind-config.yaml
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+  PROM_VERSION: 2.34.0
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-20.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        id: tested-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  preflight-clusterrole:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+
+      - name: Check pre-flight clusterrole
+        run: make check-k8s-clusterrole
+
+  helm-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+
+      - name: Run helm-charts
+        run: |
+          make -C install/kubernetes
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C install/kubernetes' and submit your changes"; exit 1)
+
+  conformance-test:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          persist-credentials: false
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
+
+      - name: Create kind cluster
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install cilium chart
+        run: |
+          helm install cilium ./install/kubernetes/cilium \
+             --namespace kube-system \
+             --set nodeinit.enabled=true \
+             --set kubeProxyReplacement=partial \
+             --set socketLB.enabled=false \
+             --set externalIPs.enabled=true \
+             --set nodePort.enabled=true \
+             --set hostPort.enabled=true \
+             --set bpf.masquerade=false \
+             --set ipam.mode=kubernetes \
+             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             --set image.tag=${{ steps.vars.outputs.tag }} \
+             --set image.pullPolicy=IfNotPresent \
+             --set image.useDigest=false \
+             --set hubble.relay.enabled=true \
+             --set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+             --set hubble.relay.image.tag=${{ steps.vars.outputs.tag }} \
+             --set hubble.relay.image.pullPolicy=IfNotPresent \
+             --set hubble.relay.image.useDigest=false \
+             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+             --set operator.image.suffix=-ci \
+             --set operator.image.tag=${{ steps.vars.outputs.tag }} \
+             --set operator.image.pullPolicy=IfNotPresent \
+             --set operator.image.useDigest=false \
+             --set prometheus.enabled=true \
+             --set operator.prometheus.enabled=true \
+             --set hubble.enabled=true \
+             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
+             --set ingressController.enabled=true
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+          kubectl port-forward -n kube-system deployment/hubble-relay 4245:4245 &
+
+      - name: Run conformance test (e.g. connectivity check)
+        run: |
+          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+
+      - name: Check prometheus metrics
+        if: ${{ success() }}
+        run: |
+          cd $HOME
+          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
+          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9962/metrics > metrics.prom
+          # Install promtool binary release. `go install` doesn't work due to
+          # https://github.com/prometheus/prometheus/issues/8852 and related issues.
+          curl -sSL --remote-name-all https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/{prometheus-${PROM_VERSION}.linux-amd64.tar.gz,sha256sums.txt}
+          sha256sum --check --ignore-missing sha256sums.txt
+          tar xzvf prometheus-${PROM_VERSION}.linux-amd64.tar.gz prometheus-${PROM_VERSION}.linux-amd64/promtool
+          rm -f prometheus-${PROM_VERSION}.linux-amd64.tar.gz
+          sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
+          cat metrics.prom | promtool check metrics
+
+      - name: Capture cilium-sysdump
+        if: ${{ failure() }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
+        run: |
+          echo "=== Install Cilium CLI ==="
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

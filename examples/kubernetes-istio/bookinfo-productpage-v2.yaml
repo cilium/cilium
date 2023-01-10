@@ -1,0 +1,79 @@
+# Copyright 2017 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+##################################################################################################
+# Productpage services
+##################################################################################################
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: productpage-v2
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        "k8s:app": productpage
+        "k8s:version": v2
+    ingress:
+    - toPorts:
+      - ports:
+        - port: "9080"
+          protocol: TCP
+        rules:
+          http:
+          - method: GET
+            path: "/"
+          - method: GET
+            path: "/index.html"
+          - method: POST
+            path: "/login"
+          - method: GET
+            path: "/logout"
+          - method: GET
+            path: "/productpage"
+          - method: GET
+            path: "/api/v1/products"
+          - method: GET
+            path: "/api/v1/products/[0-9]*"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: productpage-v2
+spec:
+  selector:
+    matchLabels:
+      app: productpage
+      version: v2
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: productpage
+        version: v2
+    spec:
+      containers:
+      - name: productpage
+        image: docker.io/cilium/istio-examples-bookinfo-productpage-v2:0.3.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9080
+        command:
+        - python
+        - productpage.py
+        - --kafka-bootstrap-server
+        - kafka:9092
+        - "9080"

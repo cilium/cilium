@@ -1,0 +1,145 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "lock-down-dev-vms"
+spec:
+  description: "Lock down the development VMs when enable-remote-node-identity=true.
+    USE ELSEWHERE AT YOUR OWN RISK."
+  nodeSelector:
+    {}
+  ingress:
+  # Only ICMP echo/reply messages should be drop if this is commented.
+  - fromEntities:
+    - remote-node
+    - health
+
+  # SSH access to the VMs
+  - fromEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "22"
+        protocol: TCP
+
+  - fromEntities:
+    - remote-node
+    toPorts:
+    - ports:
+      # VXLAN tunnels between nodes
+      - port: "8472"
+        protocol: UDP
+      # etcd connections
+      - port: "2379"
+        protocol: TCP
+      - port: "2380"
+        protocol: TCP
+      # kube-api server
+      - port: "6443"
+        protocol: TCP
+
+  # kube-api server access for kube-dns
+  - fromEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+
+  # Health checks
+  - fromEntities:
+    - remote-node
+    - health
+    toPorts:
+    - ports:
+      - port: "4240"
+        protocol: TCP
+
+  # NodePort
+  # These two rules are only needed when kube-proxy is used.
+  # They should be removed when running in kube-proxy-free mode.
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-intra-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31414"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-multi-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31414"
+        protocol: TCP
+
+
+  egress:
+  # Only ICMP echo/reply messages should be drop if this is commented.
+  - toEntities:
+    - remote-node
+    - health
+
+  # DNS traffic to kube-dns
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "8181"
+        protocol: TCP
+      - port: "53"
+        protocol: UDP
+
+  - toEntities:
+    - remote-node
+    toPorts:
+    - ports:
+      # VXLAN tunnels between nodes
+      - port: "8472"
+        protocol: UDP
+      # etcd connections
+      - port: "2379"
+        protocol: TCP
+      - port: "2380"
+        protocol: TCP
+      # kube-api server
+      - port: "6443"
+        protocol: TCP
+
+  # Health checks
+  - toEntities:
+    - remote-node
+    - health
+    toPorts:
+    - ports:
+      - port: "4240"
+        protocol: TCP
+
+  # NTP queries
+  - toEntities:
+    - world
+    toPorts:
+    - ports:
+      - port: "123"
+        protocol: UDP
+  - toCIDR:
+    - 8.8.8.8/32
+    - 8.8.4.4/32
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+  # Required for host-networking pods of the connectivity-check
+  - toEndpoints:
+    - matchLabels:
+        name: echo-b
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP

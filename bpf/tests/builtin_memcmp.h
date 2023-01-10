@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright Authors of Cilium */
+	test___builtin_memcmp_single(8, 1);
+	test___builtin_memcmp_single(8, 2);
+	test___builtin_memcmp_single(8, 4);
+	test___builtin_memcmp_single(8, 6);
+	test___builtin_memcmp_single(8, 8);
+	test___builtin_memcmp_single(8, 10);
+	test___builtin_memcmp_single(8, 12);
+	test___builtin_memcmp_single(8, 14);
+	test___builtin_memcmp_single(8, 16);
+	test___builtin_memcmp_single(8, 18);
+	test___builtin_memcmp_single(8, 20);
+	test___builtin_memcmp_single(8, 22);
+	test___builtin_memcmp_single(8, 24);
+	test___builtin_memcmp_single(8, 26);
+	test___builtin_memcmp_single(8, 28);
+	test___builtin_memcmp_single(8, 30);
+	test___builtin_memcmp_single(8, 32);
+	test___builtin_memcmp_single(16, 1);
+	test___builtin_memcmp_single(16, 2);
+	test___builtin_memcmp_single(16, 4);
+	test___builtin_memcmp_single(16, 6);
+	test___builtin_memcmp_single(16, 8);
+	test___builtin_memcmp_single(16, 10);
+	test___builtin_memcmp_single(16, 12);
+	test___builtin_memcmp_single(16, 14);
+	test___builtin_memcmp_single(16, 16);
+	test___builtin_memcmp_single(32, 1);
+	test___builtin_memcmp_single(32, 2);
+	test___builtin_memcmp_single(32, 4);
+	test___builtin_memcmp_single(32, 6);
+	test___builtin_memcmp_single(32, 8);
+	test___builtin_memcmp_single(64, 1);
+	test___builtin_memcmp_single(64, 2);
+	test___builtin_memcmp_single(64, 4);

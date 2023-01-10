@@ -1,0 +1,42 @@
+layout:
+  application:
+    - name: configure
+      source: asset:serverConfigureapi
+      target: "{{ joinFilePath .Target .ServerPackage }}"
+      file_name: "configure_{{ .Name }}.go"
+      skip_exists: true
+    - name: embedded_spec
+      source: asset:swaggerJsonEmbed
+      target: "{{ joinFilePath .Target .ServerPackage }}"
+      file_name: "embedded_spec.go"
+    - name: server
+      source: "api/v1/server.gotmpl"
+      target: "{{ joinFilePath .Target .ServerPackage }}"
+      file_name: "server.go"
+    - name: builder
+      source: asset:serverBuilder
+      target: "{{ joinFilePath .Target .ServerPackage .Package }}"
+      file_name: "{{ snakize (pascalize .Name) }}_api.go"
+    - name: doc
+      source: asset:serverDoc
+      target: "{{ joinFilePath .Target .ServerPackage }}"
+      file_name: "doc.go"
+  models:
+    - name: definition
+      source: asset:model
+      target: "{{ joinFilePath .Target .ModelPackage }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}.go"
+  operations:
+    - name: parameters
+      source: asset:serverParameter
+      target: "{{ if gt (len .Tags) 0 }}{{ joinFilePath .Target .ServerPackage .APIPackage .Package  }}{{ else }}{{ joinFilePath .Target .ServerPackage .Package  }}{{ end }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}_parameters.go"
+    - name: responses
+      source: asset:serverResponses
+      target: "{{ if gt (len .Tags) 0 }}{{ joinFilePath .Target .ServerPackage .APIPackage .Package  }}{{ else }}{{ joinFilePath .Target .ServerPackage .Package  }}{{ end }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}_responses.go"
+    - name: handler
+      source: asset:serverOperation
+      target: "{{ if gt (len .Tags) 0 }}{{ joinFilePath .Target .ServerPackage .APIPackage .Package  }}{{ else }}{{ joinFilePath .Target .ServerPackage .Package  }}{{ end }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}.go"
+  operation_groups:

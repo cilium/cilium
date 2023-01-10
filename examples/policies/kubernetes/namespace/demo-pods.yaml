@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leia-deployment
+  namespace: ns1
+spec:
+  selector:
+    matchLabels:
+      name: leia
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: leia
+      namespace: ns1
+    spec:
+      containers:
+      - name: leia-container
+        image: docker.io/cilium/json-mock:1.2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: leia
+  namespace: ns1
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    name: leia
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: luke-pod
+  namespace: ns2
+  labels:
+    name: luke
+spec:
+  containers:
+  - name: luke-container
+    image: docker.io/cilium/json-mock:1.2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vader-pod
+  namespace: ns2
+  labels:
+    name: vader
+spec:
+  containers:
+  - name: vader-container
+    image: docker.io/cilium/json-mock:1.2

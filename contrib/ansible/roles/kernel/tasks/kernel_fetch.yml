@@ -1,0 +1,7 @@
+---
+
+- name: Fetch bpf-wip kernel package
+  git: repo=git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+       dest={{ kernel_home }}/net-next
+       version=master
+  register: kernel_fetch

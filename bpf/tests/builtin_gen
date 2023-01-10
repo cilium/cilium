@@ -1,0 +1,14 @@
+#!/bin/bash
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright Authors of Cilium
+
+for i in 8 16 32 64
+do
+	echo -e "\ttest___builtin_$1_single($i, 1);"
+	((j = 2 * i))
+	while [[ $j -le $2 ]]
+	do
+		echo -e "\ttest___builtin_$1_single($i, $((j / i)));"
+		((j = j + 2 * i))
+	done
+done

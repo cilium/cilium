@@ -1,0 +1,13 @@
+---
+
+- include: iproute2_fetch.yml
+  tags: ["iproute2", "iproute2:fetch"]
+
+- include: iproute2_build.yml
+  tags: ["iproute2", "iproute2:build"]
+
+- include: iproute2_install.yml
+  tags: ["iproute2", "iproute2:install"]
+
+- include: iproute2_clean.yml
+  tags: ["iproute2", "iproute2:clean"]

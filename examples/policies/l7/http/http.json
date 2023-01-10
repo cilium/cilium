@@ -1,0 +1,23 @@
+[{
+    "labels": [{"key": "name", "value": "l7-rule"}],
+    "endpointSelector": {"matchLabels":{"app":"myService"}},
+    "ingress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "80", "protocol": "TCP"}
+            ],
+            "rules": {
+                "http": [
+                    {
+                        "method": "GET",
+                        "path": "/path1$"
+                    },{
+                        "method": "PUT",
+                        "path": "/path2$",
+                        "headers": ["X-My-Header: true"]
+                    }
+                ]
+            }
+        }]
+    }]
+}]

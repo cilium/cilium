@@ -1,0 +1,67 @@
+[{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd1":""}
+    },
+    "ingress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+    }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.httpd2":""}
+    },
+    "ingress": [{
+        "fromEndpoints": [
+            {"matchLabels":{}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+   }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app2":""}
+    },
+    "egress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+    }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app3":""}
+    },
+    "egress": [{
+        "toPorts": [{
+            "ports": [
+                {"port": "8080",   "protocol": "tcp"}
+            ]
+        }]
+    }]
+},
+{
+    "endpointSelector": {
+        "matchLabels":{"id.app1":""}
+    },
+    "egress": [{
+        "toEndpoints": [
+            {"matchLabels":{}}
+        ],
+        "toPorts": [{
+            "ports": [
+                {"port": "8080",   "protocol": "tcp"},
+                {"port": "80",   "protocol": "tcp"}
+            ]
+        }]
+    }]
+}]

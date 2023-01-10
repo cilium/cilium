@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: echoserver
+  labels:
+    k8s-app: echoserver-hostnetns
+spec:
+  selector:
+    matchLabels:
+      name: echoserver-hostnetns
+  template:
+    metadata:
+      labels:
+        name: echoserver-hostnetns
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+      hostNetwork: true
+      tolerations:
+      - operator: Exists

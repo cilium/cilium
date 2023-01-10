@@ -1,0 +1,16 @@
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

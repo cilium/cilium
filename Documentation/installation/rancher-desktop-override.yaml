@@ -1,0 +1,17 @@
+env:
+  # needed for cilium
+  INSTALL_K3S_EXEC: '--flannel-backend=none --disable-network-policy'
+provision:
+  # needs root to mount
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -e
+
+      # needed for cilium
+      mount bpffs -t bpf /sys/fs/bpf
+      mount --make-shared /sys/fs/bpf
+
+      mkdir -p /run/cilium/cgroupv2
+      mount -t cgroup2 none /run/cilium/cgroupv2
+      mount --make-shared /run/cilium/cgroupv2/

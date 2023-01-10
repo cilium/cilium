@@ -1,0 +1,16 @@
+[Unit]
+Description=cilium
+Documentation=http://docs.cilium.io
+Requires=docker.service cilium-consul.service cilium-docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=0
+LimitCORE=infinity
+EnvironmentFile=-/etc/sysconfig/cilium
+ExecStart=/usr/bin/docker-run-cilium $CILIUM_OPTS
+ExecStop=-/usr/bin/docker-run-cilium uninstall
+
+[Install]
+WantedBy=multi-user.target

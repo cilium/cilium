@@ -1,0 +1,113 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  name: ciliumnodeconfigs.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumNodeConfig
+    listKind: CiliumNodeConfigList
+    plural: ciliumnodeconfigs
+    singular: ciliumnodeconfig
+  scope: Namespaced
+  versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: "CiliumNodeConfig is a list of configuration key-value pairs.
+          It is applied to nodes indicated by a label selector. \n If multiple overrides
+          apply to the same node, they will be ordered by name with later Overrides
+          overwriting any conflicting keys."
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec is the desired Cilium configuration overrides for a
+              given node
+            properties:
+              defaults:
+                additionalProperties:
+                  type: string
+                description: Defaults is treated the same as the cilium-config ConfigMap
+                  - a set of key-value pairs parsed by the agent and operator processes.
+                  Each key must be a valid config-map data field (i.e. a-z, A-Z, -,
+                  _, and .)
+                type: object
+              nodeSelector:
+                description: NodeSelector is a label selector that determines to which
+                  nodes this configuration applies. If not supplied, then this config
+                  applies to no nodes. If empty, then it applies to all nodes.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+            required:
+            - defaults
+            - nodeSelector
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

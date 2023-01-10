@@ -1,0 +1,20 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "demo-host-policy"
+spec:
+  description: ""
+  nodeSelector:
+    matchLabels:
+      node-access: ssh
+  ingress:
+  - fromEntities:
+    - cluster
+  - toPorts:
+    - ports:
+      - port: "22"
+        protocol: TCP
+  - icmps:
+    - fields:
+      - type: 8
+        family: IPv4
