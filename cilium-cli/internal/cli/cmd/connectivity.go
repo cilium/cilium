@@ -128,6 +128,7 @@ func newCmdConnectivityTest() *cobra.Command {
 	cmd.Flags().BoolVarP(&params.Debug, "debug", "d", false, "Show debug messages")
 	cmd.Flags().BoolVarP(&params.Timestamp, "timestamp", "t", false, "Show timestamp in messages")
 	cmd.Flags().BoolVarP(&params.PauseOnFail, "pause-on-fail", "p", false, "Pause execution on test failure")
+	cmd.Flags().StringVar(&params.ExternalTarget, "external-target", "one.one.one.one", "Domain name to use as external target in connectivity tests")
 	cmd.Flags().BoolVar(&params.SkipIPCacheCheck, "skip-ip-cache-check", true, "Skip IPCache check")
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.Datapath, "datapath", false, "Run datapath conformance tests")
