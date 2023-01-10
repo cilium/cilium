@@ -175,6 +175,7 @@ func newCmdUI() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&params.UIPortForward, "port-forward", 12000, "Local port to use for the port forward")
+	cmd.Flags().BoolVar(&params.UIOpenBrowser, "open-browser", true, "When --open-browser=false is supplied, cilium Hubble UI will not open the browser")
 
 	return cmd
 }
