@@ -39,6 +39,13 @@ struct dsr_opt_v6 {
 	__u16 pad;
 };
 
+struct dsr_opt_v4 {
+	__u8 type;
+	__u8 len;
+	__u16 port;
+	__u32 addr;
+};
+
 static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
 # if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
@@ -1407,9 +1414,10 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4, __be32 svc_addr,
-					__be32 svc_port, __be16 *ohead)
+					__be16 svc_port, __be16 *ohead)
 {
-	__u32 iph_old, iph_new, opt[2];
+	__u32 iph_old, iph_new;
+	struct dsr_opt_v4 opt;
 	__u16 tot_len = bpf_ntohs(ip4->tot_len) + sizeof(opt);
 	__be32 sum;
 
@@ -1438,8 +1446,10 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	ip4->tot_len = bpf_htons(tot_len);
 	iph_new = *(__u32 *)ip4;
 
-	opt[0] = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
-	opt[1] = bpf_htonl(svc_addr);
+	opt.type = DSR_IPV4_OPT_TYPE;
+	opt.len = sizeof(opt);
+	opt.port = bpf_htons(svc_port);
+	opt.addr = bpf_htonl(svc_addr);
 
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
@@ -1466,28 +1476,18 @@ handle_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4, bool *dsr)
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
 	if (ip4->ihl == 0x7) {
-		__u32 opt1 = 0, opt2 = 0;
-		__be32 address;
-		__be16 dport;
+		struct dsr_opt_v4 opt;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
-				   &opt1, sizeof(opt1)) < 0)
+				   &opt, sizeof(opt)) < 0)
 			return DROP_INVALID;
 
-		opt1 = bpf_ntohl(opt1);
-		if ((opt1 & DSR_IPV4_OPT_MASK) == DSR_IPV4_OPT_32) {
-			if (ctx_load_bytes(ctx, ETH_HLEN +
-					   sizeof(struct iphdr) +
-					   sizeof(opt1),
-					   &opt2, sizeof(opt2)) < 0)
-				return DROP_INVALID;
-
-			opt2 = bpf_ntohl(opt2);
-			dport = opt1 & DSR_IPV4_DPORT_MASK;
-			address = opt2;
+		if (opt.type == DSR_IPV4_OPT_TYPE && opt.len == sizeof(opt)) {
 			*dsr = true;
 
-			if (snat_v4_create_dsr(ctx, ip4, address, dport) < 0)
+			if (snat_v4_create_dsr(ctx, ip4,
+					       bpf_ntohl(opt.addr),
+					       bpf_ntohs(opt.port)) < 0)
 				return DROP_INVALID;
 		}
 	}
