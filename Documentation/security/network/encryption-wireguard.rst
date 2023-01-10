@@ -85,7 +85,6 @@ production workloads that require high availability.
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set l7Proxy=false \\
              --set encryption.enabled=true \\
              --set encryption.type=wireguard
 
@@ -216,17 +215,81 @@ have WireGuard encryption enabled, i.e. mixed mode is currently not supported.
 In addition, UDP traffic between nodes of different clusters on port ``51871``
 must be allowed.
 
+Node-to-Node Encryption (beta)
+==============================
+
+By default, WireGuard-based encryption only encrypts traffic between Cilium-managed
+pods. To enable node-to-node encryption, which additionally also encrypts
+node-to-node, pod-to-node and node-to-pod traffic, use the following configuration
+options:
+
+.. tabs::
+
+    .. group-tab:: Cilium CLI
+
+       If you are deploying Cilium with the Cilium CLI, pass the following
+       options:
+
+       .. code-block:: shell-session
+
+          cilium install --encryption wireguard --node-encryption
+
+    .. group-tab:: Helm
+
+       If you are deploying Cilium with Helm by following
+       :ref:`k8s_install_helm`, pass the following options:
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set encryption.enabled=true \\
+             --set encryption.type=wireguard \\
+             --set encryption.nodeEncryption=true
+
+.. warning::
+
+  Cilium automatically disables node-to-node encryption from and to
+  Kubernetes control-plane nodes, i.e. any node with the
+  ``node-role.kubernetes.io/control-plane`` label will opt-out of node-to-node
+  encryption.
+
+  This is done to ensure worker nodes are always able to communicate with the
+  Kubernetes API to update their WireGuard public keys. With node-to-node
+  encryption enabled, the connection to the kube-apiserver would also be
+  encrypted with WireGuard. This creates a bootstrapping problem where the
+  connection used to update the WireGuard public key is itself encrypted with
+  the public key about to be replaced.
+  This is problematic if a node needs to change its public key, for example
+  because it generated a new private key after a node reboot or node
+  re-provisioning.
+
+  Therefore, by not encrypting the connection from and to the kube-apiserver
+  host network with WireGuard, we ensure that worker nodes are
+  never accidentally locked out from the control plane. Note that even if
+  WireGuard node-to-node encryption is disabled on those nodes, the Kubernetes
+  control-plane itself is usually still encrypted by Kubernetes itself using
+  mTLS and that pod-to-pod traffic for any Cilium-manged pods on the
+  control-plane nodes are also still encrypted via Cilium's WireGuard
+  implementation.
+
+  The label selector for matching the control-plane nodes which shall not
+  participate in node-to-node encryption can be configured using the
+  ``node-encryption-opt-out-labels`` ConfigMap option. It defaults to
+  ``node-role.kubernetes.io/control-plane``.
+  You may force node-to-node encryption from and to control-plane nodes by
+  using an empty label selector with that option. Note that doing so is not
+  recommended, as it will require you to always manually update a node's public
+  key in its corresponding ``CiliumNode`` CRD when a worker node's public key
+  changes, given that the worker node will be unable to do so itself.
+
+
 Limitations
 ===========
 
 WireGuard support in Cilium currently lacks the following features,
 which may be resolved in upcoming Cilium releases:
 
- - Host-level encryption. Only traffic between two Cilium-managed endpoints
-   (i.e. pod-to-pod traffic) is encrypted. Traffic between two nodes and
-   traffic between a Cilium-managed pod and a remote node currently won't be
-   encrypted.
- - L7 policy enforcement and visibility
  - eBPF-based host routing
 
 The current status of these limitations is tracked in :gh-issue:`15462`.
