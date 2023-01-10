@@ -6,7 +6,6 @@
 package node
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"sort"
@@ -47,8 +46,8 @@ retryInterface:
 	}
 
 retryScope:
-	ipsPublic := []net.IP{}
-	ipsPrivate := []net.IP{}
+	ipsPublic := []netlink.Addr{}
+	ipsPrivate := []netlink.Addr{}
 	hasPreferred := false
 
 	for _, a := range addr {
@@ -58,9 +57,9 @@ retryScope:
 			}
 			if len(a.IP) >= ipLen {
 				if ip.IsPublicAddr(a.IP) {
-					ipsPublic = append(ipsPublic, a.IP)
+					ipsPublic = append(ipsPublic, a)
 				} else {
-					ipsPrivate = append(ipsPrivate, a.IP)
+					ipsPrivate = append(ipsPrivate, a)
 				}
 				// If the IP is the same as the preferredIP, that
 				// means that maybe it is restored from node_config.h,
@@ -83,11 +82,11 @@ retryScope:
 
 		// Just make sure that we always return the same one and not a
 		// random one. More info in the issue GH-7637.
-		sort.Slice(ipsPublic, func(i, j int) bool {
-			return bytes.Compare(ipsPublic[i], ipsPublic[j]) < 0
+		sort.SliceStable(ipsPublic, func(i, j int) bool {
+			return ipsPublic[i].LinkIndex < ipsPublic[j].LinkIndex
 		})
 
-		return ipsPublic[0], nil
+		return ipsPublic[0].IP, nil
 	}
 
 	if len(ipsPrivate) != 0 {
@@ -96,11 +95,11 @@ retryScope:
 		}
 
 		// Same stable order, see above ipsPublic.
-		sort.Slice(ipsPrivate, func(i, j int) bool {
-			return bytes.Compare(ipsPrivate[i], ipsPrivate[j]) < 0
+		sort.SliceStable(ipsPrivate, func(i, j int) bool {
+			return ipsPrivate[i].LinkIndex < ipsPrivate[j].LinkIndex
 		})
 
-		return ipsPrivate[0], nil
+		return ipsPrivate[0].IP, nil
 	}
 
 	// First, if a device is specified, fall back to anything wider
@@ -123,7 +122,7 @@ retryScope:
 }
 
 // firstGlobalV4Addr returns the first IPv4 global IP of an interface,
-// where the IPs are sorted in ascending order.
+// where the IPs are sorted in creation order (oldest to newest).
 //
 // Public IPs are preferred over private ones. When intf is defined only
 // IPs belonging to that interface are considered.
