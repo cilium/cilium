@@ -572,9 +572,10 @@ func GC(m *Map, filter *GCFilter) int {
 //  4. By DSR on a backend node to SNAT responses with service IP+port before
 //     sending to a client.
 //
-// In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
-// CT GC to remove corresponding SNAT entries. In the case of 4, will create
-// CT_INGRESS CT entry. See the unit test TestOrphanNatGC for more examples.
+// In all 4 cases we create a CT_EGRESS CT entry. This allows the
+// CT GC to remove corresponding SNAT entries. In the case of 4, old connections
+// might instead be using a CT_INGRESS CT entry.
+// See the unit test TestOrphanNatGC for more examples.
 func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 	// Both CT maps should point to the same natMap, so use the first one
 	// to determine natMap
@@ -618,9 +619,12 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
 			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
 			egressCTKey := egressCTKeyFromEgressNatKey(natKey)
+			dsrCTKey := dsrCTKeyFromEgressNatKey(natKey)
 
-			if !ctEntryExist(ctMap, ingressCTKey) && !ctEntryExist(ctMap, egressCTKey) {
-				// No ingress and egress CT entries were found, delete the orphan egress NAT entry
+			if !ctEntryExist(ctMap, ingressCTKey) &&
+				!ctEntryExist(ctMap, egressCTKey) &&
+				!ctEntryExist(ctMap, dsrCTKey) {
+				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
 					stats.EgressDeleted += 1
 				}
