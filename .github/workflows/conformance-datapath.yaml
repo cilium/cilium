@@ -126,36 +126,42 @@ jobs:
             kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - kernel: '5.4-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - kernel: '5.10-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'false'
 
           - kernel: '5.15-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'false'
 
           - kernel: '6.0-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'true'
 
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'true'
 
     timeout-minutes: 60
     steps:
@@ -266,7 +272,8 @@ jobs:
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
               --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
-              --encryption=${{ matrix.encryption }}
+              --encryption=${{ matrix.encryption }} \
+               --helm-set-string="encryption.nodeEncryption=${{ matrix.encryption-node }}"
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
