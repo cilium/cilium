@@ -262,7 +262,6 @@ func (p *Parameters) RelayPortForwardCommand(ctx context.Context, client k8sHubb
 		"-n", p.Namespace,
 		"svc/hubble-relay",
 		"--address", "127.0.0.1",
-		"--address", "::1",
 		fmt.Sprintf("%d:%d", p.PortForward, relaySvc.Spec.Ports[0].Port)}
 
 	if p.Context != "" {
