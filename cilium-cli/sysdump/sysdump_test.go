@@ -214,7 +214,7 @@ func (c *fakeClient) ListIngresses(ctx context.Context, o metav1.ListOptions) (*
 	panic("implement me")
 }
 
-func (c *fakeClient) CopyFromPod(ctx context.Context, namespace, pod, container string, fromFile, destFile string) error {
+func (c *fakeClient) CopyFromPod(ctx context.Context, namespace, pod, container, fromFile, destFile string, retryLimit int) error {
 	panic("implement me")
 }
 

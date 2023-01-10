@@ -51,6 +51,9 @@ var (
 	// DefaultWorkerCount is initialized to the machine's available CPUs.
 	DefaultWorkerCount = runtime.NumCPU()
 
+	// DefaultCopyRetryLimit limits retries done while copying files from pods
+	DefaultCopyRetryLimit = 100
+
 	// DefaultCiliumNamespaces will be used to attempt to autodetect what namespace Cilium is installed in
 	// unless otherwise specified.
 	DefaultCiliumNamespaces = []string{"kube-system", "cilium"}
