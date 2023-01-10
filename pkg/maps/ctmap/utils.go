@@ -54,6 +54,45 @@ func ingressCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
 
 // NOTE: the function does NOT copy addr fields, so it's not safe to
 // reuse the returned ctKey.
+func dsrCTKeyFromEgressNatKey(k nat.NatKey) bpf.MapKey {
+	natKey, ok := k.(*nat.NatKey4)
+	if ok { // ipv4
+		t := tuple.TupleKey4{
+			SourceAddr: natKey.DestAddr,
+			SourcePort: natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_OUT,
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey4Global{TupleKey4: t}
+	}
+
+	{ // ipv6
+		natKey := k.(*nat.NatKey6)
+
+		t := tuple.TupleKey6{
+			SourceAddr: natKey.DestAddr,
+			SourcePort: natKey.DestPort,
+			DestAddr:   natKey.SourceAddr,
+			DestPort:   natKey.SourcePort,
+			NextHeader: natKey.NextHeader,
+			Flags:      tuple.TUPLE_F_OUT,
+		}
+
+		// Workaround #5848
+		t.SwapAddresses()
+
+		return &tuple.TupleKey6Global{TupleKey6: t}
+	}
+}
+
+// NOTE: the function does NOT copy addr fields, so it's not safe to
+// reuse the returned ctKey.
 func egressCTKeyFromIngressNatKeyAndVal(k nat.NatKey, v nat.NatEntry) bpf.MapKey {
 	natKey, ok := k.(*nat.NatKey4)
 	if ok { // ipv4
