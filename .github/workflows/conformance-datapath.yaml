@@ -127,6 +127,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '2'
             kernel: '5.4-main'
@@ -134,6 +135,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '3'
             kernel: '5.10-main'
@@ -141,6 +143,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
+            encryption-node: 'false'
             endpoint-routes: 'true'
 
           - name: '4'
@@ -149,6 +152,7 @@ jobs:
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'false'
             lb-mode: 'snat'
             endpoint-routes: 'true'
 
@@ -158,6 +162,7 @@ jobs:
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'false'
             lb-mode: 'dsr'
             endpoint-routes: 'true'
 
@@ -167,6 +172,7 @@ jobs:
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'true'
             lb-mode: 'snat'
 
           - name: '7'
@@ -175,6 +181,7 @@ jobs:
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'true'
             lb-mode: 'dsr'
 
     timeout-minutes: 60
@@ -294,7 +301,7 @@ jobs:
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
-              --encryption=${{ matrix.encryption }}
+              --encryption=${{ matrix.encryption }} --node-encryption=${{ matrix.encryption-node }}"
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
