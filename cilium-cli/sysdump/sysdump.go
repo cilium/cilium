@@ -92,6 +92,8 @@ type Options struct {
 	TetragonLabelSelector string
 	// The namespace Namespace is running in.
 	TetragonNamespace string
+	// Retry limit for copying files from pods
+	CopyRetryLimit int
 }
 
 // Task defines a task for the sysdump collector to execute.
@@ -1149,7 +1151,7 @@ func (c *Collector) submitTetragonBugtoolTasks(ctx context.Context, pods []*core
 
 			// Dump the resulting file's contents to the temporary directory.
 			f := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-<ts>.tar.gz", tetragonBugtoolPrefix, p.Name))
-			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f)
+			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f, c.Options.CopyRetryLimit)
 			if err != nil {
 				return fmt.Errorf("failed to collect 'tetragon-bugtool' output for %q: %w", p.Name, err)
 			}
@@ -1225,7 +1227,7 @@ func (c *Collector) submitCiliumBugtoolTasks(ctx context.Context, pods []*corev1
 
 			// Dump the resulting file's contents to the temporary directory.
 			f := c.AbsoluteTempPath(fmt.Sprintf(ciliumBugtoolFileName, p.Name))
-			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f)
+			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, tarGzFile, f, c.Options.CopyRetryLimit)
 			if err != nil {
 				return fmt.Errorf("failed to collect 'cilium-bugtool' output for %q: %w", p.Name, err)
 			}

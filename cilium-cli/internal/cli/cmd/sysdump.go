@@ -124,4 +124,7 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 	cmd.Flags().StringVar(&options.TetragonLabelSelector,
 		optionPrefix+"tetragon-label-selector", sysdump.DefaultTetragonLabelSelector,
 		"The labels used to target Tetragon pods")
+	cmd.Flags().IntVar(&options.CopyRetryLimit,
+		optionPrefix+"copy-retry-limit", sysdump.DefaultCopyRetryLimit,
+		"Retry limit for file copying operations. If set to -1, copying will be retried indefinitely. Useful for collecting sysdump while on unreliable connection.")
 }
