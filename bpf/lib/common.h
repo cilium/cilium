@@ -655,13 +655,13 @@ enum {
 	CB_SRC_LABEL,
 #define	CB_PORT			CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_HINT			CB_SRC_LABEL	/* Alias, non-overlapping */
-#define	CB_NAT_46X64		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
 #define	CB_DST_ENDPOINT_ID	CB_SRC_LABEL    /* Alias, non-overlapping */
 #define CB_SRV6_SID_1		CB_SRC_LABEL	/* Alias, non-overlapping */
 #define CB_ENCAP_NODEID		CB_SRC_LABEL	/* XDP */
 	CB_IFINDEX,
+#define	CB_NAT_46X64		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ADDR_V6_1		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
