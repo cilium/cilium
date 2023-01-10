@@ -88,7 +88,7 @@ jobs:
 
       - name: Upload artifact digests runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
           name: image-digest cilium-runtime
           path: image-digest
@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload artifact digests builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
-        uses: actions/upload-artifact@83fd05a356d7e2593de66fc9913b3002723633cb
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
         with:
           name: image-digest cilium-builder
           path: image-digest
