@@ -516,9 +516,9 @@ passing an empty IP (e.g. ``:9965``) will bind the server to all available
 interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
 
 Some metrics can take additional semicolon-separated options per metric, e.g.
-``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=pod-short"``
+``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=workload-name"``
 will enable the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
-and the ``http`` metric with the ``destinationContext=pod-short`` option.
+and the ``http`` metric with the ``destinationContext=workload-name`` option.
 
 .. _hubble_context_options:
 
@@ -547,7 +547,7 @@ Option Value          Description
 ``identity``          All Cilium security identity labels
 ``namespace``         Kubernetes namespace name
 ``pod``               Kubernetes pod name
-``pod-short``         Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
 ``dns``               All known DNS names of the source or destination (comma-separated)
 ``ip``                The IPv4 or IPv6 address
 ``reserved-identity`` Reserved identity label.
