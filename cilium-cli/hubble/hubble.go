@@ -136,6 +136,9 @@ type Parameters struct {
 
 	// RedactHelmCertKeys does not print helm certificate keys into the terminal.
 	RedactHelmCertKeys bool
+
+	// UIOpenBrowser will automatically open browser if true
+	UIOpenBrowser bool
 }
 
 func (p *Parameters) Log(format string, a ...interface{}) {
