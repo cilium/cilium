@@ -339,34 +339,6 @@ func probeKubeProxyReplacementOptions() error {
 		return fmt.Errorf(msg)
 	}
 
-	if !option.Config.EnableHostLegacyRouting {
-		msg := ""
-		switch {
-		// Needs host stack for packet handling.
-		case option.Config.EnableIPSec:
-			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
-		// Non-BPF masquerade requires netfilter and hence CT.
-		case option.Config.IptablesMasqueradingEnabled():
-			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
-		// All cases below still need to be implemented ...
-		case option.Config.EnableEndpointRoutes:
-			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.GetDevices()):
-			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
-		default:
-			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
-				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
-				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
-			}
-		}
-		if msg != "" {
-			option.Config.EnableHostLegacyRouting = true
-			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
-		}
-	}
-
 	if option.Config.BPFSocketLBHostnsOnly {
 		if !option.Config.EnableSocketLB {
 			option.Config.BPFSocketLBHostnsOnly = false
@@ -463,6 +435,34 @@ func finishKubeProxyReplacementInit() error {
 	// of kube-proxy replacement. Otherwise, nothing else is needed.
 	if option.Config.EnableMKE && option.Config.EnableSocketLB {
 		markHostExtension()
+	}
+
+	if !option.Config.EnableHostLegacyRouting {
+		msg := ""
+		switch {
+		// Needs host stack for packet handling.
+		case option.Config.EnableIPSec:
+			msg = fmt.Sprintf("BPF host routing is incompatible with %s.", option.EnableIPSecName)
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.IptablesMasqueradingEnabled():
+			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
+		// All cases below still need to be implemented ...
+		case option.Config.EnableEndpointRoutes:
+			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
+		case !mac.HaveMACAddrs(option.Config.GetDevices()):
+			msg = "BPF host routing is currently not supported with devices without L2 addr."
+		case option.Config.EnableWireguard:
+			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
+		default:
+			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
+				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
+				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
+			}
+		}
+		if msg != "" {
+			option.Config.EnableHostLegacyRouting = true
+			log.Infof("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting)
+		}
 	}
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
