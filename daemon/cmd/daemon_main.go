@@ -1084,6 +1084,9 @@ func initializeFlags() {
 	flags.MarkHidden(option.EnableStaleCiliumEndpointCleanup)
 	option.BindEnv(Vp, option.EnableStaleCiliumEndpointCleanup)
 
+	flags.Duration(option.IPAMCiliumNodeUpdateRate, 15*time.Second, "Maximum rate at which the CiliumNode custom resource is updated")
+	option.BindEnv(Vp, option.IPAMCiliumNodeUpdateRate)
+
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
