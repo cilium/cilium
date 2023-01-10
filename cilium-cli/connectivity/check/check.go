@@ -50,6 +50,7 @@ type Parameters struct {
 	DNSTestServerImage    string
 	Datapath              bool
 	AgentPodSelector      string
+	ExternalTarget        string
 
 	K8sVersion           string
 	HelmChartDirectory   string

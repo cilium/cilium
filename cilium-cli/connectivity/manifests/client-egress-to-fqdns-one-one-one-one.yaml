@@ -1,7 +1,7 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: client-egress-to-fqdns-one-one-one-one
+  name: client-egress-to-fqdns-{{.ExternalTarget}}
 spec:
   endpointSelector:
     matchLabels:
@@ -16,7 +16,7 @@ spec:
         - method: "GET"
           path: "/"
     toFQDNs:
-    - matchName: "one.one.one.one"
+    - matchName: "{{.ExternalTarget}}"
   - toPorts:
     - ports:
       - port: "53"

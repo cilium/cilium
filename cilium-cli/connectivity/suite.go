@@ -6,6 +6,7 @@ package connectivity
 import (
 	"context"
 	_ "embed"
+	"fmt"
 
 	"github.com/blang/semver/v4"
 
@@ -119,6 +120,21 @@ var (
 func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	if err := ct.SetupAndValidate(ctx); err != nil {
 		return err
+	}
+
+	renderedTemplates := map[string]string{}
+
+	// render templates, if any problems fail early
+	for key, temp := range map[string]string{
+		"clientEgressL7HTTPPolicyYAML":          clientEgressL7HTTPPolicyYAML,
+		"clientEgressL7HTTPNamedPortPolicyYAML": clientEgressL7HTTPNamedPortPolicyYAML,
+		"clientEgressToFQDNsCiliumIOPolicyYAML": clientEgressToFQDNsCiliumIOPolicyYAML,
+	} {
+		val, err := utils.RenderTemplate(temp, ct.Params())
+		if err != nil {
+			return err
+		}
+		renderedTemplates[key] = val
 	}
 
 	var v semver.Version
@@ -594,16 +610,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(clientEgressOnlyDNSPolicyYAML). // DNS resolution only
-		WithPolicy(clientEgressL7HTTPPolicyYAML).  // L7 allow policy with HTTP introspection
+		WithPolicy(clientEgressOnlyDNSPolicyYAML).                     // DNS resolution only
+		WithPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
-				// Outbound HTTP to one.one.one.one is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" ||
+				// Outbound HTTP to set domain-name defaults to one.one.one.one is L7-introspected and allowed.
+				(a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget ||
 					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultOK
@@ -622,16 +638,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-named-port").
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithPolicy(clientEgressOnlyDNSPolicyYAML).         // DNS resolution only
-		WithPolicy(clientEgressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
+		WithPolicy(clientEgressOnlyDNSPolicyYAML).                              // DNS resolution only
+		WithPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPod(),
 			tests.PodToWorld(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
-				// Outbound HTTP to one.one.one.one is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" ||
+				// Outbound HTTP to domain-name, default one.one.one.one, is L7-introspected and allowed.
+				(a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget ||
 					a.Destination().Port() == 8080) { // named port http-8080 is traffic to echo Pod.
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultOK
@@ -652,14 +668,14 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
-			tests.PodToWorld(), // resolves one.one.one.one
+			tests.PodToWorld(), // resolves set domain-name defaults to one.one.one.one
 		).
 		WithExpectations(func(a *check.Action) (egress check.Result, ingress check.Result) {
 			return check.ResultDropCurlTimeout, check.ResultNone
 		})
 
-	// This policy only allows port 80 to "one.one.one.one". DNS proxy enabled.
-	ct.NewTest("to-fqdns").WithPolicy(clientEgressToFQDNsCiliumIOPolicyYAML).
+	// This policy only allows port 80 to domain-name, default one.one.one.one,. DNS proxy enabled.
+	ct.NewTest("to-fqdns").WithPolicy(renderedTemplates["clientEgressToFQDNsCiliumIOPolicyYAML"]).
 		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
 		WithScenarios(
 			tests.PodToWorld(),
@@ -680,12 +696,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
 
-			if a.Destination().Port() == 80 && a.Destination().Address() == "one.one.one.one" {
+			if a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
 						Method: "GET",
-						URL:    "http://one.one.one.one/",
+						URL:    fmt.Sprintf("http://%s/", ct.Params().ExternalTarget),
 					}
 					return egress, check.ResultNone
 				}

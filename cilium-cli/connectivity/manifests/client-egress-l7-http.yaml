@@ -1,5 +1,5 @@
 ---
-# client2 is allowed to contact one.one.one.one/ on port 80 and the echo Pod
+# client2 is allowed to contact {{.ExternalTarget}}/ on port 80 and the echo Pod
 # on port 8080. HTTP introspection is enabled for client2.
 # The toFQDNs section relies on DNS introspection being performed by
 # the client-egress-only-dns policy.
@@ -8,7 +8,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: client-egress-l7-http
 spec:
-  description: "Allow GET one.one.one.one:80/ and GET <echo>:8080/ from client2"
+  description: "Allow GET {{.ExternalTarget}}:80/ and GET <echo>:8080/ from client2"
   endpointSelector:
     matchLabels:
       other: client
@@ -25,9 +25,9 @@ spec:
         http:
         - method: "GET"
           path: "/"
-  # Allow GET / requests, only towards one.one.one.one.
+  # Allow GET / requests, only towards {{.ExternalTarget}}.
   - toFQDNs:
-    - matchName: "one.one.one.one"
+    - matchName: "{{.ExternalTarget}}"
     toPorts:
     - ports:
       - port: "80"
