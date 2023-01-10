@@ -87,29 +87,33 @@ func (c *dryRunClient) Status() SubResourceWriter {
 }
 
 // SubResource implements client.SubResourceClient.
-func (c *dryRunClient) SubResource(subResource string) SubResourceWriter {
-	return &dryRunSubResourceWriter{client: c.client.SubResource(subResource)}
+func (c *dryRunClient) SubResource(subResource string) SubResourceClient {
+	return &dryRunSubResourceClient{client: c.client.SubResource(subResource)}
 }
 
 // ensure dryRunSubResourceWriter implements client.SubResourceWriter.
-var _ SubResourceWriter = &dryRunSubResourceWriter{}
+var _ SubResourceWriter = &dryRunSubResourceClient{}
 
-// dryRunSubResourceWriter is client.SubResourceWriter that writes status subresource with dryRun mode
+// dryRunSubResourceClient is client.SubResourceWriter that writes status subresource with dryRun mode
 // enforced.
-type dryRunSubResourceWriter struct {
-	client SubResourceWriter
+type dryRunSubResourceClient struct {
+	client SubResourceClient
 }
 
-func (sw *dryRunSubResourceWriter) Create(ctx context.Context, obj, subResource Object, opts ...SubResourceCreateOption) error {
+func (sw *dryRunSubResourceClient) Get(ctx context.Context, obj, subResource Object, opts ...SubResourceGetOption) error {
+	return sw.client.Get(ctx, obj, subResource, opts...)
+}
+
+func (sw *dryRunSubResourceClient) Create(ctx context.Context, obj, subResource Object, opts ...SubResourceCreateOption) error {
 	return sw.client.Create(ctx, obj, subResource, append(opts, DryRunAll)...)
 }
 
 // Update implements client.SubResourceWriter.
-func (sw *dryRunSubResourceWriter) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
+func (sw *dryRunSubResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
 	return sw.client.Update(ctx, obj, append(opts, DryRunAll)...)
 }
 
 // Patch implements client.SubResourceWriter.
-func (sw *dryRunSubResourceWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
+func (sw *dryRunSubResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	return sw.client.Patch(ctx, obj, patch, append(opts, DryRunAll)...)
 }

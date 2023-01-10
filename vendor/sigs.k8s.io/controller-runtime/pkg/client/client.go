@@ -18,6 +18,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -292,18 +293,48 @@ func (c *client) Status() SubResourceWriter {
 	return c.SubResource("status")
 }
 
-func (c *client) SubResource(subResource string) SubResourceWriter {
-	return &subResourceWriter{client: c, subResource: subResource}
+func (c *client) SubResource(subResource string) SubResourceClient {
+	return &subResourceClient{client: c, subResource: subResource}
 }
 
-// subResourceWriter is client.SubResourceWriter that writes to subresources.
-type subResourceWriter struct {
+// subResourceClient is client.SubResourceWriter that writes to subresources.
+type subResourceClient struct {
 	client      *client
 	subResource string
 }
 
-// ensure subResourceWriter implements client.SubResourceWriter.
-var _ SubResourceWriter = &subResourceWriter{}
+// ensure subResourceClient implements client.SubResourceClient.
+var _ SubResourceClient = &subResourceClient{}
+
+// SubResourceGetOptions holds all the possible configuration
+// for a subresource Get request.
+type SubResourceGetOptions struct {
+	Raw *metav1.GetOptions
+}
+
+// ApplyToSubResourceGet updates the configuaration to the given get options.
+func (getOpt *SubResourceGetOptions) ApplyToSubResourceGet(o *SubResourceGetOptions) {
+	if getOpt.Raw != nil {
+		o.Raw = getOpt.Raw
+	}
+}
+
+// ApplyOptions applues the given options.
+func (getOpt *SubResourceGetOptions) ApplyOptions(opts []SubResourceGetOption) *SubResourceGetOptions {
+	for _, o := range opts {
+		o.ApplyToSubResourceGet(getOpt)
+	}
+
+	return getOpt
+}
+
+// AsGetOptions returns the configured options as *metav1.GetOptions.
+func (getOpt *SubResourceGetOptions) AsGetOptions() *metav1.GetOptions {
+	if getOpt.Raw == nil {
+		return &metav1.GetOptions{}
+	}
+	return getOpt.Raw
+}
 
 // SubResourceUpdateOptions holds all the possible configuration
 // for a subresource update request.
@@ -398,42 +429,54 @@ func (po *SubResourcePatchOptions) ApplyToSubResourcePatch(o *SubResourcePatchOp
 	}
 }
 
-func (sw *subResourceWriter) Create(ctx context.Context, obj Object, subResource Object, opts ...SubResourceCreateOption) error {
-	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
-	defer sw.client.resetGroupVersionKind(subResource, subResource.GetObjectKind().GroupVersionKind())
-
+func (sc *subResourceClient) Get(ctx context.Context, obj Object, subResource Object, opts ...SubResourceGetOption) error {
 	switch obj.(type) {
 	case *unstructured.Unstructured:
-		return sw.client.unstructuredClient.CreateSubResource(ctx, obj, subResource, sw.subResource, opts...)
+		return sc.client.unstructuredClient.GetSubResource(ctx, obj, subResource, sc.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
-		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
+		return errors.New("can not get subresource using only metadata")
 	default:
-		return sw.client.typedClient.CreateSubResource(ctx, obj, subResource, sw.subResource, opts...)
+		return sc.client.typedClient.GetSubResource(ctx, obj, subResource, sc.subResource, opts...)
 	}
 }
 
-// Update implements client.SubResourceWriter.
-func (sw *subResourceWriter) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
-	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+// Create implements client.SubResourceClient
+func (sc *subResourceClient) Create(ctx context.Context, obj Object, subResource Object, opts ...SubResourceCreateOption) error {
+	defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+	defer sc.client.resetGroupVersionKind(subResource, subResource.GetObjectKind().GroupVersionKind())
+
 	switch obj.(type) {
 	case *unstructured.Unstructured:
-		return sw.client.unstructuredClient.UpdateSubResource(ctx, obj, sw.subResource, opts...)
+		return sc.client.unstructuredClient.CreateSubResource(ctx, obj, subResource, sc.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
 		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
 	default:
-		return sw.client.typedClient.UpdateSubResource(ctx, obj, sw.subResource, opts...)
+		return sc.client.typedClient.CreateSubResource(ctx, obj, subResource, sc.subResource, opts...)
+	}
+}
+
+// Update implements client.SubResourceClient
+func (sc *subResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
+	defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+	switch obj.(type) {
+	case *unstructured.Unstructured:
+		return sc.client.unstructuredClient.UpdateSubResource(ctx, obj, sc.subResource, opts...)
+	case *metav1.PartialObjectMetadata:
+		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
+	default:
+		return sc.client.typedClient.UpdateSubResource(ctx, obj, sc.subResource, opts...)
 	}
 }
 
 // Patch implements client.SubResourceWriter.
-func (sw *subResourceWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
-	defer sw.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
+func (sc *subResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
+	defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
 	case *unstructured.Unstructured:
-		return sw.client.unstructuredClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
+		return sc.client.unstructuredClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
 	case *metav1.PartialObjectMetadata:
-		return sw.client.metadataClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
+		return sc.client.metadataClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
 	default:
-		return sw.client.typedClient.PatchSubResource(ctx, obj, sw.subResource, patch, opts...)
+		return sc.client.typedClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
 	}
 }

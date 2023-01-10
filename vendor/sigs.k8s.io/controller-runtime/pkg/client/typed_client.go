@@ -167,6 +167,29 @@ func (c *typedClient) List(ctx context.Context, obj ObjectList, opts ...ListOpti
 		Into(obj)
 }
 
+func (c *typedClient) GetSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceGetOption) error {
+	o, err := c.cache.getObjMeta(obj)
+	if err != nil {
+		return err
+	}
+
+	if subResourceObj.GetName() == "" {
+		subResourceObj.SetName(obj.GetName())
+	}
+
+	getOpts := &SubResourceGetOptions{}
+	getOpts.ApplyOptions(opts)
+
+	return o.Get().
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
+		Resource(o.resource()).
+		Name(o.GetName()).
+		SubResource(subResource).
+		VersionedParams(getOpts.AsGetOptions(), c.paramCodec).
+		Do(ctx).
+		Into(subResourceObj)
+}
+
 func (c *typedClient) CreateSubResource(ctx context.Context, obj Object, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
 	o, err := c.cache.getObjMeta(obj)
 	if err != nil {

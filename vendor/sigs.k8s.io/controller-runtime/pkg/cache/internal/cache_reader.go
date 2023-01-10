@@ -161,7 +161,7 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 		}
 
 		var outObj runtime.Object
-		if c.disableDeepCopy {
+		if c.disableDeepCopy || (listOpts.UnsafeDisableDeepCopy != nil && *listOpts.UnsafeDisableDeepCopy) {
 			// skip deep copy which might be unsafe
 			// you must DeepCopy any object before mutating it outside
 			outObj = obj

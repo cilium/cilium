@@ -67,6 +67,11 @@ type DeleteAllOfOption interface {
 	ApplyToDeleteAllOf(*DeleteAllOfOptions)
 }
 
+// SubResourceGetOption modifies options for a SubResource Get request.
+type SubResourceGetOption interface {
+	ApplyToSubResourceGet(*SubResourceGetOptions)
+}
+
 // SubResourceUpdateOption is some configuration that modifies options for a update request.
 type SubResourceUpdateOption interface {
 	// ApplyToSubResourceUpdate applies this configuration to the given update options.
@@ -417,6 +422,12 @@ type ListOptions struct {
 	// it has expired. This field is not supported if watch is true in the Raw ListOptions.
 	Continue string
 
+	// UnsafeDisableDeepCopy indicates not to deep copy objects during list objects.
+	// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
+	// otherwise you will mutate the object in the cache.
+	// +optional
+	UnsafeDisableDeepCopy *bool
+
 	// Raw represents raw ListOptions, as passed to the API server.  Note
 	// that these may not be respected by all implementations of interface,
 	// and the LabelSelector, FieldSelector, Limit and Continue fields are ignored.
@@ -444,6 +455,9 @@ func (o *ListOptions) ApplyToList(lo *ListOptions) {
 	}
 	if o.Continue != "" {
 		lo.Continue = o.Continue
+	}
+	if o.UnsafeDisableDeepCopy != nil {
+		lo.UnsafeDisableDeepCopy = o.UnsafeDisableDeepCopy
 	}
 }
 
@@ -586,6 +600,25 @@ type Limit int64
 func (l Limit) ApplyToList(opts *ListOptions) {
 	opts.Limit = int64(l)
 }
+
+// UnsafeDisableDeepCopyOption indicates not to deep copy objects during list objects.
+// Be very careful with this, when enabled you must DeepCopy any object before mutating it,
+// otherwise you will mutate the object in the cache.
+type UnsafeDisableDeepCopyOption bool
+
+// ApplyToList applies this configuration to the given an List options.
+func (d UnsafeDisableDeepCopyOption) ApplyToList(opts *ListOptions) {
+	definitelyTrue := true
+	definitelyFalse := false
+	if d {
+		opts.UnsafeDisableDeepCopy = &definitelyTrue
+	} else {
+		opts.UnsafeDisableDeepCopy = &definitelyFalse
+	}
+}
+
+// UnsafeDisableDeepCopy indicates not to deep copy objects during list objects.
+const UnsafeDisableDeepCopy = UnsafeDisableDeepCopyOption(true)
 
 // Continue sets a continuation token to retrieve chunks of results when using limit.
 // Continue does not implement DeleteAllOfOption interface because the server

@@ -225,9 +225,40 @@ func (uc *unstructuredClient) List(ctx context.Context, obj ObjectList, opts ...
 		Into(obj)
 }
 
-func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
+func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceGetOption) error {
 	if _, ok := obj.(*unstructured.Unstructured); !ok {
 		return fmt.Errorf("unstructured client did not understand object: %T", subResource)
+	}
+
+	if _, ok := subResourceObj.(*unstructured.Unstructured); !ok {
+		return fmt.Errorf("unstructured client did not understand object: %T", obj)
+	}
+
+	if subResourceObj.GetName() == "" {
+		subResourceObj.SetName(obj.GetName())
+	}
+
+	o, err := uc.cache.getObjMeta(obj)
+	if err != nil {
+		return err
+	}
+
+	getOpts := &SubResourceGetOptions{}
+	getOpts.ApplyOptions(opts)
+
+	return o.Get().
+		NamespaceIfScoped(o.GetNamespace(), o.isNamespaced()).
+		Resource(o.resource()).
+		Name(o.GetName()).
+		SubResource(subResource).
+		VersionedParams(getOpts.AsGetOptions(), uc.paramCodec).
+		Do(ctx).
+		Into(subResourceObj)
+}
+
+func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
+	if _, ok := obj.(*unstructured.Unstructured); !ok {
+		return fmt.Errorf("unstructured client did not understand object: %T", subResourceObj)
 	}
 
 	if _, ok := subResourceObj.(*unstructured.Unstructured); !ok {

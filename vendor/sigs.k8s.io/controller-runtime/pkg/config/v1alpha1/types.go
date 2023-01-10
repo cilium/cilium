@@ -94,6 +94,10 @@ type ControllerConfigurationSpec struct {
 	// Defaults to 2 minutes if not set.
 	// +optional
 	CacheSyncTimeout *time.Duration `json:"cacheSyncTimeout,omitempty"`
+
+	// RecoverPanic indicates if panics should be recovered.
+	// +optional
+	RecoverPanic *bool `json:"recoverPanic,omitempty"`
 }
 
 // ControllerMetrics defines the metrics configs.

@@ -3,7 +3,6 @@ linters:
   enable:
   - asciicheck
   - bodyclose
-  - deadcode
   - depguard
   - dogsled
   - errcheck
@@ -18,7 +17,6 @@ linters:
   - gosec
   - gosimple
   - govet
-  - ifshort
   - importas
   - ineffassign
   - misspell
@@ -29,19 +27,14 @@ linters:
   - revive
   - rowserrcheck
   - staticcheck
-  - structcheck
   - stylecheck
   - typecheck
   - unconvert
   - unparam
   - unused
-  - varcheck
   - whitespace
 
 linters-settings:
-  ifshort:
-    # Maximum length of variable declaration measured in number of characters, after which linter won't suggest using short syntax.
-    max-decl-chars: 50
   importas:
     no-unaliased: true
     alias:
