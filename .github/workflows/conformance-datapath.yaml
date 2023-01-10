@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -126,36 +126,42 @@ jobs:
             kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - kernel: '5.4-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
+            encryption-node: 'false'
 
           - kernel: '5.10-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'false'
 
           - kernel: '5.15-main'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'false'
 
           - kernel: '6.0-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
             encryption: 'wireguard'
+            encryption-node: 'true'
 
           - kernel: 'bpf-next-main'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
             encryption: 'wireguard'
+            encryption-node: 'true'
 
     timeout-minutes: 60
     steps:
@@ -215,7 +221,7 @@ jobs:
       - name: Install cilium-cli
         shell: bash
         run: |
-          cid=$(docker create quay.io/cilium/cilium-cli-ci:latest ls)
+          cid=$(docker create quay.io/cilium/cilium-cli-ci:1aef8a94e1b9c05fc6782427dd6ae58858bb48b0 ls)
           docker cp $cid:/usr/local/bin/cilium ./cilium-cli
           docker rm $cid
 
@@ -266,7 +272,8 @@ jobs:
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
               --helm-set-string="kubeProxyReplacement=${{ matrix.kpr }}" \
-              --encryption=${{ matrix.encryption }}
+              --encryption=${{ matrix.encryption }} \
+              --helm-set-string="encryption.nodeEncryption=${{ matrix.encryption-node }}"
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
