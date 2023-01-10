@@ -237,7 +237,6 @@ func (p *Parameters) UIPortForwardCommand(ctx context.Context) error {
 		"-n", p.Namespace,
 		"svc/hubble-ui",
 		"--address", "127.0.0.1",
-		"--address", "::1",
 		fmt.Sprintf("%d:80", p.UIPortForward)}
 
 	if p.Context != "" {
