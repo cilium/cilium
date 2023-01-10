@@ -92,7 +92,7 @@ type Controller struct {
 	LogConstructor func(request *reconcile.Request) logr.Logger
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	RecoverPanic bool
+	RecoverPanic *bool
 }
 
 // watchDescription contains all the information necessary to start a watch.
@@ -106,7 +106,7 @@ type watchDescription struct {
 func (c *Controller) Reconcile(ctx context.Context, req reconcile.Request) (_ reconcile.Result, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if c.RecoverPanic {
+			if c.RecoverPanic != nil && *c.RecoverPanic {
 				for _, fn := range utilruntime.PanicHandlers {
 					fn(r)
 				}

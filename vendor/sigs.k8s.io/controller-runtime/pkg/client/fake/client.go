@@ -756,8 +756,8 @@ func (c *fakeClient) Status() client.SubResourceWriter {
 	return c.SubResource("status")
 }
 
-func (c *fakeClient) SubResource(subResource string) client.SubResourceWriter {
-	return &fakeSubResourceWriter{client: c}
+func (c *fakeClient) SubResource(subResource string) client.SubResourceClient {
+	return &fakeSubResourceClient{client: c}
 }
 
 func (c *fakeClient) deleteObject(gvr schema.GroupVersionResource, accessor metav1.Object) error {
@@ -786,15 +786,19 @@ func getGVRFromObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupV
 	return gvr, nil
 }
 
-type fakeSubResourceWriter struct {
+type fakeSubResourceClient struct {
 	client *fakeClient
 }
 
-func (sw *fakeSubResourceWriter) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+func (sw *fakeSubResourceClient) Get(ctx context.Context, obj, subResource client.Object, opts ...client.SubResourceGetOption) error {
+	panic("fakeSubResourceClient does not support get")
+}
+
+func (sw *fakeSubResourceClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
 	panic("fakeSubResourceWriter does not support create")
 }
 
-func (sw *fakeSubResourceWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+func (sw *fakeSubResourceClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 	// TODO(droot): This results in full update of the obj (spec + subresources). Need
 	// a way to update subresource only.
 	updateOptions := client.SubResourceUpdateOptions{}
@@ -807,7 +811,7 @@ func (sw *fakeSubResourceWriter) Update(ctx context.Context, obj client.Object, 
 	return sw.client.Update(ctx, body, &updateOptions.UpdateOptions)
 }
 
-func (sw *fakeSubResourceWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+func (sw *fakeSubResourceClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	// TODO(droot): This results in full update of the obj (spec + subresources). Need
 	// a way to update subresource only.
 

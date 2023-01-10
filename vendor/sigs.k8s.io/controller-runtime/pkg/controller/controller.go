@@ -56,7 +56,8 @@ type Options struct {
 	CacheSyncTimeout time.Duration
 
 	// RecoverPanic indicates whether the panic caused by reconcile should be recovered.
-	RecoverPanic bool
+	// Defaults to the Controller.RecoverPanic setting from the Manager if unset.
+	RecoverPanic *bool
 }
 
 // Controller implements a Kubernetes API.  A Controller manages a work queue fed reconcile.Requests
@@ -137,6 +138,10 @@ func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller
 	// Inject dependencies into Reconciler
 	if err := mgr.SetFields(options.Reconciler); err != nil {
 		return nil, err
+	}
+
+	if options.RecoverPanic == nil {
+		options.RecoverPanic = mgr.GetControllerOptions().RecoverPanic
 	}
 
 	// Create controller with dependencies set

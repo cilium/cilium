@@ -76,8 +76,8 @@ func SetControllerReference(owner, controlled metav1.Object, scheme *runtime.Sch
 		Kind:               gvk.Kind,
 		Name:               owner.GetName(),
 		UID:                owner.GetUID(),
-		BlockOwnerDeletion: pointer.BoolPtr(true),
-		Controller:         pointer.BoolPtr(true),
+		BlockOwnerDeletion: pointer.Bool(true),
+		Controller:         pointer.Bool(true),
 	}
 
 	// Return early with an error if the object is already controlled.
@@ -207,7 +207,7 @@ func CreateOrUpdate(ctx context.Context, c client.Client, obj client.Object, f M
 		return OperationResultCreated, nil
 	}
 
-	existing := obj.DeepCopyObject() //nolint
+	existing := obj.DeepCopyObject()
 	if err := mutate(f, key, obj); err != nil {
 		return OperationResultNone, err
 	}

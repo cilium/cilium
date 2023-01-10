@@ -409,6 +409,8 @@ func (cm *controllerManager) Start(ctx context.Context) (err error) {
 		cm.Unlock()
 		return errors.New("manager already started")
 	}
+	cm.started = true
+
 	var ready bool
 	defer func() {
 		// Only unlock the manager if we haven't reached
