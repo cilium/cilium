@@ -24,7 +24,7 @@ import (
 
 type KubernetesClient interface {
 	AutodetectFlavor(ctx context.Context) k8s.Flavor
-	CopyFromPod(ctx context.Context, namespace, pod, container string, fromFile, destFile string) error
+	CopyFromPod(ctx context.Context, namespace, pod, container, fromFile, destFile string, retryLimit int) error
 	CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, ec *corev1.EphemeralContainer) (*corev1.Pod, error)
 	CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error)
 	GetPod(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Pod, error)
