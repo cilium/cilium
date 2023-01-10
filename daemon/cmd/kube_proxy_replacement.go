@@ -354,8 +354,6 @@ func probeKubeProxyReplacementOptions() error {
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
 		case !mac.HaveMACAddrs(option.Config.GetDevices()):
 			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
