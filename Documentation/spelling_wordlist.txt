@@ -259,6 +259,8 @@ ci
 cidr
 cidrs
 ciliumAgent
+ciliumNodeUpdateRate
+ciliumnode
 classful
 classid
 cleanBpfState

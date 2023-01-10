@@ -784,6 +784,10 @@ data:
   ipam: {{ $ipam | quote }}
 {{- end }}
 
+{{- if .Values.ipam.ciliumNodeUpdateRate }}
+  ipam-cilium-node-update-rate: {{ include "validateDuration" .Values.ipam.ciliumNodeUpdateRate | quote }}
+{{- end }}
+
 {{- if or (eq $ipam "cluster-pool") (eq $ipam "cluster-pool-v2beta") }}
 {{- if .Values.ipv4.enabled }}
   {{- if .Values.ipam.operator.clusterPoolIPv4PodCIDRList }}

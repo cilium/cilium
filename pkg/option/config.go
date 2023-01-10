@@ -1119,6 +1119,10 @@ const (
 	// EnableStaleCiliumEndpointCleanup sets whether Cilium should perform cleanup of
 	// stale CiliumEndpoints during init.
 	EnableStaleCiliumEndpointCleanup = "enable-stale-cilium-endpoint-cleanup"
+
+	// IPAMCiliumnodeUpdateRate is the maximum rate at which the CiliumNode custom
+	// resource is updated.
+	IPAMCiliumNodeUpdateRate = "ipam-cilium-node-update-rate"
 )
 
 // Default string arguments
@@ -2295,6 +2299,10 @@ type DaemonConfig struct {
 	// This will attempt to remove local CiliumEndpoints that are not managed by Cilium
 	// following Endpoint restoration.
 	EnableStaleCiliumEndpointCleanup bool
+
+	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
+	// resource is updated.
+	IPAMCiliumNodeUpdateRate time.Duration
 }
 
 var (
@@ -3008,6 +3016,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
+	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)

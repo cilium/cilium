@@ -181,6 +181,7 @@ cilium-agent [flags]
       --ip-allocation-timeout duration                          Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string                        ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
       --ipam string                                             Backend to use for IPAM (default "cluster-pool")
+      --ipam-cilium-node-update-rate duration                   Maximum rate at which the CiliumNode custom resource is updated (default 15s)
       --ipsec-key-file string                                   Path to IPSec key file
       --iptables-lock-timeout duration                          Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                   Set iptables flag random-fully on masquerading rules

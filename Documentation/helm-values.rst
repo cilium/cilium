@@ -1305,6 +1305,10 @@
      - Configure the eBPF-based ip-masq-agent
      - object
      - ``{"enabled":false}``
+   * - ipam.ciliumNodeUpdateRate
+     - Maximum rate at which the CiliumNode custom resource is updated.
+     - string
+     - ``"15s"``
    * - ipam.mode
      - Configure IP Address Management mode. ref: https://docs.cilium.io/en/stable/concepts/networking/ipam/
      - string
