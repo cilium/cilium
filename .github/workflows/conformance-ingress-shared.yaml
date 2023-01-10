@@ -120,7 +120,8 @@ jobs:
             --set operator.image.useDigest=false \
             --set securityContext.privileged=true \
             --set ingressController.enabled=true \
-            --set ingressController.loadbalancerMode=shared
+            --set ingressController.loadbalancerMode=shared \
+            --set extraConfig.bpf-lb-acceleration=native # This is to make sure we have the coverage for XDP.
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
