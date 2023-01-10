@@ -12,14 +12,13 @@ import (
 
 const (
 	defaultReadFromByteCmd = "tail -c+%d %s"
-	defaultMaxTries        = 5
 )
 
 // CopyFromPod is to copy srcFile in a given pod to local destFile with defaultMaxTries.
-func (c *Client) CopyFromPod(ctx context.Context, namespace, pod, container string, srcFile, destFile string) error {
+func (c *Client) CopyFromPod(ctx context.Context, namespace, pod, container, fromFile, destFile string, retryLimit int) error {
 	pipe := newPipe(&CopyOptions{
-		MaxTries: defaultMaxTries,
-		ReadFunc: readFromPod(ctx, c, namespace, pod, container, srcFile),
+		MaxTries: retryLimit,
+		ReadFunc: readFromPod(ctx, c, namespace, pod, container, fromFile),
 	})
 
 	outFile, err := os.OpenFile(destFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
