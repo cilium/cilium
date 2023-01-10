@@ -27,8 +27,6 @@
 #include "proxy_hairpin.h"
 #include "neigh.h"
 
-#define CB_SRC_IDENTITY	0
-
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
@@ -895,7 +893,7 @@ skip_service_lookup:
 			return CTX_ACT_OK;
 
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 		return DROP_MISSED_TAIL_CALL;
 	}
@@ -1853,7 +1851,7 @@ skip_service_lookup:
 		if (nodeport_uses_dsr4(&tuple))
 			return CTX_ACT_OK;
 #endif
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
 		 */

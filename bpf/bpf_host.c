@@ -344,11 +344,11 @@ skip_host_firewall:
 static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv6(ctx, proxy_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
@@ -487,7 +487,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		    !ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
+				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 				return send_drop_notify_error(ctx, secctx,
 							      DROP_MISSED_TAIL_CALL,
@@ -646,11 +646,11 @@ skip_vtep:
 static __always_inline int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host, &ext_err);
 	if (IS_ERR(ret))
@@ -864,7 +864,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		identity = resolve_srcid_ipv6(ctx, identity, from_host);
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		if (from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
 		else
@@ -877,7 +877,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	case bpf_htons(ETH_P_IP):
 		identity = resolve_srcid_ipv4(ctx, identity, &ipcache_srcid,
 					      from_host);
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		if (from_host) {
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
 			/* If we don't rely on BPF-based masquerading, we need
