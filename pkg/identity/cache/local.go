@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -108,7 +109,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 		l.events <- allocator.AllocatorEvent{
 			Typ: kvstore.EventTypeCreate,
 			ID:  idpool.ID(id.ID),
-			Key: GlobalIdentity{id.LabelArray},
+			Key: &key.GlobalIdentity{LabelArray: id.LabelArray},
 		}
 	}
 

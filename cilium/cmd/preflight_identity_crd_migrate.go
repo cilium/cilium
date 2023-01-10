@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumClient "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
@@ -218,7 +219,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 		NodeName: "cilium-preflight",
 		Store:    nil,
 		Client:   clientset,
-		KeyType:  cache.GlobalIdentity{},
+		KeyFunc:  (&cacheKey.GlobalIdentity{}).PutKeyFromMap,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create CRD identity backend")
@@ -231,7 +232,7 @@ func initK8s(ctx context.Context, clientset k8sClient.Clientset) (crdBackend all
 	//    allocator.WithPrefixMask(idpool.ID(option.Config.ClusterID<<identity.ClusterIDShift)))
 	minID := idpool.ID(identity.MinimalAllocationIdentity)
 	maxID := idpool.ID(identity.MaximumAllocationIdentity)
-	crdAllocator, err = allocator.NewAllocator(cache.GlobalIdentity{}, crdBackend,
+	crdAllocator, err = allocator.NewAllocator(&cacheKey.GlobalIdentity{}, crdBackend,
 		allocator.WithMax(maxID), allocator.WithMin(minID))
 	if err != nil {
 		log.WithError(err).Fatal("Unable to initialize Identity Allocator with CRD backend to allocate identities with already allocated IDs")
@@ -252,7 +253,7 @@ func initKVStore(ctx context.Context) (kvstoreBackend allocator.Backend) {
 	setupKvstore(ctx)
 
 	idPath := path.Join(cache.IdentitiesPath, "id")
-	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, cache.GlobalIdentity{}, kvstore.Client())
+	kvstoreBackend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, idPath, &cacheKey.GlobalIdentity{}, kvstore.Client())
 	if err != nil {
 		log.WithError(err).Fatal("Cannot create kvstore identity backend")
 	}
