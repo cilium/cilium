@@ -389,13 +389,16 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 	}
 
 	// Apply all given CiliumNetworkPolicies.
-	var mod bool
+	mod := false // true if any policy changed
 	for _, cnp := range t.cnps {
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Applying CiliumNetworkPolicy '%s' to namespace '%s'..", cnp.Name, cnp.Namespace)
-			mod, err = updateOrCreateCNP(ctx, client, cnp)
+			changed, err := updateOrCreateCNP(ctx, client, cnp)
 			if err != nil {
 				return fmt.Errorf("policy application failed: %w", err)
+			}
+			if changed {
+				mod = true
 			}
 		}
 	}
