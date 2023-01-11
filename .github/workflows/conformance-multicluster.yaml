@@ -346,6 +346,7 @@ jobs:
         # is fixed.
 
       - name: Enable WireGuard
+        if: ${{ false }} # Tracking issue: https://github.com/cilium/cilium/issues/23044
         run: |
           for ctx in ${{ steps.contexts.outputs.context1 }} ${{ steps.contexts.outputs.context2 }} ; do
             kubectl config use-context "$ctx"
@@ -356,6 +357,7 @@ jobs:
           done
 
       - name: Run connectivity test with WireGuard
+        if: ${{ false }} # Tracking issue: https://github.com/cilium/cilium/issues/23044
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
             --context ${{ steps.contexts.outputs.context1 }} \
