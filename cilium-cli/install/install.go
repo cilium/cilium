@@ -332,7 +332,7 @@ func (p *Parameters) validate() error {
 	for _, config := range p.ConfigOverwrites {
 		t := strings.SplitN(config, "=", 2)
 		if len(t) != 2 {
-			return fmt.Errorf("invalid config overwrite %q, must be in the form key=valye", config)
+			return fmt.Errorf("invalid config overwrite %q, must be in the form key=value", config)
 		}
 
 		p.configOverwrites[t[0]] = t[1]
