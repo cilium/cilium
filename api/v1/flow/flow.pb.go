@@ -84,20 +84,40 @@ const (
 	// This is intentionally set as unknown, so proto API can guarantee the
 	// observation point is always going to be present on trace events.
 	TraceObservationPoint_UNKNOWN_POINT TraceObservationPoint = 0
-	TraceObservationPoint_TO_PROXY      TraceObservationPoint = 1
-	TraceObservationPoint_TO_HOST       TraceObservationPoint = 2
-	TraceObservationPoint_TO_STACK      TraceObservationPoint = 3
-	TraceObservationPoint_TO_OVERLAY    TraceObservationPoint = 4
-	// same as TO_LXC, which had a 0 value. This index is intentionally very
-	// high so when new segments are added in bpf, there are no collisions
-	TraceObservationPoint_TO_ENDPOINT   TraceObservationPoint = 101
+	// TO_PROXY indicates network packets are transmitted towards the l7 proxy.
+	TraceObservationPoint_TO_PROXY TraceObservationPoint = 1
+	// TO_HOST indicates network packets are transmitted towards the host
+	// namespace.
+	TraceObservationPoint_TO_HOST TraceObservationPoint = 2
+	// TO_STACK indicates network packets are transmitted towards the Linux
+	// kernel network stack on host machine.
+	TraceObservationPoint_TO_STACK TraceObservationPoint = 3
+	// TO_OVERLAY indicates network packets are transmitted towards the tunnel
+	// device.
+	TraceObservationPoint_TO_OVERLAY TraceObservationPoint = 4
+	// TO_ENDPOINT indicates network packets are transmitted towards endpoints
+	// (containers).
+	TraceObservationPoint_TO_ENDPOINT TraceObservationPoint = 101
+	// FROM_ENDPOINT indicates network packets were received from endpoints
+	// (containers).
 	TraceObservationPoint_FROM_ENDPOINT TraceObservationPoint = 5
-	TraceObservationPoint_FROM_PROXY    TraceObservationPoint = 6
-	TraceObservationPoint_FROM_HOST     TraceObservationPoint = 7
-	TraceObservationPoint_FROM_STACK    TraceObservationPoint = 8
-	TraceObservationPoint_FROM_OVERLAY  TraceObservationPoint = 9
-	TraceObservationPoint_FROM_NETWORK  TraceObservationPoint = 10
-	TraceObservationPoint_TO_NETWORK    TraceObservationPoint = 11
+	// FROM_PROXY indicates network packets were received from the l7 proxy.
+	TraceObservationPoint_FROM_PROXY TraceObservationPoint = 6
+	// FROM_HOST indicates network packets were received from the host
+	// namespace.
+	TraceObservationPoint_FROM_HOST TraceObservationPoint = 7
+	// FROM_STACK indicates network packets were received from the Linux kernel
+	// network stack on host machine.
+	TraceObservationPoint_FROM_STACK TraceObservationPoint = 8
+	// FROM_OVERLAY indicates network packets were received from the tunnel
+	// device.
+	TraceObservationPoint_FROM_OVERLAY TraceObservationPoint = 9
+	// FROM_NETWORK indicates network packets were received from native
+	// devices.
+	TraceObservationPoint_FROM_NETWORK TraceObservationPoint = 10
+	// TO_NETWORK indicates network packets are transmitted towards native
+	// devices.
+	TraceObservationPoint_TO_NETWORK TraceObservationPoint = 11
 )
 
 // Enum value maps for TraceObservationPoint.
