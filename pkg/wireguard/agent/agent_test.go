@@ -14,8 +14,12 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -80,12 +84,15 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 }
 
 func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context: ctx,
-	})
-	defer ipCache.Shutdown()
+	lc := &hive.DefaultLifecycle{}
+	defer lc.Stop(context.TODO())
+
+	idResolver, idPromise := promise.New[cache.IdentityAllocator]()
+	idResolver.Resolve(nil)
+	repoResolver, repoPromise := promise.New[*policy.Repository]()
+	repoResolver.Resolve(nil)
+	ipCache := ipcache.NewIPCache(&hive.DefaultLifecycle{}, idPromise, repoPromise, nil)
+
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
 		ipCache:          ipCache,
@@ -94,6 +101,8 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 		nodeNameByNodeIP: map[string]string{},
 		nodeNameByPubKey: map[wgtypes.Key]string{},
 	}
+
+	lc.Start(context.TODO())
 	ipCache.AddListener(wgAgent)
 
 	// Test that IPCache updates before UpdatePeer are handled correctly

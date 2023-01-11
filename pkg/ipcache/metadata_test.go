@@ -124,7 +124,7 @@ func setupTest(t *testing.T) (cleanup func()) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
-	IPIdentityCache = NewIPCache(&Configuration{
+	IPIdentityCache = newIPCache(&Configuration{
 		Context:           ctx,
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},

@@ -36,15 +36,42 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/safetime"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-// initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy(
+func newPolicyRepository(
+	identityAllocatorPromise promise.Promise[cache.IdentityAllocator],
 	epMgr endpointmanager.EndpointManager,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+) (promise.Promise[*policy.Repository], promise.Promise[*policy.Updater]) {
+	repoPromise := promise.Map(
+		identityAllocatorPromise,
+		func(alloc cache.IdentityAllocator) (*policy.Repository, error) {
+			repo := policy.NewPolicyRepository(alloc,
+				alloc.GetIdentityCache(),
+				certManager,
+				secretManager,
+			)
+			repo.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
+			return repo, nil
+		})
+	updaterPromise := promise.Map(
+		repoPromise,
+		func(repo *policy.Repository) (*policy.Updater, error) {
+			return policy.NewUpdater(repo, epMgr)
+		})
+
+	return repoPromise, updaterPromise
+}
+
+// initPolicy initializes the core policy components of the daemon.
+func (d *Daemon) initPolicy(
+	epMgr endpointmanager.EndpointManager,
+	policyRepoPromise promise.Promise[*policy.Repository],
+	policyUpdaterPromise promise.Promise[*policy.Updater],
 ) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
@@ -60,18 +87,17 @@ func (d *Daemon) initPolicy(
 	}
 	d.datapathRegenTrigger = rt
 
-	d.policy = policy.NewPolicyRepository(d.identityAllocator,
-		d.identityAllocator.GetIdentityCache(),
-		certManager,
-		secretManager,
-	)
-	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
-	d.policyUpdater, err = policy.NewUpdater(d.policy, epMgr)
+	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager(epMgr)))
+
+	d.policy, err = policyRepoPromise.Await(d.ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create policy update trigger: %w", err)
+		return err
 	}
 
-	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager(epMgr)))
+	d.policyUpdater, err = policyUpdaterPromise.Await(d.ctx)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -80,19 +106,6 @@ func (d *Daemon) initPolicy(
 // policy.Updater to handle them.
 func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	d.policyUpdater.TriggerPolicyUpdates(force, reason)
-}
-
-// UpdateIdentities informs the policy package of all identity changes
-// and also triggers policy updates.
-//
-// The caller is responsible for making sure the same identity is not
-// present in both 'added' and 'deleted'.
-func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
-	wg := &sync.WaitGroup{}
-	d.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
-	// Wait for update propagation to endpoints before triggering policy updates
-	wg.Wait()
-	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
 }
 
 type getPolicyResolve struct {

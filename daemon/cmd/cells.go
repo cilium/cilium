@@ -10,6 +10,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ipcache"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
@@ -68,6 +70,14 @@ var (
 
 		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
 		certificatemanager.Cell,
+
+		// Endpoint manager and IPCache have an import cycle, so we provide an interface to sidestep that issue
+		cell.Provide(func(epMgr endpointmanager.EndpointManager) ipcacheTypes.DatapathHandler {
+			return epMgr
+		}),
+
+		// IPCache maps endpoint IPs or CIDRs to associated information like security identities
+		ipcache.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,

@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -20,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -110,9 +113,49 @@ type IPCache struct {
 	deferredPrefixRelease *asyncPrefixReleaser
 }
 
+func NewIPCache(
+	lifecycle hive.Lifecycle,
+	identityAllocatorPromise promise.Promise[cache.IdentityAllocator],
+	policyRepoPromise promise.Promise[*policy.Repository],
+	datapathHandler ipcacheTypes.DatapathHandler,
+) *IPCache {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ipcache := newIPCache(&Configuration{
+		Context:         ctx,
+		DatapathHandler: datapathHandler,
+	})
+
+	lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			policyRepo, err := policyRepoPromise.Await(hc)
+			if err != nil {
+				return err
+			}
+
+			if policyRepo != nil {
+				ipcache.PolicyHandler = policyRepo.GetSelectorCache()
+			}
+
+			ipcache.IdentityAllocator, err = identityAllocatorPromise.Await(hc)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+		OnStop: func(hc hive.HookContext) error {
+			cancel()
+			return ipcache.Shutdown()
+		},
+	})
+
+	return ipcache
+}
+
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
 // identity (and vice-versa) initialized.
-func NewIPCache(c *Configuration) *IPCache {
+func newIPCache(c *Configuration) *IPCache {
 	ipc := &IPCache{
 		mutex:             lock.NewSemaphoredMutex(),
 		ipToIdentityCache: map[string]Identity{},

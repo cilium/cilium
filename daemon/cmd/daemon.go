@@ -83,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
@@ -410,6 +411,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	sharedResources k8s.SharedResources,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	cachingIdentityAllocator CachingIdentityAllocator,
+	ipCache *ipcache.IPCache,
+	policyRepoPromise promise.Promise[*policy.Repository],
+	policyUpdaterPromise promise.Promise[*policy.Updater],
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -553,6 +558,18 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
+
+		// Propagate identity allocator down to packages which themselves do not
+		// have types to which we can add an allocator member.
+		//
+		// **NOTE** The global identity allocator is not yet initialized here; that
+		// happens below vie InitIdentityAllocator(). Only the local identity allocator
+		// is initialized here.
+		//
+		// TODO: convert these package level variables to types for easier unit
+		// testing in the future.
+		identityAllocator: cachingIdentityAllocator,
+		ipcache:           ipCache,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -596,25 +613,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		ipcachemap.IPCacheMap().Close()
 	}
 
-	// Propagate identity allocator down to packages which themselves do not
-	// have types to which we can add an allocator member.
-	//
-	// **NOTE** The global identity allocator is not yet initialized here; that
-	// happens below vie InitIdentityAllocator(). Only the local identity allocator
-	// is initialized here.
-	//
-	// TODO: convert these package level variables to types for easier unit
-	// testing in the future.
-	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr, certManager, secretManager); err != nil {
+	if err := d.initPolicy(epMgr, policyRepoPromise, policyUpdaterPromise); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		IdentityAllocator: d.identityAllocator,
-		PolicyHandler:     d.policy.GetSelectorCache(),
-		DatapathHandler:   epMgr,
-	})
+
 	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
 	// possible so that the old IDs are still available. That is why we do this ASAP after the
 	// new (userspace) ipcache is created above.
@@ -1379,9 +1381,6 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
-	if err := d.ipcache.Shutdown(); err != nil {
-		log.WithError(err).Debug("Failure during ipcache shutdown")
-	}
 	if d.policyUpdater != nil {
 		d.policyUpdater.Shutdown()
 	}
@@ -1467,25 +1466,6 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
-}
-
-// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
-// agent
-func (d *Daemon) GetNodeSuffix() string {
-	var ip net.IP
-
-	switch {
-	case option.Config.EnableIPv4:
-		ip = node.GetIPv4()
-	case option.Config.EnableIPv6:
-		ip = node.GetIPv6()
-	}
-
-	if ip == nil {
-		log.Fatal("Node IP not available yet")
-	}
-
-	return ip.String()
 }
 
 // K8sCacheIsSynced returns true if the agent has fully synced its k8s cache

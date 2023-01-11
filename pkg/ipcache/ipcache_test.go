@@ -38,7 +38,7 @@ func Test(t *testing.T) {
 func (s *IPCacheTestSuite) SetUpTest(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
-	IPIdentityCache = NewIPCache(&Configuration{
+	IPIdentityCache = newIPCache(&Configuration{
 		Context:           ctx,
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
