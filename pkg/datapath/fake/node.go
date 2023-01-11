@@ -72,3 +72,7 @@ func (n *FakeNodeHandler) AllocateNodeID(_ net.IP) uint16 {
 func (n *FakeNodeHandler) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
+
+func (n *FakeNodeHandler) RestoreNodeIDs() {
+	return
+}
