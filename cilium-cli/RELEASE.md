@@ -3,8 +3,15 @@
 Release process and checklist for `cilium-cli`.
 
 This repository currently uses release branches `v0.10` and `master`. All releases stem from
-the on of these branches. Refer to the [Release
+one of these branches. Refer to the [Release
 table](https://github.com/cilium/cilium-cli#releases) for the most recent supported versions.
+
+## Check issues and PRs
+
+- Merge all [PRs marked as ready to
+  merge](https://github.com/cilium/cilium-cli/labels/ready-to-merge)
+- Make sure there are no [open issues or PRs labeled as release
+  blocker](https://github.com/cilium/cilium-cli/labels/priority%2Frelease-blocker)
 
 ## Prepare environment variables
 
