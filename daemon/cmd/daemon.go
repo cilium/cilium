@@ -783,6 +783,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
 
+	// Now that BPF maps are opened, we can restore node IDs to the node
+	// manager.
+	d.datapath.Node().RestoreNodeIDs()
+
 	// Read the service IDs of existing services from the BPF map and
 	// reserve them. This must be done *before* connecting to the
 	// Kubernetes apiserver and serving the API to ensure service IDs are
