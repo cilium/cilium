@@ -16,6 +16,7 @@ updates:
       - dependency-name: "sigs.k8s.io/*"
     labels:
     - kind/enhancement
+    - priority/release-blocker
 
   - package-ecosystem: github-actions
     directory: /
@@ -27,6 +28,7 @@ updates:
     rebase-strategy: disabled
     labels:
     - kind/enhancement
+    - priority/release-blocker
 
   - package-ecosystem: docker
     directory: /
@@ -38,3 +40,4 @@ updates:
     rebase-strategy: disabled
     labels:
     - kind/enhancement
+    - priority/release-blocker
