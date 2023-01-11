@@ -8,10 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
-
-	fuzz "github.com/AdaLogics/go-fuzz-headers"
-
 	"gopkg.in/check.v1"
 )
 
@@ -40,33 +36,4 @@ func GatewayAPIConformanceTest(tb testing.TB) {
 	if os.Getenv(gatewayAPIConformanceEnv) == "" {
 		tb.Skip(fmt.Sprintf("Set %s to run this test", gatewayAPIConformanceEnv))
 	}
-}
-
-func FuzzRoutes(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data []byte) {
-		r := route.Route{}
-		ff := fuzz.NewConsumer(data)
-		ff.GenerateStruct(&r)
-		err := route.Upsert(r)
-		if err != nil {
-			t.Skip()
-		}
-		_, err = route.Lookup(r)
-		if err != nil {
-			t.Fatal("The route was added but could not be found")
-		}
-		err = route.Delete(r)
-		if err != nil {
-			t.Fatal("The route was added and found but could not be deleted")
-		}
-	})
-}
-
-func FuzzListRules(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data []byte, family int) {
-		ff := fuzz.NewConsumer(data)
-		filter := &route.Rule{}
-		ff.GenerateStruct(filter)
-		_, _ = route.ListRules(family, filter)
-	})
 }
