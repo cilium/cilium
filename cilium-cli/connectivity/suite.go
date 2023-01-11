@@ -178,7 +178,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				tests.PodToPodEncryption(),
 			)
 		ct.NewTest("node-to-node-encryption").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionNode),
+			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod),
 				check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
 			WithScenarios(
 				tests.NodeToNodeEncryption(),
