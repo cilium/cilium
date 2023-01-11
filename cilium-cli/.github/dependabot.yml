@@ -4,6 +4,8 @@ updates:
     directory: /
     schedule:
       interval: daily
+    commit-message:
+      prefix: "go.mod, vendor:"
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     ignore:
@@ -19,6 +21,8 @@ updates:
     directory: /
     schedule:
       interval: daily
+    commit-message:
+      prefix: "ci:"
     open-pull-requests-limit: 5
     rebase-strategy: disabled
     labels:
@@ -28,6 +32,8 @@ updates:
     directory: /
     schedule:
       interval: daily
+    commit-message:
+      prefix: "Dockerfile:"
     open-pull-requests-limit: 1
     rebase-strategy: disabled
     labels:
