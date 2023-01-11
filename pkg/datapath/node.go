@@ -142,4 +142,8 @@ type NodeHandler interface {
 
 	// DumpNodeIDs returns all node IDs and their associated IP addresses.
 	DumpNodeIDs() []*models.NodeID
+
+	// RestoreNodeIDs restores node IDs and their associated IP addresses from the
+	// BPF map and into the node handler in-memory copy.
+	RestoreNodeIDs()
 }
