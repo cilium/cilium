@@ -39,7 +39,7 @@ var (
 )
 
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	cache := repo.policyCache
 	identity := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity)
@@ -75,7 +75,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 }
 
 func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
-	repo := NewPolicyRepository(nil, nil, nil)
+	repo := NewPolicyRepository(nil, nil, nil, nil)
 	repo.revision = 42
 	cache := repo.policyCache
 
@@ -349,7 +349,7 @@ type policyDistillery struct {
 func newPolicyDistillery(selectorCache *SelectorCache) *policyDistillery {
 	identityAllocator := testidentity.NewMockIdentityAllocator(nil)
 	ret := &policyDistillery{
-		Repository: NewPolicyRepository(identityAllocator, nil, nil),
+		Repository: NewPolicyRepository(identityAllocator, nil, nil, nil),
 	}
 	ret.selectorCache = selectorCache
 	return ret
