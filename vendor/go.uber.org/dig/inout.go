@@ -22,6 +22,7 @@ package dig
 
 import (
 	"container/list"
+	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -49,13 +50,13 @@ type digSentinel struct{}
 // Fields of the struct may optionally be tagged to customize the behavior of
 // dig. The following tags are supported,
 //
-//   name        Requests a value with the same name and type from the
-//               container. See Named Values for more information.
-//   optional    If set to true, indicates that the dependency is optional and
-//               the constructor gracefully handles its absence.
-//   group       Name of the Value Group from which this field will be filled.
-//               The field must be a slice type. See Value Groups in the
-//               package documentation for more information.
+//	name        Requests a value with the same name and type from the
+//	            container. See Named Values for more information.
+//	optional    If set to true, indicates that the dependency is optional and
+//	            the constructor gracefully handles its absence.
+//	group       Name of the Value Group from which this field will be filled.
+//	            The field must be a slice type. See Value Groups in the
+//	            package documentation for more information.
 type In struct{ _ digSentinel }
 
 // Out is an embeddable type that signals to dig that the returned
@@ -71,12 +72,12 @@ type In struct{ _ digSentinel }
 // Fields of the struct may optionally be tagged to customize the behavior of
 // dig. The following tags are supported,
 //
-//   name        Specifies the name of the value. Only a field on a dig.In
-//               struct with the same 'name' annotation can receive this
-//               value. See Named Values for more information.
-//   group       Name of the Value Group to which this field's value is being
-//               sent. See Value Groups in the package documentation for more
-//               information.
+//	name        Specifies the name of the value. Only a field on a dig.In
+//	            struct with the same 'name' annotation can receive this
+//	            value. See Named Values for more information.
+//	group       Name of the Value Group to which this field's value is being
+//	            sent. See Value Groups in the package documentation for more
+//	            information.
 type Out struct{ _ digSentinel }
 
 func isError(t reflect.Type) bool {
@@ -166,9 +167,8 @@ func isFieldOptional(f reflect.StructField) (bool, error) {
 
 	optional, err := strconv.ParseBool(tag)
 	if err != nil {
-		err = errf(
-			"invalid value %q for %q tag on field %v",
-			tag, _optionalTag, f.Name, err)
+		err = newErrInvalidInput(
+			fmt.Sprintf("invalid value %q for %q tag on field %v", tag, _optionalTag, f.Name), err)
 	}
 
 	return optional, err

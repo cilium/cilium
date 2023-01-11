@@ -130,7 +130,7 @@ func (n *constructorNode) String() string {
 
 // Call calls this constructor if it hasn't already been called and
 // injects any values produced by it into the provided container.
-func (n *constructorNode) Call(c containerStore) error {
+func (n *constructorNode) Call(c containerStore) (err error) {
 	if n.called {
 		return nil
 	}
@@ -140,6 +140,17 @@ func (n *constructorNode) Call(c containerStore) error {
 			Func:   n.location,
 			Reason: err,
 		}
+	}
+
+	if n.s.recoverFromPanics {
+		defer func() {
+			if p := recover(); p != nil {
+				err = PanicError{
+					fn:    n.location,
+					Panic: p,
+				}
+			}
+		}()
 	}
 
 	args, err := n.paramList.BuildList(c)

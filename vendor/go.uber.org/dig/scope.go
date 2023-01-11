@@ -75,6 +75,9 @@ type Scope struct {
 	// Defer acyclic check on provide until Invoke.
 	deferAcyclicVerification bool
 
+	// Recover from panics in user-provided code and wrap in an exported error type.
+	recoverFromPanics bool
+
 	// invokerFn calls a function with arguments provided to Provide or Invoke.
 	invokerFn invokerFn
 
@@ -115,6 +118,7 @@ func (s *Scope) Scope(name string, opts ...ScopeOption) *Scope {
 	child.parentScope = s
 	child.invokerFn = s.invokerFn
 	child.deferAcyclicVerification = s.deferAcyclicVerification
+	child.recoverFromPanics = s.recoverFromPanics
 
 	// child copies the parent's graph nodes.
 	child.gh.nodes = append(child.gh.nodes, s.gh.nodes...)

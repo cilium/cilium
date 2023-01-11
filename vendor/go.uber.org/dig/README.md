@@ -44,3 +44,8 @@ No breaking changes will be made to exported APIs before `v2.0.0`.
 
 [report-card-img]: https://goreportcard.com/badge/github.com/uber-go/dig
 [report-card]: https://goreportcard.com/report/github.com/uber-go/dig
+
+## Stargazers over time
+
+[![Stargazers over time](https://starchart.cc/uber-go/dig.svg)](https://starchart.cc/uber-go/dig)
+
