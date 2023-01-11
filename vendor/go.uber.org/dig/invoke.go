@@ -21,7 +21,7 @@
 package dig
 
 import (
-	"errors"
+	"fmt"
 	"reflect"
 
 	"go.uber.org/dig/internal/digreflect"
@@ -42,6 +42,10 @@ type InvokeOption interface {
 //
 // The function may return an error to indicate failure. The error will be
 // returned to the caller as-is.
+//
+// If the [RecoverFromPanics] option was given to the container and a panic
+// occurs when invoking, a [PanicError] with the panic contained will be
+// returned. See [PanicError] for more info.
 func (c *Container) Invoke(function interface{}, opts ...InvokeOption) error {
 	return c.scope.Invoke(function, opts...)
 }
@@ -54,13 +58,14 @@ func (c *Container) Invoke(function interface{}, opts ...InvokeOption) error {
 //
 // The function may return an error to indicate failure. The error will be
 // returned to the caller as-is.
-func (s *Scope) Invoke(function interface{}, opts ...InvokeOption) error {
+func (s *Scope) Invoke(function interface{}, opts ...InvokeOption) (err error) {
 	ftype := reflect.TypeOf(function)
 	if ftype == nil {
-		return errors.New("can't invoke an untyped nil")
+		return newErrInvalidInput("can't invoke an untyped nil", nil)
 	}
 	if ftype.Kind() != reflect.Func {
-		return errf("can't invoke non-function %v (type %v)", function, ftype)
+		return newErrInvalidInput(
+			fmt.Sprintf("can't invoke non-function %v (type %v)", function, ftype), nil)
 	}
 
 	pl, err := newParamList(ftype, s)
@@ -77,7 +82,7 @@ func (s *Scope) Invoke(function interface{}, opts ...InvokeOption) error {
 
 	if !s.isVerifiedAcyclic {
 		if ok, cycle := graph.IsAcyclic(s.gh); !ok {
-			return errf("cycle detected in dependency graph", s.cycleDetectedError(cycle))
+			return newErrInvalidInput("cycle detected in dependency graph", s.cycleDetectedError(cycle))
 		}
 		s.isVerifiedAcyclic = true
 	}
@@ -89,6 +94,17 @@ func (s *Scope) Invoke(function interface{}, opts ...InvokeOption) error {
 			Reason: err,
 		}
 	}
+	if s.recoverFromPanics {
+		defer func() {
+			if p := recover(); p != nil {
+				err = PanicError{
+					fn:    digreflect.InspectFunc(function),
+					Panic: p,
+				}
+			}
+		}()
+	}
+
 	returned := s.invokerFn(reflect.ValueOf(function), args)
 	if len(returned) == 0 {
 		return nil

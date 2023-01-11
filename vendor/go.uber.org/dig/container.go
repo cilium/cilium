@@ -53,8 +53,7 @@ func (k key) String() string {
 	return k.t.String()
 }
 
-// Option configures a Container. It's included for future functionality;
-// currently, there are no concrete implementations.
+// Option configures a Container.
 type Option interface {
 	applyOption(*Container)
 }
@@ -174,6 +173,25 @@ func (deferAcyclicVerificationOption) String() string {
 
 func (deferAcyclicVerificationOption) applyOption(c *Container) {
 	c.scope.deferAcyclicVerification = true
+}
+
+// RecoverFromPanics is an [Option] to recover from panics that occur while
+// running functions given to the container. When set, recovered panics
+// will be placed into a [PanicError], and returned at the invoke callsite.
+// See [PanicError] for an example on how to handle panics with this option
+// enabled, and distinguish them from errors.
+func RecoverFromPanics() Option {
+	return recoverFromPanicsOption{}
+}
+
+type recoverFromPanicsOption struct{}
+
+func (recoverFromPanicsOption) String() string {
+	return "RecoverFromPanics()"
+}
+
+func (recoverFromPanicsOption) applyOption(c *Container) {
+	c.scope.recoverFromPanics = true
 }
 
 // Changes the source of randomness for the container.

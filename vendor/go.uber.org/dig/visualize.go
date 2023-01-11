@@ -21,6 +21,7 @@
 package dig
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -41,9 +42,9 @@ type visualizeOptions struct {
 // VisualizeError includes a visualization of the given error in the output of
 // Visualize if an error was returned by Invoke or Provide.
 //
-//   if err := c.Provide(...); err != nil {
-//     dig.Visualize(c, w, dig.VisualizeError(err))
-//   }
+//	if err := c.Provide(...); err != nil {
+//	  dig.Visualize(c, w, dig.VisualizeError(err))
+//	}
 //
 // This option has no effect if the error was nil or if it didn't contain any
 // information to visualize.
@@ -62,27 +63,27 @@ func (o visualizeErrorOption) applyVisualizeOption(opt *visualizeOptions) {
 }
 
 func updateGraph(dg *dot.Graph, err error) error {
-	var errors []errVisualizer
+	var errs []errVisualizer
 	// Unwrap error to find the root cause.
 	for {
 		if ev, ok := err.(errVisualizer); ok {
-			errors = append(errors, ev)
+			errs = append(errs, ev)
 		}
-		e, ok := err.(causer)
-		if !ok {
+		e := errors.Unwrap(err)
+		if e == nil {
 			break
 		}
-		err = e.cause()
+		err = e
 	}
 
 	// If there are no errVisualizers included, we do not modify the graph.
-	if len(errors) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
 
 	// We iterate in reverse because the last element is the root cause.
-	for i := len(errors) - 1; i >= 0; i-- {
-		errors[i].updateGraph(dg)
+	for i := len(errs) - 1; i >= 0; i-- {
+		errs[i].updateGraph(dg)
 	}
 
 	// Remove non-error entries from the graph for readability.
@@ -156,11 +157,11 @@ func CanVisualizeError(err error) bool {
 		if _, ok := err.(errVisualizer); ok {
 			return true
 		}
-		e, ok := err.(causer)
-		if !ok {
+		e := errors.Unwrap(err)
+		if e == nil {
 			break
 		}
-		err = e.cause()
+		err = e
 	}
 
 	return false
