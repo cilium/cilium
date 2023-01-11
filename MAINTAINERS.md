@@ -116,6 +116,7 @@ project.
 [Thomas Graf]: https://github.com/tgraf
 [Timo Beckers]: https://github.com/ti-mo
 [Tobias Klauser]: https://github.com/tklauser
+[Tom Hadlaw]: https://github.com/tommyp1ckles
 [Tom Payne]: https://github.com/twpayne
 [Vlad Ungureanu]: https://github.com/ungureanuvladvictor
 [Weilong Cui]: https://github.com/Weil0ng
