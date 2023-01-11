@@ -143,7 +143,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	defer mgr.Close()
 
 	do := &DummyOwner{
-		repo: policy.NewPolicyRepository(nil, nil, nil),
+		repo: policy.NewPolicyRepository(nil, nil, nil, nil),
 	}
 	identitymanager.Subscribe(do.repo)
 

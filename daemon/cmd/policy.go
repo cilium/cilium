@@ -41,7 +41,11 @@ import (
 )
 
 // initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy(epMgr endpointmanager.EndpointManager) error {
+func (d *Daemon) initPolicy(
+	epMgr endpointmanager.EndpointManager,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
 	// should be counted in pol.TriggerMetrics.
@@ -58,7 +62,9 @@ func (d *Daemon) initPolicy(epMgr endpointmanager.EndpointManager) error {
 
 	d.policy = policy.NewPolicyRepository(d.identityAllocator,
 		d.identityAllocator.GetIdentityCache(),
-		certificatemanager.NewManager(option.Config.CertDirectory, d.clientset))
+		certManager,
+		secretManager,
+	)
 	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 	d.policyUpdater, err = policy.NewUpdater(d.policy, epMgr)
 	if err != nil {
