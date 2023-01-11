@@ -37,6 +37,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -943,14 +944,14 @@ func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
 	return rules
 }
 
-func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch, ns string) (string, error) {
+func getSecretString(secretManager certificatemanager.SecretManager, hdr *api.HeaderMatch, ns string) (string, error) {
 	value := ""
 	var err error
 	if hdr.Secret != nil {
-		if certManager == nil {
-			err = fmt.Errorf("HeaderMatches: Nil certManager")
+		if secretManager == nil {
+			err = fmt.Errorf("HeaderMatches: Nil secretManager")
 		} else {
-			value, err = certManager.GetSecretString(context.TODO(), hdr.Secret, ns)
+			value, err = secretManager.GetSecretString(context.TODO(), hdr.Secret, ns)
 		}
 	}
 	// Only use Value if secret was not obtained
@@ -965,7 +966,7 @@ func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch
 	return value, err
 }
 
-func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
+func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRuleHTTP, ns string) (*cilium.HttpNetworkPolicyRule, bool) {
 	// Count the number of header matches we need
 	cnt := len(h.Headers) + len(h.HeaderMatches)
 	if h.Path != "" {
@@ -1039,7 +1040,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 			mismatch_action = cilium.HeaderMatch_FAIL_ON_MISMATCH
 		}
 		// Fetch the secret
-		value, err := getSecretString(certManager, hdr, ns)
+		value, err := getSecretString(secretManager, hdr, ns)
 		if err != nil {
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
@@ -1281,7 +1282,7 @@ func getCiliumTLSContext(tls *policy.TLSContext) *cilium.TLSContext {
 	}
 }
 
-func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
+func GetEnvoyHTTPRules(secretManager certificatemanager.SecretManager, l7Rules *api.L7Rules, ns string) (*cilium.HttpNetworkPolicyRules, bool) {
 	if len(l7Rules.HTTP) > 0 { // Just cautious. This should never be false.
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1291,7 +1292,7 @@ func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rul
 		httpRules := make([]*cilium.HttpNetworkPolicyRule, 0, len(l7Rules.HTTP))
 		for _, l7 := range l7Rules.HTTP {
 			var cs bool
-			rule, cs := getHTTPRule(certManager, &l7, ns)
+			rule, cs := getHTTPRule(secretManager, &l7, ns)
 			httpRules = append(httpRules, rule)
 			if !cs {
 				canShortCircuit = false

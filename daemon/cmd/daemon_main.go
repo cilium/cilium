@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -772,9 +773,6 @@ func initializeFlags() {
 
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
-
-	flags.String(option.CertsDirectory, defaults.CertsDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
-	option.BindEnv(Vp, option.CertsDirectory)
 
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
@@ -1649,6 +1647,8 @@ type daemonParams struct {
 	SharedResources k8s.SharedResources
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
+	CertManager     certificatemanager.CertificateManager
+	SecretManager   certificatemanager.SecretManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1677,7 +1677,9 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Datapath,
 				params.WGAgent,
 				params.Clientset,
-				params.SharedResources)
+				params.SharedResources,
+				params.CertManager,
+				params.SecretManager)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

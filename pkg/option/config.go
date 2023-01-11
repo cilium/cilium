@@ -92,10 +92,6 @@ const (
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
-	// CertsDirectory is the root directory used to find out certificates used
-	// in L7 HTTPs policy enforcement.
-	CertsDirectory = "certificates-directory"
-
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -2047,10 +2043,6 @@ type DaemonConfig struct {
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
 
-	// CertsDirectory is the root directory to be used by cilium to find
-	// certificates locally.
-	CertDirectory string
-
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
 
@@ -2829,7 +2821,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableL2NeighDiscovery = vp.GetBool(EnableL2NeighDiscovery)
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
-	c.CertDirectory = vp.GetString(CertsDirectory)
 	c.CGroupRoot = vp.GetString(CGroupRoot)
 	c.ClusterID = vp.GetUint32(ClusterIDName)
 	c.ClusterName = vp.GetString(ClusterName)
