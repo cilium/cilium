@@ -19,4 +19,4 @@ sphinxcontrib-websupport==1.2.4
 
 # Linters
 rstcheck==6.1.1
-yamllint==1.27.1
+yamllint==1.29.0
