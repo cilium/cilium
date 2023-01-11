@@ -160,7 +160,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		return modifiedPrefixes, ErrLocalIdentityAllocatorUninitialized
 	}
 
-	if ipc.k8sSyncedChecker == nil || !ipc.k8sSyncedChecker.K8sCacheIsSynced() {
+	if ipc.k8sSyncedChecker == nil || !ipc.k8sSyncedChecker.IsSynced() {
 		return modifiedPrefixes, errors.New("k8s cache not fully synced")
 	}
 

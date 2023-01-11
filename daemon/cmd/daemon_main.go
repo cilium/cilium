@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
@@ -1638,33 +1639,38 @@ var daemonCell = cell.Module(
 		return promise.New[cache.IdentityAllocator]()
 	}),
 
-	cell.Provide(newCacheIdentityAllocatorOwner),
-	cell.Provide(NewCachingIdentityAllocator),
-	cell.Provide(newPolicyRepository),
+	cell.Provide(
+		newCacheIdentityAllocatorOwner,
+		NewCachingIdentityAllocator,
+		newPolicyRepository,
+		k8s.NewCacheSyncedChecker,
+		newDaemonPromise,
+	),
 
-	cell.Provide(newDaemonPromise),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
 type daemonParams struct {
 	cell.In
 
-	Lifecycle                hive.Lifecycle
+	BGPController            *bgpv1.Controller
+	CachingIdentityAllocator CachingIdentityAllocator
+	CertManager              certificatemanager.CertificateManager
 	Clientset                k8sClient.Clientset
 	Datapath                 datapath.Datapath
-	WGAgent                  *wg.Agent `optional:"true"`
-	LocalNodeStore           node.LocalNodeStore
-	BGPController            *bgpv1.Controller
-	Shutdowner               hive.Shutdowner
-	SharedResources          k8s.SharedResources
-	NodeManager              nodeManager.NodeManager
+	EgressGatewayManager     egressgateway.Manager
 	EndpointManager          endpointmanager.EndpointManager
-	CertManager              certificatemanager.CertificateManager
-	SecretManager            certificatemanager.SecretManager
-	CachingIdentityAllocator CachingIdentityAllocator
 	IPCache                  *ipcache.IPCache
+	K8sCacheSyncedChecker    *k8s.CacheSyncedChecker
+	Lifecycle                hive.Lifecycle
+	LocalNodeStore           node.LocalNodeStore
+	NodeManager              nodeManager.NodeManager
 	PolicyRepoPromise        promise.Promise[*policy.Repository]
 	PolicyUpdaterPromise     promise.Promise[*policy.Updater]
+	SecretManager            certificatemanager.SecretManager
+	SharedResources          k8s.SharedResources
+	Shutdowner               hive.Shutdowner
+	WGAgent                  *wg.Agent `optional:"true"`
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1685,21 +1691,19 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	var wg sync.WaitGroup
 
 	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			d, restoredEndpoints, err := newDaemon(
-				daemonCtx, cleaner,
-				params.EndpointManager,
-				params.NodeManager,
-				params.Datapath,
-				params.WGAgent,
-				params.Clientset,
-				params.SharedResources,
-				params.CertManager,
-				params.SecretManager,
-				params.CachingIdentityAllocator,
-				params.IPCache,
-				params.PolicyRepoPromise,
-				params.PolicyUpdaterPromise)
+		OnStart: func(startCtx hive.HookContext) error {
+			// Cancel the daemon context if the start times out.
+			startOk := make(chan struct{})
+			defer close(startOk)
+			go func() {
+				select {
+				case <-startCtx.Done():
+					cancelDaemonCtx()
+				case <-startOk:
+				}
+			}()
+
+			d, restoredEndpoints, err := newDaemon(daemonCtx, cleaner, params)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

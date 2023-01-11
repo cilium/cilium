@@ -8,14 +8,16 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -24,25 +26,38 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
+)
+
+type Manager interface {
+	OnAddEgressPolicy(config PolicyConfig)
+	OnDeleteEgressPolicy(configID types.NamespacedName)
+	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnDeleteNode(node nodeTypes.Node)
+	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
+	OnUpdateNode(node nodeTypes.Node)
+}
+
+var Cell = cell.Module(
+	"egress-gateway",
+	"Egress Gateway",
+
+	cell.Provide(NewEgressGatewayManager),
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
 )
 
-type k8sCacheSyncedChecker interface {
-	K8sCacheIsSynced() bool
-}
-
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
-type Manager struct {
+type manager struct {
 	lock.Mutex
 
 	// k8sCacheSyncedChecker is used to check if the agent has synced its
 	// cache with the k8s API server
-	k8sCacheSyncedChecker k8sCacheSyncedChecker
+	k8sCacheSyncedChecker *k8s.CacheSyncedChecker
 
 	// nodeDataStore stores node name to node mapping
 	nodeDataStore map[string]nodeTypes.Node
@@ -61,30 +76,47 @@ type Manager struct {
 }
 
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator) *Manager {
-	manager := &Manager{
+func NewEgressGatewayManager(
+	lifecycle hive.Lifecycle,
+	config *option.DaemonConfig,
+	k8sCacheSyncedChecker *k8s.CacheSyncedChecker,
+	identityAllocatorPromise promise.Promise[identityCache.IdentityAllocator],
+) Manager {
+	if !config.EnableIPv4EgressGateway {
+		return nil
+	}
+
+	manager := &manager{
 		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
 		nodeDataStore:         make(map[string]nodeTypes.Node),
 		policyConfigs:         make(map[policyID]*PolicyConfig),
 		epDataStore:           make(map[endpointID]*endpointMetadata),
-		identityAllocator:     identityAlocator,
 	}
 
-	manager.runReconciliationAfterK8sSync()
+	lifecycle.Append(hive.Hook{OnStart: func(hc hive.HookContext) (err error) {
+		manager.identityAllocator, err = identityAllocatorPromise.Await(hc)
+		if err != nil {
+			return err
+		}
+
+		manager.runReconciliationAfterK8sSync()
+
+		return nil
+	}})
 
 	return manager
 }
 
 // getIdentityLabels waits for the global identities to be populated to the cache,
 // then looks up identity by ID from the cached identity allocator and return its labels.
-func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
+func (mgr *manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
 	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
-	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
+	if err := mgr.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
 		return nil, fmt.Errorf("failed to wait for initial global identities: %v", err)
 	}
 
-	identity := manager.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
+	identity := mgr.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
 	if identity == nil {
 		return nil, fmt.Errorf("identity %d not found", securityIdentity)
 	}
@@ -93,19 +125,13 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 
 // runReconciliationAfterK8sSync spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
-func (manager *Manager) runReconciliationAfterK8sSync() {
+func (mgr *manager) runReconciliationAfterK8sSync() {
 	go func() {
-		for {
-			if manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
-				break
-			}
+		mgr.k8sCacheSyncedChecker.Wait()
 
-			time.Sleep(1 * time.Second)
-		}
-
-		manager.Lock()
-		manager.reconcile()
-		manager.Unlock()
+		mgr.Lock()
+		mgr.reconcile()
+		mgr.Unlock()
 	}()
 }
 
@@ -113,51 +139,51 @@ func (manager *Manager) runReconciliationAfterK8sSync() {
 
 // OnAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
-func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
-	manager.Lock()
-	defer manager.Unlock()
+func (mgr *manager) OnAddEgressPolicy(config PolicyConfig) {
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.Name)
 
-	if _, ok := manager.policyConfigs[config.id]; !ok {
+	if _, ok := mgr.policyConfigs[config.id]; !ok {
 		logger.Debug("Added CiliumEgressGatewayPolicy")
 	} else {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
-	manager.policyConfigs[config.id] = &config
+	mgr.policyConfigs[config.id] = &config
 
-	manager.reconcile()
+	mgr.reconcile()
 }
 
 // OnDeleteEgressPolicy deletes the internal state associated with the given
 // policy, including egress eBPF map entries.
-func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
-	manager.Lock()
-	defer manager.Unlock()
+func (mgr *manager) OnDeleteEgressPolicy(configID policyID) {
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, configID.Name)
 
-	if manager.policyConfigs[configID] == nil {
+	if mgr.policyConfigs[configID] == nil {
 		logger.Warn("Can't delete CiliumEgressGatewayPolicy: policy not found")
 		return
 	}
 
 	logger.Debug("Deleted CiliumEgressGatewayPolicy")
 
-	delete(manager.policyConfigs, configID)
+	delete(mgr.policyConfigs, configID)
 
-	manager.reconcile()
+	mgr.reconcile()
 }
 
 // OnUpdateEndpoint is the event handler for endpoint additions and updates.
-func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+func (mgr *manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
 
-	manager.Lock()
-	defer manager.Unlock()
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: endpoint.Name,
@@ -170,7 +196,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		return
 	}
 
-	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
+	if identityLabels, err = mgr.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
 		logger.WithError(err).
 			Error("Failed to get identity labels for endpoint, skipping update to egress policy.")
 		return
@@ -182,60 +208,60 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		return
 	}
 
-	manager.epDataStore[epData.id] = epData
+	mgr.epDataStore[epData.id] = epData
 
-	manager.reconcile()
+	mgr.reconcile()
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
-func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
-	manager.Lock()
-	defer manager.Unlock()
+func (mgr *manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+	mgr.Lock()
+	defer mgr.Unlock()
 
 	id := types.NamespacedName{
 		Name:      endpoint.GetName(),
 		Namespace: endpoint.GetNamespace(),
 	}
 
-	delete(manager.epDataStore, id)
+	delete(mgr.epDataStore, id)
 
-	manager.reconcile()
+	mgr.reconcile()
 }
 
 // OnUpdateNode is the event handler for node additions and updates.
-func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
-	manager.Lock()
-	defer manager.Unlock()
-	manager.nodeDataStore[node.Name] = node
-	manager.onChangeNodeLocked()
+func (mgr *manager) OnUpdateNode(node nodeTypes.Node) {
+	mgr.Lock()
+	defer mgr.Unlock()
+	mgr.nodeDataStore[node.Name] = node
+	mgr.onChangeNodeLocked()
 }
 
 // OnDeleteNode is the event handler for node deletions.
-func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
-	manager.Lock()
-	defer manager.Unlock()
-	delete(manager.nodeDataStore, node.Name)
-	manager.onChangeNodeLocked()
+func (mgr *manager) OnDeleteNode(node nodeTypes.Node) {
+	mgr.Lock()
+	defer mgr.Unlock()
+	delete(mgr.nodeDataStore, node.Name)
+	mgr.onChangeNodeLocked()
 }
 
-func (manager *Manager) onChangeNodeLocked() {
-	manager.nodes = []nodeTypes.Node{}
-	for _, n := range manager.nodeDataStore {
-		manager.nodes = append(manager.nodes, n)
+func (mgr *manager) onChangeNodeLocked() {
+	mgr.nodes = []nodeTypes.Node{}
+	for _, n := range mgr.nodeDataStore {
+		mgr.nodes = append(mgr.nodes, n)
 	}
-	sort.Slice(manager.nodes, func(i, j int) bool {
-		return manager.nodes[i].Name < manager.nodes[j].Name
+	sort.Slice(mgr.nodes, func(i, j int) bool {
+		return mgr.nodes[i].Name < mgr.nodes[j].Name
 	})
-	manager.reconcile()
+	mgr.reconcile()
 }
 
-func (manager *Manager) regenerateGatewayConfigs() {
-	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.regenerateGatewayConfig(manager)
+func (mgr *manager) regenerateGatewayConfigs() {
+	for _, policyConfig := range mgr.policyConfigs {
+		policyConfig.regenerateGatewayConfig(mgr)
 	}
 }
 
-func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
+func (mgr *manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
 	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		if !gwc.localNodeConfiguredAsGateway {
 			return
@@ -266,14 +292,14 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 		logger.Debug("Added IP routes")
 	}
 
-	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addIPRulesAndRoutesForConfig)
+	for _, policyConfig := range mgr.policyConfigs {
+		policyConfig.forEachEndpointAndDestination(mgr.epDataStore, addIPRulesAndRoutesForConfig)
 	}
 
 	return
 }
 
-func (manager *Manager) removeUnusedIpRulesAndRoutes() {
+func (mgr *manager) removeUnusedIpRulesAndRoutes() {
 	logger := log.WithFields(logrus.Fields{})
 
 	ipRules, err := listEgressIpRules()
@@ -290,8 +316,8 @@ nextIpRule:
 				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
-			if policyConfig.matches(manager.epDataStore, matchFunc) {
+		for _, policyConfig := range mgr.policyConfigs {
+			if policyConfig.matches(mgr.epDataStore, matchFunc) {
 				continue nextIpRule
 			}
 		}
@@ -301,8 +327,8 @@ nextIpRule:
 
 	// Build a list of all the network interfaces that are being actively used by egress gateway
 	activeEgressGwIfaceIndexes := map[int]struct{}{}
-	for _, policyConfig := range manager.policyConfigs {
-		for _, endpoint := range manager.epDataStore {
+	for _, policyConfig := range mgr.policyConfigs {
+		for _, endpoint := range mgr.epDataStore {
 			if policyConfig.selectsEndpoint(endpoint) {
 				if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
 					activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
@@ -329,7 +355,7 @@ nextIpRule:
 	}
 }
 
-func (manager *Manager) addMissingEgressRules() {
+func (mgr *manager) addMissingEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	egressmap.EgressPolicyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
@@ -358,14 +384,14 @@ func (manager *Manager) addMissingEgressRules() {
 		}
 	}
 
-	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addEgressRule)
+	for _, policyConfig := range mgr.policyConfigs {
+		policyConfig.forEachEndpointAndDestination(mgr.epDataStore, addEgressRule)
 	}
 }
 
 // removeUnusedEgressRules is responsible for removing any entry in the egress policy BPF map which
 // is not baked by an actual k8s CiliumEgressGatewayPolicy.
-func (manager *Manager) removeUnusedEgressRules() {
+func (mgr *manager) removeUnusedEgressRules() {
 	egressPolicies := map[egressmap.EgressPolicyKey4]egressmap.EgressPolicyVal4{}
 	egressmap.EgressPolicyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
@@ -378,8 +404,8 @@ nextPolicyKey:
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP)
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
-			if policyConfig.matches(manager.epDataStore, matchPolicy) {
+		for _, policyConfig := range mgr.policyConfigs {
+			if policyConfig.matches(mgr.epDataStore, matchPolicy) {
 				continue nextPolicyKey
 			}
 		}
@@ -404,24 +430,24 @@ nextPolicyKey:
 //
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcile() {
-	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+func (mgr *manager) reconcile() {
+	if !mgr.k8sCacheSyncedChecker.IsSynced() {
 		return
 	}
 
-	manager.regenerateGatewayConfigs()
+	mgr.regenerateGatewayConfigs()
 
 	if option.Config.InstallEgressGatewayRoutes {
-		shouldRetry := manager.addMissingIpRulesAndRoutes(false)
-		manager.removeUnusedIpRulesAndRoutes()
+		shouldRetry := mgr.addMissingIpRulesAndRoutes(false)
+		mgr.removeUnusedIpRulesAndRoutes()
 
 		if shouldRetry {
-			manager.addMissingIpRulesAndRoutes(true)
+			mgr.addMissingIpRulesAndRoutes(true)
 		}
 	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
 	// only then removing obsolete ones we make sure there will be no connectivity disruption
-	manager.addMissingEgressRules()
-	manager.removeUnusedEgressRules()
+	mgr.addMissingEgressRules()
+	mgr.removeUnusedEgressRules()
 }

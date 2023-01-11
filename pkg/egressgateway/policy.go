@@ -84,7 +84,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
 }
 
-func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+func (config *PolicyConfig) regenerateGatewayConfig(manager *manager) {
 	gwc := gatewayConfig{
 		egressIP: net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
 	}

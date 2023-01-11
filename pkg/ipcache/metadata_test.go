@@ -14,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -130,7 +131,8 @@ func setupTest(t *testing.T) (cleanup func()) {
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
 	})
-	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
+	IPIdentityCache.k8sSyncedChecker = k8s.NewCacheSyncedChecker()
+	IPIdentityCache.k8sSyncedChecker.Synced()
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
@@ -140,10 +142,6 @@ func setupTest(t *testing.T) (cleanup func()) {
 		IPIdentityCache.Shutdown()
 	}
 }
-
-type mockK8sSyncedChecker struct{}
-
-func (m *mockK8sSyncedChecker) K8sCacheIsSynced() bool { return true }
 
 type mockUpdater struct{}
 

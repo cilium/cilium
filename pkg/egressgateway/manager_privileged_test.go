@@ -17,7 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -28,6 +31,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -93,14 +97,6 @@ type parsedEgressRule struct {
 	gatewayIP net.IP
 }
 
-type k8sCacheSyncedCheckerMock struct {
-	synced bool
-}
-
-func (k *k8sCacheSyncedCheckerMock) K8sCacheIsSynced() bool {
-	return k.synced
-}
-
 // Hook up gocheck into the "go test" runner.
 type EgressGatewayTestSuite struct{}
 
@@ -132,13 +128,20 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	defer cleanupPolicies()
 
-	k8sCacheSyncedChecker := &k8sCacheSyncedCheckerMock{}
+	k8sCacheSyncedChecker := k8s.NewCacheSyncedChecker()
 
-	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator)
+	identityAllocatorResolver, identityAllocatorPromise := promise.New[cache.IdentityAllocator]()
+	identityAllocatorResolver.Resolve(identityAllocator)
+
+	lifecycle := &hive.DefaultLifecycle{}
+
+	egressGatewayManager := NewEgressGatewayManager(lifecycle, &option.DaemonConfig{EnableIPv4EgressGateway: true}, k8sCacheSyncedChecker, identityAllocatorPromise)
+	lifecycle.Start(context.TODO())
+
 	c.Assert(egressGatewayManager, NotNil)
 	assertIPRules(c, []ipRule{})
 
-	k8sCacheSyncedChecker.synced = true
+	k8sCacheSyncedChecker.Synced()
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	egressGatewayManager.OnUpdateNode(node1)

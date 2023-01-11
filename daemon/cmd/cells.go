@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -78,6 +79,10 @@ var (
 
 		// IPCache maps endpoint IPs or CIDRs to associated information like security identities
 		ipcache.Cell,
+
+		// The egressgateway allows outbound connections to be routed via a specific node and IP address so
+		// static configuration can be made on that IP address (for example firewalls).
+		egressgateway.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
