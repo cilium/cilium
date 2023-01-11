@@ -397,10 +397,9 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 		},
 	}
 	natVal = &nat.NatEntry4{
-		Created:   37400,
-		HostLocal: 1,
-		Addr:      types.IPv4{10, 0, 2, 20},
-		Port:      0x409c,
+		Created: 37400,
+		Addr:    types.IPv4{10, 0, 2, 20},
+		Port:    0x409c,
 	}
 	err = bpf.UpdateElement(natMap.Map.GetFd(), natMap.Map.Name(), unsafe.Pointer(natKey),
 		unsafe.Pointer(natVal), 0)
