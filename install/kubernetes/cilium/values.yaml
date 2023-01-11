@@ -184,6 +184,13 @@ securityContext:
     - SETGID
     # Allow to execute program that changes UID (e.g. required for package installation)
     - SETUID
+  # -- SELinux options for the `cilium-agent` and init containers
+  seLinuxOptions:
+    level: 's0'
+    # Running with spc_t since we have removed the privileged mode.
+    # Users can change it to a different type as long as they have the
+    # type available on the system.
+    type: 'spc_t'
 
 # -- Cilium agent update strategy
 updateStrategy:
