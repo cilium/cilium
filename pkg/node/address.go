@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -423,6 +425,12 @@ func AutoComplete() error {
 
 	InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
+	switch option.Config.IPAM {
+	// When using the following IPAM modes, we do not leverage these generated CIDRs
+	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
+		return nil
+	}
+
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
 		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specificy --%s", option.IPv6Range)
 	}
@@ -517,7 +525,7 @@ func chooseHostIPsToRestore(ipv6 bool, fromK8s, fromFS net.IP, cidrs []*cidr.CID
 	}
 
 	for _, cidr := range cidrs {
-		if cidr != nil && cidr.Contains(ip) {
+		if cidr != nil && cidr.String() != "" && cidr.Contains(ip) {
 			return
 		}
 	}
@@ -618,17 +626,23 @@ func GetNodeAddressing() *models.NodeAddressing {
 
 	if option.Config.EnableIPv6 {
 		a.IPV6 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv6,
-			IP:         GetIPv6Router().String(),
-			AllocRange: GetIPv6AllocRange().String(),
+			Enabled: option.Config.EnableIPv6,
+			IP:      GetIPv6Router().String(),
+		}
+
+		if allocRange := GetIPv6AllocRange(); allocRange != nil {
+			a.IPV6.AllocRange = allocRange.String()
 		}
 	}
 
 	if option.Config.EnableIPv4 {
 		a.IPV4 = &models.NodeAddressingElement{
-			Enabled:    option.Config.EnableIPv4,
-			IP:         GetInternalIPv4Router().String(),
-			AllocRange: GetIPv4AllocRange().String(),
+			Enabled: option.Config.EnableIPv4,
+			IP:      GetInternalIPv4Router().String(),
+		}
+
+		if allocRange := GetIPv4AllocRange(); allocRange != nil {
+			a.IPV4.AllocRange = allocRange.String()
 		}
 	}
 
