@@ -1054,6 +1054,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		ctx_snat_done_set(ctx);
 
 	if (flags & XFER_PKT_ENCAP) {
+		edt_set_aggregate(ctx, 0);
+
 		return __encap_and_redirect_with_nodeid(ctx, ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
 							ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
 							ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
