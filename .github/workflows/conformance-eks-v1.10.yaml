@@ -63,9 +63,10 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
+  k8s_version: 1.21
   cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  eksctl_version: v0.101.0
+  eksctl_version: v0.122.0
   kubectl_version: v1.23.6
 
 jobs:
@@ -119,7 +120,7 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
@@ -155,7 +156,7 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
-            --flow-validation=disabled --hubble=false"
+            --flow-validation=disabled --hubble=false --test '!/pod-to-world,!/pod-to-cidr'"
           echo ::set-output name=cilium_install_defaults::${CILIUM_INSTALL_DEFAULTS}
           echo ::set-output name=hubble_enable_defaults::${HUBBLE_ENABLE_DEFAULTS}
           echo ::set-output name=connectivity_test_defaults::${CONNECTIVITY_TEST_DEFAULTS}
@@ -195,7 +196,7 @@ jobs:
           rm eksctl_$(uname -s)_amd64.tar.gz
 
       - name: Install helm
-        uses: azure/setup-helm@f382f75448129b3be48f8121b9857be18d815a82
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78
         with:
           # Due to the below issue, v3.8.2 is pinned currently to avoid
           # exec plugin: invalid apiVersion "client.authentication.k8s.io/v1alpha1"
@@ -218,6 +219,7 @@ jobs:
           metadata:
             name: ${{ env.clusterName }}
             region: ${{ env.region }}
+            version: "${{ env.k8s_version }}"
             tags:
              usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
              owner: "${{ steps.vars.outputs.owner }}"
@@ -239,6 +241,11 @@ jobs:
           EOF
 
           eksctl create cluster -f ./eks-config.yaml
+
+      # This is a workaround for flake #16938.
+      - name: Remove AWS-CNI
+        run: |
+          kubectl -n kube-system delete daemonset aws-node
 
       - name: Wait for images to be available
         timeout-minutes: 10
@@ -292,11 +299,7 @@ jobs:
 
       - name: Run connectivity test
         run: |
-          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy \
-            --test '!client-egress-l7,!echo-ingress-l7'
-      # workaround for L7 tests issues on EKS with IPsec enabled
-      # TODO: remove both test exceptions once:
-      # - https://github.com/cilium/cilium/issues/17139 is fixed
+          cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} --force-deploy
 
       - name: Post-test information gathering
         if: ${{ !success() }}

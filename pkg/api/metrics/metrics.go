@@ -13,7 +13,7 @@ import (
 // API usage
 type PrometheusMetrics struct {
 	registry    *prometheus.Registry
-	ApiDuration *prometheus.HistogramVec
+	APIDuration *prometheus.HistogramVec
 	RateLimit   *prometheus.HistogramVec
 }
 
@@ -22,7 +22,7 @@ type PrometheusMetrics struct {
 func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Registry) *PrometheusMetrics {
 	m := &PrometheusMetrics{registry: registry}
 
-	m.ApiDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	m.APIDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "api_duration_seconds",
@@ -36,7 +36,7 @@ func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Regi
 		Help:      "Duration of client-side rate limiter blocking",
 	}, []string{"operation"})
 
-	registry.MustRegister(m.ApiDuration)
+	registry.MustRegister(m.APIDuration)
 	registry.MustRegister(m.RateLimit)
 
 	return m
@@ -45,7 +45,7 @@ func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Regi
 // ObserveAPICall must be called on every API call made with the operation
 // performed, the status code received and the duration of the call
 func (p *PrometheusMetrics) ObserveAPICall(operation, status string, duration float64) {
-	p.ApiDuration.WithLabelValues(operation, status).Observe(duration)
+	p.APIDuration.WithLabelValues(operation, status).Observe(duration)
 }
 
 // ObserveRateLimit must be called in case an API call was subject to rate limiting

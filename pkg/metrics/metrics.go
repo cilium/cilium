@@ -680,6 +680,9 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 	for _, metricName := range metricsEnabled {
 		switch metricName {
+		default:
+			logrus.WithField("metric", metricName).Warning("Metric does not exist, skipping")
+
 		case Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":
 			APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 				Namespace: Namespace,
@@ -1410,7 +1413,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
 
-		case Namespace + "_arping_requests_total":
+		case Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":
 			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemNodeNeigh,

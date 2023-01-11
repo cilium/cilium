@@ -61,7 +61,8 @@ type AllocateIpamPoolCidrInput struct {
 	// A description for the allocation.
 	Description *string
 
-	// Exclude a particular CIDR range from being returned by the pool.
+	// Exclude a particular CIDR range from being returned by the pool. Disallowed
+	// CIDRs are only allowed if using netmask length for allocation.
 	DisallowedCidrs []string
 
 	// A check for whether you have the required permissions for the action without

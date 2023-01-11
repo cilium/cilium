@@ -251,6 +251,15 @@ const (
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode = "ces-slice-mode"
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
+	LoadBalancerL7 = "loadbalancer-l7"
+
+	// LoadBalancerL7Ports is a list of service ports that will be automatically redirected to backend.
+	LoadBalancerL7Ports = "loadbalancer-l7-ports"
+
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm = "loadbalancer-l7-algorithm"
+
 	// EnableIngressController enables cilium ingress controller
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableIngressController = "enable-ingress-controller"
@@ -307,6 +316,10 @@ const (
 	// Intended for operating cilium with CNI-compatible orchestrators
 	// other than Kubernetes. (default is true)
 	EnableK8s = "enable-k8s"
+
+	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
+	// default values: k8s-app=kube-dns
+	PodRestartSelector = "pod-restart-selector"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -519,6 +532,15 @@ type OperatorConfig struct {
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode string
 
+	// LoadBalancerL7 enables loadbalancer capabilities for services.
+	LoadBalancerL7 string
+
+	// EnvoyLoadBalancerPorts is a list of service ports that will be automatically redirected to Envoy
+	LoadBalancerL7Ports []string
+
+	// LoadBalancerL7Algorithm is a default LB algorithm for services that do not specify related annotation
+	LoadBalancerL7Algorithm string
+
 	// EnableIngressController enables cilium ingress controller
 	EnableIngressController bool
 
@@ -570,6 +592,9 @@ type OperatorConfig struct {
 	// Intended for operating cilium with CNI-compatible orquestrators
 	// othern than Kubernetes. (default is true)
 	EnableK8s bool
+
+	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
+	PodRestartSelector string
 }
 
 // Populate sets all options with the values from viper.
@@ -603,6 +628,9 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
+	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
+	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
+	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
@@ -617,6 +645,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
 	c.EnableK8s = vp.GetBool(EnableK8s)
+	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
 

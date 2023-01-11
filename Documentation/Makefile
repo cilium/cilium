@@ -33,7 +33,11 @@ builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for re
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
 cilium-build:
+ifndef SKIP_BUILD
 	make -C ../ build
+else
+	echo "SKIP_BUILD set, assuming all build artifacts are already present."
+endif
 
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR_ROOT_DIR := /src

@@ -59,7 +59,7 @@ func mergeProfileBlock(p *cover.Profile, pb cover.ProfileBlock, startIndex int) 
 	}
 
 	i := 0
-	if sortFunc(i) != true {
+	if !sortFunc(i) {
 		i = sort.Search(len(p.Blocks)-startIndex, sortFunc)
 	}
 	i += startIndex

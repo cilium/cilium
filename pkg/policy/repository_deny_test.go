@@ -558,14 +558,14 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDeny(c *C) {
 			Port:     0,
 			Protocol: api.ProtoAny,
 			U8Proto:  0x0,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          true,
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -636,7 +636,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 			U8Proto:  0x6,
 			L7Parser: ParserTypeNone,
 			Ingress:  true,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4HTTP},
@@ -647,13 +647,13 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 			U8Proto:  0x6,
 			L7Parser: ParserTypeNone,
 			Ingress:  true,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -715,14 +715,14 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressDenyFromRequires(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          true,
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -796,7 +796,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressDenyFromRequires(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector2: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{nil},
@@ -805,13 +805,13 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressDenyFromRequires(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				expectedCachedSelector: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{nil},
 		},
 	}
-	if !c.Check(policyDeny, checker.Equals, expectedDenyPolicy) {
+	if !c.Check(policyDeny, checker.DeepEquals, expectedDenyPolicy) {
 		c.Errorf("Policy doesn't match expected:\n%s", logBuffer.String())
 	}
 	policyDeny.Detach(repo.GetSelectorCache())
@@ -908,7 +908,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          false,
@@ -919,7 +919,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Protocol: api.ProtoICMP,
 			U8Proto:  0x1,
 			L7Parser: "",
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          false,
@@ -930,14 +930,14 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Protocol: api.ProtoICMPv6,
 			U8Proto:  0x3A,
 			L7Parser: "",
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          false,
 			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
 		},
 	}
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy, Commentf("Resolved policy did not match expected:\n%s", logBuffer.String()))
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy, Commentf("Resolved policy did not match expected:\n%s", logBuffer.String()))
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1011,7 +1011,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 			U8Proto:  0x6,
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3HTTP},
@@ -1022,13 +1022,13 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 			U8Proto:  0x11,
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3DNS},
 		},
 	}
-	if equal, err := checker.Equal(policyDeny, expectedDenyPolicy); !equal {
+	if equal, err := checker.DeepEqual(policyDeny, expectedDenyPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1109,7 +1109,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 			U8Proto:  0x6,
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1120,13 +1120,13 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 			U8Proto:  0x0,
 			L7Parser: ParserTypeNone,
 			Ingress:  false,
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{IsDeny: true},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	if equal, err := checker.Equal(policyDeny, expectedDenyPolicy); !equal {
+	if equal, err := checker.DeepEqual(policyDeny, expectedDenyPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1176,7 +1176,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          true,
@@ -1184,7 +1184,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 		},
 	}
 
-	c.Assert(policyDeny, checker.Equals, expectedPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1233,7 +1233,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 			Protocol: "ANY",
 			U8Proto:  0x0,
 			L7Parser: "",
-			L7RulesPerSelector: L7DataMap{
+			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 			},
 			Ingress:          false,
@@ -1241,7 +1241,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 		},
 	}
 
-	c.Assert(policyDeny, checker.Equals, expectedDenyPolicy)
+	c.Assert(policyDeny, checker.DeepEquals, expectedDenyPolicy)
 	policyDeny.Detach(repo.GetSelectorCache())
 }
 
@@ -1325,14 +1325,14 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStartedDeny(c *C) {
 	expectedDeny.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone,
-		L7RulesPerSelector: L7DataMap{
+		PerSelectorPolicies: L7DataMap{
 			cachedSelectorApp2: &PerSelectorPolicy{IsDeny: true},
 		},
 		Ingress:          true,
 		DerivedFromRules: []labels.LabelArray{nil},
 	}
 
-	if equal, err := checker.Equal(l4IngressDenyPolicy, expectedDeny.Ingress); !equal {
+	if equal, err := checker.DeepEqual(l4IngressDenyPolicy, expectedDeny.Ingress); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}

@@ -42,7 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
@@ -254,8 +255,8 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(Vp, option.EnableIPv6Name)
 
-	flags.Bool(option.EnableStatelessNat46X64, false, "Enable stateless NAT46 and NAT64 support")
-	option.BindEnv(Vp, option.EnableStatelessNat46X64)
+	flags.Bool(option.EnableNat46X64Gateway, false, "Enable NAT46 and NAT64 gateway")
+	option.BindEnv(Vp, option.EnableNat46X64Gateway)
 
 	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
 	option.BindEnv(Vp, option.EnableIPv6NDPName)
@@ -501,7 +502,7 @@ func initializeFlags() {
 	option.BindEnv(Vp, option.Labels)
 
 	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
-		"enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
+		"Enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
 			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
 			"or completely disable it (ignores any selected feature) (%q)",
 		option.KubeProxyReplacementPartial, option.KubeProxyReplacementStrict,
@@ -686,7 +687,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(Vp, option.MaxCtrlIntervalName)
 
-	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
+	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
 	option.BindEnv(Vp, option.Metrics)
 
 	flags.Bool(option.EnableMonitorName, true, "Enable the monitor unix domain socket server")
@@ -867,10 +868,18 @@ func initializeFlags() {
 	flags.Duration(option.DNSProxyConcurrencyProcessingGracePeriod, 0, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
 	option.BindEnv(Vp, option.DNSProxyConcurrencyProcessingGracePeriod)
 
-	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "size of queues for policy-related events")
+	flags.Int(option.DNSProxyLockCount, 128, "Array size containing mutexes which protect against parallel handling of DNS response IPs")
+	flags.MarkHidden(option.DNSProxyLockCount)
+	option.BindEnv(Vp, option.DNSProxyLockCount)
+
+	flags.Duration(option.DNSProxyLockTimeout, 500*time.Millisecond, fmt.Sprintf("Timeout when acquiring the locks controlled by --%s", option.DNSProxyLockCount))
+	flags.MarkHidden(option.DNSProxyLockTimeout)
+	option.BindEnv(Vp, option.DNSProxyLockTimeout)
+
+	flags.Int(option.PolicyQueueSize, defaults.PolicyQueueSize, "Size of queues for policy-related events")
 	option.BindEnv(Vp, option.PolicyQueueSize)
 
-	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "size of EventQueue per-endpoint")
+	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(Vp, option.EndpointQueueSize)
 
 	flags.Duration(option.EndpointGCInterval, 5*time.Minute, "Periodically monitor local endpoint health via link status on this interval and garbage collect them if they become unhealthy, set to 0 to disable")
@@ -998,7 +1007,7 @@ func initializeFlags() {
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 	option.BindEnv(Vp, option.APIRateLimitName)
 
-	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
+	flags.Var(option.NewNamedMapOptions(option.BPFMapEventBuffers, &option.Config.BPFMapEventBuffers, option.Config.BPFMapEventBuffersValidator), option.BPFMapEventBuffers, "Configuration for BPF map event buffers: (example: --bpf-map-event-buffers cilium_ipcache=true,1024,1h)")
 	flags.MarkHidden(option.BPFMapEventBuffers)
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
@@ -1630,13 +1639,16 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle      hive.Lifecycle
-	Clientset      k8sClient.Clientset
-	Datapath       datapath.Datapath
-	WGAgent        *wg.Agent `optional:"true"`
-	LocalNodeStore node.LocalNodeStore
-	BGPController  *bgpv1.Controller
-	Shutdowner     hive.Shutdowner
+	Lifecycle       hive.Lifecycle
+	Clientset       k8sClient.Clientset
+	Datapath        datapath.Datapath
+	WGAgent         *wg.Agent `optional:"true"`
+	LocalNodeStore  node.LocalNodeStore
+	BGPController   *bgpv1.Controller
+	Shutdowner      hive.Shutdowner
+	SharedResources k8s.SharedResources
+	NodeManager     nodeManager.NodeManager
+	EndpointManager endpointmanager.EndpointManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1660,10 +1672,12 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		OnStart: func(hive.HookContext) error {
 			d, restoredEndpoints, err := newDaemon(
 				daemonCtx, cleaner,
-				WithDefaultEndpointManager(daemonCtx, params.Clientset, endpoint.CheckHealth),
+				params.EndpointManager,
+				params.NodeManager,
 				params.Datapath,
 				params.WGAgent,
-				params.Clientset)
+				params.Clientset,
+				params.SharedResources)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -1858,16 +1872,18 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
-	if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
-		// Remove all non-GC'ed neighbor entries that might have previously set
-		// by a Cilium instance.
-		d.datapath.Node().NodeCleanNeighbors(false)
-	} else {
-		// If we came from an agent upgrade, migrate entries.
-		d.datapath.Node().NodeCleanNeighbors(true)
-		// Start periodical refresh of the neighbor table from the agent if needed.
-		if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
-			d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+		if !d.datapath.Node().NodeNeighDiscoveryEnabled() {
+			// Remove all non-GC'ed neighbor entries that might have previously set
+			// by a Cilium instance.
+			d.datapath.Node().NodeCleanNeighbors(false)
+		} else {
+			// If we came from an agent upgrade, migrate entries.
+			d.datapath.Node().NodeCleanNeighbors(true)
+			// Start periodical refresh of the neighbor table from the agent if needed.
+			if option.Config.ARPPingRefreshPeriod != 0 && !option.Config.ARPPingKernelManaged {
+				d.nodeDiscovery.Manager.StartNeighborRefresh(d.datapath.Node())
+			}
 		}
 	}
 

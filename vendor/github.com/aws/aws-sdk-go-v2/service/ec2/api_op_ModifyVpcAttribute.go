@@ -50,6 +50,9 @@ type ModifyVpcAttributeInput struct {
 	// attribute.
 	EnableDnsSupport *types.AttributeBooleanValue
 
+	// Indicates whether Network Address Usage metrics are enabled for your VPC.
+	EnableNetworkAddressUsageMetrics *types.AttributeBooleanValue
+
 	noSmithyDocumentSerde
 }
 

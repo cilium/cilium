@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -51,7 +52,7 @@ const (
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
 	Pad1      uint16 `align:"pad1"`
-	Pad2      uint8  `align:"pad2"`
+	ClusterID uint8  `align:"cluster_id"`
 	Family    uint8  `align:"family"`
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP types.IPv6 `align:"$union0"`
@@ -72,16 +73,27 @@ func getStaticPrefixBits() uint32 {
 }
 
 func (k Key) String() string {
-	prefixLen := k.Prefixlen - getStaticPrefixBits()
+	var (
+		addr netip.Addr
+		ok   bool
+	)
+
 	switch k.Family {
 	case bpf.EndpointKeyIPv4:
-		ipStr := net.IP(k.IP[:net.IPv4len]).String()
-		return fmt.Sprintf("%s/%d", ipStr, prefixLen)
+		addr, ok = netip.AddrFromSlice(k.IP[:net.IPv4len])
+		if !ok {
+			return "<unknown>"
+		}
 	case bpf.EndpointKeyIPv6:
-		ipStr := k.IP.String()
-		return fmt.Sprintf("%s/%d", ipStr, prefixLen)
+		addr = netip.AddrFrom16(k.IP)
+	default:
+		return "<unknown>"
 	}
-	return "<unknown>"
+
+	prefixLen := int(k.Prefixlen - getStaticPrefixBits())
+	clusterID := uint32(k.ClusterID)
+
+	return cmtypes.PrefixClusterFrom(addr, prefixLen, clusterID).String()
 }
 
 func (k Key) IPNet() *net.IPNet {
@@ -118,9 +130,9 @@ func getPrefixLen(prefixBits int) uint32 {
 	return getStaticPrefixBits() + uint32(prefixBits)
 }
 
-// NewKey returns an Key based on the provided IP address and mask. The address
-// family is automatically detected
-func NewKey(ip net.IP, mask net.IPMask) Key {
+// NewKey returns an Key based on the provided IP address, mask, and ClusterID.
+// The address family is automatically detected
+func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
 	result := Key{}
 
 	ones, _ := mask.Size()
@@ -139,6 +151,8 @@ func NewKey(ip net.IP, mask net.IPMask) Key {
 		result.Family = bpf.EndpointKeyIPv6
 		copy(result.IP[:], ip)
 	}
+
+	result.ClusterID = clusterID
 
 	return result
 }

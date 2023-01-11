@@ -1332,6 +1332,13 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	if l7Rules.OriginatingTLS != nil {
 		r.UpstreamTlsContext = getCiliumTLSContext(l7Rules.OriginatingTLS)
 	}
+	if len(l7Rules.ServerNames) > 0 {
+		r.ServerNames = make([]string, 0, len(l7Rules.ServerNames))
+		for sni := range l7Rules.ServerNames {
+			r.ServerNames = append(r.ServerNames, sni)
+		}
+		sort.Strings(r.ServerNames)
+	}
 
 	// Assume none of the rules have side-effects so that rule evaluation can
 	// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
@@ -1421,11 +1428,11 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			remoteMap[uint64(id)] = struct{}{}
 		}
 
-		if !l7.IsEmpty() {
-			// If it is not empty then we issue the warning.
+		if l7.IsRedirect() {
+			// Issue a warning if this port-0 rule is a redirect.
 			// Deny rules don't support L7 therefore for the deny case
-			// l7.IsEmpty() will always return true.
-			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
+			// l7.IsRedirect() will always return false.
+			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
 	}
 
@@ -1498,7 +1505,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			}
 		}
 
-		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector))
+		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.PerSelectorPolicies))
 		allowAll := false
 
 		// Assume none of the rules have side-effects so that rule evaluation can
@@ -1510,7 +1517,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
-			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
+			rule := getWildcardNetworkPolicyRule(l4.PerSelectorPolicies)
 			if rule != nil {
 				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
@@ -1520,8 +1527,8 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 				rules = append(rules, rule)
 			}
 		} else {
-			nSelectors := len(l4.L7RulesPerSelector)
-			for sel, l7 := range l4.L7RulesPerSelector {
+			nSelectors := len(l4.PerSelectorPolicies)
+			for sel, l7 := range l4.PerSelectorPolicies {
 				// A single selector is effectively a wildcard, as bpf passes through
 				// only allowed l3. If there are multiple selectors for this l4-filter
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
@@ -1532,7 +1539,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 					if !cs {
 						canShortCircuit = false
 					}
-					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil {
+					if len(rule.RemotePolicies) == 0 && rule.L7 == nil && rule.DownstreamTlsContext == nil && rule.UpstreamTlsContext == nil && len(rule.ServerNames) == 0 {
 						// Got an allow-all rule, which can short-circuit all of
 						// the other rules.
 						allowAll = true

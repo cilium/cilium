@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -85,22 +85,22 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 			res.ExpectSuccess("removing proxy visibility annotation failed")
 		}
 
-		getFlowsFromRelay := func(args string) []*pb.Flow {
+		getFlowsFromRelay := func(args string) []*observerpb.GetFlowsResponse {
 			args = fmt.Sprintf("--server %s %s", hubbleRelayAddress, args)
 
-			var result []*pb.Flow
+			var result []*observerpb.GetFlowsResponse
 			hubbleObserve := func() error {
 				res := kubectl.HubbleObserve(ciliumPodK8s1, args)
 				res.ExpectSuccess("hubble observe invocation failed: %q", res.OutputPrettyPrint())
 
 				lines := res.ByLines()
-				flows := make([]*pb.Flow, 0, len(lines))
+				flows := make([]*observerpb.GetFlowsResponse, 0, len(lines))
 				for _, line := range lines {
 					if len(line) == 0 {
 						continue
 					}
 
-					f := &pb.Flow{}
+					f := &observerpb.GetFlowsResponse{}
 					if err := protojson.Unmarshal([]byte(line), f); err != nil {
 						return fmt.Errorf("failed to decode in %q: %w", lines, err)
 					}
@@ -187,7 +187,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L3_L4", helpers.ShortCommandTimeout)
+			err := follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L3_L4", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 
 			// Basic check for L4 Prometheus metrics.
@@ -238,7 +238,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L7", helpers.ShortCommandTimeout)
+			err := follow.WaitUntilMatchFilterLineTimeout(`{$.flow.Type}`, "L7", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
 
 			// Basic check for L7 Prometheus metrics.
@@ -282,7 +282,7 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 				"--last 1 --type trace:from-endpoint --from-pod %s/%s --to-fqdn %s",
 				namespaceForTest, appPods[helpers.App2], fqdnTarget))
 			Expect(flows).To(HaveLen(1))
-			Expect(flows[0].Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
+			Expect(flows[0].GetFlow().Destination.Identity).To(BeNumerically(">=", identity.MinimalNumericIdentity))
 		})
 	})
 })

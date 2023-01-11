@@ -22,3 +22,6 @@
 
 # Tools binaries.
 hack/tools/bin
+
+junit-report.xml
+/artifacts

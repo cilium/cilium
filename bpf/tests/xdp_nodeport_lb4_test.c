@@ -74,7 +74,7 @@ static int build_packet(struct __ctx_buff *ctx)
 		.ihl = 5,
 		.tot_len = 40, /* 20 bytes l3 + 20 bytes l4 + 20 bytes data */
 		.id = 0x5438,
-		.frag_off = 0x4000,
+		.frag_off = bpf_htons(IP_DF),
 		.ttl = 64,
 		.protocol = IPPROTO_TCP,
 		.saddr = 0x0F00000A, /* 10.0.0.15 */
@@ -153,7 +153,7 @@ int test1_setup(struct __ctx_buff *ctx)
 		.proto = IPPROTO_TCP,
 		.flags = 0,
 	};
-	map_update_elem(&LB4_BACKEND_MAP_V2, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);
@@ -209,8 +209,8 @@ int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	data += sizeof(struct tcphdr);
 
-	if (l4->dest != 80)
-		test_fatal("dst port changed");
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port != backend port");
 
 	char msg[20] = "Should not change!!";
 

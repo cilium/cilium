@@ -55,6 +55,8 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	kvstore.SetupDummy("etcd")
 
 	s.randomName = rand.RandomString()
+	clusterName1 := s.randomName + "1"
+	clusterName2 := s.randomName + "2"
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
@@ -67,11 +69,19 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	s.testDir = dir
 	c.Assert(err, IsNil)
 
-	config1 := path.Join(dir, s.randomName+"1")
+	for i, cluster := range []string{clusterName1, clusterName2} {
+		config := cmtypes.CiliumClusterConfig{
+			ID: uint32(i),
+		}
+		err := SetClusterConfig(cluster, &config, kvstore.Client())
+		c.Assert(err, IsNil)
+	}
+
+	config1 := path.Join(dir, clusterName1)
 	err = os.WriteFile(config1, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 
-	config2 := path.Join(dir, s.randomName+"2")
+	config2 := path.Join(dir, clusterName2)
 	err = os.WriteFile(config2, etcdConfig, 0644)
 	c.Assert(err, IsNil)
 

@@ -183,6 +183,13 @@ securityContext:
   # runAsUser: 0
   # -- Run the pod with elevated privileges
   privileged: false
+  # -- SELinux options for the `cilium-agent` and init containers
+  seLinuxOptions:
+    level: 's0'
+    # Running with spc_t since we have removed the privileged mode.
+    # Users can change it to a different type as long as they have the
+    # type available on the system.
+    type: 'spc_t'
   capabilities:
     # -- Capabilities for the `cilium-agent` container
     ciliumAgent:
@@ -300,8 +307,8 @@ bandwidthManager:
   # -- Activate BBR TCP congestion control for Pods
   bbr: false
 
-# -- Configure Stateless NAT46/NAT64 translation
-statelessNat46x64:
+# -- Configure standalone NAT46/NAT64 gateway
+nat46x64Gateway:
   # -- Enable RFC8215-prefixed translation
   enabled: false
 
@@ -333,12 +340,6 @@ bpf:
 
   # -- Enable BPF clock source probing for more efficient tick retrieval.
   clockProbe: false
-
-  # -- Configure the path to the host boot directory
-  hostBoot: /boot
-
-  # -- Enable host boot directory mount for BPF clock source probing
-  mountHostBoot: true
 
   # -- Enables pre-allocation of eBPF map values. This increases
   # memory usage but can reduce latency.
@@ -482,9 +483,10 @@ cni:
   # inside the agent pod.
   hostConfDirMountPath: /host/etc/cni/net.d
 
-# -- Configure how frequently garbage collection should occur for the datapath
+# -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
-# conntrackGCInterval: "0s"
+# @default -- `"0s"`
+conntrackGCInterval: ""
 
 # -- Configure container runtime specific integration.
 containerRuntime:
@@ -499,7 +501,9 @@ containerRuntime:
   # -- Configure the path to the container runtime control socket.
   # socketPath: /path/to/runtime.sock
 
-# crdWaitTimeout: ""
+# -- (string) Configure timeout in which Cilium will exit if CRDs are not available
+# @default -- `"5m"`
+crdWaitTimeout: ""
 
 # -- Tail call hooks for custom eBPF programs.
 customCalls:
@@ -509,6 +513,31 @@ customCalls:
 daemon:
   # -- Configure where Cilium runtime state should be stored.
   runPath: "/var/run/cilium"
+
+  # -- Configure a custom list of possible configuration override sources
+  # The default is "config-map:cilium-config,cilium-node-config". For supported
+  # values, see the help text for the build-config subcommand.
+  # Note that this value should be a comma-separated string.
+  configSources: ~
+
+  # -- allowedConfigOverrides is a list of config-map keys that can be overridden.
+  # That is to say, if this value is set, config sources (excepting the first one) can
+  # only override keys in this list.
+  #
+  # This takes precedence over blockedConfigOverrides.
+  #
+  # By default, all keys may be overridden. To disable overrides, set this to "none" or
+  # change the configSources variable.
+  allowedConfigOverrides: ~
+
+  # -- blockedConfigOverrides is a list of config-map keys that may not be overridden.
+  # In other words, if any of these keys appear in a configuration source excepting the
+  # first one, they will be ignored
+  #
+  # This is ignored if allowedConfigOverrides is set.
+  #
+  # By default, all keys may be overridden.
+  blockedConfigOverrides: ~
 
 # -- Specify which network interfaces can run the eBPF datapath. This means
 # that a packet sent from a pod to a destination outside the cluster will be
@@ -584,6 +613,12 @@ ingressController:
     labels: {}
     # -- Annotations to be added for the shared LB service
     annotations: {}
+    # -- Service type for the shared LB service
+    type: LoadBalancer
+    # -- Configure a specific nodePort for insecure HTTP traffic on the shared LB service
+    insecureNodePort: ~
+    # -- Configure a specific nodePort for secure HTTPS traffic on the shared LB service
+    secureNodePort : ~
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
@@ -752,12 +787,18 @@ certgen:
   image:
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"
+    tag: "v0.1.8"
+    digest: "sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"
+    useDigest: true
     pullPolicy: "Always"
   # -- Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
+  # -- Annotations to be added to the hubble-certgen initial Job and CronJob
+  annotations:
+    job: {}
+    cronJob: {}
   # -- Node tolerations for pod assignment on nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations: []
@@ -1120,7 +1161,9 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui-backend"
-        tag: "v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
+        tag: "v0.9.2"
+        digest: "sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
+        useDigest: true
         pullPolicy: "Always"
 
       # -- Additional hubble-ui backend environment variables.
@@ -1140,7 +1183,9 @@ hubble:
       image:
         override: ~
         repository: "quay.io/cilium/hubble-ui"
-        tag: "v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
+        tag: "v0.9.2"
+        digest: "sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
+        useDigest: true
         pullPolicy: "Always"
 
       # -- Additional hubble-ui frontend environment variables.
@@ -1241,15 +1286,9 @@ hubble:
 # -- Method to use for identity allocation (`crd` or `kvstore`).
 identityAllocationMode: "crd"
 
-# -- Time to wait before using new identity on endpoint identity change.
-# identityChangeGracePeriod: "5s"
-
-# -- GC interval for security identities.
-# identityGCInterval: "15m0s"
-
-# -- Timeout after which identity expires on lack of heartbeat.
-# identityHeartbeatTimeout: "30m0s"
-
+# -- (string) Time to wait before using new identity on endpoint identity change.
+# @default -- `"5s"`
+identityChangeGracePeriod: ""
 
 # -- Configure whether to install iptables rules to allow for TPROXY
 # (L7 proxy injection), iptables-based masquerading and compatibility
@@ -1447,7 +1486,7 @@ monitor:
   enabled: false
 
 # -- Configure service load balancing
-# loadBalancer:
+loadBalancer:
   # -- standalone enables the standalone L4LB which does not connect to
   # kube-apiserver.
   # standalone: false
@@ -1471,6 +1510,27 @@ monitor:
   # -- serviceTopology enables K8s Topology Aware Hints -based service
   # endpoints filtering
   # serviceTopology: false
+
+  # -- L7 LoadBalancer
+  l7:
+    # -- Enable L7 service load balancing via envoy proxy.
+    # The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol,
+    # will be forwarded to the local backend proxy to be load balanced to the service endpoints.
+    # Please refer to docs for supported annotations for more configuration.
+    #
+    # Applicable values:
+    #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
+    #   - disabled: Disable L7 load balancing.
+    backend: disabled
+    # -- List of ports from service to be automatically redirected to above backend.
+    # Any service exposing one of these ports will be automatically redirected.
+    # Fine-grained control can be achieved by using the service annotation.
+    ports: []
+    # -- Default LB algorithm
+    # The default LB algorithm to be used for services, which can be overridden by the
+    # service annotation (e.g. io.cilium.service/lb-algorithm)
+    # Applicable values: round_robin, least_request, random
+    algorithm: round_robin
 
 # -- Configure N-S k8s service loadbalancing
 nodePort:
@@ -1526,9 +1586,9 @@ prometheus:
         replacement: ${1}
     # -- Metrics relabeling configs for the ServiceMonitor cilium-agent
     metricRelabelings: ~
-  # -- Metrics that should be enabled or disabled from the default metric
-  # list. (+metric_foo to enable metric_foo , -metric_bar to disable
-  # metric_bar).
+  # -- Metrics that should be enabled or disabled from the default metric list.
+  # The list is expected to be separated by a space. (+metric_foo to enable
+  # metric_foo , -metric_bar to disable metric_bar).
   # ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
   metrics: ~
 
@@ -1629,7 +1689,9 @@ etcd:
   image:
     override: ~
     repository: "quay.io/cilium/cilium-etcd-operator"
-    tag: "v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
+    tag: "v2.0.7"
+    digest: "sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"
+    useDigest: true
     pullPolicy: "Always"
 
   # -- The priority class to use for cilium-etcd-operator
@@ -2009,6 +2071,8 @@ preflight:
     effect: NoSchedule
   - key: node-role.kubernetes.io/master
     effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    effect: NoSchedule
   - key: node.cloudprovider.kubernetes.io/uninitialized
     effect: NoSchedule
     value: "true"
@@ -2119,7 +2183,9 @@ clustermesh:
       image:
         override: ~
         repository: "quay.io/coreos/etcd"
-        tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
+        tag: "v3.5.4"
+        digest: "sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
+        useDigest: true
         pullPolicy: "Always"
 
       # -- Specifies the resources for etcd container in the apiserver
@@ -2316,6 +2382,14 @@ cgroup:
     # cgroup2 filesystem at the specified `cgroup.hostRoot` volume, and then the
     # volume will be mounted inside the cilium agent pod at the same path.
     enabled: true
+    # -- Init Container Cgroup Automount resource limits & requests
+    resources: {}
+      # limits:
+      #   cpu: 100m
+      #   memory: 128Mi
+      # requests:
+      #   cpu: 100m
+      #   memory: 128Mi
   # -- Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: `cgroup.autoMount`)
   hostRoot: /run/cilium/cgroupv2
 

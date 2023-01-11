@@ -4,11 +4,14 @@
 package watchers
 
 import (
+	"context"
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -27,11 +30,11 @@ var (
 	// PodStoreSynced is closed once the PodStore is synced with k8s.
 	PodStoreSynced = make(chan struct{})
 
-	// UnmanagedKubeDNSPodStore has a minimal copy of the unmanaged kube-dns pods running
+	// UnmanagedPodStore has a minimal copy of the unmanaged pods running
 	// in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
 	// operations in k8s as some of its fields are not populated.
-	UnmanagedKubeDNSPodStore cache.Store
+	UnmanagedPodStore cache.Store
 
 	// UnmanagedPodStoreSynced is closed once the UnmanagedKubeDNSPodStore is synced
 	// with k8s.
@@ -47,7 +50,7 @@ func podNodeNameIndexFunc(obj interface{}) ([]string, error) {
 	return []string{}, nil
 }
 
-func PodsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
+func PodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var podInformer cache.Controller
 	PodStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{
 		PodNodeNameIndex: podNodeNameIndexFunc,
@@ -62,10 +65,13 @@ func PodsInit(clientset k8sClient.Clientset, stopCh <-chan struct{}) {
 		convertToPod,
 		PodStore,
 	)
-	go podInformer.Run(stopCh)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		podInformer.Run(ctx.Done())
+	}()
 
-	cache.WaitForCacheSync(stopCh, podInformer.HasSynced)
-	close(PodStoreSynced)
+	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced)
 }
 
 // convertToPod stores a minimal version of the pod as it is only intended
@@ -120,24 +126,27 @@ func convertToPod(obj interface{}) interface{} {
 	}
 }
 
-func UnmanagedKubeDNSPodsInit(clientset k8sClient.Clientset) {
+func UnmanagedPodsInit(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
 	var unmanagedPodInformer cache.Controller
-	UnmanagedKubeDNSPodStore, unmanagedPodInformer = informer.NewInformer(
+	UnmanagedPodStore, unmanagedPodInformer = informer.NewInformer(
 		k8sUtils.ListerWatcherWithModifier(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](clientset.Slim().CoreV1().Pods("")),
 			func(options *metav1.ListOptions) {
-				options.LabelSelector = "k8s-app=kube-dns"
 				options.FieldSelector = "status.phase=Running"
+				options.LabelSelector = operatorOption.Config.PodRestartSelector
 			}),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{},
 		convertToUnmanagedPod,
 	)
-	go unmanagedPodInformer.Run(wait.NeverStop)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		unmanagedPodInformer.Run(ctx.Done())
+	}()
 
-	cache.WaitForCacheSync(wait.NeverStop, unmanagedPodInformer.HasSynced)
-	close(UnmanagedPodStoreSynced)
+	cache.WaitForCacheSync(ctx.Done(), unmanagedPodInformer.HasSynced)
 }
 
 func convertToUnmanagedPod(obj interface{}) interface{} {

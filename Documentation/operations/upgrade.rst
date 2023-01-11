@@ -311,6 +311,10 @@ Annotations:
 
 1.13 Upgrade Notes
 ------------------
+* The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
+  ``spec.eni.max-above-watermark`` fields has been removed, those fields are
+  no longer functional. Please use their semantically equivalent ``spec.ipam``
+  replacements instead.
 
 * The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
   In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
@@ -320,6 +324,15 @@ Annotations:
   the subnet in which the primary ENI of the node is attached. Note that this
   default only matters if no explicit selection of the subnet occurs, i.e.
   specifying subnet IDs or tags still takes precedence.
+
+* NodeExternalIP of the local node is now correctly included into the ``host``
+  :ref:`entity <Entities based>` (it used to belong to the world entity).
+
+* The scope of the ``policy_implementation_delay`` Prometheus metric has been expanded to cover the
+  full interval from when a policy is first received from a cilium-agent, to when the policy has been
+  applied to endpoints. In previous versions, ``policy_implementation_delay`` only covered the work
+  done by the daemon subsystem to implement the policy. As a result, users may notice an expected
+  increase in ``policy_implementation_delay`` after upgrading.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -332,6 +345,8 @@ Removed Options
   has been removed. Users of the ``probe`` option are advised either to use
   ``strict`` or ``partial`` with individual options configured. Please refer to
   :ref:`kubeproxy-free` for more info.
+* The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
+  by the ``CiliumEgressGatewayPolicy`` CRD.
 
 
 Deprecated Options
@@ -348,6 +363,12 @@ Added Metrics
 * ``httpV2``, an updated version of the existing ``http`` metrics.
 * ``cilium_operator_ipam_interface_candidates``
 * ``cilium_operator_ipam_empty_interface_slots``
+
+Modified Metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>``
+  after the detected L7 protocol of the flow (for example: ``l7/http``).
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
@@ -383,6 +404,13 @@ CRD Changes
 ~~~~~~~~~~~
 
 * ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
+
+Deprecated API Fields
+~~~~~~~~~~~~~~~~~~~~~
+
+* ``trafficPolicy`` has been renamed to ``extTrafficPolicy`` in ``ServiceSpec.flags`` and
+  ``ServiceUpsertNotification``, in order to emphasize the distinction between the external and
+  internal traffic policies. The old name remains for backward compatibility.
 
 .. _earlier_upgrade_notes:
 

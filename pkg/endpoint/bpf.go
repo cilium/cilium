@@ -253,8 +253,14 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var err error
 				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, l4, proxyID, e, proxyWaitGroup)
 				if err != nil {
-					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
-					return err, nil, nil
+					// Skip redirects that can not be created or updated.  This
+					// can happen when a listener is missing, for example when
+					// restarting and k8s delivers the CNP before the related
+					// CEC.
+					// Policy is regenerated when listeners are added or removed
+					// to fix this condition when the listener is available.
+					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+					continue
 				}
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
@@ -1129,7 +1135,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	if entry.IsDeny {
 		err = e.policyMap.DenyKey(policymapKey)
 	} else {
-		err = e.policyMap.AllowKey(policymapKey, entry.ProxyPort)
+		err = e.policyMap.AllowKey(policymapKey, entry.AuthType.Uint8(), entry.ProxyPort)
 	}
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{

@@ -71,7 +71,6 @@ const (
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
-	k8sAPIGroupCiliumEgressNATPolicyV2          = "cilium/v2::CiliumEgressNATPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
@@ -83,7 +82,6 @@ const (
 	metricCiliumEndpoint = "CiliumEndpoint"
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCEGP           = "CiliumEgressGatewayPolicy"
-	metricCENP           = "CiliumEgressNATPolicy"
 	metricCCEC           = "CiliumClusterwideEnvoyConfig"
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
@@ -260,8 +258,6 @@ type K8sWatcher struct {
 	podStoreSet  chan struct{}
 	podStoreOnce sync.Once
 
-	nodeStore cache.Store
-
 	// nodesInitOnce is used to guarantee that only one function call of NodesInit is executed.
 	nodesInitOnce sync.Once
 
@@ -275,12 +271,13 @@ type K8sWatcher struct {
 	// note: this store only contains endpointslices referencing local endpoints.
 	ciliumEndpointSliceIndexer cache.Indexer
 
-	namespaceStore cache.Store
-	datapath       datapath.Datapath
+	datapath datapath.Datapath
 
 	networkpolicyStore cache.Store
 
 	cfg WatcherConfiguration
+
+	sharedResources k8s.SharedResources
 }
 
 func NewK8sWatcher(
@@ -298,6 +295,7 @@ func NewK8sWatcher(
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
+	sharedResources k8s.SharedResources,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		clientset:             clientset,
@@ -320,6 +318,7 @@ func NewK8sWatcher(
 		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:    envoyConfigManager,
 		cfg:                   cfg,
+		sharedResources:       sharedResources,
 	}
 }
 
@@ -416,12 +415,13 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CLRPName):           {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
 	synced.CRDResourceName(v2.CEWName):            {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(v2.CEGPName):           {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
-	synced.CRDResourceName(v2alpha1.CENPName):     {start, k8sAPIGroupCiliumEgressNATPolicyV2},
 	synced.CRDResourceName(v2alpha1.CESName):      {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(v2.CCECName):           {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):            {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):     {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName): {skip, ""}, // Handled in LB IPAM
+	synced.CRDResourceName(v2alpha1.CNCName):      {skip, ""}, // Handled by init directly
+
 }
 
 // resourceGroups are all of the core Kubernetes and Cilium resource groups
@@ -544,8 +544,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 		case k8sAPIGroupNodeV1Core:
 			k.NodesInit(k.clientset)
 		case k8sAPIGroupNamespaceV1Core:
-			asyncControllers.Add(1)
-			go k.namespacesInit(k.clientset.Slim(), asyncControllers)
+			k.namespacesInit()
 		case k8sAPIGroupCiliumNodeV2:
 			asyncControllers.Add(1)
 			go k.ciliumNodeInit(k.clientset, asyncControllers)
@@ -554,8 +553,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			swgKNP := lock.NewStoppableWaitGroup()
 			k.networkPoliciesInit(k.clientset.Slim(), swgKNP)
 		case resources.K8sAPIGroupServiceV1Core:
-			swgSvcs := lock.NewStoppableWaitGroup()
-			k.servicesInit(k.clientset.Slim(), swgSvcs, serviceOptModifier)
+			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceV1Beta1Discovery:
 			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
 		case resources.K8sAPIGroupEndpointSliceV1Discovery:
@@ -579,8 +577,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
 			k.ciliumEgressGatewayPolicyInit(k.clientset)
-		case k8sAPIGroupCiliumEgressNATPolicyV2:
-			k.ciliumEgressNATPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:
@@ -711,7 +707,7 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 
 		for _, nodePortFE := range svcInfo.NodePorts[portName] {
 			frontends = append(frontends, &nodePortFE.L3n4Addr)
-			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+			if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 				cpFE := nodePortFE.L3n4Addr.DeepCopy()
 				cpFE.Scope = loadbalancer.ScopeInternal
 				frontends = append(frontends, cpFE)
@@ -725,7 +721,7 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		for _, ip := range svcInfo.LoadBalancerIPs {
 			addrCluster := cmtypes.MustAddrClusterFromIP(ip)
 			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeExternal))
-			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
+			if svcInfo.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal || svcInfo.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, addrCluster, svcPort.Port, loadbalancer.ScopeInternal))
 			}
 		}
@@ -746,16 +742,17 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 
 func genCartesianProduct(
 	fe net.IP,
-	svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+	twoScopes bool,
 	svcType loadbalancer.SVCType,
 	ports map[loadbalancer.FEPortName]*loadbalancer.L4Addr,
 	bes *k8s.Endpoints,
 ) []loadbalancer.SVC {
 	var svcSize int
 
-	// For externalTrafficPolicy=Local we add both external and internal
-	// scoped frontends, hence twice the size for only this case.
-	if svcTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal &&
+	// For externalTrafficPolicy=Local xor internalTrafficPolicy=Local we
+	// add both external and internal scoped frontends, hence twice the size
+	// for only this case.
+	if twoScopes &&
 		(svcType == loadbalancer.SVCTypeLoadBalancer || svcType == loadbalancer.SVCTypeNodePort) {
 		svcSize = len(ports) * 2
 	} else {
@@ -789,7 +786,7 @@ func genCartesianProduct(
 
 		addrCluster := cmtypes.MustAddrClusterFromIP(fe)
 
-		// External scoped entry.
+		// External scoped entry - when external and internal policies are the same.
 		svcs = append(svcs,
 			loadbalancer.SVC{
 				Frontend: loadbalancer.L3n4AddrID{
@@ -807,7 +804,7 @@ func genCartesianProduct(
 				Type:     svcType,
 			})
 
-		// Internal scoped entry only for Local traffic policy.
+		// Internal scoped entry - when only one of traffic policies is Local.
 		if svcSize > len(ports) {
 			svcs = append(svcs,
 				loadbalancer.SVC{
@@ -843,18 +840,20 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		clusterIPPorts[fePortName] = fePort
 	}
 
+	twoScopes := (svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal) != (svc.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal)
+
 	for _, frontendIP := range svc.FrontendIPs {
-		dpSVC := genCartesianProduct(frontendIP, svc.TrafficPolicy, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(frontendIP, twoScopes, loadbalancer.SVCTypeClusterIP, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
 	for _, ip := range svc.LoadBalancerIPs {
-		dpSVC := genCartesianProduct(ip, svc.TrafficPolicy, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(ip, twoScopes, loadbalancer.SVCTypeLoadBalancer, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
 	for _, k8sExternalIP := range svc.K8sExternalIPs {
-		dpSVC := genCartesianProduct(k8sExternalIP, svc.TrafficPolicy, loadbalancer.SVCTypeExternalIPs, clusterIPPorts, endpoints)
+		dpSVC := genCartesianProduct(k8sExternalIP, twoScopes, loadbalancer.SVCTypeExternalIPs, clusterIPPorts, endpoints)
 		svcs = append(svcs, dpSVC...)
 	}
 
@@ -863,7 +862,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 			nodePortPorts := map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
 				fePortName: &nodePortFE.L4Addr,
 			}
-			dpSVC := genCartesianProduct(nodePortFE.AddrCluster.Addr().AsSlice(), svc.TrafficPolicy, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
+			dpSVC := genCartesianProduct(nodePortFE.AddrCluster.Addr().AsSlice(), twoScopes, loadbalancer.SVCTypeNodePort, nodePortPorts, endpoints)
 			svcs = append(svcs, dpSVC...)
 		}
 	}
@@ -875,7 +874,8 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 
 	// apply common service properties
 	for i := range svcs {
-		svcs[i].TrafficPolicy = svc.TrafficPolicy
+		svcs[i].ExtTrafficPolicy = svc.ExtTrafficPolicy
+		svcs[i].IntTrafficPolicy = svc.IntTrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
 		svcs[i].SessionAffinity = svc.SessionAffinity
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
@@ -937,7 +937,8 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,
-			TrafficPolicy:             dpSvc.TrafficPolicy,
+			ExtTrafficPolicy:          dpSvc.ExtTrafficPolicy,
+			IntTrafficPolicy:          dpSvc.IntTrafficPolicy,
 			SessionAffinity:           dpSvc.SessionAffinity,
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
@@ -1025,8 +1026,6 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 	switch name {
 	case "networkpolicy":
 		return k.networkpolicyStore
-	case "namespace":
-		return k.namespaceStore
 	case "pod":
 		// Wait for podStore to get initialized.
 		<-k.podStoreSet

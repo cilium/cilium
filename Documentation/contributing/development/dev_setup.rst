@@ -38,7 +38,7 @@ contribute to Cilium:
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0 and < 2.0.0         | ``go install github.com/onsi/ginkgo/ginkgo@v1.16.5``            |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
-+ `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | ``go install github.com/golangci/golangci-lint@latest``         |
++ `golangci-lint <https://github.com/golangci/golangci-lint>`_ | >= v1.27                     | N/A (OS-specific)                                               |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
 + `cfssl <https://github.com/cloudflare/cfssl>`_               | >= v1.6.0                    | ``go install github.com/cloudflare/cfssl/cmd/cfssl@latest``     |
 +--------------------------------------------------------------+------------------------------+-----------------------------------------------------------------+
@@ -230,7 +230,7 @@ This will first destroy any CI VMs you may have running on the current
 ``K8S_VERSION``, and then create a local Vagrant box if not already
 created. This can take some time.
 
-VM preloading can be turned off by exporting ``VM_PRELOAD=false``. You
+VM preloading can be turned off by exporting ``PRELOAD_VM=false``. You
 can run ``make clean`` in ``test`` to delete the cached vagrant box.
 
 To start the CI runtime VM locally, run:

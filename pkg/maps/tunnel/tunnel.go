@@ -5,6 +5,7 @@ package tunnel
 
 import (
 	"net"
+	"sync"
 	"unsafe"
 
 	"github.com/sirupsen/logrus"
@@ -22,8 +23,21 @@ const (
 
 var (
 	// TunnelMap represents the BPF map for tunnels
-	TunnelMap = NewTunnelMap(MapName)
+	tunnelMap     *Map
+	tunnelMapInit = &sync.Once{}
 )
+
+// SetTunnelMap sets the tunnel map. Only used for testing.
+func SetTunnelMap(m *Map) {
+	tunnelMap = m
+}
+
+func TunnelMap() *Map {
+	tunnelMapInit.Do(func() {
+		tunnelMap = NewTunnelMap(MapName)
+	})
+	return tunnelMap
+}
 
 // Map implements tunnel connectivity configuration in the BPF datapath.
 type Map struct {
@@ -72,12 +86,12 @@ func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error
 		fieldKey:      encryptKey,
 	}).Debug("Updating tunnel map entry")
 
-	return TunnelMap.Update(key, val)
+	return TunnelMap().Update(key, val)
 }
 
 // GetTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
-	val, err := TunnelMap.Lookup(newTunnelEndpoint(prefix))
+	val, err := TunnelMap().Lookup(newTunnelEndpoint(prefix))
 	if err != nil {
 		return net.IP{}, err
 	}
@@ -88,13 +102,13 @@ func (m *Map) GetTunnelEndpoint(prefix net.IP) (net.IP, error) {
 // DeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping
 func (m *Map) DeleteTunnelEndpoint(prefix net.IP) error {
 	log.WithField(fieldPrefix, prefix).Debug("Deleting tunnel map entry")
-	return TunnelMap.Delete(newTunnelEndpoint(prefix))
+	return TunnelMap().Delete(newTunnelEndpoint(prefix))
 }
 
 // SilentDeleteTunnelEndpoint removes a prefix => tunnel-endpoint mapping.
 // If the prefix is not found no error is returned.
 func (m *Map) SilentDeleteTunnelEndpoint(prefix net.IP) error {
 	log.WithField(fieldPrefix, prefix).Debug("Silently deleting tunnel map entry")
-	_, err := TunnelMap.SilentDelete(newTunnelEndpoint(prefix))
+	_, err := TunnelMap().SilentDelete(newTunnelEndpoint(prefix))
 	return err
 }

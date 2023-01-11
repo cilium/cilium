@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"net/netip"
 	"os"
@@ -55,7 +56,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
@@ -73,6 +73,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -103,7 +104,7 @@ const (
 	// configuration updates to the daemon
 	ConfigModifyQueueSize = 10
 
-	syncEndpointsAndHostIPsController = "sync-endpoints-and-host-ips"
+	syncHostIPsController = "sync-host-ips"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -132,6 +133,10 @@ type Daemon struct {
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
 
+	// dnsProxyContext contains fields relevant to the DNS proxy. See each
+	// field's godoc for more details.
+	dnsProxyContext dnsProxyContext
+
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
@@ -158,7 +163,7 @@ type Daemon struct {
 
 	netConf *cnitypes.NetConf
 
-	endpointManager *endpointmanager.EndpointManager
+	endpointManager endpointmanager.EndpointManager
 
 	identityAllocator CachingIdentityAllocator
 
@@ -205,6 +210,28 @@ type Daemon struct {
 
 	// BIG-TCP config values
 	bigTCPConfig bigtcp.Configuration
+}
+
+func (d *Daemon) initDNSProxyContext(size int) {
+	d.dnsProxyContext = dnsProxyContext{
+		responseMutexes: make([]*lock.Mutex, size),
+		modulus:         big.NewInt(int64(size)),
+	}
+	for i := range d.dnsProxyContext.responseMutexes {
+		d.dnsProxyContext.responseMutexes[i] = new(lock.Mutex)
+	}
+}
+
+// dnsProxyContext is a meta struct containing fields relevant to the DNS proxy
+// of the daemon, for organizational purposes.
+type dnsProxyContext struct {
+	// responseMutexes is used to serialized the critical path of
+	// notifyOnDNSMsg() to ensure that identity allocation and ipcache
+	// insertion happen atomically between parallel DNS request handling.
+	responseMutexes []*lock.Mutex
+	// modulus is used when computing the hash of the DNS response IPs in order
+	// to map them to the mutexes inside responseMutexes.
+	modulus *big.Int
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -374,9 +401,12 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup,
-	epMgr *endpointmanager.EndpointManager, dp datapath.Datapath,
+	epMgr endpointmanager.EndpointManager,
+	nodeMngr nodeManager.NodeManager,
+	dp datapath.Datapath,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
+	sharedResources k8s.SharedResources,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -488,10 +518,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		externalIP,
 	)
 
-	nodeMngr, err := nodemanager.NewManager("all", dp.Node(), option.Config, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
+	nodeMngr.Subscribe(dp.Node())
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
 		metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
@@ -612,14 +639,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			}
 		}
 	}
-	nodeMngr = nodeMngr.WithIPCache(d.ipcache)
-	nodeMngr = nodeMngr.WithSelectorCacheUpdater(d.policy.GetSelectorCache()) // must be after initPolicy
-	nodeMngr = nodeMngr.WithPolicyTriggerer(epMgr)                            // must be after initPolicy
+	nodeMngr.SetIPCache(d.ipcache)
 
 	proxy.Allocator = d.identityAllocator
 
 	d.endpointManager = epMgr
-	d.endpointManager.InitMetrics()
 
 	// Start the proxy before we start K8s watcher or restore endpoints so that we can inject
 	// the daemon's proxy into the k8s watcher and each endpoint.
@@ -674,6 +698,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,
+		sharedResources,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 
@@ -705,7 +730,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	// Stop all endpoints (its goroutines) on exit.
 	cleaner.cleanupFuncs.Add(func() {
-		log.Info("Waiting for all endpoints' go routines to be stopped.")
+		log.Info("Waiting for all endpoints' goroutines to be stopped.")
 		var wg sync.WaitGroup
 
 		eps := d.endpointManager.GetEndpoints()
@@ -925,7 +950,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	if _, err := d.deviceManager.Detect(clientset.IsEnabled()); err != nil {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			// Fail hard if devices are required to function.
 			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
 		}
@@ -1226,10 +1251,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// reinserted to the bpf maps if they are ever removed from them.
 	syncErrs := make(chan error, 1)
 	d.controllers.UpdateController(
-		syncEndpointsAndHostIPsController,
+		syncHostIPsController,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := d.syncEndpointsAndHostIPs()
+				err := d.syncHostIPs()
 				select {
 				case syncErrs <- err:
 				default:
@@ -1252,12 +1277,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	d.ipcache.InitIPIdentityWatcher()
+	d.ipcache.InitIPIdentityWatcher(d.ctx)
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices if requested.
 	if option.Config.EnableRuntimeDeviceDetection {
-		if d.deviceManager.AreDevicesRequired() {
+		if option.Config.AreDevicesRequired() {
 			devicesChan, err := d.deviceManager.Listen(ctx)
 			if err != nil {
 				log.WithError(err).Warn("Runtime device detection failed to start")
@@ -1283,24 +1308,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	return &d, restoredEndpoints, nil
 }
 
-// WithDefaultEndpointManager creates the default endpoint manager with a
-// functional endpoint synchronizer.
-func WithDefaultEndpointManager(ctx context.Context, clientset client.Clientset, checker endpointmanager.EndpointCheckerFunc) *endpointmanager.EndpointManager {
-	mgr := WithCustomEndpointManager(&watchers.EndpointSynchronizer{Clientset: clientset})
-	if option.Config.EndpointGCInterval > 0 {
-		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, option.Config.EndpointGCInterval)
-	}
-	return mgr
-}
-
-// WithCustomEndpointManager creates the custom endpoint manager with the
-// provided endpoint synchronizer. This is useful for tests which want to mock
-// out the real endpoint synchronizer.
-func WithCustomEndpointManager(s endpointmanager.EndpointResourceSynchronizer) *endpointmanager.EndpointManager {
-	return endpointmanager.NewEndpointManager(s)
-}
-
-func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
+func (d *Daemon) bootstrapClusterMesh(nodeMngr nodemanager.NodeManager) {
 	bootstrapStats.clusterMeshInit.Start()
 	if path := option.Config.ClusterMeshConfig; path != "" {
 		if option.Config.ClusterID == 0 {
@@ -1344,7 +1352,7 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		} else {
 			// Synchronize services and endpoints to reflect new addresses onto lbmap.
 			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-			d.controllers.TriggerController(syncEndpointsAndHostIPsController)
+			d.controllers.TriggerController(syncHostIPsController)
 		}
 	}
 
@@ -1377,7 +1385,8 @@ func (d *Daemon) Close() {
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
 	}
-	d.nodeDiscovery.Close()
+	d.identityAllocator.Close()
+	identitymanager.RemoveAll()
 	d.cgroupManager.Close()
 }
 
@@ -1438,7 +1447,7 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 	d.policy.BumpRevision() // force policy recalculation
 }
 
-// numWorkerThreads returns the number of worker threads with a minimum of 4.
+// numWorkerThreads returns the number of worker threads with a minimum of 2.
 func numWorkerThreads() int {
 	ncpu := runtime.NumCPU()
 	minWorkerThreads := 2

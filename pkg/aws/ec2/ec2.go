@@ -30,7 +30,7 @@ import (
 // Client represents an EC2 API client
 type Client struct {
 	ec2Client           *ec2.Client
-	limiter             *helpers.ApiLimiter
+	limiter             *helpers.APILimiter
 	metricsAPI          MetricsAPI
 	subnetsFilters      []ec2_types.Filter
 	instancesFilters    []ec2_types.Filter
@@ -54,7 +54,7 @@ func NewClient(ec2Client *ec2.Client, metrics MetricsAPI, rateLimit float64, bur
 	return &Client{
 		ec2Client:           ec2Client,
 		metricsAPI:          metrics,
-		limiter:             helpers.NewApiLimiter(metrics, rateLimit, burst),
+		limiter:             helpers.NewAPILimiter(metrics, rateLimit, burst),
 		subnetsFilters:      subnetsFilters,
 		instancesFilters:    instancesFilters,
 		eniTagSpecification: eniTagSpecification,

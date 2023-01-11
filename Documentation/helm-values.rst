@@ -93,10 +93,6 @@
      - Configure the maximum number of entries in the TCP connection tracking table.
      - int
      - ``524288``
-   * - bpf.hostBoot
-     - Configure the path to the host boot directory
-     - string
-     - ``"/boot"``
    * - bpf.hostLegacyRouting
      - Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace.
      - bool
@@ -129,10 +125,6 @@
      - Configure the typical time between monitor notifications for active connections.
      - string
      - ``"5s"``
-   * - bpf.mountHostBoot
-     - Enable host boot directory mount for BPF clock source probing
-     - bool
-     - ``true``
    * - bpf.natMax
      - Configure the maximum number of entries for the NAT table.
      - int
@@ -164,7 +156,11 @@
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"image":{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"annotations":{"cronJob":{},"job":{}},"image":{"digest":"sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+   * - certgen.annotations
+     - Annotations to be added to the hubble-certgen initial Job and CronJob
+     - object
+     - ``{"cronJob":{},"job":{}}``
    * - certgen.podLabels
      - Labels to be added to hubble-certgen pods
      - object
@@ -180,11 +176,15 @@
    * - cgroup
      - Configure cgroup related configuration
      - object
-     - ``{"autoMount":{"enabled":true},"hostRoot":"/run/cilium/cgroupv2"}``
+     - ``{"autoMount":{"enabled":true,"resources":{}},"hostRoot":"/run/cilium/cgroupv2"}``
    * - cgroup.autoMount.enabled
      - Enable auto mount of cgroup2 filesystem. When ``autoMount`` is enabled, cgroup2 filesystem is mounted at ``cgroup.hostRoot`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted cgroup2 filesystem at the specified ``cgroup.hostRoot`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool
      - ``true``
+   * - cgroup.autoMount.resources
+     - Init Container Cgroup Automount resource limits & requests
+     - object
+     - ``{}``
    * - cgroup.hostRoot
      - Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: ``cgroup.autoMount``\ )
      - string
@@ -212,7 +212,7 @@
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"}``
+     - ``{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}``
    * - clustermesh.apiserver.etcd.init.resources
      - Specifies the resources for etcd init container in the apiserver
      - object
@@ -401,6 +401,10 @@
      - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
      - string
      - ``"/var/run/cilium/cilium-cni.log"``
+   * - conntrackGCInterval
+     - Configure how frequently garbage collection should occur for the datapath connection tracking table.
+     - string
+     - ``"0s"``
    * - containerRuntime
      - Configure container runtime specific integration.
      - object
@@ -409,6 +413,10 @@
      - Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime)
      - string
      - ``"none"``
+   * - crdWaitTimeout
+     - Configure timeout in which Cilium will exit if CRDs are not available
+     - string
+     - ``"5m"``
    * - customCalls
      - Tail call hooks for custom eBPF programs.
      - object
@@ -417,6 +425,18 @@
      - Enable tail call hooks for custom eBPF programs.
      - bool
      - ``false``
+   * - daemon.allowedConfigOverrides
+     - allowedConfigOverrides is a list of config-map keys that can be overridden. That is to say, if this value is set, config sources (excepting the first one) can only override keys in this list.  This takes precedence over blockedConfigOverrides.  By default, all keys may be overridden. To disable overrides, set this to "none" or change the configSources variable.
+     - string
+     - ``nil``
+   * - daemon.blockedConfigOverrides
+     - blockedConfigOverrides is a list of config-map keys that may not be overridden. In other words, if any of these keys appear in a configuration source excepting the first one, they will be ignored  This is ignored if allowedConfigOverrides is set.  By default, all keys may be overridden.
+     - string
+     - ``nil``
+   * - daemon.configSources
+     - Configure a custom list of possible configuration override sources The default is "config-map:cilium-config,cilium-node-config". For supported values, see the help text for the build-config subcommand. Note that this value should be a comma-separated string.
+     - string
+     - ``nil``
    * - daemon.runPath
      - Configure where Cilium runtime state should be stored.
      - string
@@ -644,7 +664,7 @@
    * - etcd.image
      - cilium-etcd-operator image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc"}``
+     - ``{"digest":"sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-etcd-operator","tag":"v2.0.7","useDigest":true}``
    * - etcd.k8sService
      - If etcd is behind a k8s service set this option to true so that Cilium does the service translation automatically without requiring a DNS to be running.
      - bool
@@ -1088,7 +1108,7 @@
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"}``
+     - ``{"digest":"sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui-backend","tag":"v0.9.2","useDigest":true}``
    * - hubble.ui.backend.resources
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
@@ -1104,7 +1124,7 @@
    * - hubble.ui.frontend.image
      - Hubble-ui frontend image.
      - object
-     - ``{"override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"}``
+     - ``{"digest":"sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/hubble-ui","tag":"v0.9.2","useDigest":true}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
      - object
@@ -1201,6 +1221,10 @@
      - Method to use for identity allocation (\ ``crd`` or ``kvstore``\ ).
      - string
      - ``"crd"``
+   * - identityChangeGracePeriod
+     - Time to wait before using new identity on endpoint identity change.
+     - string
+     - ``"5s"``
    * - image
      - Agent container image.
      - object
@@ -1244,11 +1268,15 @@
    * - ingressController.service
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"annotations":{},"labels":{},"name":"cilium-ingress"}``
+     - ``{"annotations":{},"insecureNodePort":null,"labels":{},"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
    * - ingressController.service.annotations
      - Annotations to be added for the shared LB service
      - object
      - ``{}``
+   * - ingressController.service.insecureNodePort
+     - Configure a specific nodePort for insecure HTTP traffic on the shared LB service
+     - string
+     - ``nil``
    * - ingressController.service.labels
      - Labels to be added for the shared LB service
      - object
@@ -1257,6 +1285,14 @@
      - Service name
      - string
      - ``"cilium-ingress"``
+   * - ingressController.service.secureNodePort
+     - Configure a specific nodePort for secure HTTPS traffic on the shared LB service
+     - string
+     - ``nil``
+   * - ingressController.service.type
+     - Service type for the shared LB service
+     - string
+     - ``"LoadBalancer"``
    * - installIptablesRules
      - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
      - bool
@@ -1369,6 +1405,26 @@
      - interval between checks of the liveness probe
      - int
      - ``30``
+   * - loadBalancer
+     - Configure service load balancing
+     - object
+     - ``{"l7":{"algorithm":"round_robin","backend":"disabled","ports":[]}}``
+   * - loadBalancer.l7
+     - L7 LoadBalancer
+     - object
+     - ``{"algorithm":"round_robin","backend":"disabled","ports":[]}``
+   * - loadBalancer.l7.algorithm
+     - Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. io.cilium.service/lb-algorithm) Applicable values: round_robin, least_request, random
+     - string
+     - ``"round_robin"``
+   * - loadBalancer.l7.backend
+     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing.
+     - string
+     - ``"disabled"``
+   * - loadBalancer.l7.ports
+     - List of ports from service to be automatically redirected to above backend. Any service exposing one of these ports will be automatically redirected. Fine-grained control can be achieved by using the service annotation.
+     - list
+     - ``[]``
    * - localRedirectPolicy
      - Enable Local Redirect Policy.
      - bool
@@ -1393,6 +1449,14 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - nat46x64Gateway
+     - Configure standalone NAT46/NAT64 gateway
+     - object
+     - ``{"enabled":false}``
+   * - nat46x64Gateway.enabled
+     - Enable RFC8215-prefixed translation
+     - bool
+     - ``false``
    * - nodePort
      - Configure N-S k8s service loadbalancing
      - object
@@ -1712,7 +1776,7 @@
    * - preflight.tolerations
      - Node tolerations for preflight scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
      - list
-     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
+     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
    * - preflight.updateStrategy
      - preflight update strategy
      - object
@@ -1730,7 +1794,7 @@
      - object
      - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}]}}``
    * - prometheus.metrics
-     - Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
+     - Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
      - string
      - ``nil``
    * - prometheus.serviceMonitor.annotations
@@ -1821,6 +1885,10 @@
      - Run the pod with elevated privileges
      - bool
      - ``false``
+   * - securityContext.seLinuxOptions
+     - SELinux options for the ``cilium-agent`` and init containers
+     - object
+     - ``{"level":"s0","type":"spc_t"}``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object
@@ -1857,14 +1925,6 @@
      - interval between checks of the startup probe
      - int
      - ``2``
-   * - statelessNat46x64
-     - Configure Stateless NAT46/NAT64 translation
-     - object
-     - ``{"enabled":false}``
-   * - statelessNat46x64.enabled
-     - Enable RFC8215-prefixed translation
-     - bool
-     - ``false``
    * - svcSourceRangeCheck
      - Enable check of service source ranges (currently, only for LoadBalancer).
      - bool

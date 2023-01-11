@@ -12,8 +12,8 @@
 // implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//go:build !linux && !openbsd
-// +build !linux,!openbsd
+//go:build !linux && !openbsd && !windows
+// +build !linux,!openbsd,!windows
 
 package server
 

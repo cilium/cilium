@@ -33,6 +33,8 @@ spec:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
       - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      - effect: NoSchedule
         key: node.cloudprovider.kubernetes.io/uninitialized
         value: "true"
 ---
@@ -48,28 +50,6 @@ spec:
     metadata:
       labels:
         zgroup: testDSClient
-    spec:
-      terminationGracePeriodSeconds: 0
-      containers:
-      - name: web
-        image: docker.io/cilium/demo-client:1.0
-        imagePullPolicy: IfNotPresent
-        command: [ "sleep" ]
-        args:
-          - "1000h"
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: testclient-2
-spec:
-  selector:
-    matchLabels:
-      zgroup: testDSClient2
-  template:
-    metadata:
-      labels:
-        zgroup: testDSClient2
     spec:
       terminationGracePeriodSeconds: 0
       containers:

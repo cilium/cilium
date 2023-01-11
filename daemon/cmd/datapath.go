@@ -141,7 +141,7 @@ func (d *Daemon) SetPrefilter(preFilter datapath.PreFilter) {
 // EndpointMapManager is a wrapper around an endpointmanager as well as the
 // filesystem for removing maps related to endpoints from the filesystem.
 type EndpointMapManager struct {
-	*endpointmanager.EndpointManager
+	endpointmanager.EndpointManager
 }
 
 // RemoveDatapathMapping unlinks the endpointID from the global policy map, preventing
@@ -164,10 +164,10 @@ func endParallelMapMode() {
 	ipcachemap.IPCacheMap().EndParallelMode()
 }
 
-// syncEndpointsAndHostIPs adds local host enties to bpf lxcmap, as well as
-// ipcache, if needed, and also notifies the daemon and network policy
-// hosts cache if changes were made.
-func (d *Daemon) syncEndpointsAndHostIPs() error {
+// syncHostIPs adds local host entries to bpf lxcmap, as well as ipcache, if
+// needed, and also notifies the daemon and network policy hosts cache if
+// changes were made.
+func (d *Daemon) syncHostIPs() error {
 	if option.Config.DryMode {
 		return nil
 	}
@@ -263,6 +263,8 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		})
 	}
 
+	// existingEndpoints is a map from endpoint IP to endpoint info. Referring
+	// to the key as host IP here because we only care about the host endpoint.
 	for hostIP, info := range existingEndpoints {
 		if ip := net.ParseIP(hostIP); info.IsHost() && ip != nil {
 			if err := lxcmap.DeleteEntry(ip); err != nil {
@@ -270,7 +272,7 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 					logfields.IPAddr: hostIP,
 				}).Warn("Unable to delete obsolete host IP from BPF map")
 			} else {
-				log.Debugf("Removed outdated host ip %s from endpoint map", hostIP)
+				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
 			}
 
 			d.ipcache.Delete(hostIP, d.sourceByIP(ip, source.Local))
@@ -337,7 +339,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.TunnelingEnabled() {
-		if _, err := tunnel.TunnelMap.OpenOrCreate(); err != nil {
+		if _, err := tunnel.TunnelMap().OpenOrCreate(); err != nil {
 			return err
 		}
 	}
@@ -353,7 +355,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableVTEP {
-		if _, err := vtep.VtepMAP.OpenOrCreate(); err != nil {
+		if _, err := vtep.VtepMap().OpenOrCreate(); err != nil {
 			return err
 		}
 	}

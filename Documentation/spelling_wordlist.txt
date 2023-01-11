@@ -5,6 +5,7 @@ AdapterLimitViaAPI
 Alemayhu
 Alibaba
 Anthos
+Automount
 BIGTCP
 BPF
 Bertin
@@ -139,6 +140,7 @@ Tetragon
 Tierney
 Tu
 Twilio
+Uncordon
 Uptime
 VM
 VNet
@@ -163,6 +165,7 @@ aksbyocni
 alibabacloud
 allocator
 allocators
+allowedConfigOverrides
 amd
 analytics
 annotateK
@@ -214,6 +217,7 @@ bgp
 bgpControlPlane
 binPath
 bindProtection
+blockedConfigOverrides
 blog
 bnxt
 bookinfo
@@ -287,6 +291,7 @@ confPath
 config
 configMap
 configMapKey
+configSources
 configmap
 configs
 conformant
@@ -404,6 +409,7 @@ ethernet
 ethtool
 eventBufferCapacity
 eventQueueSize
+extTrafficPolicy
 extendable
 extensibility
 extern
@@ -483,7 +489,6 @@ herokuapp
 hexData
 hoc
 hostAliases
-hostBoot
 hostConfDirMountPath
 hostFirewall
 hostLegacyRouting
@@ -530,6 +535,7 @@ inlined
 inlines
 inlining
 inodes
+insecureNodePort
 installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
@@ -685,7 +691,6 @@ monitorAggregation
 monitorFlags
 monitorInterval
 mountCgroup
-mountHostBoot
 mountPath
 mov
 mul
@@ -878,11 +883,14 @@ sandboxing
 scalability
 scalable
 scp
+sctl
 sctp
+seLinuxOptions
 seccomp
 secretName
 secretsBackend
 secretsNamespace
+secureNodePort
 securityContext
 selftest
 selftests
@@ -1010,8 +1018,10 @@ uninline
 uninstall
 uninstallOnExit
 unix
+unlabel
 unmanaged
 unmanagedPodWatcher
+unmigrated
 unsettable
 untriaged
 untrusted

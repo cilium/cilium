@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -481,6 +482,14 @@ const (
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
 
+	// DNSProxyLockCount is the array size containing mutexes which protect
+	// against parallel handling of DNS response IPs.
+	DNSProxyLockCount = "dnsproxy-lock-count"
+
+	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
+	// DNSProxyLockCount.
+	DNSProxyLockTimeout = "dnsproxy-lock-timeout"
+
 	// MTUName is the name of the MTU option
 	MTUName = "mtu"
 
@@ -670,8 +679,8 @@ const (
 	// EnableSCTPName is the name of the option to enable SCTP support
 	EnableSCTPName = "enable-sctp"
 
-	// EnableStatelessNat46X64 enables L3 based NAT46 and NAT64 translation
-	EnableStatelessNat46X64 = "enable-stateless-nat46x64"
+	// EnableNat46X64Gateway enables L3 based NAT46 and NAT64 gateway
+	EnableNat46X64Gateway = "enable-nat46x64-gateway"
 
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
@@ -1374,6 +1383,13 @@ type DaemonConfig struct {
 	// DaemonConfig.Validate()
 	IPv6ClusterAllocCIDRBase string
 
+	// IPv6NAT46x64CIDR is the private base CIDR for the NAT46x64 gateway
+	IPv6NAT46x64CIDR string
+
+	// IPv6NAT46x64CIDRBase is derived from IPv6NAT46x64CIDR and contains
+	// the IPv6 prefix with the masked bits zeroed out
+	IPv6NAT46x64CIDRBase netip.Addr
+
 	// K8sRequireIPv4PodCIDR requires the k8s node resource to specify the
 	// IPv4 PodCIDR. Cilium will block bootstrapping until the information
 	// is available.
@@ -1552,8 +1568,8 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
-	// EnableStatelessNat46X64 is true when L3 based NAT46 and NAT64 translation is enabled
-	EnableStatelessNat46X64 bool
+	// EnableNat46X64Gateway is true when L3 based NAT46 and NAT64 translation is enabled
+	EnableNat46X64Gateway bool
 
 	// EnableIPv6NDP is true when NDP is enabled for IPv6
 	EnableIPv6NDP bool
@@ -1711,6 +1727,14 @@ type DaemonConfig struct {
 	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod time.Duration
+
+	// DNSProxyLockCount is the array size containing mutexes which protect
+	// against parallel handling of DNS response IPs.
+	DNSProxyLockCount int
+
+	// DNSProxyLockTimeout is timeout when acquiring the locks controlled by
+	// DNSProxyLockCount.
+	DNSProxyLockTimeout time.Duration
 
 	// EnableXTSocketFallback allows disabling of kernel's ip_early_demux
 	// sysctl option if `xt_socket` kernel module is not available.
@@ -2427,6 +2451,12 @@ func (c *DaemonConfig) TunnelExists() bool {
 	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway
 }
 
+// AreDevicesRequired returns true if the agent needs to attach to the native
+// devices to implement some features.
+func (c *DaemonConfig) AreDevicesRequired() bool {
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager
+}
+
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
 func (c *DaemonConfig) MasqueradingEnabled() bool {
 	return c.EnableIPv4Masquerade || c.EnableIPv6Masquerade
@@ -2578,16 +2608,25 @@ func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 		return err
 	}
 
-	if cidr == nil {
-		return fmt.Errorf("ParseCIDR returned nil")
-	}
-
 	if ones, _ := cidr.Mask.Size(); ones != 64 {
-		return fmt.Errorf("CIDR length must be /64")
+		return fmt.Errorf("Prefix length must be /64")
 	}
 
 	c.IPv6ClusterAllocCIDRBase = ip.Mask(cidr.Mask).String()
 
+	return nil
+}
+
+func (c *DaemonConfig) validateIPv6NAT46x64CIDR() error {
+	parsedPrefix, err := netip.ParsePrefix(c.IPv6NAT46x64CIDR)
+	if err != nil {
+		return err
+	}
+	if parsedPrefix.Bits() != 96 {
+		return fmt.Errorf("Prefix length must be /96")
+	}
+
+	c.IPv6NAT46x64CIDRBase = parsedPrefix.Masked().Addr()
 	return nil
 }
 
@@ -2596,6 +2635,11 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	if err := c.validateIPv6NAT46x64CIDR(); err != nil {
+		return fmt.Errorf("unable to parse internal CIDR value '%s': %s",
+			c.IPv6NAT46x64CIDR, err)
 	}
 
 	if c.MTU < 0 {
@@ -2957,12 +3001,13 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.BGPAnnouncePodCIDR = vp.GetBool(BGPAnnouncePodCIDR)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
 	c.ExternalClusterIP = vp.GetBool(ExternalClusterIPName)
-	c.EnableStatelessNat46X64 = vp.GetBool(EnableStatelessNat46X64)
+	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
+	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
@@ -3009,10 +3054,10 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.AddressScopeMax = defaults.AddressScopeMax
 	}
 
-	if c.EnableStatelessNat46X64 {
+	if c.EnableNat46X64Gateway {
 		if !c.EnableIPv4 || !c.EnableIPv6 {
 			log.Fatalf("--%s requires both --%s and --%s enabled",
-				EnableStatelessNat46X64, EnableIPv4Name, EnableIPv6Name)
+				EnableNat46X64Gateway, EnableIPv4Name, EnableIPv6Name)
 		}
 	}
 
@@ -3083,6 +3128,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = vp.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
+	c.DNSProxyLockCount = vp.GetInt(DNSProxyLockCount)
+	c.DNSProxyLockTimeout = vp.GetDuration(DNSProxyLockTimeout)
 
 	// Convert IP strings into net.IPNet types
 	subnets, invalid := ip.ParseCIDRs(vp.GetStringSlice(IPv4PodSubnets))

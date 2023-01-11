@@ -97,14 +97,6 @@ type DNSProxy struct {
 	// parsing etc. for us.
 	UDPServer, TCPServer *dns.Server
 
-	// UDPClient, TCPClient are the miekg/dns client instances. Forwarded
-	// requests are made with these clients but are sent to the originally
-	// intended DNS server.
-	// Note: The DNS request ID is randomized but when seeing a lot of traffic we
-	// may still exhaust the 16-bit ID space for our (source IP, source Port) and
-	// this may cause DNS disruption. A client pool may be better.
-	UDPClient, TCPClient *dns.Client
-
 	// EnableDNSCompression allows the DNS proxy to compress responses to
 	// endpoints that are larger than 512 Bytes or the EDNS0 option, if present.
 	EnableDNSCompression bool
@@ -537,11 +529,13 @@ func (ErrDNSRequestNoEndpoint) Error() string {
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
+	TotalTime      spanstat.SpanStat
 	ProcessingTime spanstat.SpanStat // This is going to happen at the end of the second callback.
 	// Error is a enum of [timeout, allow, denied, proxyerr].
 	UpstreamTime         spanstat.SpanStat
 	SemaphoreAcquireTime spanstat.SpanStat
 	PolicyCheckTime      spanstat.SpanStat
+	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
 	Success              bool
 	Err                  error
@@ -617,12 +611,6 @@ func StartDNSProxy(
 
 		EnableIPv4, EnableIPv6 = option.Config.EnableIPv4, option.Config.EnableIPv6
 	)
-
-	// Bind the DNS forwarding clients on UDP and TCP
-	// Note: SingleInFlight should remain disabled. When enabled it folds DNS
-	// retries into the previous lookup, suppressing them.
-	p.UDPClient = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
-	p.TCPClient = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 
 	start := time.Now()
 	for time.Since(start) < ProxyBindTimeout {
@@ -754,6 +742,8 @@ func setSoMark(fd int, secId identity.NumericIdentity) error {
 //     fqdn/NameManager instance).
 //   - Write the response to the endpoint.
 func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
+	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
+	stat.TotalTime.Start()
 	requestID := request.Id // keep the original request ID
 	qname := string(request.Question[0].Name)
 	protocol := w.LocalAddr().Network()
@@ -764,7 +754,6 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		logfields.DNSRequestID: requestID,
 	})
 
-	stat := ProxyRequestContext{DataSource: accesslog.DNSSourceProxy}
 	if p.ConcurrencyLimit != nil {
 		// TODO: Consider plumbing the daemon context here.
 		ctx, cancel := context.WithTimeout(context.TODO(), p.ConcurrencyGracePeriod)
@@ -851,6 +840,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	case !allowed:
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
+		// Send refused msg before calling NotifyOnDNSMsg() because we know
+		// that this DNS request is rejected anyway. NotifyOnDNSMsg depends on
+		// stat.Err field to be set in order to propagate the correct
+		// information for metrics.
 		stat.Err = p.sendRefused(scopedLog, w, request)
 		stat.ProcessingTime.End(true)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
@@ -865,9 +858,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	var client *dns.Client
 	switch protocol {
 	case "udp":
-		client = p.UDPClient
+		client = &dns.Client{Net: "udp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 	case "tcp":
-		client = p.TCPClient
+		client = &dns.Client{Net: "tcp", Timeout: ProxyForwardTimeout, SingleInflight: false}
 	default:
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %w", err)
@@ -910,12 +903,13 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		stat.Err = err
 		if stat.IsTimeout() {
 			scopedLog.WithError(err).Warn("Timeout waiting for response to forwarded proxied DNS lookup")
-		} else {
-			scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
-			p.sendRefused(scopedLog, w, request)
-			stat.Err = fmt.Errorf("Cannot forward proxied DNS lookup: %w", err)
+			p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+			return
 		}
+		scopedLog.WithError(err).Error("Cannot forward proxied DNS lookup")
+		stat.Err = fmt.Errorf("cannot forward proxied DNS lookup: %w", err)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServerAddr, request, protocol, false, &stat)
+		p.sendRefused(scopedLog, w, request)
 		return
 	}
 

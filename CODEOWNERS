@@ -274,7 +274,7 @@ Makefile* @cilium/build
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
 /Documentation/beta.rst @cilium/docs-structure
-/Documentation/bpf.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/bpf/ @cilium/sig-datapath @cilium/docs-structure
 /Documentation/check-build.sh @cilium/docs-structure
 /Documentation/check-cmdref.sh @cilium/docs-structure
 /Documentation/check-crd-compat-table.sh @cilium/docs-structure
@@ -356,7 +356,9 @@ jenkinsfiles @cilium/ci-structure
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/pkg/gateway-api @cilium/operator @cilium/sig-servicemesh
 /operator/pkg/ingress @cilium/operator @cilium/sig-servicemesh
+/operator/pkg/model @cilium/operator @cilium/sig-servicemesh
 /pkg/ @cilium/tophat
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -457,6 +459,7 @@ jenkinsfiles @cilium/ci-structure
 /test/bpf/ @cilium/sig-datapath
 /test/bpf/check-complexity.sh @cilium/loader
 /test/bpf/verifier-test.sh @cilium/loader
+/test/bpf_tests/ @cilium/sig-datapath
 /test/k8s/bandwidth.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/chaos.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure

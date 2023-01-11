@@ -60,7 +60,8 @@ type Reader interface {
 
 // Writer knows how to create, delete, and update Kubernetes objects.
 type Writer interface {
-	// Create saves the object obj in the Kubernetes cluster.
+	// Create saves the object obj in the Kubernetes cluster. obj must be a
+	// struct pointer so that obj can be updated with the content returned by the Server.
 	Create(ctx context.Context, obj Object, opts ...CreateOption) error
 
 	// Delete deletes the given obj from Kubernetes cluster.
@@ -81,20 +82,80 @@ type Writer interface {
 // StatusClient knows how to create a client which can update status subresource
 // for kubernetes objects.
 type StatusClient interface {
-	Status() StatusWriter
+	Status() SubResourceWriter
 }
 
-// StatusWriter knows how to update status subresource of a Kubernetes object.
-type StatusWriter interface {
+// SubResourceClientConstructor knows how to create a client which can update subresource
+// for kubernetes objects.
+type SubResourceClientConstructor interface {
+	// SubResourceClientConstructor returns a subresource client for the named subResource. Known
+	// upstream subResources usages are:
+	// - ServiceAccount token creation:
+	//     sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
+	//     token := &authenticationv1.TokenRequest{}
+	//     c.SubResourceClient("token").Create(ctx, sa, token)
+	//
+	// - Pod eviction creation:
+	//     pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
+	//     c.SubResourceClient("eviction").Create(ctx, pod, &policyv1.Eviction{})
+	//
+	// - Pod binding creation:
+	//     pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
+	//     binding := &corev1.Binding{Target: corev1.ObjectReference{Name: "my-node"}}
+	//     c.SubResourceClient("binding").Create(ctx, pod, binding)
+	//
+	// - CertificateSigningRequest approval:
+	//     csr := &certificatesv1.CertificateSigningRequest{
+	//	     ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"},
+	//       Status: certificatesv1.CertificateSigningRequestStatus{
+	//         Conditions: []certificatesv1.[]CertificateSigningRequestCondition{{
+	//           Type: certificatesv1.CertificateApproved,
+	//           Status: corev1.ConditionTrue,
+	//         }},
+	//       },
+	//     }
+	//     c.SubResourceClient("approval").Update(ctx, csr)
+	//
+	// - Scale retrieval:
+	//     dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
+	//     scale := &autoscalingv1.Scale{}
+	//     c.SubResourceClient("scale").Get(ctx, dep, scale)
+	//
+	// - Scale update:
+	//     dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: "foo", Name: "bar"}}
+	//     scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: 2}}
+	//     c.SubResourceClient("scale").Update(ctx, dep, client.WithSubResourceBody(scale))
+	SubResource(subResource string) SubResourceClient
+}
+
+// StatusWriter is kept for backward compatibility.
+type StatusWriter = SubResourceWriter
+
+// SubResourceReader knows how to read SubResources
+type SubResourceReader interface {
+	Get(ctx context.Context, obj Object, subResource Object, opts ...SubResourceGetOption) error
+}
+
+// SubResourceWriter knows how to update subresource of a Kubernetes object.
+type SubResourceWriter interface {
+	// Create saves the subResource object in the Kubernetes cluster. obj must be a
+	// struct pointer so that obj can be updated with the content returned by the Server.
+	Create(ctx context.Context, obj Object, subResource Object, opts ...SubResourceCreateOption) error
 	// Update updates the fields corresponding to the status subresource for the
 	// given obj. obj must be a struct pointer so that obj can be updated
 	// with the content returned by the Server.
-	Update(ctx context.Context, obj Object, opts ...UpdateOption) error
+	Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error
 
 	// Patch patches the given object's subresource. obj must be a struct
 	// pointer so that obj can be updated with the content returned by the
 	// Server.
-	Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error
+	Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error
+}
+
+// SubResourceClient knows how to perform CRU operations on Kubernetes objects.
+type SubResourceClient interface {
+	SubResourceReader
+	SubResourceWriter
 }
 
 // Client knows how to perform CRUD operations on Kubernetes objects.
@@ -102,6 +163,7 @@ type Client interface {
 	Reader
 	Writer
 	StatusClient
+	SubResourceClientConstructor
 
 	// Scheme returns the scheme this client is using.
 	Scheme() *runtime.Scheme

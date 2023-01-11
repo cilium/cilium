@@ -49,6 +49,7 @@ type VirtualBorderRouterType struct {
 	AccessPointId                    string                                       `json:"AccessPointId" xml:"AccessPointId"`
 	PConnVbrChargeType               string                                       `json:"PConnVbrChargeType" xml:"PConnVbrChargeType"`
 	PhysicalConnectionId             string                                       `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
+	Bandwidth                        int                                          `json:"Bandwidth" xml:"Bandwidth"`
 	AssociatedPhysicalConnections    AssociatedPhysicalConnections                `json:"AssociatedPhysicalConnections" xml:"AssociatedPhysicalConnections"`
 	AssociatedCens                   AssociatedCensInDescribeVirtualBorderRouters `json:"AssociatedCens" xml:"AssociatedCens"`
 }

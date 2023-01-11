@@ -95,6 +95,13 @@ type CiliumBGPVirtualRouter struct {
 	//
 	// +kubebuilder:validation:Optional
 	ExportPodCIDR bool `json:"exportPodCIDR"`
+	// ServiceSelector selects a group of load balancer services which this
+	// virtual router will announce.
+	//
+	// If nil no services will be announced.
+	//
+	// +kubebuilder:validation:Optional
+	ServiceSelector *slimv1.LabelSelector `json:"serviceSelector"`
 	// Neighbors is a list of neighboring BGP peers for this virtual router
 	//
 	// +kubebuilder:validation:Required

@@ -151,7 +151,7 @@ func ipSecReplaceStateIn(remoteIP, localIP net.IP, zeroMark bool) (uint8, error)
 		Value: linux_defaults.RouteMarkDecrypt,
 		Mask:  linux_defaults.IPsecMarkMaskIn,
 	}
-	if zeroMark != true {
+	if !zeroMark {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: linux_defaults.RouteMarkDecrypt,
 			Mask:  linux_defaults.RouteMarkMask,
@@ -668,7 +668,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	for {
 		select {
 		case event := <-watcher.Events:
-			if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
+			if !event.Op.Has(fsnotify.Create) || !event.Op.Has(fsnotify.Write) {
 				continue
 			}
 

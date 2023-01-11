@@ -86,6 +86,8 @@ func (t *Table) deletePathsByVrf(vrf *Vrf) []*Path {
 				rd = v.RD
 			case *bgp.EVPNNLRI:
 				rd = v.RD()
+			case *bgp.MUPNLRI:
+				rd = v.RD()
 			default:
 				return pathList
 			}
@@ -286,6 +288,39 @@ func (t *Table) GetEvpnDestinationsWithRouteType(typ string) ([]*Destination, er
 	return results, nil
 }
 
+func (t *Table) GetMUPDestinationsWithRouteType(typ string) ([]*Destination, error) {
+	var routeType uint16
+	switch strings.ToLower(typ) {
+	case "isd":
+		routeType = bgp.MUP_ROUTE_TYPE_INTERWORK_SEGMENT_DISCOVERY
+	case "dsd":
+		routeType = bgp.MUP_ROUTE_TYPE_DIRECT_SEGMENT_DISCOVERY
+	case "t1st":
+		routeType = bgp.MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED
+	case "t2st":
+		routeType = bgp.MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED
+	default:
+		return nil, fmt.Errorf("unsupported mup route type: %s", typ)
+	}
+	destinations := t.GetDestinations()
+	results := make([]*Destination, 0, len(destinations))
+	switch t.routeFamily {
+	case bgp.RF_MUP_IPv4, bgp.RF_MUP_IPv6:
+		for _, dst := range destinations {
+			if nlri, ok := dst.nlri.(*bgp.MUPNLRI); !ok {
+				return nil, fmt.Errorf("invalid mup nlri type detected: %T", dst.nlri)
+			} else if nlri.RouteType == routeType {
+				results = append(results, dst)
+			}
+		}
+	default:
+		for _, dst := range destinations {
+			results = append(results, dst)
+		}
+	}
+	return results, nil
+}
+
 func (t *Table) setDestination(dst *Destination) {
 	t.destinations[t.tableKey(dst.nlri)] = dst
 }
@@ -429,6 +464,18 @@ func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 			for _, p := range prefixes {
 				// Uses LookupPrefix.Prefix as EVPN Route Type string
 				ds, err := t.GetEvpnDestinationsWithRouteType(p.Prefix)
+				if err != nil {
+					return nil, err
+				}
+				for _, dst := range ds {
+					if d := dst.Select(dOption); d != nil {
+						r.setDestination(d)
+					}
+				}
+			}
+		case bgp.RF_MUP_IPv4, bgp.RF_MUP_IPv6:
+			for _, p := range prefixes {
+				ds, err := t.GetMUPDestinationsWithRouteType(p.Prefix)
 				if err != nil {
 					return nil, err
 				}

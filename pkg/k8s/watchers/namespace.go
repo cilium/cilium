@@ -4,20 +4,16 @@
 package watchers
 
 import (
+	"context"
 	"errors"
-	"sync"
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -25,57 +21,67 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-func (k *K8sWatcher) namespacesInit(slimClient slimclientset.Interface, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) namespacesInit() {
 	apiGroup := k8sAPIGroupNamespaceV1Core
-	namespaceStore, namespaceController := informer.NewInformer(
-		utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](slimClient.CoreV1().Namespaces()),
-		&slim_corev1.Namespace{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			// AddFunc does not matter since the endpoint will fetch
-			// namespace labels when the endpoint is created
-			// DelFunc does not matter since, when a namespace is deleted, all
-			// pods belonging to that namespace are also deleted.
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricNS, resources.MetricUpdate, valid, equal) }()
-				if oldNS := k8s.ObjToV1Namespace(oldObj); oldNS != nil {
-					if newNS := k8s.ObjToV1Namespace(newObj); newNS != nil {
-						valid = true
-						if oldNS.DeepEqual(newNS) {
-							equal = true
-							return
-						}
 
-						err := k.updateK8sV1Namespace(oldNS, newNS)
-						k.K8sEventProcessed(metricNS, resources.MetricUpdate, err == nil)
-					}
-				}
-			},
-		},
+	synced := false
+
+	k.blockWaitGroupToSyncResources(
+		k.stop,
 		nil,
+		func() bool { return synced },
+		apiGroup,
 	)
-
-	k.namespaceStore = namespaceStore
-	k.blockWaitGroupToSyncResources(k.stop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
 	k.k8sAPIGroups.AddAPI(apiGroup)
-	asyncControllers.Done()
-	namespaceController.Run(k.stop)
+
+	nsUpdater := namespaceUpdater{
+		oldLabels:       make(map[string]labels.Labels),
+		endpointManager: k.endpointManager,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	events := k.sharedResources.Namespaces.Events(ctx)
+
+	go func() {
+		for {
+			select {
+			case <-k.stop:
+				cancel()
+			case event, ok := <-events:
+				if !ok {
+					return
+				}
+				var err error
+				switch event.Kind {
+				case resource.Sync:
+					synced = true
+				case resource.Upsert:
+					err = nsUpdater.update(event.Object)
+					k.K8sEventProcessed(metricNS, resources.MetricUpdate, err == nil)
+				}
+				event.Done(err)
+			}
+		}
+	}()
 }
 
-func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) error {
-	oldNSLabels := map[string]string{}
-	newNSLabels := map[string]string{}
+type namespaceUpdater struct {
+	oldLabels map[string]labels.Labels
 
-	for k, v := range oldNS.GetLabels() {
-		oldNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
-	}
-	for k, v := range newNS.GetLabels() {
-		newNSLabels[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
-	}
+	endpointManager endpointManager
+}
 
-	oldLabels := labels.Map2Labels(oldNSLabels, labels.LabelSourceK8s)
-	newLabels := labels.Map2Labels(newNSLabels, labels.LabelSourceK8s)
+func getNamespaceLabels(ns *slim_corev1.Namespace) labels.Labels {
+	labelMap := map[string]string{}
+	for k, v := range ns.GetLabels() {
+		labelMap[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
+	}
+	return labels.Map2Labels(labelMap, labels.LabelSourceK8s)
+}
+
+func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
+	oldLabels := u.oldLabels[newNS.Name]
+	newLabels := getNamespaceLabels(newNS)
 
 	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
@@ -86,11 +92,11 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) e
 		return nil
 	}
 
-	eps := k.endpointManager.GetEndpoints()
+	eps := u.endpointManager.GetEndpoints()
 	failed := false
 	for _, ep := range eps {
 		epNS := ep.GetK8sNamespace()
-		if oldNS.Name == epNS {
+		if newNS.Name == epNS {
 			err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 			if err != nil {
 				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
@@ -107,14 +113,17 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) e
 
 // GetCachedNamespace returns a namespace from the local store.
 func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
-	<-k.controllersStarted
-	k.WaitForCacheSync(k8sAPIGroupNamespaceV1Core)
 	nsName := &slim_corev1.Namespace{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
-	namespaceInterface, exists, err := k.namespaceStore.Get(nsName)
+
+	store, err := k.sharedResources.Namespaces.Store(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	ns, exists, err := store.Get(nsName)
 	if err != nil {
 		return nil, err
 	}
@@ -124,5 +133,5 @@ func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespac
 			Resource: "namespace",
 		}, namespace)
 	}
-	return namespaceInterface.(*slim_corev1.Namespace).DeepCopy(), nil
+	return ns.DeepCopy(), nil
 }

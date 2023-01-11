@@ -53,7 +53,7 @@ type ModifyTransitGatewayInput struct {
 
 type ModifyTransitGatewayOutput struct {
 
-	// Describes a transit gateway.
+	// Information about the transit gateway.
 	TransitGateway *types.TransitGateway
 
 	// Metadata pertaining to the operation's result.

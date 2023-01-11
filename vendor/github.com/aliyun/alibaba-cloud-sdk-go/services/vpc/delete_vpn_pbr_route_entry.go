@@ -79,6 +79,7 @@ type DeleteVpnPbrRouteEntryRequest struct {
 	Weight               requests.Integer `position:"Query" name:"Weight"`
 	VpnGatewayId         string           `position:"Query" name:"VpnGatewayId"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
+	Priority             requests.Integer `position:"Query" name:"Priority"`
 	RouteDest            string           `position:"Query" name:"RouteDest"`
 	NextHop              string           `position:"Query" name:"NextHop"`
 	OverlayMode          string           `position:"Query" name:"OverlayMode"`

@@ -560,7 +560,7 @@ func (ds *DNSCacheTestSuite) TestOverlimitEntriesWithValidLimit(c *C) {
 	c.Assert(affectedNames, checker.DeepEquals, []string{"test.com"})
 
 	c.Assert(cache.Lookup("test.com"), HasLen, limit)
-	c.Assert(cache.LookupIP(net.ParseIP("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
+	c.Assert(cache.LookupIP(netip.MustParseAddr("1.1.1.1")), checker.DeepEquals, []string{"foo.bar"})
 	c.Assert(cache.forward["test.com"][netip.MustParseAddr("1.1.1.1")], IsNil)
 	c.Assert(cache.Lookup("foo.bar"), HasLen, 1)
 	c.Assert(cache.Lookup("bar.foo"), HasLen, 1)
@@ -752,6 +752,41 @@ func (ds *DNSCacheTestSuite) TestZombiesGCOverLimit(c *C) {
 	assertZombiesContain(c, alive, map[string][]string{
 		"2.2.2.2": {"somethingelse.com", "test.com"},
 		"3.3.3.3": {"anothertest.com"},
+	})
+}
+
+func (ds *DNSCacheTestSuite) TestZombiesGCOverLimitWithCTGC(c *C) {
+	now := time.Now()
+	afterNow := now.Add(1 * time.Nanosecond)
+	maxConnections := 3
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, maxConnections)
+	zombies.SetCTGCTime(now)
+
+	// Limit the number of IPs per hostname, but associate 'test.com' with
+	// more IPs.
+	for i := 0; i < maxConnections+1; i++ {
+		zombies.Upsert(now, fmt.Sprintf("1.1.1.%d", i+1), "test.com")
+	}
+
+	// Simulate that CT garbage collection marks some IPs as live, we'll
+	// use the first 'maxConnections' IPs just so we can sort the output
+	// in the test below.
+	for i := 0; i < maxConnections; i++ {
+		zombies.MarkAlive(afterNow, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)))
+	}
+	zombies.SetCTGCTime(afterNow)
+
+	// Garbage collection should now impose the maxConnections limit on
+	// the name, prioritizing to keep the active IPs live and then marking
+	// the inactive IP as dead (to delete).
+	alive, dead := zombies.GC()
+	assertZombiesContain(c, dead, map[string][]string{
+		"1.1.1.4": {"test.com"},
+	})
+	assertZombiesContain(c, alive, map[string][]string{
+		"1.1.1.1": {"test.com"},
+		"1.1.1.2": {"test.com"},
+		"1.1.1.3": {"test.com"},
 	})
 }
 

@@ -10,26 +10,18 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sLabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/workerpool"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
-	"github.com/cilium/cilium/pkg/k8s/client/listers/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeaddr "github.com/cilium/cilium/pkg/node"
-	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -99,17 +91,27 @@ type ControlPlaneState struct {
 	IPv6 net.IP
 }
 
+type policyLister interface {
+	List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+}
+
+type policyListerFunc func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
+
+func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+	return plf()
+}
+
 // Controller is the agent side BGP Control Plane controller.
 //
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
 	NodeSpec nodeSpecer
-	// PolicyLister provides cached and indexed lookups of
-	// for CilumBGPPeeringPolicy API objects.
-	PolicyLister v2alpha1.CiliumBGPPeeringPolicyLister
-	// policyInformer keeps the controller informed of any policy changes.
-	policyInformer cache.SharedIndexInformer
+	// PolicyResource provides a store of cached policies and allows us to observe changes to the objects in its
+	// store.
+	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
+	// PolicyLister is an interface which allows for the listing of all known policies
+	PolicyLister policyLister
 	// Sig informs the Controller that a Kubernetes
 	// event of interest has occurred.
 	//
@@ -125,56 +127,16 @@ type Controller struct {
 	workerpool *workerpool.WorkerPool
 }
 
-// ControllerOpt is a signature for defining configurable options for a
-// Controller
-type ControllerOpt func(*Controller)
-
-// configureForK8sIPAM will setup an informer which will trigger reconciliation
-// when the Kubernetes Node object has changed and returns a nodeSpecer abstraction
-// to retrieve the Node's PodCIDR prefixes.
-func configureForK8sIPAM(k8sfactory informers.SharedInformerFactory, sig Signaler) (nodeSpecer, error) {
-	name := nodetypes.GetName()
-	nodeLister := k8sfactory.Core().V1().Nodes().Lister()
-	nodeInformer := k8sfactory.Core().V1().Nodes().Informer()
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    sig.Event,
-		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
-		DeleteFunc: sig.Event,
-	})
-	return &kubernetesNodeSpecer{
-		Name:         name,
-		NodeLister:   nodeLister,
-		nodeInformer: nodeInformer,
-	}, nil
-}
-
-// configureForK8sIPAM will setup an informer which will trigger reconciliation
-// when the CiliumNode object has changed and returns a nodeSpecer abstraction
-// to retrieve the Node's PodCIDR prefixes.
-func configureForClusterPoolIPAM(factory externalversions.SharedInformerFactory, sig Signaler) (nodeSpecer, error) {
-	name := nodetypes.GetName()
-	nodeLister := factory.Cilium().V2().CiliumNodes().Lister()
-	nodeInformer := factory.Cilium().V2().CiliumNodes().Informer()
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    sig.Event,
-		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
-		DeleteFunc: sig.Event,
-	})
-	return &ciliumNodeSpecer{
-		Name:         name,
-		NodeLister:   nodeLister,
-		nodeInformer: nodeInformer,
-	}, nil
-}
-
 // ControllerParams contains all parameters needed to construct a Controller
 type ControllerParams struct {
 	cell.In
 
-	Lifecycle    hive.Lifecycle
-	Clientset    client.Clientset
-	RouterMgr    BGPRouterManager
-	DaemonConfig *option.DaemonConfig
+	Lifecycle      hive.Lifecycle
+	Sig            Signaler
+	RouteMgr       BGPRouterManager
+	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
+	DaemonConfig   *option.DaemonConfig
+	NodeSpec       nodeSpecer
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -192,57 +154,12 @@ func NewController(params ControllerParams) (*Controller, error) {
 		return nil, nil
 	}
 
-	var (
-		// signaler used to trigger Controller reconciliation.
-		sig = NewSignaler()
-		// we'll use to list and watch BGPPeeringPolicies
-		factory = externalversions.NewSharedInformerFactory(params.Clientset, 0)
-	)
-
 	c := Controller{
-		Sig:    sig,
-		BGPMgr: params.RouterMgr,
+		Sig:            params.Sig,
+		BGPMgr:         params.RouteMgr,
+		PolicyResource: params.PolicyResource,
+		NodeSpec:       params.NodeSpec,
 	}
-
-	// setup is dictate by the type of IPAM being used. If Kubernetes IPAM is
-	// being used the BGP Control Plane must watch and retrieve PodCIDR ranges
-	// from the corev1 Kubernetes Node resource.
-	//
-	// if the ClusterPool (both v1 and v2) IPAM mode is in use, the control plane
-	// must watch and retrieve PodCIDR ranges from Cilium's v2 CiliumNode resource.
-	switch params.DaemonConfig.IPAM {
-	case ipamOption.IPAMClusterPoolV2, ipamOption.IPAMClusterPool:
-		var err error
-		selfTweakList := externalversions.WithTweakListOptions(func(lo *metav1.ListOptions) {
-			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
-		})
-		factory := externalversions.NewSharedInformerFactoryWithOptions(params.Clientset, 0, selfTweakList)
-		c.NodeSpec, err = configureForClusterPoolIPAM(factory, sig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure listers and informers for ClusterPool IPAM: %w", err)
-		}
-	case ipamOption.IPAMKubernetes:
-		var err error
-		selfTweakList := informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
-			lo.FieldSelector = "metadata.name=" + nodetypes.GetName()
-		})
-		k8sfactory := informers.NewSharedInformerFactoryWithOptions(params.Clientset, 0, selfTweakList)
-		c.NodeSpec, err = configureForK8sIPAM(k8sfactory, sig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure listers and informers for Kubernetes IPAM: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("failed to determine a compatible IPAM mode, cannot initialize BGP control plane")
-	}
-
-	// setup policy lister and informer.
-	c.PolicyLister = factory.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Lister()
-	c.policyInformer = factory.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Informer()
-	c.policyInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    sig.Event,
-		UpdateFunc: func(_ interface{}, _ interface{}) { sig.Event(struct{}{}) },
-		DeleteFunc: sig.Event,
-	})
 
 	params.Lifecycle.Append(&c)
 
@@ -250,15 +167,26 @@ func NewController(params ControllerParams) (*Controller, error) {
 }
 
 // Start is called by hive after all of our dependencies have been started.
-func (c *Controller) Start(_ hive.HookContext) error {
-	c.workerpool = workerpool.New(3)
-	c.workerpool.Submit("policy-informer", func(ctx context.Context) error {
-		c.policyInformer.Run(ctx.Done())
-		return nil
+func (c *Controller) Start(startCtx hive.HookContext) error {
+	store, err := c.PolicyResource.Store(startCtx)
+	if err != nil {
+		return fmt.Errorf("PolicyResource.Store(): %w", err)
+	}
+	c.PolicyLister = policyListerFunc(func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+		return store.List(), nil
 	})
 
-	c.workerpool.Submit("nodespecer", func(ctx context.Context) error {
-		c.NodeSpec.Run(ctx)
+	c.workerpool = workerpool.New(2)
+
+	c.workerpool.Submit("policy-observer", func(ctx context.Context) error {
+		for ev := range c.PolicyResource.Events(ctx) {
+			switch ev.Kind {
+			case resource.Upsert, resource.Delete:
+				// Signal the reconciliation logic.
+				c.Sig.Event(struct{}{})
+			}
+			ev.Done(nil)
+		}
 		return nil
 	})
 
@@ -396,7 +324,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	)
 
 	// retrieve all CiliumBGPPeeringPolicies
-	policies, err := c.PolicyLister.List(k8sLabels.NewSelector())
+	policies, err := c.PolicyLister.List()
 	if err != nil {
 		return fmt.Errorf("failed to list CiliumBGPPeeringPolicies")
 	}

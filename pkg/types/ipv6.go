@@ -16,8 +16,7 @@ func (v6 IPv6) IP() net.IP {
 }
 
 func (v6 IPv6) Addr() netip.Addr {
-	addr, _ := netip.AddrFromSlice(v6[:])
-	return addr
+	return netip.AddrFrom16(v6)
 }
 
 func (v6 IPv6) String() string {

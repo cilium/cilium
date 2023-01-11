@@ -45,10 +45,10 @@ type DescribeNetworkInsightsAnalysesInput struct {
 
 	// The filters. The following are the possible values:
 	//
-	// * PathFound - A Boolean
+	// * path-found - A Boolean
 	// value that indicates whether a feasible path is found.
 	//
-	// * Status - The status of
+	// * status - The status of
 	// the analysis (running | succeeded | failed).
 	Filters []types.Filter
 

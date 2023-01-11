@@ -70,7 +70,7 @@ func (h *Handler) serveAggregated(resp http.ResponseWriter, req *http.Request) {
 		parts = append(parts, checkStatus{name: "ping", healthy: true})
 	}
 
-	for _, c := range excluded.List() {
+	for _, c := range excluded.UnsortedList() {
 		log.V(1).Info("cannot exclude health check, no matches for it", "checker", c)
 	}
 
@@ -88,7 +88,7 @@ func (h *Handler) serveAggregated(resp http.ResponseWriter, req *http.Request) {
 // any checks that the user requested to have excluded, but weren't actually
 // known checks.  writeStatusAsText is always verbose on failure, and can be
 // forced to be verbose on success using the given argument.
-func writeStatusesAsText(resp http.ResponseWriter, parts []checkStatus, unknownExcludes sets.String, failed, forceVerbose bool) {
+func writeStatusesAsText(resp http.ResponseWriter, parts []checkStatus, unknownExcludes sets.Set[string], failed, forceVerbose bool) {
 	resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	resp.Header().Set("X-Content-Type-Options", "nosniff")
 
@@ -121,7 +121,7 @@ func writeStatusesAsText(resp http.ResponseWriter, parts []checkStatus, unknownE
 	}
 
 	if unknownExcludes.Len() > 0 {
-		fmt.Fprintf(resp, "warn: some health checks cannot be excluded: no matches for %s\n", formatQuoted(unknownExcludes.List()...))
+		fmt.Fprintf(resp, "warn: some health checks cannot be excluded: no matches for %s\n", formatQuoted(unknownExcludes.UnsortedList()...))
 	}
 
 	if failed {
@@ -187,12 +187,12 @@ type Checker func(req *http.Request) error
 var Ping Checker = func(_ *http.Request) error { return nil }
 
 // getExcludedChecks extracts the health check names to be excluded from the query param.
-func getExcludedChecks(r *http.Request) sets.String {
+func getExcludedChecks(r *http.Request) sets.Set[string] {
 	checks, found := r.URL.Query()["exclude"]
 	if found {
-		return sets.NewString(checks...)
+		return sets.New[string](checks...)
 	}
-	return sets.NewString()
+	return sets.New[string]()
 }
 
 // formatQuoted returns a formatted string of the health check names,

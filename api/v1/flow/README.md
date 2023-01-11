@@ -619,9 +619,11 @@ that happened before the events were captured by Hubble.
 | frontend_address | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) |  |  |
 | backend_addresses | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) | repeated |  |
 | type | [string](#string) |  |  |
-| traffic_policy | [string](#string) |  |  |
+| traffic_policy | [string](#string) |  | **Deprecated.**  |
 | name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
+| ext_traffic_policy | [string](#string) |  |  |
+| int_traffic_policy | [string](#string) |  |  |
 
 
 
@@ -951,6 +953,7 @@ here.
 | MISSING_SRV6_STATE | 186 |  |
 | NAT46 | 187 |  |
 | NAT64 | 188 |  |
+| AUTH_REQUIRED | 189 |  |
 
 
 

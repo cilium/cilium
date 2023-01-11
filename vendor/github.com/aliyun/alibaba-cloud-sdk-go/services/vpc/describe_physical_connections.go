@@ -79,7 +79,14 @@ type DescribePhysicalConnectionsRequest struct {
 	ResourceOwnerAccount   string                               `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount           string                               `position:"Query" name:"OwnerAccount"`
 	OwnerId                requests.Integer                     `position:"Query" name:"OwnerId"`
+	Tags                   *[]DescribePhysicalConnectionsTags   `position:"Query" name:"Tags"  type:"Repeated"`
 	Filter                 *[]DescribePhysicalConnectionsFilter `position:"Query" name:"Filter"  type:"Repeated"`
+}
+
+// DescribePhysicalConnectionsTags is a repeated param struct in DescribePhysicalConnectionsRequest
+type DescribePhysicalConnectionsTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribePhysicalConnectionsFilter is a repeated param struct in DescribePhysicalConnectionsRequest

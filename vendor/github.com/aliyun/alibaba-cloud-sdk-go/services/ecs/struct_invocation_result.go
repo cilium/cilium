@@ -32,5 +32,7 @@ type InvocationResult struct {
 	InvokeId           string                          `json:"InvokeId" xml:"InvokeId"`
 	InvokeRecordStatus string                          `json:"InvokeRecordStatus" xml:"InvokeRecordStatus"`
 	Username           string                          `json:"Username" xml:"Username"`
+	ContainerId        string                          `json:"ContainerId" xml:"ContainerId"`
+	ContainerName      string                          `json:"ContainerName" xml:"ContainerName"`
 	Tags               TagsInDescribeInvocationResults `json:"Tags" xml:"Tags"`
 }

@@ -5,7 +5,7 @@
       <img src="https://cdn.jsdelivr.net/gh/cilium/cilium@master/Documentation/images/logo-dark.png" width="350" alt="Cilium Logo">
    </picture>
 
-|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl|
+|cii| |go-report| |clomonitor| |artifacthub| |slack| |go-doc| |rtd| |apache| |bsd| |gpl| |fossa|
 
 Cilium is a networking, observability, and security solution with an eBPF-based
 dataplane. It provides a simple flat Layer 3 network with the ability to span 
@@ -42,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-11-16 | ``quay.io/cilium/cilium:v1.12.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.4>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.12.5``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.5>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-11-16 | ``quay.io/cilium/cilium:v1.11.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.11>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.11.12`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.12>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-11-15 | ``quay.io/cilium/cilium:v1.10.17`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.17>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
+| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.10.18`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.18>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Functionality Overview
@@ -342,3 +342,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. |artifacthub| image:: https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cilium
     :alt: Artifact Hub
     :target: https://artifacthub.io/packages/helm/cilium/cilium
+
+.. |fossa| image:: https://app.fossa.com/api/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git.svg?type=shield
+    :alt: FOSSA Status
+    :target: https://app.fossa.com/projects/custom%2B162%2Fgit%40github.com%3Acilium%2Fcilium.git?ref=badge_shield

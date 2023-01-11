@@ -97,7 +97,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			 */
 			info = ipcache_lookup6(&IPCACHE_MAP,
 					       (union v6addr *)&ip6->saddr,
-					       V6_CACHE_KEY_LEN);
+					       V6_CACHE_KEY_LEN, 0);
 			if (info)
 				*identity = info->sec_label;
 		}
@@ -154,7 +154,7 @@ not_esp:
 			return hdrlen;
 
 		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
-					   METRIC_INGRESS, false);
+					   METRIC_INGRESS, false, false);
 	}
 
 	/* A packet entering the node from the tunnel and not going to a local
@@ -257,7 +257,7 @@ skip_vtep:
 			struct remote_endpoint_info *info;
 
 			info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr,
-					       V4_CACHE_KEY_LEN);
+					       V4_CACHE_KEY_LEN, 0);
 			if (info)
 				*identity = info->sec_label;
 		}
@@ -306,7 +306,7 @@ not_esp:
 			goto to_host;
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
-					   METRIC_INGRESS, false);
+					   METRIC_INGRESS, false, false);
 	}
 
 	/* A packet entering the node from the tunnel and not going to a local

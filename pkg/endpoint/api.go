@@ -518,7 +518,7 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 	e.replaceInformationLabels(newEp.OpLabels.OrchestrationInfo)
 	rev := e.replaceIdentityLabels(newEp.OpLabels.IdentityLabels())
 	if rev != 0 {
-		// Run as a go routine since the runIdentityResolver needs to get the lock
+		// Run as a goroutine since the runIdentityResolver needs to get the lock
 		go e.runIdentityResolver(e.aliveCtx, rev, false)
 	}
 

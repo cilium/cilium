@@ -111,6 +111,11 @@ func MustAddrClusterFromIP(ip net.IP) AddrCluster {
 	return addr
 }
 
+// AddrClusterFrom creates AddrCluster from netip.Addr and ClusterID
+func AddrClusterFrom(addr netip.Addr, clusterID uint32) AddrCluster {
+	return AddrCluster{addr: addr, clusterID: clusterID}
+}
+
 // Addr returns IP address part of AddrCluster as netip.Addr. This function
 // exists for keeping backward compatibility between the existing components
 // which are not aware of the cluster-aware addressing. Calling this function
@@ -118,6 +123,13 @@ func MustAddrClusterFromIP(ip net.IP) AddrCluster {
 // information. It should be used with an extra care.
 func (ac AddrCluster) Addr() netip.Addr {
 	return ac.addr
+}
+
+// ClusterID returns ClusterID part of AddrCluster as uint32. We should avoid
+// using this function as much as possible and treat IP address and ClusterID
+// together.
+func (ac AddrCluster) ClusterID() uint32 {
+	return ac.clusterID
 }
 
 // Equal returns true when given AddrCluster has a same IP address and ClusterID
@@ -205,4 +217,28 @@ func (ac AddrCluster) As20() (ac20 [20]byte) {
 // lose the ClusterID information. It should be used with an extra care.
 func (ac AddrCluster) AsNetIP() net.IP {
 	return ac.addr.AsSlice()
+}
+
+// PrefixCluster is a type that holds a pair of prefix and ClusterID.
+// We should use this type as much as possible when we implement
+// prefix + Cluster addressing. We should avoid managing prefix and
+// ClusterID separately. Otherwise, it is very hard for code readers
+// to see where we are using cluster-aware addressing.
+type PrefixCluster struct {
+	prefix    netip.Prefix
+	clusterID uint32
+}
+
+func PrefixClusterFrom(addr netip.Addr, bits int, clusterID uint32) PrefixCluster {
+	return PrefixCluster{
+		prefix:    netip.PrefixFrom(addr, bits),
+		clusterID: clusterID,
+	}
+}
+
+func (pc PrefixCluster) String() string {
+	if pc.clusterID == 0 {
+		return pc.prefix.String()
+	}
+	return pc.prefix.String() + "@" + strconv.FormatUint(uint64(pc.clusterID), 10)
 }

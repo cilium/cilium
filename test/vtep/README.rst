@@ -62,6 +62,7 @@ VTEP integration test steps, You can also run install.sh for following steps
    # deploy busybox on kind control plaine node
    kubectl label node kind-control-plane  dedicated=master
    kubectl taint nodes --all node-role.kubernetes.io/master-
+   kubectl taint nodes --all node-role.kubernetes.io/control-plane-
    kubectl apply -f busybox-master.yaml
    # Deploy vxlan-responder.py in systemd service
    cp vxlan-responder.service /etc/systemd/system/

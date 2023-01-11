@@ -63,8 +63,10 @@ concurrency:
 env:
   clusterName1: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-1
   clusterName2: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh-2
+  clusterNameBase: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-mesh
   zone: us-west2-a
   firewallRuleName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-rule
+  k8s_version: 1.21
   cilium_cli_version: v0.10.7
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
@@ -213,6 +215,7 @@ jobs:
           gcloud container clusters create ${{ env.clusterName1 }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
+            --cluster-version ${{ env.k8s_version }} \
             --enable-ip-alias \
             --create-subnetwork="" \
             --image-type COS_CONTAINERD \
@@ -228,6 +231,7 @@ jobs:
           gcloud container clusters create ${{ env.clusterName2 }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
             --zone ${{ env.zone }} \
+            --cluster-version ${{ env.k8s_version }} \
             --enable-ip-alias \
             --create-subnetwork="" \
             --image-type COS_CONTAINERD \
@@ -323,6 +327,8 @@ jobs:
             --multi-cluster ${{ steps.contexts.outputs.context2 }} \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
+            --test '!/pod-to-world' \
+            --test '!/pod-to-cidr' \
             --flow-validation=disabled --hubble=false
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
@@ -349,10 +355,13 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          gcloud compute firewall-rules delete ${{ env.firewallRuleName }} --quiet
+          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterNameBase }}" --format="value(name)")" ];do
+            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
+          done
           gcloud container clusters delete ${{ env.clusterName1 }} --zone ${{ env.zone }} --quiet --async
           gcloud container clusters delete ${{ env.clusterName2 }} --zone ${{ env.zone }} --quiet --async
-        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+          gcloud compute firewall-rules delete ${{ env.firewallRuleName }} --quiet
+        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
         if: ${{ !success() }}

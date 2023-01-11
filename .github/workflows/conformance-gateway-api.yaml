@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.10
+  cilium_cli_version: v0.12.11
   timeout: 5m
   gateway_api_version: v0.5.1
 
@@ -75,9 +75,9 @@ jobs:
           minikube tunnel &
 
       - name: Install Go
-        uses: actions/setup-go@c4a742cab115ed795e34d4513e2cf7d472deb55f
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
         with:
-          go-version: 1.19.3
+          go-version: 1.19.4
 
       - name: Wait for images to be available
         timeout-minutes: 30

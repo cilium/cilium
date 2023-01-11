@@ -87,6 +87,7 @@ type CreatePhysicalConnectionOccupancyOrderRequest struct {
 type CreatePhysicalConnectionOccupancyOrderResponse struct {
 	*responses.BaseResponse
 	RequestId string `json:"RequestId" xml:"RequestId"`
+	Data      Data   `json:"Data" xml:"Data"`
 }
 
 // CreateCreatePhysicalConnectionOccupancyOrderRequest creates a request to invoke CreatePhysicalConnectionOccupancyOrder API

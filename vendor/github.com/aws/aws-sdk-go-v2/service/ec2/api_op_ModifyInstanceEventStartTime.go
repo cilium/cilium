@@ -56,7 +56,7 @@ type ModifyInstanceEventStartTimeInput struct {
 
 type ModifyInstanceEventStartTimeOutput struct {
 
-	// Describes a scheduled event for an instance.
+	// Information about the event.
 	Event *types.InstanceStatusEvent
 
 	// Metadata pertaining to the operation's result.

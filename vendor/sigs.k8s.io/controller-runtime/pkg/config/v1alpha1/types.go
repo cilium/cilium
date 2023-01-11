@@ -94,6 +94,10 @@ type ControllerConfigurationSpec struct {
 	// Defaults to 2 minutes if not set.
 	// +optional
 	CacheSyncTimeout *time.Duration `json:"cacheSyncTimeout,omitempty"`
+
+	// RecoverPanic indicates if panics should be recovered.
+	// +optional
+	RecoverPanic *bool `json:"recoverPanic,omitempty"`
 }
 
 // ControllerMetrics defines the metrics configs.
@@ -109,6 +113,7 @@ type ControllerMetrics struct {
 type ControllerHealth struct {
 	// HealthProbeBindAddress is the TCP address that the controller should bind to
 	// for serving health probes
+	// It can be set to "0" or "" to disable serving the health probe.
 	// +optional
 	HealthProbeBindAddress string `json:"healthProbeBindAddress,omitempty"`
 

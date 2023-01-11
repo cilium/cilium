@@ -6,10 +6,13 @@ package cmd
 import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -52,10 +55,20 @@ var (
 		// observing changes to it.
 		node.LocalNodeStoreCell,
 
+		// Shared resources provide access to k8s resources as event streams or as
+		// read-only stores.
+		k8s.SharedResourcesCell,
+
+		// EndpointManager maintains a collection of the locally running endpoints.
+		endpointmanager.Cell,
+
+		// NodeManager maintains a collection of other nodes in the cluster.
+		nodeManager.Cell,
+
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
 
-		// The BGP Control Plane
+		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
 	)
 

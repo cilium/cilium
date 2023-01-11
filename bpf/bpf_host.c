@@ -123,7 +123,7 @@ ipcache_lookup_srcid6(struct __ctx_buff *ctx)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	info = lookup_ip6_remote_endpoint((union v6addr *) &ip6->saddr);
+	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 	if (info != NULL)
 		srcid = info->sec_label;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -159,7 +159,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		src = (union v6addr *) &ip6->saddr;
-		info = lookup_ip6_remote_endpoint(src);
+		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info != NULL && info->sec_label)
 			srcid_from_ipcache = info->sec_label;
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -176,7 +176,8 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 }
 
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
+handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
+	    __s8 *ext_err __maybe_unused)
 {
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -229,7 +230,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, &trace);
+		ret = ipv6_host_policy_egress(ctx, secctx, &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -281,7 +282,7 @@ skip_host_firewall:
 			return CTX_ACT_OK;
 
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
-					   METRIC_INGRESS, from_host);
+					   METRIC_INGRESS, from_host, false);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
@@ -292,7 +293,7 @@ skip_host_firewall:
 
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		/* If IPSEC is needed recirc through ingress to use xfrm stack
 		 * and then result will routed back through bpf_netdev on egress
@@ -319,7 +320,7 @@ skip_host_firewall:
 #endif
 
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
@@ -343,15 +344,16 @@ skip_host_firewall:
 static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
+	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv6(ctx, proxy_identity, from_host);
+	ret = handle_ipv6(ctx, proxy_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, proxy_identity, ret,
-					      CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
@@ -369,7 +371,7 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
+handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -395,7 +397,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 	/* to-netdev is attached to the egress path of the native device. */
 	src_id = ipcache_lookup_srcid6(ctx);
-	return ipv6_host_policy_egress(ctx, src_id, trace);
+	return ipv6_host_policy_egress(ctx, src_id, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
@@ -420,7 +422,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr);
+		info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		if (info != NULL) {
 			*sec_label = info->sec_label;
 
@@ -454,7 +456,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
-	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
+	    __u32 ipcache_srcid __maybe_unused, const bool from_host, __s8 *ext_err __maybe_unused)
 {
 	struct trace_ctx __maybe_unused trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -485,7 +487,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		    !ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
-				ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
+				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 				return send_drop_notify_error(ctx, secctx,
 							      DROP_MISSED_TAIL_CALL,
@@ -512,7 +514,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
 		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid,
-					      &trace);
+					      &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -560,7 +562,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return CTX_ACT_OK;
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
-					   METRIC_INGRESS, from_host);
+					   METRIC_INGRESS, from_host, false);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
@@ -593,7 +595,7 @@ skip_vtep:
 #endif
 
 #ifdef TUNNEL_MODE
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      info->key, secctx, info->sec_label,
@@ -612,7 +614,7 @@ skip_vtep:
 	}
 #endif
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
@@ -644,15 +646,16 @@ skip_vtep:
 static __always_inline int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
+	__s8 ext_err = 0;
 
-	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host);
+	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, proxy_identity,
-					      ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
@@ -677,7 +680,7 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -694,7 +697,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
 	 */
-	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, trace);
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
@@ -861,7 +864,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		identity = resolve_srcid_ipv6(ctx, identity, from_host);
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		if (from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
 		else
@@ -874,7 +877,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	case bpf_htons(ETH_P_IP):
 		identity = resolve_srcid_ipv4(ctx, identity, &ipcache_srcid,
 					      from_host);
-		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		if (from_host) {
 # if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
 			/* If we don't rely on BPF-based masquerading, we need
@@ -965,7 +968,7 @@ handle_srv6(struct __ctx_buff *ctx)
 			return DROP_MISSED_TAIL_CALL;
 		}
 
-		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr);
+		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 		if (ep) {
 			dst_id = ep->sec_label;
 		} else {
@@ -998,7 +1001,7 @@ handle_srv6(struct __ctx_buff *ctx)
 			return DROP_MISSED_TAIL_CALL;
 		}
 
-		ep = lookup_ip4_remote_endpoint(ip4->daddr);
+		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (ep) {
 			dst_id = ep->sec_label;
 		} else {
@@ -1105,7 +1108,9 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u16 __maybe_unused proto = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
-	bool traced = false;
+#ifdef ENABLE_HOST_FIREWALL
+	__s8 ext_err = 0;
+#endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
@@ -1129,7 +1134,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 
 			ctx->mark = 0;
 			tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, lxc_id);
-			return DROP_MISSED_TAIL_CALL;
+			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+						      CTX_ACT_DROP, METRIC_EGRESS);
 		}
 	}
 #endif
@@ -1150,12 +1156,12 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = handle_to_netdev_ipv6(ctx, &trace);
+		ret = handle_to_netdev_ipv6(ctx, &trace, &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		ret = handle_to_netdev_ipv4(ctx, &trace);
+		ret = handle_to_netdev_ipv4(ctx, &trace, &ext_err);
 		break;
 	}
 # endif
@@ -1165,8 +1171,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 #endif /* ENABLE_HOST_FIREWALL */
 
 #if defined(ENABLE_BANDWIDTH_MANAGER)
@@ -1201,14 +1207,6 @@ out:
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
 						      METRIC_EGRESS);
-
-		/*
-		 * Depending on the condition, handle_nat_fwd may return
-		 * without tail calling. Since we have packet tracing inside
-		 * the handle_nat_fwd, we need to avoid tracing the packet
-		 * twice.
-		 */
-		traced = true;
 	}
 #endif
 #ifdef ENABLE_HEALTH_CHECK
@@ -1217,9 +1215,8 @@ out:
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif
-	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
-				  0, trace.reason, trace.monitor);
+	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
+			  0, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1407,7 +1404,7 @@ out:
  * control back to bpf_lxc.
  */
 static __always_inline int
-from_host_to_lxc(struct __ctx_buff *ctx)
+from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1427,7 +1424,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = ipv6_host_policy_egress(ctx, HOST_ID, &trace);
+	  ret = ipv6_host_policy_egress(ctx, HOST_ID, &trace, ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
@@ -1439,7 +1436,7 @@ from_host_to_lxc(struct __ctx_buff *ctx)
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
-		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &trace);
+	  ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &trace, ext_err);
 		break;
 # endif
 	default:
@@ -1461,12 +1458,13 @@ int handle_lxc_traffic(struct __ctx_buff *ctx)
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	__u32 lxc_id;
 	int ret;
+	__s8 ext_err = 0;
 
 	if (from_host) {
-		ret = from_host_to_lxc(ctx);
+		ret = from_host_to_lxc(ctx, &ext_err);
 		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, HOST_ID, ret, CTX_ACT_DROP,
-						      METRIC_EGRESS);
+			return send_drop_notify_error_ext(ctx, HOST_ID, ret, ext_err,
+							  CTX_ACT_DROP, METRIC_EGRESS);
 
 		lxc_id = ctx_load_meta(ctx, CB_DST_ENDPOINT_ID);
 		ctx_store_meta(ctx, CB_SRC_LABEL, HOST_ID);

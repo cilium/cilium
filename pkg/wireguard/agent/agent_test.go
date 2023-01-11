@@ -134,7 +134,7 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 		close(agentUpdated)
 	}()
 
-	// wait for the above go routine to be scheduled
+	// wait for the above goroutine to be scheduled
 	<-agentUpdatePending
 
 	ipCacheUpdated := make(chan struct{})
@@ -153,10 +153,10 @@ func (a *AgentSuite) TestAgent_PeerConfig(c *C) {
 		close(ipCacheUpdated)
 	}()
 
-	// wait for the above go routine to be scheduled
+	// wait for the above goroutine to be scheduled
 	<-ipCacheUpdatePending
 
-	// At this point we know both go routines have been scheduled. We assume
+	// At this point we know both goroutines have been scheduled. We assume
 	// that they are now both blocked by checking they haven't closed the
 	// channel yet. Thus once release the lock we expect them to make progress
 	select {

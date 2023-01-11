@@ -34,7 +34,6 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/stream"
 )
 
 const (
@@ -54,6 +53,15 @@ const (
 
 	serviceNamespaceLabel = "io.kubernetes.service.namespace"
 	serviceNameLabel      = "io.kubernetes.service.name"
+)
+
+var (
+	// eventsOpts are the options used with resource's Events()
+	eventsOpts = resource.WithRateLimiter(
+		// This rate limiter will retry in the following pattern
+		// 250ms, 500ms, 1s, 2s, 4s, 8s, 16s, 32s, .... max 5m
+		workqueue.NewItemExponentialFailureRateLimiter(250*time.Millisecond, 5*time.Minute),
+	)
 )
 
 var Cell = cell.Module(
@@ -134,33 +142,20 @@ type LBIPAM struct {
 }
 
 // Start implements hive.HookInterface
-func (ipam *LBIPAM) Start(_ hive.HookContext) error {
+func (ipam *LBIPAM) Start(hive.HookContext) error {
 	ipam.logger.Info("Starting LB IPAM")
 
 	ipam.workerpool = workerpool.New(1)
 
-	ipam.workerpool.Submit("lb-ipam main", func(ctx context.Context) error {
+	return ipam.workerpool.Submit("lb-ipam main", func(ctx context.Context) error {
 		ipam.Run(ctx)
 		return nil
 	})
-
-	return nil
 }
 
 // Stop implements hive.HookInterface
-func (ipam *LBIPAM) Stop(ctx hive.HookContext) error {
-	wpDone := make(chan struct{})
-	go func() {
-		ipam.workerpool.Close()
-		close(wpDone)
-	}()
-
-	select {
-	case <-wpDone:
-	case <-ctx.Done():
-	}
-
-	return nil
+func (ipam *LBIPAM) Stop(hive.HookContext) error {
+	return ipam.workerpool.Close()
 }
 
 func (ipam *LBIPAM) restart() {
@@ -182,31 +177,61 @@ type ipPoolEvent = resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 type svcEvent = resource.Event[*slim_core_v1.Service]
 
 func (ipam *LBIPAM) Run(ctx context.Context) {
-	// PreInit blocks and waits until there is at least 1 pool, which is the trigger to activate the controller.
-	ipam.logger.Info("LB-IPAM in pre-init phase, waiting for pools")
-	err := ipam.preInit(ctx)
-	if err != nil {
-		ipam.logger.WithError(err).Error("Error while pre-initializing LB-IPAM")
-		return
-	}
-	// If we exited preInit because we are shutting down, just return
-	if ctx.Err() != nil {
-		return
-	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	channelCtx, channelCancel := context.WithCancel(ctx)
-	defer channelCancel()
-
-	errChan := make(chan error, 2)
-	poolChan := stream.ToChannel[ipPoolEvent](channelCtx, errChan, ipam.poolResource)
-	svcChan := stream.ToChannel[svcEvent](channelCtx, errChan, ipam.svcResource)
+	poolChan := ipam.poolResource.Events(ctx, eventsOpts)
 
 	ipam.logger.Info("LB-IPAM initializing")
-	err = ipam.init(ctx, poolChan, svcChan)
-	if err != nil {
-		ipam.logger.WithError(err).Error("Error while initializing LB-IPAM")
-		// Stop, don't go into main control loop
-		return
+
+	// Synchronize pools first as we need them before we can satisfy
+	// the services. This will also wait for the first pool to appear
+	// before we start processing the services, which will save us from
+	// unnecessary work when LB-IPAM is not used.
+	poolsSynced := false
+	for event := range poolChan {
+		if event.Kind == resource.Sync {
+			err := ipam.settleConflicts(ctx)
+			if err != nil {
+				ipam.logger.WithError(err).Error("Error while settling pool conflicts")
+				// Keep retrying the handling of the sync event until we succeed.
+				// During this time we may receive further updates and deletes.
+				event.Done(err)
+				continue
+			}
+			poolsSynced = true
+			event.Done(nil)
+		} else {
+			ipam.handlePoolEvent(ctx, event)
+		}
+
+		// Pools have been synchronized and we've got more than
+		// one pool, continue initialization.
+		if poolsSynced && len(ipam.pools) > 0 {
+			break
+		}
+	}
+
+	svcChan := ipam.svcResource.Events(ctx, eventsOpts)
+
+	for event := range svcChan {
+		if event.Kind == resource.Sync {
+			if err := ipam.satisfyServices(ctx); err != nil {
+				ipam.logger.WithError(err).Error("Error while satisfying services")
+				// Keep retrying the handling of the sync event until we succeed.
+				event.Done(err)
+				continue
+			}
+			if err := ipam.updateAllPoolCounts(ctx); err != nil {
+				ipam.logger.WithError(err).Error("Error while updating pool counts")
+				event.Done(err)
+				continue
+			}
+			event.Done(nil)
+			break
+		} else {
+			ipam.handleServiceEvent(ctx, event)
+		}
 	}
 
 	ipam.logger.Info("LB-IPAM done initializing")
@@ -216,42 +241,23 @@ func (ipam *LBIPAM) Run(ctx context.Context) {
 		}
 	}
 
-	// When the ctx expires, both streams will close, keep processing until both channels are fully drained to avoid
-	// blocking the resource and leaking goroutines during testing.
-	for poolChan != nil || svcChan != nil {
+	for {
 		select {
+		case <-ctx.Done():
+			return
+
 		case event, ok := <-poolChan:
 			if !ok {
 				poolChan = nil
 				continue
 			}
-
-			event.Handle(
-				nil,
-				func(k resource.Key, p *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-					if err := ipam.poolOnUpsert(ctx, k, p); err != nil {
-						ipam.logger.WithError(err).Error("pool upsert failed")
-						return fmt.Errorf("poolOnUpsert: %w", err)
-					}
-
-					return nil
-				},
-				func(k resource.Key, p *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-					if err := ipam.poolOnDelete(ctx, k, p); err != nil {
-						ipam.logger.WithError(err).Error("pool delete failed")
-						return fmt.Errorf("poolOnUpsert: %w", err)
-					}
-
-					return nil
-				},
-			)
+			ipam.handlePoolEvent(ctx, event)
 
 			// This controller must go back into a dormant state when the last pool has been removed
 			if len(ipam.pools) == 0 {
-				// Trigger the shutdown of this routine
-				channelCancel()
 				// Upon return, restart the controller, which will start in pre-init state
 				defer ipam.restart()
+				return
 			}
 
 		case event, ok := <-svcChan:
@@ -259,205 +265,53 @@ func (ipam *LBIPAM) Run(ctx context.Context) {
 				svcChan = nil
 				continue
 			}
-
-			event.Handle(
-				nil,
-				func(k resource.Key, s *slim_core_v1.Service) error {
-					if err := ipam.svcOnUpsert(ctx, k, s); err != nil {
-						ipam.logger.WithError(err).Error("service upsert failed")
-						return fmt.Errorf("svcOnUpsert: %w", err)
-					}
-
-					return nil
-				},
-				func(k resource.Key, s *slim_core_v1.Service) error {
-					if err := ipam.svcOnDelete(ctx, k, s); err != nil {
-						ipam.logger.WithError(err).Error("service delete failed")
-						return fmt.Errorf("svcOnDelete: %w", err)
-					}
-
-					return nil
-				},
-			)
-		case err := <-errChan:
-			if err == nil {
-				continue
-			}
-
-			ipam.logger.WithError(err).Error("Unrecoverable error, triggering shutdown")
-			ipam.shutdowner.Shutdown(hive.ShutdownWithError(err))
+			ipam.handleServiceEvent(ctx, event)
 		}
 	}
 }
 
-// preInit blocks until a pool object exists in the store
-func (ipam *LBIPAM) preInit(ctx context.Context) error {
-	preInitCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	errChan := make(chan error, 2)
-	poolChan := stream.ToChannel[ipPoolEvent](preInitCtx, errChan, ipam.poolResource)
-	for {
-		select {
-		case event, ok := <-poolChan:
-			if !ok {
-				select {
-				case err := <-errChan:
-					return err
-				default:
-					return nil
-				}
-			}
-
-			event.Handle(func() error {
-				return nil
-			}, func(k resource.Key, clbi *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-				cancel()
-				return nil
-			}, func(k resource.Key, clbi *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-				return nil
-			})
+func (ipam *LBIPAM) handlePoolEvent(ctx context.Context, event resource.Event[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]) {
+	var err error
+	switch event.Kind {
+	case resource.Upsert:
+		err = ipam.poolOnUpsert(ctx, event.Key, event.Object)
+		if err != nil {
+			ipam.logger.WithError(err).Error("pool upsert failed")
+			err = fmt.Errorf("poolOnUpsert: %w", err)
+		}
+	case resource.Delete:
+		err = ipam.poolOnDelete(ctx, event.Key, event.Object)
+		if err != nil {
+			ipam.logger.WithError(err).Error("pool delete failed")
+			err = fmt.Errorf("poolOnDelete: %w", err)
 		}
 	}
+	event.Done(err)
+}
+
+func (ipam *LBIPAM) handleServiceEvent(ctx context.Context, event resource.Event[*slim_core_v1.Service]) {
+	var err error
+	switch event.Kind {
+	case resource.Upsert:
+		err = ipam.svcOnUpsert(ctx, event.Key, event.Object)
+		if err != nil {
+			ipam.logger.WithError(err).Error("service upsert failed")
+			err = fmt.Errorf("svcOnUpsert: %w", err)
+		}
+	case resource.Delete:
+		err = ipam.svcOnDelete(ctx, event.Key, event.Object)
+		if err != nil {
+			ipam.logger.WithError(err).Error("service delete failed")
+			err = fmt.Errorf("svcOnDelete: %w", err)
+		}
+	}
+	event.Done(err)
 }
 
 // RegisterOnReady registers a callback function which will be invoked when LBIPAM is done initializing.
 // Note: mainly used in the integration tests.
 func (ipam *LBIPAM) RegisterOnReady(cb func()) {
 	ipam.initDoneCallbacks = append(ipam.initDoneCallbacks, cb)
-}
-
-func (ipam *LBIPAM) init(
-	ctx context.Context,
-	poolChan <-chan ipPoolEvent,
-	svcChan <-chan svcEvent,
-) error {
-	if err := ipam.initSyncPools(ctx, poolChan); err != nil {
-		return err
-	}
-
-	// Then sync all services
-	if err := ipam.initSyncSvc(ctx, svcChan); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ipam *LBIPAM) initSyncPools(ctx context.Context, poolChan <-chan ipPoolEvent) error {
-	type retry struct {
-		cnt int
-		fn  func() error
-	}
-	poolRetryQueue := workqueue.New()
-
-	// First sync all pools
-	poolSync := false
-	for !poolSync {
-		select {
-		case event := <-poolChan:
-			event.Handle(
-				func() error {
-					err := ipam.settleConflicts(ctx)
-					if err != nil {
-						ipam.logger.WithError(err).Error("Error while settling pool conflicts")
-						poolRetryQueue.Add(retry{fn: func() error { return ipam.settleConflicts(ctx) }})
-					}
-
-					poolSync = true
-					return nil
-				},
-				func(k resource.Key, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-					err := ipam.handleNewPool(ctx, pool)
-					if err != nil {
-						ipam.logger.WithError(err).Error("Error while handling new pools")
-						poolRetryQueue.Add(retry{fn: func() error { return ipam.handleNewPool(ctx, pool) }})
-					}
-
-					return nil
-				},
-				func(k resource.Key, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
-					ipam.logger.Error("Got a Pool deleted event while syncing")
-					return nil
-				},
-			)
-		}
-	}
-
-	// Retry any pool related errors before we start processing the services. If we start processing services while we
-	// are missing pools due to connectivity issues, we might remove ingress IPs and cause service disruption.
-
-	// These timing values were arbitrarily chosen, 5 seconds seems like a sane timeout and 30 seconds total seems
-	// like a decent effort has been made.
-	const retryTimeout = 5 * time.Second
-	const retryCount = 6
-	for poolRetryQueue.Len() > 0 {
-		// Wait a bit in case the error is transient
-		time.Sleep(retryTimeout)
-		// Retry every function in the queue once.
-		for i := 0; i < poolRetryQueue.Len(); i++ {
-			retryInt, _ := poolRetryQueue.Get()
-			retry := retryInt.(*retry)
-
-			if err := retry.fn(); err != nil {
-				retry.cnt++
-
-				// Give up after a while. Better to crash the operator than to corrupt the presumably still working
-				// service state.
-				if retry.cnt > retryCount {
-					return fmt.Errorf("Initialization failed: %w", err)
-				}
-
-				// Requeue if the error still isn't resolved.
-				poolRetryQueue.Add(retry)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (ipam *LBIPAM) initSyncSvc(ctx context.Context, svcChan <-chan svcEvent) error {
-	svcSync := false
-	for !svcSync {
-		select {
-		case event := <-svcChan:
-			event.Handle(
-				func() error {
-					svcSync = true
-
-					err := ipam.satisfyServices(ctx)
-					if err != nil {
-						// Let the resource retry after the initialization
-						return err
-					}
-
-					err = ipam.updateAllPoolCounts(ctx)
-					if err != nil {
-						// Let the resource retry after the initialization
-						return err
-					}
-
-					return nil
-				},
-				func(k resource.Key, svc *slim_core_v1.Service) error {
-					err := ipam.handleUpsertService(ctx, svc)
-					if err != nil {
-						// Let the resource retry after the initialization
-						return err
-					}
-
-					return nil
-				},
-				func(k resource.Key, svc *slim_core_v1.Service) error {
-					ipam.logger.Error("Got a Service deleted event while syncing")
-					return nil
-				},
-			)
-		}
-	}
-
-	return nil
 }
 
 func (ipam *LBIPAM) poolOnUpsert(ctx context.Context, k resource.Key, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {

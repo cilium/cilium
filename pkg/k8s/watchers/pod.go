@@ -52,9 +52,9 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -602,7 +602,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 									Frontend:         fe,
 									Backends:         bes4,
 									Type:             loadbalancer.SVCTypeHostPort,
-									TrafficPolicy:    loadbalancer.SVCTrafficPolicyCluster,
+									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 									LoopbackHostport: loopbackHostport,
 								})
 						}
@@ -613,7 +614,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 									Frontend:         fe,
 									Backends:         bes6,
 									Type:             loadbalancer.SVCTypeHostPort,
-									TrafficPolicy:    loadbalancer.SVCTrafficPolicyCluster,
+									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 									LoopbackHostport: loopbackHostport,
 								})
 						}
@@ -679,7 +681,8 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			Frontend:            dpSvc.Frontend,
 			Backends:            dpSvc.Backends,
 			Type:                dpSvc.Type,
-			TrafficPolicy:       dpSvc.TrafficPolicy,
+			ExtTrafficPolicy:    dpSvc.ExtTrafficPolicy,
+			IntTrafficPolicy:    dpSvc.IntTrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
 			Name: loadbalancer.ServiceName{
 				Name:      fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
@@ -813,9 +816,9 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 				return fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
 			}
 			if k8sMeta.NamedPorts == nil {
-				k8sMeta.NamedPorts = make(policy.NamedPortMap)
+				k8sMeta.NamedPorts = make(ciliumTypes.NamedPortMap)
 			}
-			k8sMeta.NamedPorts[port.Name] = policy.PortProto{
+			k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
 				Port:  uint16(port.ContainerPort),
 				Proto: uint8(p),
 			}

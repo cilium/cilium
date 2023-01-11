@@ -488,14 +488,17 @@ func (c *cesMgr) clearRemovedCEPs(cesName string, remCEPs map[string]struct{}) {
 }
 
 func (c *cesMgr) getCESMetricCountersAndClear(cesName string) (cepInsert int64, cepRemove int64) {
-	if ces, exists := c.desiredCESs.getCESTracker(cesName); exists {
-		ces.backendMutex.Lock()
-		defer ces.backendMutex.Unlock()
-		cepInsert = ces.cepInserted
-		cepRemove = ces.cepRemoved
-		ces.cepInserted = 0
-		ces.cepRemoved = 0
+	ces, exists := c.desiredCESs.getCESTracker(cesName)
+	if !exists {
+		return
 	}
+
+	ces.backendMutex.Lock()
+	defer ces.backendMutex.Unlock()
+	cepInsert = ces.cepInserted
+	cepRemove = ces.cepRemoved
+	ces.cepInserted = 0
+	ces.cepRemoved = 0
 
 	return
 }
@@ -634,7 +637,11 @@ func (c *cesMgr) insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration) 
 
 // Return the CES queue delay in seconds and reset cesInsert time.
 func (c *cesMgr) getCESQueueDelayInSeconds(cesName string) (diff float64) {
-	ces := c.desiredCESs.getCESTrackerOnly(cesName)
+	ces, exists := c.desiredCESs.getCESTracker(cesName)
+	if !exists {
+		return
+	}
+
 	ces.backendMutex.Lock()
 	defer ces.backendMutex.Unlock()
 	timeSinceCESQueued := time.Since(ces.cesInsertedAt)
@@ -644,5 +651,6 @@ func (c *cesMgr) getCESQueueDelayInSeconds(cesName string) (diff float64) {
 		ces.cesInsertedAt = t
 		diff = timeSinceCESQueued.Seconds()
 	}
+
 	return
 }

@@ -161,23 +161,26 @@ func (n *namespacedClient) List(ctx context.Context, obj ObjectList, opts ...Lis
 }
 
 // Status implements client.StatusClient.
-func (n *namespacedClient) Status() StatusWriter {
-	return &namespacedClientStatusWriter{StatusClient: n.client.Status(), namespace: n.namespace, namespacedclient: n}
+func (n *namespacedClient) Status() SubResourceWriter {
+	return n.SubResource("status")
 }
 
-// ensure namespacedClientStatusWriter implements client.StatusWriter.
-var _ StatusWriter = &namespacedClientStatusWriter{}
+// SubResource implements client.SubResourceClient.
+func (n *namespacedClient) SubResource(subResource string) SubResourceClient {
+	return &namespacedClientSubResourceClient{client: n.client.SubResource(subResource), namespace: n.namespace, namespacedclient: n}
+}
 
-type namespacedClientStatusWriter struct {
-	StatusClient     StatusWriter
+// ensure namespacedClientSubResourceClient implements client.SubResourceClient.
+var _ SubResourceClient = &namespacedClientSubResourceClient{}
+
+type namespacedClientSubResourceClient struct {
+	client           SubResourceClient
 	namespace        string
 	namespacedclient Client
 }
 
-// Update implements client.StatusWriter.
-func (nsw *namespacedClientStatusWriter) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
+func (nsw *namespacedClientSubResourceClient) Get(ctx context.Context, obj, subResource Object, opts ...SubResourceGetOption) error {
 	isNamespaceScoped, err := objectutil.IsAPINamespaced(obj, nsw.namespacedclient.Scheme(), nsw.namespacedclient.RESTMapper())
-
 	if err != nil {
 		return fmt.Errorf("error finding the scope of the object: %w", err)
 	}
@@ -190,11 +193,48 @@ func (nsw *namespacedClientStatusWriter) Update(ctx context.Context, obj Object,
 	if isNamespaceScoped && objectNamespace == "" {
 		obj.SetNamespace(nsw.namespace)
 	}
-	return nsw.StatusClient.Update(ctx, obj, opts...)
+
+	return nsw.client.Get(ctx, obj, subResource, opts...)
 }
 
-// Patch implements client.StatusWriter.
-func (nsw *namespacedClientStatusWriter) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
+func (nsw *namespacedClientSubResourceClient) Create(ctx context.Context, obj, subResource Object, opts ...SubResourceCreateOption) error {
+	isNamespaceScoped, err := objectutil.IsAPINamespaced(obj, nsw.namespacedclient.Scheme(), nsw.namespacedclient.RESTMapper())
+	if err != nil {
+		return fmt.Errorf("error finding the scope of the object: %w", err)
+	}
+
+	objectNamespace := obj.GetNamespace()
+	if objectNamespace != nsw.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	}
+
+	if isNamespaceScoped && objectNamespace == "" {
+		obj.SetNamespace(nsw.namespace)
+	}
+
+	return nsw.client.Create(ctx, obj, subResource, opts...)
+}
+
+// Update implements client.SubResourceWriter.
+func (nsw *namespacedClientSubResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
+	isNamespaceScoped, err := objectutil.IsAPINamespaced(obj, nsw.namespacedclient.Scheme(), nsw.namespacedclient.RESTMapper())
+	if err != nil {
+		return fmt.Errorf("error finding the scope of the object: %w", err)
+	}
+
+	objectNamespace := obj.GetNamespace()
+	if objectNamespace != nsw.namespace && objectNamespace != "" {
+		return fmt.Errorf("namespace %s of the object %s does not match the namespace %s on the client", objectNamespace, obj.GetName(), nsw.namespace)
+	}
+
+	if isNamespaceScoped && objectNamespace == "" {
+		obj.SetNamespace(nsw.namespace)
+	}
+	return nsw.client.Update(ctx, obj, opts...)
+}
+
+// Patch implements client.SubResourceWriter.
+func (nsw *namespacedClientSubResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	isNamespaceScoped, err := objectutil.IsAPINamespaced(obj, nsw.namespacedclient.Scheme(), nsw.namespacedclient.RESTMapper())
 
 	if err != nil {
@@ -209,5 +249,5 @@ func (nsw *namespacedClientStatusWriter) Patch(ctx context.Context, obj Object, 
 	if isNamespaceScoped && objectNamespace == "" {
 		obj.SetNamespace(nsw.namespace)
 	}
-	return nsw.StatusClient.Patch(ctx, obj, patch, opts...)
+	return nsw.client.Patch(ctx, obj, patch, opts...)
 }

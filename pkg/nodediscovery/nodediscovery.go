@@ -64,7 +64,7 @@ type k8sGetters interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	Manager               *nodemanager.Manager
+	Manager               nodemanager.NodeManager
 	LocalConfig           datapath.LocalNodeConfiguration
 	Registrar             nodestore.NodeRegistrar
 	Registered            chan struct{}
@@ -84,7 +84,7 @@ func enableLocalNodeRoute() bool {
 }
 
 // NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(manager *nodemanager.Manager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
+func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientset, mtuConfig mtu.Configuration, netConf *cnitypes.NetConf) *NodeDiscovery {
 	auxPrefixes := []*cidr.CIDR{}
 
 	if option.Config.IPv4ServiceRange != AutoCIDR {
@@ -336,11 +336,6 @@ func (n *NodeDiscovery) LocalNode() *types.Node {
 	return n.localNode.DeepCopy()
 }
 
-// Close shuts down the node discovery engine
-func (n *NodeDiscovery) Close() {
-	n.Manager.Close()
-}
-
 // UpdateCiliumNodeResource updates the CiliumNode resource representing the
 // local node
 func (n *NodeDiscovery) UpdateCiliumNodeResource() {
@@ -575,14 +570,10 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
 				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
-			} else if c.ENI.MinAllocate != 0 {
-				nodeResource.Spec.IPAM.MinAllocate = c.ENI.MinAllocate
 			}
 
 			if c.IPAM.PreAllocate != 0 {
 				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
-			} else if c.ENI.PreAllocate != 0 {
-				nodeResource.Spec.IPAM.PreAllocate = c.ENI.PreAllocate
 			}
 
 			if c.ENI.FirstInterfaceIndex != nil {

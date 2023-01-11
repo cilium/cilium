@@ -5,6 +5,8 @@ kind: Role
 metadata:
   name: cilium-operator-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""
@@ -24,6 +26,8 @@ kind: Role
 metadata:
   name: cilium-operator-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
 rules:
 - apiGroups:
   - ""

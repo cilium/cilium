@@ -97,7 +97,7 @@ var ciliumChains = []customChain{
 }
 
 func (c *customChain) exists(prog iptablesInterface) (bool, error) {
-	args := []string{"-t", c.table, "-L", c.name}
+	args := []string{"-t", c.table, "-S", c.name}
 
 	output, err := prog.runProgOutput(args)
 	if err != nil {
@@ -253,7 +253,7 @@ func (c *customChain) installFeeder(ipv4, ipv6 bool) error {
 				return err
 			}
 		}
-		if ipv6 && c.ipv6 == true {
+		if ipv6 && c.ipv6 {
 			if err := c.doInstallFeeder(ip6tables, feedArgs); err != nil {
 				return err
 			}

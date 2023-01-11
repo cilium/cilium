@@ -48,7 +48,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 
 static __always_inline void
 send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst_port,
-			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict,
+			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
 			   __u8 match_type, __u8 is_audited)
 {
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -57,6 +57,9 @@ send_policy_verdict_notify(struct __ctx_buff *ctx, __u32 remote_label, __u16 dst
 
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
+
+	if (verdict == 0)
+		verdict = (int)proxy_port;
 
 	msg = (typeof(msg)) {
 		__notify_common_hdr(CILIUM_NOTIFY_POLICY_VERDICT, 0),
@@ -81,6 +84,7 @@ send_policy_verdict_notify(struct __ctx_buff *ctx __maybe_unused,
 			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
 			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
 			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
+			   __u16 proxy_port __maybe_unused,
 			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused)
 {
 }

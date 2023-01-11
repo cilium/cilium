@@ -61,8 +61,9 @@ func NewDelegatingClient(in NewDelegatingClientInput) (Client, error) {
 			uncachedGVKs:      uncachedGVKs,
 			cacheUnstructured: in.CacheUnstructured,
 		},
-		Writer:       in.Client,
-		StatusClient: in.Client,
+		Writer:                       in.Client,
+		StatusClient:                 in.Client,
+		SubResourceClientConstructor: in.Client,
 	}, nil
 }
 
@@ -70,6 +71,7 @@ type delegatingClient struct {
 	Reader
 	Writer
 	StatusClient
+	SubResourceClientConstructor
 
 	scheme *runtime.Scheme
 	mapper meta.RESTMapper

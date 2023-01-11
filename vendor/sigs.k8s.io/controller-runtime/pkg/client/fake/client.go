@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
@@ -37,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -49,9 +52,14 @@ type versionedTracker struct {
 }
 
 type fakeClient struct {
-	tracker         versionedTracker
-	scheme          *runtime.Scheme
-	restMapper      meta.RESTMapper
+	tracker    versionedTracker
+	scheme     *runtime.Scheme
+	restMapper meta.RESTMapper
+
+	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
+	// The inner map maps from index name to IndexerFunc.
+	indexes map[schema.GroupVersionKind]map[string]client.IndexerFunc
+
 	schemeWriteLock sync.Mutex
 }
 
@@ -93,6 +101,10 @@ type ClientBuilder struct {
 	initLists          []client.ObjectList
 	initRuntimeObjects []runtime.Object
 	objectTracker      testing.ObjectTracker
+
+	// indexes maps each GroupVersionKind (GVK) to the indexes registered for that GVK.
+	// The inner map maps from index name to IndexerFunc.
+	indexes map[schema.GroupVersionKind]map[string]client.IndexerFunc
 }
 
 // WithScheme sets this builder's internal scheme.
@@ -135,6 +147,44 @@ func (f *ClientBuilder) WithObjectTracker(ot testing.ObjectTracker) *ClientBuild
 	return f
 }
 
+// WithIndex can be optionally used to register an index with name `field` and indexer `extractValue`
+// for API objects of the same GroupVersionKind (GVK) as `obj` in the fake client.
+// It can be invoked multiple times, both with objects of the same GVK or different ones.
+// Invoking WithIndex twice with the same `field` and GVK (via `obj`) arguments will panic.
+// WithIndex retrieves the GVK of `obj` using the scheme registered via WithScheme if
+// WithScheme was previously invoked, the default scheme otherwise.
+func (f *ClientBuilder) WithIndex(obj runtime.Object, field string, extractValue client.IndexerFunc) *ClientBuilder {
+	objScheme := f.scheme
+	if objScheme == nil {
+		objScheme = scheme.Scheme
+	}
+
+	gvk, err := apiutil.GVKForObject(obj, objScheme)
+	if err != nil {
+		panic(err)
+	}
+
+	// If this is the first index being registered, we initialize the map storing all the indexes.
+	if f.indexes == nil {
+		f.indexes = make(map[schema.GroupVersionKind]map[string]client.IndexerFunc)
+	}
+
+	// If this is the first index being registered for the GroupVersionKind of `obj`, we initialize
+	// the map storing the indexes for that GroupVersionKind.
+	if f.indexes[gvk] == nil {
+		f.indexes[gvk] = make(map[string]client.IndexerFunc)
+	}
+
+	if _, fieldAlreadyIndexed := f.indexes[gvk][field]; fieldAlreadyIndexed {
+		panic(fmt.Errorf("indexer conflict: field %s for GroupVersionKind %v is already indexed",
+			field, gvk))
+	}
+
+	f.indexes[gvk][field] = extractValue
+
+	return f
+}
+
 // Build builds and returns a new fake client.
 func (f *ClientBuilder) Build() client.WithWatch {
 	if f.scheme == nil {
@@ -171,6 +221,7 @@ func (f *ClientBuilder) Build() client.WithWatch {
 		tracker:    tracker,
 		scheme:     f.scheme,
 		restMapper: f.restMapper,
+		indexes:    f.indexes,
 	}
 }
 
@@ -420,21 +471,88 @@ func (c *fakeClient) List(ctx context.Context, obj client.ObjectList, opts ...cl
 		return err
 	}
 
-	if listOpts.LabelSelector != nil {
-		objs, err := meta.ExtractList(obj)
+	if listOpts.LabelSelector == nil && listOpts.FieldSelector == nil {
+		return nil
+	}
+
+	// If we're here, either a label or field selector are specified (or both), so before we return
+	// the list we must filter it. If both selectors are set, they are ANDed.
+	objs, err := meta.ExtractList(obj)
+	if err != nil {
+		return err
+	}
+
+	filteredList, err := c.filterList(objs, gvk, listOpts.LabelSelector, listOpts.FieldSelector)
+	if err != nil {
+		return err
+	}
+
+	return meta.SetList(obj, filteredList)
+}
+
+func (c *fakeClient) filterList(list []runtime.Object, gvk schema.GroupVersionKind, ls labels.Selector, fs fields.Selector) ([]runtime.Object, error) {
+	// Filter the objects with the label selector
+	filteredList := list
+	if ls != nil {
+		objsFilteredByLabel, err := objectutil.FilterWithLabels(list, ls)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		filteredObjs, err := objectutil.FilterWithLabels(objs, listOpts.LabelSelector)
+		filteredList = objsFilteredByLabel
+	}
+
+	// Filter the result of the previous pass with the field selector
+	if fs != nil {
+		objsFilteredByField, err := c.filterWithFields(filteredList, gvk, fs)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		err = meta.SetList(obj, filteredObjs)
-		if err != nil {
-			return err
+		filteredList = objsFilteredByField
+	}
+
+	return filteredList, nil
+}
+
+func (c *fakeClient) filterWithFields(list []runtime.Object, gvk schema.GroupVersionKind, fs fields.Selector) ([]runtime.Object, error) {
+	// We only allow filtering on the basis of a single field to ensure consistency with the
+	// behavior of the cache reader (which we're faking here).
+	fieldKey, fieldVal, requiresExact := selector.RequiresExactMatch(fs)
+	if !requiresExact {
+		return nil, fmt.Errorf("field selector %s is not in one of the two supported forms \"key==val\" or \"key=val\"",
+			fs)
+	}
+
+	// Field selection is mimicked via indexes, so there's no sane answer this function can give
+	// if there are no indexes registered for the GroupVersionKind of the objects in the list.
+	indexes := c.indexes[gvk]
+	if len(indexes) == 0 || indexes[fieldKey] == nil {
+		return nil, fmt.Errorf("List on GroupVersionKind %v specifies selector on field %s, but no "+
+			"index with name %s has been registered for GroupVersionKind %v", gvk, fieldKey, fieldKey, gvk)
+	}
+
+	indexExtractor := indexes[fieldKey]
+	filteredList := make([]runtime.Object, 0, len(list))
+	for _, obj := range list {
+		if c.objMatchesFieldSelector(obj, indexExtractor, fieldVal) {
+			filteredList = append(filteredList, obj)
 		}
 	}
-	return nil
+	return filteredList, nil
+}
+
+func (c *fakeClient) objMatchesFieldSelector(o runtime.Object, extractIndex client.IndexerFunc, val string) bool {
+	obj, isClientObject := o.(client.Object)
+	if !isClientObject {
+		panic(fmt.Errorf("expected object %v to be of type client.Object, but it's not", o))
+	}
+
+	for _, extractedVal := range extractIndex(obj) {
+		if extractedVal == val {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *fakeClient) Scheme() *runtime.Scheme {
@@ -634,8 +752,12 @@ func (c *fakeClient) Patch(ctx context.Context, obj client.Object, patch client.
 	return err
 }
 
-func (c *fakeClient) Status() client.StatusWriter {
-	return &fakeStatusWriter{client: c}
+func (c *fakeClient) Status() client.SubResourceWriter {
+	return c.SubResource("status")
+}
+
+func (c *fakeClient) SubResource(subResource string) client.SubResourceClient {
+	return &fakeSubResourceClient{client: c}
 }
 
 func (c *fakeClient) deleteObject(gvr schema.GroupVersionResource, accessor metav1.Object) error {
@@ -664,20 +786,44 @@ func getGVRFromObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupV
 	return gvr, nil
 }
 
-type fakeStatusWriter struct {
+type fakeSubResourceClient struct {
 	client *fakeClient
 }
 
-func (sw *fakeStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
-	// TODO(droot): This results in full update of the obj (spec + status). Need
-	// a way to update status field only.
-	return sw.client.Update(ctx, obj, opts...)
+func (sw *fakeSubResourceClient) Get(ctx context.Context, obj, subResource client.Object, opts ...client.SubResourceGetOption) error {
+	panic("fakeSubResourceClient does not support get")
 }
 
-func (sw *fakeStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
-	// TODO(droot): This results in full update of the obj (spec + status). Need
-	// a way to update status field only.
-	return sw.client.Patch(ctx, obj, patch, opts...)
+func (sw *fakeSubResourceClient) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	panic("fakeSubResourceWriter does not support create")
+}
+
+func (sw *fakeSubResourceClient) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+	// TODO(droot): This results in full update of the obj (spec + subresources). Need
+	// a way to update subresource only.
+	updateOptions := client.SubResourceUpdateOptions{}
+	updateOptions.ApplyOptions(opts)
+
+	body := obj
+	if updateOptions.SubResourceBody != nil {
+		body = updateOptions.SubResourceBody
+	}
+	return sw.client.Update(ctx, body, &updateOptions.UpdateOptions)
+}
+
+func (sw *fakeSubResourceClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+	// TODO(droot): This results in full update of the obj (spec + subresources). Need
+	// a way to update subresource only.
+
+	patchOptions := client.SubResourcePatchOptions{}
+	patchOptions.ApplyOptions(opts)
+
+	body := obj
+	if patchOptions.SubResourceBody != nil {
+		body = patchOptions.SubResourceBody
+	}
+
+	return sw.client.Patch(ctx, body, patch, &patchOptions.PatchOptions)
 }
 
 func allowsUnconditionalUpdate(gvk schema.GroupVersionKind) bool {

@@ -23,12 +23,11 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -116,7 +115,7 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 	case listOpts.FieldSelector != nil:
 		// TODO(directxman12): support more complicated field selectors by
 		// combining multiple indices, GetIndexers, etc
-		field, val, requiresExact := requiresExactMatch(listOpts.FieldSelector)
+		field, val, requiresExact := selector.RequiresExactMatch(listOpts.FieldSelector)
 		if !requiresExact {
 			return fmt.Errorf("non-exact field matches are not supported by the cache")
 		}
@@ -162,7 +161,7 @@ func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...cli
 		}
 
 		var outObj runtime.Object
-		if c.disableDeepCopy {
+		if c.disableDeepCopy || (listOpts.UnsafeDisableDeepCopy != nil && *listOpts.UnsafeDisableDeepCopy) {
 			// skip deep copy which might be unsafe
 			// you must DeepCopy any object before mutating it outside
 			outObj = obj
@@ -184,19 +183,6 @@ func objectKeyToStoreKey(k client.ObjectKey) string {
 		return k.Name
 	}
 	return k.Namespace + "/" + k.Name
-}
-
-// requiresExactMatch checks if the given field selector is of the form `k=v` or `k==v`.
-func requiresExactMatch(sel fields.Selector) (field, val string, required bool) {
-	reqs := sel.Requirements()
-	if len(reqs) != 1 {
-		return "", "", false
-	}
-	req := reqs[0]
-	if req.Operator != selection.Equals && req.Operator != selection.DoubleEquals {
-		return "", "", false
-	}
-	return req.Field, req.Value, true
 }
 
 // FieldIndexName constructs the name of the index over the given field,

@@ -37,7 +37,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB6_BACKEND_MAP_V2 __section_maps_btf;
+} LB6_BACKEND_MAP __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -115,7 +115,7 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
-} LB4_BACKEND_MAP_V2 __section_maps_btf;
+} LB4_BACKEND_MAP __section_maps_btf;
 
 #ifdef ENABLE_SESSION_AFFINITY
 struct {
@@ -283,15 +283,15 @@ static __always_inline bool lb_skip_l4_dnat(void)
 }
 
 static __always_inline
-bool lb4_svc_is_local_scope(const struct lb4_service *svc)
+bool lb4_svc_is_two_scopes(const struct lb4_service *svc)
 {
-	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+	return svc->flags2 & SVC_FLAG_TWO_SCOPES;
 }
 
 static __always_inline
-bool lb6_svc_is_local_scope(const struct lb6_service *svc)
+bool lb6_svc_is_two_scopes(const struct lb6_service *svc)
 {
-	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+	return svc->flags2 & SVC_FLAG_TWO_SCOPES;
 }
 
 static __always_inline
@@ -581,7 +581,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !lb6_svc_is_local_scope(svc))
+		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
 			return (svc->count || !check_svc_backends ||
 				lb6_svc_is_l7loadbalancer(svc)) ? svc : NULL;
@@ -596,7 +596,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 
 static __always_inline struct lb6_backend *__lb6_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB6_BACKEND_MAP_V2, &backend_id);
+	return map_lookup_elem(&LB6_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb6_backend *
@@ -697,7 +697,7 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 		goto l4_xlate;
 
 	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
-	if (csum_off) {
+	if (csum_off->offset) {
 		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
 				       16, 0);
 
@@ -887,7 +887,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, false);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1228,7 +1228,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !lb4_svc_is_local_scope(svc))
+		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
 			return (svc->count || !check_svc_backends || lb4_to_lb6_service(svc) ||
 				lb4_svc_is_l7loadbalancer(svc)) ? svc : NULL;
@@ -1243,7 +1243,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 
 static __always_inline struct lb4_backend *__lb4_lookup_backend(__u32 backend_id)
 {
-	return map_lookup_elem(&LB4_BACKEND_MAP_V2, &backend_id);
+	return map_lookup_elem(&LB4_BACKEND_MAP, &backend_id);
 }
 
 static __always_inline struct lb4_backend *
@@ -1559,7 +1559,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, false);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */

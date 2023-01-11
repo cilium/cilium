@@ -27,25 +27,16 @@ func StartBGPBetaLBIPAllocator(ctx context.Context, clientset client.Clientset, 
 			log.WithError(err).Fatal("Error creating BGP manager")
 		}
 
-		services.Observe(
-			ctx,
-			func(ev resource.Event[*slim_corev1.Service]) {
-				ev.Handle(
-					func() error {
-						m.MarkSynced()
-						return nil
-					},
-					func(_ resource.Key, svc *slim_corev1.Service) error {
-						m.OnUpdateService(nil, svc)
-						return nil
-					},
-					func(_ resource.Key, svc *slim_corev1.Service) error {
-						m.OnDeleteService(svc)
-						return nil
-					},
-				)
-			},
-			func(error) { /* only completes when stopping */ },
-		)
+		for ev := range services.Events(ctx) {
+			switch ev.Kind {
+			case resource.Sync:
+				m.MarkSynced()
+			case resource.Upsert:
+				m.OnUpdateService(nil, ev.Object)
+			case resource.Delete:
+				m.OnDeleteService(ev.Object)
+			}
+			ev.Done(nil)
+		}
 	}()
 }

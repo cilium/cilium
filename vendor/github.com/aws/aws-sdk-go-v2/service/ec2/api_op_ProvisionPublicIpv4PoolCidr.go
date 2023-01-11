@@ -58,7 +58,7 @@ type ProvisionPublicIpv4PoolCidrInput struct {
 
 type ProvisionPublicIpv4PoolCidrOutput struct {
 
-	// Describes an address range of an IPv4 address pool.
+	// Information about the address range of the public IPv4 pool.
 	PoolAddressRange *types.PublicIpv4PoolRange
 
 	// The ID of the pool that you want to provision the CIDR to.

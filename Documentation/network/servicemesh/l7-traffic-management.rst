@@ -44,7 +44,9 @@ following extensions:
 - ``envoy.clusters.dynamic_forward_proxy``
 - ``envoy.filters.http.dynamic_forward_proxy``
 - ``envoy.filters.http.ext_authz``
+- ``envoy.filters.http.jwt_authn``
 - ``envoy.filters.http.local_ratelimit``
+- ``envoy.filters.http.oauth2``
 - ``envoy.filters.http.ratelimit``
 - ``envoy.filters.http.router``
 - ``envoy.filters.http.set_metadata``

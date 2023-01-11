@@ -254,7 +254,7 @@ var L4PolicyMap1 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12,
 		},
 	},
@@ -265,7 +265,7 @@ var L4PolicyMap1HeaderMatch = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: L7Rules12HeaderMatch,
 		},
 	},
@@ -276,7 +276,7 @@ var L4PolicyMap1RequiresV2 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1:           L7Rules1,
 			cachedRequiresV2Selector1: L7Rules12,
 		},
@@ -288,7 +288,7 @@ var L4PolicyMap2 = map[string]*policy.L4Filter{
 		Port:     8080,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector2: L7Rules1,
 		},
 	},
@@ -299,7 +299,7 @@ var L4PolicyMap3 = map[string]*policy.L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		L7Parser: policy.ParserTypeHTTP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: L7Rules12,
 		},
 	},
@@ -310,7 +310,7 @@ var L4PolicyMap4 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
 		},
 	},
@@ -321,8 +321,36 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 	"80/TCP": {
 		Port:     80,
 		Protocol: api.ProtoTCP,
-		L7RulesPerSelector: policy.L7DataMap{
+		PerSelectorPolicies: policy.L7DataMap{
 			wildcardCachedSelector: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{}},
+		},
+	},
+}
+
+// L4PolicyMapSNI is an L4-only policy, with SNI enforcement
+var L4PolicyMapSNI = map[string]*policy.L4Filter{
+	"443/TCP": {
+		Port:     443,
+		Protocol: api.ProtoTCP,
+		PerSelectorPolicies: policy.L7DataMap{
+			wildcardCachedSelector: &policy.PerSelectorPolicy{
+				ServerNames: policy.NewStringSet([]string{
+					"jarno.cilium.rocks",
+					"ab.cd.com",
+				}),
+			},
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesSNI = []*cilium.PortNetworkPolicy{
+	{
+		Port:     443,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{
+			{
+				ServerNames: []string{"ab.cd.com", "jarno.cilium.rocks"},
+			},
 		},
 	},
 }
@@ -433,6 +461,10 @@ func (s *ServerSuite) TestGetDirectionNetworkPolicy(c *C) {
 	// L4-only
 	obtained = getDirectionNetworkPolicy(ep, L4PolicyMap5, true, nil)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesWildcard)
+
+	// L4-only with SNI
+	obtained = getDirectionNetworkPolicy(ep, L4PolicyMapSNI, true, nil)
+	c.Assert(obtained, checker.ExportedEquals, ExpectedPerPortPoliciesSNI)
 }
 
 func (s *ServerSuite) TestGetNetworkPolicy(c *C) {
@@ -524,7 +556,7 @@ var L4PolicyL7 = &policy.L4Policy{
 		"9090/TCP": {
 			Port: 9090, Protocol: api.ProtoTCP,
 			L7Parser: "tester",
-			L7RulesPerSelector: policy.L7DataMap{
+			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
 					L7Proto: "tester",
 					L7: []api.PortRuleL7{
@@ -581,7 +613,7 @@ var L4PolicyKafka = &policy.L4Policy{
 		"9090/TCP": {
 			Port: 9092, Protocol: api.ProtoTCP,
 			L7Parser: "kafka",
-			L7RulesPerSelector: policy.L7DataMap{
+			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{
 						Role:  "consume",
@@ -636,7 +668,7 @@ var L4PolicyMySQL = &policy.L4Policy{
 		"3306/TCP": {
 			Port: 3306, Protocol: api.ProtoTCP,
 			L7Parser: "envoy.filters.network.mysql_proxy",
-			L7RulesPerSelector: policy.L7DataMap{
+			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
 					L7Proto: "envoy.filters.network.mysql_proxy",
 					L7: []api.PortRuleL7{
@@ -760,7 +792,7 @@ var L4PolicyTLSEgress = &policy.L4Policy{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
-			L7RulesPerSelector: policy.L7DataMap{
+			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					OriginatingTLS: &policy.TLSContext{
 						TrustedCA: "foo",
@@ -799,7 +831,7 @@ var L4PolicyTLSIngress = &policy.L4Policy{
 		"443/TCP": {
 			Port: 443, Protocol: api.ProtoTCP,
 			L7Parser: "tls",
-			L7RulesPerSelector: policy.L7DataMap{
+			PerSelectorPolicies: policy.L7DataMap{
 				cachedSelector1: &policy.PerSelectorPolicy{
 					OriginatingTLS: &policy.TLSContext{
 						CertificateChain: "certchain",
