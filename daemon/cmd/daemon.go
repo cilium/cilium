@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -407,6 +408,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -603,7 +606,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr); err != nil {
+	if err := d.initPolicy(epMgr, certManager, secretManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{

@@ -17,6 +17,7 @@ cilium-agent hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --certificates-directory string    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --enable-k8s-api-discovery         Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                 Port for gops server to listen on (default 9890)
       --k8s-api-server string            Kubernetes API server URL

@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"github.com/cilium/cilium/pkg/bgpv1"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
@@ -64,6 +65,9 @@ var (
 
 		// NodeManager maintains a collection of other nodes in the cluster.
 		nodeManager.Cell,
+
+		// Certificate manager provides an API for retrieving secrets and certificate in the form of TLS contexts.
+		certificatemanager.Cell,
 
 		// daemonCell wraps the legacy daemon initialization and provides Promise[*Daemon].
 		daemonCell,
