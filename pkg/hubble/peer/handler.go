@@ -141,6 +141,11 @@ func (h *handler) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
 
+func (h *handler) RestoreNodeIDs() {
+	// no-op
+	return
+}
+
 // newChangeNotification creates a new change notification with the provided
 // information. If withTLS is true, the TLS field is populated with the server
 // name derived from the node and cluster names.
