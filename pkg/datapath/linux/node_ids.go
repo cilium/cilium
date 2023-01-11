@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
@@ -214,4 +215,56 @@ func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
 		dump = append(dump, nodeID)
 	}
 	return dump
+}
+
+// RestoreNodeIDs restores node IDs and their associated IP addresses from the
+// BPF map and into the node handler in-memory copy.
+func (n *linuxNodeHandler) RestoreNodeIDs() {
+	// Retrieve node IDs from the BPF map to be able to restore them.
+	nodeIDs := make(map[string]uint16)
+	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
+		address := key.IP.String()
+		if key.Family == bpf.EndpointKeyIPv4 {
+			address = net.IP(key.IP[:net.IPv4len]).String()
+		}
+		nodeIDs[address] = val.NodeID
+	}
+	if err := nodemap.NodeMap().IterateWithCallback(parse); err != nil {
+		log.WithError(err).Error("Failed to dump content of node map")
+		return
+	}
+
+	n.registerNodeIDAllocations(nodeIDs)
+	log.Infof("Restored %d node IDs from the BPF map", len(nodeIDs))
+}
+
+func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string]uint16) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if len(n.nodeIDsByIPs) > 0 {
+		// If this happens, we likely have a bug in the startup logic and
+		// restored node IDs too late (after new node IDs were allocated).
+		log.Error("The node manager already contains node IDs")
+	}
+
+	// The node manager holds both a map of nodeIP=>nodeID and a pool of ID for
+	// the allocation of node IDs. Not only do we need to update the map,
+	n.nodeIDsByIPs = allocatedNodeIDs
+
+	// ...but we also need to remove any restored nodeID from the pool of IDs
+	// available for allocation.
+	nodeIDs := make(map[uint16]struct{})
+	for _, id := range allocatedNodeIDs {
+		if _, exists := nodeIDs[id]; !exists {
+			nodeIDs[id] = struct{}{}
+			if !n.nodeIDs.Remove(idpool.ID(id)) {
+				// This is just a sanity check. It should never happen as we
+				// have checked that we start with a full idpool (0 allocated
+				// node IDs) and then only remove them from the idpool if they
+				// were already removed.
+				log.WithField(logfields.NodeID, id).Error("Node ID was already allocated")
+			}
+		}
+	}
 }

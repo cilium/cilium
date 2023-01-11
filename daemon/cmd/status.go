@@ -542,6 +542,11 @@ func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
 
+func (c *clusterNodesClient) RestoreNodeIDs() {
+	// no-op
+	return
+}
+
 func (h *getNodes) cleanupClients() {
 	past := time.Now().Add(-clientGCTimeout)
 	for k, v := range h.clients {

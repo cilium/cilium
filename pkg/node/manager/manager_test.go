@@ -181,6 +181,10 @@ func (n *signalNodeHandler) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
 
+func (n *signalNodeHandler) RestoreNodeIDs() {
+	return
+}
+
 func (s *managerTestSuite) SetUpSuite(c *check.C) {
 }
 
