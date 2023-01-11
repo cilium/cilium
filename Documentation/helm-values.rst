@@ -1612,7 +1612,11 @@
    * - securityContext
      - Security context to be added to agent pods
      - object
-     - ``{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false}``
+     - ``{"extraCapabilities":["DAC_OVERRIDE","FOWNER","SETGID","SETUID"],"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+   * - securityContext.seLinuxOptions
+     - SELinux options for the ``cilium-agent`` and init containers
+     - object
+     - ``{"level":"s0","type":"spc_t"}``
    * - serviceAccounts
      - Define serviceAccount names for components.
      - object

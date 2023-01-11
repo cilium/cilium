@@ -847,6 +847,7 @@ sandboxing
 scalability
 scalable
 scp
+seLinuxOptions
 seccomp
 secretName
 secretsBackend

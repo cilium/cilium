@@ -257,11 +257,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             add:
               # Use to set socket permission
@@ -453,11 +451,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             drop:
               - ALL
@@ -497,11 +493,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             drop:
               - ALL
@@ -589,11 +583,9 @@ spec:
           privileged: true
           {{- else }}
           seLinuxOptions:
-            level: 's0'
-            # Running with spc_t since we have removed the privileged mode.
-            # Users can change it to a different type as long as they have the
-            # type available on the system.
-            type: 'spc_t'
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           capabilities:
             # Most of the capabilities here are the same ones used in the
             # cilium-agent's container because this container can be used to
