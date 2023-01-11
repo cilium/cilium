@@ -51,23 +51,32 @@ retryScope:
 	hasPreferred := false
 
 	for _, a := range addr {
-		if a.Scope <= linkScopeMax {
-			if ip.ListContainsIP(ipsToExclude, a.IP) {
-				continue
-			}
-			if len(a.IP) >= ipLen {
-				if ip.IsPublicAddr(a.IP) {
-					ipsPublic = append(ipsPublic, a)
-				} else {
-					ipsPrivate = append(ipsPrivate, a)
-				}
-				// If the IP is the same as the preferredIP, that
-				// means that maybe it is restored from node_config.h,
-				// so if it is present we prefer this one.
-				if a.IP.Equal(preferredIP) {
-					hasPreferred = true
-				}
-			}
+		if a.Scope > linkScopeMax {
+			continue
+		}
+		if ip.ListContainsIP(ipsToExclude, a.IP) {
+			continue
+		}
+		if len(a.IP) < ipLen {
+			continue
+		}
+		isPreferredIP := a.IP.Equal(preferredIP)
+		if a.Flags&unix.IFA_F_SECONDARY > 0 && !isPreferredIP {
+			// Skip secondary addresses if they're not the preferredIP
+			continue
+		}
+
+		if ip.IsPublicAddr(a.IP) {
+			ipsPublic = append(ipsPublic, a)
+		} else {
+			ipsPrivate = append(ipsPrivate, a)
+		}
+		// If the IP is the same as the preferredIP, that
+		// means that maybe it is restored from node_config.h,
+		// so if it is present we prefer this one, even if it
+		// is a secondary address.
+		if isPreferredIP {
+			hasPreferred = true
 		}
 	}
 
@@ -123,6 +132,8 @@ retryScope:
 
 // firstGlobalV4Addr returns the first IPv4 global IP of an interface,
 // where the IPs are sorted in creation order (oldest to newest).
+//
+// All secondary IPs, except the preferredIP, are filtered out.
 //
 // Public IPs are preferred over private ones. When intf is defined only
 // IPs belonging to that interface are considered.
