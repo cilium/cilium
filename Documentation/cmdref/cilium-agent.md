@@ -281,6 +281,5 @@ cilium-agent [flags]
 ### SEE ALSO
 
 * [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
-* [cilium-agent dot-graph](cilium-agent_dot-graph.md)	 - Output the internal dependencies of cilium-agent in graphviz dot format
-* [cilium-agent objects](cilium-agent_objects.md)	 - Print the objects, constructors and lifecycle hooks
+* [cilium-agent hive](cilium-agent_hive.md)	 - Inspect the hive
 

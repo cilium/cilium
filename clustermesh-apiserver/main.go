@@ -114,16 +114,16 @@ func init() {
 		cell.Invoke(registerHooks),
 	)
 	rootHive.RegisterFlags(rootCmd.Flags())
+	rootCmd.AddCommand(rootHive.Command())
 	vp = rootHive.Viper()
 }
 
 func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
-	if !clientset.IsEnabled() {
-		return errors.New("Kubernetes client not configured, cannot continue.")
-	}
-
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
+			if !clientset.IsEnabled() {
+				return errors.New("Kubernetes client not configured, cannot continue.")
+			}
 			startServer(ctx, clientset, services)
 			return nil
 		},

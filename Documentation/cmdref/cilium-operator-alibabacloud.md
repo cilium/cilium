@@ -86,5 +86,6 @@ cilium-operator-alibabacloud [flags]
 ### SEE ALSO
 
 * [cilium-operator-alibabacloud completion](cilium-operator-alibabacloud_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator-alibabacloud hive](cilium-operator-alibabacloud_hive.md)	 - Inspect the hive
 * [cilium-operator-alibabacloud metrics](cilium-operator-alibabacloud_metrics.md)	 - Access metric status of the operator
 

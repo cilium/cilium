@@ -198,7 +198,9 @@ func (h *Hive) waitForSignalOrShutdown() error {
 	}
 }
 
-func (h *Hive) populate() error {
+// Populate instantiates the hive. Use for testing that the hive can
+// be instantiated.
+func (h *Hive) Populate() error {
 	if h.populated {
 		return nil
 	}
@@ -230,7 +232,7 @@ func (h *Hive) AppendInvoke(invoke func() error) {
 // If context is cancelled and the start hooks do not respect the cancellation
 // then after 5 more seconds the process will be terminated forcefully.
 func (h *Hive) Start(ctx context.Context) error {
-	if err := h.populate(); err != nil {
+	if err := h.Populate(); err != nil {
 		return err
 	}
 
@@ -287,7 +289,7 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 }
 
 func (h *Hive) PrintObjects() {
-	if err := h.populate(); err != nil {
+	if err := h.Populate(); err != nil {
 		log.WithError(err).Fatal("Failed to populate object graph")
 	}
 
@@ -301,7 +303,7 @@ func (h *Hive) PrintObjects() {
 }
 
 func (h *Hive) PrintDotGraph() {
-	if err := h.populate(); err != nil {
+	if err := h.Populate(); err != nil {
 		log.WithError(err).Fatal("Failed to populate object graph")
 	}
 
