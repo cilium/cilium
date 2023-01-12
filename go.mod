@@ -18,7 +18,7 @@ require (
 	github.com/aws/smithy-go v1.13.4
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/coverbee v0.2.2
-	github.com/cilium/customvet v0.0.0-20201209211516-9852765c1ac4
+	github.com/cilium/customvet v0.0.0-20221207003726-576d50314db5
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 	github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
@@ -86,18 +86,18 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.6
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/trace v1.11.2
-	go.uber.org/dig v1.15.0
+	go.uber.org/dig v1.16.0
 	go.uber.org/goleak v1.2.0
 	go.uber.org/multierr v1.8.0
 	go.universe.tf/metallb v0.11.0
-	golang.org/x/crypto v0.3.0
+	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20221106115401-f9659909a136
-	golang.org/x/net v0.4.0
+	golang.org/x/net v0.5.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.3.0
-	golang.org/x/term v0.3.0
+	golang.org/x/sys v0.4.0
+	golang.org/x/term v0.4.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.3.0
+	golang.org/x/tools v0.4.0
 	golang.zx2c4.com/wireguard v0.0.0-20211017052713-f87e87af0d9a
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20211027115401-c9b1ec1aa6d8
 	google.golang.org/genproto v0.0.0-20221024183307-1bc688fe9f3e
@@ -232,7 +232,7 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

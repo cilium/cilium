@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -93,12 +94,12 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing types.N
 // with encapsulation mode enabled. The CIDR and IP of both the old and new
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
-func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
+func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP, firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
 		// in quiet mode as we don't know whether it exists or not
-		if newCIDR != nil && firstAddition {
+		if newCIDR.IsValid() && firstAddition {
 			deleteTunnelMapping(newCIDR, true)
 		}
 
@@ -111,7 +112,7 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 			"allocCIDR":      newCIDR,
 		}).Debug("Updating tunnel map entry")
 
-		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.IP, newIP); err != nil {
+		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.AddrCluster(), newIP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
@@ -123,10 +124,10 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 	// removed from the tunnel mapping
 	switch {
 	// CIDR no longer announced
-	case newCIDR == nil && oldCIDR != nil:
+	case !newCIDR.IsValid() && oldCIDR.IsValid():
 		fallthrough
 	// Node allocation CIDR has changed
-	case oldCIDR != nil && newCIDR != nil && !oldCIDR.Equal(newCIDR):
+	case oldCIDR.IsValid() && newCIDR.IsValid() && !oldCIDR.Equal(newCIDR):
 		deleteTunnelMapping(oldCIDR, false)
 	}
 }
@@ -134,13 +135,13 @@ func updateTunnelMapping(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, first
 // cidrNodeMappingUpdateRequired returns true if the change from an old node
 // CIDR and node IP to a new node CIDR and node IP requires to insert/update
 // the new node CIDR.
-func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net.IP, oldKey, newKey uint8) bool {
+func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP, oldKey, newKey uint8) bool {
 	// No CIDR provided
-	if newCIDR == nil {
+	if !newCIDR.IsValid() {
 		return false
 	}
 	// Newly announced CIDR
-	if oldCIDR == nil {
+	if !oldCIDR.IsValid() {
 		return true
 	}
 
@@ -157,25 +158,26 @@ func cidrNodeMappingUpdateRequired(oldCIDR, newCIDR *cidr.CIDR, oldIP, newIP net
 	return !oldCIDR.Equal(newCIDR)
 }
 
-func deleteTunnelMapping(oldCIDR *cidr.CIDR, quietMode bool) {
-	if oldCIDR == nil {
+func deleteTunnelMapping(oldCIDR cmtypes.PrefixCluster, quietMode bool) {
+	if !oldCIDR.IsValid() {
 		return
 	}
 
 	log.WithFields(logrus.Fields{
-		"allocCIDR": oldCIDR,
-		"quietMode": quietMode,
+		"allocPrefixCluster": oldCIDR.String(),
+		"quietMode":          quietMode,
 	}).Debug("Deleting tunnel map entry")
 
+	addrCluster := oldCIDR.AddrCluster()
+
 	if !quietMode {
-		if err := tunnel.TunnelMap().DeleteTunnelEndpoint(oldCIDR.IP); err != nil {
+		if err := tunnel.TunnelMap().DeleteTunnelEndpoint(addrCluster); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				"allocCIDR": oldCIDR,
+				"allocPrefixCluster": oldCIDR.String(),
 			}).Error("Unable to delete in tunnel endpoint map")
 		}
 	} else {
-		_ = tunnel.TunnelMap().SilentDeleteTunnelEndpoint(oldCIDR.IP)
-
+		_ = tunnel.TunnelMap().SilentDeleteTunnelEndpoint(addrCluster)
 	}
 }
 
@@ -1124,12 +1126,31 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
+		// An uninitialized PrefixCluster has empty netip.Prefix and 0 ClusterID.
+		// We use this empty PrefixCluster instead of nil here.
+		var (
+			oldPrefixCluster4 cmtypes.PrefixCluster
+			oldPrefixCluster6 cmtypes.PrefixCluster
+			newPrefixCluster4 cmtypes.PrefixCluster
+			newPrefixCluster6 cmtypes.PrefixCluster
+		)
+
+		if oldNode != nil {
+			oldPrefixCluster4 = cmtypes.PrefixClusterFromCIDR(oldIP4Cidr, 0)
+			oldPrefixCluster6 = cmtypes.PrefixClusterFromCIDR(oldIP6Cidr, 0)
+		}
+
+		if newNode != nil {
+			newPrefixCluster4 = cmtypes.PrefixClusterFromCIDR(newNode.IPv4AllocCIDR, 0)
+			newPrefixCluster6 = cmtypes.PrefixClusterFromCIDR(newNode.IPv6AllocCIDR, 0)
+		}
+
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldIP4Cidr, newNode.IPv4AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
+		updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldIP6Cidr, newNode.IPv6AllocCIDR, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
+		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode)
@@ -1187,8 +1208,10 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 
 	if n.nodeConfig.EnableEncapsulation {
-		deleteTunnelMapping(oldNode.IPv4AllocCIDR, false)
-		deleteTunnelMapping(oldNode.IPv6AllocCIDR, false)
+		oldPrefix4 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv4AllocCIDR, oldNode.ClusterID)
+		oldPrefix6 := cmtypes.PrefixClusterFromCIDR(oldNode.IPv6AllocCIDR, oldNode.ClusterID)
+		deleteTunnelMapping(oldPrefix4, false)
+		deleteTunnelMapping(oldPrefix6, false)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.deleteNodeRoute(oldNode.IPv4AllocCIDR, false)

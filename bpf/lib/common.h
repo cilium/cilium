@@ -252,7 +252,8 @@ struct endpoint_key {
 	};
 	__u8 family;
 	__u8 key;
-	__u16 pad5;
+	__u8 cluster_id;
+	__u8 pad;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */

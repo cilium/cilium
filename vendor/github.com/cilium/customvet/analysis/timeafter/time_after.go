@@ -67,10 +67,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	var (
-		aliases    []string
+		pkgAliases []string
 		ignore     = false
 		nodeFilter = []ast.Node{
 			(*ast.ForStmt)(nil),
+			(*ast.RangeStmt)(nil),
 			(*ast.File)(nil),
 			(*ast.ImportSpec)(nil),
 		}
@@ -79,7 +80,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		switch stmt := n.(type) {
 		case *ast.File:
 			_, ignore = ignoreMap[stmt.Name.Name]
-			aliases = []string{timeAfterPkg}
+			pkgAliases = []string{timeAfterPkg}
 		case *ast.ImportSpec:
 			if ignore {
 				return
@@ -88,27 +89,36 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			pkg := stmt.Path.Value
 			if pkg == fmt.Sprintf("%q", timeAfterPkg) {
 				if stmt.Name != nil {
-					aliases = append(aliases, stmt.Name.Name)
+					pkgAliases = append(pkgAliases, stmt.Name.Name)
 				}
 			}
 		case *ast.ForStmt:
 			if ignore {
 				return
 			}
-			ast.Walk(visitor(func(node ast.Node) bool {
-				switch expr := node.(type) {
-				case *ast.CallExpr:
-					for _, pkg := range aliases {
-						if isPkgDot(expr.Fun, pkg, timeAfterFunc) {
-							pass.Reportf(node.Pos(), "use of %s.After in a for loop is prohibited, use inctimer instead", pkg)
-						}
-					}
-				}
-				return true
-			}), stmt.Body)
+			checkForStmt(pass, stmt.Body, pkgAliases)
+		case *ast.RangeStmt:
+			if ignore {
+				return
+			}
+			checkForStmt(pass, stmt.Body, pkgAliases)
 		}
 	})
 	return nil, nil
+}
+
+func checkForStmt(pass *analysis.Pass, body *ast.BlockStmt, pkgAliases []string) {
+	ast.Walk(visitor(func(node ast.Node) bool {
+		switch expr := node.(type) {
+		case *ast.CallExpr:
+			for _, pkg := range pkgAliases {
+				if isPkgDot(expr.Fun, pkg, timeAfterFunc) {
+					pass.Reportf(node.Pos(), "use of %s.After in a for loop is prohibited, use inctimer instead", pkg)
+				}
+			}
+		}
+		return true
+	}), body)
 }
 
 func isPkgDot(expr ast.Expr, pkg, name string) bool {

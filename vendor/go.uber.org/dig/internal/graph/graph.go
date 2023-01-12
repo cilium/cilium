@@ -62,7 +62,8 @@ func IsAcyclic(g Graph) (bool, []int) {
 // a cycle.
 // For example, running isAcyclic starting from 1 on the following
 // graph will return 3.
-// 	1 -> 2 -> 3 -> 1
+//
+//	1 -> 2 -> 3 -> 1
 func isAcyclic(g Graph, u int, info cycleInfo, path []int) []int {
 	// We've already verified that there are no cycles from this node.
 	if info[u].Visited {

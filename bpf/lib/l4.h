@@ -51,4 +51,10 @@ static __always_inline int l4_load_port(struct __ctx_buff *ctx, int off,
 {
 	return ctx_load_bytes(ctx, off, port, sizeof(__be16));
 }
+
+static __always_inline int l4_load_ports(struct __ctx_buff *ctx, int off,
+					 __be16 *ports)
+{
+	return ctx_load_bytes(ctx, off, ports, 2 * sizeof(__be16));
+}
 #endif

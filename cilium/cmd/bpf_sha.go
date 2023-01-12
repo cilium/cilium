@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfIPCacheCmd represents the bpf command
+// bpfTemplateCmd represents the bpf-sha command
 var bpfTemplateCmd = &cobra.Command{
 	Use:     "sha",
 	Aliases: []string{"template"},

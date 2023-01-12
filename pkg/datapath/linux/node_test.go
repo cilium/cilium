@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -29,33 +30,34 @@ var (
 )
 
 func (s *linuxTestSuite) TestTunnelCIDRUpdateRequired(c *check.C) {
-	c1 := cidr.MustParseCIDR("10.1.0.0/16")
-	c2 := cidr.MustParseCIDR("10.2.0.0/16")
+	nilPrefixCluster := cmtypes.PrefixCluster{}
+	c1 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.1.0.0/16"), 0)
+	c2 := cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("10.2.0.0/16"), 0)
 	ip1 := net.ParseIP("1.1.1.1")
 	ip2 := net.ParseIP("2.2.2.2")
 
-	c.Assert(cidrNodeMappingUpdateRequired(nil, nil, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(nil, c1, ip1, ip1, 0, 0), check.Equals, true)   // disabled -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)   // c1 -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)    // c1 -> c1 (changed host IP)
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)    // c1 -> c2
-	c.Assert(cidrNodeMappingUpdateRequired(c2, nil, ip2, ip2, 0, 0), check.Equals, false)  // c2 -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)    // key upgrade 0 -> 1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)    // key downgrade 1 -> 0
+	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
+	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0), check.Equals, true)                // disabled -> c1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)                             // c1 -> c1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)                              // c1 -> c1 (changed host IP)
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)                              // c1 -> c2
+	c.Assert(cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0), check.Equals, false)               // c2 -> disabled
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)                              // key upgrade 0 -> 1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)                              // key downgrade 1 -> 0
 
-	c1 = cidr.MustParseCIDR("f00d::a0a:0:0:0/96")
-	c2 = cidr.MustParseCIDR("f00d::b0b:0:0:0/96")
+	c1 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::a0a:0:0:0/96"), 0)
+	c2 = cmtypes.PrefixClusterFromCIDR(cidr.MustParseCIDR("f00d::b0b:0:0:0/96"), 0)
 	ip1 = net.ParseIP("cafe::1")
 	ip2 = net.ParseIP("cafe::2")
 
-	c.Assert(cidrNodeMappingUpdateRequired(nil, nil, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(nil, c1, ip1, ip1, 0, 0), check.Equals, true)   // disabled -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)   // c1 -> c1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)    // c1 -> c1 (changed host IP)
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)    // c1 -> c2
-	c.Assert(cidrNodeMappingUpdateRequired(c2, nil, ip2, ip2, 0, 0), check.Equals, false)  // c2 -> disabled
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)    // key upgrade 0 -> 1
-	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)    // key downgrade 1 -> 0
+	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, nilPrefixCluster, ip1, ip1, 0, 0), check.Equals, false) // disabled -> disabled
+	c.Assert(cidrNodeMappingUpdateRequired(nilPrefixCluster, c1, ip1, ip1, 0, 0), check.Equals, true)                // disabled -> c1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 0), check.Equals, false)                             // c1 -> c1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip2, 0, 0), check.Equals, true)                              // c1 -> c1 (changed host IP)
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c2, ip2, ip2, 0, 0), check.Equals, true)                              // c1 -> c2
+	c.Assert(cidrNodeMappingUpdateRequired(c2, nilPrefixCluster, ip2, ip2, 0, 0), check.Equals, false)               // c2 -> disabled
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 0, 1), check.Equals, true)                              // key upgrade 0 -> 1
+	c.Assert(cidrNodeMappingUpdateRequired(c1, c1, ip1, ip1, 1, 0), check.Equals, true)                              // key downgrade 1 -> 0
 }
 
 func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {

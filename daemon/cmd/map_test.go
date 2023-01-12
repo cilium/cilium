@@ -16,6 +16,7 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/safeio"
 )
 
 type fakeMap struct {
@@ -72,7 +73,7 @@ func Test_getMapNameEvents(t *testing.T) {
 	}
 	fp := &fakeProducer{}
 	resp.WriteResponse(mw, fp)
-	d, err := io.ReadAll(w.Body)
+	d, err := safeio.ReadAllLimit(w.Body, safeio.MB)
 	assert.NoError(err)
 	assert.Equal(`{"action":"update","desired-action":"sync","key":"\u003cnil\u003e","last-error":"\u003cnil\u003e","timestamp":"2006-01-02T15:04:05.000Z","value":"\u003cnil\u003e"}`+"\n", string(d))
 }
