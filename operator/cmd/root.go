@@ -158,6 +158,7 @@ func newOperatorHive() *hive.Hive {
 
 func init() {
 	rootCmd.AddCommand(MetricsCmd)
+	rootCmd.AddCommand(operatorHive.Command())
 
 	rootCmd.Run = func(cobraCmd *cobra.Command, args []string) {
 		cmdRefDir := operatorHive.Viper().GetString(option.CMDRef)

@@ -100,5 +100,6 @@ cilium-operator [flags]
 ### SEE ALSO
 
 * [cilium-operator completion](cilium-operator_completion.md)	 - Generate the autocompletion script for the specified shell
+* [cilium-operator hive](cilium-operator_hive.md)	 - Inspect the hive
 * [cilium-operator metrics](cilium-operator_metrics.md)	 - Access metric status of the operator
 
