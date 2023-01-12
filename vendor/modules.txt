@@ -934,8 +934,8 @@ go.uber.org/dig/internal/graph
 ## explicit; go 1.18
 go.uber.org/goleak
 go.uber.org/goleak/internal/stack
-# go.uber.org/multierr v1.8.0
-## explicit; go 1.14
+# go.uber.org/multierr v1.9.0
+## explicit; go 1.19
 go.uber.org/multierr
 # go.uber.org/zap v1.24.0
 ## explicit; go 1.19
