@@ -180,8 +180,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/charts v0.0.0-20221222235002-30186dca19a6 h1:ZoFzBAjhm8es6q/utvr8iqzcLTQ//3JnglIxlc5Qs54=
 github.com/cilium/charts v0.0.0-20221222235002-30186dca19a6/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
-github.com/cilium/cilium v1.12.2 h1:vxb4bfM4YUnYXaqYSlR//kEI7cDqLpbREv0z1WNk86U=
-github.com/cilium/cilium v1.12.2/go.mod h1:TNpH/X7gcspJH/WfAvGKvnLfmGlnyKUoWfurRAFOLlc=
+github.com/cilium/cilium v1.12.5 h1:J1teoDVCSlkJHSqNAQvNDRQBSUzvPMAZMHtM0jVueOQ=
+github.com/cilium/cilium v1.12.5/go.mod h1:XAYyhdPuI2lhSIefQIOij3mxq2JtGR3qwt+UGZY5Rwk=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/hubble v0.10.0 h1:xfpd0pvs8Fx6aPiCWCDfMPmYiK7if6lBRLdV3IJ6aHI=
 github.com/cilium/hubble v0.10.0/go.mod h1:pDbTf1h/Pw8kZ7PR8qbPyT3nDiSAqmVz9rL0TmfmQ38=
