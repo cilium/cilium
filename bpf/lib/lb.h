@@ -728,7 +728,8 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 	if (skip_l3_xlate)
 		goto l4_xlate;
 
-	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
+	if (ipv6_store_daddr(ctx, new_dst->addr, l3_off) < 0)
+		return DROP_WRITE_ERROR;
 	if (csum_off->offset) {
 		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr,
 				       16, 0);
