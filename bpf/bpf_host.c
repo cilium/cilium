@@ -240,11 +240,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
-	/* See IPv4 case for NO_REDIRECT/ENABLE_HOST_ROUTING comments */
+#ifndef ENABLE_HOST_ROUTING
+	/* See the equivalent v4 path for comments */
 	if (!from_host)
 		return CTX_ACT_OK;
-#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+#endif /* !ENABLE_HOST_ROUTING */
 
 skip_host_firewall:
 #ifdef ENABLE_SRV6
@@ -525,7 +525,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-#if defined(NO_REDIRECT) && !defined(ENABLE_HOST_ROUTING)
+#ifndef ENABLE_HOST_ROUTING
 	/* Without bpf_redirect_neigh() helper, we cannot redirect a
 	 * packet to a local endpoint in the direct routing mode, as
 	 * the redirect bypasses nf_conntrack table. This makes a
@@ -537,7 +537,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	 */
 	if (!from_host)
 		return CTX_ACT_OK;
-#endif /* NO_REDIRECT && !ENABLE_HOST_ROUTING */
+#endif /* !ENABLE_HOST_ROUTING */
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
