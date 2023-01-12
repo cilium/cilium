@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/cilium/cilium/operator/identity"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/cidr"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -137,15 +139,17 @@ func init() {
 
 		modConfig := func(_ *option.DaemonConfig, operatorCfg *operatorOption.OperatorConfig) {
 			operatorCfg.EndpointGCInterval = 2 * time.Second
-			operatorCfg.IdentityGCInterval = 2 * time.Second
-			operatorCfg.IdentityHeartbeatTimeout = 2 * time.Second
+		}
+		modCellConfig := func(vp *viper.Viper) {
+			vp.Set(identity.GCInterval, 2*time.Second)
+			vp.Set(identity.HeartbeatTimeout, 2*time.Second)
 		}
 
 		test.
 			UpdateObjects(initialObjects...).
 			SetupEnvironment(modConfig).
 			StartAgent().
-			StartOperator().
+			StartOperator(modCellConfig).
 			Execute(func() error { return applyDummyIdentity(test) }).
 			Eventually(func() error { return validateIdentityGC(test) })
 	})
