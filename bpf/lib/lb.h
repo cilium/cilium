@@ -1190,6 +1190,8 @@ static __always_inline int
 lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int *l4_off,
 		  struct ipv4_ct_tuple *tuple)
 {
+	int ret;
+
 	tuple->nexthdr = ip4->protocol;
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
@@ -1202,8 +1204,18 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int *l4_off,
 #ifdef ENABLE_SCTP
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
-		return ipv4_ct_extract_l4_ports(ctx, *l4_off, CT_EGRESS,
-						tuple, NULL);
+#ifdef ENABLE_IPV4_FRAGMENTS
+		ret = ipv4_handle_fragmentation(ctx, ip4, *l4_off,
+						CT_EGRESS,
+						(struct ipv4_frag_l4ports *)&tuple->dport,
+						NULL);
+#else
+		ret = l4_load_ports(ctx, *l4_off, &tuple->dport);
+#endif
+
+		if (IS_ERR(ret))
+			return ret;
+		return 0;
 	case IPPROTO_ICMP:
 		return DROP_NO_SERVICE;
 	default:
