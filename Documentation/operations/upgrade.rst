@@ -387,6 +387,7 @@ Removed Metrics/Labels
 * ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
 * ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
 * The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
+* ``cilium_node_neigh_arping_requests_total`` is removed. The counter was ineffective since the v1.11.0.
 
 Helm Options
 ~~~~~~~~~~~~
