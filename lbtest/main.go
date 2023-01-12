@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -38,9 +39,7 @@ func main() {
 		client.Cell,
 		k8s.SharedResourcesCell,
 		servicemanager.K8sHandlerCell,
-		/*redirectpolicies.Cell,
-		envoy.Cell,
-		*/
+		/*redirectpolicies.Cell,*/
 		envoy.EnvoyConfigHandlerCell,
 		cell.Provide(fakeEnvoyCache),
 
@@ -56,6 +55,8 @@ func main() {
 		fakeLBMapCell,
 
 		cell.Invoke(printStatusReports),
+
+		statusServerCell,
 	)
 	h.RegisterFlags(cmd.Flags())
 
@@ -191,4 +192,49 @@ var _ envoy.EnvoyCache = &fakeEC{}
 
 func fakeEnvoyCache() envoy.EnvoyCache {
 	return &fakeEC{}
+}
+
+var statusServerCell = cell.Invoke(registerStatusServer)
+
+func registerStatusServer(p *status.Provider, lc hive.Lifecycle) {
+	mux := http.NewServeMux()
+	srv := http.Server{
+		Addr:    ":8888",
+		Handler: mux,
+	}
+	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		all := p.All()
+		byLevel := map[status.Level][]status.ModuleStatus{}
+		for _, s := range all {
+			byLevel[s.Level] = append(byLevel[s.Level], s)
+		}
+		if len(byLevel[status.LevelOK]) == len(all) {
+			fmt.Fprintf(w, "ok: %d/%d modules healthy\n", len(all), len(all))
+			return
+		} else {
+			fmt.Fprintf(w, "degraded: %d/%d modules down or degraded\n",
+				len(byLevel[status.LevelDegraded])+len(byLevel[status.LevelDown]),
+				len(all))
+		}
+
+		for _, s := range byLevel[status.LevelDegraded] {
+			fmt.Fprintf(w, "\n=== %s is degraded ===\n", s.ModuleID)
+			w.Write([]byte(s.Message + "\n"))
+		}
+
+		for _, s := range byLevel[status.LevelDown] {
+			fmt.Fprintf(w, "\n=== %s is down ===\n", s.ModuleID)
+			w.Write([]byte(s.Message + "\n"))
+		}
+	})
+	lc.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			go srv.ListenAndServe()
+			return nil
+		},
+		OnStop: func(hive.HookContext) error {
+			return srv.Close()
+		},
+	})
+
 }

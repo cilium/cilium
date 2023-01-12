@@ -13,9 +13,9 @@ import (
 type Level string
 
 const (
-	LevelDown     Level = "down"
-	LevelDegraded Level = "degraded"
-	LevelOK       Level = "ok"
+	LevelDown     Level = "Down" // TODO: or disabled? inactive? stopped?
+	LevelDegraded Level = "Degraded"
+	LevelOK       Level = "OK"
 )
 
 type update struct {
@@ -112,9 +112,20 @@ func (p *Provider) All() []ModuleStatus {
 	return maps.Values(p.statuses)
 }
 
+func (p *Provider) Get(moduleID string) *ModuleStatus {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.statuses[moduleID]
+	if ok {
+		return &s
+	}
+	return nil
+}
+
 // TODO: Idea with Stream() is that we could have subscriber that
 // propagates to metrics ("num_degraded") etc. Alternatively we just
 // integrate metrics directly into this.
+// TODO: Should we emit []ModuleStatus?
 func (p *Provider) Stream(ctx context.Context) <-chan ModuleStatus {
 	return stream.ToChannel(ctx, make(chan error, 1), p.src)
 }
