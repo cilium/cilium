@@ -53,7 +53,7 @@ jobs:
           else
             SHA=${{ github.sha }}
           fi
-          echo ::set-output name=sha::${SHA}
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
@@ -120,7 +120,8 @@ jobs:
             --set operator.image.useDigest=false \
             --set securityContext.privileged=true \
             --set ingressController.enabled=true \
-            --set ingressController.loadbalancerMode=shared
+            --set ingressController.loadbalancerMode=shared \
+            --set extraConfig.bpf-lb-acceleration=native # This is to make sure we have the coverage for XDP.
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 

@@ -9,7 +9,7 @@ permissions: read-all
 
 env:
   cilium_cli_version: v0.12.11
-  KIND_VERSION: v0.11.1
+  KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
   TIMEOUT: 2m
@@ -59,9 +59,9 @@ jobs:
         id: vars
         run: |
           if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=tag::${{ github.sha }}
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
           fi
 
       - name: Wait for images to be available

@@ -43,7 +43,7 @@ type ConfigSource struct {
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option-resolver")
 
 func (cs *ConfigSource) String() string {
-	return fmt.Sprintf("%s namespace %s name %s", cs.Kind, cs.Namespace, cs.Name)
+	return fmt.Sprintf("%s:%s/%s", cs.Kind, cs.Namespace, cs.Name)
 }
 
 func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeName string, sources []ConfigSource, allowConfigKeys, denyConfigKeys []string) (map[string]string, error) {
@@ -67,7 +67,7 @@ func ResolveConfigurations(ctx context.Context, client client.Clientset, nodeNam
 			return nil, fmt.Errorf("failed to read config source %s: %w", source.String(), err)
 		}
 		log.WithFields(logrus.Fields{
-			logfields.ConfigSource: source.String,
+			logfields.ConfigSource: source.String(),
 		}).Infof("Got %d config pairs from source", len(c))
 		if !first {
 			for k := range c {
@@ -275,11 +275,18 @@ func readNodeConfigs(ctx context.Context, client client.Clientset, nodeName, nam
 		if len(override.Spec.Defaults) == 0 {
 			continue
 		}
-		ls, err := metav1.LabelSelectorAsSelector(&override.Spec.NodeSelector)
-		if err != nil { // unreachable
-			return nil, nil, fmt.Errorf("invalid selector in CiliumNodeConfig %s: %w", override.Name, err)
-		}
-		if ls.Matches(labels.Set(node.Labels)) {
+
+		// if we're selecting on a list, then evaluate the node selector
+		if name == "" && override.Spec.NodeSelector != nil {
+			ls, err := metav1.LabelSelectorAsSelector(override.Spec.NodeSelector)
+			if err != nil { // unreachable
+				return nil, nil, fmt.Errorf("invalid selector in CiliumNodeConfig %s: %w", override.Name, err)
+			}
+			if ls.Matches(labels.Set(node.Labels)) {
+				matching[override.Name] = override
+				matchingNames = append(matchingNames, override.Name)
+			}
+		} else if name != "" {
 			matching[override.Name] = override
 			matchingNames = append(matchingNames, override.Name)
 		}

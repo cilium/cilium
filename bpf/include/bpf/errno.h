@@ -33,8 +33,14 @@
 #ifndef ECONNRESET
 # define ECONNRESET	104
 #endif
+#ifndef ENOBUFS
+# define ENOBUFS	105
+#endif
 #ifndef ENOTCONN
 # define ENOTCONN	107
+#endif
+#ifndef ECONNREFUSED
+# define ECONNREFUSED	111
 #endif
 #ifndef EHOSTUNREACH
 # define EHOSTUNREACH	113

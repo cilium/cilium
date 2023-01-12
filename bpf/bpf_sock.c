@@ -456,8 +456,13 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (sock_is_health_check(ctx))
-		return __sock4_health_fwd(ctx);
+	if (sock_is_health_check(ctx)) {
+		int ret = __sock4_health_fwd(ctx);
+
+		if (ret == SYS_REJECT)
+			try_set_retval(-ECONNREFUSED);
+		return ret;
+	}
 
 	err = __sock4_xlate_fwd(ctx, ctx, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
@@ -555,8 +560,10 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 	    !ctx_in_hostns(ctx, NULL))
 		return ret;
 	if (sock_is_health_check(ctx) &&
-	    __sock4_pre_bind(ctx, ctx))
+	    __sock4_pre_bind(ctx, ctx)) {
+		try_set_retval(-ENOBUFS);
 		ret = SYS_REJECT;
+	}
 	return ret;
 }
 #endif /* ENABLE_HEALTH_CHECK */
@@ -950,8 +957,10 @@ int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 	    !ctx_in_hostns(ctx, NULL))
 		return ret;
 	if (sock_is_health_check(ctx) &&
-	    __sock6_pre_bind(ctx))
+	    __sock6_pre_bind(ctx)) {
+		try_set_retval(-ENOBUFS);
 		ret = SYS_REJECT;
+	}
 	return ret;
 }
 #endif /* ENABLE_HEALTH_CHECK */
@@ -1101,8 +1110,13 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
-	if (sock_is_health_check(ctx))
-		return __sock6_health_fwd(ctx);
+	if (sock_is_health_check(ctx)) {
+		int ret = __sock6_health_fwd(ctx);
+
+		if (ret == SYS_REJECT)
+			try_set_retval(-ECONNREFUSED);
+		return ret;
+	}
 
 	err = __sock6_xlate_fwd(ctx, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {

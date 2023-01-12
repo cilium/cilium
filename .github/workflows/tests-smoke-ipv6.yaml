@@ -16,7 +16,7 @@ concurrency:
 
 env:
   cilium_cli_version: v0.12.11
-  KIND_VERSION: v0.11.1
+  KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
@@ -68,9 +68,9 @@ jobs:
         id: vars
         run: |
           if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=tag::${{ github.sha }}
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
           fi
 
       - name: Precheck generated connectivity manifest files

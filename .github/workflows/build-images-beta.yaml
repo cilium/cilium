@@ -73,7 +73,7 @@ jobs:
       - name: Getting image tag
         id: tag
         run: |
-          echo ::set-output name=tag::${GITHUB_REF##*/}
+          echo tag=${GITHUB_REF##*/} >> $GITHUB_OUTPUT
 
       - name: Checking if tag already exists
         id: tag-in-repositories

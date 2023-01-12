@@ -38,7 +38,9 @@ type CiliumNodeConfigSpec struct {
 
 	// NodeSelector is a label selector that determines to which nodes
 	// this configuration applies.
-	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
+	// If not supplied, then this config applies to no nodes. If
+	// empty, then it applies to all nodes.
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector"`
 }
 
 //+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
