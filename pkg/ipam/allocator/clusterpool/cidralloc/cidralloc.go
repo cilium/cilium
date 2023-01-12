@@ -56,22 +56,18 @@ func NewCIDRSets(isV6 bool, strCIDRs []string, maskSize int) ([]CIDRAllocator, e
 				}
 			}
 		}
-		cidrSet, err := NewCIDRSet(isV6, addr, cidr, maskSize)
+
+		switch {
+		case isV6 && ip.IsIPv4(addr):
+			return nil, fmt.Errorf("CIDR is not v6 family: %s", cidr)
+		case !isV6 && !ip.IsIPv4(addr):
+			return nil, fmt.Errorf("CIDR is not v4 family: %s", cidr)
+		}
+		cidrSet, err := cidrset.NewCIDRSet(cidr, maskSize)
 		if err != nil {
 			return nil, err
 		}
 		cidrAllocators = append(cidrAllocators, cidrSet)
 	}
 	return cidrAllocators, nil
-}
-
-func NewCIDRSet(isV6 bool, addr net.IP, cidr *net.IPNet, maskSize int) (CIDRAllocator, error) {
-	switch {
-	case isV6 && ip.IsIPv4(addr):
-		return nil, fmt.Errorf("CIDR is not v6 family: %s", cidr)
-	case !isV6 && !ip.IsIPv4(addr):
-		return nil, fmt.Errorf("CIDR is not v4 family: %s", cidr)
-	}
-
-	return cidrset.NewCIDRSet(cidr, maskSize)
 }
