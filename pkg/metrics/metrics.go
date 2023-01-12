@@ -221,6 +221,9 @@ const (
 var (
 	registry = prometheus.NewPedanticRegistry()
 
+	// BootstrapTimes is the durations of cilium-agent bootstrap sequence.
+	BootstrapTimes = NoOpObserverVec
+
 	// APIInteractions is the total time taken to process an API call made
 	// to the cilium-agent
 	APIInteractions = NoOpObserverVec
@@ -524,6 +527,7 @@ var (
 )
 
 type Configuration struct {
+	BootstrapTimesEnabled                   bool
 	APIInteractionsEnabled                  bool
 	NodeConnectivityStatusEnabled           bool
 	NodeConnectivityLatencyEnabled          bool
@@ -602,6 +606,7 @@ type Configuration struct {
 
 func DefaultMetrics() map[string]struct{} {
 	return map[string]struct{}{
+		Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":                      {},
 		Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":               {},
 		Namespace + "_endpoint_regenerations_total":                                  {},
 		Namespace + "_endpoint_state":                                                {},
@@ -678,6 +683,17 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 		switch metricName {
 		default:
 			logrus.WithField("metric", metricName).Warning("Metric does not exist, skipping")
+
+		case Namespace + "_" + SubsystemAgent + "_bootstrap_seconds":
+			BootstrapTimes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAgent,
+				Name:      "bootstrap_seconds",
+				Help:      "Duration of bootstrap sequence",
+			}, []string{LabelScope, LabelOutcome})
+
+			collectors = append(collectors, BootstrapTimes)
+			c.BootstrapTimesEnabled = true
 
 		case Namespace + "_" + SubsystemAgent + "_api_process_time_seconds":
 			APIInteractions = prometheus.NewHistogramVec(prometheus.HistogramOpts{

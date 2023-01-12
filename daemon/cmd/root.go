@@ -38,7 +38,6 @@ var (
 
 func init() {
 	setupSleepBeforeFatal()
-	registerBootstrapMetrics()
 
 	Vp = agentHive.Viper()
 	agentHive.RegisterFlags(RootCmd.Flags())
