@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/optiopay/kafka/proto"
+	"github.com/cilium/kafka/proto"
 )
 
 // ResponseMessage represents a Kafka response message.

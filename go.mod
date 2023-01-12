@@ -22,6 +22,7 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 	github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
+	github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9
 	github.com/cilium/workerpool v1.1.3
@@ -61,7 +62,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.1
-	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/osrg/gobgp/v3 v3.10.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
@@ -247,7 +247,6 @@ require (
 
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
-	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 
