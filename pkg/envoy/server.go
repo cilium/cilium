@@ -536,6 +536,8 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 // 'listenerConf()' is only called if a new listener is being created.
 func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	listener := s.listeners[name]
 	if listener == nil {
 		listener = &Listener{}
@@ -554,7 +556,6 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 			listener.waiters = append(listener.waiters, wg.AddCompletion())
 		}
 		listener.mutex.Unlock()
-		s.mutex.Unlock()
 		return
 	}
 	// Try again after a NACK, potentially with a different port number, etc.
@@ -600,7 +601,6 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 				cb(err)
 			}
 		})
-	s.mutex.Unlock()
 }
 
 // upsertListener either updates an existing LDS listener with 'name', or creates a new one.
