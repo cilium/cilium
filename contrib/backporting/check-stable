@@ -202,7 +202,7 @@ if [[ ${#stable_prs[@]} > 0 ]]; then
     title=$(extract_pr_title "$pr")
     echo " * PR: $pr -- $title -- https://github.com/cilium/cilium/pull/$pr"
     if [[ ! -z $SUMMARY_LOG ]]; then
-      echo " * #$pr -- $title" >> $SUMMARY_LOG
+      echo " - [ ] #$pr -- $title" >> $SUMMARY_LOG
     fi
     generate_commit_list_for_pr $pr $merged_at
     echo ""
