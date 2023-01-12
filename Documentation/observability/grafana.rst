@@ -29,6 +29,7 @@ The default installation contains:
     configmap/grafana-config created
     configmap/grafana-cilium-dashboard created
     configmap/grafana-cilium-operator-dashboard created
+    configmap/grafana-cilium-policy-verdicts-dashboard created
     configmap/grafana-hubble-dashboard created
     configmap/prometheus created
     clusterrole.rbac.authorization.k8s.io/prometheus unchanged
@@ -74,7 +75,7 @@ Deploy Cilium via Helm as follows to enable all metrics:
       --set prometheus.enabled=true \\
       --set operator.prometheus.enabled=true \\
       --set hubble.enabled=true \\
-      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http,policy:sourceContext=pod-short|reserved-identity;destinationContext=pod-short|dns|reserved-identity}"
 
 .. note::
 
@@ -137,6 +138,11 @@ Kubernetes
 ----------
 
 .. image:: images/grafana_k8s.png
+
+Policy Verdicts
+---------------
+
+.. image:: images/grafana_policy_verdicts.png
 
 Hubble General Processing
 -------------------------
