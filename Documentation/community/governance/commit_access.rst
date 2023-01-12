@@ -184,13 +184,23 @@ The process to grant commit access to a candidate is simple:
    them to agree to the committer expectations documented on the project
    web site.
 
--  If the candidate agrees access is granted by setting up commit access
-   to the repos. The new committer is invited to the #committers Slack channel,
-   *after* the nomination poll and related discussions have been deleted. There
-   is no need to delete the final vote summary. The name of the new committer
-   is also added to the list in the MAINTAINERS.md_ file. The new committer is
-   also added to the CNCF's list of Cilium maintainers as documented `here
-   <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__.
+-  If the candidate agrees, access is granted by setting up commit access.
+
+    #. Delete the nomination poll and related discussions to preserve the
+       privacy of any discussions regarding the newly nominated committer.
+       If any discussion may be relevant for subsequent project governance
+       discussion, those remarks may optionally be summarized and re-posted
+       to the channel. The final vote summary does not need to be deleted.
+
+    #. Invite the new committer to the #committers Slack channel.
+
+    #. Add the new committer to the list in MAINTAINERS.md_.
+
+    #. Add the new committer to the `CNCF's list of Cilium maintainers
+       <https://github.com/cncf/foundation/blob/main/README.md#other-content>`__.
+
+    #. Add the new committer to the `Committers team
+       <https://github.com/orgs/cilium/teams/committers>`__.
 
 Revoking Commit Access
 ----------------------
