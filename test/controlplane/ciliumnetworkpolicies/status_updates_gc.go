@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -255,7 +256,7 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = true
 			}).
 			StartAgent().
-			StartOperator().
+			StartOperator(func(_ *viper.Viper) {}).
 			Execute(func() error { return applyDummyCNPs(test) }).
 			Eventually(func() error { return validateCNPs(test) })
 
@@ -270,7 +271,7 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = false
 			}).
 			StartAgent().
-			StartOperator().
+			StartOperator(func(_ *viper.Viper) {}).
 			Execute(func() error { return applyDummyCNPs(test) }).
 			Eventually(func() error { return validateCNPsAfterGC(test) })
 
