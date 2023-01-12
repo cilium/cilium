@@ -91,15 +91,20 @@ func isValidKeyValuePair(str string) bool {
 // - strings.Split function will return []string{"c6a.2xlarge=4", "15", "15", "m4.xlarge=2", "4", "8"}.
 // - splitKeyValue function will return []string{"c6a.2xlarge=4,15,15", "m4.xlarge=2,4,8"} instead.
 func splitKeyValue(str string, sep rune, keyValueSep rune) []string {
-	var sepIndexes []int
+	var sepIndexes, kvValueSepIndexes []int
 	// find all indexes of separator character
 	for i := 0; i < len(str); i++ {
-		if int32(str[i]) == sep {
+		switch int32(str[i]) {
+		case sep:
 			sepIndexes = append(sepIndexes, i)
+		case keyValueSep:
+			kvValueSepIndexes = append(kvValueSepIndexes, i)
 		}
 	}
 
-	if len(sepIndexes) == 0 {
+	// there's only a single key-value if there are no separators ("key=value")
+	// or a single key-value separator ("key=option1:value1,option2:value2")
+	if len(sepIndexes) == 0 || len(kvValueSepIndexes) == 1 {
 		return []string{str}
 	}
 

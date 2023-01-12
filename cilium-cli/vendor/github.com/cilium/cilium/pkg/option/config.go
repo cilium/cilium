@@ -3041,6 +3041,8 @@ func (c *DaemonConfig) Populate() {
 	c.ToFQDNsProxyPort = viper.GetInt(ToFQDNsProxyPort)
 	c.ToFQDNsPreCache = viper.GetString(ToFQDNsPreCache)
 	c.ToFQDNsEnableDNSCompression = viper.GetBool(ToFQDNsEnableDNSCompression)
+	c.ToFQDNsIdleConnectionGracePeriod = viper.GetDuration(ToFQDNsIdleConnectionGracePeriod)
+	c.FQDNProxyResponseMaxDelay = viper.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = viper.GetInt(DNSProxyConcurrencyLimit)
 	c.DNSProxyConcurrencyProcessingGracePeriod = viper.GetDuration(DNSProxyConcurrencyProcessingGracePeriod)
 
