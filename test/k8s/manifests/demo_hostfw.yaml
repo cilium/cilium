@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: docker.io/cilium/echoserver:1.10.1
+        image: quay.io/cilium/echoserver:1.10.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -25,7 +25,7 @@ spec:
             path: /
             port: 80
       - name: udp
-        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 69
@@ -55,7 +55,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: web
-        image: docker.io/cilium/demo-client:1.0
+        image: quay.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
@@ -78,7 +78,7 @@ spec:
       hostNetwork: true
       containers:
       - name: web
-        image: docker.io/cilium/echoserver:1.10.1
+        image: quay.io/cilium/echoserver:1.10.1
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -87,7 +87,7 @@ spec:
             path: /
             port: 80
       - name: udp
-        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 69
@@ -118,7 +118,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: web
-        image: docker.io/cilium/demo-client:1.0
+        image: quay.io/cilium/demo-client:1.0
         imagePullPolicy: IfNotPresent
         command: [ "sleep" ]
         args:
