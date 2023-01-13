@@ -333,15 +333,28 @@ type FEPortName string
 // ServiceID is the service's ID.
 type ServiceID uint16
 
+// TODO: Rethink the naming and usage. Main idea is to allow overlap
+// of k8s service and k8s pod's names and to also have separate namespace
+// for entries added through the API.
+type Authority string
+
+const (
+	AuthoritySVC = Authority("svc")
+	AuthorityPod = Authority("pod")
+	AuthorityAPI = Authority("api")
+	AuthorityLRP = Authority("lrp")
+)
+
 // ServiceName represents the fully-qualified reference to the service by name,
 // including both the namespace and name of the service.
 type ServiceName struct {
+	Authority Authority
 	Namespace string
 	Name      string
 }
 
 func (n ServiceName) String() string {
-	return n.Namespace + "/" + n.Name
+	return string(n.Authority) + "/" + n.Namespace + "/" + n.Name
 }
 
 // BackendID is the backend's ID.
@@ -376,6 +389,10 @@ type Backend struct {
 
 func (b *Backend) String() string {
 	return b.L3n4Addr.String()
+}
+
+func (b *Backend) Address() *L3n4Addr {
+	return &b.L3n4Addr
 }
 
 // SVC is a structure for storing service details.
