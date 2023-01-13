@@ -19,36 +19,36 @@ type OperatorTestSuite struct{}
 var _ = check.Suite(&OperatorTestSuite{})
 
 func (s *OperatorTestSuite) TestIdentityHeartbeatStore(c *check.C) {
-	store := NewIdentityHeartbeatStore(time.Second)
+	store := newHeartbeatStore(time.Second)
 
 	// mark lifesign to now, identity must be alive, run GC, identity
 	// should still exist
-	store.MarkAlive("foo", time.Now())
-	c.Assert(store.IsAlive("foo"), check.Equals, true)
-	store.GC()
-	c.Assert(store.IsAlive("foo"), check.Equals, true)
+	store.markAlive("foo", time.Now())
+	c.Assert(store.isAlive("foo"), check.Equals, true)
+	store.gc()
+	c.Assert(store.isAlive("foo"), check.Equals, true)
 
 	// mark lifesign in the past, identity should not be alive anymore
-	store.MarkAlive("foo", time.Now().Add(-time.Minute))
-	c.Assert(store.IsAlive("foo"), check.Equals, false)
+	store.markAlive("foo", time.Now().Add(-time.Minute))
+	c.Assert(store.isAlive("foo"), check.Equals, false)
 
 	// mark lifesign way in the past, run GC, validate that identity is no
 	// longer tracked
-	store.MarkAlive("foo", time.Now().Add(-24*time.Hour))
-	c.Assert(store.IsAlive("foo"), check.Equals, false)
-	store.GC()
+	store.markAlive("foo", time.Now().Add(-24*time.Hour))
+	c.Assert(store.isAlive("foo"), check.Equals, false)
+	store.gc()
 	store.mutex.RLock()
 	_, ok := store.lastLifesign["foo"]
 	c.Assert(ok, check.Equals, false)
 	store.mutex.RUnlock()
 
 	// mark lifesign to now and validate deletion
-	store.MarkAlive("foo", time.Now())
+	store.markAlive("foo", time.Now())
 	store.mutex.RLock()
 	_, ok = store.lastLifesign["foo"]
 	store.mutex.RUnlock()
 	c.Assert(ok, check.Equals, true)
-	store.Delete("foo")
+	store.delete("foo")
 	store.mutex.RLock()
 	_, ok = store.lastLifesign["foo"]
 	store.mutex.RUnlock()
@@ -57,5 +57,5 @@ func (s *OperatorTestSuite) TestIdentityHeartbeatStore(c *check.C) {
 	// identtity foo now doesn't exist, simulate start time of operator way
 	// in the past to check if an old, stale identity will be deleeted
 	store.firstRun = time.Now().Add(-24 * time.Hour)
-	c.Assert(store.IsAlive("foo"), check.Equals, false)
+	c.Assert(store.isAlive("foo"), check.Equals, false)
 }
