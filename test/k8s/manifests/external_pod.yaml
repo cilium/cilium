@@ -8,6 +8,6 @@ metadata:
 spec:
   containers:
   - name: app-reach-services
-    image: docker.io/cilium/demo-client:1.0
+    image: quay.io/cilium/demo-client:1.0
     imagePullPolicy: IfNotPresent
     command: [ "bash", "-c", "while true; do sleep 5; done" ]

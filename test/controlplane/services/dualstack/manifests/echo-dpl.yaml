@@ -32,4 +32,4 @@ spec:
             - /dev/null
             - localhost
       - name: echo-container-udp
-        image: docker.io/cilium/echoserver-udp:v2020.01.30
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
