@@ -82,21 +82,6 @@ const (
 	// will simply return.
 	EndpointGCInterval = "cilium-endpoint-gc-interval"
 
-	// IdentityGCInterval is the interval in which allocator identities are
-	// attempted to be expired from the kvstore
-	IdentityGCInterval = "identity-gc-interval"
-
-	// IdentityGCRateInterval is the interval used for rate limiting the GC of
-	// identities.
-	IdentityGCRateInterval = "identity-gc-rate-interval"
-
-	// IdentityGCRateLimit is the maximum identities used for rate limiting the
-	// GC of identities.
-	IdentityGCRateLimit = "identity-gc-rate-limit"
-
-	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
-	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
-
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
 
@@ -361,21 +346,6 @@ type OperatorConfig struct {
 	// will simply return.
 	EndpointGCInterval time.Duration
 
-	// IdentityGCInterval is the interval in which allocator identities are
-	// attempted to be expired from the kvstore
-	IdentityGCInterval time.Duration
-
-	// IdentityGCRateInterval is the interval used for rate limiting the GC of
-	// identities.
-	IdentityGCRateInterval time.Duration
-
-	// IdentityGCRateLimit is the maximum identities used for rate limiting the
-	// GC of identities.
-	IdentityGCRateLimit int64
-
-	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
-	IdentityHeartbeatTimeout time.Duration
-
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
@@ -613,10 +583,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.IdentityGCInterval = vp.GetDuration(IdentityGCInterval)
-	c.IdentityGCRateInterval = vp.GetDuration(IdentityGCRateInterval)
-	c.IdentityGCRateLimit = vp.GetInt64(IdentityGCRateLimit)
-	c.IdentityHeartbeatTimeout = vp.GetDuration(IdentityHeartbeatTimeout)
 	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.PProf = vp.GetBool(PProf)
