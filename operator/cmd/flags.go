@@ -191,9 +191,6 @@ func init() {
 		return nil
 	}
 
-	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 2*defaults.KVstoreLeaseTTL, "Timeout after which identity expires on lack of heartbeat")
-	option.BindEnv(Vp, operatorOption.IdentityHeartbeatTimeout)
-
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(Vp, option.EnableIPv4Name)
 
@@ -226,17 +223,6 @@ func init() {
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(Vp, option.IdentityAllocationMode)
-
-	flags.Duration(operatorOption.IdentityGCInterval, defaults.KVstoreLeaseTTL, "GC interval for security identities")
-	option.BindEnv(Vp, operatorOption.IdentityGCInterval)
-
-	flags.Duration(operatorOption.IdentityGCRateInterval, time.Minute,
-		"Interval used for rate limiting the GC of security identities")
-	option.BindEnv(Vp, operatorOption.IdentityGCRateInterval)
-
-	flags.Int(operatorOption.IdentityGCRateLimit, 2500,
-		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", operatorOption.IdentityGCRateInterval))
-	option.BindEnv(Vp, operatorOption.IdentityGCRateLimit)
 
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(Vp, option.KVStore)
