@@ -252,7 +252,6 @@ Makefile* @cilium/build
 /cilium-health/cmd/ @cilium/sig-agent @cilium/cli
 /clustermesh-apiserver @cilium/sig-clustermesh
 /contrib/ @cilium/contributing
-/contrib/packaging/ @cilium/build
 /contrib/vagrant/ @cilium/contributing
 /contrib/coccinelle/ @cilium/sig-datapath
 /daemon/ @cilium/sig-agent
