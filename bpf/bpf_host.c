@@ -169,8 +169,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	if (from_host)
 		src_id = srcid_from_ipcache;
 	else if (src_id == WORLD_ID &&
-		 identity_from_ipcache_ok() &&
-		 !identity_is_reserved(srcid_from_ipcache))
+		 identity_from_ipcache_ok())
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
@@ -456,8 +455,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	/* If we could not derive the secctx from the packet itself but
 	 * from the ipcache instead, then use the ipcache identity.
 	 */
-	else if (identity_from_ipcache_ok() &&
-		 !identity_is_reserved(srcid_from_ipcache))
+	else if (identity_from_ipcache_ok())
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
