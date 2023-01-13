@@ -51,7 +51,6 @@ spec:
         - name: hubble-relay
           image: "{{ if .Values.hubble.relay.image.override }}{{ .Values.hubble.relay.image.override }}{{ else }}{{ .Values.hubble.relay.image.repository }}:{{ .Values.hubble.relay.image.tag }}{{ if .Values.hubble.relay.image.useDigest }}@{{ .Values.hubble.relay.image.digest }}{{ end }}{{ end }}"
           imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
-          terminationMessagePolicy: FallbackToLogsOnError
           command:
             - hubble-relay
           args:
@@ -72,7 +71,6 @@ spec:
           resources:
             {{- toYaml . | trim | nindent 12 }}
 {{- end }}
-          terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
           {{- if $mountSocket }}
           - mountPath: {{ dir .Values.hubble.socketPath }}
@@ -87,6 +85,7 @@ spec:
             name: tls
             readOnly: true
 {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
       restartPolicy: Always
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
