@@ -1189,7 +1189,10 @@ domain name.
 Limitations and known issues
 ----------------------------
 
-The current known limitation is a deny policy with ``toEntities`` "world" for
+Deny policies for peers outside the cluster may be ineffectual due to
+:gh-issue:`15198`.
+
+One example of this would be a deny policy with ``toEntities`` "world" for
 which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
 considered external to the cluster.
 
