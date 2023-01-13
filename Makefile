@@ -210,8 +210,6 @@ clean-container: ## Perform `make clean` for each component required in cilium-a
 
 clean: ## Perform overall cleanup for Cilium.
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
-	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
 veryclean: ## Perform complete cleanup for container engine images(including build cache).
 	-$(QUIET) $(CONTAINER_ENGINE) image prune -af
@@ -242,12 +240,6 @@ install-bash-completion: ## Install bash completion for all components required 
 # Touch the file only if needed
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
-
-build-deb: ## Build deb package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb
-
-build-rpm: ## Build rpm package of cilium.
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm
 
 -include Makefile.docker
 
@@ -411,7 +403,6 @@ release: ## Perform a Git release for Cilium.
 	$(info Checking if tag $(VERSION) is created '$(TAG_VERSION)' $(BRANCH))
 
 	@if [ "$(TAG_VERSION)" -eq "0" ];then { echo Git tag v$(VERSION) is already created; exit 1; } fi
-	$(MAKE) -C ./contrib/packaging/deb release
 	git commit -m "Version $(VERSION)"
 	git tag v$(VERSION)
 	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
