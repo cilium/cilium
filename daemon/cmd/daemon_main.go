@@ -887,10 +887,6 @@ func initializeFlags() {
 	flags.Int(option.EndpointQueueSize, defaults.EndpointQueueSize, "Size of EventQueue per-endpoint")
 	option.BindEnv(Vp, option.EndpointQueueSize)
 
-	flags.Duration(option.EndpointGCInterval, 5*time.Minute, "Periodically monitor local endpoint health via link status on this interval and garbage collect them if they become unhealthy, set to 0 to disable")
-	flags.MarkHidden(option.EndpointGCInterval)
-	option.BindEnv(Vp, option.EndpointGCInterval)
-
 	flags.String(option.WriteCNIConfigurationWhenReady, "", "Write the CNI configuration to the specified path when agent is ready")
 	option.BindEnv(Vp, option.WriteCNIConfigurationWhenReady)
 
