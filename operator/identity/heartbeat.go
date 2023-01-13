@@ -15,17 +15,17 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "identity-heartbeat")
 )
 
-// IdentityHeartbeatStore keeps track of the heartbeat of identities
-type IdentityHeartbeatStore struct {
+// heartbeatStore keeps track of the heartbeat of identities
+type heartbeatStore struct {
 	mutex        lock.RWMutex
 	lastLifesign map[string]time.Time
 	firstRun     time.Time
 	timeout      time.Duration
 }
 
-// NewIdentityHeartbeatStore returns a new identity heartbeat store
-func NewIdentityHeartbeatStore(timeout time.Duration) *IdentityHeartbeatStore {
-	i := &IdentityHeartbeatStore{
+// newHeartbeatStore returns a new identity heartbeat store
+func newHeartbeatStore(timeout time.Duration) *heartbeatStore {
+	i := &heartbeatStore{
 		timeout:      timeout,
 		lastLifesign: map[string]time.Time{},
 		firstRun:     time.Now(),
@@ -33,16 +33,16 @@ func NewIdentityHeartbeatStore(timeout time.Duration) *IdentityHeartbeatStore {
 	return i
 }
 
-// MarkAlive marks an identity as alive
-func (i *IdentityHeartbeatStore) MarkAlive(identity string, t time.Time) {
+// markAlive marks an identity as alive
+func (i *heartbeatStore) markAlive(identity string, t time.Time) {
 	log.WithField(logfields.Identity, identity).Debug("Marking identity alive")
 	i.mutex.Lock()
 	i.lastLifesign[identity] = t
 	i.mutex.Unlock()
 }
 
-// IsAlive returns true if the identity is still alive
-func (i *IdentityHeartbeatStore) IsAlive(identity string) bool {
+// isAlive returns true if the identity is still alive
+func (i *heartbeatStore) isAlive(identity string) bool {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
 
@@ -66,19 +66,19 @@ func (i *IdentityHeartbeatStore) IsAlive(identity string) bool {
 	return false
 }
 
-// Delete deletes an identity from the store
-func (i *IdentityHeartbeatStore) Delete(identity string) {
+// delete deletes an identity from the store
+func (i *heartbeatStore) delete(identity string) {
 	log.WithField(logfields.Identity, identity).Debug("Deleting identity in heartbeat lifesign table")
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 	delete(i.lastLifesign, identity)
 }
 
-// GC removes all lifesign entries which have exceeded the heartbeat by a large
+// gc removes all lifesign entries which have exceeded the heartbeat by a large
 // amount. This happens when the CiliumIdentity is deleted before the
 // CiliumEndpoint that refers to it. In that case, the lifesign entry will
 // continue to exist. Remove it once has not been updated for a long time.
-func (i *IdentityHeartbeatStore) GC() {
+func (i *heartbeatStore) gc() {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 

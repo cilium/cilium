@@ -41,14 +41,14 @@ func (igc *GC) runHeartbeatUpdater(ctx context.Context) error {
 		case resource.Upsert:
 			// Identity is marked as alive if it is new or it has
 			// been updated.
-			igc.heartbeatStore.MarkAlive(event.Object.Name, time.Now())
+			igc.heartbeatStore.markAlive(event.Object.Name, time.Now())
 		case resource.Delete:
 			// When the identity is deleted, delete the
 			// heartbeat entry as well. This will not be
 			// 100% accurate as the CiliumEndpoint can live
 			// longer than the CiliumIdentity. See
 			// heartbeatStore.gc()
-			igc.heartbeatStore.Delete(event.Object.Name)
+			igc.heartbeatStore.delete(event.Object.Name)
 		}
 		event.Done(nil)
 	}
@@ -80,11 +80,11 @@ func (igc *GC) gc(ctx context.Context) error {
 	for _, identity := range identities {
 		// The identity is definitely alive if there's a CE using it.
 		if watchers.HasCEWithIdentity(identity.Name) {
-			igc.heartbeatStore.MarkAlive(identity.Name, timeNow)
+			igc.heartbeatStore.markAlive(identity.Name, timeNow)
 			continue
 		}
 
-		if !igc.heartbeatStore.IsAlive(identity.Name) {
+		if !igc.heartbeatStore.isAlive(identity.Name) {
 			ts, ok := identity.Annotations[identitybackend.HeartBeatAnnotation]
 			if !ok {
 				log.WithFields(logrus.Fields{
@@ -140,7 +140,7 @@ func (igc *GC) gc(ctx context.Context) error {
 		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(deletedEntries))
 	}
 
-	igc.heartbeatStore.GC()
+	igc.heartbeatStore.gc()
 
 	return nil
 }

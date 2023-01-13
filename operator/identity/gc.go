@@ -79,7 +79,7 @@ type GC struct {
 	gcRateLimit      int64
 
 	wp             *workerpool.WorkerPool
-	heartbeatStore *IdentityHeartbeatStore
+	heartbeatStore *heartbeatStore
 	mgr            *controller.Manager
 
 	// rateLimiter is meant to rate limit the number of
@@ -120,7 +120,7 @@ func newGC(
 		gcRateInterval:   params.Cfg.GCRateInterval,
 		gcRateLimit:      params.Cfg.GCRateLimit,
 		wp:               workerpool.New(1),
-		heartbeatStore: NewIdentityHeartbeatStore(
+		heartbeatStore: newHeartbeatStore(
 			params.Cfg.HeartbeatTimeout,
 		),
 		rateLimiter: rate.NewLimiter(
