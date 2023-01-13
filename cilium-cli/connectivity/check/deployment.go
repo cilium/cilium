@@ -286,6 +286,7 @@ var serviceLabels = map[string]string{
 }
 
 func newService(name string, selector map[string]string, labels map[string]string, portName string, port int) *corev1.Service {
+	ipFamPol := corev1.IPFamilyPolicyPreferDualStack
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
@@ -296,7 +297,8 @@ func newService(name string, selector map[string]string, labels map[string]strin
 			Ports: []corev1.ServicePort{
 				{Name: portName, Port: int32(port)},
 			},
-			Selector: selector,
+			Selector:       selector,
+			IPFamilyPolicy: &ipFamPol,
 		},
 	}
 }
