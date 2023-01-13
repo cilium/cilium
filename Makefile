@@ -411,14 +411,7 @@ reload: ## Reload cilium-agent and cilium-docker systemd service after installin
 	cilium status
 
 release: ## Perform a Git release for Cilium.
-	$(eval TAG_VERSION := $(shell git tag | grep v$(VERSION) > /dev/null; echo $$?))
-	$(eval BRANCH := $(shell git rev-parse --abbrev-ref HEAD))
-	$(info Checking if tag $(VERSION) is created '$(TAG_VERSION)' $(BRANCH))
-
-	@if [ "$(TAG_VERSION)" -eq "0" ];then { echo Git tag v$(VERSION) is already created; exit 1; } fi
-	git commit -m "Version $(VERSION)"
-	git tag v$(VERSION)
-	git archive --format tar $(BRANCH) | gzip > ../cilium_$(VERSION).orig.tar.gz
+	@echo "Visit https://github.com/cilium/release/issues/new/choose to initiate the release process."
 
 gofmt: ## Run gofmt on Go source files in the repository.
 	$(QUIET)$(GO) fmt ./...
