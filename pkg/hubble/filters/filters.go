@@ -131,6 +131,7 @@ var DefaultFilters = []OnBuildFilter{
 	&ProtocolFilter{},
 	&IPFilter{},
 	&PodFilter{},
+	&NamespaceFilter{},
 	&WorkloadFilter{},
 	&ServiceFilter{},
 	&FQDNFilter{},

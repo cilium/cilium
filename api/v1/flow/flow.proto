@@ -412,8 +412,12 @@ message FlowFilter {
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
     // The pod name can be omitted to only filter by namespace
-    // (e.g. "kube-system/")
+    // (e.g. "kube-system/").
+    // If source_namespace is specified, then this no longer matches on the
+    // namespace, and only does the pod name prefix matching.
     repeated string source_pod = 2;
+    // source_namespace filters by a list of source namespaces.
+    repeated string source_namespace = 29;
     // source_fqdn filters by a list of source fully qualified domain names
     repeated string source_fqdn = 7;
     // source_labels filters on a list of source label selectors. Selectors
@@ -429,8 +433,15 @@ message FlowFilter {
     // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
     // as a CIDR range (e.g. "1.1.1.0/24").
     repeated string destination_ip = 3;
-    // destination_pod filters by a list of destination pod names
+    // destination_pod filters by a list of destination pod name prefixes, optionally
+    // within a given namespace (e.g. "xwing", "kube-system/coredns-").
+    // The pod name can be omitted to only filter by namespace
+    // (e.g. "kube-system/").
+    // If destination_namespace is specified, then this no longer matches on the
+    // namespace, and only does the pod name prefix matching.
     repeated string destination_pod = 4;
+    // destination_namespace filters by a list of source namespaces.
+    repeated string destination_namespace = 30;
     // destination_fqdn filters by a list of destination fully qualified domain names
     repeated string destination_fqdn = 8;
     // destination_label filters on a list of destination label selectors

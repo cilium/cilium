@@ -9,7 +9,7 @@ import (
 
 // ParseNamespaceName returns the object's namespace and name. If namespace is
 // not specified, the namespace "default" is returned.
-func ParseNamespaceName(namespaceName string) (string, string) {
+func ParseNamespaceName(namespaceName string) (namespace string, name string) {
 	nsName := strings.Split(namespaceName, "/")
 	ns := nsName[0]
 	switch {
