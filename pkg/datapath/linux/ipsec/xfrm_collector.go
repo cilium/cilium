@@ -37,32 +37,42 @@ const (
 )
 
 type xfrmCollector struct {
-	xfrmStatFunc func() (procfs.XfrmStat, error)
+	xfrmStatFunc          func() (procfs.XfrmStat, error)
+	maxSequenceNumberFunc func() (uint32, error)
 
 	// Inbound errors
 	xfrmErrorDesc *prometheus.Desc
+	// Max seq.number
+	maxSequenceNumberDesc *prometheus.Desc
 }
 
 // NewXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
 // https://www.kernel.org/doc/Documentation/networking/xfrm_proc.txt
 func NewXFRMCollector() prometheus.Collector {
-	return newXFRMCollector(procfs.NewXfrmStat)
+	return newXFRMCollector(procfs.NewXfrmStat, maxSequenceNumber)
 }
 
-func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collector {
+func newXFRMCollector(statFn func() (procfs.XfrmStat, error), maxSeqNumberFn func() (uint32, error)) prometheus.Collector {
 	return &xfrmCollector{
-		xfrmStatFunc: statFn,
+		xfrmStatFunc:          statFn,
+		maxSequenceNumberFunc: maxSeqNumberFn,
 
 		xfrmErrorDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
 			"Total number of xfrm errors",
 			[]string{labelErrorType, metrics.LabelError}, nil,
 		),
+		maxSequenceNumberDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_highest_sequence_number"),
+			"Highest XFRM anti-replay sequence number on the node",
+			[]string{}, nil,
+		),
 	}
 }
 
 func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.xfrmErrorDesc
+	ch <- x.maxSequenceNumberDesc
 }
 
 func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
@@ -102,4 +112,10 @@ func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolError), labelErrorTypeOutbound, labelErrorPolicy)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutStateInvalid), labelErrorTypeOutbound, labelErrorStateInvalid)
 
+	maxSeqNumber, err := x.maxSequenceNumberFunc()
+	if err != nil {
+		log.WithError(err).Error("Error while getting xfrm max sequence number")
+		return
+	}
+	ch <- prometheus.MustNewConstMetric(x.maxSequenceNumberDesc, prometheus.GaugeValue, float64(maxSeqNumber))
 }

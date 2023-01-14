@@ -291,6 +291,7 @@ IPSec
 Name                                          Labels                                             Default    Description
 ============================================= ================================================== ========== ========================================================
 ``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors.
+``xfrm_highest_sequence_number``                                                                 Enabled    Highest XFRM anti-replay sequence number on the node
 ============================================= ================================================== ========== ========================================================
 
 eBPF

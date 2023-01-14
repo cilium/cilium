@@ -58,6 +58,8 @@ const (
 	// ipSecXfrmMarkSPIShift defines how many bits the SPI is shifted when
 	// encoded in a XfrmMark
 	ipSecXfrmMarkSPIShift = 12
+	// Cilium uses reqid 1 to tie the IPsec security policies to their matching state
+	ciliumReqId = 1
 )
 
 type ipSecKey struct {
@@ -837,4 +839,20 @@ func StartStaleKeysReclaimer(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func maxSequenceNumber() (uint32, error) {
+	maxSeqNum := uint32(0)
+	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		return 0, err
+	}
+	for _, state := range xfrmStateList {
+		if state.Reqid == ciliumReqId {
+			if state.Replay.OSeq > maxSeqNum {
+				maxSeqNum = state.Replay.OSeq
+			}
+		}
+	}
+	return maxSeqNum, nil
 }

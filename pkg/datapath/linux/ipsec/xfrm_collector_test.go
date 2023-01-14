@@ -46,6 +46,7 @@ var sampleStats = procfs.XfrmStat{
 	XfrmOutStateInvalid:     27,
 	XfrmAcquireError:        28,
 }
+var sampleMaxSeq uint32 = 35308
 
 const (
 	noErrorMetric = `
@@ -112,44 +113,88 @@ cilium_ipsec_xfrm_error{error="state_sequence",type="inbound"} 7
 cilium_ipsec_xfrm_error{error="state_sequence",type="outbound"} 21
 cilium_ipsec_xfrm_error{error="template_mismatched",type="inbound"} 11
 `
+
+	sampleMaxSeqMetric = `
+# HELP cilium_ipsec_xfrm_highest_sequence_number Highest XFRM anti-replay sequence number on the node
+# TYPE cilium_ipsec_xfrm_highest_sequence_number gauge
+cilium_ipsec_xfrm_highest_sequence_number 35308
+`
+
+	zeroSeqMetric = `
+# HELP cilium_ipsec_xfrm_highest_sequence_number Highest XFRM anti-replay sequence number on the node
+# TYPE cilium_ipsec_xfrm_highest_sequence_number gauge
+cilium_ipsec_xfrm_highest_sequence_number 0
+`
 )
 
 func (x *XFRMCollectorTest) Test_xfrmCollector_Collect(c *C) {
 	tests := []struct {
-		name           string
-		statsFn        func() (procfs.XfrmStat, error)
-		expectedMetric string
-		expectedCount  int
+		name                  string
+		statsFn               func() (procfs.XfrmStat, error)
+		maxSequenceNumberFunc func() (uint32, error)
+		expectedMetric        string
+		expectedCount         int
 	}{
 		{
 			name: "error while getting stats",
 			statsFn: func() (procfs.XfrmStat, error) {
 				return procfs.XfrmStat{}, fmt.Errorf("error due to some reason")
 			},
+			maxSequenceNumberFunc: func() (uint32, error) {
+				return 0, nil
+			},
 			expectedCount:  0,
 			expectedMetric: "",
 		},
 		{
-			name: "no data at all",
+			name: "no stats data at all",
 			statsFn: func() (procfs.XfrmStat, error) {
 				return procfs.XfrmStat{}, nil
+			},
+			maxSequenceNumberFunc: func() (uint32, error) {
+				return 0, nil
+			},
+			expectedCount:  29,
+			expectedMetric: noErrorMetric + zeroSeqMetric,
+		},
+		{
+			name: "some stats data",
+			statsFn: func() (procfs.XfrmStat, error) {
+				return sampleStats, nil
+			},
+			maxSequenceNumberFunc: func() (uint32, error) {
+				return 0, nil
+			},
+			expectedCount:  29,
+			expectedMetric: someErrorMetric + zeroSeqMetric,
+		},
+		{
+			name: "error while getting max seq",
+			statsFn: func() (procfs.XfrmStat, error) {
+				return procfs.XfrmStat{}, nil
+			},
+			maxSequenceNumberFunc: func() (uint32, error) {
+				return 0, fmt.Errorf("error due to some reason")
 			},
 			expectedCount:  28,
 			expectedMetric: noErrorMetric,
 		},
 		{
-			name: "some data",
+			name: "max seq number sample",
 			statsFn: func() (procfs.XfrmStat, error) {
-				return sampleStats, nil
+				return procfs.XfrmStat{}, nil
 			},
-			expectedCount:  28,
-			expectedMetric: someErrorMetric,
+			maxSequenceNumberFunc: func() (uint32, error) {
+				return sampleMaxSeq, nil
+			},
+			expectedCount:  29,
+			expectedMetric: noErrorMetric + sampleMaxSeqMetric,
 		},
 	}
 
 	for _, tt := range tests {
 		c.Log("Test : ", tt.name)
-		collector := newXFRMCollector(tt.statsFn)
+		collector := newXFRMCollector(tt.statsFn, tt.maxSequenceNumberFunc)
 
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
 		lintProblems, err := testutil.CollectAndLint(collector)
