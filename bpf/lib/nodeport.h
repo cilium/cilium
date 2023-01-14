@@ -846,10 +846,11 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
-		else if (ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNKNOWN_L4) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
-		else
-			return ret;
+		}
+		return ret;
 	}
 
 	svc = lb6_lookup_service(&key, false, false);
@@ -1905,10 +1906,11 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
-		else if (ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNKNOWN_L4) {
+			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
-		else
-			return ret;
+		}
+		return ret;
 	}
 
 	svc = lb4_lookup_service(&key, false, false);
