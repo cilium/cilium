@@ -35,9 +35,6 @@ func TestMain(m *testing.M) {
 		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
 		// init function
 		goleak.IgnoreTopFunction("time.Sleep"),
-		// To ignore leaked goroutine started from the instantiation
-		// of global variable watchers.nodeQueue
-		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop"),
 	)
 }
 
@@ -283,6 +280,8 @@ func setupCiliumEndpointWatcher(
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
+			// force cleanup of goroutines run from initialization of watchers.nodeQueue
+			watchers.NodeQueueShutDown()
 			// wait for CiliumEndpointInformer goroutine to be cleaned up
 			wg.Wait()
 
