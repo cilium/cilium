@@ -24,13 +24,11 @@ sphinx-autobuild==2021.3.14
 git+https://github.com/cilium/sphinx_rtd_theme.git@3bd69f33e7b2af2d0173fd997ec7ad21ce19ae3b
 sphinxcontrib-googleanalytics==0.3
 sphinxcontrib-httpdomain==1.8.0
-# Fork openapi until it uses something newer than unmaintained m2r
-# (See git logs for details)
-git+https://github.com/cilium/openapi.git@mdinclude
 sphinxcontrib-spelling==7.3.2
 sphinxcontrib-websupport==1.2.4
 sphinx-tabs==3.3.1
 sphinx-version-warning==1.1.2
+sphinxcontrib-openapi==0.8.0
 typing==3.7.4.3
 urllib3==1.26.8
 yamllint==1.26.3
