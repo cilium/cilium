@@ -248,7 +248,7 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 
 // Flip the 'n'th highest bit in 'ip'. 'ip' is modified in place. 'n' is zero indexed.
 func flipNthHighestBit(ip net.IP, n uint) {
-	i := (n / 8)
+	i := n / 8
 	ip[i] = ip[i] ^ 0x80>>(n%8)
 }
 
@@ -333,7 +333,7 @@ func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
 
 func getPreviousIP(ip net.IP) net.IP {
 	// Cannot go lower than zero!
-	if ip.Equal(net.IP(defaultIPv4)) || ip.Equal(net.IP(defaultIPv6)) {
+	if ip.Equal(defaultIPv4) || ip.Equal(defaultIPv6) {
 		return ip
 	}
 
