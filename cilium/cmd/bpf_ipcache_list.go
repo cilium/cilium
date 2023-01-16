@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	ipCacheListUsage = "List endpoint IPs (local and remote) and their corresponding security identities.\n" + lpmKernelVersionWarning("cilium_ipcache")
+	ipCacheListUsage = "List endpoint IPs (local and remote) and their corresponding security identities."
 )
 
 var bpfIPCacheListCmd = &cobra.Command{
@@ -46,7 +46,7 @@ var bpfIPCacheListCmd = &cobra.Command{
 		}
 
 		if len(bpfIPCacheList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmKernelVersionWarning("cilium_ipcache"))
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			TablePrinter(ipAddrTitle, identityTitle, bpfIPCacheList)
 		}
