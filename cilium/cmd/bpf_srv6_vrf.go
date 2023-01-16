@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	srv6VRFListUsage = "List SRv6 VRF mappings.\n" + lpmWarningMessage
+	srv6VRFListUsage = "List SRv6 VRF mappings."
 )
 
 type srv6VRF struct {
@@ -68,7 +68,7 @@ var bpfSRv6VRFListCmd = &cobra.Command{
 		}
 
 		if len(bpfVRFList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmWarningMessage)
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			printSRv6VRFList(bpfVRFList)
 		}
