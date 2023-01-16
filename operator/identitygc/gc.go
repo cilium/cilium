@@ -22,32 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 )
 
-// Start implements hive.HookInterface
-func (igc *GC) Start(ctx hive.HookContext) error {
-	switch igc.allocationMode {
-	case option.IdentityAllocationModeCRD:
-		return igc.startCRDModeGC(ctx)
-	case option.IdentityAllocationModeKVstore:
-		return igc.startKVStoreModeGC(ctx)
-	default:
-		return fmt.Errorf("unknown Cilium identity allocation mode: %q", igc.allocationMode)
-	}
-}
-
-// Stop implements hive.HookInterface
-func (igc *GC) Stop(ctx hive.HookContext) error {
-	switch igc.allocationMode {
-	case option.IdentityAllocationModeCRD:
-		// CRD mode GC runs in an additional goroutine
-		igc.mgr.RemoveAllAndWait()
-	}
-
-	igc.rateLimiter.Stop()
-	igc.wp.Close()
-
-	return nil
-}
-
 // params contains all the dependencies for the identity-gc.
 // They will be provided through dependency injection.
 type params struct {
@@ -102,12 +76,12 @@ type GC struct {
 	successfulRuns float64
 }
 
-func newGC(p params) *GC {
+func registerGC(p params) {
 	if !p.Clientset.IsEnabled() {
-		return nil
+		return
 	}
 
-	obj := &GC{
+	gc := &GC{
 		logger:           p.Logger,
 		clientset:        p.Clientset.CiliumV2().CiliumIdentities(),
 		identity:         p.Identity,
@@ -130,9 +104,28 @@ func newGC(p params) *GC {
 			clusterID:    p.SharedCfg.ClusterID,
 		},
 	}
-	p.Lifecycle.Append(obj)
+	p.Lifecycle.Append(hive.Hook{
+		OnStart: func(ctx hive.HookContext) error {
+			switch gc.allocationMode {
+			case option.IdentityAllocationModeCRD:
+				return gc.startCRDModeGC(ctx)
+			case option.IdentityAllocationModeKVstore:
+				return gc.startKVStoreModeGC(ctx)
+			default:
+				return fmt.Errorf("unknown Cilium identity allocation mode: %q", gc.allocationMode)
+			}
+		},
+		OnStop: func(ctx hive.HookContext) error {
+			if gc.allocationMode == option.IdentityAllocationModeCRD {
+				// CRD mode GC runs in an additional goroutine
+				gc.mgr.RemoveAllAndWait()
+			}
+			gc.rateLimiter.Stop()
+			gc.wp.Close()
 
-	return obj
+			return nil
+		},
+	})
 }
 
 // identityAllocationConfig is a helper struct that satisfies the Configuration interface.
