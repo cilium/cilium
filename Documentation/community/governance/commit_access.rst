@@ -295,7 +295,7 @@ with care. The process in this case is:
 
 -  Ideally the revoked committer peacefully leaves the community and no
    further action is required. However, there is a distinct possibility
-   that he/she will try to generate support for his/her point of view
+   that they will try to generate support for their point of view
    within the larger community. In this case the reasoning for removing
    commit access as described in the request for a vote will be
    published to the community.
@@ -354,7 +354,7 @@ Nomination to Grant Commit Access
 ::
 
     I would like to nominate *[candidate]* for commit access. I believe
-    *[he/she]* has met the conditions for commit access described in the
+    *[he/she/they]* has met the conditions for commit access described in the
     committer grant policy on the project web site in the following ways:
 
     *[list of requirements & evidence]*
@@ -394,7 +394,7 @@ Vote Results for Grant of Commit Access
 
     ABSTAIN: *[count of abstentions]* (*[% of voters]*)
 
-    Based on these results committer status *[is/is NOT]* granted and *[she/he]* 
+    Based on these results committer status *[is/is NOT]* granted and *[she/he/they]* 
     *[will/will NOT]* be added to the list of Cilium maintainers at the CNCF.
 
 Invitation to Accepted Committer
@@ -420,7 +420,7 @@ Proposal to Remove Commit Access for Inactivity
 ::
 
     Committer *[candidate]* has been inactive for *[duration]*. I have
-    attempted to privately contacted *[him/her]* and *[he/she]* could not be
+    attempted to privately contacted *[him/her]* and *[he/she/they]* could not be
     reached.
 
     Based on this I would like to formally propose removal of commit access.
@@ -432,10 +432,10 @@ Notification of Commit Removal for Inactivity
 
 ::
 
-    Committer *[candidate]* has been inactive for *[duration]*. *[He/she]*
+    Committer *[candidate]* has been inactive for *[duration]*. *[He/she/they]*
     *[stated no commit access is required/failed to respond]* to the formal
     proposal to remove access on *[date]*. Commit access has now been removed 
-    and *[she/he]* is being removed from the CNCF's list of Cilium maintainers.
+    and *[she/he/they]* is being removed from the CNCF's list of Cilium maintainers.
 
 Proposal to Revoke Commit Access for Detrimental Behavior
 ---------------------------------------------------------
@@ -443,8 +443,8 @@ Proposal to Revoke Commit Access for Detrimental Behavior
 ::
 
     I regret that I feel compelled to propose revocation of commit access for
-    *[candidate]*. I have privately discussed with *[him/her]* the following
-    reasons I believe *[his/her]* actions are detrimental to the project and we
+    *[candidate]*. I have privately discussed with *[him/her/them]* the following
+    reasons I believe *[his/her/their]* actions are detrimental to the project and we
     have failed to come to a mutual understanding:
 
     *[List of reasons and supporting evidence]*
