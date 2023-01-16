@@ -166,11 +166,10 @@ func (igc *GC) deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 			},
 		},
 	); err != nil {
-		log.WithError(err).Error("Unable to delete identity")
 		return err
 	}
 
-	log.WithField(logfields.Identity, identity.GetName()).Info("Garbage collected identity")
+	log.WithField(logfields.Identity, identity.GetName()).Debug("Garbage collected identity")
 
 	return nil
 }
@@ -181,7 +180,6 @@ func (igc *GC) updateIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 		identity,
 		metav1.UpdateOptions{},
 	); err != nil {
-		log.WithError(err).Error("Updating Identity")
 		return err
 	}
 
