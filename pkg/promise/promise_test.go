@@ -12,7 +12,7 @@ import (
 func TestPromiseResolve(t *testing.T) {
 	resolver, promiseI := New[int]()
 
-	promiseU := Map(promiseI, func(n int) uint64 { return uint64(n) * 2 })
+	promiseU := Map(promiseI, func(n int) (uint64, error) { return uint64(n) * 2, nil })
 
 	go func() {
 		resolver.Resolve(123)

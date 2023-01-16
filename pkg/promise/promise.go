@@ -121,12 +121,12 @@ func (await wrappedPromise[T]) Await(ctx context.Context) (T, error) {
 }
 
 // Map transforms the value of a promise with the provided function.
-func Map[A, B any](p Promise[A], transform func(A) B) Promise[B] {
+func Map[A, B any](p Promise[A], transform func(A) (B, error)) Promise[B] {
 	return wrappedPromise[B](func(ctx context.Context) (out B, err error) {
 		v, err := p.Await(ctx)
 		if err != nil {
 			return out, err
 		}
-		return transform(v), nil
+		return transform(v)
 	})
 }
