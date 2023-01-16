@@ -1001,7 +1001,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 #endif
 
 	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
-	if (ret) {
+	if (ret < 0) {
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 			goto out;
 		return ret;
@@ -2006,7 +2006,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
-	if (ret) {
+	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 			goto out;
