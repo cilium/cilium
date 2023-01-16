@@ -20,17 +20,20 @@ import (
 )
 
 func (igc *GC) startCRDModeGC(ctx context.Context) error {
-	if igc.gcInterval != 0 {
-		igc.logger.WithField(logfields.Interval, igc.gcInterval).Info("Starting CRD identity garbage collector")
-
-		igc.mgr = controller.NewManager()
-		igc.mgr.UpdateController("crd-identity-gc",
-			controller.ControllerParams{
-				RunInterval:  igc.gcInterval,
-				DoFunc:       igc.gc,
-				NoErrorRetry: true,
-			})
+	if igc.gcInterval == 0 {
+		igc.logger.Debug("CRD identity garbage collector disabled with interval set to 0")
+		return nil
 	}
+
+	igc.logger.WithField(logfields.Interval, igc.gcInterval).Info("Starting CRD identity garbage collector")
+
+	igc.mgr = controller.NewManager()
+	igc.mgr.UpdateController("crd-identity-gc",
+		controller.ControllerParams{
+			RunInterval:  igc.gcInterval,
+			DoFunc:       igc.gc,
+			NoErrorRetry: true,
+		})
 
 	return igc.wp.Submit("heartbeat-updater", igc.runHeartbeatUpdater)
 }
