@@ -567,14 +567,10 @@ enum metric_dir {
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
+#define MARK_MAGIC_SNAT_DONE		0x0300
 
-#define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-/* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
- * overlap with MARK_MAGIC_KEY_ID.
- */
-#define MARK_MAGIC_SNAT_DONE		0x1500
 
 /* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
  * being mutual exclusive given former is only under DSR. Used to push health
