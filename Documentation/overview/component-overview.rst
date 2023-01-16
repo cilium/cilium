@@ -90,14 +90,6 @@ compiler converts the bytecode to CPU architecture specific instructions for
 native execution efficiency. eBPF programs can be run at various hooking points
 in the kernel such as for incoming and outgoing packets.
 
-eBPF continues to evolve and gain additional capabilities with each new Linux
-release.  Cilium leverages eBPF to perform core datapath filtering, mangling,
-monitoring and redirection, and requires eBPF capabilities that are in any Linux
-kernel version 4.8.0 or newer. On the basis that 4.8.x is already declared end
-of life and 4.9.x has been nominated as a stable release we recommend to run at
-least kernel 4.9.17 (the latest current stable Linux kernel as of this writing
-is 4.10.x).
-
 Cilium is capable of probing the Linux kernel for available features and will
 automatically make use of more recent features as they are detected.
 
