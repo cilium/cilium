@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package identity
+package identitygc
 
 import (
 	"fmt"
@@ -48,9 +48,9 @@ func (igc *GC) Stop(ctx hive.HookContext) error {
 	return nil
 }
 
-// gcParams contains all the dependencies for the identity-gc.
+// params contains all the dependencies for the identity-gc.
 // They will be provided through dependency injection.
-type gcParams struct {
+type params struct {
 	cell.In
 
 	Logger    logrus.FieldLogger
@@ -59,8 +59,8 @@ type gcParams struct {
 	Clientset k8sClient.Clientset
 	Identity  resource.Resource[*v2.CiliumIdentity]
 
-	Cfg       GCConfig
-	SharedCfg GCSharedConfig
+	Cfg       Config
+	SharedCfg SharedConfig
 }
 
 // GC represents the Cilium identities periodic GC.
@@ -102,37 +102,35 @@ type GC struct {
 	successfulRuns float64
 }
 
-func newGC(
-	params gcParams,
-) *GC {
-	if !params.Clientset.IsEnabled() {
+func newGC(p params) *GC {
+	if !p.Clientset.IsEnabled() {
 		return nil
 	}
 
 	obj := &GC{
-		logger:           params.Logger,
-		clientset:        params.Clientset.CiliumV2().CiliumIdentities(),
-		identity:         params.Identity,
-		allocationMode:   params.SharedCfg.IdentityAllocationMode,
-		gcInterval:       params.Cfg.GCInterval,
-		heartbeatTimeout: params.Cfg.HeartbeatTimeout,
-		gcRateInterval:   params.Cfg.GCRateInterval,
-		gcRateLimit:      params.Cfg.GCRateLimit,
+		logger:           p.Logger,
+		clientset:        p.Clientset.CiliumV2().CiliumIdentities(),
+		identity:         p.Identity,
+		allocationMode:   p.SharedCfg.IdentityAllocationMode,
+		gcInterval:       p.Cfg.Interval,
+		heartbeatTimeout: p.Cfg.HeartbeatTimeout,
+		gcRateInterval:   p.Cfg.RateInterval,
+		gcRateLimit:      p.Cfg.RateLimit,
 		wp:               workerpool.New(1),
 		heartbeatStore: newHeartbeatStore(
-			params.Cfg.HeartbeatTimeout,
+			p.Cfg.HeartbeatTimeout,
 		),
 		rateLimiter: rate.NewLimiter(
-			params.Cfg.GCRateInterval,
-			params.Cfg.GCRateLimit,
+			p.Cfg.RateInterval,
+			p.Cfg.RateLimit,
 		),
 		allocationCfg: identityAllocationConfig{
-			clusterName:  params.SharedCfg.ClusterName,
-			k8sNamespace: params.SharedCfg.K8sNamespace,
-			clusterID:    params.SharedCfg.ClusterID,
+			clusterName:  p.SharedCfg.ClusterName,
+			k8sNamespace: p.SharedCfg.K8sNamespace,
+			clusterID:    p.SharedCfg.ClusterID,
 		},
 	}
-	params.Lifecycle.Append(obj)
+	p.Lifecycle.Append(obj)
 
 	return obj
 }

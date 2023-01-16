@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"github.com/cilium/cilium/operator/api"
-	"github.com/cilium/cilium/operator/identity"
+	"github.com/cilium/cilium/operator/identitygc"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
@@ -96,8 +96,8 @@ var (
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
 			operatorCfg *operatorOption.OperatorConfig,
-		) identity.GCSharedConfig {
-			return identity.GCSharedConfig{
+		) identitygc.SharedConfig {
+			return identitygc.SharedConfig{
 				IdentityAllocationMode: daemonCfg.IdentityAllocationMode,
 				EnableMetrics:          operatorCfg.EnableMetrics,
 				ClusterName:            daemonCfg.LocalClusterName(),
@@ -110,7 +110,7 @@ var (
 		WithLeaderLifecycle(
 			k8s.SharedResourcesCell,
 			lbipam.Cell,
-			identity.GCCell,
+			identitygc.Cell,
 
 			legacyCell,
 		),
