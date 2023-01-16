@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package identity
+package identitygc
 
 import (
 	"fmt"
@@ -14,70 +14,70 @@ import (
 )
 
 const (
-	// GCInterval is the interval in which allocator identities are
+	// Interval is the interval in which allocator identities are
 	// attempted to be collected
-	GCInterval = "identity-gc-interval"
+	Interval = "identity-gc-interval"
 
-	// GCRateInterval is the interval used for rate limiting the GC of
+	// RateInterval is the interval used for rate limiting the GC of
 	// identities.
-	GCRateInterval = "identity-gc-rate-interval"
+	RateInterval = "identity-gc-rate-interval"
 
-	// GCRateLimit is the maximum identities used for rate limiting the
+	// RateLimit is the maximum identities used for rate limiting the
 	// GC of identities.
-	GCRateLimit = "identity-gc-rate-limit"
+	RateLimit = "identity-gc-rate-limit"
 
 	// HeartbeatTimeout is the timeout used to GC identities from k8s
 	HeartbeatTimeout = "identity-heartbeat-timeout"
 )
 
-// GCCell is a cell that implements a periodic Cilium identities
+// Cell is a cell that implements a periodic Cilium identities
 // garbage collector.
 // The GC subscribes to identities events to mark all the related identities
 // as alive. If an identity has no activity for a prolonged interval,
 // it is first marked for deletion and eventually deleted.
-var GCCell = cell.Module(
+var Cell = cell.Module(
 	"k8s-identities-gc",
 	"Cilium identities garbage collector",
 
-	cell.Config(defaultGCConfig),
+	cell.Config(defaultConfig),
 
 	cell.Provide(newGC),
 
 	// Invoke forces the instantiation of the identity gc
-	cell.Invoke(func(*GC) {}),
+	cell.Invoke(newGC),
 )
 
-// GCConfig contains the configuration for the identity-gc.
-type GCConfig struct {
-	GCInterval       time.Duration `mapstructure:"identity-gc-interval"`
+// Config contains the configuration for the identity-gc.
+type Config struct {
+	Interval         time.Duration `mapstructure:"identity-gc-interval"`
 	HeartbeatTimeout time.Duration `mapstructure:"identity-heartbeat-timeout"`
 
-	GCRateInterval time.Duration `mapstructure:"identity-gc-rate-interval"`
-	GCRateLimit    int64         `mapstructure:"identity-gc-rate-limit"`
+	RateInterval time.Duration `mapstructure:"identity-gc-rate-interval"`
+	RateLimit    int64         `mapstructure:"identity-gc-rate-limit"`
 }
 
-var defaultGCConfig = GCConfig{
-	GCInterval:       defaults.KVstoreLeaseTTL,
+var defaultConfig = Config{
+	Interval:         defaults.KVstoreLeaseTTL,
 	HeartbeatTimeout: 2 * defaults.KVstoreLeaseTTL,
 
-	GCRateInterval: time.Minute,
-	GCRateLimit:    2500,
+	RateInterval: time.Minute,
+	RateLimit:    2500,
 }
 
-func (def GCConfig) Flags(flags *pflag.FlagSet) {
-	flags.Duration(GCInterval, def.GCInterval, "GC interval for security identities")
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Duration(Interval, def.Interval, "GC interval for security identities")
 	flags.Duration(HeartbeatTimeout, def.HeartbeatTimeout, "Timeout after which identity expires on lack of heartbeat")
-	flags.Duration(GCRateInterval, def.GCRateInterval,
+	flags.Duration(RateInterval, def.RateInterval,
 		"Interval used for rate limiting the GC of security identities")
-	flags.Int64(GCRateLimit, def.GCRateLimit,
-		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", GCRateInterval))
+	flags.Int64(RateLimit, def.RateLimit,
+		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", RateInterval))
 }
 
-// GCSharedConfig contains the configuration that is shared between
+// SharedConfig contains the configuration that is shared between
 // this module and others.
 // It is a temporary solution meant to avoid polluting this module with a direct
 // dependency on global operator and daemon configurations.
-type GCSharedConfig struct {
+type SharedConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity allocation
 	IdentityAllocationMode string
 

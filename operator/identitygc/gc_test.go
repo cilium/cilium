@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package identity
+package identitygc
 
 import (
 	"context"
@@ -49,17 +49,17 @@ func TestIdentitiesGC(t *testing.T) {
 		k8s.SharedResourcesCell,
 
 		// provide identities gc test configuration
-		cell.Provide(func() GCConfig {
-			return GCConfig{
-				GCInterval:       50 * time.Millisecond,
+		cell.Provide(func() Config {
+			return Config{
+				Interval:         50 * time.Millisecond,
 				HeartbeatTimeout: 50 * time.Millisecond,
 
-				GCRateInterval: time.Minute,
-				GCRateLimit:    2500,
+				RateInterval: time.Minute,
+				RateLimit:    2500,
 			}
 		}),
-		cell.Provide(func() GCSharedConfig {
-			return GCSharedConfig{
+		cell.Provide(func() SharedConfig {
+			return SharedConfig{
 				IdentityAllocationMode: option.IdentityAllocationModeCRD,
 				EnableMetrics:          false,
 				ClusterName:            defaults.ClusterName,
@@ -218,7 +218,7 @@ func setupCiliumEndpoint(clientset k8sClient.Clientset) error {
 
 func setupCiliumEndpointWatcher(
 	lc hive.Lifecycle,
-	params gcParams,
+	params params,
 ) {
 	var wg sync.WaitGroup
 
