@@ -54,9 +54,10 @@ type Controller struct {
 
 // NewController returns a new gateway controller, which is implemented
 // using the controller-runtime library.
-func NewController(enableSecretSync bool, secretsNamespace string) (*Controller, error) {
+func NewController(metricsAddr string, enableSecretSync bool, secretsNamespace string) (*Controller, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
 	})
 	if err != nil {
 		return nil, err

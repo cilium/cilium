@@ -765,6 +765,10 @@
      - Enable support for Gateway API in cilium This will automatically set enable-envoy-config as well.
      - bool
      - ``false``
+   * - gatewayAPI.metricsPort
+     - Metrics port for Gateway API controller If set to 0, metrics will be disabled
+     - int
+     - ``9965``
    * - gatewayAPI.secretsNamespace
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object

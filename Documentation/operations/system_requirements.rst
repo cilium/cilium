@@ -427,6 +427,7 @@ Port Range / Protocol    Description
 9962/tcp                 cilium-agent Prometheus metrics
 9963/tcp                 cilium-operator Prometheus metrics
 9964/tcp                 cilium-proxy Prometheus metrics
+9965/tcp                 cilium-operator Gateway API controller metrics
 51871/udp                WireGuard encryption tunnel endpoint
 ======================== ==================================================================
 

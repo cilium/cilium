@@ -693,6 +693,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if operatorOption.Config.EnableGatewayAPI {
 		gatewayController, err := gatewayapi.NewController(
+			operatorOption.Config.GatewayAPIMetricsAddr,
 			operatorOption.Config.EnableGatewayAPISecretsSync,
 			operatorOption.Config.GatewayAPISecretsNamespace,
 		)

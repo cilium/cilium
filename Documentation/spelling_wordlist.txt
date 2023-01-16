@@ -678,6 +678,7 @@ memcd
 mentees
 metadata
 metricRelabelings
+metricsPort
 metricsServer
 microk
 microservice

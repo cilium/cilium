@@ -217,6 +217,7 @@ data:
   enable-envoy-config: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  gateway-api-metrics-addr: ":{{ .Values.gatewayAPI.metricsPort }}"
 {{- end }}
 
 {{- if hasKey .Values "loadBalancer" }}

@@ -625,6 +625,10 @@ gatewayAPI:
   # This will automatically set enable-envoy-config as well.
   enabled: false
 
+  # -- Metrics port for Gateway API controller.
+  # If set to 0, metrics will be disabled.
+  metricsPort: 9965
+
   # -- SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
   secretsNamespace:
     # -- Create secrets namespace for Gateway API.

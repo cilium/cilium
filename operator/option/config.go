@@ -289,6 +289,9 @@ const (
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
 
+	// GatewayAPIMetricsAddr is the address to serve Gateway API metrics on.
+	GatewayAPIMetricsAddr = "gateway-api-metrics-addr"
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace = "cilium-pod-namespace"
 
@@ -553,6 +556,9 @@ type OperatorConfig struct {
 	// EnableGatewayAPI enables support of Gateway API
 	EnableGatewayAPI bool
 
+	// GatewayAPIMetricsAddr is the address the metric endpoint binds to.
+	GatewayAPIMetricsAddr string
+
 	// EnforceIngressHTTPS enforces https if required
 	EnforceIngressHTTPS bool
 
@@ -640,6 +646,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)
+	c.GatewayAPIMetricsAddr = vp.GetString(GatewayAPIMetricsAddr)
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
