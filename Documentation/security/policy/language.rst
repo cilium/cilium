@@ -453,10 +453,6 @@ connection are either managed by Cilium or use an IP belonging to a node in the
 cluster (including host networking pods). This traffic may be allowed using
 labels, services or entities -based policies as described above.
 
-.. note::
-
-   When running Cilium on Linux 4.10 or earlier, there are :ref:`cidr_limitations`.
-
 Ingress
 ~~~~~~~
 
