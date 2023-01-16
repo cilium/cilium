@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	vp *viper.Viper = viper.New()
+	vp = viper.New()
 
 	cfgFile string
 	client  *clientPkg.Client
