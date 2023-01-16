@@ -5,6 +5,7 @@ package identity
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -24,7 +25,7 @@ func (igc *GC) startKVStoreModeGC(ctx context.Context) error {
 	log.WithField(logfields.Interval, igc.gcInterval).Info("Starting kvstore identity garbage collector")
 	backend, err := kvstoreallocator.NewKVStoreBackend(cache.IdentitiesPath, "", nil, kvstore.Client())
 	if err != nil {
-		igc.logger.WithError(err).Fatal("Unable to initialize kvstore backend for identity allocation")
+		return fmt.Errorf("unable to initialize kvstore backend for identity allocation")
 	}
 
 	ciliumIdentity.InitMinMaxIdentityAllocation(igc.allocationCfg)
