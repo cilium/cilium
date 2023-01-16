@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cilium/workerpool"
@@ -29,10 +30,8 @@ func (igc *GC) Start(ctx hive.HookContext) error {
 	case option.IdentityAllocationModeKVstore:
 		return igc.startKVStoreModeGC(ctx)
 	default:
-		igc.logger.Fatalf("Unknown Cilium identity allocation mode: %q", igc.allocationMode)
+		return fmt.Errorf("unknown Cilium identity allocation mode: %q", igc.allocationMode)
 	}
-
-	return nil
 }
 
 // Stop implements hive.HookInterface
