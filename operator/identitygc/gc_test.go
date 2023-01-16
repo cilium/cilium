@@ -83,7 +83,7 @@ func TestIdentitiesGC(t *testing.T) {
 			return nil
 		}),
 		cell.Invoke(setupCiliumEndpointWatcher),
-		cell.Invoke(newGC),
+		cell.Invoke(registerGC),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())

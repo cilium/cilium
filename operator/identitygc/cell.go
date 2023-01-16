@@ -41,10 +41,8 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 
-	cell.Provide(newGC),
-
 	// Invoke forces the instantiation of the identity gc
-	cell.Invoke(newGC),
+	cell.Invoke(registerGC),
 )
 
 // Config contains the configuration for the identity-gc.
