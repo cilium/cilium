@@ -1,4 +1,4 @@
-# This policy allows packets towards 1.1.1.1, but not 1.0.0.1.
+# This policy allows packets towards {{.ExternalIP}}, but not {{.ExternalOtherIP}}.
 # Both addresses are owned by CloudFlare/APNIC.
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -10,6 +10,6 @@ spec:
       kind: client
   egress:
   - toCIDRSet:
-    - cidr: 1.0.0.0/8
+    - cidr: {{.ExternalCIDR}}
       except:
-      - 1.0.0.1/32
+      - {{.ExternalOtherIP}}/32
