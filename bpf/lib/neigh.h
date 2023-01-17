@@ -10,8 +10,7 @@
 #include "common.h"
 #include "eth.h"
 
-#ifdef ENABLE_NODEPORT
-#ifdef ENABLE_IPV6
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV6)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, union v6addr);	/* ipv6 addr */
@@ -46,9 +45,15 @@ static __always_inline union macaddr *neigh_lookup_ip6(const union v6addr *addr)
 {
 	return map_lookup_elem(&NODEPORT_NEIGH6, addr);
 }
-#endif /* ENABLE_IPV6 */
+#else
+static __always_inline union macaddr *
+neigh_lookup_ip6(const union v6addr *addr __maybe_unused)
+{
+	return NULL;
+}
+#endif /* ENABLE_NODEPORT && ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_IPV4)
 struct {
 	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, __be32);		/* ipv4 addr */
@@ -83,6 +88,11 @@ static __always_inline union macaddr *neigh_lookup_ip4(const __be32 *addr)
 {
 	return map_lookup_elem(&NODEPORT_NEIGH4, addr);
 }
-#endif /* ENABLE_IPV4 */
-#endif /* ENABLE_NODEPORT */
+#else
+static __always_inline union macaddr *
+neigh_lookup_ip4(const __be32 *addr __maybe_unused)
+{
+	return NULL;
+}
+#endif /* ENABLE_NODEPORT && ENABLE_IPV4 */
 #endif /* __LIB_NEIGH_H_ */

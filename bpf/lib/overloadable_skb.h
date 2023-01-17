@@ -82,6 +82,12 @@ redirect_self(const struct __sk_buff *ctx)
 	return ctx_redirect(ctx, ctx->ifindex, 0);
 }
 
+static __always_inline __maybe_unused bool
+neigh_resolver_available(void)
+{
+	return true;
+}
+
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 {
