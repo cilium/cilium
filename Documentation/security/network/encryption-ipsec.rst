@@ -186,6 +186,21 @@ Troubleshooting
      use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
+ * Run ``cilium encrypt status`` in the Cilium Pod:
+
+   .. code-block:: shell-session
+
+       $ cilium encrypt status
+       Encryption: IPsec
+       Keys in use: 1
+       Max Seq. Number: 0x1e3/0xffffffff
+       Errors: 0
+
+   If the error counter is non-zero, additional information will be displayed
+   with the specific errors the kernel encountered. If the sequence number
+   reaches its maximum value, it will also result in errors. The number of
+   keys in use should be 2 during a key rotation and always 1 otherwise.
+
 Disabling Encryption
 ====================
 
