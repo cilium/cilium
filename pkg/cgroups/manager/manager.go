@@ -195,10 +195,8 @@ func (m *CgroupManager) enable() {
 		}
 		var err error
 		if m.pathProvider, err = getCgroupPathProvider(); err != nil {
-			log.Warn("No valid cgroup base path found: socket " +
-				"load-balancing tracing feature will not work. File a GitHub issue" +
-				"with an example cgroup path for a pod by running command on Kubernetes node: " +
-				"sudo crictl inspectp -o=json $POD_ID | grep cgroupsPath")
+			log.Warn("No valid cgroup base path found: socket load-balancing tracing with Hubble will not work." +
+				"See the kubeproxy-free guide for more details.")
 			m.enabled = false
 		}
 	})
