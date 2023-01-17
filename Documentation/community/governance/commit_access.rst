@@ -61,14 +61,15 @@ Expectations for Developers with commit access
 Pre-requisites
 ~~~~~~~~~~~~~~
 
-Be familiar with the :ref:`dev_guide`.
+Be familiar with the :ref:`dev_guide` and have `2-Factor Authentication
+<https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/configuring-two-factor-authentication>`__ 
+enabled on your Github account.
 
 Review
 ~~~~~~
 
 Code (yours or others') must be reviewed publicly (by you or others)
-before you push it to the repository. With one exception (see below),
-every change needs at least one review.
+before you push it to the repository. Every change needs at least one review.
 
 If one or more people know an area of code particularly well, code that
 affects that area should ordinarily get a review from one of them.
@@ -83,11 +84,6 @@ good," then this is probably not a quality review.
 review, but it is not strictly tied to it. A search and replace across
 many files may not need much review, but one-line optimization changes
 can have widespread implications.)
-
-Your own small changes to fix a recently broken build ("make") or tests
-("make check"), that you believe to be visible to a large number of
-developers, may be checked in without review. If you are not sure, ask
-for review.
 
 Regularly review submitted code in areas where you have expertise.
 Consider reviewing other code as well.
