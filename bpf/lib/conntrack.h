@@ -1044,6 +1044,23 @@ ct_has_nodeport_egress_entry4(const void *map,
 }
 
 static __always_inline bool
+ct_has_nodeport_or_dsr_egress_entry4(const void *map,
+				     struct ipv4_ct_tuple *ingress_tuple)
+{
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	if (entry)
+		return entry->node_port || entry->dsr;
+
+	return 0;
+}
+
+static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple)
 {
@@ -1056,6 +1073,23 @@ ct_has_nodeport_egress_entry6(const void *map,
 
 	if (entry)
 		return entry->node_port;
+
+	return 0;
+}
+
+static __always_inline bool
+ct_has_nodeport_or_dsr_egress_entry6(const void *map,
+				     struct ipv6_ct_tuple *ingress_tuple)
+{
+	__u8 prev_flags = ingress_tuple->flags;
+	struct ct_entry *entry;
+
+	ingress_tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, ingress_tuple);
+	ingress_tuple->flags = prev_flags;
+
+	if (entry)
+		return entry->node_port || entry->dsr;
 
 	return 0;
 }

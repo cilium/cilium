@@ -1019,24 +1019,35 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple))
+	if (!ct_has_nodeport_or_dsr_egress_entry6(get_ct_map6(&tuple), &tuple))
 		return CTX_ACT_OK;
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			 &ct_state, &trace->monitor);
 
-	if (ret == CT_REPLY && ct_state.node_port && ct_state.rev_nat_index) {
-		struct csum_offset csum_off = {};
-
+	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
-		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-		ret = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
-				  &tuple, REV_NAT_F_TUPLE_SADDR);
-		if (IS_ERR(ret))
-			return ret;
+		if (ct_state.node_port && ct_state.rev_nat_index) {
+			struct csum_offset csum_off = {};
 
-		ctx_snat_done_set(ctx);
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+			ret = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
+					  &tuple, REV_NAT_F_TUPLE_SADDR);
+			if (IS_ERR(ret))
+				return ret;
+
+			ctx_snat_done_set(ctx);
+#ifdef ENABLE_DSR
+		} else if (ct_state.dsr) {
+			ret = xlate_dsr_v6(ctx, &tuple, l4_off);
+			if (IS_ERR(ret))
+				return ret;
+
+			ctx_snat_done_set(ctx);
+#endif
+		}
 	}
 
 	return CTX_ACT_OK;
@@ -2084,25 +2095,40 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple))
+	if (!ct_has_nodeport_or_dsr_egress_entry4(get_ct_map4(&tuple), &tuple))
 		return CTX_ACT_OK;
 
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			 &ct_state, &trace->monitor);
 
-	if (ret == CT_REPLY && ct_state.node_port && ct_state.rev_nat_index) {
-		struct csum_offset csum_off = {};
+	if (ret == CT_REPLY) {
+		bool has_l4_header = ipv4_has_l4_header(ip4);
 
 		trace->reason = TRACE_REASON_CT_REPLY;
-		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off, &ct_state,
-				  &tuple, REV_NAT_F_TUPLE_SADDR,
-				  ipv4_has_l4_header(ip4));
-		if (IS_ERR(ret))
-			return ret;
+		/* Reply by local backend: */
+		if (ct_state.node_port && ct_state.rev_nat_index) {
+			struct csum_offset csum_off = {};
 
-		ctx_snat_done_set(ctx);
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+
+			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off, &ct_state,
+					  &tuple, REV_NAT_F_TUPLE_SADDR,
+					  has_l4_header);
+			if (IS_ERR(ret))
+				return ret;
+
+			ctx_snat_done_set(ctx);
+#ifdef ENABLE_DSR
+		/* Reply by DSR backend: */
+		} else if (ct_state.dsr) {
+			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
+			if (IS_ERR(ret))
+				return ret;
+
+			ctx_snat_done_set(ctx);
+#endif
+		}
 	}
 
 	return CTX_ACT_OK;
