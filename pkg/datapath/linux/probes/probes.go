@@ -501,6 +501,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnSkLookupUdp},
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
+		{ebpf.SchedCLS, asm.FnRedirectNeigh},
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
@@ -542,6 +543,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 		"HAVE_DIRECT_ACCESS_TO_MAP_VALUES": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnFibLookup}],
 		"HAVE_LARGE_INSN_LIMIT":            probes.Misc.HaveLargeInsnLimit,
 		"HAVE_SET_RETVAL":                  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
+		"HAVE_FIB_NEIGH":                   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
 	}
 
 	return writeFeatureHeader(writer, features, true)

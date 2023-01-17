@@ -50,6 +50,12 @@ redirect_self(struct xdp_md *ctx __maybe_unused)
 	return XDP_TX;
 }
 
+static __always_inline __maybe_unused bool
+neigh_resolver_available(void)
+{
+	return false;
+}
+
 #define RECIRC_MARKER	5 /* tail call recirculation */
 #define XFER_MARKER	6 /* xdp -> skb meta transfer */
 
