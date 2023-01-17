@@ -174,7 +174,7 @@ commands:
 
    .. code-block:: shell-session
 
-       tcpdump -n -i eth0 esp
+       tcpdump -l -n -i eth0 esp
        tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
        listening on cilium_vxlan, link-type EN10MB (Ethernet), capture size 262144 bytes
        15:16:21.626416 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e2), length 180
