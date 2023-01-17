@@ -1399,6 +1399,102 @@ As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/ser
 Cilium's eBPF kube-proxy replacement by default disallows access to a ClusterIP service from outside the cluster.
 This can be allowed by setting ``bpf.lbExternalClusterIP=true``.
 
+Observability
+*************
+
+You can trace socket LB related datapath events using Hubble and cilium monitor.
+
+Apply the following pod and service:
+
+.. code-block:: yaml
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: nginx
+      labels:
+        app: proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:stable
+        ports:
+          - containerPort: 80
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: nginx-service
+    spec:
+      selector:
+        app: proxy
+      ports:
+      - port: 80
+
+Deploy a client pod to start traffic.
+
+.. parsed-literal::
+
+    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
+
+.. code-block:: shell-session
+
+    $ kubectl get svc | grep nginx
+      nginx-service   ClusterIP   10.96.128.44   <none>        80/TCP    140m
+
+    $ kubectl exec -it mediabot -- curl -v --connect-timeout 5 10.96.128.44
+
+Follow the Hubble :ref:`hubble_cli` guide  to see the network flows. The Hubble
+output prints datapath events before and after socket LB translation between service
+and selected service endpoint.
+
+.. code-block:: shell-session
+
+    $ hubble observe --all | grep mediabot
+    Jan 13 13:47:20.932: default/mediabot (ID:5618) <> default/nginx-service:80 (world) pre-xlate-fwd TRACED (TCP)
+    Jan 13 13:47:20.932: default/mediabot (ID:5618) <> default/nginx:80 (ID:35772) post-xlate-fwd TRANSLATED (TCP)
+    Jan 13 13:47:20.932: default/nginx:80 (ID:35772) <> default/mediabot (ID:5618) pre-xlate-rev TRACED (TCP)
+    Jan 13 13:47:20.932: default/nginx-service:80 (world) <> default/mediabot (ID:5618) post-xlate-rev TRANSLATED (TCP)
+    Jan 13 13:47:20.932: default/mediabot:38750 (ID:5618) <> default/nginx (ID:35772) pre-xlate-rev TRACED (TCP)
+
+Socket LB tracing with Hubble requires cilium agent to detect pod cgroup paths.
+If you see a warning message in cilium agent ``No valid cgroup base path found: socket load-balancing tracing with Hubble will not work.``,
+you can trace packets using ``cilium monitor`` instead.
+
+.. note::
+
+    In case of the warning log, please file a GitHub issue with the cgroup path
+    for any of your pods, obtained by running the following command on a Kubernetes
+    node in your cluster: ``sudo crictl inspectp -o=json $POD_ID | grep cgroup``.
+
+.. code-block:: shell-session
+
+    $ kubectl get pods -o wide
+    NAME       READY   STATUS    RESTARTS   AGE     IP             NODE          NOMINATED NODE   READINESS GATES
+    mediabot   1/1     Running   0          54m     10.244.1.237   kind-worker   <none>           <none>
+    nginx      1/1     Running   0          3h25m   10.244.1.246   kind-worker   <none>           <none>
+
+    $ kubectl exec -n kube-system cilium-rt2jh -- cilium monitor -v -t trace-sock
+    CPU 11: [pre-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.96.128.44]:80 tcp
+    CPU 11: [post-xlate-fwd] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
+    CPU 11: [pre-xlate-rev] cgroup_id: 479586 sock_cookie: 7123674, dst [10.244.1.246]:80 tcp
+    CPU 11: [post-xlate-rev] cgroup_id: 479586 sock_cookie: 7123674, dst [10.96.128.44]:80 tcp
+
+You can identify the client pod using its printed ``cgroup id`` metadata. The pod
+``cgroup path`` corresponding to the ``cgroup id`` has its UUID. The socket
+cookie is a unique socket identifier allocated in the Linux kernel. The socket
+cookie metadata can be used to identify all the trace events from a socket.
+
+.. code-block:: shell-session
+
+    $ kubectl get pods -o custom-columns=PodName:.metadata.name,PodUID:.metadata.uid
+    PodName    PodUID
+    mediabot   b620703c-c446-49c7-84c8-e23f4ba5626b
+    nginx      73b9938b-7e4b-4cbd-8c4c-67d4f253ccf4
+
+    $ kubectl exec -n kube-system cilium-rt2jh -- find /run/cilium/cgroupv2/ -inum 479586
+    Defaulted container "cilium-agent" out of: cilium-agent, mount-cgroup (init), apply-sysctl-overwrites (init), clean-cilium-state (init)
+    /run/cilium/cgroupv2/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-besteffort.slice/kubelet-kubepods-besteffort-podb620703c_c446_49c7_84c8_e23f4ba5626b.slice/cri-containerd-4e7fc71c8bef8c05c9fb76d93a186736fca266e668722e1239fe64503b3e80d3.scope
 
 Troubleshooting
 ***************
