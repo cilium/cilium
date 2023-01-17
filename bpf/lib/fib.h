@@ -16,15 +16,14 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
 		   struct ipv6hdr *ip6 __maybe_unused, int *oif)
 {
-	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
-	int ret;
+	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
-# ifndef ENABLE_SKIP_FIB
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
 		.ifindex	= ctx->ingress_ifindex,
 	};
+	int ret;
 
 	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src,
 		       (union v6addr *)&ip6->saddr);
@@ -48,9 +47,6 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	*oif = fib_params.ifindex;
-# else
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
-# endif /* ENABLE_SKIP_FIB */
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
@@ -61,14 +57,11 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		else
 			return redirect_neigh(*oif, NULL, 0, 0);
 	}
-# ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
 	return ctx_redirect(ctx, *oif, 0);
-# endif /* ENABLE_SKIP_FIB */
-	return CTX_ACT_DROP;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -78,16 +71,8 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
 		   struct iphdr *ip4 __maybe_unused, int *oif)
 {
-	/* For deployments with just single external dev, redirect_neigh()
-	 * will resolve the GW and do L2 resolution for us. For multi-device
-	 * deployments we perform a FIB lookup prior to the redirect. If the
-	 * neigh entry cannot be resolved, we ask redirect_neigh() to do it,
-	 * otherwise we can directly call redirect().
-	 */
-	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
-	int ret;
+	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
-# ifndef ENABLE_SKIP_FIB
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
@@ -95,6 +80,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		.ipv4_src	= ip4->saddr,
 		.ipv4_dst	= ip4->daddr,
 	};
+	int ret;
 
 	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT);
@@ -114,9 +100,6 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	}
 
 	*oif = fib_params.ifindex;
-# else
-	*oif = DIRECT_ROUTING_DEV_IFINDEX;
-# endif /* ENABLE_SKIP_FIB */
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
@@ -127,15 +110,11 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		else
 			return redirect_neigh(*oif, NULL, 0, 0);
 	}
-# ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
 		return CTX_ACT_DROP;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 		return CTX_ACT_DROP;
 	return ctx_redirect(ctx, *oif, 0);
-# endif /* ENABLE_SKIP_FIB */
-	return CTX_ACT_DROP;
 }
 #endif /* ENABLE_IPV4 */
-
 #endif /* __LIB_FIB_H_ */
