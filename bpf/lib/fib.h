@@ -8,6 +8,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "neigh.h"
 #include "l3.h"
 
 #ifdef ENABLE_IPV6
@@ -52,15 +53,30 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 	if (no_neigh) {
-		if (nh)
-			return redirect_neigh(*oif, nh, sizeof(*nh), 0);
-		else
-			return redirect_neigh(*oif, NULL, 0, 0);
+		if (neigh_resolver_available()) {
+			if (nh)
+				return redirect_neigh(*oif, nh, sizeof(*nh), 0);
+			else
+				return redirect_neigh(*oif, NULL, 0, 0);
+		} else {
+			union macaddr *dmac, smac =
+				NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
+			dmac = (nh && nh_params.nh_family == AF_INET) ?
+			       neigh_lookup_ip4(&fib_params.ipv4_dst) :
+			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst);
+			if (!dmac)
+				return CTX_ACT_DROP;
+			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
+				return CTX_ACT_DROP;
+			if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
+				return CTX_ACT_DROP;
+		}
+	} else {
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+			return CTX_ACT_DROP;
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+			return CTX_ACT_DROP;
 	}
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return CTX_ACT_DROP;
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return CTX_ACT_DROP;
 	return ctx_redirect(ctx, *oif, 0);
 }
 #endif /* ENABLE_IPV6 */
@@ -105,15 +121,30 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 	if (no_neigh) {
-		if (nh)
-			return redirect_neigh(*oif, nh, sizeof(*nh), 0);
-		else
-			return redirect_neigh(*oif, NULL, 0, 0);
+		if (neigh_resolver_available()) {
+			if (nh)
+				return redirect_neigh(*oif, nh, sizeof(*nh), 0);
+			else
+				return redirect_neigh(*oif, NULL, 0, 0);
+		} else {
+			union macaddr *dmac, smac =
+				NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
+			dmac = (nh && nh_params.nh_family == AF_INET6) ?
+			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst) :
+			       neigh_lookup_ip4(&fib_params.ipv4_dst);
+			if (!dmac)
+				return CTX_ACT_DROP;
+			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
+				return CTX_ACT_DROP;
+			if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
+				return CTX_ACT_DROP;
+		}
+	} else {
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+			return CTX_ACT_DROP;
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+			return CTX_ACT_DROP;
 	}
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return CTX_ACT_DROP;
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return CTX_ACT_DROP;
 	return ctx_redirect(ctx, *oif, 0);
 }
 #endif /* ENABLE_IPV4 */
