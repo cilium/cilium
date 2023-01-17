@@ -1011,7 +1011,8 @@ static __always_inline int ct_create4(const void *map_main,
  */
 static __always_inline bool
 ct_has_nodeport_egress_entry4(const void *map,
-			      struct ipv4_ct_tuple *ingress_tuple)
+			      struct ipv4_ct_tuple *ingress_tuple,
+			      bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1021,14 +1022,15 @@ ct_has_nodeport_egress_entry4(const void *map,
 	ingress_tuple->flags = prev_flags;
 
 	if (entry)
-		return entry->node_port;
+		return entry->node_port || (check_dsr && entry->dsr);
 
 	return 0;
 }
 
 static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
-			      struct ipv6_ct_tuple *ingress_tuple)
+			      struct ipv6_ct_tuple *ingress_tuple,
+			      bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1038,7 +1040,7 @@ ct_has_nodeport_egress_entry6(const void *map,
 	ingress_tuple->flags = prev_flags;
 
 	if (entry)
-		return entry->node_port;
+		return entry->node_port || (check_dsr && entry->dsr);
 
 	return 0;
 }
