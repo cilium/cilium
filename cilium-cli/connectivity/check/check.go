@@ -51,6 +51,9 @@ type Parameters struct {
 	Datapath              bool
 	AgentPodSelector      string
 	ExternalTarget        string
+	ExternalCIDR          string
+	ExternalIP            string
+	ExternalOtherIP       string
 
 	K8sVersion           string
 	HelmChartDirectory   string

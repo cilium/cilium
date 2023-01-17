@@ -1,6 +1,6 @@
-# This policy denies packets towards 1.0.0.1, but not 1.1.1.1
+# This policy denies packets towards {{.ExternalOtherIP}}, but not {{.ExternalIP}}
 # Please note that if there is no other allowed rule, the policy
-# will be automatically denied 1.1.1.1 as well.
+# will be automatically denied {{.ExternalIP}} as well.
 #
 # Both addresses are owned by CloudFlare/APNIC.
 apiVersion: "cilium.io/v2"
@@ -13,6 +13,6 @@ spec:
       kind: client
   egressDeny:
   - toCIDRSet:
-    - cidr: 1.0.0.0/8
+    - cidr: {{.ExternalCIDR}}
       except:
-        - 1.1.1.1/32
+        - {{.ExternalIP}}/32

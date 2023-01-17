@@ -25,8 +25,8 @@ func (s *podToCIDR) Name() string {
 
 func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 	eps := []check.TestPeer{
-		check.HTTPEndpoint("cloudflare-1001", "https://1.0.0.1"),
-		check.HTTPEndpoint("cloudflare-1111", "https://1.1.1.1"),
+		check.HTTPEndpoint("cloudflare-1001", "https://"+t.Context().Params().ExternalOtherIP),
+		check.HTTPEndpoint("cloudflare-1111", "https://"+t.Context().Params().ExternalIP),
 	}
 	ct := t.Context()
 

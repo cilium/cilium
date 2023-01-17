@@ -126,6 +126,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// render templates, if any problems fail early
 	for key, temp := range map[string]string{
+		"clientEgressToCIDR1111PolicyYAML":      clientEgressToCIDR1111PolicyYAML,
+		"clientEgressToCIDR1111DenyPolicyYAML":  clientEgressToCIDR1111DenyPolicyYAML,
 		"clientEgressL7HTTPPolicyYAML":          clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML": clientEgressL7HTTPNamedPortPolicyYAML,
 		"clientEgressToFQDNsCiliumIOPolicyYAML": clientEgressToFQDNsCiliumIOPolicyYAML,
@@ -257,7 +259,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == "1.0.0.1" || a.Destination().Address() == "1.1.1.1" {
+			if a.Destination().Address() == ct.Params().ExternalOtherIP || a.Destination().Address() == ct.Params().ExternalIP {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
@@ -381,12 +383,12 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy allows L3 traffic to 1.0.0.0/24 (including 1.1.1.1), with the
 	// exception of 1.0.0.1.
 	ct.NewTest("to-cidr-1111").
-		WithPolicy(clientEgressToCIDR1111PolicyYAML).
+		WithPolicy(renderedTemplates["clientEgressToCIDR1111PolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == "1.0.0.1" {
+			if a.Destination().Address() == ct.Params().ExternalOtherIP {
 				// Expect packets for 1.0.0.1 to be dropped.
 				return check.ResultDropCurlTimeout, check.ResultNone
 			}
@@ -501,15 +503,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This policy denies L3 traffic to 1.0.0.1/8 CIDR except 1.1.1.1/32
 	ct.NewTest("client-egress-to-cidr-deny").
 		WithPolicy(allowAllEgressPolicyYAML). // Allow all egress traffic
-		WithPolicy(clientEgressToCIDR1111DenyPolicyYAML).
+		WithPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == "1.0.0.1" {
+			if a.Destination().Address() == ct.Params().ExternalOtherIP {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
-			if a.Destination().Address() == "1.1.1.1" {
+			if a.Destination().Address() == ct.Params().ExternalIP {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop
@@ -518,15 +520,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 	// This test is same as the previous one, but there is no allowed policy.
 	// The goal is to test default deny policy
 	ct.NewTest("client-egress-to-cidr-deny-default").
-		WithPolicy(clientEgressToCIDR1111DenyPolicyYAML).
+		WithPolicy(renderedTemplates["clientEgressToCIDR1111DenyPolicyYAML"]).
 		WithScenarios(
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == "1.0.0.1" {
+			if a.Destination().Address() == ct.Params().ExternalOtherIP {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
-			if a.Destination().Address() == "1.1.1.1" {
+			if a.Destination().Address() == ct.Params().ExternalIP {
 				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop
