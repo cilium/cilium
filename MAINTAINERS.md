@@ -47,7 +47,7 @@ by the "janitor role" which is rotated between all committers.
  * [Louis DeLosSantos] (Isovalent)
  * [Maciej Kwiek] (Isovalent)
  * [Martynas Pumputis] (Isovalent)
- * [Michal Rostecki] (SUSE)
+ * [Michal Rostecki] (Deepfence)
  * [Michi Mutsuzaki] (Isovalent)
  * [Natália Réka Ivánkó] (Isovalent)
  * [Nathan Sweet] (Isovalent)
@@ -61,7 +61,7 @@ by the "janitor role" which is rotated between all committers.
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
- * [Tom Payne] (Isovalent)
+ * [Tom Payne]
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
