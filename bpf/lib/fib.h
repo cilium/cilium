@@ -13,16 +13,15 @@
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-fib_redirect_v6(struct __ctx_buff *ctx __maybe_unused,
-		int l3_off __maybe_unused,
-		struct ipv6hdr *ip6 __maybe_unused, int *oif)
+fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
+		struct ipv6hdr *ip6, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= iif,
 	};
 	int ret;
 
@@ -83,16 +82,15 @@ fib_redirect_v6(struct __ctx_buff *ctx __maybe_unused,
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-fib_redirect_v4(struct __ctx_buff *ctx __maybe_unused,
-		int l3_off __maybe_unused,
-		struct iphdr *ip4 __maybe_unused, int *oif)
+fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
+		struct iphdr *ip4, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= iif,
 		.ipv4_src	= ip4->saddr,
 		.ipv4_dst	= ip4->daddr,
 	};
