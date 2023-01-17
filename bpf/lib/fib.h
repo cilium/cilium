@@ -13,9 +13,9 @@
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
-		   int l3_off __maybe_unused,
-		   struct ipv6hdr *ip6 __maybe_unused, int *oif)
+fib_redirect_v6(struct __ctx_buff *ctx __maybe_unused,
+		int l3_off __maybe_unused,
+		struct ipv6hdr *ip6 __maybe_unused, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -83,9 +83,9 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
-		   int l3_off __maybe_unused,
-		   struct iphdr *ip4 __maybe_unused, int *oif)
+fib_redirect_v4(struct __ctx_buff *ctx __maybe_unused,
+		int l3_off __maybe_unused,
+		struct iphdr *ip4 __maybe_unused, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
