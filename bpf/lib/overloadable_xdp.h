@@ -50,6 +50,15 @@ redirect_self(struct xdp_md *ctx __maybe_unused)
 	return XDP_TX;
 }
 
+static __always_inline __maybe_unused int
+redirect_neigh(int ifindex __maybe_unused,
+	       struct bpf_redir_neigh *params __maybe_unused,
+	       int plen __maybe_unused,
+	       __u32 flags __maybe_unused)
+{
+	return XDP_DROP;
+}
+
 static __always_inline __maybe_unused bool
 neigh_resolver_available(void)
 {
