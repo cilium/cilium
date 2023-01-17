@@ -161,24 +161,55 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.instances.Update(instanceID, eniRevision)
 }
 
-// FindOneVSwitch returns the vSwitch with the fewest available addresses, matching vpc, az and tags
-func (m *InstancesManager) FindOneVSwitch(vpc, az string, toAllocate int, required ipamTypes.Tags) *ipamTypes.Subnet {
+// FindOneVSwitch returns the vSwitch with the fewest available addresses, matching vpc and az.
+// If we have explicit ID or tag constraints, chose a matching vSwitch. ID constraints take
+// precedence.
+func (m *InstancesManager) FindOneVSwitch(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
+	if len(spec.VSwitches) > 0 {
+		return m.FindVSwitchByIDs(spec, toAllocate)
+	}
 	var bestSubnet *ipamTypes.Subnet
 	for _, vSwitch := range m.GetVSwitches() {
-		if vSwitch.VirtualNetworkID != vpc {
+		if vSwitch.VirtualNetworkID != spec.VPCID {
 			continue
 		}
-		if vSwitch.AvailabilityZone != az {
+		if vSwitch.AvailabilityZone != spec.AvailabilityZone {
 			continue
 		}
 		if vSwitch.AvailableAddresses < toAllocate {
 			continue
 		}
-		if !vSwitch.Tags.Match(required) {
+		if !vSwitch.Tags.Match(spec.VSwitchTags) {
 			continue
 		}
 		if bestSubnet == nil || bestSubnet.AvailableAddresses > vSwitch.AvailableAddresses {
 			bestSubnet = vSwitch
+		}
+	}
+	return bestSubnet
+}
+
+// FindVSwitchByIDs returns the vSwitch within a provided list of vSwitch IDs with the fewest available addresses,
+// matching vpc and az.
+func (m *InstancesManager) FindVSwitchByIDs(spec eniTypes.Spec, toAllocate int) *ipamTypes.Subnet {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	var bestSubnet *ipamTypes.Subnet
+	for _, vSwitch := range m.vSwitches {
+		if vSwitch.VirtualNetworkID != spec.VPCID || vSwitch.AvailabilityZone != spec.AvailabilityZone {
+			continue
+		}
+		if vSwitch.AvailableAddresses < toAllocate {
+			continue
+		}
+		for _, vSwitchID := range spec.VSwitches {
+			if vSwitch.ID != vSwitchID {
+				continue
+			}
+			if bestSubnet == nil || bestSubnet.AvailableAddresses > vSwitch.AvailableAddresses {
+				bestSubnet = vSwitch
+			}
 		}
 	}
 	return bestSubnet
