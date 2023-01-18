@@ -141,6 +141,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.Affinity6MapName,
 			lbmap.SourceRange6MapName,
 			lbmap.HealthProbe6MapName,
+			ipmasq.MapNameIPv6,
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
 		}...)
@@ -204,7 +205,12 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	if !option.Config.EnableIPMasqAgent {
-		maps = append(maps, ipmasq.MapNameIPv4)
+		if option.Config.EnableIPv4 {
+			maps = append(maps, ipmasq.MapNameIPv4)
+		}
+		if option.Config.EnableIPv6 {
+			maps = append(maps, ipmasq.MapNameIPv6)
+		}
 	}
 
 	if !option.Config.EnableXDPPrefilter {

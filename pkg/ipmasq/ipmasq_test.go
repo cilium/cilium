@@ -12,6 +12,7 @@ import (
 
 	check "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -22,6 +23,7 @@ func Test(t *testing.T) {
 type ipMasqMapMock struct {
 	lock.RWMutex
 	cidrsIPv4 map[string]net.IPNet
+	cidrsIPv6 map[string]net.IPNet
 }
 
 func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
@@ -29,10 +31,17 @@ func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if _, ok := m.cidrsIPv4[cidrStr]; ok {
-		return fmt.Errorf("CIDR already exists: %s", cidrStr)
+	if ip.IsIPv4(cidr.IP) {
+		if _, ok := m.cidrsIPv4[cidrStr]; ok {
+			return fmt.Errorf("CIDR already exists: %s", cidrStr)
+		}
+		m.cidrsIPv4[cidrStr] = cidr
+	} else {
+		if _, ok := m.cidrsIPv6[cidrStr]; ok {
+			return fmt.Errorf("CIDR already exists: %s", cidrStr)
+		}
+		m.cidrsIPv6[cidrStr] = cidr
 	}
-	m.cidrsIPv4[cidrStr] = cidr
 
 	return nil
 }
@@ -42,10 +51,17 @@ func (m *ipMasqMapMock) Delete(cidr net.IPNet) error {
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if _, ok := m.cidrsIPv4[cidrStr]; !ok {
-		return fmt.Errorf("CIDR not found: %s", cidrStr)
+	if ip.IsIPv4(cidr.IP) {
+		if _, ok := m.cidrsIPv4[cidrStr]; !ok {
+			return fmt.Errorf("CIDR not found: %s", cidrStr)
+		}
+		delete(m.cidrsIPv4, cidrStr)
+	} else {
+		if _, ok := m.cidrsIPv6[cidrStr]; !ok {
+			return fmt.Errorf("CIDR not found: %s", cidrStr)
+		}
+		delete(m.cidrsIPv6, cidrStr)
 	}
-	delete(m.cidrsIPv4, cidrStr)
 
 	return nil
 }
@@ -58,6 +74,9 @@ func (m *ipMasqMapMock) Dump() ([]net.IPNet, error) {
 	for _, cidr := range m.cidrsIPv4 {
 		cidrs = append(cidrs, cidr)
 	}
+	for _, cidr := range m.cidrsIPv6 {
+		cidrs = append(cidrs, cidr)
+	}
 
 	return cidrs, nil
 }
@@ -66,8 +85,11 @@ func (m *ipMasqMapMock) dumpToSet() map[string]struct{} {
 	m.RLock()
 	defer m.RUnlock()
 
-	cidrs := make(map[string]struct{}, len(m.cidrsIPv4))
+	cidrs := make(map[string]struct{}, len(m.cidrsIPv4)+len(m.cidrsIPv6))
 	for cidrStr := range m.cidrsIPv4 {
+		cidrs[cidrStr] = struct{}{}
+	}
+	for cidrStr := range m.cidrsIPv6 {
 		cidrs[cidrStr] = struct{}{}
 	}
 
