@@ -1250,6 +1250,17 @@ struct {
 } PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
 #endif
 
+#ifdef ENABLE_IP_MASQ_AGENT_IPV6
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct lpm_v6_key);
+	__type(value, struct lpm_val);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 16384);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} IP_MASQ_AGENT_IPV6 __section_maps_btf;
+#endif
+
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
@@ -1715,6 +1726,21 @@ static __always_inline bool snat_v6_needed(struct __ctx_buff *ctx,
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 	if (remote_ep) {
 		bool is_reply = false;
+#ifdef ENABLE_IP_MASQ_AGENT_IPV6
+		/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
+		struct lpm_v6_key pfx __align_stack_8;
+
+		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
+		/* pfx.lpm is aligned on 8 bytes on the stack, but pfx.lpm.data
+		 * is on 4 (after pfx.lpm.prefixlen), and we can't use memcpy()
+		 * on the whole field or the verifier complains.
+		 */
+		memcpy(pfx.lpm.data, &ip6->daddr, 4);
+		memcpy(pfx.lpm.data + 4, (__u8 *)&ip6->daddr + 4, 8);
+		memcpy(pfx.lpm.data + 12, (__u8 *)&ip6->daddr + 12, 4);
+		if (map_lookup_elem(&IP_MASQ_AGENT_IPV6, &pfx))
+			return false;
+#endif
 
 # ifndef TUNNEL_MODE
 		/* See comment in snat_v4_prepare_state(). */
