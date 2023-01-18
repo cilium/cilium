@@ -312,7 +312,11 @@ func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 //
 //   - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
 func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
-	ep := d.endpointManager.LookupIP(ip)
+	addr, ok := ippkg.AddrFromIP(ip)
+	if !ok {
+		return nil, false
+	}
+	ep := d.endpointManager.LookupIP(addr)
 	if ep == nil {
 		return nil, false
 	}
