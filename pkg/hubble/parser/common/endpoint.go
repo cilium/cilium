@@ -4,7 +4,7 @@
 package common
 
 import (
-	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -36,7 +36,7 @@ func NewEndpointResolver(
 	}
 }
 
-func (r *EndpointResolver) ResolveEndpoint(ip net.IP, datapathSecurityIdentity uint32) *pb.Endpoint {
+func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32) *pb.Endpoint {
 	// The datapathSecurityIdentity parameter is the numeric security identity
 	// obtained from the datapath.
 	// The numeric identity from the datapath can differ from the one we obtain

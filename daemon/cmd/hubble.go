@@ -6,7 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
-	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
@@ -297,8 +296,6 @@ func (d *Daemon) launchHubble() {
 
 // GetIdentity looks up identity by ID from Cilium's identity cache. Hubble uses the identity info
 // to populate source and destination labels of flows.
-//
-//   - IdentityGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L40
 func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
 	ident := d.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
 	if ident == nil {
@@ -309,14 +306,11 @@ func (d *Daemon) GetIdentity(securityIdentity uint32) (*identity.Identity, error
 
 // GetEndpointInfo returns endpoint info for a given IP address. Hubble uses this function to populate
 // fields like namespace and pod name for local endpoints.
-//
-//   - EndpointGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L34
-func (d *Daemon) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
-	addr, ok := ippkg.AddrFromIP(ip)
-	if !ok {
+func (d *Daemon) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+	if !ip.IsValid() {
 		return nil, false
 	}
-	ep := d.endpointManager.LookupIP(addr)
+	ep := d.endpointManager.LookupIP(ip)
 	if ep == nil {
 		return nil, false
 	}
@@ -338,19 +332,16 @@ func (d *Daemon) GetEndpoints() map[policy.Endpoint]struct{} {
 
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given IP from the
 // FQDN cache of an endpoint specified by sourceEpID.
-//
-//   - DNSGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L27
-func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
+func (d *Daemon) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	ep := d.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
 		return nil
 	}
 
-	addr, ok := ippkg.AddrFromIP(ip)
-	if !ok {
+	if !ip.IsValid() {
 		return nil
 	}
-	names := ep.DNSHistory.LookupIP(addr)
+	names := ep.DNSHistory.LookupIP(ip)
 
 	for i := range names {
 		names[i] = strings.TrimSuffix(names[i], ".")
@@ -361,13 +352,11 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 
 // GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
 // with service information.
-//
-//   - ServiceGetter: https://github.com/cilium/hubble/blob/04ab72591faca62a305ce0715108876167182e04/pkg/parser/getters/getters.go#L52
-func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
-	addrCluster, ok := cmtypes.AddrClusterFromIP(ip)
-	if !ok {
+func (d *Daemon) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+	if !ip.IsValid() {
 		return nil
 	}
+	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
 	addr := loadbalancer.L3n4Addr{
 		AddrCluster: addrCluster,
 		L4Addr: loadbalancer.L4Addr{
@@ -386,8 +375,8 @@ func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
 
 // GetK8sMetadata returns the Kubernetes metadata for the given IP address.
 // It implements hubble parser's IPGetter.GetK8sMetadata.
-func (d *Daemon) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
-	if ip == nil {
+func (d *Daemon) GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata {
+	if !ip.IsValid() {
 		return nil
 	}
 	return d.ipcache.GetK8sMetadata(ip.String())
@@ -396,8 +385,8 @@ func (d *Daemon) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
 // LookupSecIDByIP returns the security ID for the given IP. If the security ID
 // cannot be found, ok is false.
 // It implements hubble parser's IPGetter.LookupSecIDByIP.
-func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
-	if ip == nil {
+func (d *Daemon) LookupSecIDByIP(ip netip.Addr) (id ipcache.Identity, ok bool) {
+	if !ip.IsValid() {
 		return ipcache.Identity{}, false
 	}
 
@@ -407,20 +396,14 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 
 	ipv6Prefixes, ipv4Prefixes := d.GetCIDRPrefixLengths()
 	prefixes := ipv4Prefixes
-	bits := net.IPv4len * 8
-	if ip.To4() == nil {
+	if ip.Is6() {
 		prefixes = ipv6Prefixes
-		bits = net.IPv6len * 8
 	}
 	for _, prefixLen := range prefixes {
 		// note: we perform a lookup even when `prefixLen == bits`, as some
 		// entries derived by a single address cidr-range will not have been
 		// found by the above lookup
-		mask := net.CIDRMask(prefixLen, bits)
-		cidr := net.IPNet{
-			IP:   ip.Mask(mask),
-			Mask: mask,
-		}
+		cidr, _ := ip.Prefix(prefixLen)
 		if id, ok = d.ipcache.LookupByPrefix(cidr.String()); ok {
 			return id, ok
 		}

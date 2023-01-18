@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -473,7 +475,7 @@ type LookupEndpointIDByIPFunc func(ip net.IP) (endpoint *endpoint.Endpoint, err 
 // LookupSecIDByIPFunc Func wraps logic to lookup an IP's security ID from the
 // ipcache.
 // See DNSProxy.LookupSecIDByIP for usage.
-type LookupSecIDByIPFunc func(ip net.IP) (secID ipcache.Identity, exists bool)
+type LookupSecIDByIPFunc func(ip netip.Addr) (secID ipcache.Identity, exists bool)
 
 // LookupIPsBySecIDFunc Func wraps logic to lookup an IPs by security ID from the
 // ipcache.
@@ -809,7 +811,9 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	}
 
 	targetServerID := identity.ReservedIdentityWorld
-	if serverSecID, exists := p.LookupSecIDByIP(targetServerIP); !exists {
+	// Ignore invalid IP - getter will handle invalid value.
+	targetServerAddr, _ := ippkg.AddrFromIP(targetServerIP)
+	if serverSecID, exists := p.LookupSecIDByIP(targetServerAddr); !exists {
 		scopedLog.WithField("server", targetServerAddrStr).Debug("cannot find server ip in ipcache, defaulting to WORLD")
 	} else {
 		targetServerID = serverSecID.ID
