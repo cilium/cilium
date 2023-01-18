@@ -24,6 +24,10 @@ To install the library and command line program, use the following:
 ```bash
 go get -v github.com/rubenv/sql-migrate/...
 ```
+For Go version from 1.18, use:
+```bash
+go install github.com/rubenv/sql-migrate/...@latest
+```
 
 ## Usage
 
