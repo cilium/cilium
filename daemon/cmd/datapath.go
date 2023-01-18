@@ -416,7 +416,12 @@ func (d *Daemon) initMaps() error {
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
 		if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing masquerading map: %w", err)
+			return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
+		}
+	}
+	if option.Config.EnableIPv6 && option.Config.EnableIPMasqAgent {
+		if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
+			return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
 		}
 	}
 

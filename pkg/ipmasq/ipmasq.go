@@ -63,12 +63,9 @@ func (c *Ipnet) UnmarshalJSON(json []byte) error {
 }
 
 func parseCIDR(c string) (*net.IPNet, error) {
-	ip, n, err := net.ParseCIDR(c)
+	_, n, err := net.ParseCIDR(c)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid CIDR %s: %s", c, err)
-	}
-	if ip.To4() == nil {
-		return nil, fmt.Errorf("Invalid CIDR %s: only IPv4 is supported", c)
 	}
 	return n, nil
 }

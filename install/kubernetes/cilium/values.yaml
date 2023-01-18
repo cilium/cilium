@@ -1487,6 +1487,7 @@ ipMasqAgent:
 # config:
   # nonMasqueradeCIDRs: []
   # masqLinkLocal: false
+  # masqLinkLocalIPv6: false
 
 # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
 # iptablesLockTimeout: "5s"

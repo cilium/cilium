@@ -336,6 +336,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(ipmasqmap.MaxEntriesIPv4),
 			},
 			{
+				Name: "IPv6 masquerading agent",
+				Size: int64(ipmasqmap.MaxEntriesIPv6),
+			},
+			{
 				Name: "IPv4 fragmentation",
 				Size: int64(option.Config.FragmentsMapEntries),
 			},
