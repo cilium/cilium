@@ -36,6 +36,14 @@ jobs:
   cyclonus-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Checkout
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
         with:
@@ -60,8 +68,8 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until docker manifest inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
-          until docker manifest inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
         uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
@@ -82,11 +90,11 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.repository=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+             --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
              --set image.tag=${{ steps.vars.outputs.tag }} \
              --set image.pullPolicy=IfNotPresent \
              --set image.useDigest=false \
-             --set operator.image.repository=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/operator \
+             --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
              --set operator.image.suffix=-ci \
              --set operator.image.tag=${{ steps.vars.outputs.tag }} \
              --set operator.image.pullPolicy=IfNotPresent \

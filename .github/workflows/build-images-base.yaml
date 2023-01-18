@@ -27,6 +27,15 @@ jobs:
     environment: release-base-images
     runs-on: ubuntu-20.04
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325
 
@@ -57,7 +66,7 @@ jobs:
         id: cilium-runtime-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
@@ -81,14 +90,14 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Sign Container Image Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Install Bom
         shell: bash
@@ -103,12 +112,12 @@ jobs:
         run: |
           bom generate -o sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx \
           --dirs=. \
-          --image=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
+          cosign attach sbom --sbom sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${{ steps.docker_build_release_runtime.outputs.digest }}
 
       - name: Sign SBOM Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -116,9 +125,9 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_release_runtime_digest="${{ steps.docker_build_release_runtime.outputs.digest }}"
-          image_name="quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${docker_build_release_runtime_digest/:/-}.sbom"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${docker_build_release_runtime_digest/:/-}.sbom"
           docker_build_release_runtime_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${docker_build_release_runtime_sbom_digest}"
+          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime@${docker_build_release_runtime_sbom_digest}"
 
       - name: Image Release Digest Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -127,7 +136,7 @@ jobs:
           mkdir -p image-digest/
           echo "## cilium-runtime" > image-digest/cilium-runtime.txt
           echo "" >> image-digest/cilium-runtime.txt
-          echo "\`quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/cilium-runtime.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}\`" >> image-digest/cilium-runtime.txt
           echo "" >> image-digest/cilium-runtime.txt
 
       - name: Upload artifact digests runtime
@@ -141,7 +150,7 @@ jobs:
       - name: Update Runtime Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
           git commit -sam "images: update cilium-{runtime,builder}"
 
       - name: Generating image tag for Cilium-Builder
@@ -153,7 +162,7 @@ jobs:
         id: cilium-builder-tag-in-repositories
         shell: bash
         run: |
-          if docker buildx imagetools inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
+          if docker buildx imagetools inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
             echo exists="true" >> $GITHUB_OUTPUT
           else
             echo exists="false" >> $GITHUB_OUTPUT
@@ -177,14 +186,14 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Sign Container Image Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         env:
           COSIGN_EXPERIMENTAL: "true"
         run: |
-          cosign sign quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -192,12 +201,12 @@ jobs:
         run: |
           bom generate -o sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx \
           --dirs=. \
-          --image=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+          --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          cosign attach sbom --sbom sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
+          cosign attach sbom --sbom sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${{ steps.docker_build_release_builder.outputs.digest }}
 
       - name: Sign SBOM Image
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -205,9 +214,9 @@ jobs:
           COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_release_builder_digest="${{ steps.docker_build_release_builder.outputs.digest }}"
-          image_name="quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${docker_build_release_builder_digest/:/-}.sbom"
+          image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${docker_build_release_builder_digest/:/-}.sbom"
           docker_build_release_builder_sbom_digest="sha256:$(docker buildx imagetools inspect --raw ${image_name} | sha256sum | head -c 64)"
-          cosign sign "quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder@${docker_build_release_builder_sbom_digest}"
+          cosign sign "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder@${docker_build_release_builder_sbom_digest}"
 
       - name: Image Release Digest Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
@@ -216,7 +225,7 @@ jobs:
           mkdir -p image-digest/
           echo "## cilium-builder" > image-digest/cilium-builder.txt
           echo "" >> image-digest/cilium-builder.txt
-          echo "\`quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}\`" >> image-digest/cilium-builder.txt
+          echo "\`quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}\`" >> image-digest/cilium-builder.txt
           echo "" >> image-digest/cilium-builder.txt
 
       - name: Upload artifact digests builder
@@ -230,12 +239,12 @@ jobs:
       - name: Update Runtime Images
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
+          images/runtime/update-cilium-runtime-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}@${{ steps.docker_build_release_runtime.outputs.digest }}"
 
       - name: Update Builder Images
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
-          images/builder/update-cilium-builder-image.sh "quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
+          images/builder/update-cilium-builder-image.sh "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}@${{ steps.docker_build_release_builder.outputs.digest }}"
 
       - name: Commit changes by amending previous commit
         # Run this step in case we have committed the cilium-runtime changes before
@@ -261,7 +270,7 @@ jobs:
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ vars.QUAY_ORGANIZATION }}/cilium.git HEAD:${{ github.event.pull_request.head.ref }}
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.QUAY_ORGANIZATION }}/cilium.git HEAD:${{ github.event.pull_request.head.ref }}
 
   image-digests:
     name: Display Digests
