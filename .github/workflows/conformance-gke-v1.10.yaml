@@ -121,6 +121,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
+      - name: Checkout master branch to access local actions
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Set up job variables
         id: vars
         run: |
@@ -137,14 +145,14 @@ jobs:
           fi
 
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
-            --agent-image=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --operator-image=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/operator-generic-ci \
+            --agent-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci \
             --version=${SHA} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
             --base-version=v1.10.12"
-          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+          HUBBLE_ENABLE_DEFAULTS="--relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --relay-version=${SHA}"
           CONNECTIVITY_TEST_DEFAULTS="--base-version=v1.10.12 \
             --flow-validation=disabled --hubble=false --test '!/pod-to-world,!/pod-to-cidr'"
@@ -224,7 +232,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium
