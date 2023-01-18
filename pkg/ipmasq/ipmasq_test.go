@@ -21,7 +21,7 @@ func Test(t *testing.T) {
 
 type ipMasqMapMock struct {
 	lock.RWMutex
-	cidrs map[string]net.IPNet
+	cidrsIPv4 map[string]net.IPNet
 }
 
 func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
@@ -29,10 +29,10 @@ func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if _, ok := m.cidrs[cidrStr]; ok {
+	if _, ok := m.cidrsIPv4[cidrStr]; ok {
 		return fmt.Errorf("CIDR already exists: %s", cidrStr)
 	}
-	m.cidrs[cidrStr] = cidr
+	m.cidrsIPv4[cidrStr] = cidr
 
 	return nil
 }
@@ -42,10 +42,10 @@ func (m *ipMasqMapMock) Delete(cidr net.IPNet) error {
 	defer m.Unlock()
 
 	cidrStr := cidr.String()
-	if _, ok := m.cidrs[cidrStr]; !ok {
+	if _, ok := m.cidrsIPv4[cidrStr]; !ok {
 		return fmt.Errorf("CIDR not found: %s", cidrStr)
 	}
-	delete(m.cidrs, cidrStr)
+	delete(m.cidrsIPv4, cidrStr)
 
 	return nil
 }
@@ -54,8 +54,8 @@ func (m *ipMasqMapMock) Dump() ([]net.IPNet, error) {
 	m.RLock()
 	defer m.RUnlock()
 
-	cidrs := make([]net.IPNet, 0, len(m.cidrs))
-	for _, cidr := range m.cidrs {
+	cidrs := make([]net.IPNet, 0, len(m.cidrsIPv4)+len(m.cidrsIPv6))
+	for _, cidr := range m.cidrsIPv4 {
 		cidrs = append(cidrs, cidr)
 	}
 
@@ -66,8 +66,8 @@ func (m *ipMasqMapMock) dumpToSet() map[string]struct{} {
 	m.RLock()
 	defer m.RUnlock()
 
-	cidrs := make(map[string]struct{}, len(m.cidrs))
-	for cidrStr := range m.cidrs {
+	cidrs := make(map[string]struct{}, len(m.cidrsIPv4))
+	for cidrStr := range m.cidrsIPv4 {
 		cidrs[cidrStr] = struct{}{}
 	}
 
@@ -83,7 +83,7 @@ type IPMasqTestSuite struct {
 var _ = check.Suite(&IPMasqTestSuite{})
 
 func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
-	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
+	i.ipMasqMap = &ipMasqMapMock{cidrsIPv4: map[string]net.IPNet{}}
 
 	configFile, err := os.CreateTemp("", "ipmasq-test")
 	c.Assert(err, check.IsNil)
@@ -115,7 +115,7 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = ipnets[linkLocalCIDRStr]
+	_, ok = ipnets[linkLocalCIDRIPv4Str]
 	c.Assert(ok, check.Equals, true)
 
 	// Write new config
@@ -128,7 +128,7 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = ipnets[linkLocalCIDRStr]
+	_, ok = ipnets[linkLocalCIDRIPv4Str]
 	c.Assert(ok, check.Equals, true)
 
 	// Write config with no CIDRs
@@ -137,7 +137,7 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 
 	ipnets = i.ipMasqMap.dumpToSet()
 	c.Assert(len(ipnets), check.Equals, 1)
-	_, ok = ipnets[linkLocalCIDRStr]
+	_, ok = ipnets[linkLocalCIDRIPv4Str]
 	c.Assert(ok, check.Equals, true)
 
 	// Write new config in JSON
@@ -161,7 +161,7 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 		_, ok := ipnets[cidrStr]
 		c.Assert(ok, check.Equals, true)
 	}
-	_, ok = ipnets[linkLocalCIDRStr]
+	_, ok = ipnets[linkLocalCIDRIPv4Str]
 	c.Assert(ok, check.Equals, true)
 }
 
@@ -172,9 +172,9 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	i.ipMasqAgent.Stop()
 
 	_, cidr, _ := net.ParseCIDR("3.3.3.0/24")
-	i.ipMasqMap.cidrs[cidr.String()] = *cidr
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
-	i.ipMasqMap.cidrs[cidr.String()] = *cidr
+	i.ipMasqMap.cidrsIPv4[cidr.String()] = *cidr
 	i.writeConfig("nonMasqueradeCIDRs:\n- 4.4.0.0/16", c)
 
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
@@ -186,13 +186,13 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	c.Assert(len(ipnets), check.Equals, 2)
 	_, ok := ipnets["4.4.0.0/16"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = ipnets[linkLocalCIDRStr]
+	_, ok = ipnets[linkLocalCIDRIPv4Str]
 	c.Assert(ok, check.Equals, true)
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
 	// the config
 	i.ipMasqAgent.Stop()
-	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
+	i.ipMasqMap = &ipMasqMapMock{cidrsIPv4: map[string]net.IPNet{}}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
 	i.writeConfig("nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true", c)
 	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)

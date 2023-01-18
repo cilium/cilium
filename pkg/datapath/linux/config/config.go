@@ -609,7 +609,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				// ip-masq-agent depends on bpf-masq
 				if option.Config.EnableIPMasqAgent {
 					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
 				}
 			}
 			if option.Config.EnableIPv6Masquerade {

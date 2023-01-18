@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	MapName    = "cilium_ipmasq_v4"
-	MaxEntries = 16384
+	MapNameIPv4    = "cilium_ipmasq_v4"
+	MaxEntriesIPv4 = 16384
 )
 
 type Key4 struct {
@@ -36,20 +36,20 @@ func (v *Value) New() bpf.MapValue { return &Value{} }
 
 var (
 	ipMasq4Map *bpf.Map
-	once       sync.Once
+	onceIPv4   sync.Once
 )
 
 func IPMasq4Map() *bpf.Map {
-	once.Do(func() {
+	onceIPv4.Do(func() {
 		ipMasq4Map = bpf.NewMap(
-			MapName,
+			MapNameIPv4,
 			ebpf.LPMTrie,
 			&Key4{},
 			&Value{},
-			MaxEntries,
+			MaxEntriesIPv4,
 			bpf.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric().
-			WithEvents(option.Config.GetEventBufferConfig(MapName))
+			WithEvents(option.Config.GetEventBufferConfig(MapNameIPv4))
 	})
 	return ipMasq4Map
 }
@@ -57,32 +57,32 @@ func IPMasq4Map() *bpf.Map {
 type IPMasqBPFMap struct{}
 
 func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
-	return IPMasq4Map().Update(key(cidr), &Value{})
+	return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
 }
 
 func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
-	return IPMasq4Map().Delete(key(cidr))
+	return IPMasq4Map().Delete(keyIPv4(cidr))
 }
 
 func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
 	cidrs := []net.IPNet{}
 	if err := IPMasq4Map().DumpWithCallback(
-		func(key bpf.MapKey, _ bpf.MapValue) {
-			cidrs = append(cidrs, keyToIPNet(key.(*Key4)))
+		func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
+			cidrs = append(cidrs, keyToIPNetIPv4(keyIPv4.(*Key4)))
 		}); err != nil {
 		return nil, err
 	}
 	return cidrs, nil
 }
 
-func key(cidr net.IPNet) *Key4 {
+func keyIPv4(cidr net.IPNet) *Key4 {
 	ones, _ := cidr.Mask.Size()
 	key := &Key4{PrefixLen: uint32(ones)}
 	copy(key.Address[:], cidr.IP.To4())
 	return key
 }
 
-func keyToIPNet(key *Key4) net.IPNet {
+func keyToIPNetIPv4(key *Key4) net.IPNet {
 	var (
 		cidr net.IPNet
 		ip   types.IPv4
