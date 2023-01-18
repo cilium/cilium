@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -15,13 +16,14 @@ import (
 )
 
 func (k *K8sWatcher) servicesInit() {
-	synced := false
+	var synced atomic.Bool
+	synced.Store(false)
 	swgSvcs := lock.NewStoppableWaitGroup()
 
 	k.blockWaitGroupToSyncResources(
 		k.stop,
 		swgSvcs,
-		func() bool { return synced },
+		func() bool { return synced.Load() },
 		resources.K8sAPIGroupServiceV1Core,
 	)
 	go k.serviceEventLoop(&synced, swgSvcs)
@@ -29,7 +31,7 @@ func (k *K8sWatcher) servicesInit() {
 	k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupServiceV1Core)
 }
 
-func (k *K8sWatcher) serviceEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
 	apiGroup := resources.K8sAPIGroupServiceV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -46,7 +48,7 @@ func (k *K8sWatcher) serviceEventLoop(synced *bool, swg *lock.StoppableWaitGroup
 			var err error
 			switch event.Kind {
 			case resource.Sync:
-				*synced = true
+				synced.Store(true)
 			case resource.Upsert:
 				svc := event.Object
 				k.K8sEventReceived(apiGroup, resources.MetricService, resources.MetricUpdate, true, false)
