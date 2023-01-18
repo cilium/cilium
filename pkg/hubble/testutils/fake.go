@@ -8,6 +8,7 @@ package testutils
 import (
 	"context"
 	"net"
+	"net/netip"
 	"time"
 
 	"google.golang.org/grpc"
@@ -260,7 +261,7 @@ func (c FakeClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, me
 type FakeFQDNCache struct {
 	OnInitializeFrom func(entries []*models.DNSLookup)
 	OnAddDNSLookup   func(epID uint32, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32)
-	OnGetNamesOf     func(epID uint32, ip net.IP) []string
+	OnGetNamesOf     func(epID uint32, ip netip.Addr) []string
 }
 
 // InitializeFrom implements FQDNCache.InitializeFrom.
@@ -282,28 +283,28 @@ func (f *FakeFQDNCache) AddDNSLookup(epID uint32, lookupTime time.Time, domainNa
 }
 
 // GetNamesOf implements FQDNCache.GetNameOf.
-func (f *FakeFQDNCache) GetNamesOf(epID uint32, ip net.IP) []string {
+func (f *FakeFQDNCache) GetNamesOf(epID uint32, ip netip.Addr) []string {
 	if f.OnGetNamesOf != nil {
 		return f.OnGetNamesOf(epID, ip)
 	}
-	panic("GetNamesOf(uint32, net.IP) should not have been called since it was not defined")
+	panic("GetNamesOf(uint32, netip.Addr) should not have been called since it was not defined")
 }
 
 // NoopDNSGetter always returns an empty response.
 var NoopDNSGetter = FakeFQDNCache{
-	OnGetNamesOf: func(sourceEpID uint32, ip net.IP) (fqdns []string) {
+	OnGetNamesOf: func(sourceEpID uint32, ip netip.Addr) (fqdns []string) {
 		return nil
 	},
 }
 
 // FakeEndpointGetter is used for unit tests that needs EndpointGetter.
 type FakeEndpointGetter struct {
-	OnGetEndpointInfo     func(ip net.IP) (endpoint v1.EndpointInfo, ok bool)
+	OnGetEndpointInfo     func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool)
 	OnGetEndpointInfoByID func(id uint16) (endpoint v1.EndpointInfo, ok bool)
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
-func (f *FakeEndpointGetter) GetEndpointInfo(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+func (f *FakeEndpointGetter) GetEndpointInfo(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 	if f.OnGetEndpointInfo != nil {
 		return f.OnGetEndpointInfo(ip)
 	}
@@ -320,7 +321,7 @@ func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint v1.Endpoin
 
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
-	OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
+	OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
 		return nil, false
 	},
 	OnGetEndpointInfoByID: func(id uint16) (endpoint v1.EndpointInfo, ok bool) {
@@ -342,12 +343,12 @@ var NoopLinkGetter = FakeLinkGetter{}
 
 // FakeIPGetter is used for unit tests that needs IPGetter.
 type FakeIPGetter struct {
-	OnGetK8sMetadata  func(ip net.IP) *ipcache.K8sMetadata
-	OnLookupSecIDByIP func(ip net.IP) (ipcache.Identity, bool)
+	OnGetK8sMetadata  func(ip netip.Addr) *ipcache.K8sMetadata
+	OnLookupSecIDByIP func(ip netip.Addr) (ipcache.Identity, bool)
 }
 
 // GetK8sMetadata implements FakeIPGetter.GetK8sMetadata.
-func (f *FakeIPGetter) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
+func (f *FakeIPGetter) GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata {
 	if f.OnGetK8sMetadata != nil {
 		return f.OnGetK8sMetadata(ip)
 	}
@@ -355,7 +356,7 @@ func (f *FakeIPGetter) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
 }
 
 // LookupSecIDByIP implements FakeIPGetter.LookupSecIDByIP.
-func (f *FakeIPGetter) LookupSecIDByIP(ip net.IP) (ipcache.Identity, bool) {
+func (f *FakeIPGetter) LookupSecIDByIP(ip netip.Addr) (ipcache.Identity, bool) {
 	if f.OnLookupSecIDByIP != nil {
 		return f.OnLookupSecIDByIP(ip)
 	}
@@ -364,21 +365,21 @@ func (f *FakeIPGetter) LookupSecIDByIP(ip net.IP) (ipcache.Identity, bool) {
 
 // NoopIPGetter always returns an empty response.
 var NoopIPGetter = FakeIPGetter{
-	OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
+	OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
 		return nil
 	},
-	OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
+	OnLookupSecIDByIP: func(ip netip.Addr) (ipcache.Identity, bool) {
 		return ipcache.Identity{}, false
 	},
 }
 
 // FakeServiceGetter is used for unit tests that need ServiceGetter.
 type FakeServiceGetter struct {
-	OnGetServiceByAddr func(ip net.IP, port uint16) *flowpb.Service
+	OnGetServiceByAddr func(ip netip.Addr, port uint16) *flowpb.Service
 }
 
 // GetServiceByAddr implements FakeServiceGetter.GetServiceByAddr.
-func (f *FakeServiceGetter) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Service {
+func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
 	if f.OnGetServiceByAddr != nil {
 		return f.OnGetServiceByAddr(ip, port)
 	}
@@ -387,7 +388,7 @@ func (f *FakeServiceGetter) GetServiceByAddr(ip net.IP, port uint16) *flowpb.Ser
 
 // NoopServiceGetter always returns an empty response.
 var NoopServiceGetter = FakeServiceGetter{
-	OnGetServiceByAddr: func(ip net.IP, port uint16) *flowpb.Service {
+	OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
 		return nil
 	},
 }
