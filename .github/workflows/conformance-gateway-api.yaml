@@ -30,14 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
-
       - name: Install Cilium CLI
         run: |
           curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -84,7 +76,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Gateway API CRDs
@@ -109,11 +101,11 @@ jobs:
             --set kubeProxyReplacement=strict \
             --set nodeinit.enabled=true \
             --set ipam.mode=kubernetes \
-            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --set image.repository=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --set image.tag=${{ steps.vars.outputs.sha }} \
             --set image.pullPolicy=IfNotPresent \
             --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --set operator.image.repository=quay.io/${{ vars.QUAY_ORGANIZATION_DEV }}/operator \
             --set operator.image.suffix=-ci \
             --set operator.image.tag=${{ steps.vars.outputs.sha }} \
             --set operator.image.pullPolicy=IfNotPresent \
