@@ -427,3 +427,28 @@ selected Egress IP rather than the one of the node where the pod is running:
     $ tail /var/log/nginx/access.log
     [...]
     192.168.60.100 - - [04/Apr/2021:22:06:57 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.52.1"
+
+Troubleshooting
+---------------
+
+To troubleshoot a policy that is not behaving as expected, you can view the
+egress configuration in a cilium agent (the configuration is propagated to all agents,
+so it shouldn't matter which one you pick). 
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec ds/cilium -- cilium bpf egress list
+    Defaulted container "cilium-agent" out of: cilium-agent, config (init), mount-cgroup (init), apply-sysctl-overwrites (init), mount-bpf-fs (init), wait-for-node-init (init), clean-cilium-state (init)
+    Source IP    Destination CIDR    Egress IP   Gateway IP
+    192.168.2.23 192.168.60.13/32    0.0.0.0     192.168.60.12
+
+The Source IP address matches the IP address of each pod that matches the
+policy's ``podSelector``. The Gateway IP address matches the (internal) IP address
+of the egress node that matches the policy's ``nodeSelector``. The Egress IP is
+0.0.0.0 on all agents except for the one running on the egress gateway node,
+where you should see the Egress IP address being used for this traffic (which
+will be the ``egressIP`` from the policy, if specified).  
+
+If the egress list shown does not contain entries as expected to match your
+policy, check that the pod(s) and egress node are labeled correctly to match
+the policy selectors.
