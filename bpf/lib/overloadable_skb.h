@@ -167,12 +167,13 @@ ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 
 static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
 {
+	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
 	ctx->mark |= MARK_MAGIC_SNAT_DONE;
 }
 
 static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
 {
-	return (ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE;
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
 
 #ifdef HAVE_ENCAP

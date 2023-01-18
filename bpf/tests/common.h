@@ -247,6 +247,7 @@ test_result_cursor = 0;
 	} while (0);		\
 	return suite_result
 
+#define PKTGEN(progtype, name) __section(progtype "/test/" name "/pktgen")
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
 

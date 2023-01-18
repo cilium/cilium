@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	srv6SIDListUsage = "List SRv6 SID entries.\n" + lpmWarningMessage
+	srv6SIDListUsage = "List SRv6 SID entries."
 )
 
 type srv6SID struct {
@@ -62,7 +62,7 @@ var bpfSRv6SIDListCmd = &cobra.Command{
 		}
 
 		if len(bpfSIDList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmWarningMessage)
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			printSRv6SIDList(bpfSIDList)
 		}

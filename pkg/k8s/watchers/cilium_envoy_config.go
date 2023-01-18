@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
+func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient client.Clientset) {
 	apiGroup := k8sAPIGroupCiliumEnvoyConfigV2
 	_, cecController := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
@@ -79,7 +79,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ciliumNPClient client.Clientset) {
 		k8sAPIGroupCiliumEnvoyConfigV2,
 	)
 
-	go cecController.Run(wait.NeverStop)
+	go cecController.Run(ctx.Done())
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 

@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	srv6PolicyListUsage = "List SRv6 policy entries.\n" + lpmWarningMessage
+	srv6PolicyListUsage = "List SRv6 policy entries."
 )
 
 type srv6Policy struct {
@@ -68,7 +68,7 @@ var bpfSRv6PolicyListCmd = &cobra.Command{
 		}
 
 		if len(bpfPolicyList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmWarningMessage)
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			printSRv6PolicyList(bpfPolicyList)
 		}

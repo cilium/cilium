@@ -1049,18 +1049,18 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | UNKNOWN_POINT | 0 | Cilium treats 0 as TO_LXC, but its&#39;s something we should work to remove. This is intentionally set as unknown, so proto API can guarantee the observation point is always going to be present on trace events. |
-| TO_PROXY | 1 |  |
-| TO_HOST | 2 |  |
-| TO_STACK | 3 |  |
-| TO_OVERLAY | 4 |  |
-| TO_ENDPOINT | 101 | same as TO_LXC, which had a 0 value. This index is intentionally very high so when new segments are added in bpf, there are no collisions |
-| FROM_ENDPOINT | 5 |  |
-| FROM_PROXY | 6 |  |
-| FROM_HOST | 7 |  |
-| FROM_STACK | 8 |  |
-| FROM_OVERLAY | 9 |  |
-| FROM_NETWORK | 10 |  |
-| TO_NETWORK | 11 |  |
+| TO_PROXY | 1 | TO_PROXY indicates network packets are transmitted towards the l7 proxy. |
+| TO_HOST | 2 | TO_HOST indicates network packets are transmitted towards the host namespace. |
+| TO_STACK | 3 | TO_STACK indicates network packets are transmitted towards the Linux kernel network stack on host machine. |
+| TO_OVERLAY | 4 | TO_OVERLAY indicates network packets are transmitted towards the tunnel device. |
+| TO_ENDPOINT | 101 | TO_ENDPOINT indicates network packets are transmitted towards endpoints (containers). |
+| FROM_ENDPOINT | 5 | FROM_ENDPOINT indicates network packets were received from endpoints (containers). |
+| FROM_PROXY | 6 | FROM_PROXY indicates network packets were received from the l7 proxy. |
+| FROM_HOST | 7 | FROM_HOST indicates network packets were received from the host namespace. |
+| FROM_STACK | 8 | FROM_STACK indicates network packets were received from the Linux kernel network stack on host machine. |
+| FROM_OVERLAY | 9 | FROM_OVERLAY indicates network packets were received from the tunnel device. |
+| FROM_NETWORK | 10 | FROM_NETWORK indicates network packets were received from native devices. |
+| TO_NETWORK | 11 | TO_NETWORK indicates network packets are transmitted towards native devices. |
 
 
 
