@@ -12,10 +12,11 @@ import (
 type MetaData struct {
 	context Key // Used only during decoding.
 
+	keyInfo map[string]keyInfo
 	mapping map[string]interface{}
-	types   map[string]tomlType
 	keys    []Key
 	decoded map[string]struct{}
+	data    []byte // Input file; for errors.
 }
 
 // IsDefined reports if the key exists in the TOML data.
@@ -50,8 +51,8 @@ func (md *MetaData) IsDefined(key ...string) bool {
 // Type will return the empty string if given an empty key or a key that does
 // not exist. Keys are case sensitive.
 func (md *MetaData) Type(key ...string) string {
-	if typ, ok := md.types[Key(key).String()]; ok {
-		return typ.typeString()
+	if ki, ok := md.keyInfo[Key(key).String()]; ok {
+		return ki.tomlType.typeString()
 	}
 	return ""
 }
@@ -70,7 +71,7 @@ func (md *MetaData) Keys() []Key {
 // Undecoded returns all keys that have not been decoded in the order in which
 // they appear in the original TOML document.
 //
-// This includes keys that haven't been decoded because of a Primitive value.
+// This includes keys that haven't been decoded because of a [Primitive] value.
 // Once the Primitive value is decoded, the keys will be considered decoded.
 //
 // Also note that decoding into an empty interface will result in no decoding,
@@ -88,7 +89,7 @@ func (md *MetaData) Undecoded() []Key {
 	return undecoded
 }
 
-// Key represents any TOML key, including key groups. Use (MetaData).Keys to get
+// Key represents any TOML key, including key groups. Use [MetaData.Keys] to get
 // values of this type.
 type Key []string
 
