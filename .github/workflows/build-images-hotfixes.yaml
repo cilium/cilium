@@ -120,9 +120,10 @@ jobs:
 
       - name: Generate SBOM
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_${{ matrix.name }}_${{ steps.tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-dev:${{ steps.tag.outputs.tag }}
 
       - name: Attach SBOM to Container Images
