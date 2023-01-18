@@ -23,7 +23,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
         with:
-          go-version: 1.18.9
+          go-version: 1.18.10
 
       - name: Cache LLVM and Clang
         id: cache-llvm
