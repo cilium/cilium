@@ -109,9 +109,10 @@ jobs:
       - name: Generate SBOM
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_cilium-runtime_${{ steps.runtime-tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
@@ -198,9 +199,10 @@ jobs:
       - name: Generate SBOM
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         shell: bash
+        # To-Do: generate SBOM from source after https://github.com/kubernetes-sigs/bom/issues/202 is fixed
+        # To-Do: format SBOM output to json after cosign v2.0 is released with https://github.com/sigstore/cosign/pull/2479
         run: |
           bom generate -o sbom_cilium-builder_${{ steps.builder-tag.outputs.tag }}.spdx \
-          --dirs=. \
           --image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
 
       - name: Attach SBOM to Container Image
