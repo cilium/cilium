@@ -1005,8 +1005,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade addrs: %w", err)
 		}
 	} else if option.Config.EnableIPMasqAgent {
-		log.WithError(err).Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
-		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
+		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if option.Config.EnableIPv4EgressGateway {
 		log.WithError(err).Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
@@ -1014,12 +1014,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.Infof("Auto-disabling %q feature since IPv4 and IPv6 masquerading are disabled",
 			option.EnableBPFMasquerade)
 		option.Config.EnableBPFMasquerade = false
-	}
-	if option.Config.EnableIPMasqAgent {
-		if !option.Config.EnableIPv4 {
-			log.WithError(err).Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
-			return nil, nil, fmt.Errorf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
-		}
 	}
 	if len(option.Config.GetDevices()) == 0 {
 		if option.Config.EnableHostFirewall {
