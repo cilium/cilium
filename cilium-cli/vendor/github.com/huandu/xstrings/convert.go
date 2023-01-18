@@ -130,7 +130,7 @@ func camelCaseToLowerCase(str string, connector rune) string {
 				wt, word, remaining = nextWord(remaining)
 			}
 
-			if wt != invalidWord && wt != punctWord {
+			if wt != invalidWord && wt != punctWord && wt != connectorWord {
 				buf.WriteRune(connector)
 			}
 
