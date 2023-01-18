@@ -608,7 +608,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 				// ip-masq-agent depends on bpf-masq
 				if option.Config.EnableIPMasqAgent {
-					cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
+					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
 					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
 				}
 			}

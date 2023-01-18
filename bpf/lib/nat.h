@@ -144,7 +144,7 @@ struct {
 #endif
 #endif
 
-#ifdef ENABLE_IP_MASQ_AGENT
+#ifdef ENABLE_IP_MASQ_AGENT_IPV4
 struct {
 	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct lpm_v4_key);
@@ -842,7 +842,7 @@ skip_egress_gateway:
 		return false;
 
 	if (remote_ep) {
-#ifdef ENABLE_IP_MASQ_AGENT
+#ifdef ENABLE_IP_MASQ_AGENT_IPV4
 		/* Do not SNAT if dst belongs to any ip-masq-agent
 		 * subnet.
 		 */
