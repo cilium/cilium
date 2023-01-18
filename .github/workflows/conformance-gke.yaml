@@ -69,7 +69,7 @@ env:
   cilium_cli_version: v0.12.12
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
-  k8s_version: 1.24.5
+  k8s_version: 1.24
 
 jobs:
   check_changes:
