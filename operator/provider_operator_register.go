@@ -2,7 +2,6 @@
 // Copyright 2017-2020 Authors of Cilium
 
 //go:build ipam_provider_operator
-// +build ipam_provider_operator
 
 package main
 

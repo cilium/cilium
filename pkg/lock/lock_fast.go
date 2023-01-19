@@ -2,7 +2,6 @@
 // Copyright 2017-2019 Authors of Cilium
 
 //go:build !lockdebug
-// +build !lockdebug
 
 package lock
 

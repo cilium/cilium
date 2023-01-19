@@ -2,7 +2,6 @@
 // Copyright 2016-2017 Authors of Cilium
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package policy
 

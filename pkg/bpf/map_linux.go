@@ -2,7 +2,6 @@
 // Copyright 2016-2020 Authors of Cilium
 
 //go:build linux
-// +build linux
 
 package bpf
 

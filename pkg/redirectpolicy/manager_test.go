@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 //go:build privileged_tests
-// +build privileged_tests
 
 package redirectpolicy
 

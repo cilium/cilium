@@ -2,7 +2,6 @@
 // Copyright 2016-2018 Authors of Cilium
 
 //go:build darwin
-// +build darwin
 
 package node
 

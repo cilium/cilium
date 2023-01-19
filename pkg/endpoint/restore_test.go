@@ -2,7 +2,6 @@
 // Copyright 2016-2021 Authors of Cilium
 
 //go:build !privileged_tests && integration_tests
-// +build !privileged_tests,integration_tests
 
 package endpoint
 

@@ -2,7 +2,6 @@
 // Copyright 2019 Authors of Cilium
 
 //go:build linux
-// +build linux
 
 package ipsec
 

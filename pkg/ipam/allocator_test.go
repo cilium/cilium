@@ -2,7 +2,6 @@
 // Copyright 2018-2020 Authors of Cilium
 
 //go:build !privileged_test
-// +build !privileged_test
 
 package ipam
 

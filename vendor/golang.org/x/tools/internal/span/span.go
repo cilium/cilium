@@ -9,6 +9,7 @@ package span
 import (
 	"encoding/json"
 	"fmt"
+	"go/token"
 	"path"
 )
 
@@ -40,15 +41,6 @@ type point struct {
 var Invalid = Span{v: span{Start: invalidPoint.v, End: invalidPoint.v}}
 
 var invalidPoint = Point{v: point{Line: 0, Column: 0, Offset: -1}}
-
-// Converter is the interface to an object that can convert between line:column
-// and offset forms for a single file.
-type Converter interface {
-	//ToPosition converts from an offset to a line:column pair.
-	ToPosition(offset int) (int, int, error)
-	//ToOffset converts from a line:column pair to an offset.
-	ToOffset(line, col int) (int, error)
-}
 
 func New(uri URI, start Point, end Point) Span {
 	s := Span{v: span{URI: uri, Start: start.v, End: end.v}}
@@ -217,56 +209,56 @@ func (s Span) Format(f fmt.State, c rune) {
 	}
 }
 
-func (s Span) WithPosition(c Converter) (Span, error) {
-	if err := s.update(c, true, false); err != nil {
+func (s Span) WithPosition(tf *token.File) (Span, error) {
+	if err := s.update(tf, true, false); err != nil {
 		return Span{}, err
 	}
 	return s, nil
 }
 
-func (s Span) WithOffset(c Converter) (Span, error) {
-	if err := s.update(c, false, true); err != nil {
+func (s Span) WithOffset(tf *token.File) (Span, error) {
+	if err := s.update(tf, false, true); err != nil {
 		return Span{}, err
 	}
 	return s, nil
 }
 
-func (s Span) WithAll(c Converter) (Span, error) {
-	if err := s.update(c, true, true); err != nil {
+func (s Span) WithAll(tf *token.File) (Span, error) {
+	if err := s.update(tf, true, true); err != nil {
 		return Span{}, err
 	}
 	return s, nil
 }
 
-func (s *Span) update(c Converter, withPos, withOffset bool) error {
+func (s *Span) update(tf *token.File, withPos, withOffset bool) error {
 	if !s.IsValid() {
 		return fmt.Errorf("cannot add information to an invalid span")
 	}
 	if withPos && !s.HasPosition() {
-		if err := s.v.Start.updatePosition(c); err != nil {
+		if err := s.v.Start.updatePosition(tf); err != nil {
 			return err
 		}
 		if s.v.End.Offset == s.v.Start.Offset {
 			s.v.End = s.v.Start
-		} else if err := s.v.End.updatePosition(c); err != nil {
+		} else if err := s.v.End.updatePosition(tf); err != nil {
 			return err
 		}
 	}
 	if withOffset && (!s.HasOffset() || (s.v.End.hasPosition() && !s.v.End.hasOffset())) {
-		if err := s.v.Start.updateOffset(c); err != nil {
+		if err := s.v.Start.updateOffset(tf); err != nil {
 			return err
 		}
 		if s.v.End.Line == s.v.Start.Line && s.v.End.Column == s.v.Start.Column {
 			s.v.End.Offset = s.v.Start.Offset
-		} else if err := s.v.End.updateOffset(c); err != nil {
+		} else if err := s.v.End.updateOffset(tf); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *point) updatePosition(c Converter) error {
-	line, col, err := c.ToPosition(p.Offset)
+func (p *point) updatePosition(tf *token.File) error {
+	line, col, err := ToPosition(tf, p.Offset)
 	if err != nil {
 		return err
 	}
@@ -275,8 +267,8 @@ func (p *point) updatePosition(c Converter) error {
 	return nil
 }
 
-func (p *point) updateOffset(c Converter) error {
-	offset, err := c.ToOffset(p.Line, p.Column)
+func (p *point) updateOffset(tf *token.File) error {
+	offset, err := ToOffset(tf, p.Line, p.Column)
 	if err != nil {
 		return err
 	}

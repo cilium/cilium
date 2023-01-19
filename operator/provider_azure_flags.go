@@ -2,7 +2,6 @@
 // Copyright 2017-2020 Authors of Cilium
 
 //go:build ipam_provider_azure
-// +build ipam_provider_azure
 
 package main
 

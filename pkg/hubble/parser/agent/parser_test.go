@@ -2,7 +2,6 @@
 // Copyright 2020 Authors of Hubble
 
 //go:build !privileged_tests
-// +build !privileged_tests
 
 package agent_test
 

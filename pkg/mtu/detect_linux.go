@@ -2,7 +2,6 @@
 // Copyright 2018 Authors of Cilium
 
 //go:build linux
-// +build linux
 
 package mtu
 

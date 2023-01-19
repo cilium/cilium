@@ -2,7 +2,6 @@
 // Copyright 2017-2021 Authors of Cilium
 
 //go:build !windows && !privileged_tests
-// +build !windows,!privileged_tests
 
 package version
 
