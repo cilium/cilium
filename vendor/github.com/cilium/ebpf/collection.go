@@ -111,8 +111,8 @@ func (cs *CollectionSpec) RewriteMaps(maps map[string]*Map) error {
 //
 // The constant must be defined like so in the C program:
 //
-//    volatile const type foobar;
-//    volatile const type foobar = default;
+//	volatile const type foobar;
+//	volatile const type foobar = default;
 //
 // Replacement values must be of the same length as the C sizeof(type).
 // If necessary, they are marshalled according to the same rules as
@@ -149,6 +149,10 @@ func (cs *CollectionSpec) RewriteConstants(consts map[string]interface{}) error 
 			replacement, ok := consts[vname]
 			if !ok {
 				continue
+			}
+
+			if _, ok := v.Type.(*btf.Var); !ok {
+				return fmt.Errorf("section %s: unexpected type %T for variable %s", name, v.Type, vname)
 			}
 
 			if replaced[vname] {
@@ -198,11 +202,11 @@ func (cs *CollectionSpec) RewriteConstants(consts map[string]interface{}) error 
 // The tag's value specifies the name of the program or map as
 // found in the CollectionSpec.
 //
-//    struct {
-//        Foo     *ebpf.ProgramSpec `ebpf:"xdp_foo"`
-//        Bar     *ebpf.MapSpec     `ebpf:"bar_map"`
-//        Ignored int
-//    }
+//	struct {
+//	    Foo     *ebpf.ProgramSpec `ebpf:"xdp_foo"`
+//	    Bar     *ebpf.MapSpec     `ebpf:"bar_map"`
+//	    Ignored int
+//	}
 //
 // Returns an error if any of the eBPF objects can't be found, or
 // if the same MapSpec or ProgramSpec is assigned multiple times.
@@ -249,11 +253,11 @@ func (cs *CollectionSpec) Assign(to interface{}) error {
 // dependent resources are loaded into the kernel and populated with values if
 // specified.
 //
-//    struct {
-//        Foo     *ebpf.Program `ebpf:"xdp_foo"`
-//        Bar     *ebpf.Map     `ebpf:"bar_map"`
-//        Ignored int
-//    }
+//	struct {
+//	    Foo     *ebpf.Program `ebpf:"xdp_foo"`
+//	    Bar     *ebpf.Map     `ebpf:"bar_map"`
+//	    Ignored int
+//	}
 //
 // opts may be nil.
 //
@@ -264,14 +268,17 @@ func (cs *CollectionSpec) LoadAndAssign(to interface{}, opts *CollectionOptions)
 	if err != nil {
 		return err
 	}
-	defer loader.cleanup()
+	defer loader.close()
 
 	// Support assigning Programs and Maps, lazy-loading the required objects.
 	assignedMaps := make(map[string]bool)
+	assignedProgs := make(map[string]bool)
+
 	getValue := func(typ reflect.Type, name string) (interface{}, error) {
 		switch typ {
 
 		case reflect.TypeOf((*Program)(nil)):
+			assignedProgs[name] = true
 			return loader.loadProgram(name)
 
 		case reflect.TypeOf((*Map)(nil)):
@@ -311,7 +318,13 @@ func (cs *CollectionSpec) LoadAndAssign(to interface{}, opts *CollectionOptions)
 		}
 	}
 
-	loader.finalize()
+	// Prevent loader.cleanup() from closing assigned Maps and Programs.
+	for m := range assignedMaps {
+		delete(loader.maps, m)
+	}
+	for p := range assignedProgs {
+		delete(loader.programs, p)
+	}
 
 	return nil
 }
@@ -342,7 +355,7 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
-	defer loader.cleanup()
+	defer loader.close()
 
 	// Create maps first, as their fds need to be linked into programs.
 	for mapName := range spec.Maps {
@@ -367,9 +380,9 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 		return nil, err
 	}
 
+	// Prevent loader.cleanup from closing maps and programs.
 	maps, progs := loader.maps, loader.programs
-
-	loader.finalize()
+	loader.maps, loader.programs = nil, nil
 
 	return &Collection{
 		progs,
@@ -377,42 +390,11 @@ func NewCollectionWithOptions(spec *CollectionSpec, opts CollectionOptions) (*Co
 	}, nil
 }
 
-type handleCache struct {
-	btfHandles map[*btf.Spec]*btf.Handle
-}
-
-func newHandleCache() *handleCache {
-	return &handleCache{
-		btfHandles: make(map[*btf.Spec]*btf.Handle),
-	}
-}
-
-func (hc handleCache) btfHandle(spec *btf.Spec) (*btf.Handle, error) {
-	if hc.btfHandles[spec] != nil {
-		return hc.btfHandles[spec], nil
-	}
-
-	handle, err := btf.NewHandle(spec)
-	if err != nil {
-		return nil, err
-	}
-
-	hc.btfHandles[spec] = handle
-	return handle, nil
-}
-
-func (hc handleCache) close() {
-	for _, handle := range hc.btfHandles {
-		handle.Close()
-	}
-}
-
 type collectionLoader struct {
 	coll     *CollectionSpec
 	opts     *CollectionOptions
 	maps     map[string]*Map
 	programs map[string]*Program
-	handles  *handleCache
 }
 
 func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collectionLoader, error) {
@@ -427,7 +409,7 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 			return nil, fmt.Errorf("replacement map %s not found in CollectionSpec", name)
 		}
 
-		if err := spec.checkCompatibility(m); err != nil {
+		if err := spec.Compatible(m); err != nil {
 			return nil, fmt.Errorf("using replacement map %s: %w", spec.Name, err)
 		}
 	}
@@ -437,21 +419,11 @@ func newCollectionLoader(coll *CollectionSpec, opts *CollectionOptions) (*collec
 		opts,
 		make(map[string]*Map),
 		make(map[string]*Program),
-		newHandleCache(),
 	}, nil
 }
 
-// finalize should be called when all the collectionLoader's resources
-// have been successfully loaded into the kernel and populated with values.
-func (cl *collectionLoader) finalize() {
-	cl.maps, cl.programs = nil, nil
-}
-
-// cleanup cleans up all resources left over in the collectionLoader.
-// Call finalize() when Map and Program creation/population is successful
-// to prevent them from getting closed.
-func (cl *collectionLoader) cleanup() {
-	cl.handles.close()
+// close all resources left over in the collectionLoader.
+func (cl *collectionLoader) close() {
 	for _, m := range cl.maps {
 		m.Close()
 	}
@@ -470,10 +442,6 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return nil, fmt.Errorf("missing map %s", mapName)
 	}
 
-	if mapSpec.BTF != nil && cl.coll.Types != mapSpec.BTF {
-		return nil, fmt.Errorf("map %s: BTF doesn't match collection", mapName)
-	}
-
 	if replaceMap, ok := cl.opts.MapReplacements[mapName]; ok {
 		// Clone the map to avoid closing user's map later on.
 		m, err := replaceMap.Clone()
@@ -485,7 +453,7 @@ func (cl *collectionLoader) loadMap(mapName string) (*Map, error) {
 		return m, nil
 	}
 
-	m, err := newMapWithOptions(mapSpec, cl.opts.Maps, cl.handles)
+	m, err := newMapWithOptions(mapSpec, cl.opts.Maps)
 	if err != nil {
 		return nil, fmt.Errorf("map %s: %w", mapName, err)
 	}
@@ -508,10 +476,6 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 	// This skips loading map dependencies, saving some cleanup work later.
 	if progSpec.Type == UnspecifiedProgram {
 		return nil, fmt.Errorf("cannot load program %s: program type is unspecified", progName)
-	}
-
-	if progSpec.BTF != nil && cl.coll.Types != progSpec.BTF {
-		return nil, fmt.Errorf("program %s: BTF doesn't match collection", progName)
 	}
 
 	progSpec = progSpec.Copy()
@@ -542,7 +506,7 @@ func (cl *collectionLoader) loadProgram(progName string) (*Program, error) {
 		}
 	}
 
-	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs, cl.handles)
+	prog, err := newProgramWithOptions(progSpec, cl.opts.Programs)
 	if err != nil {
 		return nil, fmt.Errorf("program %s: %w", progName, err)
 	}
@@ -558,17 +522,22 @@ func (cl *collectionLoader) populateMaps() error {
 			return fmt.Errorf("missing map spec %s", mapName)
 		}
 
-		mapSpec = mapSpec.Copy()
-
 		// MapSpecs that refer to inner maps or programs within the same
 		// CollectionSpec do so using strings. These strings are used as the key
 		// to look up the respective object in the Maps or Programs fields.
 		// Resolve those references to actual Map or Program resources that
 		// have been loaded into the kernel.
-		for i, kv := range mapSpec.Contents {
-			if objName, ok := kv.Value.(string); ok {
-				switch mapSpec.Type {
-				case ProgramArray:
+		if mapSpec.Type.canStoreMap() || mapSpec.Type.canStoreProgram() {
+			mapSpec = mapSpec.Copy()
+
+			for i, kv := range mapSpec.Contents {
+				objName, ok := kv.Value.(string)
+				if !ok {
+					continue
+				}
+
+				switch t := mapSpec.Type; {
+				case t.canStoreProgram():
 					// loadProgram is idempotent and could return an existing Program.
 					prog, err := cl.loadProgram(objName)
 					if err != nil {
@@ -576,7 +545,7 @@ func (cl *collectionLoader) populateMaps() error {
 					}
 					mapSpec.Contents[i] = MapKV{kv.Key, prog}
 
-				case ArrayOfMaps, HashOfMaps:
+				case t.canStoreMap():
 					// loadMap is idempotent and could return an existing Map.
 					innerMap, err := cl.loadMap(objName)
 					if err != nil {

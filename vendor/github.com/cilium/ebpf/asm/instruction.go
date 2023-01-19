@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/cilium/ebpf/internal/sys"
@@ -353,6 +354,13 @@ func (ins Instruction) Size() uint64 {
 	return uint64(InstructionSize * ins.OpCode.rawInstructions())
 }
 
+// WithMetadata sets the given Metadata on the Instruction. e.g. to copy
+// Metadata from another Instruction when replacing it.
+func (ins Instruction) WithMetadata(meta Metadata) Instruction {
+	ins.Metadata = meta
+	return ins
+}
+
 type symbolMeta struct{}
 
 // WithSymbol marks the Instruction as a Symbol, which other Instructions
@@ -568,9 +576,8 @@ func (insns Instructions) SymbolOffsets() (map[string]int, error) {
 
 // FunctionReferences returns a set of symbol names these Instructions make
 // bpf-to-bpf calls to.
-func (insns Instructions) FunctionReferences() map[string]bool {
-	calls := make(map[string]bool)
-
+func (insns Instructions) FunctionReferences() []string {
+	calls := make(map[string]struct{})
 	for _, ins := range insns {
 		if ins.Constant != -1 {
 			// BPF-to-BPF calls have -1 constants.
@@ -585,10 +592,16 @@ func (insns Instructions) FunctionReferences() map[string]bool {
 			continue
 		}
 
-		calls[ins.Reference()] = true
+		calls[ins.Reference()] = struct{}{}
 	}
 
-	return calls
+	result := make([]string, 0, len(calls))
+	for call := range calls {
+		result = append(result, call)
+	}
+
+	sort.Strings(result)
+	return result
 }
 
 // ReferenceOffsets returns the set of references and their offset in
@@ -666,6 +679,8 @@ func (insns Instructions) Format(f fmt.State, c rune) {
 }
 
 // Marshal encodes a BPF program into the kernel format.
+//
+// insns may be modified if there are unresolved jumps or bpf2bpf calls.
 //
 // Returns ErrUnsatisfiedProgramReference if there is a Reference Instruction
 // without a matching Symbol Instruction within insns.
