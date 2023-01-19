@@ -56,8 +56,10 @@ var nodeSampleJSON = `{
             "cloud.google.com/gke-nodepool": "default-pool",
             "cloud.google.com/gke-os-distribution": "cos",
             "disktype": "ssd",
-            "failure-domain.beta.kubernetes.io/region": "earth",
-            "failure-domain.beta.kubernetes.io/zone": "earth",
+            "failure-domain.beta.kubernetes.io/region": "earth", // Remove after support for 1.17 is dropped
+            "failure-domain.beta.kubernetes.io/zone": "earth", // Remove after support for 1.17 is dropped
+            "topology.kubernetes.io/region": "earth",
+            "topology.kubernetes.io/zone": "earth",
             "kubernetes.io/hostname": "super-node"
         },
         "name": "super-node",
