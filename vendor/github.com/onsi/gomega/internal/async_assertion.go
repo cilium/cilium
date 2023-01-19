@@ -20,6 +20,17 @@ type contextWithAttachProgressReporter interface {
 	AttachProgressReporter(func() string) func()
 }
 
+type asyncGomegaHaltExecutionError struct{}
+
+func (a asyncGomegaHaltExecutionError) GinkgoRecoverShouldIgnoreThisPanic() {}
+func (a asyncGomegaHaltExecutionError) Error() string {
+	return `An assertion has failed in a goroutine.  You should call 
+
+    defer GinkgoRecover()
+
+at the top of the goroutine that caused this panic.  This will allow Ginkgo and Gomega to correctly capture and manage this panic.`
+}
+
 type AsyncAssertionType uint
 
 const (
@@ -44,21 +55,23 @@ type AsyncAssertion struct {
 	actual        interface{}
 	argsToForward []interface{}
 
-	timeoutInterval time.Duration
-	pollingInterval time.Duration
-	ctx             context.Context
-	offset          int
-	g               *Gomega
+	timeoutInterval    time.Duration
+	pollingInterval    time.Duration
+	mustPassRepeatedly int
+	ctx                context.Context
+	offset             int
+	g                  *Gomega
 }
 
-func NewAsyncAssertion(asyncType AsyncAssertionType, actualInput interface{}, g *Gomega, timeoutInterval time.Duration, pollingInterval time.Duration, ctx context.Context, offset int) *AsyncAssertion {
+func NewAsyncAssertion(asyncType AsyncAssertionType, actualInput interface{}, g *Gomega, timeoutInterval time.Duration, pollingInterval time.Duration, mustPassRepeatedly int, ctx context.Context, offset int) *AsyncAssertion {
 	out := &AsyncAssertion{
-		asyncType:       asyncType,
-		timeoutInterval: timeoutInterval,
-		pollingInterval: pollingInterval,
-		offset:          offset,
-		ctx:             ctx,
-		g:               g,
+		asyncType:          asyncType,
+		timeoutInterval:    timeoutInterval,
+		pollingInterval:    pollingInterval,
+		mustPassRepeatedly: mustPassRepeatedly,
+		offset:             offset,
+		ctx:                ctx,
+		g:                  g,
 	}
 
 	out.actual = actualInput
@@ -101,6 +114,11 @@ func (assertion *AsyncAssertion) WithContext(ctx context.Context) types.AsyncAss
 
 func (assertion *AsyncAssertion) WithArguments(argsToForward ...interface{}) types.AsyncAssertion {
 	assertion.argsToForward = argsToForward
+	return assertion
+}
+
+func (assertion *AsyncAssertion) MustPassRepeatedly(count int) types.AsyncAssertion {
+	assertion.mustPassRepeatedly = count
 	return assertion
 }
 
@@ -191,6 +209,13 @@ You can learn more at https://onsi.github.io/gomega/#eventually
 `, assertion.asyncType, t, t.NumIn(), numProvided, have, assertion.asyncType)
 }
 
+func (assertion *AsyncAssertion) invalidMustPassRepeatedlyError(reason string) error {
+	return fmt.Errorf(`Invalid use of MustPassRepeatedly with %s %s
+
+You can learn more at https://onsi.github.io/gomega/#eventually
+`, assertion.asyncType, reason)
+}
+
 func (assertion *AsyncAssertion) buildActualPoller() (func() (interface{}, error), error) {
 	if !assertion.actualIsFunc {
 		return func() (interface{}, error) { return assertion.actual, nil }, nil
@@ -229,7 +254,8 @@ func (assertion *AsyncAssertion) buildActualPoller() (func() (interface{}, error
 			}
 			_, file, line, _ := runtime.Caller(skip + 1)
 			assertionFailure = fmt.Errorf("Assertion in callback at %s:%d failed:\n%s", file, line, message)
-			panic("stop execution")
+			// we throw an asyncGomegaHaltExecutionError so that defer GinkgoRecover() can catch this error if the user makes an assertion in a goroutine
+			panic(asyncGomegaHaltExecutionError{})
 		})))
 	}
 	if takesContext {
@@ -243,6 +269,13 @@ func (assertion *AsyncAssertion) buildActualPoller() (func() (interface{}, error
 		return nil, assertion.argumentMismatchError(actualType, len(inValues))
 	} else if isVariadic && len(inValues) < numIn-1 {
 		return nil, assertion.argumentMismatchError(actualType, len(inValues))
+	}
+
+	if assertion.mustPassRepeatedly != 1 && assertion.asyncType != AsyncAssertionTypeEventually {
+		return nil, assertion.invalidMustPassRepeatedlyError("it can only be used with Eventually")
+	}
+	if assertion.mustPassRepeatedly < 1 {
+		return nil, assertion.invalidMustPassRepeatedlyError("parameter can't be < 1")
 	}
 
 	return func() (actual interface{}, err error) {
@@ -384,6 +417,8 @@ func (assertion *AsyncAssertion) match(matcher types.GomegaMatcher, desiredMatch
 		}
 	}
 
+	// Used to count the number of times in a row a step passed
+	passedRepeatedlyCount := 0
 	for {
 		var nextPoll <-chan time.Time = nil
 		var isTryAgainAfterError = false
@@ -401,13 +436,18 @@ func (assertion *AsyncAssertion) match(matcher types.GomegaMatcher, desiredMatch
 
 		if err == nil && matches == desiredMatch {
 			if assertion.asyncType == AsyncAssertionTypeEventually {
-				return true
+				passedRepeatedlyCount += 1
+				if passedRepeatedlyCount == assertion.mustPassRepeatedly {
+					return true
+				}
 			}
 		} else if !isTryAgainAfterError {
 			if assertion.asyncType == AsyncAssertionTypeConsistently {
 				fail("Failed")
 				return false
 			}
+			// Reset the consecutive pass count
+			passedRepeatedlyCount = 0
 		}
 
 		if oracleMatcherSaysStop {
