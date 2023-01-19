@@ -63,7 +63,7 @@ jobs:
           persist-credentials: false
 
       - name: Create minikube cluster with multiple nodes
-          uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8
+        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8
         with:
           minikube-version: ${{ env.minikube_version }}
           network-plugin: cni
