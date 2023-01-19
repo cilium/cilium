@@ -27,11 +27,13 @@ const (
 	ContextIdentity
 	// ContextNamespace uses the namespace name for identification purposes
 	ContextNamespace
-	// ContextPod uses the pod name for identification purposes
+	// ContextPod uses the namespace and pod name for identification purposes in the form of namespace/pod-name.
 	ContextPod
 	// ContextPodShort uses a short version of the pod name. It should
-	// typically map to the deployment/replicaset name
+	// typically map to the deployment/replicaset name. Deprecated.
 	ContextPodShort
+	// ContextPodName uses the pod name for identification purposes
+	ContextPodName
 	// ContextDNS uses the DNS name for identification purposes
 	ContextDNS
 	// ContextIP uses the IP address for identification purposes
@@ -51,7 +53,7 @@ const ContextOptionsHelp = `
  sourceContext          ::= identifier , { "|", identifier }
  destinationContext     ::= identifier , { "|", identifier }
  labels                 ::= label , { ",", label }
- identifier             ::= identity | namespace | pod | pod-short | dns | ip | reserved-identity | workload-name | app
+ identifier             ::= identity | namespace | pod | pod-short | pod-name | dns | ip | reserved-identity | workload-name | app
  label                  ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
 `
 
@@ -146,6 +148,8 @@ func parseContextIdentifier(s string) (ContextIdentifier, error) {
 		return ContextPod, nil
 	case "pod-short":
 		return ContextPodShort, nil
+	case "pod-name":
+		return ContextPodName, nil
 	case "dns":
 		return ContextDNS, nil
 	case "ip":
@@ -409,6 +413,8 @@ func getContextIDLabelValue(contextID ContextIdentifier, flow *pb.Flow, source b
 		if ep.GetNamespace() != "" {
 			labelValue = ep.GetNamespace() + "/" + labelValue
 		}
+	case ContextPodName:
+		labelValue = ep.GetPodName()
 	case ContextDNS:
 		if source {
 			labelValue = strings.Join(flow.GetSourceNames(), ",")
