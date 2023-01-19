@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"unsafe"
 
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
@@ -24,7 +25,17 @@ func Pin(currentPath, newPath string, fd *sys.FD) error {
 	var statfs unix.Statfs_t
 	if err := unix.Statfs(filepath.Dir(newPath), &statfs); err != nil {
 		return err
-	} else if uint64(statfs.Type) != bpfFSType {
+	}
+
+	fsType := int64(statfs.Type)
+	if unsafe.Sizeof(statfs.Type) == 4 {
+		// We're on a 32 bit arch, where statfs.Type is int32. bpfFSType is a
+		// negative number when interpreted as int32 so we need to cast via
+		// uint32 to avoid sign extension.
+		fsType = int64(uint32(statfs.Type))
+	}
+
+	if fsType != bpfFSType {
 		return fmt.Errorf("%s is not on a bpf filesystem", newPath)
 	}
 
