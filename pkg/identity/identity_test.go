@@ -356,3 +356,53 @@ func TestIPIdentityPair_PrefixString(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkIPIdentityPair_PrefixString(b *testing.B) {
+	cases := []struct {
+		name     string
+		expected string
+		pair     *IPIdentityPair
+	}{
+		{
+			name:     "host",
+			expected: "10.1.128.15/32",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				Mask:         net.IPv4Mask(255, 255, 255, 255),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name: "not host",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for _, tt := range cases {
+		b.Run(tt.name, func(bb *testing.B) {
+			for i := 0; i < bb.N; i++ {
+				_ = tt.pair.PrefixString()
+			}
+		})
+	}
+}
