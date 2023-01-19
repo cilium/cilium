@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -163,7 +165,11 @@ func (d *Daemon) syncHostIPs() error {
 		return nil
 	}
 
-	specialIdentities := []identity.IPIdentityPair{}
+	type ipIDLabel struct {
+		identity.IPIdentityPair
+		labels.Labels
+	}
+	specialIdentities := make([]ipIDLabel, 0, 2)
 
 	if option.Config.EnableIPv4 {
 		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
@@ -177,20 +183,24 @@ func (d *Daemon) syncHostIPs() error {
 			}
 
 			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
+				specialIdentities = append(specialIdentities, ipIDLabel{
 					identity.IPIdentityPair{
 						IP: ip,
 						ID: identity.ReservedIdentityHost,
-					})
+					},
+					labels.LabelHost,
+				})
 			}
 		}
 
-		specialIdentities = append(specialIdentities,
+		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv4zero,
 				Mask: net.CIDRMask(0, net.IPv4len*8),
 				ID:   identity.ReservedIdentityWorld,
-			})
+			},
+			labels.LabelWorld,
+		})
 	}
 
 	if option.Config.EnableIPv6 {
@@ -206,20 +216,24 @@ func (d *Daemon) syncHostIPs() error {
 			}
 
 			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
+				specialIdentities = append(specialIdentities, ipIDLabel{
 					identity.IPIdentityPair{
 						IP: ip,
 						ID: identity.ReservedIdentityHost,
-					})
+					},
+					labels.LabelHost,
+				})
 			}
 		}
 
-		specialIdentities = append(specialIdentities,
+		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv6zero,
 				Mask: net.CIDRMask(0, net.IPv6len*8),
 				ID:   identity.ReservedIdentityWorld,
-			})
+			},
+			labels.LabelWorld,
+		})
 	}
 
 	existingEndpoints, err := lxcmap.DumpToMap()
@@ -227,30 +241,31 @@ func (d *Daemon) syncHostIPs() error {
 		return err
 	}
 
-	for _, ipIDPair := range specialIdentities {
-		isHost := ipIDPair.ID == identity.ReservedIdentityHost
+	daemonResourceID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", "")
+	for _, ipIDLblsPair := range specialIdentities {
+		isHost := ipIDLblsPair.ID == identity.ReservedIdentityHost
 		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
+			added, err := lxcmap.SyncHostEntry(ipIDLblsPair.IP)
 			if err != nil {
 				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
 			}
 			if added {
-				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
+				log.WithField(logfields.IPAddr, ipIDLblsPair.IP).Debugf("Added local ip to endpoint map")
 			}
 		}
 
-		delete(existingEndpoints, ipIDPair.IP.String())
+		delete(existingEndpoints, ipIDLblsPair.IP.String())
 
-		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-		// and we specifically don't want to do so.
-		//
-		// This upsert will fail with ErrOverwrite continuously as long as the
-		// EP / CN watcher have found an apiserver IP and upserted it into the
-		// ipcache. Until then, it is expected to succeed.
-		d.ipcache.Upsert(ipIDPair.PrefixString(), nil, 0, nil, ipcache.Identity{
-			ID:     ipIDPair.ID,
-			Source: d.sourceByIP(ipIDPair.IP, source.Local),
-		})
+		lbls := ipIDLblsPair.Labels
+		if ipIDLblsPair.ID == identity.ReservedIdentityWorld {
+			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
+			d.ipcache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
+		} else {
+			d.ipcache.UpsertLabels(ippkg.IPToNetPrefix(ipIDLblsPair.IP),
+				lbls,
+				source.Local, daemonResourceID,
+			)
+		}
 	}
 
 	// existingEndpoints is a map from endpoint IP to endpoint info. Referring
@@ -265,7 +280,7 @@ func (d *Daemon) syncHostIPs() error {
 				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
 			}
 
-			d.ipcache.Delete(hostIP, d.sourceByIP(ip, source.Local))
+			d.ipcache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
 		}
 	}
 
@@ -278,24 +293,9 @@ func (d *Daemon) syncHostIPs() error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
-}
-
-func (d *Daemon) sourceByIP(ip net.IP, defaultSrc source.Source) source.Source {
-	if addr, ok := ippkg.AddrFromIP(ip); ok {
-		lbls := d.ipcache.GetMetadataLabelsByIP(addr)
-		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
-			return source.KubeAPIServer
-		}
-	} else {
-		log.WithFields(logrus.Fields{
-			logfields.IPAddr: ip,
-		}).Warning("BUG: Invalid addr detected in host stack. Please report this bug to the Cilium developers.")
-	}
-	return defaultSrc
 }
 
 // initMaps opens all BPF maps (and creates them if they do not exist). This

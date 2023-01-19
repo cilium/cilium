@@ -42,6 +42,7 @@ type ResourceKind string
 var (
 	ResourceKindCNP      = ResourceKind("cnp")
 	ResourceKindCCNP     = ResourceKind("ccnp")
+	ResourceKindDaemon   = ResourceKind("daemon")
 	ResourceKindEndpoint = ResourceKind("ep")
 	ResourceKindNetpol   = ResourceKind("netpol")
 	ResourceKindNode     = ResourceKind("node")

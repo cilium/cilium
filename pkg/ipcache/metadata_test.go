@@ -25,6 +25,7 @@ var (
 	inClusterPrefix  = netip.MustParsePrefix("10.0.0.4/32")
 	inClusterPrefix2 = netip.MustParsePrefix("10.0.0.5/32")
 	aPrefix          = netip.MustParsePrefix("100.4.16.32/32")
+	allCIDRsPrefix   = netip.MustParsePrefix("0.0.0.0/0")
 )
 
 func TestInjectLabels(t *testing.T) {
@@ -112,6 +113,17 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["100.4.16.32/32"].ID.HasLocalScope())
+
+	// Assert that an upsert for reserved:world label results in only the
+	// reserved world ID.
+	IPIdentityCache.metadata.upsertLocked(allCIDRsPrefix, source.Local, "daemon-uid", labels.LabelWorld)
+	assert.Len(t, IPIdentityCache.metadata.m, 4)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{allCIDRsPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 4)
+	assert.False(t, IPIdentityCache.ipToIdentityCache["0.0.0.0/0"].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityWorld, IPIdentityCache.ipToIdentityCache["0.0.0.0/0"].ID)
 }
 
 // TestInjectExisting tests "upgrading" an existing identity to the apiserver.
@@ -159,7 +171,6 @@ func TestInjectExisting(t *testing.T) {
 	id, ok = IPIdentityCache.LookupByIP(prefix.String())
 	assert.True(t, ok)
 	assert.Equal(t, source.KubeAPIServer, id.Source)
-
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {
