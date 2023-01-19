@@ -86,7 +86,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.6
 	go.opentelemetry.io/otel v1.11.2
 	go.opentelemetry.io/otel/trace v1.11.2
-	go.uber.org/dig v1.16.0
+	go.uber.org/dig v1.16.1
 	go.uber.org/goleak v1.2.0
 	go.uber.org/multierr v1.9.0
 	go.universe.tf/metallb v0.11.0
