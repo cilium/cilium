@@ -441,6 +441,10 @@
      - Enable debug logging
      - bool
      - ``false``
+   * - debug.verbose
+     - Configure verbosity levels for debug logging This option is used to enable debug messages for operations related to such sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is for enabling debug messages emitted per request, message and connection.  Applicable values: - flow - kvstore - envoy - datapath - policy
+     - string
+     - ``nil``
    * - disableEndpointCRD
      - Disable the usage of CiliumEndpoint CRD.
      - string
