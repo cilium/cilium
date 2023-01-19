@@ -557,8 +557,9 @@ Option Value          Description
 ===================== ===================================================================================
 ``identity``          All Cilium security identity labels
 ``namespace``         Kubernetes namespace name
-``pod``               Kubernetes pod name
-``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``pod``               Kubernetes pod name and namespace name in the form of ``namespace/pod``.
+``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod-name`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+``pod-name``          Kubernetes pod name.
 ``dns``               All known DNS names of the source or destination (comma-separated)
 ``ip``                The IPv4 or IPv6 address
 ``reserved-identity`` Reserved identity label.
