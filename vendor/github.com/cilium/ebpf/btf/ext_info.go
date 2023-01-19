@@ -115,7 +115,7 @@ func (ei *ExtInfos) Assign(insns asm.Instructions, section string) {
 	iter := insns.Iterate()
 	for iter.Next() {
 		if len(funcInfos) > 0 && funcInfos[0].offset == iter.Offset {
-			iter.Ins.Metadata.Set(funcInfoMeta{}, funcInfos[0].fn)
+			*iter.Ins = WithFuncMetadata(*iter.Ins, funcInfos[0].fn)
 			funcInfos = funcInfos[1:]
 		}
 
@@ -139,7 +139,15 @@ var nativeEncoderPool = sync.Pool{
 
 // MarshalExtInfos encodes function and line info embedded in insns into kernel
 // wire format.
+//
+// Returns ErrNotSupported if the kernel doesn't support BTF-associated programs.
 func MarshalExtInfos(insns asm.Instructions) (_ *Handle, funcInfos, lineInfos []byte, _ error) {
+	// Bail out early if the kernel doesn't support Func(Proto). If this is the
+	// case, func_info will also be unsupported.
+	if err := haveProgBTF(); err != nil {
+		return nil, nil, nil, err
+	}
+
 	iter := insns.Iterate()
 	for iter.Next() {
 		_, ok := iter.Ins.Source().(*Line)
