@@ -314,7 +314,6 @@ func (ec *elfCode) loadProgramSections() (map[string]*ProgramSpec, error) {
 				KernelVersion: ec.version,
 				Instructions:  insns,
 				ByteOrder:     ec.ByteOrder,
-				BTF:           ec.btf,
 			}
 
 			// Function names must be unique within a single ELF blob.
@@ -912,7 +911,6 @@ func mapSpecFromBTF(es *elfSection, vs *btf.VarSecinfo, def *btf.Struct, spec *b
 		Flags:      flags,
 		Key:        key,
 		Value:      value,
-		BTF:        spec,
 		Pinning:    pinType,
 		InnerMap:   innerMapSpec,
 		Contents:   contents,
@@ -1057,7 +1055,6 @@ func (ec *elfCode) loadDataSections(maps map[string]*MapSpec) error {
 			var ds *btf.Datasec
 			if ec.btf.TypeByName(sec.Name, &ds) == nil {
 				// Assign the spec's key and BTF only if the Datasec lookup was successful.
-				mapSpec.BTF = ec.btf
 				mapSpec.Key = &btf.Void{}
 				mapSpec.Value = ds
 			}

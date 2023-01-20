@@ -89,6 +89,4 @@ is used to create HTML reports.
 * CoverBee requires the source code of the programs to pre present at the same location as at compile time and to 
   contain the same contents. BTF.ext contains line and column offsets to absolute filepaths, changes in path or file 
   contents between compilation and coverage testing might result in invalid or non-working coverage reports.
-* CoverBee currently loads programs without BTF information, programs relying on BTF to be present will fail the 
-  verifier.
 * CoverBee will add a map named `coverbee_covermap` to the collection, so this name can't be used by the program itself.
