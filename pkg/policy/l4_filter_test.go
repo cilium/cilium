@@ -175,7 +175,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
@@ -222,7 +222,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
@@ -348,7 +348,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)

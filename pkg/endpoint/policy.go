@@ -91,7 +91,7 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 // proxyID returns a unique string to identify a proxy mapping.
 // Must be called with e.mutex held.
 func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
-	port := uint16(l4.Port)
+	port := l4.Port
 	if port == 0 && l4.PortName != "" {
 		port = e.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 		if port == 0 {

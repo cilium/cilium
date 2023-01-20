@@ -1785,7 +1785,7 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
@@ -1830,7 +1830,7 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAllNamedPort(c *C) {
 
 	filter, ok := l4IngressPolicy["port-80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 0)
+	c.Assert(filter.Port, Equals, uint16(0))
 	c.Assert(filter.PortName, Equals, "port-80")
 	c.Assert(filter.Ingress, Equals, true)
 
@@ -1902,7 +1902,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAll(c *C) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
@@ -1958,7 +1958,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowWorld(c *C) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
@@ -2013,7 +2013,7 @@ func (ds *PolicyTestSuite) TestEgressL4AllowAllEntity(c *C) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, false)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
@@ -2188,7 +2188,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
@@ -2215,7 +2215,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filterL7, ok := l4IngressPolicy["7000/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filterL7.Port, Equals, 7000)
+	c.Assert(filterL7.Port, Equals, uint16(7000))
 	c.Assert(filterL7.Ingress, Equals, true)
 
 	c.Assert(len(filterL7.PerSelectorPolicies), Equals, 1)
@@ -2295,7 +2295,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
@@ -2306,7 +2306,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filterL7, ok = l4IngressPolicy["7000/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filterL7.Port, Equals, 7000)
+	c.Assert(filterL7.Port, Equals, uint16(7000))
 	c.Assert(filterL7.Ingress, Equals, true)
 
 	c.Assert(len(filterL7.PerSelectorPolicies), Equals, 1)
@@ -2360,7 +2360,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
@@ -2414,7 +2414,7 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
@@ -2473,7 +2473,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 2)
@@ -2542,7 +2542,7 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
-	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Port, Equals, uint16(80))
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
