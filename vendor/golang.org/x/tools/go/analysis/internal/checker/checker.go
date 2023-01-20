@@ -11,6 +11,7 @@ package checker
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"flag"
 	"fmt"
 	"go/format"
@@ -50,6 +51,9 @@ var (
 	// Log files for optional performance tracing.
 	CPUProfile, MemProfile, Trace string
 
+	// IncludeTests indicates whether test files should be analyzed too.
+	IncludeTests = true
+
 	// Fix determines whether to apply all suggested fixes.
 	Fix bool
 )
@@ -64,6 +68,7 @@ func RegisterFlags() {
 	flag.StringVar(&CPUProfile, "cpuprofile", "", "write CPU profile to this file")
 	flag.StringVar(&MemProfile, "memprofile", "", "write memory profile to this file")
 	flag.StringVar(&Trace, "trace", "", "write trace log to this file")
+	flag.BoolVar(&IncludeTests, "test", IncludeTests, "indicates whether test files should be analyzed, too")
 
 	flag.BoolVar(&Fix, "fix", false, "apply all suggested fixes")
 }
@@ -129,8 +134,13 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 	allSyntax := needFacts(analyzers)
 	initial, err := load(args, allSyntax)
 	if err != nil {
-		log.Print(err)
-		return 1 // load errors
+		if _, ok := err.(typeParseError); !ok {
+			// Fail when some of the errors are not
+			// related to parsing nor typing.
+			log.Print(err)
+			return 1
+		}
+		// TODO: filter analyzers based on RunDespiteError?
 	}
 
 	// Print the results.
@@ -139,11 +149,17 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 	if Fix {
 		applyFixes(roots)
 	}
-
 	return printDiagnostics(roots)
 }
 
-// load loads the initial packages.
+// typeParseError represents a package load error
+// that is related to typing and parsing.
+type typeParseError struct {
+	error
+}
+
+// load loads the initial packages. If all loading issues are related to
+// typing and parsing, the returned error is of type typeParseError.
 func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	mode := packages.LoadSyntax
 	if allSyntax {
@@ -151,20 +167,45 @@ func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	}
 	conf := packages.Config{
 		Mode:  mode,
-		Tests: true,
+		Tests: IncludeTests,
 	}
 	initial, err := packages.Load(&conf, patterns...)
 	if err == nil {
-		if n := packages.PrintErrors(initial); n > 1 {
-			err = fmt.Errorf("%d errors during loading", n)
-		} else if n == 1 {
-			err = fmt.Errorf("error during loading")
-		} else if len(initial) == 0 {
+		if len(initial) == 0 {
 			err = fmt.Errorf("%s matched no packages", strings.Join(patterns, " "))
+		} else {
+			err = loadingError(initial)
 		}
 	}
-
 	return initial, err
+}
+
+// loadingError checks for issues during the loading of initial
+// packages. Returns nil if there are no issues. Returns error
+// of type typeParseError if all errors, including those in
+// dependencies, are related to typing or parsing. Otherwise,
+// a plain error is returned with an appropriate message.
+func loadingError(initial []*packages.Package) error {
+	var err error
+	if n := packages.PrintErrors(initial); n > 1 {
+		err = fmt.Errorf("%d errors during loading", n)
+	} else if n == 1 {
+		err = errors.New("error during loading")
+	} else {
+		// no errors
+		return nil
+	}
+	all := true
+	packages.Visit(initial, nil, func(pkg *packages.Package) {
+		for _, err := range pkg.Errors {
+			typeOrParse := err.Kind == packages.TypeError || err.Kind == packages.ParseError
+			all = all && typeOrParse
+		}
+	})
+	if all {
+		return typeParseError{err}
+	}
+	return err
 }
 
 // TestAnalyzer applies an analysis to a set of packages (and their
@@ -537,7 +578,6 @@ type action struct {
 	deps         []*action
 	objectFacts  map[objectFactKey]analysis.Fact
 	packageFacts map[packageFactKey]analysis.Fact
-	inputs       map[*analysis.Analyzer]interface{}
 	result       interface{}
 	diagnostics  []analysis.Diagnostic
 	err          error
@@ -725,7 +765,7 @@ func inheritFacts(act, dep *action) {
 		if serialize {
 			encodedFact, err := codeFact(fact)
 			if err != nil {
-				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
+				log.Panicf("internal error: encoding of %T fact failed in %v: %v", fact, act, err)
 			}
 			fact = encodedFact
 		}
@@ -789,7 +829,7 @@ func codeFact(fact analysis.Fact) (analysis.Fact, error) {
 
 // exportedFrom reports whether obj may be visible to a package that imports pkg.
 // This includes not just the exported members of pkg, but also unexported
-// constants, types, fields, and methods, perhaps belonging to oether packages,
+// constants, types, fields, and methods, perhaps belonging to other packages,
 // that find there way into the API.
 // This is an overapproximation of the more accurate approach used by
 // gc export data, which walks the type graph, but it's much simpler.
@@ -853,7 +893,7 @@ func (act *action) exportObjectFact(obj types.Object, fact analysis.Fact) {
 func (act *action) allObjectFacts() []analysis.ObjectFact {
 	facts := make([]analysis.ObjectFact, 0, len(act.objectFacts))
 	for k := range act.objectFacts {
-		facts = append(facts, analysis.ObjectFact{k.obj, act.objectFacts[k]})
+		facts = append(facts, analysis.ObjectFact{Object: k.obj, Fact: act.objectFacts[k]})
 	}
 	return facts
 }
@@ -890,7 +930,7 @@ func (act *action) exportPackageFact(fact analysis.Fact) {
 func factType(fact analysis.Fact) reflect.Type {
 	t := reflect.TypeOf(fact)
 	if t.Kind() != reflect.Ptr {
-		log.Fatalf("invalid Fact type: got %T, want pointer", t)
+		log.Fatalf("invalid Fact type: got %T, want pointer", fact)
 	}
 	return t
 }
@@ -899,7 +939,7 @@ func factType(fact analysis.Fact) reflect.Type {
 func (act *action) allPackageFacts() []analysis.PackageFact {
 	facts := make([]analysis.PackageFact, 0, len(act.packageFacts))
 	for k := range act.packageFacts {
-		facts = append(facts, analysis.PackageFact{k.pkg, act.packageFacts[k]})
+		facts = append(facts, analysis.PackageFact{Package: k.pkg, Fact: act.packageFacts[k]})
 	}
 	return facts
 }
