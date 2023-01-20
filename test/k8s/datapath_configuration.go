@@ -333,7 +333,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		testIPMasqAgent := func() {
 			Expect(testPodHTTPToOutside(kubectl,
 				fmt.Sprintf("http://%s:80", nodeIP), false, true, false)).Should(BeTrue(),
-				"Connectivity test to http://%s failed", nodeIP)
+				"IPv4 Connectivity test to http://%s failed", nodeIP)
 
 			// remove nonMasqueradeCIDRs from the ConfigMap
 			kubectl.Patch(helpers.CiliumNamespace, "configMap", "ip-masq-agent", `{"data":{"config":"{\"nonMasqueradeCIDRs\":[]}"}}`)
@@ -343,7 +343,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// Check that requests to the echoserver from client pods are masqueraded.
 			Expect(testPodHTTPToOutside(kubectl,
 				fmt.Sprintf("http://%s:80", nodeIP), true, false, false)).Should(BeTrue(),
-				"Connectivity test to http://%s failed", nodeIP)
+				"IPv4 Connectivity test to http://%s failed", nodeIP)
+
+			Expect(testPodHTTPToOutside(kubectl,
+				fmt.Sprintf("http://%s:80", nodeIP), true, false, true)).Should(BeTrue(),
+				"IPv6 Connectivity test to http://%s failed", nodeIP)
 		}
 
 		It("DirectRouting", func() {
