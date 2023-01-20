@@ -431,7 +431,7 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port     int    `json:"port"`
+	Port     uint16 `json:"port"`
 	PortName string `json:"port-name,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
@@ -493,7 +493,7 @@ func (l4 *L4Filter) GetIngress() bool {
 
 // GetPort returns the port at which the L4Filter applies as a uint16.
 func (l4 *L4Filter) GetPort() uint16 {
-	return uint16(l4.Port)
+	return l4.Port
 }
 
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
@@ -512,7 +512,7 @@ type ChangeState struct {
 // 'redirects' is the map of currently realized redirects, it is used to find the proxy port for any redirects.
 // SelectorCache is also in read-locked state during this call.
 func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirects map[string]uint16, changes ChangeState) {
-	port := uint16(l4.Port)
+	port := l4.Port
 	proto := uint8(l4.U8Proto)
 
 	direction := trafficdirection.Egress
@@ -776,8 +776,8 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
-		Port:                int(p),   // 0 for L3-only rules and named ports
-		PortName:            portName, // non-"" for named ports
+		Port:                uint16(p), // 0 for L3-only rules and named ports
+		PortName:            portName,  // non-"" for named ports
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),

@@ -1790,7 +1790,7 @@ func TestIngressL4AllowAll(t *testing.T) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
@@ -1835,7 +1835,7 @@ func TestIngressL4AllowAllNamedPort(t *testing.T) {
 
 	filter, ok := l4IngressPolicy["port-80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 0, filter.Port)
+	require.Equal(t, uint16(0), filter.Port)
 	require.Equal(t, "port-80", filter.PortName)
 	require.True(t, filter.Ingress)
 
@@ -1907,7 +1907,7 @@ func TestEgressL4AllowAll(t *testing.T) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
@@ -1963,7 +1963,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
 	require.Equal(t, 3, len(filter.PerSelectorPolicies))
@@ -2018,7 +2018,7 @@ func TestEgressL4AllowAllEntity(t *testing.T) {
 
 	filter, ok := l4EgressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.Equal(t, false, filter.Ingress)
 
 	require.Equal(t, 1, len(filter.PerSelectorPolicies))
@@ -2193,7 +2193,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
@@ -2220,7 +2220,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filterL7, ok := l4IngressPolicy["7000/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 7000, filterL7.Port)
+	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
 	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
@@ -2300,7 +2300,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
@@ -2311,7 +2311,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filterL7, ok = l4IngressPolicy["7000/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 7000, filterL7.Port)
+	require.Equal(t, uint16(7000), filterL7.Port)
 	require.True(t, filterL7.Ingress)
 
 	require.Equal(t, 1, len(filterL7.PerSelectorPolicies))
@@ -2365,7 +2365,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
@@ -2419,7 +2419,7 @@ func TestL4WildcardMerge(t *testing.T) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
@@ -2478,7 +2478,7 @@ func TestL3L4L7Merge(t *testing.T) {
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, 2, len(filter.PerSelectorPolicies))
@@ -2547,7 +2547,7 @@ func TestL3L4L7Merge(t *testing.T) {
 
 	filter, ok = l4IngressPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.Equal(t, ParserTypeHTTP, filter.L7Parser)
