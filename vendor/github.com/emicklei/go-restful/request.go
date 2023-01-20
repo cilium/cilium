@@ -17,6 +17,7 @@ type Request struct {
 	pathParameters    map[string]string
 	attributes        map[string]interface{} // for storing request-scoped values
 	selectedRoutePath string                 // root path + route path that matched the request, e.g. /meetings/{id}/attendees
+	selectedRoute     *Route
 }
 
 func NewRequest(httpRequest *http.Request) *Request {
@@ -114,5 +115,10 @@ func (r Request) Attribute(name string) interface{} {
 
 // SelectedRoutePath root path + route path that matched the request, e.g. /meetings/{id}/attendees
 func (r Request) SelectedRoutePath() string {
-	return r.selectedRoutePath
+	return r.selectedRoute.Path
+}
+
+// SelectedRoute return the Route that selected by the container
+func (r Request) SelectedRoute() RouteReader {
+	return routeAccessor{route: r.selectedRoute}
 }
