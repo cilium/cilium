@@ -400,7 +400,7 @@ This way, the agent will use the first IPv4 assigned to the interface for the
 default route.
 
 To let the policy select the node designated to be the Egress Gateway, apply the
-label ``egress-node: test`` to it:
+label ``egress-node: true`` to it:
 
 .. code-block:: shell-session
 
