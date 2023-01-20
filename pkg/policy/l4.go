@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"unsafe"
 
@@ -392,7 +393,9 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port     uint16 `json:"port"`
+	Port uint16 `json:"port"`
+	// EndPort is zero for a singular port
+	EndPort  uint16 `json:"endPort"`
 	PortName string `json:"port-name,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
@@ -473,6 +476,8 @@ func (l4 *L4Filter) GetListener() string {
 // To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
 // DenyPreferredInsert() instead of directly inserting the value to the map.
 // PolicyOwner (aka Endpoint) is locked during this call.
+//
+// TODO: Implement generating LPM masks for the given port range via PortRangeToMaskedPorts()
 func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities) MapState {
 	port := l4Filter.Port
 	proto := uint8(l4Filter.U8Proto)
@@ -497,6 +502,10 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		}
 	}
 
+	// TODO: Use PortRangeToMaskedPorts() to derive a set of ports and masks
+	// from l4Filter.Port and l4Filter.EndPort, and create Keys for each of them,
+	// keeping the prefix length with the Key type.
+	// See also the current use of ToBPFKey() from endpoint/bpf.go.
 	keyToAdd := Key{
 		Identity:         0,    // Set in the loop below (if not wildcard)
 		DestPort:         port, // NOTE: Port is in host byte-order!
@@ -697,19 +706,27 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 	portName := ""
 	p := uint64(0)
+	endPort := p
 	if iana.IsSvcName(port.Port) {
 		portName = port.Port
 	} else {
 		// already validated via PortRule.Validate()
-		p, _ = strconv.ParseUint(port.Port, 0, 16)
+		ports := strings.Split(port.Port, "-")
+		if len(ports) >= 1 {
+			p, _ = strconv.ParseUint(ports[0], 0, 16)
+		}
+		if len(ports) == 2 {
+			endPort, _ = strconv.ParseUint(ports[1], 0, 16)
+		}
 	}
 
 	// already validated via L4Proto.Validate(), never "ANY"
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
-		Port:                uint16(p), // 0 for L3-only rules and named ports
-		PortName:            portName,  // non-"" for named ports
+		Port:                uint16(p),       // 0 for L3-only rules and named ports
+		EndPort:             uint16(endPort), // 0 for a single port, >= 'Port' for a range
+		PortName:            portName,        // non-"" for named ports
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
@@ -943,12 +960,15 @@ func (l4 *L4Filter) matchesLabels(labels labels.LabelArray) (bool, bool) {
 // addL4Filter adds 'filterToMerge' into the 'resMap'. Returns an error if it
 // the 'filterToMerge' can't be merged with an existing filter for the same
 // port and proto.
+// TODO: Port ranges are split whenever the new filter's range partially overlaps
+// with an existing filter => Filters in al L4PolicyMap never have overlapping port ranges!
 func addL4Filter(policyCtx PolicyContext,
 	ctx *SearchContext, resMap L4PolicyMap,
 	p api.PortProtocol, proto api.L4Proto,
 	filterToMerge *L4Filter,
 	ruleLabels labels.LabelArray) error {
 
+	// TODO: Consider if keying by the start port is fine if port ranges can't overlap?
 	key := p.Port + "/" + string(proto)
 	existingFilter, ok := resMap[key]
 	if !ok {

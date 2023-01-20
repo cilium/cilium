@@ -730,6 +730,14 @@ func (in *NetworkPolicyPort) DeepEqual(other *NetworkPolicyPort) bool {
 		}
 	}
 
+	if (in.EndPort == nil) != (other.EndPort == nil) {
+		return false
+	} else if in.EndPort != nil {
+		if *in.EndPort != *other.EndPort {
+			return false
+		}
+	}
+
 	return true
 }
 
