@@ -793,7 +793,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 }
 
 func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
-	port := uint16(l4.Port)
+	port := l4.Port
 	proto := uint8(l4.U8Proto)
 
 	// resolve named port

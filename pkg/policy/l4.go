@@ -392,7 +392,7 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port     int    `json:"port"`
+	Port     uint16 `json:"port"`
 	PortName string `json:"port-name,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
@@ -454,7 +454,7 @@ func (l4 *L4Filter) GetIngress() bool {
 
 // GetPort returns the port at which the L4Filter applies as a uint16.
 func (l4 *L4Filter) GetPort() uint16 {
-	return uint16(l4.Port)
+	return l4.Port
 }
 
 // GetListener returns the optional listener name.
@@ -474,7 +474,7 @@ func (l4 *L4Filter) GetListener() string {
 // DenyPreferredInsert() instead of directly inserting the value to the map.
 // PolicyOwner (aka Endpoint) is locked during this call.
 func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities) MapState {
-	port := uint16(l4Filter.Port)
+	port := l4Filter.Port
 	proto := uint8(l4Filter.U8Proto)
 
 	logger := log
@@ -708,8 +708,8 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
-		Port:                int(p),   // 0 for L3-only rules and named ports
-		PortName:            portName, // non-"" for named ports
+		Port:                uint16(p), // 0 for L3-only rules and named ports
+		PortName:            portName,  // non-"" for named ports
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
@@ -1145,7 +1145,7 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
 	direction trafficdirection.TrafficDirection, redirect, isDeny bool, authType AuthType) {
-	port := uint16(l4Filter.Port)
+	port := l4Filter.Port
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.DerivedFromRules
 
