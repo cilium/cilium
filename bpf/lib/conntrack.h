@@ -540,15 +540,6 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 	return CTX_ACT_OK;
 }
 
-static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 type,
-						 const struct ipv4_ct_tuple *tuple,
-						 __u32 rev_nat_index, int dir)
-{
-	__be32 addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
-
-	cilium_dbg(ctx, type, addr, rev_nat_index);
-}
-
 static __always_inline int
 ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		  struct ipv4_ct_tuple *tuple)
