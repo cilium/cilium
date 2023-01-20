@@ -2,7 +2,7 @@ name: Image CI Build
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - synchronize
@@ -78,7 +78,7 @@ jobs:
 
       # v1.12 branch pushes
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_v1_12
         with:
@@ -96,7 +96,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_v1_12_detect_race_condition
         with:
@@ -117,7 +117,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_v1_12_unstripped
         with:
@@ -136,7 +136,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
@@ -149,7 +149,7 @@ jobs:
 
       # PR updates
       - name: CI Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_pr
         with:
@@ -163,14 +163,14 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
           echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
 
       - name: CI race detection Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_pr_detect_race_condition
         with:
@@ -187,7 +187,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
         id: docker_build_ci_pr_unstripped
         with:
@@ -202,7 +202,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Image Releases digests
-        if: ${{ github.event_name == 'pull_request_target' }}
+        if: ${{ github.event_name == 'pull_request' }}
         shell: bash
         run: |
           mkdir -p image-digest/
