@@ -49,6 +49,16 @@ minor release, corresponding image pull tags and their release notes:
 | `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2022-12-16 | ``quay.io/cilium/cilium:v1.10.18`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.18>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
+Software Bill of Materials
+--------------------------
+
+Starting with Cilium version 1.13.0, all images include a Software Bill of
+Materials (SBOM). The SBOM is generated in `SPDX`_ format. More information
+on this is available on `Cilium SBOM`_.
+
+.. _`SPDX`: https://spdx.dev/
+.. _`Cilium SBOM`: https://docs.cilium.io/en/latest/configuration/sbom/
+
 Functionality Overview
 ======================
 
