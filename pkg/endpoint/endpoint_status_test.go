@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
@@ -91,6 +92,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 			key := policy.Key{
 				Identity:         uint32(i),
 				DestPort:         uint16(80 + n),
+				PortMask:         policyapi.FullPortMask,
 				TrafficDirection: trafficdirection.Ingress.Uint8(),
 			}
 			e.desiredPolicy.GetPolicyMap().Insert(key, policy.MapStateEntry{})
@@ -102,6 +104,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 			key := policy.Key{
 				Identity:         uint32(i + 30000),
 				DestPort:         uint16(80 + n),
+				PortMask:         policyapi.FullPortMask,
 				TrafficDirection: trafficdirection.Egress.Uint8(),
 			}
 			e.desiredPolicy.GetPolicyMap().Insert(key, policy.MapStateEntry{})
@@ -402,6 +405,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 			t := policy.Key{
 				Identity:         arg.identity,
 				DestPort:         arg.destPort,
+				PortMask:         policyapi.FullPortMask,
 				Nexthdr:          arg.nexthdr,
 				TrafficDirection: arg.direction.Uint8(),
 			}

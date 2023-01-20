@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -396,7 +397,9 @@ func (a L7ParserType) Merge(b L7ParserType) (L7ParserType, error) {
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port     uint16 `json:"port"`
+	Port uint16 `json:"port"`
+	// EndPort is zero for a singular port
+	EndPort  uint16 `json:"endPort"`
 	PortName string `json:"port-name,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
@@ -515,11 +518,17 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 		}
 	}
 
-	keyToAdd := Key{
-		Identity:         0,    // Set in the loop below (if not wildcard)
-		DestPort:         port, // NOTE: Port is in host byte-order!
-		Nexthdr:          proto,
-		TrafficDirection: direction.Uint8(),
+	// See also the current use of ToBPFKey() from endpoint/bpf.go.
+	maskedPorts := PortRangeToMaskedPorts(port, l4Filter.EndPort)
+	var keysToAdd []Key
+	for _, mp := range maskedPorts {
+		keysToAdd = append(keysToAdd, Key{
+			Identity:         0,       // Set in the loop below (if not wildcard)
+			DestPort:         mp.port, // NOTE: Port is in host byte-order!
+			PortMask:         mp.mask,
+			Nexthdr:          proto,
+			TrafficDirection: direction.Uint8(),
+		})
 	}
 
 	// find the L7 rules for the wildcard entry, if any
@@ -550,16 +559,18 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 		hasAuth, authType := currentRule.GetAuthType()
 		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, hasAuth, authType)
 		if cs.IsWildcard() {
-			keyToAdd.Identity = 0
-			if entryCb(keyToAdd, &entry) {
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			for _, keyToAdd := range keysToAdd {
+				keyToAdd.Identity = 0
+				if entryCb(keyToAdd, &entry) {
+					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 
-				if port == 0 {
-					// Allow-all
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
-				} else {
-					// L4 allow
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+					if port == 0 {
+						// Allow-all
+						logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+					} else {
+						// L4 allow
+						logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
+					}
 				}
 			}
 			continue
@@ -580,20 +591,22 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 			}
 		}
 		for _, id := range idents {
-			keyToAdd.Identity = id.Uint32()
-			if entryCb(keyToAdd, &entry) {
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
-				// If Cilium is in dual-stack mode then the "World" identity
-				// needs to be split into two identities to represent World
-				// IPv6 and IPv4 traffic distinctly from one another.
-				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
-					if entryCb(keyToAdd, &entry) {
-						p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
-					}
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
-					if entryCb(keyToAdd, &entry) {
-						p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			for _, keyToAdd := range keysToAdd {
+				keyToAdd.Identity = id.Uint32()
+				if entryCb(keyToAdd, &entry) {
+					p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+					// If Cilium is in dual-stack mode then the "World" identity
+					// needs to be split into two identities to represent World
+					// IPv6 and IPv4 traffic distinctly from one another.
+					if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
+						keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
+						if entryCb(keyToAdd, &entry) {
+							p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+						}
+						keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
+						if entryCb(keyToAdd, &entry) {
+							p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+						}
 					}
 				}
 			}
@@ -733,19 +746,27 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 	portName := ""
 	p := uint64(0)
+	endPort := p
 	if iana.IsSvcName(port.Port) {
 		portName = port.Port
 	} else {
 		// already validated via PortRule.Validate()
-		p, _ = strconv.ParseUint(port.Port, 0, 16)
+		ports := strings.Split(port.Port, "-")
+		if len(ports) >= 1 {
+			p, _ = strconv.ParseUint(ports[0], 0, 16)
+		}
+		if len(ports) == 2 {
+			endPort, _ = strconv.ParseUint(ports[1], 0, 16)
+		}
 	}
 
 	// already validated via L4Proto.Validate(), never "ANY"
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
-		Port:                uint16(p), // 0 for L3-only rules and named ports
-		PortName:            portName,  // non-"" for named ports
+		Port:                uint16(p),       // 0 for L3-only rules and named ports
+		EndPort:             uint16(endPort), // 0 for a single port, >= 'Port' for a range
+		PortName:            portName,        // non-"" for named ports
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),

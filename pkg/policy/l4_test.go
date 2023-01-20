@@ -327,6 +327,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 
 	expectedEgress := []string{`{
   "port": 8080,
+  "endPort": 0,
   "protocol": "TCP"
 }`}
 	sort.StringSlice(expectedEgress).Sort()
@@ -341,6 +342,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 
 	expectedIngress := []string{`{
   "port": 80,
+  "endPort": 0,
   "protocol": "TCP",
   "l7-rules": [
     {
@@ -357,6 +359,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 }`,
 		`{
   "port": 9090,
+  "endPort": 0,
   "protocol": "TCP",
   "l7-rules": [
     {
@@ -378,6 +381,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 }`,
 		`{
   "port": 8080,
+  "endPort": 0,
   "protocol": "TCP",
   "l7-rules": [
     {

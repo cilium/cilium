@@ -410,11 +410,27 @@ func (pp *PortProtocol) sanitize() (isZero bool, err error) {
 	if iana.IsSvcName(pp.Port) {
 		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
 	} else {
-		p, err := strconv.ParseUint(pp.Port, 0, 16)
+		ports := strings.Split(pp.Port, "-")
+		if len(ports) < 1 || len(ports) > 2 {
+			return isZero, fmt.Errorf("Unable to parse port")
+		}
+		p, err := strconv.ParseUint(ports[0], 0, 16)
 		if err != nil {
 			return isZero, fmt.Errorf("Unable to parse port: %s", err)
 		}
 		isZero = p == 0
+		if len(ports) == 2 {
+			if isZero {
+				return isZero, fmt.Errorf("Port range can not start with zero port")
+			}
+			endP, err := strconv.ParseUint(ports[1], 0, 16)
+			if err != nil {
+				return isZero, fmt.Errorf("Unable to parse end port: %s", err)
+			}
+			if endP < p {
+				return isZero, fmt.Errorf("Invalid port range: end port may not be less than start port")
+			}
+		}
 	}
 
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))

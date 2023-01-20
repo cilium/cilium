@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -60,6 +61,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	policyKey := policy.Key{
 		Identity:         uint32(remoteID),
 		DestPort:         uint16(dstPort),
+		PortMask:         api.FullPortMask,
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}
@@ -120,6 +122,7 @@ func TestCorrelatePolicy(t *testing.T) {
 	policyKey = policy.Key{
 		Identity:         uint32(localID),
 		DestPort:         uint16(dstPort),
+		PortMask:         api.FullPortMask,
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}

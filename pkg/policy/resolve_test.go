@@ -517,8 +517,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		},
 		PolicyOwner: DummyOwner{},
 		policyMapState: newMapState(map[Key]MapStateEntry{
-			{TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
-			{DestPort: 80, Nexthdr: 6}:                          rule1MapStateEntry,
+			{PortMask: api.FullPortMask, TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
+			{DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}:                          rule1MapStateEntry,
 		}),
 	}
 
@@ -669,12 +669,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		},
 		PolicyOwner: DummyOwner{},
 		policyMapState: newMapState(map[Key]MapStateEntry{
-			{TrafficDirection: trafficdirection.Egress.Uint8()}:                              allowEgressMapStateEntry,
-			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}:     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: uint32(identity.ReservedIdentityWorldIPv4), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
-			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
+			{PortMask: api.FullPortMask, TrafficDirection: trafficdirection.Egress.Uint8()}:                              allowEgressMapStateEntry,
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}:     rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv4), DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: uint32(identity.ReservedIdentityWorldIPv6), DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
+			{Identity: 192, DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
+			{Identity: 194, DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}:                                        rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 		}),
 	}
 
@@ -690,11 +690,11 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	c.Assert(policy.policyMapChanges.changes, IsNil)
 
 	c.Assert(adds, checker.Equals, Keys{
-		{Identity: 192, DestPort: 80, Nexthdr: 6}: {},
-		{Identity: 194, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 192, DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}: {},
+		{Identity: 194, DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}: {},
 	})
 	c.Assert(deletes, checker.Equals, Keys{
-		{Identity: 193, DestPort: 80, Nexthdr: 6}: {},
+		{Identity: 193, DestPort: 80, PortMask: api.FullPortMask, Nexthdr: 6}: {},
 	})
 
 	// Assign an empty mutex so that checker.Equal does not complain about the
@@ -760,6 +760,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {},
@@ -782,6 +783,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {},
@@ -804,6 +806,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {IsDeny: true},
@@ -826,6 +829,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
 					}: {IsDeny: true},
@@ -848,6 +852,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {IsDeny: true},
@@ -870,6 +875,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					{
 						Identity:         0,
 						DestPort:         0,
+						PortMask:         api.FullPortMask,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: {IsDeny: true},

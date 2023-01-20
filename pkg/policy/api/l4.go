@@ -21,6 +21,9 @@ const (
 	ProtoAny    L4Proto = "ANY"
 
 	PortProtocolAny = "0/ANY"
+
+	// FullPortMask is the mask to select only one port.
+	FullPortMask uint16 = 0xffff
 )
 
 // IsAny returns true if an L4Proto represents ANY protocol
@@ -30,14 +33,10 @@ func (l4 L4Proto) IsAny() bool {
 
 // PortProtocol specifies an L4 port with an optional transport protocol
 type PortProtocol struct {
-	// Port is an L4 port number. For now the string will be strictly
-	// parsed as a single uint16. In the future, this field may support
-	// ranges in the form "1024-2048
-	// Port can also be a port name, which must contain at least one [a-z],
-	// and may also contain [0-9] and '-' anywhere except adjacent to another
-	// '-' or in the beginning or the end.
+	// Port can be an L4 port number, or a range in the form "1024-2048",
+	// or a name in the form of "http" or "http-8080".
 	//
-	// +kubebuilder:validation:Pattern=`^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$`
+	// +kubebuilder:validation:Pattern=`^((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4})(-(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[0-9]{1,4}))?)|([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*$`
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol

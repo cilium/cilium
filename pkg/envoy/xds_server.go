@@ -1479,7 +1479,7 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 		if port == 0 && l4.PortName != "" {
 			port = ep.GetNamedPort(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
 			if port == 0 {
-				continue
+				continue // Skip if a named port can not be resolved (yet)
 			}
 		}
 
@@ -1556,8 +1556,11 @@ func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4Po
 			continue
 		}
 
+		// NPDS supports port ranges, but range overlaps in the policy are NOT allowed.
+		// Envoy will reject a policy if any overlaps exist.
 		PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
 			Port:     uint32(port),
+			EndPort:  uint32(l4.EndPort),
 			Protocol: protocol,
 			Rules:    SortPortNetworkPolicyRules(rules),
 		})

@@ -41,7 +41,7 @@ func FuzzResolveEgressPolicy(f *testing.F) {
 func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		keys := newMapState(nil)
-		key := Key{}
+		key := Key{PortMask: api.FullPortMask}
 		entry := MapStateEntry{}
 		ff := fuzz.NewConsumer(data)
 		ff.GenerateStruct(&keys)

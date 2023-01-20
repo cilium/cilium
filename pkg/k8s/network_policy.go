@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -299,6 +300,9 @@ func parsePorts(ports []slim_networkingv1.NetworkPolicyPort) []api.PortRule {
 		portStr := "0"
 		if port.Port != nil {
 			portStr = port.Port.String()
+		}
+		if port.EndPort != nil {
+			portStr += "-" + strconv.FormatInt(int64(*port.EndPort), 10)
 		}
 
 		portRule := api.PortRule{

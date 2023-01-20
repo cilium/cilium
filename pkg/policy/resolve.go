@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -265,6 +266,7 @@ func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
 	key := Key{
 		Identity: uint32(identity),
+		PortMask: api.FullPortMask,
 	}
 
 	if !p.IngressPolicyEnabled {
