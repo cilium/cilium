@@ -103,6 +103,7 @@ jobs:
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
+          version: v0.9.1
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
