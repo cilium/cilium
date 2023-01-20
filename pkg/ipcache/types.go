@@ -40,9 +40,7 @@ type IPMetadata any
 func (m *resourceInfo) merge(info IPMetadata, src source.Source) {
 	switch info := info.(type) {
 	case labels.Labels:
-		l := labels.NewLabelsFromModel(nil)
-		l.MergeLabels(info)
-		m.labels = l
+		m.labels = labels.NewFrom(info)
 	default:
 		log.Errorf("BUG: Invalid IPMetadata passed to ipinfo.merge(): %+v", info)
 		return
