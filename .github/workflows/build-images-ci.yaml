@@ -123,7 +123,6 @@ jobs:
           push: false
           platforms: linux/amd64
           target: import-cache
-          version: v0.9.1
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@9becc617647dfa20ae7b1151972e9b3a2c338a2b
@@ -147,7 +146,6 @@ jobs:
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -170,7 +168,6 @@ jobs:
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -191,7 +188,6 @@ jobs:
           build-args: |
             NOSTRIP=1
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: Sign Container Images
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -229,7 +225,6 @@ jobs:
           target: release
           build-args: |
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
@@ -248,7 +243,6 @@ jobs:
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
@@ -265,7 +259,6 @@ jobs:
           build-args: |
             NOSTRIP=1
             OPERATOR_VARIANT=${{ matrix.name }}
-          version: v0.9.1
 
       - name: Sign Container Images
         if: ${{ github.event_name == 'pull_request_target' }}
@@ -304,7 +297,6 @@ jobs:
           outputs: type=local,dest=/tmp/docker-cache-${{ matrix.name }}
           platforms: linux/amd64
           target: export-cache
-          version: v0.9.1
 
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache in GitHub cache path
