@@ -38,6 +38,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8c0edbc76e98fa90f69d9a2c020dcb50019dc325
+        with:
+          version: v0.9.1
 
       - name: Set up QEMU
         id: qemu
