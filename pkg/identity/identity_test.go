@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"net"
 	"net/netip"
 	"testing"
 
@@ -232,6 +233,126 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 			assert.NotNil(t, id)
 			assert.Equal(t, tt.want.id, id.ID)
 			assert.Equal(t, tt.want.labels, id.Labels)
+		})
+	}
+}
+
+func TestIPIdentityPair_PrefixString(t *testing.T) {
+	ipv6Mask := make(net.IPMask, net.IPv6len)
+	for i := range ipv6Mask {
+		ipv6Mask[i] = 255
+	}
+
+	tests := []struct {
+		name     string
+		expected string
+		pair     *IPIdentityPair
+	}{
+		{
+			name:     "IPv4 with mask",
+			expected: "10.1.128.15/32",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				Mask:         net.IPv4Mask(255, 255, 255, 255),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name:     "IPv4 without mask",
+			expected: "10.1.128.15",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("10.1.128.15"),
+				HostIP:       net.ParseIP("10.1.128.15"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name:     "IPv4 encoded as IPv6 with mask",
+			expected: "10.1.128.15/128",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("::ffff:a01:800f"),
+				Mask:         ipv6Mask,
+				HostIP:       net.ParseIP("::ffff:a01:800f"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name:     "IPv4 encoded as IPv6 without mask",
+			expected: "10.1.128.15",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("::ffff:a01:800f"),
+				HostIP:       net.ParseIP("::ffff:a01:800f"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name:     "IPv6 local with mask",
+			expected: "fd12:3456:789a:1::1/128",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("fd12:3456:789a:1::1"),
+				Mask:         ipv6Mask,
+				HostIP:       net.ParseIP("fd12:3456:789a:1::1"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+		{
+			name:     "IPv6 local without mask",
+			expected: "fd12:3456:789a:1::1",
+			pair: &IPIdentityPair{
+				IP:           net.ParseIP("fd12:3456:789a:1::1"),
+				HostIP:       net.ParseIP("fd12:3456:789a:1::1"),
+				ID:           1,
+				Key:          3,
+				Metadata:     "metadata",
+				K8sNamespace: "kube-system",
+				K8sPodName:   "pod-name",
+				NamedPorts: []NamedPort{
+					{Name: "port", Port: 8080, Protocol: "TCP"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prefix := tt.pair.PrefixString()
+			assert.Equal(t, len(tt.expected), len(prefix))
+			assert.Equal(t, tt.expected, prefix)
 		})
 	}
 }
