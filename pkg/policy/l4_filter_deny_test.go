@@ -94,7 +94,7 @@ func TestMergeDenyAllL3(t *testing.T) {
 
 	filter, ok := l4IngressDenyPolicy["80/TCP"]
 	require.True(t, ok)
-	require.Equal(t, 80, filter.Port)
+	require.Equal(t, uint16(80), filter.Port)
 	require.True(t, filter.Ingress)
 
 	require.True(t, filter.SelectsAllEndpoints())
