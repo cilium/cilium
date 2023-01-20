@@ -91,6 +91,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-runtime:${{ steps.runtime-tag.outputs.tag }}
+          version: v0.9.1
 
       - name: Sign Container Image Runtime
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
@@ -187,6 +188,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: |
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-builder:${{ steps.builder-tag.outputs.tag }}
+          version: v0.9.1
 
       - name: Sign Container Image Builder
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
