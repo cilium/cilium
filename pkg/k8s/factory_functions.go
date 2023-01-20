@@ -383,7 +383,7 @@ func ConvertToK8sV1LoadBalancerIngress(slimLBIngs []slim_corev1.LoadBalancerIngr
 
 	lbIngs := make([]v1.LoadBalancerIngress, 0, len(slimLBIngs))
 	for _, lbIng := range slimLBIngs {
-		ports := make([]v1.PortStatus, 0, len(lbIng.Ports))
+		var ports []v1.PortStatus
 		for _, port := range lbIng.Ports {
 			ports = append(ports, v1.PortStatus{
 				Port:     port.Port,
