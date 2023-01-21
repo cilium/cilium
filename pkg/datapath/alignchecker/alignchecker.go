@@ -79,7 +79,6 @@ func CheckStructAlignments(path string) error {
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
-			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 		"lb4_affinity_key":       {reflect.TypeOf(lbmap.Affinity4Key{})},
 		"lb6_affinity_key":       {reflect.TypeOf(lbmap.Affinity6Key{})},
@@ -95,6 +94,8 @@ func CheckStructAlignments(path string) error {
 		"srv6_vrf_key6":          {reflect.TypeOf(srv6map.VRFKey6{})},
 		"srv6_policy_key4":       {reflect.TypeOf(srv6map.PolicyKey4{})},
 		"srv6_policy_key6":       {reflect.TypeOf(srv6map.PolicyKey6{})},
+		"tunnel_key":             {reflect.TypeOf(tunnel.TunnelKey{})},
+		"tunnel_value":           {reflect.TypeOf(tunnel.TunnelValue{})},
 		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
 		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
 	}
