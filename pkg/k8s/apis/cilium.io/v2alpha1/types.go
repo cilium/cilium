@@ -17,7 +17,6 @@ import (
 // +kubebuilder:resource:categories={cilium,ciliumpolicy},singular="ciliumegressnatpolicy",path="ciliumegressnatpolicies",scope="Cluster",shortName={cenp}
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:storageversion
-// +kubebuilder:deprecatedversion:warning="CiliumEgressNATPolicy is deprecated and will be removed in version 1.13. Use CiliumEgressGatewayPolicy instead."
 
 type CiliumEgressNATPolicy struct {
 	// +k8s:openapi-gen=false
