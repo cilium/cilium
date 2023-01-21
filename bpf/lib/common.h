@@ -204,10 +204,8 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 #define ENDPOINT_KEY_IPV4 1
 #define ENDPOINT_KEY_IPV6 2
 
-/* Structure representing an IPv4 or IPv6 address, being used for:
- *  - key as endpoints map
- *  - key for tunnel endpoint map
- *  - value for tunnel endpoint map
+/* Structure representing an IPv4 or IPv6 address, being used as the key
+ * for the endpoints map.
  */
 struct endpoint_key {
 	union {
@@ -222,6 +220,36 @@ struct endpoint_key {
 	__u8 family;
 	__u8 key;
 	__u16 pad5;
+} __packed;
+
+struct tunnel_key {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 cluster_id;
+	__u16 pad;
+} __packed;
+
+struct tunnel_value {
+	union {
+		struct {
+			__u32		ip4;
+			__u32		pad1;
+			__u32		pad2;
+			__u32		pad3;
+		};
+		union v6addr	ip6;
+	};
+	__u8 family;
+	__u8 key;
+	__u16 pad;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */

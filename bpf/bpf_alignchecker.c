@@ -91,6 +91,8 @@ int main(void)
 	DECLARE(struct, capture4_wcard, iter);
 	DECLARE(struct, capture6_wcard, iter);
 	DECLARE(struct, capture_rule, iter);
+	DECLARE(struct, tunnel_key, iter);
+	DECLARE(struct, tunnel_value, iter);
 
 	return 0;
 }

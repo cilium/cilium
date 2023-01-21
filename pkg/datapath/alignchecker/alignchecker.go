@@ -74,7 +74,6 @@ func CheckStructAlignments(path string) error {
 		"endpoint_key": {
 			reflect.TypeOf(bpf.EndpointKey{}),
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
-			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
 		"lb4_affinity_key":       {reflect.TypeOf(lbmap.Affinity4Key{})},
 		"lb6_affinity_key":       {reflect.TypeOf(lbmap.Affinity6Key{})},
@@ -86,6 +85,8 @@ func CheckStructAlignments(path string) error {
 		"edt_info":               {reflect.TypeOf(bwmap.EdtInfo{})},
 		"egress_gw_policy_key":   {reflect.TypeOf(egressmap.EgressPolicyKey4{})},
 		"egress_gw_policy_entry": {reflect.TypeOf(egressmap.EgressPolicyVal4{})},
+		"tunnel_key":             {reflect.TypeOf(tunnel.TunnelKey{})},
+		"tunnel_value":           {reflect.TypeOf(tunnel.TunnelValue{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
