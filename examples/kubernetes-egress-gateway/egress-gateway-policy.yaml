@@ -21,7 +21,7 @@ spec:
       matchLabels:
         # The following label selects which node will act as egress gateway for
         # this policy
-        egress-node: test
+        egress-node: true
     # IP used to masquerade traffic leaving the cluster
     egressIP: "192.168.60.100"
     # Alternatively it is possible to:

@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,19 +44,20 @@ func nodeEventsAreEqual(oldNode, newNode *v1.Node) bool {
 
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
 	k.nodesInitOnce.Do(func() {
-		synced := false
+		var synced atomic.Bool
+		synced.Store(false)
 		swg := lock.NewStoppableWaitGroup()
 		k.blockWaitGroupToSyncResources(
 			k.stop,
 			swg,
-			func() bool { return synced },
+			func() bool { return synced.Load() },
 			k8sAPIGroupNodeV1Core,
 		)
 		go k.nodeEventLoop(&synced, swg)
 	})
 }
 
-func (k *K8sWatcher) nodeEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
 	apiGroup := k8sAPIGroupNodeV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -72,7 +74,7 @@ func (k *K8sWatcher) nodeEventLoop(synced *bool, swg *lock.StoppableWaitGroup) {
 			}
 			switch event.Kind {
 			case resource.Sync:
-				*synced = true
+				synced.Store(true)
 			case resource.Upsert:
 				newNode := event.Object
 				if oldNode == nil {

@@ -33,8 +33,7 @@ backward compatibility offered by Kubernetes.
 System Requirements
 ===================
 
-Cilium requires a Linux kernel >= 4.9. See :ref:`admin_system_reqs` for the
-full details on all systems requirements.
+See :ref:`admin_system_reqs` for all of the Cilium system requirements.
 
 Enable CNI in Kubernetes
 ========================

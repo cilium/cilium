@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/ip"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
@@ -243,7 +242,10 @@ func PrefixClusterFromCIDR(c *cidr.CIDR, clusterID uint32) PrefixCluster {
 		return PrefixCluster{}
 	}
 
-	addr := ip.MustAddrFromIP(c.IP)
+	addr, ok := ippkg.AddrFromIP(c.IP)
+	if !ok {
+		return PrefixCluster{}
+	}
 	ones, _ := c.Mask.Size()
 
 	return PrefixCluster{

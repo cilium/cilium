@@ -210,8 +210,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !ctx_skip_nodeport(ctx)) {
+		if (!ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb6(ctx, secctx);
 			/* nodeport_lb6() returns with TC_ACT_REDIRECT for
 			 * traffic to L7 LB. Policy enforcement needs to take
@@ -483,8 +482,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
-		if (!(ctx_get_xfer(ctx, XFER_FLAGS) & XFER_PKT_NO_SVC) &&
-		    !ctx_skip_nodeport(ctx)) {
+		if (!ctx_skip_nodeport(ctx)) {
 			ret = nodeport_lb4(ctx, secctx);
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
@@ -847,7 +845,6 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	} else {
-		ctx_skip_nodeport_clear(ctx);
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
@@ -1040,16 +1037,23 @@ handle_srv6(struct __ctx_buff *ctx)
 __section("from-netdev")
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
-	__u32 __maybe_unused vlan_id;
-
 #ifdef ENABLE_NODEPORT_ACCELERATION
-#ifdef HAVE_ENCAP
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
+#ifdef HAVE_ENCAP
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
+#endif
+#endif
 
+	ctx_skip_nodeport_clear(ctx);
+
+#ifdef ENABLE_NODEPORT_ACCELERATION
+	if (flags & XFER_PKT_NO_SVC)
+		ctx_skip_nodeport_set(ctx);
+
+#ifdef HAVE_ENCAP
 	if (flags & XFER_PKT_SNAT_DONE)
 		ctx_snat_done_set(ctx);
 
@@ -1067,7 +1071,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	/* Filter allowed vlan id's and pass them back to kernel.
 	 */
 	if (ctx->vlan_present) {
-		vlan_id = ctx->vlan_tci & 0xfff;
+		__u32 vlan_id = ctx->vlan_tci & 0xfff;
+
 		if (vlan_id) {
 			if (allow_vlan(ctx->ifindex, vlan_id))
 				return CTX_ACT_OK;
@@ -1194,10 +1199,7 @@ out:
 					      METRIC_EGRESS);
 #endif /* ENABLE_SRV6 */
 
-#if defined(ENABLE_NODEPORT) && \
-	(!defined(ENABLE_DSR) || \
-	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
-	 defined(ENABLE_MASQUERADE))
+#ifdef ENABLE_NODEPORT
 	if (!ctx_snat_done(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,

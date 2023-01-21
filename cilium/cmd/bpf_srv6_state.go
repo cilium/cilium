@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	srv6StateListUsage = "List SRv6 state entries.\n" + lpmWarningMessage
+	srv6StateListUsage = "List SRv6 state entries."
 )
 
 type srv6State struct {
@@ -69,7 +69,7 @@ var bpfSRv6StateListCmd = &cobra.Command{
 		}
 
 		if len(bpfStateList) == 0 {
-			fmt.Fprintf(os.Stderr, "No entries found.\n%v\n", lpmWarningMessage)
+			fmt.Fprintf(os.Stderr, "No entries found.\n")
 		} else {
 			printSRv6StateList(bpfStateList)
 		}
