@@ -91,6 +91,8 @@ int main(void)
 	DECLARE(struct capture4_wcard);
 	DECLARE(struct capture6_wcard);
 	DECLARE(struct capture_rule);
+	DECLARE(struct tunnel_key);
+	DECLARE(struct tunnel_value);
 
 	return 0;
 }

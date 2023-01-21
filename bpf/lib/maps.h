@@ -103,8 +103,8 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct endpoint_key);
-	__type(value, struct endpoint_key);
+	__type(key, struct tunnel_key);
+	__type(value, struct tunnel_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, TUNNEL_ENDPOINT_MAP_SIZE);
 	__uint(map_flags, CONDITIONAL_PREALLOC);
