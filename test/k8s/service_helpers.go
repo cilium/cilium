@@ -213,7 +213,7 @@ func testCurlFromPodInHostNetNSExpectingHTTPCode(kubectl *helpers.Kubectl, url s
 func testCurlFromOutsideWithLocalPort(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, url string, count int, checkSourceIP bool, fromPort int) {
 	var cmd string
 
-	By("Making %d HTTP requests from outside cluster to %q", count, url)
+	By("Making %d HTTP requests from outside cluster (using port %d) to %q", count, fromPort, url)
 	for i := 1; i <= count; i++ {
 		if fromPort == 0 {
 			cmd = helpers.CurlFail(url)
@@ -1097,7 +1097,7 @@ func testMaglev(kubectl *helpers.Kubectl, ni *helpers.NodesInfo) {
 	}
 }
 
-func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, sourcePortForCTGCtest int) {
+func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, k8s1IP string, k8s2SvcName string, sourcePortForCTGCtest int) {
 	var data v1.Service
 	err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
@@ -1110,13 +1110,13 @@ func testDSR(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, sourcePortForCTGCt
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 	// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
 	// client -> k8s1 -> endpoint @ k8s2.
-	err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
+	err = kubectl.Get(helpers.DefaultNamespace, k8s2SvcName).Unmarshal(&data)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
-	url = getHTTPLink(ni.K8s1IP, data.Spec.Ports[0].NodePort)
+	url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
 	testCurlFromOutsideWithLocalPort(kubectl, ni, url, 1, true, sourcePortForCTGCtest)
 	res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
-	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+	ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not found")
 	// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
 	_ = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 	res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
