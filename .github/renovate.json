@@ -33,7 +33,7 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "<22.05",
+      "allowedVersions": "22.04",
       "matchBaseBranches": [
         "master",
         "v1.13"
@@ -43,7 +43,7 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "<20.05",
+      "allowedVersions": "20.04",
       "matchBaseBranches": [
         "v1.12",
         "v1.11",
