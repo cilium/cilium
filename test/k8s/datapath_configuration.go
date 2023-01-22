@@ -233,7 +233,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 		}, 600)
 
-		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading with random-fully", func() {
+		It("Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",
@@ -250,7 +250,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 
-		SkipItIf(helpers.SkipQuarantined, "Check iptables masquerading without random-fully", func() {
+		It("Check iptables masquerading without random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
 				"enableIPv6Masquerade": "true",
