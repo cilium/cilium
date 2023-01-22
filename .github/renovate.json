@@ -33,7 +33,7 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "22.04",
+      "allowedVersions": "<22.05",
       "matchBaseBranches": [
         "master",
         "v1.13"
@@ -43,7 +43,7 @@
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
-      "allowedVersions": "20.04",
+      "allowedVersions": "<20.05",
       "matchBaseBranches": [
         "v1.12",
         "v1.11",
@@ -55,7 +55,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "1.19",
+      "allowedVersions": "<1.20",
       "matchBaseBranches": [
         "master",
         "v1.13"
@@ -66,7 +66,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "1.18",
+      "allowedVersions": "<1.19",
       "matchBaseBranches": [
         "v1.12"
       ]
@@ -76,7 +76,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "1.17",
+      "allowedVersions": "<1.18",
       "matchBaseBranches": [
         "v1.11"
       ]
@@ -86,7 +86,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "1.16",
+      "allowedVersions": "<1.17",
       "matchBaseBranches": [
         "v1.10"
       ]
@@ -95,7 +95,7 @@
       "matchPackageNames": [
         "docker.io/library/alpine"
       ],
-      "allowedVersions": "3.16",
+      "allowedVersions": "<3.17",
       "matchBaseBranches": [
         "v1.13",
         "v1.12",
