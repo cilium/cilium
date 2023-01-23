@@ -1044,8 +1044,19 @@ hubble:
       rollingUpdate:
         maxUnavailable: 1
 
-    # -- hubble-relay security context
-    securityContext: {}
+    # -- hubble-relay pod security context
+    podSecurityContext:
+      fsGroup: 65532
+
+    # -- hubble-relay container security context
+    securityContext:
+      # readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      capabilities:
+        drop:
+        - ALL
 
     # -- hubble-relay service configuration.
     service:

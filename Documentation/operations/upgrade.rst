@@ -307,6 +307,20 @@ Annotations:
 
 .. _current_release_required_changes:
 
+.. _1.14_upgrade_notes:
+
+1.14 Upgrade Notes
+------------------
+
+Helm Options
+~~~~~~~~~~~~
+
+* The ``securityContext`` for Hubble Relay now applies to the container, not
+  the pod. To update the security context of the pod, use
+  ``podSecurityContext``.
+* The ``securityContext`` for Hubble Relay now defaults to drop all
+  capabilities and run as non-root user.
+
 .. _earlier_upgrade_notes:
 
 Earlier Upgrade Notes
