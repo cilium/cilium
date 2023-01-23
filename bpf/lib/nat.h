@@ -505,21 +505,16 @@ snat_v4_rev_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4
 	return dport < target->min_port || dport > target->max_port;
 }
 
-static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *ctx,
-							     __be32 to_saddr,
-							     __be16 to_sport)
+static __always_inline __maybe_unused int
+snat_v4_create_dsr(struct __ctx_buff *ctx, struct iphdr *ip4,
+		   __be32 to_saddr, __be16 to_sport)
 {
-	void *data, *data_end;
 	struct ipv4_ct_tuple tuple = {};
 	struct ipv4_nat_entry state = {};
-	struct iphdr *ip4;
 	__u32 off;
 	int ret;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	tuple.nexthdr = ip4->protocol;
 	tuple.daddr = ip4->saddr;
@@ -1250,21 +1245,16 @@ snat_v6_rev_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6
 	return dport < target->min_port || dport > target->max_port;
 }
 
-static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *ctx,
-							     const union v6addr *to_saddr,
-							     __be16 to_sport)
+static __always_inline __maybe_unused int
+snat_v6_create_dsr(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+		   const union v6addr *to_saddr, __be16 to_sport)
 {
-	void *data, *data_end;
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6_nat_entry state = {};
-	struct ipv6hdr *ip6;
 	int ret, hdrlen;
 	__u32 off;
 
 	build_bug_on(sizeof(struct ipv6_nat_entry) > 64);
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	tuple.nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
