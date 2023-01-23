@@ -116,8 +116,12 @@ func (c *WatchedServerConfig) ServerConfig(base *tls.Config) *tls.Config {
 				}
 			}
 			c.log.WithField("keypair-sn", keypairId(keypair)).
-				Debugf("Server tls handshake")
+				Debug("Server tls handshake")
 			return tlsConfig, nil
 		},
+		// NOTE: this MinVersion is not used as this tls.Config will be
+		// overridden by the one returned by GetConfigForClient. The effective
+		// MinVersion must be set by the provided base TLS configuration.
+		MinVersion: tls.VersionTLS13,
 	}
 }

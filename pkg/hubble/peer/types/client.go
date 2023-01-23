@@ -74,7 +74,9 @@ func (b RemoteClientBuilder) Client(target string) (Client, error) {
 	if b.TLSConfig == nil {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		tlsConfig := b.TLSConfig.ClientConfig(&tls.Config{
+		// NOTE: gosec is unable to resolve the constant and warns about "TLS
+		// MinVersion too low".
+		tlsConfig := b.TLSConfig.ClientConfig(&tls.Config{ //nolint:gosec
 			ServerName: b.TLSServerName,
 			MinVersion: hubbleopts.MinTLSVersion,
 		})
