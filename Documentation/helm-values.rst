@@ -929,6 +929,10 @@
      - Labels to be added to hubble-relay pods
      - object
      - ``{}``
+   * - hubble.relay.podSecurityContext
+     - hubble-relay pod security context
+     - object
+     - ``{"fsGroup":65532}``
    * - hubble.relay.pprof.address
      - Configure pprof listen address for hubble-relay
      - string
@@ -990,9 +994,9 @@
      - bool
      - ``false``
    * - hubble.relay.securityContext
-     - hubble-relay security context
+     - hubble-relay container security context
      - object
-     - ``{}``
+     - ``{"capabilities":{"drop":["ALL"]},"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}``
    * - hubble.relay.service
      - hubble-relay service configuration.
      - object
