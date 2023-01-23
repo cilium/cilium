@@ -597,9 +597,7 @@ enum metric_dir {
  *
  * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
  */
-#define DSR_IPV4_OPT_32		0x9a080000
-#define DSR_IPV4_OPT_MASK	0xffff0000
-#define DSR_IPV4_DPORT_MASK	0x0000ffff
+#define DSR_IPV4_OPT_16		0x9a08
 
 /* IPv6 option type of Destination Option used to carry service IPv6 addr and
  * port for DSR.
