@@ -60,6 +60,9 @@ linters-settings:
     template: |-
       SPDX-License-Identifier: Apache-2.0
       Copyright Authors of {{ PROJECT }}
+  gosec:
+    includes:
+      - G402
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
@@ -89,6 +92,7 @@ linters:
     - unused
     - varcheck
     - goheader
+    - gosec
 
 # To enable later if makes sense
 #    - deadcode

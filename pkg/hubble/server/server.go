@@ -63,7 +63,9 @@ func (s *Server) newGRPCServer() (*grpc.Server, error) {
 		opts = append(opts, grpc.StreamInterceptor(interceptor))
 	}
 	if s.opts.ServerTLSConfig != nil {
-		tlsConfig := s.opts.ServerTLSConfig.ServerConfig(&tls.Config{
+		// NOTE: gosec is unable to resolve the constant and warns about "TLS
+		// MinVersion too low".
+		tlsConfig := s.opts.ServerTLSConfig.ServerConfig(&tls.Config{ //nolint:gosec
 			MinVersion: serveroption.MinTLSVersion,
 		})
 		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
