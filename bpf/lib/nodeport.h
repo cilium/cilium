@@ -301,10 +301,27 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 
 static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+			struct ipv6_ct_tuple *tuple, int l4_off,
 			union v6addr *addr, __be16 *port, bool *dsr)
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
+	struct ipv6_ct_tuple tmp = *tuple;
 	int ret;
+
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = {};
+
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		ipv6_ct_tuple_reverse(&tmp);
+
+		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
+			*dsr = ct_has_dsr_egress_entry6(get_ct_map6(&tmp), &tmp);
+			*port = 0;
+			return 0;
+		}
+	}
 
 	ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
 	if (ret != 0)
@@ -313,7 +330,11 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (*dsr) {
 		*addr = opt.addr;
 		*port = opt.port;
+		return 0;
 	}
+
+	if (tuple->nexthdr == IPPROTO_TCP)
+		ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
 
 	return 0;
 }
@@ -738,6 +759,11 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	case CT_NEW:
 	case CT_REOPENED:
 create_ct:
+		if (port == 0) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
 		ct_state_new.src_sec_id = WORLD_ID;
 		ct_state_new.dsr = 1;
 		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
@@ -750,7 +776,7 @@ create_ct:
 			goto drop_err;
 		break;
 	case CT_ESTABLISHED:
-		if (tuple.nexthdr == IPPROTO_TCP || !ct_state.dsr)
+		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
 			goto create_ct;
 		break;
 	case CT_REPLY:
@@ -856,7 +882,8 @@ skip_service_lookup:
 		if (nodeport_uses_dsr6(&tuple)) {
 			bool dsr = false;
 
-			ret = nodeport_extract_dsr_v6(ctx, ip6, &key.address,
+			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
+						      &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
 				ctx_store_meta(ctx, CB_PORT, key.dport);
@@ -1388,8 +1415,37 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4,
-			__be32 *addr, __be16 *port, bool *dsr)
+			struct ipv4_ct_tuple *tuple, int l4_off, __be32 *addr,
+			__be16 *port, bool *dsr)
 {
+	struct ipv4_ct_tuple tmp = *tuple;
+
+	/* Parse DSR info from the packet, to get the addr/port of the
+	 * addressed service. We need this for RevDNATing the backend's replies.
+	 *
+	 * TCP connections have the DSR Option only in their SYN packet.
+	 * To identify that a non-SYN packet belongs to a DSR connection,
+	 * we need to check whether a corresponding CT entry with .dsr flag exists.
+	 */
+	if (tuple->nexthdr == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = {};
+
+		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		ipv4_ct_tuple_reverse(&tmp);
+
+		if (!(tcp_flags.value & TCP_FLAG_SYN)) {
+			/* If the packet belongs to a tracked DSR connection,
+			 * trigger a CT update.
+			 * We don't have any DSR info to report back, and that's ok.
+			 */
+			*dsr = ct_has_dsr_egress_entry4(get_ct_map4(&tmp), &tmp);
+			*port = 0;
+			return 0;
+		}
+	}
+
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
@@ -1404,8 +1460,15 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			*dsr = true;
 			*addr = bpf_ntohl(opt.addr);
 			*port = bpf_ntohs(opt.port);
+			return 0;
 		}
 	}
+
+	/* SYN for a new connection that's not / no longer DSR.
+	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
+	 */
+	if (tuple->nexthdr == IPPROTO_TCP)
+		ct_update_dsr(get_ct_map4(&tmp), &tmp, false);
 
 	return 0;
 }
@@ -1784,6 +1847,15 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	 */
 	case CT_REOPENED:
 create_ct:
+		if (port == 0) {
+			/* Not expected at all - nodeport_extract_dsr_v4() said
+			 * there would be a CT entry! Without DSR info we can't
+			 * do anything smart here.
+			 */
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
 		ct_state_new.src_sec_id = WORLD_ID;
 		ct_state_new.dsr = 1;
 		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
@@ -1802,7 +1874,7 @@ create_ct:
 		 * Otherwise we tolerate DSR info on an established connection.
 		 * TODO: how do we know if we need to refresh the SNAT entry?
 		 */
-		if (tuple.nexthdr == IPPROTO_TCP || !ct_state.dsr)
+		if ((tuple.nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
 			goto create_ct;
 		break;
 	case CT_REPLY:
@@ -1927,7 +1999,8 @@ skip_service_lookup:
 			/* Check if packet has embedded DSR info, or belongs to
 			 * an established DSR connection:
 			 */
-			ret = nodeport_extract_dsr_v4(ctx, ip4, &key.address,
+			ret = nodeport_extract_dsr_v4(ctx, ip4, &tuple,
+						      l4_off, &key.address,
 						      &key.dport, &dsr);
 			if (dsr) {
 				ctx_store_meta(ctx, CB_PORT, key.dport);
