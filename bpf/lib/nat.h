@@ -455,6 +455,11 @@ snat_v4_can_skip(const struct ipv4_nat_target *target,
 {
 	__u16 dport = bpf_ntohs(tuple->dport), sport = bpf_ntohs(tuple->sport);
 
+#if defined(ENABLE_EGRESS_GATEWAY)
+	if (target->egress_gateway)
+		return false;
+#endif
+
 	if (dir == NAT_DIR_EGRESS &&
 	    ((!target->from_local_endpoint && !target->src_from_world &&
 	      sport < NAT_MIN_EGRESS) ||
