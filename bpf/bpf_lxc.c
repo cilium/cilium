@@ -1474,7 +1474,10 @@ skip_policy_enforcement:
 # ifdef ENABLE_DSR
 		int ret2;
 
-		ret2 = handle_dsr_v6(ctx, &dsr);
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ret2 = handle_dsr_v6(ctx, ip6, &dsr);
 		if (ret2 != 0)
 			return ret2;
 
@@ -1808,7 +1811,10 @@ skip_policy_enforcement:
 # ifdef ENABLE_DSR
 		int ret2;
 
-		ret2 = handle_dsr_v4(ctx, &dsr);
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		ret2 = handle_dsr_v4(ctx, ip4, &dsr);
 		if (ret2 != 0)
 			return ret2;
 

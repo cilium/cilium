@@ -319,22 +319,18 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 	return DROP_INVALID_EXTHDR;
 }
 
-static __always_inline int handle_dsr_v6(struct __ctx_buff *ctx, bool *dsr)
+static __always_inline int
+handle_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, bool *dsr)
 {
 	struct dsr_opt_v6 opt __align_stack_8 = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	int ret;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
 	if (ret != 0)
 		return ret;
 
 	if (*dsr) {
-		if (snat_v6_create_dsr(ctx, &opt.addr, opt.port) < 0)
+		if (snat_v6_create_dsr(ctx, ip6, &opt.addr, opt.port) < 0)
 			return DROP_INVALID;
 	}
 
@@ -1463,14 +1459,9 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 }
 #endif /* DSR_ENCAP_MODE */
 
-static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
+static __always_inline int
+handle_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4, bool *dsr)
 {
-	void *data, *data_end;
-	struct iphdr *ip4;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
@@ -1496,7 +1487,7 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 			address = opt2;
 			*dsr = true;
 
-			if (snat_v4_create_dsr(ctx, address, dport) < 0)
+			if (snat_v4_create_dsr(ctx, ip4, address, dport) < 0)
 				return DROP_INVALID;
 		}
 	}
