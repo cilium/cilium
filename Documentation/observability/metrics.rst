@@ -87,6 +87,11 @@ option is set in the ``scrape_configs`` section:
           regex: (.+):(?:\d+);(\d+)
           replacement: ${1}:${2}
           target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: pod
 
 Hubble Metrics
 ==============
