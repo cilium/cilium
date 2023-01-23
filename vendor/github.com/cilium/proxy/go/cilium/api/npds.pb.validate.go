@@ -270,6 +270,17 @@ func (m *PortNetworkPolicy) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if m.GetEndPort() > 65535 {
+		err := PortNetworkPolicyValidationError{
+			field:  "EndPort",
+			reason: "value must be less than or equal to 65535",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	// no validation rules for Protocol
 
 	for idx, item := range m.GetRules() {
@@ -938,10 +949,10 @@ func (m *HeaderMatch) validate(all bool) error {
 
 	var errors []error
 
-	if len(m.GetName()) < 1 {
+	if utf8.RuneCountInString(m.GetName()) < 1 {
 		err := HeaderMatchValidationError{
 			field:  "Name",
-			reason: "value length must be at least 1 bytes",
+			reason: "value length must be at least 1 runes",
 		}
 		if !all {
 			return err
