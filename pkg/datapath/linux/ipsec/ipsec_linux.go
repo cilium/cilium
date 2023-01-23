@@ -307,11 +307,11 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 	policy := ipSecNewPolicy()
 	policy.Dir = dir
 	policy.Dst = dst
-	policy.Mark = &netlink.XfrmMark{
-		Mask: linux_defaults.IPsecMarkMaskIn,
-	}
 	if dir == netlink.XFRM_DIR_IN {
 		policy.Src = src
+		policy.Mark = &netlink.XfrmMark{
+			Mask: linux_defaults.IPsecMarkMaskIn,
+		}
 		if proxyMark {
 			// We require a policy to match on packets going to the proxy which are
 			// therefore carrying the proxy mark. We however don't need a policy
