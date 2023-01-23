@@ -13,7 +13,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -220,7 +220,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -238,7 +238,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -275,7 +275,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Status: v2.NodeStatus{
@@ -293,7 +293,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -324,7 +324,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 					Spec: v2.NodeSpec{
@@ -366,7 +366,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -384,7 +384,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -430,7 +430,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -448,7 +448,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Create(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -543,7 +543,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -564,7 +564,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
 					},
 				},
@@ -688,7 +688,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -706,7 +706,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -741,7 +741,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -759,7 +759,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -798,7 +798,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -838,7 +838,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name:            "node-1",
 								ResourceVersion: "1",
 							},
@@ -856,7 +856,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Update(c *C) {
 			},
 			args: args{
 				node: &v2.CiliumNode{
-					ObjectMeta: v1.ObjectMeta{
+					ObjectMeta: metav1.ObjectMeta{
 						Name:            "node-1",
 						ResourceVersion: "1",
 					},
@@ -1669,7 +1669,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1686,7 +1686,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1719,7 +1719,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1731,15 +1731,15 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonAlreadyExists,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonAlreadyExists,
 							}}
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
 						c.Assert(nodeName, Equals, "node-1")
 						return &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1755,7 +1755,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1778,7 +1778,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1808,7 +1808,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpCreate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1820,23 +1820,23 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonAlreadyExists,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonAlreadyExists,
 							}}
 					},
 					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
 						calls[k8sOpGet]++
 						c.Assert(nodeName, Equals, "node-1")
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonNotFound,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonNotFound,
 							}}
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1859,7 +1859,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1887,7 +1887,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnUpdate: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpUpdate]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1899,15 +1899,15 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						})
 						return nil, &k8sErrors.StatusError{
-							ErrStatus: v1.Status{
-								Reason: v1.StatusReasonNotFound,
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonNotFound,
 							}}
 					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1940,7 +1940,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					OnUpdateStatus: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
 						calls[k8sOpUpdateStatus]++
 						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -1957,7 +1957,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: v1.ObjectMeta{
+							ObjectMeta: metav1.ObjectMeta{
 								Name: "node-1",
 							},
 							Spec: v2.NodeSpec{
@@ -2054,7 +2054,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
 	name := "node-1"
 	ciliumNode := &v2.CiliumNode{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 	}
