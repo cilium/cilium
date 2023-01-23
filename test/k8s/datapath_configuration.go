@@ -218,6 +218,23 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 		})
 
+		SkipItIf(func() bool {
+			// IPsec + encapsulation requires Linux 4.19.
+			// We also can't disable KPR on GKE at the moment (cf. #16597).
+			return helpers.RunsWithoutKubeProxy() || helpers.DoesNotRunOn419OrLaterKernel() || helpers.RunsOnGKE()
+		}, "Check connectivity with transparent encryption, VXLAN, and endpoint routes", func() {
+			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
+			options := map[string]string{
+				"kubeProxyReplacement":   "disabled",
+				"encryption.enabled":     "true",
+				"endpointRoutes.enabled": "true",
+			}
+			enableVXLANTunneling(options)
+			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
+			validateBPFTunnelMap()
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
+		}, 600)
+
 		It("Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
