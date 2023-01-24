@@ -36,8 +36,8 @@
 
 #include "bpf_host.c"
 
-__u8 node_mac[ETH_ALEN] = mac_three;
-__u8 backend_mac[ETH_ALEN] = mac_four;
+static volatile const __u8 *node_mac = mac_three;
+static volatile const __u8 *backend_mac = mac_four;
 
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
@@ -61,8 +61,8 @@ struct {
 PKTGEN("tc", "tc_nodeport_nat_backend")
 int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 {
-	__u8 src[ETH_ALEN] = mac_one;
-	__u8 dst[ETH_ALEN] = mac_two;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
 	struct pktgen builder;
 	struct tcphdr *l4;
 	struct ethhdr *l2;
@@ -77,7 +77,7 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, src, dst);
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -148,8 +148,8 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	/* add local backend */
 	struct endpoint_info ep_value = {};
 
-	memcpy(&ep_value.mac, backend_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, node_mac, ETH_ALEN);
+	memcpy(&ep_value.mac, (__u8 *)backend_mac, ETH_ALEN);
+	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
 
 	struct endpoint_key ep_key = {
 		.family = ENDPOINT_KEY_IPV4,
@@ -206,9 +206,9 @@ int nodeport_nat_backend_check(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (memcmp(l2->h_source, node_mac, sizeof(node_mac)) != 0)
+	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the node MAC")
-	if (memcmp(l2->h_dest, backend_mac, sizeof(backend_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the endpoint MAC")
 
 	if (l3->saddr != LB_IP)
