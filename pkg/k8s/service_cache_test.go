@@ -327,7 +327,7 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")
 }
 
-func (s *K8sSuite) TestServiceMerging(c *check.C) {
+func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
 	k8sSvc := &slim_corev1.Service{
@@ -423,13 +423,87 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 				"port": {Protocol: loadbalancer.TCP, Port: 80},
 			},
 		},
+		IncludeExternal: false,
+		Shared:          false,
+	},
+		swgSvcs,
+	)
+
+	// Adding non-shared remote endpoints will not trigger a service update, regardless of whether
+	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+
+		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
+			Ports: serviceStore.PortConfiguration{
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
+		})
+
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
+		Cluster:   "cluster1",
+		Namespace: "bar",
+		Name:      "foo",
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"1.1.1.1": {},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			"3.3.3.3": map[string]*loadbalancer.L4Addr{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		},
 		IncludeExternal: true,
 		Shared:          false,
 	},
 		swgSvcs,
 	)
 
-	// Adding non-shared remote endpoints will not trigger a service update
+	// Adding non-shared remote endpoints will not trigger a service update, regardless of whether
+	// IncludeExternal is set (i.e., the service is marked as a global one in the remote cluster).
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+
+		c.Assert(len(event.Endpoints.Backends), checker.Equals, 1)
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
+			Ports: serviceStore.PortConfiguration{
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
+		})
+
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	svcCache.MergeExternalServiceUpdate(&serviceStore.ClusterService{
+		Cluster:   "cluster1",
+		Namespace: "bar",
+		Name:      "foo",
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"1.1.1.1": {},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			"3.3.3.3": map[string]*loadbalancer.L4Addr{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		},
+		IncludeExternal: false,
+		Shared:          true,
+	},
+		swgSvcs,
+	)
+
+	// Adding shared remote endpoints will not trigger a service update, in case IncludeExternal
+	// is not set (i.e., the service is not marked as a global one in the remote cluster).
+	// Nonetheless, this condition should never happen, since a shared service shall always be global.
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -464,7 +538,8 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 		swgSvcs,
 	)
 
-	// Adding shared remote endpoints will trigger a service update
+	// Adding shared remote endpoints will trigger a service update, in case IncludeExternal
+	// is set (i.e., the service is marked as a global one in the remote cluster).
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -624,6 +699,72 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
+		return true
+	}, 2*time.Second), check.IsNil)
+}
+
+func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	swgSvcs := lock.NewStoppableWaitGroup()
+	swgEps := lock.NewStoppableWaitGroup()
+
+	svcID := ServiceID{Name: "foo", Namespace: "bar"}
+
+	svcCache.UpdateEndpoints(&slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Namespace: svcID.Namespace,
+			Name:      svcID.Name,
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolTCP,
+					},
+				},
+			},
+		},
+	}, swgEps)
+
+	svcCache.MergeClusterServiceUpdate(&serviceStore.ClusterService{
+		Cluster:   option.Config.ClusterName,
+		Namespace: svcID.Namespace,
+		Name:      svcID.Name,
+		Frontends: map[string]serviceStore.PortConfiguration{
+			"1.1.1.1": {},
+		},
+		Backends: map[string]serviceStore.PortConfiguration{
+			"3.3.3.3": map[string]*loadbalancer.L4Addr{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		},
+		IncludeExternal: false,
+		Shared:          false,
+	}, swgSvcs)
+
+	// Adding a service will trigger the corresponding update containing all ready backends,
+	// regardless of whether it is marked as global or shared (since the cluster name matches).
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("2.2.2.2")], checker.DeepEquals, &Backend{
+			Ports: serviceStore.PortConfiguration{
+				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
+			},
+		})
+
+		c.Assert(event.Endpoints.Backends[cmtypes.MustParseAddrCluster("3.3.3.3")], checker.DeepEquals, &Backend{
+			Ports: serviceStore.PortConfiguration{
+				"port": {Protocol: loadbalancer.TCP, Port: 80},
+			},
+		})
+
 		return true
 	}, 2*time.Second), check.IsNil)
 }
