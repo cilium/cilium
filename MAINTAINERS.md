@@ -37,7 +37,6 @@ by the "janitor role" which is rotated between all committers.
  * [Gilberto Bertin] (Isovalent)
  * [Hemanth Malla] (Datadog)
  * [Ian Vernon]
- * [Ilya Dmitrichenko] (Docker)
  * [Jarno Rajahalme] (Isovalent)
  * [John Fastabend] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
@@ -71,6 +70,7 @@ by the "janitor role" which is rotated between all committers.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
+ * [Ilya Dmitrichenko] (Docker)
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
