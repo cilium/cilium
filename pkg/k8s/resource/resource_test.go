@@ -133,7 +133,16 @@ func TestResource_WithFakeClient(t *testing.T) {
 	ev.Done(nil)
 
 	// Second should be a sync.
+	//
+	// We work around the rare race condition in which we see the same
+	// upsert event twice due to it being inserted into store but our
+	// Add handler finishes after the initial listing has been processed (#23079).
+	// Proper fix is to make sure updates to store happen synchronously with queueing
+	// and subscribing.
 	ev = <-events
+	if ev.Kind == resource.Upsert {
+		ev = <-events
+	}
 	assert.Equal(t, resource.Sync, ev.Kind)
 	assert.Nil(t, ev.Object)
 	ev.Done(nil)
