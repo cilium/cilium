@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetDebuginfoParams creates a new GetDebuginfoParams object
-// with the default values initialized.
+// NewGetDebuginfoParams creates a new GetDebuginfoParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetDebuginfoParams() *GetDebuginfoParams {
-
 	return &GetDebuginfoParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetDebuginfoParamsWithTimeout creates a new GetDebuginfoParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetDebuginfoParamsWithTimeout(timeout time.Duration) *GetDebuginfoParams {
-
 	return &GetDebuginfoParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetDebuginfoParamsWithContext creates a new GetDebuginfoParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetDebuginfoParamsWithContext(ctx context.Context) *GetDebuginfoParams {
-
 	return &GetDebuginfoParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetDebuginfoParamsWithHTTPClient creates a new GetDebuginfoParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetDebuginfoParamsWithHTTPClient(client *http.Client) *GetDebuginfoParams {
-
 	return &GetDebuginfoParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetDebuginfoParams contains all the parameters to send to the API endpoint
-for the get debuginfo operation typically these are written to a http.Request
+/*
+GetDebuginfoParams contains all the parameters to send to the API endpoint
+
+	for the get debuginfo operation.
+
+	Typically these are written to a http.Request.
 */
 type GetDebuginfoParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get debuginfo params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetDebuginfoParams) WithDefaults() *GetDebuginfoParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get debuginfo params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetDebuginfoParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get debuginfo params

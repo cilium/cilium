@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -31,7 +32,7 @@ type Port struct {
 	Port uint16 `json:"port,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: [TCP UDP ICMP ICMPV6 ANY]
+	// Enum: [TCP UDP SCTP ICMP ICMPV6 ANY]
 	Protocol string `json:"protocol,omitempty"`
 }
 
@@ -53,7 +54,7 @@ var portTypeProtocolPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["TCP","UDP","ICMP","ICMPV6","ANY"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ICMP","ICMPV6","ANY"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -68,6 +69,9 @@ const (
 
 	// PortProtocolUDP captures enum value "UDP"
 	PortProtocolUDP string = "UDP"
+
+	// PortProtocolSCTP captures enum value "SCTP"
+	PortProtocolSCTP string = "SCTP"
 
 	// PortProtocolICMP captures enum value "ICMP"
 	PortProtocolICMP string = "ICMP"
@@ -88,7 +92,6 @@ func (m *Port) validateProtocolEnum(path, location string, value string) error {
 }
 
 func (m *Port) validateProtocol(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Protocol) { // not required
 		return nil
 	}
@@ -98,6 +101,11 @@ func (m *Port) validateProtocol(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this port based on context it is used
+func (m *Port) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

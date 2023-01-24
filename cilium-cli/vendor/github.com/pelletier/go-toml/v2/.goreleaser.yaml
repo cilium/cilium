@@ -16,7 +16,11 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     targets:
       - linux_amd64
+      - linux_arm64
+      - linux_arm
       - windows_amd64
+      - windows_arm64
+      - windows_arm
       - darwin_amd64
       - darwin_arm64
   - id: tomljson
@@ -31,7 +35,11 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     targets:
       - linux_amd64
+      - linux_arm64
+      - linux_arm
       - windows_amd64
+      - windows_arm64
+      - windows_arm
       - darwin_amd64
       - darwin_arm64
   - id: jsontoml
@@ -46,7 +54,11 @@ builds:
     mod_timestamp: '{{ .CommitTimestamp }}'
     targets:
       - linux_amd64
+      - linux_arm64
+      - linux_arm
       - windows_amd64
+      - windows_arm64
+      - windows_arm
       - darwin_amd64
       - darwin_arm64
 universal_binaries:

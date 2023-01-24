@@ -403,9 +403,9 @@ type AlternateProtocolsCacheOptions struct {
 	//
 	// .. note:
 	//
-	//   The implementation is approximate and enforced independently on each worker thread, thus
-	//   it is possible for the maximum entries in the cache to go slightly above the configured
-	//   value depending on timing. This is similar to how other circuit breakers work.
+	//	The implementation is approximate and enforced independently on each worker thread, thus
+	//	it is possible for the maximum entries in the cache to go slightly above the configured
+	//	value depending on timing. This is similar to how other circuit breakers work.
 	MaxEntries *wrapperspb.UInt32Value `protobuf:"bytes,2,opt,name=max_entries,json=maxEntries,proto3" json:"max_entries,omitempty"`
 	// Allows configuring a persistent
 	// :ref:`key value store <envoy_v3_api_msg_config.common.key_value.v3.KeyValueStoreConfig>` to flush
@@ -483,8 +483,9 @@ type HttpProtocolOptions struct {
 	// If not specified, this defaults to 1 hour. To disable idle timeouts explicitly set this to 0.
 	//
 	// .. warning::
-	//   Disabling this timeout has a highly likelihood of yielding connection leaks due to lost TCP
-	//   FIN packets, etc.
+	//
+	//	Disabling this timeout has a highly likelihood of yielding connection leaks due to lost TCP
+	//	FIN packets, etc.
 	//
 	// If the :ref:`overload action <config_overload_manager_overload_actions>` "envoy.overload_actions.reduce_timeouts"
 	// is configured, this timeout is scaled for downstream connections according to the value for
@@ -618,11 +619,11 @@ type Http1ProtocolOptions struct {
 	//
 	// .. attention::
 	//
-	//   Note that this only happens when Envoy is chunk encoding which occurs when:
-	//   - The request is HTTP/1.1.
-	//   - Is neither a HEAD only request nor a HTTP Upgrade.
-	//   - Not a response to a HEAD request.
-	//   - The content length header is not present.
+	//	Note that this only happens when Envoy is chunk encoding which occurs when:
+	//	- The request is HTTP/1.1.
+	//	- Is neither a HEAD only request nor a HTTP Upgrade.
+	//	- Not a response to a HEAD request.
+	//	- The content length header is not present.
 	EnableTrailers bool `protobuf:"varint,5,opt,name=enable_trailers,json=enableTrailers,proto3" json:"enable_trailers,omitempty"`
 	// Allows Envoy to process requests/responses with both `Content-Length` and `Transfer-Encoding`
 	// headers set. By default such messages are rejected, but if option is enabled - Envoy will
@@ -630,8 +631,9 @@ type Http1ProtocolOptions struct {
 	// See `RFC7230, sec. 3.3.3 <https://tools.ietf.org/html/rfc7230#section-3.3.3>`_ for details.
 	//
 	// .. attention::
-	//   Enabling this option might lead to request smuggling vulnerability, especially if traffic
-	//   is proxied via multiple layers of proxies.
+	//
+	//	Enabling this option might lead to request smuggling vulnerability, especially if traffic
+	//	is proxied via multiple layers of proxies.
 	AllowChunkedLength bool `protobuf:"varint,6,opt,name=allow_chunked_length,json=allowChunkedLength,proto3" json:"allow_chunked_length,omitempty"`
 	// Allows invalid HTTP messaging. When this option is false, then Envoy will terminate
 	// HTTP/1.1 connections upon receiving an invalid HTTP message. However,
@@ -857,18 +859,18 @@ type Http2ProtocolOptions struct {
 	AllowMetadata bool `protobuf:"varint,6,opt,name=allow_metadata,json=allowMetadata,proto3" json:"allow_metadata,omitempty"`
 	// Limit the number of pending outbound downstream frames of all types (frames that are waiting to
 	// be written into the socket). Exceeding this limit triggers flood mitigation and connection is
-	// terminated. The ``http2.outbound_flood`` stat tracks the number of terminated connections due
+	// terminated. The “http2.outbound_flood“ stat tracks the number of terminated connections due
 	// to flood mitigation. The default limit is 10000.
 	MaxOutboundFrames *wrapperspb.UInt32Value `protobuf:"bytes,7,opt,name=max_outbound_frames,json=maxOutboundFrames,proto3" json:"max_outbound_frames,omitempty"`
 	// Limit the number of pending outbound downstream frames of types PING, SETTINGS and RST_STREAM,
 	// preventing high memory utilization when receiving continuous stream of these frames. Exceeding
 	// this limit triggers flood mitigation and connection is terminated. The
-	// ``http2.outbound_control_flood`` stat tracks the number of terminated connections due to flood
+	// “http2.outbound_control_flood“ stat tracks the number of terminated connections due to flood
 	// mitigation. The default limit is 1000.
 	MaxOutboundControlFrames *wrapperspb.UInt32Value `protobuf:"bytes,8,opt,name=max_outbound_control_frames,json=maxOutboundControlFrames,proto3" json:"max_outbound_control_frames,omitempty"`
 	// Limit the number of consecutive inbound frames of types HEADERS, CONTINUATION and DATA with an
 	// empty payload and no end stream flag. Those frames have no legitimate use and are abusive, but
-	// might be a result of a broken HTTP/2 implementation. The `http2.inbound_empty_frames_flood``
+	// might be a result of a broken HTTP/2 implementation. The `http2.inbound_empty_frames_flood“
 	// stat tracks the number of connections terminated due to flood mitigation.
 	// Setting this to 0 will terminate connection upon receiving first frame with an empty payload
 	// and no end stream flag. The default limit is 1.
@@ -877,25 +879,25 @@ type Http2ProtocolOptions struct {
 	// of PRIORITY frames received over the lifetime of connection exceeds the value calculated
 	// using this formula::
 	//
-	//   max_inbound_priority_frames_per_stream * (1 + opened_streams)
+	//	max_inbound_priority_frames_per_stream * (1 + opened_streams)
 	//
 	// the connection is terminated. For downstream connections the `opened_streams` is incremented when
 	// Envoy receives complete response headers from the upstream server. For upstream connection the
 	// `opened_streams` is incremented when Envoy send the HEADERS frame for a new stream. The
-	// ``http2.inbound_priority_frames_flood`` stat tracks
+	// “http2.inbound_priority_frames_flood“ stat tracks
 	// the number of connections terminated due to flood mitigation. The default limit is 100.
 	MaxInboundPriorityFramesPerStream *wrapperspb.UInt32Value `protobuf:"bytes,10,opt,name=max_inbound_priority_frames_per_stream,json=maxInboundPriorityFramesPerStream,proto3" json:"max_inbound_priority_frames_per_stream,omitempty"`
 	// Limit the number of inbound WINDOW_UPDATE frames allowed per DATA frame sent. If the number
 	// of WINDOW_UPDATE frames received over the lifetime of connection exceeds the value calculated
 	// using this formula::
 	//
-	//   5 + 2 * (opened_streams +
-	//            max_inbound_window_update_frames_per_data_frame_sent * outbound_data_frames)
+	//	5 + 2 * (opened_streams +
+	//	         max_inbound_window_update_frames_per_data_frame_sent * outbound_data_frames)
 	//
 	// the connection is terminated. For downstream connections the `opened_streams` is incremented when
 	// Envoy receives complete response headers from the upstream server. For upstream connections the
 	// `opened_streams` is incremented when Envoy sends the HEADERS frame for a new stream. The
-	// ``http2.inbound_priority_frames_flood`` stat tracks the number of connections terminated due to
+	// “http2.inbound_priority_frames_flood“ stat tracks the number of connections terminated due to
 	// flood mitigation. The default max_inbound_window_update_frames_per_data_frame_sent value is 10.
 	// Setting this to 1 should be enough to support HTTP/2 implementations with basic flow control,
 	// but more complex implementations that try to estimate available bandwidth require at least 2.
@@ -938,11 +940,11 @@ type Http2ProtocolOptions struct {
 	//
 	// .. code-block:: text
 	//
-	//   ID    Field Name
-	//   ----------------
-	//   0x1   hpack_table_size
-	//   0x3   max_concurrent_streams
-	//   0x4   initial_stream_window_size
+	//	ID    Field Name
+	//	----------------
+	//	0x1   hpack_table_size
+	//	0x3   max_concurrent_streams
+	//	0x4   initial_stream_window_size
 	//
 	// Collisions will trigger config validation failure on load/update. Likewise, inconsistencies
 	// between custom parameters with the same identifier will trigger a failure.
@@ -1226,6 +1228,7 @@ type SchemeHeaderTransformation struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Transformation:
+	//
 	//	*SchemeHeaderTransformation_SchemeToOverwrite
 	Transformation isSchemeHeaderTransformation_Transformation `protobuf_oneof:"transformation"`
 }
@@ -1294,6 +1297,7 @@ type Http1ProtocolOptions_HeaderKeyFormat struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to HeaderFormat:
+	//
 	//	*Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords_
 	//	*Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter
 	HeaderFormat isHttp1ProtocolOptions_HeaderKeyFormat_HeaderFormat `protobuf_oneof:"header_format"`

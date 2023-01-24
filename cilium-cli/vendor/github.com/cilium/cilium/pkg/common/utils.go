@@ -90,7 +90,7 @@ func MapStringStructToSlice(m map[string]struct{}) []string {
 
 // GetNumPossibleCPUs returns a total number of possible CPUS, i.e. CPUs that
 // have been allocated resources and can be brought online if they are present.
-// The number is retrieved by parsing /sys/device/system/cpu/possible.
+// The number is retrieved by parsing /sys/devices/system/cpu/possible.
 //
 // See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cpumask.h?h=v4.19#n50
 // for more details.

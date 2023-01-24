@@ -95,6 +95,7 @@ type Filter struct {
 	// :ref:`supported filter <config_network_filters>`.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to ConfigType:
+	//
 	//	*Filter_TypedConfig
 	//	*Filter_ConfigDiscovery
 	ConfigType isFilter_ConfigType `protobuf_oneof:"config_type"`
@@ -192,23 +193,23 @@ func (*Filter_ConfigDiscovery) isFilter_ConfigType() {}
 //
 // The following order applies:
 //
-// 1. Destination port.
-// 2. Destination IP address.
-// 3. Server name (e.g. SNI for TLS protocol),
-// 4. Transport protocol.
-// 5. Application protocols (e.g. ALPN for TLS protocol).
-// 6. Directly connected source IP address (this will only be different from the source IP address
-//    when using a listener filter that overrides the source address, such as the :ref:`Proxy Protocol
-//    listener filter <config_listener_filters_proxy_protocol>`).
-// 7. Source type (e.g. any, local or external network).
-// 8. Source IP address.
-// 9. Source port.
+//  1. Destination port.
+//  2. Destination IP address.
+//  3. Server name (e.g. SNI for TLS protocol),
+//  4. Transport protocol.
+//  5. Application protocols (e.g. ALPN for TLS protocol).
+//  6. Directly connected source IP address (this will only be different from the source IP address
+//     when using a listener filter that overrides the source address, such as the :ref:`Proxy Protocol
+//     listener filter <config_listener_filters_proxy_protocol>`).
+//  7. Source type (e.g. any, local or external network).
+//  8. Source IP address.
+//  9. Source port.
 //
 // For criteria that allow ranges or wildcards, the most specific value in any
 // of the configured filter chains that matches the incoming connection is going
-// to be used (e.g. for SNI ``www.example.com`` the most specific match would be
-// ``www.example.com``, then ``*.example.com``, then ``*.com``, then any filter
-// chain without ``server_names`` requirements).
+// to be used (e.g. for SNI “www.example.com“ the most specific match would be
+// “www.example.com“, then “*.example.com“, then “*.com“, then any filter
+// chain without “server_names“ requirements).
 //
 // A different way to reason about the filter chain matches:
 // Suppose there exists N filter chains. Prune the filter chain set using the above 8 steps.
@@ -263,15 +264,15 @@ type FilterChainMatch struct {
 	// a filter chain match. Those values will be compared against the server names of a new
 	// connection, when detected by one of the listener filters.
 	//
-	// The server name will be matched against all wildcard domains, i.e. ``www.example.com``
-	// will be first matched against ``www.example.com``, then ``*.example.com``, then ``*.com``.
+	// The server name will be matched against all wildcard domains, i.e. “www.example.com“
+	// will be first matched against “www.example.com“, then “*.example.com“, then “*.com“.
 	//
-	// Note that partial wildcards are not supported, and values like ``*w.example.com`` are invalid.
+	// Note that partial wildcards are not supported, and values like “*w.example.com“ are invalid.
 	//
 	// .. attention::
 	//
-	//   See the :ref:`FAQ entry <faq_how_to_setup_sni>` on how to configure SNI for more
-	//   information.
+	//	See the :ref:`FAQ entry <faq_how_to_setup_sni>` on how to configure SNI for more
+	//	information.
 	ServerNames []string `protobuf:"bytes,11,rep,name=server_names,json=serverNames,proto3" json:"server_names,omitempty"`
 	// If non-empty, a transport protocol to consider when determining a filter chain match.
 	// This value will be compared against the transport protocol of a new connection, when
@@ -279,9 +280,9 @@ type FilterChainMatch struct {
 	//
 	// Suggested values include:
 	//
-	// * ``raw_buffer`` - default, used when no transport protocol is detected,
-	// * ``tls`` - set by :ref:`envoy.filters.listener.tls_inspector <config_listener_filters_tls_inspector>`
-	//   when TLS protocol is detected.
+	//   - “raw_buffer“ - default, used when no transport protocol is detected,
+	//   - “tls“ - set by :ref:`envoy.filters.listener.tls_inspector <config_listener_filters_tls_inspector>`
+	//     when TLS protocol is detected.
 	TransportProtocol string `protobuf:"bytes,9,opt,name=transport_protocol,json=transportProtocol,proto3" json:"transport_protocol,omitempty"`
 	// If non-empty, a list of application protocols (e.g. ALPN for TLS protocol) to consider when
 	// determining a filter chain match. Those values will be compared against the application
@@ -289,19 +290,19 @@ type FilterChainMatch struct {
 	//
 	// Suggested values include:
 	//
-	// * ``http/1.1`` - set by :ref:`envoy.filters.listener.tls_inspector
-	//   <config_listener_filters_tls_inspector>`,
-	// * ``h2`` - set by :ref:`envoy.filters.listener.tls_inspector <config_listener_filters_tls_inspector>`
+	//   - “http/1.1“ - set by :ref:`envoy.filters.listener.tls_inspector
+	//     <config_listener_filters_tls_inspector>`,
+	//   - “h2“ - set by :ref:`envoy.filters.listener.tls_inspector <config_listener_filters_tls_inspector>`
 	//
 	// .. attention::
 	//
-	//   Currently, only :ref:`TLS Inspector <config_listener_filters_tls_inspector>` provides
-	//   application protocol detection based on the requested
-	//   `ALPN <https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation>`_ values.
+	//	Currently, only :ref:`TLS Inspector <config_listener_filters_tls_inspector>` provides
+	//	application protocol detection based on the requested
+	//	`ALPN <https://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation>`_ values.
 	//
-	//   However, the use of ALPN is pretty much limited to the HTTP/2 traffic on the Internet,
-	//   and matching on values other than ``h2`` is going to lead to a lot of false negatives,
-	//   unless all connecting clients are known to use ALPN.
+	//	However, the use of ALPN is pretty much limited to the HTTP/2 traffic on the Internet,
+	//	and matching on values other than ``h2`` is going to lead to a lot of false negatives,
+	//	unless all connecting clients are known to use ALPN.
 	ApplicationProtocols []string `protobuf:"bytes,10,rep,name=application_protocols,json=applicationProtocols,proto3" json:"application_protocols,omitempty"`
 }
 
@@ -563,22 +564,22 @@ func (x *FilterChain) GetOnDemandConfiguration() *FilterChain_OnDemandConfigurat
 //
 // .. code-block:: yaml
 //
-//  destination_port_range:
-//   start: 3306
-//   end: 3307
+//	destination_port_range:
+//	 start: 3306
+//	 end: 3307
 //
 // * Matches if the destination port is 3306 or 15000.
 //
 // .. code-block:: yaml
 //
-//  or_match:
-//    rules:
-//      - destination_port_range:
-//          start: 3306
-//          end: 3307
-//      - destination_port_range:
-//          start: 15000
-//          end: 15001
+//	or_match:
+//	  rules:
+//	    - destination_port_range:
+//	        start: 3306
+//	        end: 3307
+//	    - destination_port_range:
+//	        start: 15000
+//	        end: 15001
 //
 // [#next-free-field: 6]
 type ListenerFilterChainMatchPredicate struct {
@@ -587,6 +588,7 @@ type ListenerFilterChainMatchPredicate struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Rule:
+	//
 	//	*ListenerFilterChainMatchPredicate_OrMatch
 	//	*ListenerFilterChainMatchPredicate_AndMatch
 	//	*ListenerFilterChainMatchPredicate_NotMatch
@@ -721,6 +723,7 @@ type ListenerFilter struct {
 	// :ref:`supported filter <config_listener_filters>`.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to ConfigType:
+	//
 	//	*ListenerFilter_TypedConfig
 	ConfigType isListenerFilter_ConfigType `protobuf_oneof:"config_type"`
 	// Optional match predicate used to disable the filter. The filter is enabled when this field is empty.

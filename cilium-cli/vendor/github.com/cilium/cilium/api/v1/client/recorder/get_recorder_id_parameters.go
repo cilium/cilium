@@ -20,59 +20,75 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// NewGetRecorderIDParams creates a new GetRecorderIDParams object
-// with the default values initialized.
+// NewGetRecorderIDParams creates a new GetRecorderIDParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetRecorderIDParams() *GetRecorderIDParams {
-	var ()
 	return &GetRecorderIDParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetRecorderIDParamsWithTimeout creates a new GetRecorderIDParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetRecorderIDParamsWithTimeout(timeout time.Duration) *GetRecorderIDParams {
-	var ()
 	return &GetRecorderIDParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetRecorderIDParamsWithContext creates a new GetRecorderIDParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetRecorderIDParamsWithContext(ctx context.Context) *GetRecorderIDParams {
-	var ()
 	return &GetRecorderIDParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetRecorderIDParamsWithHTTPClient creates a new GetRecorderIDParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetRecorderIDParamsWithHTTPClient(client *http.Client) *GetRecorderIDParams {
-	var ()
 	return &GetRecorderIDParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetRecorderIDParams contains all the parameters to send to the API endpoint
-for the get recorder ID operation typically these are written to a http.Request
+/*
+GetRecorderIDParams contains all the parameters to send to the API endpoint
+
+	for the get recorder ID operation.
+
+	Typically these are written to a http.Request.
 */
 type GetRecorderIDParams struct {
 
-	/*ID
-	  ID of recorder
+	/* ID.
 
+	   ID of recorder
 	*/
 	ID int64
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderIDParams) WithDefaults() *GetRecorderIDParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderIDParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get recorder ID params

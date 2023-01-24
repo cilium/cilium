@@ -56,7 +56,6 @@ func (o *PatchEndpointIDReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,14 +66,44 @@ func NewPatchEndpointIDOK() *PatchEndpointIDOK {
 	return &PatchEndpointIDOK{}
 }
 
-/*PatchEndpointIDOK handles this case with default header values.
+/*
+PatchEndpointIDOK describes a response with status code 200, with default header values.
 
 Success
 */
 type PatchEndpointIDOK struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id o k response has a 2xx status code
+func (o *PatchEndpointIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this patch endpoint Id o k response has a 3xx status code
+func (o *PatchEndpointIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id o k response has a 4xx status code
+func (o *PatchEndpointIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id o k response has a 5xx status code
+func (o *PatchEndpointIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id o k response a status code equal to that given
+func (o *PatchEndpointIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PatchEndpointIDOK) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK ", 200)
+}
+
+func (o *PatchEndpointIDOK) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdOK ", 200)
 }
 
@@ -88,7 +117,8 @@ func NewPatchEndpointIDInvalid() *PatchEndpointIDInvalid {
 	return &PatchEndpointIDInvalid{}
 }
 
-/*PatchEndpointIDInvalid handles this case with default header values.
+/*
+PatchEndpointIDInvalid describes a response with status code 400, with default header values.
 
 Invalid modify endpoint request
 */
@@ -96,7 +126,36 @@ type PatchEndpointIDInvalid struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch endpoint Id invalid response has a 2xx status code
+func (o *PatchEndpointIDInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id invalid response has a 3xx status code
+func (o *PatchEndpointIDInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id invalid response has a 4xx status code
+func (o *PatchEndpointIDInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id invalid response has a 5xx status code
+func (o *PatchEndpointIDInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id invalid response a status code equal to that given
+func (o *PatchEndpointIDInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PatchEndpointIDInvalid) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *PatchEndpointIDInvalid) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
@@ -119,14 +178,44 @@ func NewPatchEndpointIDNotFound() *PatchEndpointIDNotFound {
 	return &PatchEndpointIDNotFound{}
 }
 
-/*PatchEndpointIDNotFound handles this case with default header values.
+/*
+PatchEndpointIDNotFound describes a response with status code 404, with default header values.
 
 Endpoint does not exist
 */
 type PatchEndpointIDNotFound struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id not found response has a 2xx status code
+func (o *PatchEndpointIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id not found response has a 3xx status code
+func (o *PatchEndpointIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id not found response has a 4xx status code
+func (o *PatchEndpointIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id not found response has a 5xx status code
+func (o *PatchEndpointIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id not found response a status code equal to that given
+func (o *PatchEndpointIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *PatchEndpointIDNotFound) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound ", 404)
+}
+
+func (o *PatchEndpointIDNotFound) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdNotFound ", 404)
 }
 
@@ -140,14 +229,44 @@ func NewPatchEndpointIDTooManyRequests() *PatchEndpointIDTooManyRequests {
 	return &PatchEndpointIDTooManyRequests{}
 }
 
-/*PatchEndpointIDTooManyRequests handles this case with default header values.
+/*
+PatchEndpointIDTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type PatchEndpointIDTooManyRequests struct {
 }
 
+// IsSuccess returns true when this patch endpoint Id too many requests response has a 2xx status code
+func (o *PatchEndpointIDTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id too many requests response has a 3xx status code
+func (o *PatchEndpointIDTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id too many requests response has a 4xx status code
+func (o *PatchEndpointIDTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch endpoint Id too many requests response has a 5xx status code
+func (o *PatchEndpointIDTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch endpoint Id too many requests response a status code equal to that given
+func (o *PatchEndpointIDTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *PatchEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests ", 429)
+}
+
+func (o *PatchEndpointIDTooManyRequests) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdTooManyRequests ", 429)
 }
 
@@ -161,7 +280,8 @@ func NewPatchEndpointIDFailed() *PatchEndpointIDFailed {
 	return &PatchEndpointIDFailed{}
 }
 
-/*PatchEndpointIDFailed handles this case with default header values.
+/*
+PatchEndpointIDFailed describes a response with status code 500, with default header values.
 
 Endpoint update failed
 */
@@ -169,7 +289,36 @@ type PatchEndpointIDFailed struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch endpoint Id failed response has a 2xx status code
+func (o *PatchEndpointIDFailed) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch endpoint Id failed response has a 3xx status code
+func (o *PatchEndpointIDFailed) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch endpoint Id failed response has a 4xx status code
+func (o *PatchEndpointIDFailed) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch endpoint Id failed response has a 5xx status code
+func (o *PatchEndpointIDFailed) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch endpoint Id failed response a status code equal to that given
+func (o *PatchEndpointIDFailed) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PatchEndpointIDFailed) Error() string {
+	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed  %+v", 500, o.Payload)
+}
+
+func (o *PatchEndpointIDFailed) String() string {
 	return fmt.Sprintf("[PATCH /endpoint/{id}][%d] patchEndpointIdFailed  %+v", 500, o.Payload)
 }
 

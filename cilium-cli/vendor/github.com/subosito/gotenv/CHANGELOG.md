@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0] - 2022-06-02
+
+### Added
+
+- Add `Marshal` and `Unmarshal` helpers
+
+### Changed
+
+- The CI will now run a linter and the tests on PRs.
+
 ## [1.3.0] - 2022-05-23
 
 ### Added
@@ -41,7 +51,7 @@
 ### Added
 
 - Supports carriage return in env
-- Handle files with UTF-8 BOM 
+- Handle files with UTF-8 BOM
 
 ### Changed
 

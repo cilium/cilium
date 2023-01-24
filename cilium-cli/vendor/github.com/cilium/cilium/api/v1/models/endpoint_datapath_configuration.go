@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -44,6 +46,11 @@ type EndpointDatapathConfiguration struct {
 
 // Validate validates this endpoint datapath configuration
 func (m *EndpointDatapathConfiguration) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this endpoint datapath configuration based on context it is used
+func (m *EndpointDatapathConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

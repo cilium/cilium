@@ -44,7 +44,6 @@ func (o *DeletePrefilterReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,7 +54,8 @@ func NewDeletePrefilterOK() *DeletePrefilterOK {
 	return &DeletePrefilterOK{}
 }
 
-/*DeletePrefilterOK handles this case with default header values.
+/*
+DeletePrefilterOK describes a response with status code 200, with default header values.
 
 Deleted
 */
@@ -63,7 +63,36 @@ type DeletePrefilterOK struct {
 	Payload *models.Prefilter
 }
 
+// IsSuccess returns true when this delete prefilter o k response has a 2xx status code
+func (o *DeletePrefilterOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete prefilter o k response has a 3xx status code
+func (o *DeletePrefilterOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete prefilter o k response has a 4xx status code
+func (o *DeletePrefilterOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete prefilter o k response has a 5xx status code
+func (o *DeletePrefilterOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete prefilter o k response a status code equal to that given
+func (o *DeletePrefilterOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeletePrefilterOK) Error() string {
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK  %+v", 200, o.Payload)
+}
+
+func (o *DeletePrefilterOK) String() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterOK  %+v", 200, o.Payload)
 }
 
@@ -88,7 +117,8 @@ func NewDeletePrefilterInvalidCIDR() *DeletePrefilterInvalidCIDR {
 	return &DeletePrefilterInvalidCIDR{}
 }
 
-/*DeletePrefilterInvalidCIDR handles this case with default header values.
+/*
+DeletePrefilterInvalidCIDR describes a response with status code 461, with default header values.
 
 Invalid CIDR prefix
 */
@@ -96,7 +126,36 @@ type DeletePrefilterInvalidCIDR struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete prefilter invalid c Id r response has a 2xx status code
+func (o *DeletePrefilterInvalidCIDR) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete prefilter invalid c Id r response has a 3xx status code
+func (o *DeletePrefilterInvalidCIDR) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete prefilter invalid c Id r response has a 4xx status code
+func (o *DeletePrefilterInvalidCIDR) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete prefilter invalid c Id r response has a 5xx status code
+func (o *DeletePrefilterInvalidCIDR) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete prefilter invalid c Id r response a status code equal to that given
+func (o *DeletePrefilterInvalidCIDR) IsCode(code int) bool {
+	return code == 461
+}
+
 func (o *DeletePrefilterInvalidCIDR) Error() string {
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR  %+v", 461, o.Payload)
+}
+
+func (o *DeletePrefilterInvalidCIDR) String() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterInvalidCIdR  %+v", 461, o.Payload)
 }
 
@@ -119,7 +178,8 @@ func NewDeletePrefilterFailure() *DeletePrefilterFailure {
 	return &DeletePrefilterFailure{}
 }
 
-/*DeletePrefilterFailure handles this case with default header values.
+/*
+DeletePrefilterFailure describes a response with status code 500, with default header values.
 
 Prefilter delete failed
 */
@@ -127,7 +187,36 @@ type DeletePrefilterFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete prefilter failure response has a 2xx status code
+func (o *DeletePrefilterFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete prefilter failure response has a 3xx status code
+func (o *DeletePrefilterFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete prefilter failure response has a 4xx status code
+func (o *DeletePrefilterFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete prefilter failure response has a 5xx status code
+func (o *DeletePrefilterFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete prefilter failure response a status code equal to that given
+func (o *DeletePrefilterFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *DeletePrefilterFailure) Error() string {
+	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeletePrefilterFailure) String() string {
 	return fmt.Sprintf("[DELETE /prefilter][%d] deletePrefilterFailure  %+v", 500, o.Payload)
 }
 

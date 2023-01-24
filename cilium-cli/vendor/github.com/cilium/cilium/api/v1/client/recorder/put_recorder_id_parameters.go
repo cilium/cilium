@@ -22,64 +22,81 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPutRecorderIDParams creates a new PutRecorderIDParams object
-// with the default values initialized.
+// NewPutRecorderIDParams creates a new PutRecorderIDParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPutRecorderIDParams() *PutRecorderIDParams {
-	var ()
 	return &PutRecorderIDParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPutRecorderIDParamsWithTimeout creates a new PutRecorderIDParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPutRecorderIDParamsWithTimeout(timeout time.Duration) *PutRecorderIDParams {
-	var ()
 	return &PutRecorderIDParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPutRecorderIDParamsWithContext creates a new PutRecorderIDParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPutRecorderIDParamsWithContext(ctx context.Context) *PutRecorderIDParams {
-	var ()
 	return &PutRecorderIDParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPutRecorderIDParamsWithHTTPClient creates a new PutRecorderIDParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPutRecorderIDParamsWithHTTPClient(client *http.Client) *PutRecorderIDParams {
-	var ()
 	return &PutRecorderIDParams{
 		HTTPClient: client,
 	}
 }
 
-/*PutRecorderIDParams contains all the parameters to send to the API endpoint
-for the put recorder ID operation typically these are written to a http.Request
+/*
+PutRecorderIDParams contains all the parameters to send to the API endpoint
+
+	for the put recorder ID operation.
+
+	Typically these are written to a http.Request.
 */
 type PutRecorderIDParams struct {
 
-	/*Config
-	  Recorder configuration
+	/* Config.
 
+	   Recorder configuration
 	*/
 	Config *models.RecorderSpec
-	/*ID
-	  ID of recorder
 
+	/* ID.
+
+	   ID of recorder
 	*/
 	ID int64
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the put recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutRecorderIDParams) WithDefaults() *PutRecorderIDParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the put recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutRecorderIDParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the put recorder ID params
@@ -144,7 +161,6 @@ func (o *PutRecorderIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt
 		return err
 	}
 	var res []error
-
 	if o.Config != nil {
 		if err := r.SetBodyParam(o.Config); err != nil {
 			return err

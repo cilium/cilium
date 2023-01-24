@@ -38,7 +38,6 @@ func (o *DeleteFqdnCacheReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,14 +48,44 @@ func NewDeleteFqdnCacheOK() *DeleteFqdnCacheOK {
 	return &DeleteFqdnCacheOK{}
 }
 
-/*DeleteFqdnCacheOK handles this case with default header values.
+/*
+DeleteFqdnCacheOK describes a response with status code 200, with default header values.
 
 Success
 */
 type DeleteFqdnCacheOK struct {
 }
 
+// IsSuccess returns true when this delete fqdn cache o k response has a 2xx status code
+func (o *DeleteFqdnCacheOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete fqdn cache o k response has a 3xx status code
+func (o *DeleteFqdnCacheOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete fqdn cache o k response has a 4xx status code
+func (o *DeleteFqdnCacheOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete fqdn cache o k response has a 5xx status code
+func (o *DeleteFqdnCacheOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete fqdn cache o k response a status code equal to that given
+func (o *DeleteFqdnCacheOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeleteFqdnCacheOK) Error() string {
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK ", 200)
+}
+
+func (o *DeleteFqdnCacheOK) String() string {
 	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheOK ", 200)
 }
 
@@ -70,7 +99,8 @@ func NewDeleteFqdnCacheBadRequest() *DeleteFqdnCacheBadRequest {
 	return &DeleteFqdnCacheBadRequest{}
 }
 
-/*DeleteFqdnCacheBadRequest handles this case with default header values.
+/*
+DeleteFqdnCacheBadRequest describes a response with status code 400, with default header values.
 
 Invalid request (error parsing parameters)
 */
@@ -78,7 +108,36 @@ type DeleteFqdnCacheBadRequest struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete fqdn cache bad request response has a 2xx status code
+func (o *DeleteFqdnCacheBadRequest) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete fqdn cache bad request response has a 3xx status code
+func (o *DeleteFqdnCacheBadRequest) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete fqdn cache bad request response has a 4xx status code
+func (o *DeleteFqdnCacheBadRequest) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete fqdn cache bad request response has a 5xx status code
+func (o *DeleteFqdnCacheBadRequest) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete fqdn cache bad request response a status code equal to that given
+func (o *DeleteFqdnCacheBadRequest) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *DeleteFqdnCacheBadRequest) Error() string {
+	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *DeleteFqdnCacheBadRequest) String() string {
 	return fmt.Sprintf("[DELETE /fqdn/cache][%d] deleteFqdnCacheBadRequest  %+v", 400, o.Payload)
 }
 

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -69,7 +70,6 @@ func (m *Masquerading) Validate(formats strfmt.Registry) error {
 }
 
 func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.EnabledProtocols) { // not required
 		return nil
 	}
@@ -78,6 +78,8 @@ func (m *Masquerading) validateEnabledProtocols(formats strfmt.Registry) error {
 		if err := m.EnabledProtocols.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("enabledProtocols")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("enabledProtocols")
 			}
 			return err
 		}
@@ -116,7 +118,6 @@ func (m *Masquerading) validateModeEnum(path, location string, value string) err
 }
 
 func (m *Masquerading) validateMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Mode) { // not required
 		return nil
 	}
@@ -124,6 +125,36 @@ func (m *Masquerading) validateMode(formats strfmt.Registry) error {
 	// value enum
 	if err := m.validateModeEnum("mode", "body", m.Mode); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this masquerading based on the context it is used
+func (m *Masquerading) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateEnabledProtocols(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *Masquerading) contextValidateEnabledProtocols(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.EnabledProtocols != nil {
+		if err := m.EnabledProtocols.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("enabledProtocols")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("enabledProtocols")
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -161,6 +192,11 @@ type MasqueradingEnabledProtocols struct {
 
 // Validate validates this masquerading enabled protocols
 func (m *MasqueradingEnabledProtocols) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this masquerading enabled protocols based on context it is used
+func (m *MasqueradingEnabledProtocols) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

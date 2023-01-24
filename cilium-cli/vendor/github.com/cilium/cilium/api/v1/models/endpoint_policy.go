@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -79,7 +81,6 @@ func (m *EndpointPolicy) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.CidrPolicy) { // not required
 		return nil
 	}
@@ -88,6 +89,8 @@ func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
 		if err := m.CidrPolicy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cidr-policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cidr-policy")
 			}
 			return err
 		}
@@ -97,7 +100,6 @@ func (m *EndpointPolicy) validateCidrPolicy(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.L4) { // not required
 		return nil
 	}
@@ -106,6 +108,8 @@ func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
 		if err := m.L4.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("l4")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("l4")
 			}
 			return err
 		}
@@ -115,7 +119,6 @@ func (m *EndpointPolicy) validateL4(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicy) validatePolicyEnabled(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.PolicyEnabled) { // not required
 		return nil
 	}
@@ -123,6 +126,76 @@ func (m *EndpointPolicy) validatePolicyEnabled(formats strfmt.Registry) error {
 	if err := m.PolicyEnabled.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("policy-enabled")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("policy-enabled")
+		}
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint policy based on the context it is used
+func (m *EndpointPolicy) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateCidrPolicy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateL4(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidatePolicyEnabled(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointPolicy) contextValidateCidrPolicy(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.CidrPolicy != nil {
+		if err := m.CidrPolicy.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cidr-policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cidr-policy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) contextValidateL4(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.L4 != nil {
+		if err := m.L4.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("l4")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("l4")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicy) contextValidatePolicyEnabled(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.PolicyEnabled.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("policy-enabled")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("policy-enabled")
 		}
 		return err
 	}

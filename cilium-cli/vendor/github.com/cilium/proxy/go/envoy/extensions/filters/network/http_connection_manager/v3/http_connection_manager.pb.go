@@ -355,6 +355,7 @@ type HttpConnectionManager struct {
 	// more information.
 	StatPrefix string `protobuf:"bytes,2,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Types that are assignable to RouteSpecifier:
+	//
 	//	*HttpConnectionManager_Rds
 	//	*HttpConnectionManager_RouteConfig
 	//	*HttpConnectionManager_ScopedRoutes
@@ -477,14 +478,16 @@ type HttpConnectionManager struct {
 	// The default timeout is 1000 ms if this option is not specified.
 	//
 	// .. NOTE::
-	//    To be useful in avoiding the race condition described above, this timeout must be set
-	//    to *at least* <max round trip time expected between clients and Envoy>+<100ms to account for
-	//    a reasonable "worst" case processing time for a full iteration of Envoy's event loop>.
+	//
+	//	To be useful in avoiding the race condition described above, this timeout must be set
+	//	to *at least* <max round trip time expected between clients and Envoy>+<100ms to account for
+	//	a reasonable "worst" case processing time for a full iteration of Envoy's event loop>.
 	//
 	// .. WARNING::
-	//    A value of 0 will completely disable delayed close processing. When disabled, the downstream
-	//    connection's socket will be closed immediately after the write flush is completed or will
-	//    never close if the write flush does not complete.
+	//
+	//	A value of 0 will completely disable delayed close processing. When disabled, the downstream
+	//	connection's socket will be closed immediately after the write flush is completed or will
+	//	never close if the write flush does not complete.
 	DelayedCloseTimeout *durationpb.Duration `protobuf:"bytes,26,opt,name=delayed_close_timeout,json=delayedCloseTimeout,proto3" json:"delayed_close_timeout,omitempty"`
 	// Configuration for :ref:`HTTP access logs <arch_overview_access_logs>`
 	// emitted by the connection manager.
@@ -514,10 +517,11 @@ type HttpConnectionManager struct {
 	// fallback to using the remote address.
 	//
 	// .. WARNING::
-	//    Extensions cannot be used in conjunction with :ref:`use_remote_address
-	//    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address>`
-	//    nor :ref:`xff_num_trusted_hops
-	//    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.xff_num_trusted_hops>`.
+	//
+	//	Extensions cannot be used in conjunction with :ref:`use_remote_address
+	//	<envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address>`
+	//	nor :ref:`xff_num_trusted_hops
+	//	<envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.xff_num_trusted_hops>`.
 	//
 	// [#extension-category: envoy.http.original_ip_detection]
 	OriginalIpDetectionExtensions []*v3.TypedExtensionConfig `protobuf:"bytes,46,rep,name=original_ip_detection_extensions,json=originalIpDetectionExtensions,proto3" json:"original_ip_detection_extensions,omitempty"`
@@ -616,11 +620,12 @@ type HttpConnectionManager struct {
 	// the following configuration can be used:
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
 	//
-	//   typed_config:
-	//     "@type": type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig
-	//     pack_trace_reason: false
+	//	:type-name: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
+	//
+	//	typed_config:
+	//	  "@type": type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig
+	//	  pack_trace_reason: false
 	//
 	// [#extension-category: envoy.request_id]
 	RequestIdExtension *RequestIDExtension `protobuf:"bytes,36,opt,name=request_id_extension,json=requestIdExtension,proto3" json:"request_id_extension,omitempty"`
@@ -639,6 +644,7 @@ type HttpConnectionManager struct {
 	// Only one of `strip_matching_host_port` or `strip_any_host_port` can be set.
 	StripMatchingHostPort bool `protobuf:"varint,39,opt,name=strip_matching_host_port,json=stripMatchingHostPort,proto3" json:"strip_matching_host_port,omitempty"`
 	// Types that are assignable to StripPortMode:
+	//
 	//	*HttpConnectionManager_StripAnyHostPort
 	StripPortMode isHttpConnectionManager_StripPortMode `protobuf_oneof:"strip_port_mode"`
 	// Governs Envoy's behavior when receiving invalid HTTP from downstream.
@@ -1103,41 +1109,42 @@ type LocalReplyConfig struct {
 	// The configuration to form response body from the :ref:`command operators <config_access_log_command_operators>`
 	// and to specify response content type as one of: plain/text or application/json.
 	//
-	// Example one: "plain/text" ``body_format``.
+	// Example one: "plain/text" “body_format“.
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   text_format: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
+	//
+	//	text_format: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
 	//
 	// The following response body in "plain/text" format will be generated for a request with
 	// local reply body of "upstream connection error", response_code=503 and path=/foo.
 	//
 	// .. code-block:: text
 	//
-	//   upstream connect error:503:path=/foo
+	//	upstream connect error:503:path=/foo
 	//
-	// Example two: "application/json" ``body_format``.
+	// Example two: "application/json" “body_format“.
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   json_format:
-	//     status: "%RESPONSE_CODE%"
-	//     message: "%LOCAL_REPLY_BODY%"
-	//     path: "%REQ(:path)%"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
+	//
+	//	json_format:
+	//	  status: "%RESPONSE_CODE%"
+	//	  message: "%LOCAL_REPLY_BODY%"
+	//	  path: "%REQ(:path)%"
 	//
 	// The following response body in "application/json" format would be generated for a request with
 	// local reply body of "upstream connection error", response_code=503 and path=/foo.
 	//
 	// .. code-block:: json
 	//
-	//  {
-	//    "status": 503,
-	//    "message": "upstream connection error",
-	//    "path": "/foo"
-	//  }
-	//
+	//	{
+	//	  "status": 503,
+	//	  "message": "upstream connection error",
+	//	  "path": "/foo"
+	//	}
 	BodyFormat *v3.SubstitutionFormatString `protobuf:"bytes,2,opt,name=body_format,json=bodyFormat,proto3" json:"body_format,omitempty"`
 }
 
@@ -1399,6 +1406,7 @@ type ScopedRoutes struct {
 	// ScopedRouteConfiguration messages.
 	RdsConfigSource *v3.ConfigSource `protobuf:"bytes,3,opt,name=rds_config_source,json=rdsConfigSource,proto3" json:"rds_config_source,omitempty"`
 	// Types that are assignable to ConfigSpecifier:
+	//
 	//	*ScopedRoutes_ScopedRouteConfigurationsList
 	//	*ScopedRoutes_ScopedRds
 	ConfigSpecifier isScopedRoutes_ConfigSpecifier `protobuf_oneof:"config_specifier"`
@@ -1573,6 +1581,7 @@ type HttpFilter struct {
 	// sufficient. It also serves as a resource name in ExtensionConfigDS.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to ConfigType:
+	//
 	//	*HttpFilter_TypedConfig
 	//	*HttpFilter_ConfigDiscovery
 	ConfigType isHttpFilter_ConfigType `protobuf_oneof:"config_type"`
@@ -1822,12 +1831,13 @@ type HttpConnectionManager_Tracing struct {
 	// If not specified, no tracing will be performed.
 	//
 	// .. attention::
-	//   Please be aware that *envoy.tracers.opencensus* provider can only be configured once
-	//   in Envoy lifetime.
-	//   Any attempts to reconfigure it or to use different configurations for different HCM filters
-	//   will be rejected.
-	//   Such a constraint is inherent to OpenCensus itself. It cannot be overcome without changes
-	//   on OpenCensus side.
+	//
+	//	Please be aware that *envoy.tracers.opencensus* provider can only be configured once
+	//	in Envoy lifetime.
+	//	Any attempts to reconfigure it or to use different configurations for different HCM filters
+	//	will be rejected.
+	//	Such a constraint is inherent to OpenCensus itself. It cannot be overcome without changes
+	//	on OpenCensus side.
 	Provider *v35.Tracing_Http `protobuf:"bytes,9,opt,name=provider,proto3" json:"provider,omitempty"`
 }
 
@@ -2057,13 +2067,14 @@ func (x *HttpConnectionManager_SetCurrentClientCertDetails) GetUri() bool {
 //
 // .. warning::
 //
-//    The current implementation of upgrade headers does not handle
-//    multi-valued upgrade headers. Support for multi-valued headers may be
-//    added in the future if needed.
+//	The current implementation of upgrade headers does not handle
+//	multi-valued upgrade headers. Support for multi-valued headers may be
+//	added in the future if needed.
 //
 // .. warning::
-//    The current implementation of upgrade headers does not work with HTTP/2
-//    upstreams.
+//
+//	The current implementation of upgrade headers does not work with HTTP/2
+//	upstreams.
 type HttpConnectionManager_UpgradeConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2285,6 +2296,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Type:
+	//
 	//	*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_
 	Type isScopedRoutes_ScopeKeyBuilder_FragmentBuilder_Type `protobuf_oneof:"type"`
 }
@@ -2352,18 +2364,18 @@ func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_) isSco
 //
 // .. code::
 //
-//              <0> <1>   <-- index
-//    X-Header: a=b;c=d
-//    |         || |
-//    |         || \----> <element_separator>
-//    |         ||
-//    |         |\----> <element.separator>
-//    |         |
-//    |         \----> <element.key>
-//    |
-//    \----> <name>
+//	          <0> <1>   <-- index
+//	X-Header: a=b;c=d
+//	|         || |
+//	|         || \----> <element_separator>
+//	|         ||
+//	|         |\----> <element.separator>
+//	|         |
+//	|         \----> <element.key>
+//	|
+//	\----> <name>
 //
-//    Each 'a=b' key-value pair constitutes an 'element' of the header field.
+//	Each 'a=b' key-value pair constitutes an 'element' of the header field.
 type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2373,7 +2385,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor struct {
 	//
 	// .. note::
 	//
-	//   If the header appears multiple times only the first value is used.
+	//	If the header appears multiple times only the first value is used.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// The element separator (e.g., ';' separates 'a;b;c;d').
 	// Default: empty string. This causes the entirety of the header field to be extracted.
@@ -2381,6 +2393,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor struct {
 	// must be set to 0.
 	ElementSeparator string `protobuf:"bytes,2,opt,name=element_separator,json=elementSeparator,proto3" json:"element_separator,omitempty"`
 	// Types that are assignable to ExtractType:
+	//
 	//	*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Index
 	//	*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Element
 	ExtractType isScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_ExtractType `protobuf_oneof:"extract_type"`

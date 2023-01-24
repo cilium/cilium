@@ -34,6 +34,7 @@ type HashPolicy struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to PolicySpecifier:
+	//
 	//	*HashPolicy_SourceIp_
 	//	*HashPolicy_FilterState_
 	PolicySpecifier isHashPolicy_PolicySpecifier `protobuf_oneof:"policy_specifier"`

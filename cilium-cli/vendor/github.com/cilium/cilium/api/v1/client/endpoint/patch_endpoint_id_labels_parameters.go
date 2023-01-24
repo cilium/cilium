@@ -21,54 +21,57 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPatchEndpointIDLabelsParams creates a new PatchEndpointIDLabelsParams object
-// with the default values initialized.
+// NewPatchEndpointIDLabelsParams creates a new PatchEndpointIDLabelsParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchEndpointIDLabelsParams() *PatchEndpointIDLabelsParams {
-	var ()
 	return &PatchEndpointIDLabelsParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPatchEndpointIDLabelsParamsWithTimeout creates a new PatchEndpointIDLabelsParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPatchEndpointIDLabelsParamsWithTimeout(timeout time.Duration) *PatchEndpointIDLabelsParams {
-	var ()
 	return &PatchEndpointIDLabelsParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPatchEndpointIDLabelsParamsWithContext creates a new PatchEndpointIDLabelsParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPatchEndpointIDLabelsParamsWithContext(ctx context.Context) *PatchEndpointIDLabelsParams {
-	var ()
 	return &PatchEndpointIDLabelsParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPatchEndpointIDLabelsParamsWithHTTPClient creates a new PatchEndpointIDLabelsParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPatchEndpointIDLabelsParamsWithHTTPClient(client *http.Client) *PatchEndpointIDLabelsParams {
-	var ()
 	return &PatchEndpointIDLabelsParams{
 		HTTPClient: client,
 	}
 }
 
-/*PatchEndpointIDLabelsParams contains all the parameters to send to the API endpoint
-for the patch endpoint ID labels operation typically these are written to a http.Request
+/*
+PatchEndpointIDLabelsParams contains all the parameters to send to the API endpoint
+
+	for the patch endpoint ID labels operation.
+
+	Typically these are written to a http.Request.
 */
 type PatchEndpointIDLabelsParams struct {
 
-	/*Configuration*/
+	// Configuration.
 	Configuration *models.LabelConfigurationSpec
-	/*ID
-	  String describing an endpoint with the format ``[prefix:]id``. If no prefix
+
+	/* ID.
+
+	     String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
 	local Cilium UUID which is assigned to all endpoints.
@@ -81,13 +84,27 @@ type PatchEndpointIDLabelsParams struct {
 	  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
 	  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
 
-
 	*/
 	ID string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the patch endpoint ID labels params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchEndpointIDLabelsParams) WithDefaults() *PatchEndpointIDLabelsParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the patch endpoint ID labels params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchEndpointIDLabelsParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the patch endpoint ID labels params
@@ -152,7 +169,6 @@ func (o *PatchEndpointIDLabelsParams) WriteToRequest(r runtime.ClientRequest, re
 		return err
 	}
 	var res []error
-
 	if o.Configuration != nil {
 		if err := r.SetBodyParam(o.Configuration); err != nil {
 			return err

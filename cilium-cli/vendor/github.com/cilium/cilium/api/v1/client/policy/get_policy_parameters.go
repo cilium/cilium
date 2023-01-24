@@ -21,56 +21,72 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewGetPolicyParams creates a new GetPolicyParams object
-// with the default values initialized.
+// NewGetPolicyParams creates a new GetPolicyParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPolicyParams() *GetPolicyParams {
-	var ()
 	return &GetPolicyParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetPolicyParamsWithTimeout creates a new GetPolicyParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetPolicyParamsWithTimeout(timeout time.Duration) *GetPolicyParams {
-	var ()
 	return &GetPolicyParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetPolicyParamsWithContext creates a new GetPolicyParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetPolicyParamsWithContext(ctx context.Context) *GetPolicyParams {
-	var ()
 	return &GetPolicyParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetPolicyParamsWithHTTPClient creates a new GetPolicyParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetPolicyParamsWithHTTPClient(client *http.Client) *GetPolicyParams {
-	var ()
 	return &GetPolicyParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetPolicyParams contains all the parameters to send to the API endpoint
-for the get policy operation typically these are written to a http.Request
+/*
+GetPolicyParams contains all the parameters to send to the API endpoint
+
+	for the get policy operation.
+
+	Typically these are written to a http.Request.
 */
 type GetPolicyParams struct {
 
-	/*Labels*/
+	// Labels.
 	Labels models.Labels
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicyParams) WithDefaults() *GetPolicyParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicyParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get policy params
@@ -124,7 +140,6 @@ func (o *GetPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 		return err
 	}
 	var res []error
-
 	if o.Labels != nil {
 		if err := r.SetBodyParam(o.Labels); err != nil {
 			return err

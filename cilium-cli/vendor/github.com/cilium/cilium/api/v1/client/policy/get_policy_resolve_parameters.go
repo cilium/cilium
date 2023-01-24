@@ -21,59 +21,75 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewGetPolicyResolveParams creates a new GetPolicyResolveParams object
-// with the default values initialized.
+// NewGetPolicyResolveParams creates a new GetPolicyResolveParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPolicyResolveParams() *GetPolicyResolveParams {
-	var ()
 	return &GetPolicyResolveParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetPolicyResolveParamsWithTimeout creates a new GetPolicyResolveParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetPolicyResolveParamsWithTimeout(timeout time.Duration) *GetPolicyResolveParams {
-	var ()
 	return &GetPolicyResolveParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetPolicyResolveParamsWithContext creates a new GetPolicyResolveParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetPolicyResolveParamsWithContext(ctx context.Context) *GetPolicyResolveParams {
-	var ()
 	return &GetPolicyResolveParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetPolicyResolveParamsWithHTTPClient creates a new GetPolicyResolveParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetPolicyResolveParamsWithHTTPClient(client *http.Client) *GetPolicyResolveParams {
-	var ()
 	return &GetPolicyResolveParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetPolicyResolveParams contains all the parameters to send to the API endpoint
-for the get policy resolve operation typically these are written to a http.Request
+/*
+GetPolicyResolveParams contains all the parameters to send to the API endpoint
+
+	for the get policy resolve operation.
+
+	Typically these are written to a http.Request.
 */
 type GetPolicyResolveParams struct {
 
-	/*TraceSelector
-	  Context to provide policy evaluation on
+	/* TraceSelector.
 
+	   Context to provide policy evaluation on
 	*/
 	TraceSelector *models.TraceSelector
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get policy resolve params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicyResolveParams) WithDefaults() *GetPolicyResolveParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get policy resolve params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicyResolveParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get policy resolve params
@@ -127,7 +143,6 @@ func (o *GetPolicyResolveParams) WriteToRequest(r runtime.ClientRequest, reg str
 		return err
 	}
 	var res []error
-
 	if o.TraceSelector != nil {
 		if err := r.SetBodyParam(o.TraceSelector); err != nil {
 			return err

@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -59,7 +61,6 @@ func (m *LabelConfigurationStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Derived) { // not required
 		return nil
 	}
@@ -67,6 +68,8 @@ func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) erro
 	if err := m.Derived.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("derived")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("derived")
 		}
 		return err
 	}
@@ -75,7 +78,6 @@ func (m *LabelConfigurationStatus) validateDerived(formats strfmt.Registry) erro
 }
 
 func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Disabled) { // not required
 		return nil
 	}
@@ -83,6 +85,8 @@ func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) err
 	if err := m.Disabled.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("disabled")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("disabled")
 		}
 		return err
 	}
@@ -91,7 +95,6 @@ func (m *LabelConfigurationStatus) validateDisabled(formats strfmt.Registry) err
 }
 
 func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Realized) { // not required
 		return nil
 	}
@@ -100,6 +103,8 @@ func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) err
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
 			}
 			return err
 		}
@@ -109,7 +114,6 @@ func (m *LabelConfigurationStatus) validateRealized(formats strfmt.Registry) err
 }
 
 func (m *LabelConfigurationStatus) validateSecurityRelevant(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.SecurityRelevant) { // not required
 		return nil
 	}
@@ -117,6 +121,92 @@ func (m *LabelConfigurationStatus) validateSecurityRelevant(formats strfmt.Regis
 	if err := m.SecurityRelevant.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("security-relevant")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("security-relevant")
+		}
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this label configuration status based on the context it is used
+func (m *LabelConfigurationStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateDerived(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateDisabled(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRealized(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSecurityRelevant(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *LabelConfigurationStatus) contextValidateDerived(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Derived.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("derived")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("derived")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *LabelConfigurationStatus) contextValidateDisabled(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Disabled.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("disabled")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("disabled")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *LabelConfigurationStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Realized != nil {
+		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *LabelConfigurationStatus) contextValidateSecurityRelevant(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.SecurityRelevant.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("security-relevant")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("security-relevant")
 		}
 		return err
 	}

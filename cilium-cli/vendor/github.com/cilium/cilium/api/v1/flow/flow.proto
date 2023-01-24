@@ -87,6 +87,22 @@ message Flow {
     // proxy_port indicates the port of the proxy to which the flow was forwarded
     uint32 proxy_port = 29;
 
+    // trace_context contains information about a trace related to the flow, if
+    // any.
+    TraceContext trace_context = 30;
+
+    // sock_xlate_point is the socket translation point.
+    // Only applicable to TraceSock notifications, blank for other types
+    SocketTranslationPoint sock_xlate_point = 31;
+
+    // socket_cookie is the Linux kernel socket cookie for this flow.
+    // Only applicable to TraceSock notifications, zero for other types
+    uint64 socket_cookie = 32;
+
+    // cgroup_id of the process which emitted this event.
+    // Only applicable to TraceSock notifications, zero for other types
+    uint64 cgroup_id = 33;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
@@ -97,6 +113,7 @@ enum FlowType {
     UNKNOWN_TYPE = 0;
     L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
     L7 = 2;
+    SOCK = 3;
 }
 
 enum TraceObservationPoint {
@@ -129,6 +146,7 @@ message Layer4 {
         // ICMP is technically not L4, but mutually exclusive with the above
         ICMPv4 ICMPv4 = 3;
         ICMPv6 ICMPv6 = 4;
+        SCTP SCTP = 5;
     }
 }
 
@@ -153,6 +171,22 @@ message Layer7 {
         HTTP http = 101;
         Kafka kafka = 102;
     }
+}
+
+// TraceContext contains trace context propagation data, ie information about a
+// distributed trace.
+// For more information about trace context, check the W3C Trace Context
+// specification: https://www.w3.org/TR/trace-context/
+message TraceContext {
+    // parent identifies the incoming request in a tracing system.
+    TraceParent parent = 1;
+}
+
+// TraceParent identifies the incoming request in a tracing system.
+message TraceParent {
+    // trace_id is a unique value that identifies a trace. It is a byte array
+    // represented as a hex string.
+    string trace_id = 1;
 }
 
 message Endpoint {
@@ -207,6 +241,11 @@ message UDP {
     uint32 destination_port = 2;
 }
 
+message SCTP {
+    uint32 source_port = 1;
+    uint32 destination_port = 2;
+}
+
 message ICMPv4 {
     uint32 type = 1;
     uint32 code = 2;
@@ -224,12 +263,28 @@ enum IPVersion {
 }
 
 enum Verdict {
+    // UNKNOWN is used if there is no verdict for this flow event
     VERDICT_UNKNOWN = 0;
+    // FORWARDED is used for flow events where the trace point has forwarded
+    // this packet or connection to the next processing entity.
     FORWARDED = 1;
+    // DROPPED is used for flow events where the connection or packet has
+    // been dropped (e.g. due to a malformed packet, it being rejected by a
+    // network policy etc). The exact drop reason may be found in drop_reason_desc.
     DROPPED = 2;
+    // ERROR is used for flow events where an error occurred during processing
     ERROR = 3;
+    // AUDIT is used on policy verdict events in policy audit mode, to
+    // denominate flows that would have been dropped by policy if audit mode
+    // was turned off
     AUDIT = 4;
+    // REDIRECTED is used for flow events which have been redirected to the proxy
     REDIRECTED = 5;
+    // TRACED is used for flow events which have been observed at a trace point,
+    // but no particular verdict has been reached yet
+    TRACED = 6;
+    // TRANSLATED is used for flow events where an address has been translated
+    TRANSLATED = 7;
 }
 
 // These values are shared with pkg/monitor/api/drop.go and bpf/lib/common.h.
@@ -293,6 +348,11 @@ enum DropReason {
     VLAN_FILTERED = 182;
     INVALID_VNI = 183;
     INVALID_TC_BUFFER = 184;
+    NO_SID = 185;
+    MISSING_SRV6_STATE = 186;
+    NAT46 = 187;
+    NAT64 = 188;
+    AUTH_REQUIRED = 189;
 }
 
 enum TrafficDirection {
@@ -351,7 +411,7 @@ message FlowFilter {
     repeated string source_ip = 1;
     // source_pod filters by a list of source pod name prefixes, optionally
     // within a given namespace (e.g. "xwing", "kube-system/coredns-").
-    // The pod name can be emitted to only filter by namespace
+    // The pod name can be omitted to only filter by namespace
     // (e.g. "kube-system/")
     repeated string source_pod = 2;
     // source_fqdn filters by a list of source fully qualified domain names
@@ -362,6 +422,8 @@ message FlowFilter {
     // source_service filters on a list of source service names. This field
     // supports the same syntax as the source_pod field.
     repeated string source_service = 16;
+    // source_workload filters by a list of source workload.
+    repeated Workload source_workload = 26;
 
     // destination_ip filters by a list of destination ips. Each of the
     // destination ips can be specified as an exact match (e.g. "1.1.1.1") or
@@ -375,6 +437,8 @@ message FlowFilter {
     repeated string destination_label = 11;
     // destination_service filters on a list of destination service names
     repeated string destination_service = 17;
+    // destination_workload filters by a list of destination workload.
+    repeated Workload destination_workload = 27;
 
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
@@ -415,6 +479,9 @@ message FlowFilter {
 
     // filter based on IP version (ipv4 or ipv6)
     repeated IPVersion ip_version = 25;
+
+    // trace_id filters flows by trace ID
+    repeated string trace_id = 28;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
@@ -597,9 +664,11 @@ message ServiceUpsertNotification {
     ServiceUpsertNotificationAddr frontend_address = 2;
     repeated ServiceUpsertNotificationAddr backend_addresses = 3;
     string type = 4;
-    string traffic_policy = 5;
+    string traffic_policy = 5 [deprecated = true];
     string name = 6;
     string namespace = 7;
+    string ext_traffic_policy = 8;
+    string int_traffic_policy = 9;
 }
 
 message ServiceDeleteNotification {
@@ -609,6 +678,15 @@ message ServiceDeleteNotification {
 message NetworkInterface {
     uint32 index = 1;
     string name = 2;
+}
+
+// This mirrors enum xlate_point in bpf/lib/trace_sock.h
+enum SocketTranslationPoint {
+    SOCK_XLATE_POINT_UNKNOWN = 0;
+    SOCK_XLATE_POINT_PRE_DIRECTION_FWD = 1; // Pre service translation
+    SOCK_XLATE_POINT_POST_DIRECTION_FWD = 2; // Post service translation
+    SOCK_XLATE_POINT_PRE_DIRECTION_REV = 3;   // Pre reverse service translation
+    SOCK_XLATE_POINT_POST_DIRECTION_REV = 4; // Post reverse service translation
 }
 
 message DebugEvent {

@@ -552,17 +552,17 @@ type Cluster struct {
 	//
 	// .. code-block:: yaml
 	//
-	//  transport_socket_matches:
-	//  - name: "enableMTLS"
-	//    match:
-	//      acceptMTLS: true
-	//    transport_socket:
-	//      name: envoy.transport_sockets.tls
-	//      config: { ... } # tls socket configuration
-	//  - name: "defaultToPlaintext"
-	//    match: {}
-	//    transport_socket:
-	//      name: envoy.transport_sockets.raw_buffer
+	//	transport_socket_matches:
+	//	- name: "enableMTLS"
+	//	  match:
+	//	    acceptMTLS: true
+	//	  transport_socket:
+	//	    name: envoy.transport_sockets.tls
+	//	    config: { ... } # tls socket configuration
+	//	- name: "defaultToPlaintext"
+	//	  match: {}
+	//	  transport_socket:
+	//	    name: envoy.transport_sockets.raw_buffer
 	//
 	// Connections to the endpoints whose metadata value under *envoy.transport_socket_match*
 	// having "acceptMTLS"/"true" key/value pair use the "enableMTLS" socket configuration.
@@ -597,7 +597,7 @@ type Cluster struct {
 	// The cluster name is used when emitting
 	// :ref:`statistics <config_cluster_manager_cluster_stats>` if :ref:`alt_stat_name
 	// <envoy_v3_api_field_config.cluster.v3.Cluster.alt_stat_name>` is not provided.
-	// Any ``:`` in the cluster name will be converted to ``_`` when emitting statistics.
+	// Any “:“ in the cluster name will be converted to “_“ when emitting statistics.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// An optional alternative to the cluster name to be used for observability. This name is used
 	// emitting stats for the cluster and access logging the cluster name. This will appear as
@@ -605,11 +605,12 @@ type Cluster struct {
 	// :ref:`observability_name <envoy_v3_api_field_admin.v3.ClusterStatus.observability_name>`
 	// and as an additional tag "upstream_cluster.name" while tracing. Note: access logging using
 	// this field is presently enabled with runtime feature
-	// `envoy.reloadable_features.use_observable_cluster_name`. Any ``:`` in the name will be
-	// converted to ``_`` when emitting statistics. This should not be confused with :ref:`Router
+	// `envoy.reloadable_features.use_observable_cluster_name`. Any “:“ in the name will be
+	// converted to “_“ when emitting statistics. This should not be confused with :ref:`Router
 	// Filter Header <config_http_filters_router_x-envoy-upstream-alt-stat-name>`.
 	AltStatName string `protobuf:"bytes,28,opt,name=alt_stat_name,json=altStatName,proto3" json:"alt_stat_name,omitempty"`
 	// Types that are assignable to ClusterDiscoveryType:
+	//
 	//	*Cluster_Type
 	//	*Cluster_ClusterType
 	ClusterDiscoveryType isCluster_ClusterDiscoveryType `protobuf_oneof:"cluster_discovery_type"`
@@ -632,9 +633,8 @@ type Cluster struct {
 	//
 	// .. attention::
 	//
-	//   Setting this allows non-EDS cluster types to contain embedded EDS equivalent
-	//   :ref:`endpoint assignments<envoy_v3_api_msg_config.endpoint.v3.ClusterLoadAssignment>`.
-	//
+	//	Setting this allows non-EDS cluster types to contain embedded EDS equivalent
+	//	:ref:`endpoint assignments<envoy_v3_api_msg_config.endpoint.v3.ClusterLoadAssignment>`.
 	LoadAssignment *v31.ClusterLoadAssignment `protobuf:"bytes,33,opt,name=load_assignment,json=loadAssignment,proto3" json:"load_assignment,omitempty"`
 	// Optional :ref:`active health checking <arch_overview_health_checking>`
 	// configuration for the cluster. If no
@@ -647,7 +647,8 @@ type Cluster struct {
 	// parameter to 1 will effectively disable keep alive.
 	//
 	// .. attention::
-	//   This field has been deprecated in favor of the :ref:`max_requests_per_connection <envoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_requests_per_connection>` field.
+	//
+	//	This field has been deprecated in favor of the :ref:`max_requests_per_connection <envoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_requests_per_connection>` field.
 	//
 	// Deprecated: Do not use.
 	MaxRequestsPerConnection *wrapperspb.UInt32Value `protobuf:"bytes,9,opt,name=max_requests_per_connection,json=maxRequestsPerConnection,proto3" json:"max_requests_per_connection,omitempty"`
@@ -818,6 +819,7 @@ type Cluster struct {
 	// LbPolicy will generate an error at runtime.
 	//
 	// Types that are assignable to LbConfig:
+	//
 	//	*Cluster_RingHashLbConfig_
 	//	*Cluster_MaglevLbConfig_
 	//	*Cluster_OriginalDstLbConfig_
@@ -854,14 +856,14 @@ type Cluster struct {
 	//
 	// .. note::
 	//
-	//   This is currently only supported for connections created by tcp_proxy.
+	//	This is currently only supported for connections created by tcp_proxy.
 	//
 	// .. note::
 	//
-	//   The current implementation of this feature closes all connections immediately when
-	//   the unhealthy status is detected. If there are a large number of connections open
-	//   to an upstream host that becomes unhealthy, Envoy may spend a substantial amount of
-	//   time exclusively closing these connections, and not processing any other traffic.
+	//	The current implementation of this feature closes all connections immediately when
+	//	the unhealthy status is detected. If there are a large number of connections open
+	//	to an upstream host that becomes unhealthy, Envoy may spend a substantial amount of
+	//	time exclusively closing these connections, and not processing any other traffic.
 	CloseConnectionsOnHostHealthFailure bool `protobuf:"varint,31,opt,name=close_connections_on_host_health_failure,json=closeConnectionsOnHostHealthFailure,proto3" json:"close_connections_on_host_health_failure,omitempty"`
 	// If set to true, Envoy will ignore the health value of a host when processing its removal
 	// from service discovery. This means that if active health checking is used, Envoy will *not*
@@ -897,8 +899,8 @@ type Cluster struct {
 	//
 	// .. attention::
 	//
-	//   This field has been deprecated in favor of `timeout_budgets`, part of
-	//   :ref:`track_cluster_stats <envoy_v3_api_field_config.cluster.v3.Cluster.track_cluster_stats>`.
+	//	This field has been deprecated in favor of `timeout_budgets`, part of
+	//	:ref:`track_cluster_stats <envoy_v3_api_field_config.cluster.v3.Cluster.track_cluster_stats>`.
 	//
 	// Deprecated: Do not use.
 	TrackTimeoutBudgets bool `protobuf:"varint,47,opt,name=track_timeout_budgets,json=trackTimeoutBudgets,proto3" json:"track_timeout_budgets,omitempty"`
@@ -1862,10 +1864,10 @@ type Cluster_LbSubsetConfig struct {
 	//
 	// .. code-block:: json
 	//
-	//   { "subset_selectors": [
-	//       { "keys": [ "version" ] },
-	//       { "keys": [ "stage", "hardware_type" ] }
-	//   ]}
+	//	{ "subset_selectors": [
+	//	    { "keys": [ "version" ] },
+	//	    { "keys": [ "stage", "hardware_type" ] }
+	//	]}
 	//
 	// A subset is matched when the metadata from the selected route and
 	// weighted cluster contains the same keys and values as the subset's
@@ -2133,7 +2135,8 @@ type Cluster_LeastRequestLbConfig struct {
 	// weight change.
 	//
 	// .. note::
-	//   This setting only takes effect if all host weights are not equal.
+	//
+	//	This setting only takes effect if all host weights are not equal.
 	ActiveRequestBias *v32.RuntimeDouble `protobuf:"bytes,2,opt,name=active_request_bias,json=activeRequestBias,proto3" json:"active_request_bias,omitempty"`
 	// Configuration for slow start mode.
 	// If this configuration is not set, slow start will not be not enabled.
@@ -2334,13 +2337,13 @@ type Cluster_OriginalDstLbConfig struct {
 	//
 	// .. attention::
 	//
-	//   This header isn't sanitized by default, so enabling this feature allows HTTP clients to
-	//   route traffic to arbitrary hosts and/or ports, which may have serious security
-	//   consequences.
+	//	This header isn't sanitized by default, so enabling this feature allows HTTP clients to
+	//	route traffic to arbitrary hosts and/or ports, which may have serious security
+	//	consequences.
 	//
 	// .. note::
 	//
-	//   If the header appears multiple times only the first value is used.
+	//	If the header appears multiple times only the first value is used.
 	UseHttpHeader bool `protobuf:"varint,1,opt,name=use_http_header,json=useHttpHeader,proto3" json:"use_http_header,omitempty"`
 }
 
@@ -2395,9 +2398,11 @@ type Cluster_CommonLbConfig struct {
 	// To disable panic mode, set to 0%.
 	//
 	// .. note::
-	//   The specified percent will be truncated to the nearest 1%.
+	//
+	//	The specified percent will be truncated to the nearest 1%.
 	HealthyPanicThreshold *v33.Percent `protobuf:"bytes,1,opt,name=healthy_panic_threshold,json=healthyPanicThreshold,proto3" json:"healthy_panic_threshold,omitempty"`
 	// Types that are assignable to LocalityConfigSpecifier:
+	//
 	//	*Cluster_CommonLbConfig_ZoneAwareLbConfig_
 	//	*Cluster_CommonLbConfig_LocalityWeightedLbConfig_
 	LocalityConfigSpecifier isCluster_CommonLbConfig_LocalityConfigSpecifier `protobuf_oneof:"locality_config_specifier"`

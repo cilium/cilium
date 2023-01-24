@@ -11,7 +11,7 @@
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/spf13/viper/CI?style=flat-square)](https://github.com/spf13/viper/actions?query=workflow%3ACI)
 [![Join the chat at https://gitter.im/spf13/viper](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/spf13/viper?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spf13/viper?style=flat-square)](https://goreportcard.com/report/github.com/spf13/viper)
-![Go Version](https://img.shields.io/badge/go%20version-%3E=1.15-61CFDD.svg?style=flat-square)
+![Go Version](https://img.shields.io/badge/go%20version-%3E=1.16-61CFDD.svg?style=flat-square)
 [![PkgGoDev](https://pkg.go.dev/badge/mod/github.com/spf13/viper)](https://pkg.go.dev/mod/github.com/spf13/viper)
 
 **Go configuration with fangs!**
@@ -119,7 +119,7 @@ viper.AddConfigPath("$HOME/.appname")  // call multiple times to add many search
 viper.AddConfigPath(".")               // optionally look for config in the working directory
 err := viper.ReadInConfig() // Find and read the config file
 if err != nil { // Handle errors reading the config file
-	panic(fmt.Errorf("Fatal error config file: %w \n", err))
+	panic(fmt.Errorf("fatal error config file: %w", err))
 }
 ```
 
@@ -447,6 +447,13 @@ viper.SetConfigType("json") // because there is no file extension in a stream of
 err := viper.ReadRemoteConfig()
 ```
 
+#### etcd3
+```go
+viper.AddRemoteProvider("etcd3", "http://127.0.0.1:4001","/config/hugo.json")
+viper.SetConfigType("json") // because there is no file extension in a stream of bytes, supported extensions are "json", "toml", "yaml", "yml", "properties", "props", "prop", "env", "dotenv"
+err := viper.ReadRemoteConfig()
+```
+
 #### Consul
 You need to set a key to Consul key/value storage with JSON value containing your desired config.
 For example, create a Consul key/value store key `MY_CONSUL_KEY` with value:
@@ -594,7 +601,7 @@ configuration level.
 
 Viper can access array indices by using numbers in the path. For example:
 
-```json
+```jsonc
 {
     "host": {
         "address": "localhost",
@@ -622,7 +629,7 @@ GetInt("host.ports.1") // returns 6029
 Lastly, if there exists a key that matches the delimited key path, its value
 will be returned instead. E.g.
 
-```json
+```jsonc
 {
     "datastore.metric.host": "0.0.0.0",
     "host": {

@@ -28,6 +28,7 @@
     - [LostEvent](#flow-LostEvent)
     - [NetworkInterface](#flow-NetworkInterface)
     - [PolicyUpdateNotification](#flow-PolicyUpdateNotification)
+    - [SCTP](#flow-SCTP)
     - [Service](#flow-Service)
     - [ServiceDeleteNotification](#flow-ServiceDeleteNotification)
     - [ServiceUpsertNotification](#flow-ServiceUpsertNotification)
@@ -35,6 +36,8 @@
     - [TCP](#flow-TCP)
     - [TCPFlags](#flow-TCPFlags)
     - [TimeNotification](#flow-TimeNotification)
+    - [TraceContext](#flow-TraceContext)
+    - [TraceParent](#flow-TraceParent)
     - [UDP](#flow-UDP)
     - [Workload](#flow-Workload)
   
@@ -47,6 +50,7 @@
     - [IPVersion](#flow-IPVersion)
     - [L7FlowType](#flow-L7FlowType)
     - [LostEventSource](#flow-LostEventSource)
+    - [SocketTranslationPoint](#flow-SocketTranslationPoint)
     - [TraceObservationPoint](#flow-TraceObservationPoint)
     - [TrafficDirection](#flow-TrafficDirection)
     - [Verdict](#flow-Verdict)
@@ -284,6 +288,10 @@ EventTypeFilter is a filter describing a particular event type
 | debug_capture_point | [DebugCapturePoint](#flow-DebugCapturePoint) |  | Only applicable to cilium debug capture events, blank for other types |
 | interface | [NetworkInterface](#flow-NetworkInterface) |  | interface is the network interface on which this flow was observed |
 | proxy_port | [uint32](#uint32) |  | proxy_port indicates the port of the proxy to which the flow was forwarded |
+| trace_context | [TraceContext](#flow-TraceContext) |  | trace_context contains information about a trace related to the flow, if any. |
+| sock_xlate_point | [SocketTranslationPoint](#flow-SocketTranslationPoint) |  | sock_xlate_point is the socket translation point. Only applicable to TraceSock notifications, blank for other types |
+| socket_cookie | [uint64](#uint64) |  | socket_cookie is the Linux kernel socket cookie for this flow. Only applicable to TraceSock notifications, zero for other types |
+| cgroup_id | [uint64](#uint64) |  | cgroup_id of the process which emitted this event. Only applicable to TraceSock notifications, zero for other types |
 | Summary | [string](#string) |  | **Deprecated.** This is a temporary workaround to support summary field for pb.Flow without duplicating logic from the old parser. This field will be removed once we fully migrate to the new parser. |
 
 
@@ -301,15 +309,17 @@ multiple fields are set, then all fields must match for the filter to match.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | source_ip | [string](#string) | repeated | source_ip filters by a list of source ips. Each of the source ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
-| source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be emitted to only filter by namespace (e.g. &#34;kube-system/&#34;) |
+| source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be omitted to only filter by namespace (e.g. &#34;kube-system/&#34;) |
 | source_fqdn | [string](#string) | repeated | source_fqdn filters by a list of source fully qualified domain names |
 | source_label | [string](#string) | repeated | source_labels filters on a list of source label selectors. Selectors support the full Kubernetes label selector syntax. |
 | source_service | [string](#string) | repeated | source_service filters on a list of source service names. This field supports the same syntax as the source_pod field. |
+| source_workload | [Workload](#flow-Workload) | repeated | source_workload filters by a list of source workload. |
 | destination_ip | [string](#string) | repeated | destination_ip filters by a list of destination ips. Each of the destination ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
 | destination_pod | [string](#string) | repeated | destination_pod filters by a list of destination pod names |
 | destination_fqdn | [string](#string) | repeated | destination_fqdn filters by a list of destination fully qualified domain names |
 | destination_label | [string](#string) | repeated | destination_label filters on a list of destination label selectors |
 | destination_service | [string](#string) | repeated | destination_service filters on a list of destination service names |
+| destination_workload | [Workload](#flow-Workload) | repeated | destination_workload filters by a list of destination workload. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | event_type | [EventTypeFilter](#flow-EventTypeFilter) | repeated | event_type is the list of event types to filter on |
 | http_status_code | [string](#string) | repeated | http_status_code is a list of string prefixes (e.g. &#34;4&#43;&#34;, &#34;404&#34;, &#34;5&#43;&#34;) to filter on the HTTP status code |
@@ -325,6 +335,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | tcp_flags | [TCPFlags](#flow-TCPFlags) | repeated | tcp_flags filters flows based on TCP header flags |
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
+| trace_id | [string](#string) | repeated | trace_id filters flows by trace ID |
 
 
 
@@ -471,6 +482,7 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogReco
 | UDP | [UDP](#flow-UDP) |  |  |
 | ICMPv4 | [ICMPv4](#flow-ICMPv4) |  | ICMP is technically not L4, but mutually exclusive with the above |
 | ICMPv6 | [ICMPv6](#flow-ICMPv6) |  |  |
+| SCTP | [SCTP](#flow-SCTP) |  |  |
 
 
 
@@ -548,6 +560,22 @@ that happened before the events were captured by Hubble.
 
 
 
+<a name="flow-SCTP"></a>
+
+### SCTP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| source_port | [uint32](#uint32) |  |  |
+| destination_port | [uint32](#uint32) |  |  |
+
+
+
+
+
+
 <a name="flow-Service"></a>
 
 ### Service
@@ -591,9 +619,11 @@ that happened before the events were captured by Hubble.
 | frontend_address | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) |  |  |
 | backend_addresses | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) | repeated |  |
 | type | [string](#string) |  |  |
-| traffic_policy | [string](#string) |  |  |
+| traffic_policy | [string](#string) |  | **Deprecated.**  |
 | name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
+| ext_traffic_policy | [string](#string) |  |  |
+| int_traffic_policy | [string](#string) |  |  |
 
 
 
@@ -665,6 +695,39 @@ that happened before the events were captured by Hubble.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="flow-TraceContext"></a>
+
+### TraceContext
+TraceContext contains trace context propagation data, ie information about a
+distributed trace.
+For more information about trace context, check the W3C Trace Context
+specification: https://www.w3.org/TR/trace-context/
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| parent | [TraceParent](#flow-TraceParent) |  | parent identifies the incoming request in a tracing system. |
+
+
+
+
+
+
+<a name="flow-TraceParent"></a>
+
+### TraceParent
+TraceParent identifies the incoming request in a tracing system.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| trace_id | [string](#string) |  | trace_id is a unique value that identifies a trace. It is a byte array represented as a hex string. |
 
 
 
@@ -886,6 +949,11 @@ here.
 | VLAN_FILTERED | 182 |  |
 | INVALID_VNI | 183 |  |
 | INVALID_TC_BUFFER | 184 |  |
+| NO_SID | 185 |  |
+| MISSING_SRV6_STATE | 186 |  |
+| NAT46 | 187 |  |
+| NAT64 | 188 |  |
+| AUTH_REQUIRED | 189 |  |
 
 
 
@@ -912,6 +980,7 @@ EventType are constants are based on the ones from &lt;linux/perf_event.h&gt;.
 | UNKNOWN_TYPE | 0 |  |
 | L3_L4 | 1 | not sure about the underscore here, but `L34` also reads strange |
 | L7 | 2 |  |
+| SOCK | 3 |  |
 
 
 
@@ -954,6 +1023,21 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 | PERF_EVENT_RING_BUFFER | 1 | PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF perf event ring buffer, indicating that userspace agent did not keep up with the events produced by the datapath. |
 | OBSERVER_EVENTS_QUEUE | 2 | OBSERVER_EVENTS_QUEUE indicates that events were dropped because the Hubble events queue was full, indicating that the Hubble observer did not keep up. |
 | HUBBLE_RING_BUFFER | 3 | HUBBLE_RING_BUFFER indicates that the event was dropped because it could not be read from Hubble&#39;s ring buffer in time before being overwritten. |
+
+
+
+<a name="flow-SocketTranslationPoint"></a>
+
+### SocketTranslationPoint
+This mirrors enum xlate_point in bpf/lib/trace_sock.h
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| SOCK_XLATE_POINT_UNKNOWN | 0 |  |
+| SOCK_XLATE_POINT_PRE_DIRECTION_FWD | 1 | Pre service translation |
+| SOCK_XLATE_POINT_POST_DIRECTION_FWD | 2 | Post service translation |
+| SOCK_XLATE_POINT_PRE_DIRECTION_REV | 3 | Pre reverse service translation |
+| SOCK_XLATE_POINT_POST_DIRECTION_REV | 4 | Post reverse service translation |
 
 
 
@@ -1000,12 +1084,14 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| VERDICT_UNKNOWN | 0 |  |
-| FORWARDED | 1 |  |
-| DROPPED | 2 |  |
-| ERROR | 3 |  |
-| AUDIT | 4 |  |
-| REDIRECTED | 5 |  |
+| VERDICT_UNKNOWN | 0 | UNKNOWN is used if there is no verdict for this flow event |
+| FORWARDED | 1 | FORWARDED is used for flow events where the trace point has forwarded this packet or connection to the next processing entity. |
+| DROPPED | 2 | DROPPED is used for flow events where the connection or packet has been dropped (e.g. due to a malformed packet, it being rejected by a network policy etc). The exact drop reason may be found in drop_reason_desc. |
+| ERROR | 3 | ERROR is used for flow events where an error occurred during processing |
+| AUDIT | 4 | AUDIT is used on policy verdict events in policy audit mode, to denominate flows that would have been dropped by policy if audit mode was turned off |
+| REDIRECTED | 5 | REDIRECTED is used for flow events which have been redirected to the proxy |
+| TRACED | 6 | TRACED is used for flow events which have been observed at a trace point, but no particular verdict has been reached yet |
+| TRANSLATED | 7 | TRANSLATED is used for flow events where an address has been translated |
 
 
  

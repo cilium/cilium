@@ -56,7 +56,6 @@ func (o *DeleteEndpointIDReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,14 +66,44 @@ func NewDeleteEndpointIDOK() *DeleteEndpointIDOK {
 	return &DeleteEndpointIDOK{}
 }
 
-/*DeleteEndpointIDOK handles this case with default header values.
+/*
+DeleteEndpointIDOK describes a response with status code 200, with default header values.
 
 Success
 */
 type DeleteEndpointIDOK struct {
 }
 
+// IsSuccess returns true when this delete endpoint Id o k response has a 2xx status code
+func (o *DeleteEndpointIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete endpoint Id o k response has a 3xx status code
+func (o *DeleteEndpointIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id o k response has a 4xx status code
+func (o *DeleteEndpointIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete endpoint Id o k response has a 5xx status code
+func (o *DeleteEndpointIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete endpoint Id o k response a status code equal to that given
+func (o *DeleteEndpointIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeleteEndpointIDOK) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK ", 200)
+}
+
+func (o *DeleteEndpointIDOK) String() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdOK ", 200)
 }
 
@@ -88,7 +117,8 @@ func NewDeleteEndpointIDErrors() *DeleteEndpointIDErrors {
 	return &DeleteEndpointIDErrors{}
 }
 
-/*DeleteEndpointIDErrors handles this case with default header values.
+/*
+DeleteEndpointIDErrors describes a response with status code 206, with default header values.
 
 Deleted with a number of errors encountered
 */
@@ -96,7 +126,36 @@ type DeleteEndpointIDErrors struct {
 	Payload int64
 }
 
+// IsSuccess returns true when this delete endpoint Id errors response has a 2xx status code
+func (o *DeleteEndpointIDErrors) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete endpoint Id errors response has a 3xx status code
+func (o *DeleteEndpointIDErrors) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id errors response has a 4xx status code
+func (o *DeleteEndpointIDErrors) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete endpoint Id errors response has a 5xx status code
+func (o *DeleteEndpointIDErrors) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete endpoint Id errors response a status code equal to that given
+func (o *DeleteEndpointIDErrors) IsCode(code int) bool {
+	return code == 206
+}
+
 func (o *DeleteEndpointIDErrors) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors  %+v", 206, o.Payload)
+}
+
+func (o *DeleteEndpointIDErrors) String() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdErrors  %+v", 206, o.Payload)
 }
 
@@ -119,17 +178,47 @@ func NewDeleteEndpointIDInvalid() *DeleteEndpointIDInvalid {
 	return &DeleteEndpointIDInvalid{}
 }
 
-/*DeleteEndpointIDInvalid handles this case with default header values.
+/*
+	DeleteEndpointIDInvalid describes a response with status code 400, with default header values.
 
-Invalid endpoint ID format for specified type. Details in error
+	Invalid endpoint ID format for specified type. Details in error
+
 message
-
 */
 type DeleteEndpointIDInvalid struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete endpoint Id invalid response has a 2xx status code
+func (o *DeleteEndpointIDInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete endpoint Id invalid response has a 3xx status code
+func (o *DeleteEndpointIDInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id invalid response has a 4xx status code
+func (o *DeleteEndpointIDInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete endpoint Id invalid response has a 5xx status code
+func (o *DeleteEndpointIDInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete endpoint Id invalid response a status code equal to that given
+func (o *DeleteEndpointIDInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *DeleteEndpointIDInvalid) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *DeleteEndpointIDInvalid) String() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
@@ -152,14 +241,44 @@ func NewDeleteEndpointIDNotFound() *DeleteEndpointIDNotFound {
 	return &DeleteEndpointIDNotFound{}
 }
 
-/*DeleteEndpointIDNotFound handles this case with default header values.
+/*
+DeleteEndpointIDNotFound describes a response with status code 404, with default header values.
 
 Endpoint not found
 */
 type DeleteEndpointIDNotFound struct {
 }
 
+// IsSuccess returns true when this delete endpoint Id not found response has a 2xx status code
+func (o *DeleteEndpointIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete endpoint Id not found response has a 3xx status code
+func (o *DeleteEndpointIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id not found response has a 4xx status code
+func (o *DeleteEndpointIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete endpoint Id not found response has a 5xx status code
+func (o *DeleteEndpointIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete endpoint Id not found response a status code equal to that given
+func (o *DeleteEndpointIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *DeleteEndpointIDNotFound) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound ", 404)
+}
+
+func (o *DeleteEndpointIDNotFound) String() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdNotFound ", 404)
 }
 
@@ -173,14 +292,44 @@ func NewDeleteEndpointIDTooManyRequests() *DeleteEndpointIDTooManyRequests {
 	return &DeleteEndpointIDTooManyRequests{}
 }
 
-/*DeleteEndpointIDTooManyRequests handles this case with default header values.
+/*
+DeleteEndpointIDTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type DeleteEndpointIDTooManyRequests struct {
 }
 
+// IsSuccess returns true when this delete endpoint Id too many requests response has a 2xx status code
+func (o *DeleteEndpointIDTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete endpoint Id too many requests response has a 3xx status code
+func (o *DeleteEndpointIDTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete endpoint Id too many requests response has a 4xx status code
+func (o *DeleteEndpointIDTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete endpoint Id too many requests response has a 5xx status code
+func (o *DeleteEndpointIDTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete endpoint Id too many requests response a status code equal to that given
+func (o *DeleteEndpointIDTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *DeleteEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests ", 429)
+}
+
+func (o *DeleteEndpointIDTooManyRequests) String() string {
 	return fmt.Sprintf("[DELETE /endpoint/{id}][%d] deleteEndpointIdTooManyRequests ", 429)
 }
 

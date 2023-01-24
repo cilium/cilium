@@ -107,6 +107,11 @@ func NewDefaultClientWithTimeout(timeout time.Duration) (*Client, error) {
 // If host is nil then use SockPath provided by CILIUM_SOCK
 // or the cilium default SockPath
 func NewClient(host string) (*Client, error) {
+	clientTrans, err := NewRuntime(host)
+	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, err
+}
+
+func NewRuntime(host string) (*runtime_client.Runtime, error) {
 	if host == "" {
 		host = DefaultSockPath()
 	}
@@ -129,7 +134,7 @@ func NewClient(host string) (*Client, error) {
 	httpClient := &http.Client{Transport: transport}
 	clientTrans := runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
 		clientapi.DefaultSchemes, httpClient)
-	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
+	return clientTrans, nil
 }
 
 // Hint tries to improve the error message displayed to the user.
@@ -315,6 +320,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "CNI Chaining:\t%s\n", sr.CniChaining.Mode)
 	}
 
+	if sr.CniFile != nil {
+		fmt.Fprintf(w, "CNI Config file:\t%s\n", sr.CniFile.Msg)
+	}
+
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s   %s\n", sr.Cilium.State, sr.Cilium.Msg)
 	}
@@ -379,6 +388,14 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 			}
 		}
+	}
+
+	if sr.IPV6BigTCP != nil {
+		status := "Enabled"
+		if !sr.IPV6BigTCP.Enabled {
+			status = "Disabled"
+		}
+		fmt.Fprintf(w, "IPv6 BIG TCP:\t%s\n", status)
 	}
 
 	if sr.BandwidthManager != nil {
@@ -586,9 +603,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			socketLB = "Enabled"
 		}
 
-		protocols := ""
-		if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
-			protocols = strings.Join(hs.Protocols, ", ")
+		socketLBTracing := "Disabled"
+		if st := sr.KubeProxyReplacement.Features.SocketLBTracing; st.Enabled {
+			socketLBTracing = "Enabled"
 		}
 
 		gracefulTerm := "Disabled"
@@ -597,17 +614,25 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 
 		nat46X64 := "Disabled"
+		nat46X64GW := "Disabled"
+		nat46X64SVC := "Disabled"
+		prefixes := ""
 		if sr.KubeProxyReplacement.Features.Nat46X64.Enabled {
 			nat46X64 = "Enabled"
+			if svc := sr.KubeProxyReplacement.Features.Nat46X64.Service; svc.Enabled {
+				nat46X64SVC = "Enabled"
+			}
+			if gw := sr.KubeProxyReplacement.Features.Nat46X64.Gateway; gw.Enabled {
+				nat46X64GW = "Enabled"
+				prefixes = strings.Join(gw.Prefixes, ", ")
+			}
 		}
 
 		fmt.Fprintf(w, "KubeProxyReplacement Details:\n")
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
 		fmt.Fprintf(tab, "  Socket LB:\t%s\n", socketLB)
-		if protocols != "" {
-			fmt.Fprintf(tab, "  Socket LB Protocols:\t%s\n", protocols)
-		}
+		fmt.Fprintf(tab, "  Socket LB Tracing:\t%s\n", socketLBTracing)
 		if kubeProxyDevices != "" {
 			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
 		}
@@ -619,7 +644,16 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 		fmt.Fprintf(tab, "  Session Affinity:\t%s\n", affinity)
 		fmt.Fprintf(tab, "  Graceful Termination:\t%s\n", gracefulTerm)
-		fmt.Fprintf(tab, "  NAT46/64 Support:\t%s\n", nat46X64)
+		if nat46X64 == "Disabled" {
+			fmt.Fprintf(tab, "  NAT46/64 Support:\t%s\n", nat46X64)
+		} else {
+			fmt.Fprintf(tab, "  NAT46/64 Support:\n")
+			fmt.Fprintf(tab, "  - Services:\t%s\n", nat46X64SVC)
+			fmt.Fprintf(tab, "  - Gateway:\t%s\n", nat46X64GW)
+			if nat46X64GW == "Enabled" && prefixes != "" {
+				fmt.Fprintf(tab, "    Prefixes:\t%s\n", prefixes)
+			}
+		}
 		if xdp != "" {
 			fmt.Fprintf(tab, "  XDP Acceleration:\t%s\n", xdp)
 		}

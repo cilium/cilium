@@ -32,7 +32,6 @@ func (o *GetClusterNodesReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return result, nil
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -43,7 +42,8 @@ func NewGetClusterNodesOK() *GetClusterNodesOK {
 	return &GetClusterNodesOK{}
 }
 
-/*GetClusterNodesOK handles this case with default header values.
+/*
+GetClusterNodesOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -51,7 +51,36 @@ type GetClusterNodesOK struct {
 	Payload *models.ClusterNodeStatus
 }
 
+// IsSuccess returns true when this get cluster nodes o k response has a 2xx status code
+func (o *GetClusterNodesOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get cluster nodes o k response has a 3xx status code
+func (o *GetClusterNodesOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get cluster nodes o k response has a 4xx status code
+func (o *GetClusterNodesOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get cluster nodes o k response has a 5xx status code
+func (o *GetClusterNodesOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get cluster nodes o k response a status code equal to that given
+func (o *GetClusterNodesOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetClusterNodesOK) Error() string {
+	return fmt.Sprintf("[GET /cluster/nodes][%d] getClusterNodesOK  %+v", 200, o.Payload)
+}
+
+func (o *GetClusterNodesOK) String() string {
 	return fmt.Sprintf("[GET /cluster/nodes][%d] getClusterNodesOK  %+v", 200, o.Payload)
 }
 

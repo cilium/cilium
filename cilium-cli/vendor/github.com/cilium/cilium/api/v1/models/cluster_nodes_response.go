@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -43,7 +44,6 @@ func (m *ClusterNodesResponse) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ClusterNodesResponse) validateNodes(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Nodes) { // not required
 		return nil
 	}
@@ -57,6 +57,42 @@ func (m *ClusterNodesResponse) validateNodes(formats strfmt.Registry) error {
 			if err := m.Nodes[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this cluster nodes response based on the context it is used
+func (m *ClusterNodesResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateNodes(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ClusterNodesResponse) contextValidateNodes(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Nodes); i++ {
+
+		if m.Nodes[i] != nil {
+			if err := m.Nodes[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("nodes" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("nodes" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

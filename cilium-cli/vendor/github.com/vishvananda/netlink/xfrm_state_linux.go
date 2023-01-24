@@ -77,6 +77,14 @@ func writeReplayEsn(replayWindow int) []byte {
 	return replayEsn.Serialize()
 }
 
+func writeReplay(r *XfrmReplayState) []byte {
+	return (&nl.XfrmReplayState{
+		OSeq:   r.OSeq,
+		Seq:    r.Seq,
+		BitMap: r.BitMap,
+	}).Serialize()
+}
+
 // XfrmStateAdd will add an xfrm state to the system.
 // Equivalent to: `ip xfrm state add $state`
 func XfrmStateAdd(state *XfrmState) error {
@@ -165,6 +173,21 @@ func (h *Handle) xfrmStateAddOrUpdate(state *XfrmState, nlProto int) error {
 			out = nl.NewRtAttr(nl.XFRMA_SET_MARK_MASK, nl.Uint32Attr(state.OutputMark.Mask))
 			req.AddData(out)
 		}
+	}
+	if state.OSeqMayWrap || state.DontEncapDSCP {
+		var flags uint32
+		if state.DontEncapDSCP {
+			flags |= nl.XFRM_SA_XFLAG_DONT_ENCAP_DSCP
+		}
+		if state.OSeqMayWrap {
+			flags |= nl.XFRM_SA_XFLAG_OSEQ_MAY_WRAP
+		}
+		out := nl.NewRtAttr(nl.XFRMA_SA_EXTRA_FLAGS, nl.Uint32Attr(flags))
+		req.AddData(out)
+	}
+	if state.Replay != nil {
+		out := nl.NewRtAttr(nl.XFRMA_REPLAY_VAL, writeReplay(state.Replay))
+		req.AddData(out)
 	}
 
 	if state.Ifid != 0 {
@@ -385,6 +408,14 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 			state.Mark = new(XfrmMark)
 			state.Mark.Value = mark.Value
 			state.Mark.Mask = mark.Mask
+		case nl.XFRMA_SA_EXTRA_FLAGS:
+			flags := native.Uint32(attr.Value)
+			if (flags & nl.XFRM_SA_XFLAG_DONT_ENCAP_DSCP) != 0 {
+				state.DontEncapDSCP = true
+			}
+			if (flags & nl.XFRM_SA_XFLAG_OSEQ_MAY_WRAP) != 0 {
+				state.OSeqMayWrap = true
+			}
 		case nl.XFRMA_SET_MARK:
 			if state.OutputMark == nil {
 				state.OutputMark = new(XfrmMark)
@@ -400,6 +431,14 @@ func parseXfrmState(m []byte, family int) (*XfrmState, error) {
 			}
 		case nl.XFRMA_IF_ID:
 			state.Ifid = int(native.Uint32(attr.Value))
+		case nl.XFRMA_REPLAY_VAL:
+			if state.Replay == nil {
+				state.Replay = new(XfrmReplayState)
+			}
+			replay := nl.DeserializeXfrmReplayState(attr.Value[:])
+			state.Replay.OSeq = replay.OSeq
+			state.Replay.Seq = replay.Seq
+			state.Replay.BitMap = replay.BitMap
 		}
 	}
 

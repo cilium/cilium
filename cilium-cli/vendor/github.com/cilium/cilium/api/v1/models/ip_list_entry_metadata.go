@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
@@ -25,11 +27,17 @@ type IPListEntryMetadata struct {
 	Namespace string `json:"namespace,omitempty"`
 
 	// Source of the IP entry and its metadata
+	// Example: k8s
 	Source string `json:"source,omitempty"`
 }
 
 // Validate validates this IP list entry metadata
 func (m *IPListEntryMetadata) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this IP list entry metadata based on context it is used
+func (m *IPListEntryMetadata) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

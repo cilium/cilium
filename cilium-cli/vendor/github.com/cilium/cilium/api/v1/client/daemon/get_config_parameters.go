@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetConfigParams creates a new GetConfigParams object
-// with the default values initialized.
+// NewGetConfigParams creates a new GetConfigParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetConfigParams() *GetConfigParams {
-
 	return &GetConfigParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetConfigParamsWithTimeout creates a new GetConfigParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetConfigParamsWithTimeout(timeout time.Duration) *GetConfigParams {
-
 	return &GetConfigParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetConfigParamsWithContext creates a new GetConfigParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetConfigParamsWithContext(ctx context.Context) *GetConfigParams {
-
 	return &GetConfigParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetConfigParamsWithHTTPClient creates a new GetConfigParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetConfigParamsWithHTTPClient(client *http.Client) *GetConfigParams {
-
 	return &GetConfigParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetConfigParams contains all the parameters to send to the API endpoint
-for the get config operation typically these are written to a http.Request
+/*
+GetConfigParams contains all the parameters to send to the API endpoint
+
+	for the get config operation.
+
+	Typically these are written to a http.Request.
 */
 type GetConfigParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetConfigParams) WithDefaults() *GetConfigParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetConfigParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get config params
