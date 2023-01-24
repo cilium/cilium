@@ -286,16 +286,16 @@ The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
 case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.10.x`` to ``1.11.y`` first, and to ``1.12.z`` only afterwards).
+from ``1.11.x`` to ``1.12.y`` first, and to ``1.13.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
+| ``1.12.x``            | ``1.13.y``            | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.10.x``            | ``1.11.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.9.x``             | ``1.10.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -306,115 +306,6 @@ Annotations:
    connections.
 
 .. _current_release_required_changes:
-
-.. _1.13_upgrade_notes:
-
-1.13 Upgrade Notes
-------------------
-* The code for the deprecated ``spec.eni.min-allocate``, ``spec.eni.pre-allocate``
-  ``spec.eni.max-above-watermark`` fields has been removed, those fields are
-  no longer functional. Please use their semantically equivalent ``spec.ipam``
-  replacements instead.
-
-* The kube-proxy replacement in DSR or Hybrid mode with tunneling causes failure upon cilium-agent start.
-  In previous versions, cilium-agent automatically used SNAT mode when we set tunneling.
-
-* In the ENI IPAM mode, the default subnet in which ENIs are created has changed
-  from the subnet (in the same VPC and AZ) with the most addresses available to
-  the subnet in which the primary ENI of the node is attached. Note that this
-  default only matters if no explicit selection of the subnet occurs, i.e.
-  specifying subnet IDs or tags still takes precedence.
-
-* NodeExternalIP of the local node is now correctly included into the ``host``
-  :ref:`entity <Entities based>` (it used to belong to the world entity).
-
-* The scope of the ``policy_implementation_delay`` Prometheus metric has been expanded to cover the
-  full interval from when a policy is first received from a cilium-agent, to when the policy has been
-  applied to endpoints. In previous versions, ``policy_implementation_delay`` only covered the work
-  done by the daemon subsystem to implement the policy. As a result, users may notice an expected
-  increase in ``policy_implementation_delay`` after upgrading.
-
-Removed Options
-~~~~~~~~~~~~~~~
-
-* The ineffective ``disable-conntrack``, ``endpoint-interface-name-prefix`` options deprecated in
-  version 1.12 have been removed.
-* The ``host-reachable-services-protos`` option deprecated in version v1.12 has
-  been removed.
-* The ``probe`` option of ``kube-proxy-replacement`` deprecated in version v1.12
-  has been removed. Users of the ``probe`` option are advised either to use
-  ``strict`` or ``partial`` with individual options configured. Please refer to
-  :ref:`kubeproxy-free` for more info.
-* The ``CiliumEgressNATPolicy`` CRD deprecated in version 1.12 has been removed. It is superseded
-  by the ``CiliumEgressGatewayPolicy`` CRD.
-* The ``pprof``, ``pprof-port`` flags for cilium-operator have been renamed
-  to ``operator-pprof`` and ``operator-pprof-port`` respectively.
-
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-
-* The ``force-local-policy-eval-at-source`` option is deprecated and will be
-  removed in 1.14.
-
-Added Metrics
-~~~~~~~~~~~~~
-
-* ``cilium_operator_allocation_duration_seconds``
-* ``cilium_operator_release_duration_seconds``
-* ``httpV2``, an updated version of the existing ``http`` metrics.
-* ``cilium_operator_ipam_interface_candidates``
-* ``cilium_operator_ipam_empty_interface_slots``
-
-Modified Metrics
-~~~~~~~~~~~~~~~~~~
-
-* ``hubble_policy_verdicts_total`` now lists L7 flows. The match label has value ``l7/<l7_proto>``
-  after the detected L7 protocol of the flow (for example: ``l7/http``).
-* Values for the ``reason`` label have been updated in  ``hubble_drop_total`` metric.
-  Please see `the API documentation <https://github.com/cilium/cilium/tree/master/api/v1/flow#flow-DropReason>`_
-  for the complete list of drop reasons.
-
-Deprecated Metrics
-~~~~~~~~~~~~~~~~~~
-
-* ``http`` is deprecated. Please use ``httpV2`` instead.
-* ``cilium_operator_ipam_available_interfaces`` is deprecated. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
-
-Removed Metrics/Labels
-~~~~~~~~~~~~~~~~~~~~~~
-
-* ``cilium_operator_ipam_available`` is removed. Please use ``cilium_operator_ipam_interface_candidates`` and ``cilium_operator_ipam_empty_interface_slots`` instead.
-* ``cilium_operator_ipam_allocation_ops`` is removed. Please use ``cilium_operator_ipam_ip_allocation_ops`` instead.
-* ``cilium_operator_ipam_release_ops`` is removed. Please use ``cilium_operator_ipam_ip_release_ops`` instead.
-* The label of ``status`` in ``cilium_operator_ipam_interface_creation_ops`` is removed.
-* ``cilium_node_neigh_arping_requests_total`` is removed. The counter was ineffective since the v1.11.0.
-
-Helm Options
-~~~~~~~~~~~~
-
-* The way Linux capabilities are configured has been revamped in this release.
-  All capabilities of every container in the ``cilium-agent`` DaemonSet is
-  configured from Helm's values, defaulting to the old behavior. If you have not
-  been using ``securityContext.extraCapabilities`` you do not need to do anything.
-  If you were leveraging ``securityContext.extraCapabilities``, you need to review
-  ``securityContext.capabilities.cilium_agent``.
-* ``bpf.hostLegacyRouting`` will be set to true automatically if ``cni.chainingMode`` is set to any other value than ``none`` (default)
-* The top-level ``pprof`` section now only configures pprof for cilium agent.
-  The cilium-operator pprof configuration is now managed via the ``operator.pprof`` section.
-  Additionally, a``hubble.relay.pprof`` section has been added.
-* All pprof configuration now support configuring the pprof listen address, defaulting to localhost.
-
-CRD Changes
-~~~~~~~~~~~
-
-* ``CiliumBGPLoadBalancerIPPool`` CRD has been renamed to ``CiliumLoadBalancerIPPool``.
-
-Deprecated API Fields
-~~~~~~~~~~~~~~~~~~~~~
-
-* ``trafficPolicy`` has been renamed to ``extTrafficPolicy`` in ``ServiceSpec.flags`` and
-  ``ServiceUpsertNotification``, in order to emphasize the distinction between the external and
-  internal traffic policies. The old name remains for backward compatibility.
 
 .. _earlier_upgrade_notes:
 
