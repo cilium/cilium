@@ -134,7 +134,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	k8sCacheSyncedChecker := &k8sCacheSyncedCheckerMock{}
 
-	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator)
+	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator, option.Config.InstallEgressGatewayRoutes)
 	c.Assert(egressGatewayManager, NotNil)
 	assertIPRules(c, []ipRule{})
 
