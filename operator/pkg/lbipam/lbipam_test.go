@@ -201,23 +201,28 @@ func TestAllocHappyPath(t *testing.T) {
 		svc := fixture.PatchedSvc(action.(k8s_testing.PatchAction))
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Unexpected condition type assigned to service")
+			t.Error("Unexpected condition type assigned to service")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
-			t.Fatal("Unexpected condition status assigned to service")
+			t.Error("Unexpected condition status assigned to service")
+			return true
 		}
 
 		return true
@@ -227,6 +232,10 @@ func TestAllocHappyPath(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service to be updated")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	svc, err := fixture.svcClient.Services("default").Get(context.Background(), "service-a", meta_v1.GetOptions{})
@@ -248,11 +257,13 @@ func TestAllocHappyPath(t *testing.T) {
 
 		// The second update allocates the new IPv6
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() != nil {
-			t.Fatal("Expected service to receive a IPv6 address")
+			t.Error("Expected service to receive a IPv6 address")
+			return true
 		}
 
 		return true
@@ -265,6 +276,10 @@ func TestAllocHappyPath(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update after update")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	// Allow time for additional events to fire
@@ -289,11 +304,13 @@ func TestAllocHappyPath(t *testing.T) {
 
 		// The second update allocates the new IPv4
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		return true
@@ -306,6 +323,10 @@ func TestAllocHappyPath(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update after update")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 }
 
@@ -342,11 +363,13 @@ func TestServiceDelete(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		svcIP = svc.Status.LoadBalancer.Ingress[0].IP
@@ -358,6 +381,10 @@ func TestServiceDelete(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status to be updated")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP(svcIP)) {
@@ -420,27 +447,33 @@ func TestReallocOnInit(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		if svc.Status.LoadBalancer.Ingress[0].IP == "192.168.1.12" {
-			t.Fatal("Expected ingress IP to not be the initial, bad IP")
+			t.Error("Expected ingress IP to not be the initial, bad IP")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected second condition to be svc-satisfied:true")
+			t.Error("Expected second condition to be svc-satisfied:true")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
-			t.Fatal("Expected second condition to be svc-satisfied:true")
+			t.Error("Expected second condition to be svc-satisfied:true")
+			return true
 		}
 
 		return true
@@ -517,7 +550,7 @@ func TestAllocOnInit(t *testing.T) {
 			return false
 		}
 
-		t.Fatal("No service updates expected")
+		t.Error("No service updates expected")
 
 		return false
 	}, 100*time.Millisecond)
@@ -562,27 +595,33 @@ func TestPoolSelectorBasic(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if svc.Name != "red-service" {
-			t.Fatal("Expected update from 'red-service'")
+			t.Error("Expected update from 'red-service'")
+			return true
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		return true
@@ -612,6 +651,11 @@ func TestPoolSelectorBasic(t *testing.T) {
 		t.Fatal("Expected service status update")
 	}
 
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
+
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
 			return false
@@ -624,19 +668,23 @@ func TestPoolSelectorBasic(t *testing.T) {
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to not receive any ingress IPs")
+			t.Error("Expected service to not receive any ingress IPs")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be svc-satisfied:false")
+			t.Error("Expected condition to be svc-satisfied:false")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-			t.Fatal("Expected condition to be svc-satisfied:false")
+			t.Error("Expected condition to be svc-satisfied:false")
+			return true
 		}
 
 		return true
@@ -691,27 +739,33 @@ func TestPoolSelectorNamespace(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if svc.Name != "red-service" {
-			t.Fatal("Expected update from 'red-service'")
+			t.Error("Expected update from 'red-service'")
+			return true
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		return true
@@ -739,6 +793,11 @@ func TestPoolSelectorNamespace(t *testing.T) {
 		t.Fatal("Expected service status update")
 	}
 
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
+
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
 			return false
@@ -751,19 +810,19 @@ func TestPoolSelectorNamespace(t *testing.T) {
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to not receive any ingress IPs")
+			t.Error("Expected service to not receive any ingress IPs")
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be svc-satisfied:false")
+			t.Error("Expected condition to be svc-satisfied:false")
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-			t.Fatal("Expected condition to be svc-satisfied:false")
+			t.Error("Expected condition to be svc-satisfied:false")
 		}
 
 		return true
@@ -824,7 +883,7 @@ func TestChangeServiceType(t *testing.T) {
 			return false
 		}
 
-		t.Fatal("No service updates expected")
+		t.Error("No service updates expected")
 
 		return false
 	}, 100*time.Millisecond)
@@ -834,6 +893,11 @@ func TestChangeServiceType(t *testing.T) {
 	<-initDone
 
 	await.Block()
+
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	var assignedIP string
 
@@ -845,25 +909,30 @@ func TestChangeServiceType(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if net.ParseIP(svc.Status.LoadBalancer.Ingress[0].IP).To4() == nil {
-			t.Fatal("Expected service to receive a IPv4 address")
+			t.Error("Expected service to receive a IPv4 address")
+			return true
 		}
 
 		assignedIP = svc.Status.LoadBalancer.Ingress[0].IP
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to receive exactly one condition")
+			t.Error("Expected service to receive exactly one condition")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
-			t.Fatal("Expected condition to be svc-satisfied:true")
+			t.Error("Expected condition to be svc-satisfied:true")
+			return true
 		}
 
 		return true
@@ -889,6 +958,11 @@ func TestChangeServiceType(t *testing.T) {
 		t.Fatal("Expected service status update")
 	}
 
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
+
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
 			return false
@@ -897,11 +971,13 @@ func TestChangeServiceType(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to have no ingress IPs")
+			t.Error("Expected service to have no ingress IPs")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 0 {
-			t.Fatal("Expected service to have no conditions")
+			t.Error("Expected service to have no conditions")
+			return true
 		}
 
 		return true
@@ -987,32 +1063,7 @@ func TestRangesFull(t *testing.T) {
 		if svc.Name != "service-a" {
 			if len(svc.Status.LoadBalancer.Ingress) != 0 {
 				t.Error("Expected service to have no ingress IPs")
-			}
-
-			if len(svc.Status.Conditions) != 1 {
-				t.Fatal("Expected service to have one conditions")
 				return true
-			}
-
-			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-				t.Error("Expected condition to be svc-satisfied:false")
-			}
-
-			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-				t.Error("Expected condition to be svc-satisfied:false")
-			}
-
-			if svc.Status.Conditions[0].Reason != "out_of_ips" {
-				t.Error("Expected condition reason to be out of IPs")
-			}
-
-			return false
-		}
-
-		if svc.Name != "service-b" {
-
-			if len(svc.Status.LoadBalancer.Ingress) != 0 {
-				t.Error("Expected service to have no ingress IPs")
 			}
 
 			if len(svc.Status.Conditions) != 1 {
@@ -1022,14 +1073,47 @@ func TestRangesFull(t *testing.T) {
 
 			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
 				t.Error("Expected condition to be svc-satisfied:false")
+				return true
 			}
 
 			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
 				t.Error("Expected condition to be svc-satisfied:false")
+				return true
 			}
 
 			if svc.Status.Conditions[0].Reason != "out_of_ips" {
 				t.Error("Expected condition reason to be out of IPs")
+				return true
+			}
+
+			return false
+		}
+
+		if svc.Name != "service-b" {
+
+			if len(svc.Status.LoadBalancer.Ingress) != 0 {
+				t.Error("Expected service to have no ingress IPs")
+				return true
+			}
+
+			if len(svc.Status.Conditions) != 1 {
+				t.Error("Expected service to have one conditions")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
+				t.Error("Expected condition to be svc-satisfied:false")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
+				t.Error("Expected condition to be svc-satisfied:false")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Reason != "out_of_ips" {
+				t.Error("Expected condition reason to be out of IPs")
+				return true
 			}
 		}
 
@@ -1073,11 +1157,13 @@ func TestRequestIPs(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if svc.Status.LoadBalancer.Ingress[0].IP != "10.0.10.20" {
-			t.Fatal("Expected service to receive IP '10.0.10.20'")
+			t.Error("Expected service to receive IP '10.0.10.20'")
+			return true
 		}
 
 		return true
@@ -1088,6 +1174,10 @@ func TestRequestIPs(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1097,11 +1187,13 @@ func TestRequestIPs(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if svc.Name != "service-b" {
-			t.Fatal("Expected status update for service-b")
+			t.Error("Expected status update for service-b")
+			return true
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 3 {
-			t.Fatal("Expected service to receive exactly three ingress IPs")
+			t.Error("Expected service to receive exactly three ingress IPs")
+			return true
 		}
 
 		first := false
@@ -1117,20 +1209,24 @@ func TestRequestIPs(t *testing.T) {
 			case "10.0.10.23":
 				third = true
 			default:
-				t.Fatal("Unexpected ingress IP")
+				t.Error("Unexpected ingress IP")
+				return true
 			}
 		}
 
 		if !first {
-			t.Fatal("Expected service to receive IP '10.0.10.21'")
+			t.Error("Expected service to receive IP '10.0.10.21'")
+			return true
 		}
 
 		if !second {
-			t.Fatal("Expected service to receive IP '10.0.10.22'")
+			t.Error("Expected service to receive IP '10.0.10.22'")
+			return true
 		}
 
 		if !third {
-			t.Fatal("Expected service to receive IP '10.0.10.23'")
+			t.Error("Expected service to receive IP '10.0.10.23'")
+			return true
 		}
 
 		return true
@@ -1159,6 +1255,10 @@ func TestRequestIPs(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1168,27 +1268,33 @@ func TestRequestIPs(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if svc.Name != "service-c" {
-			t.Fatal("Expected status update for service-b")
+			t.Error("Expected status update for service-b")
+			return true
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive no ingress IPs")
+			t.Error("Expected service to receive no ingress IPs")
+			return true
 		}
 
 		if len(svc.Status.Conditions) != 1 {
-			t.Fatal("Expected service to have one conditions")
+			t.Error("Expected service to have one conditions")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-			t.Fatal("Expected condition to be request-valid:false")
+			t.Error("Expected condition to be request-valid:false")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-			t.Fatal("Expected condition to be request-valid:false")
+			t.Error("Expected condition to be request-valid:false")
+			return true
 		}
 
 		if svc.Status.Conditions[0].Reason != "already_allocated" {
-			t.Fatal("Expected condition reason to be 'already_allocated'")
+			t.Error("Expected condition reason to be 'already_allocated'")
+			return true
 		}
 
 		return true
@@ -1245,7 +1351,8 @@ func TestAddPool(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive no ingress IPs")
+			t.Error("Expected service to receive no ingress IPs")
+			return true
 		}
 
 		return true
@@ -1256,6 +1363,10 @@ func TestAddPool(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1265,11 +1376,13 @@ func TestAddPool(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if svc.Status.LoadBalancer.Ingress[0].IP != "10.0.20.10" {
-			t.Fatal("Expected service to receive IP '10.0.20.10'")
+			t.Error("Expected service to receive IP '10.0.20.10'")
+			return true
 		}
 
 		return true
@@ -1315,7 +1428,8 @@ func TestAddRange(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive no ingress IPs")
+			t.Error("Expected service to receive no ingress IPs")
+			return true
 		}
 
 		return true
@@ -1325,6 +1439,10 @@ func TestAddRange(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
@@ -1339,11 +1457,13 @@ func TestAddRange(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if svc.Status.LoadBalancer.Ingress[0].IP != "10.0.20.10" {
-			t.Fatal("Expected service to receive IP '10.0.20.10'")
+			t.Error("Expected service to receive IP '10.0.20.10'")
+			return true
 		}
 
 		return true
@@ -1388,7 +1508,8 @@ func TestDisablePool(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		return true
@@ -1431,11 +1552,13 @@ func TestDisablePool(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if svc.Name != "service-b" {
-			t.Fatal("Expected service status update to occur on service-b")
+			t.Error("Expected service status update to occur on service-b")
+			return true
 		}
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive no ingress IPs")
+			t.Error("Expected service to receive no ingress IPs")
+			return true
 		}
 
 		return true
@@ -1525,7 +1648,8 @@ func TestPoolDelete(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if strings.HasPrefix(svc.Status.LoadBalancer.Ingress[0].IP, "10.0.10") {
@@ -1542,6 +1666,10 @@ func TestPoolDelete(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	<-initDone
 
@@ -1553,16 +1681,19 @@ func TestPoolDelete(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if strings.HasPrefix(svc.Status.LoadBalancer.Ingress[0].IP, "10.0.10") {
 			if allocPool == "pool-a" {
-				t.Fatal("New IP was allocated from deleted pool")
+				t.Error("New IP was allocated from deleted pool")
+				return true
 			}
 		} else {
 			if allocPool == "pool-b" {
-				t.Fatal("New IP was allocated from deleted pool")
+				t.Error("New IP was allocated from deleted pool")
+				return true
 			}
 		}
 
@@ -1608,7 +1739,8 @@ func TestRangeDelete(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		return true
@@ -1618,6 +1750,10 @@ func TestRangeDelete(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
+	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
@@ -1640,6 +1776,10 @@ func TestRangeDelete(t *testing.T) {
 	if !await.Block() {
 		t.Fatal("Unexpected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1649,11 +1789,13 @@ func TestRangeDelete(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		if !strings.HasPrefix(svc.Status.LoadBalancer.Ingress[0].IP, "10.0.20") {
-			t.Fatal("Expected new ingress to be in the 10.0.20.0/24 range")
+			t.Error("Expected new ingress to be in the 10.0.20.0/24 range")
+			return true
 		}
 
 		return true
@@ -1887,7 +2029,8 @@ func TestRemoveServiceLabel(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		return true
@@ -1898,6 +2041,10 @@ func TestRemoveServiceLabel(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1907,7 +2054,8 @@ func TestRemoveServiceLabel(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive exactly zero ingress IPs")
+			t.Error("Expected service to receive exactly zero ingress IPs")
+			return true
 		}
 
 		return true
@@ -1963,7 +2111,7 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 			return false
 		}
 
-		t.Fatal("Unexpected patch to a service")
+		t.Error("Unexpected patch to a service")
 
 		return true
 	}, 100*time.Millisecond)
@@ -2010,7 +2158,8 @@ func TestRemoveRequestedIP(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 3 {
-			t.Fatal("Expected service to receive exactly three ingress IP")
+			t.Error("Expected service to receive exactly three ingress IP")
+			return true
 		}
 
 		return true
@@ -2021,6 +2170,10 @@ func TestRemoveRequestedIP(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -2030,7 +2183,8 @@ func TestRemoveRequestedIP(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 2 {
-			t.Fatal("Expected service to receive exactly two ingress IPs")
+			t.Error("Expected service to receive exactly two ingress IPs")
+			return true
 		}
 
 		return true
@@ -2048,6 +2202,11 @@ func TestRemoveRequestedIP(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
+	}
+
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
 	}
 
 	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.123")) {
@@ -2091,7 +2250,7 @@ func TestNonMatchingLBClass(t *testing.T) {
 			return false
 		}
 
-		t.Fatal("Unexpected patch to a service")
+		t.Error("Unexpected patch to a service")
 
 		return true
 	}, 100*time.Millisecond)
@@ -2138,7 +2297,8 @@ func TestChangePoolSelector(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 1 {
-			t.Fatal("Expected service to receive exactly one ingress IP")
+			t.Error("Expected service to receive exactly one ingress IP")
+			return true
 		}
 
 		return true
@@ -2149,6 +2309,10 @@ func TestChangePoolSelector(t *testing.T) {
 	if await.Block() {
 		t.Fatal("Expected service status update")
 	}
+	// If t.Error was called within the await
+	if t.Failed() {
+		return
+	}
 
 	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -2158,7 +2322,8 @@ func TestChangePoolSelector(t *testing.T) {
 		svc := fixture.PatchedSvc(action)
 
 		if len(svc.Status.LoadBalancer.Ingress) != 0 {
-			t.Fatal("Expected service to receive exactly zero ingress IPs")
+			t.Error("Expected service to receive exactly zero ingress IPs")
+			return true
 		}
 
 		return true
