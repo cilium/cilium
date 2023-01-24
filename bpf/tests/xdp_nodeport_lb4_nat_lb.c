@@ -36,12 +36,13 @@
 
 #define fib_lookup mock_fib_lookup
 
-__u8 client_mac[ETH_ALEN] = mac_one;
+static volatile const __u8 *client_mac = mac_one;
 /* this matches the default node_config.h: */
-__u8 lb_mac[6] = { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
-__u8 node_mac[ETH_ALEN] = mac_three;
-__u8 local_backend_mac[ETH_ALEN] = mac_four;
-__u8 remote_backend_mac[ETH_ALEN] = mac_five;
+static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
+static volatile const __u8 *node_mac = mac_three;
+static volatile const __u8 *local_backend_mac = mac_four;
+static volatile const __u8 *remote_backend_mac = mac_five;
+
 static __be16 nat_source_port;
 static bool fail_fib;
 
@@ -54,11 +55,11 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	params->ifindex = 0;
 
 	if (params->ipv4_dst == BACKEND_IP_REMOTE) {
-		__bpf_memcpy_builtin(params->smac, lb_mac, sizeof(lb_mac));
-		__bpf_memcpy_builtin(params->dmac, remote_backend_mac, sizeof(remote_backend_mac));
+		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
 	} else {
-		__bpf_memcpy_builtin(params->smac, lb_mac, sizeof(lb_mac));
-		__bpf_memcpy_builtin(params->dmac, client_mac, sizeof(client_mac));
+		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
 	}
 
 	return 0;
@@ -100,7 +101,7 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, client_mac, lb_mac);
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -181,8 +182,8 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	/* add local backend */
 	struct endpoint_info ep_value = {};
 
-	memcpy(&ep_value.mac, local_backend_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, node_mac, ETH_ALEN);
+	memcpy(&ep_value.mac, (__u8 *)local_backend_mac, ETH_ALEN);
+	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
 
 	struct endpoint_key ep_key = {
 		.family = ENDPOINT_KEY_IPV4,
@@ -245,9 +246,9 @@ int nodeport_local_backend_check(const struct __ctx_buff *ctx)
 
 	assert((*meta & XFER_PKT_NO_SVC) == XFER_PKT_NO_SVC);
 
-	if (memcmp(l2->h_source, client_mac, sizeof(client_mac)) != 0)
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the client MAC")
-	if (memcmp(l2->h_dest, lb_mac, sizeof(lb_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the LB MAC")
 
 	if (l3->saddr != CLIENT_IP)
@@ -286,7 +287,7 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, client_mac, lb_mac);
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -413,9 +414,9 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (memcmp(l2->h_source, lb_mac, sizeof(lb_mac)) != 0)
+	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, remote_backend_mac, sizeof(remote_backend_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the backend MAC")
 
 	if (l3->saddr != LB_IP)
@@ -451,7 +452,7 @@ int build_reply(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, remote_backend_mac, lb_mac);
+	ethhdr__set_macs(l2, (__u8 *)remote_backend_mac, (__u8 *)lb_mac);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -511,9 +512,9 @@ int check_reply(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (memcmp(l2->h_source, lb_mac, sizeof(lb_mac)) != 0)
+	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, client_mac, sizeof(client_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client MAC")
 
 	if (l3->saddr != FRONTEND_IP_REMOTE)
