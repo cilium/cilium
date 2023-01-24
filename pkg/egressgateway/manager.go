@@ -58,16 +58,22 @@ type Manager struct {
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
+
+	// installRoutes indicates if the manager should install additional IP
+	// routes/rules to steer egress gateway traffic to the correct interface
+	// with the egress IP assigned to
+	installRoutes bool
 }
 
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator) *Manager {
+func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
 	manager := &Manager{
 		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
 		nodeDataStore:         make(map[string]nodeTypes.Node),
 		policyConfigs:         make(map[policyID]*PolicyConfig),
 		epDataStore:           make(map[endpointID]*endpointMetadata),
 		identityAllocator:     identityAlocator,
+		installRoutes:         installRoutes,
 	}
 
 	manager.runReconciliationAfterK8sSync()
@@ -411,7 +417,7 @@ func (manager *Manager) reconcile() {
 
 	manager.regenerateGatewayConfigs()
 
-	if option.Config.InstallEgressGatewayRoutes {
+	if manager.installRoutes {
 		shouldRetry := manager.addMissingIpRulesAndRoutes(false)
 		manager.removeUnusedIpRulesAndRoutes()
 
