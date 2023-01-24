@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -18,9 +20,14 @@ import (
 // information, k8s, node monitor and immutable and mutable configuration
 // settings.
 //
-//
 // swagger:model DaemonConfigurationStatus
 type DaemonConfigurationStatus struct {
+
+	// Maximum GRO size on workload facing devices
+	GROMaxSize int64 `json:"GROMaxSize,omitempty"`
+
+	// Maximum GSO size on workload facing devices
+	GSOMaxSize int64 `json:"GSOMaxSize,omitempty"`
 
 	// addressing
 	Addressing *NodeAddressing `json:"addressing,omitempty"`
@@ -107,7 +114,6 @@ func (m *DaemonConfigurationStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Addressing) { // not required
 		return nil
 	}
@@ -116,6 +122,8 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("addressing")
 			}
 			return err
 		}
@@ -125,7 +133,6 @@ func (m *DaemonConfigurationStatus) validateAddressing(formats strfmt.Registry) 
 }
 
 func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.DatapathMode) { // not required
 		return nil
 	}
@@ -133,6 +140,8 @@ func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry
 	if err := m.DatapathMode.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("datapathMode")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("datapathMode")
 		}
 		return err
 	}
@@ -141,23 +150,25 @@ func (m *DaemonConfigurationStatus) validateDatapathMode(formats strfmt.Registry
 }
 
 func (m *DaemonConfigurationStatus) validateImmutable(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Immutable) { // not required
 		return nil
 	}
 
-	if err := m.Immutable.Validate(formats); err != nil {
-		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("immutable")
+	if m.Immutable != nil {
+		if err := m.Immutable.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("immutable")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("immutable")
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil
 }
 
 func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.KvstoreConfiguration) { // not required
 		return nil
 	}
@@ -166,6 +177,8 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 		if err := m.KvstoreConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstoreConfiguration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kvstoreConfiguration")
 			}
 			return err
 		}
@@ -175,7 +188,6 @@ func (m *DaemonConfigurationStatus) validateKvstoreConfiguration(formats strfmt.
 }
 
 func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.MasqueradeProtocols) { // not required
 		return nil
 	}
@@ -184,6 +196,8 @@ func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.R
 		if err := m.MasqueradeProtocols.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("masqueradeProtocols")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("masqueradeProtocols")
 			}
 			return err
 		}
@@ -193,7 +207,6 @@ func (m *DaemonConfigurationStatus) validateMasqueradeProtocols(formats strfmt.R
 }
 
 func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NodeMonitor) { // not required
 		return nil
 	}
@@ -202,6 +215,8 @@ func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry)
 		if err := m.NodeMonitor.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nodeMonitor")
 			}
 			return err
 		}
@@ -211,7 +226,6 @@ func (m *DaemonConfigurationStatus) validateNodeMonitor(formats strfmt.Registry)
 }
 
 func (m *DaemonConfigurationStatus) validateRealized(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Realized) { // not required
 		return nil
 	}
@@ -220,6 +234,154 @@ func (m *DaemonConfigurationStatus) validateRealized(formats strfmt.Registry) er
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this daemon configuration status based on the context it is used
+func (m *DaemonConfigurationStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateAddressing(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateDatapathMode(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateImmutable(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateKvstoreConfiguration(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateMasqueradeProtocols(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNodeMonitor(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRealized(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateAddressing(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Addressing != nil {
+		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateDatapathMode(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.DatapathMode.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("datapathMode")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("datapathMode")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateImmutable(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Immutable.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("immutable")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("immutable")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateKvstoreConfiguration(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.KvstoreConfiguration != nil {
+		if err := m.KvstoreConfiguration.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kvstoreConfiguration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kvstoreConfiguration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateMasqueradeProtocols(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.MasqueradeProtocols != nil {
+		if err := m.MasqueradeProtocols.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("masqueradeProtocols")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("masqueradeProtocols")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateNodeMonitor(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NodeMonitor != nil {
+		if err := m.NodeMonitor.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nodeMonitor")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nodeMonitor")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DaemonConfigurationStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Realized != nil {
+		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
 			}
 			return err
 		}
@@ -260,6 +422,11 @@ type DaemonConfigurationStatusMasqueradeProtocols struct {
 
 // Validate validates this daemon configuration status masquerade protocols
 func (m *DaemonConfigurationStatusMasqueradeProtocols) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this daemon configuration status masquerade protocols based on context it is used
+func (m *DaemonConfigurationStatusMasqueradeProtocols) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

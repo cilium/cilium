@@ -50,7 +50,6 @@ func (o *GetEndpointIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -61,7 +60,8 @@ func NewGetEndpointIDOK() *GetEndpointIDOK {
 	return &GetEndpointIDOK{}
 }
 
-/*GetEndpointIDOK handles this case with default header values.
+/*
+GetEndpointIDOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -69,7 +69,36 @@ type GetEndpointIDOK struct {
 	Payload *models.Endpoint
 }
 
+// IsSuccess returns true when this get endpoint Id o k response has a 2xx status code
+func (o *GetEndpointIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get endpoint Id o k response has a 3xx status code
+func (o *GetEndpointIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id o k response has a 4xx status code
+func (o *GetEndpointIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get endpoint Id o k response has a 5xx status code
+func (o *GetEndpointIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id o k response a status code equal to that given
+func (o *GetEndpointIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetEndpointIDOK) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDOK) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdOK  %+v", 200, o.Payload)
 }
 
@@ -94,7 +123,8 @@ func NewGetEndpointIDInvalid() *GetEndpointIDInvalid {
 	return &GetEndpointIDInvalid{}
 }
 
-/*GetEndpointIDInvalid handles this case with default header values.
+/*
+GetEndpointIDInvalid describes a response with status code 400, with default header values.
 
 Invalid endpoint ID format for specified type
 */
@@ -102,7 +132,36 @@ type GetEndpointIDInvalid struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get endpoint Id invalid response has a 2xx status code
+func (o *GetEndpointIDInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id invalid response has a 3xx status code
+func (o *GetEndpointIDInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id invalid response has a 4xx status code
+func (o *GetEndpointIDInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id invalid response has a 5xx status code
+func (o *GetEndpointIDInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id invalid response a status code equal to that given
+func (o *GetEndpointIDInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *GetEndpointIDInvalid) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *GetEndpointIDInvalid) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
@@ -125,14 +184,44 @@ func NewGetEndpointIDNotFound() *GetEndpointIDNotFound {
 	return &GetEndpointIDNotFound{}
 }
 
-/*GetEndpointIDNotFound handles this case with default header values.
+/*
+GetEndpointIDNotFound describes a response with status code 404, with default header values.
 
 Endpoint not found
 */
 type GetEndpointIDNotFound struct {
 }
 
+// IsSuccess returns true when this get endpoint Id not found response has a 2xx status code
+func (o *GetEndpointIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id not found response has a 3xx status code
+func (o *GetEndpointIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id not found response has a 4xx status code
+func (o *GetEndpointIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id not found response has a 5xx status code
+func (o *GetEndpointIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id not found response a status code equal to that given
+func (o *GetEndpointIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetEndpointIDNotFound) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound ", 404)
+}
+
+func (o *GetEndpointIDNotFound) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdNotFound ", 404)
 }
 
@@ -146,14 +235,44 @@ func NewGetEndpointIDTooManyRequests() *GetEndpointIDTooManyRequests {
 	return &GetEndpointIDTooManyRequests{}
 }
 
-/*GetEndpointIDTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type GetEndpointIDTooManyRequests struct {
 }
 
+// IsSuccess returns true when this get endpoint Id too many requests response has a 2xx status code
+func (o *GetEndpointIDTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id too many requests response has a 3xx status code
+func (o *GetEndpointIDTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id too many requests response has a 4xx status code
+func (o *GetEndpointIDTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id too many requests response has a 5xx status code
+func (o *GetEndpointIDTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id too many requests response a status code equal to that given
+func (o *GetEndpointIDTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *GetEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests ", 429)
+}
+
+func (o *GetEndpointIDTooManyRequests) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}][%d] getEndpointIdTooManyRequests ", 429)
 }
 

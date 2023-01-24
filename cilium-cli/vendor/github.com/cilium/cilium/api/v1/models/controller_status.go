@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -59,7 +61,6 @@ func (m *ControllerStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Configuration) { // not required
 		return nil
 	}
@@ -68,6 +69,8 @@ func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error 
 		if err := m.Configuration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("configuration")
 			}
 			return err
 		}
@@ -77,7 +80,6 @@ func (m *ControllerStatus) validateConfiguration(formats strfmt.Registry) error 
 }
 
 func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Status) { // not required
 		return nil
 	}
@@ -86,6 +88,8 @@ func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
 		if err := m.Status.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("status")
 			}
 			return err
 		}
@@ -95,13 +99,62 @@ func (m *ControllerStatus) validateStatus(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatus) validateUUID(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.UUID) { // not required
 		return nil
 	}
 
 	if err := validate.FormatOf("uuid", "body", "uuid", m.UUID.String(), formats); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this controller status based on the context it is used
+func (m *ControllerStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateConfiguration(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateStatus(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ControllerStatus) contextValidateConfiguration(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Configuration != nil {
+		if err := m.Configuration.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *ControllerStatus) contextValidateStatus(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Status != nil {
+		if err := m.Status.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("status")
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -164,7 +217,6 @@ func (m *ControllerStatusConfiguration) Validate(formats strfmt.Registry) error 
 }
 
 func (m *ControllerStatusConfiguration) validateErrorRetryBase(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ErrorRetryBase) { // not required
 		return nil
 	}
@@ -177,7 +229,6 @@ func (m *ControllerStatusConfiguration) validateErrorRetryBase(formats strfmt.Re
 }
 
 func (m *ControllerStatusConfiguration) validateInterval(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Interval) { // not required
 		return nil
 	}
@@ -186,6 +237,11 @@ func (m *ControllerStatusConfiguration) validateInterval(formats strfmt.Registry
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this controller status configuration based on context it is used
+func (m *ControllerStatusConfiguration) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
@@ -254,7 +310,6 @@ func (m *ControllerStatusStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *ControllerStatusStatus) validateLastFailureTimestamp(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.LastFailureTimestamp) { // not required
 		return nil
 	}
@@ -267,7 +322,6 @@ func (m *ControllerStatusStatus) validateLastFailureTimestamp(formats strfmt.Reg
 }
 
 func (m *ControllerStatusStatus) validateLastSuccessTimestamp(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.LastSuccessTimestamp) { // not required
 		return nil
 	}
@@ -276,6 +330,11 @@ func (m *ControllerStatusStatus) validateLastSuccessTimestamp(formats strfmt.Reg
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this controller status status based on context it is used
+func (m *ControllerStatusStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

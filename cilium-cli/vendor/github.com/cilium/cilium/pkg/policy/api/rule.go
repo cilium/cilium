@@ -10,6 +10,23 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+// AuthType is a string identifying a supported authentication type
+type AuthType string
+
+const (
+	AuthTypeNull AuthType = "null" // Always succeeds
+)
+
+// Auth specifies the kind of cryptographic authentication required for the traffic to
+// be allowed.
+type Auth struct {
+	// Type is the required authentication type for the allowed traffic, if any.
+	//
+	// +kubebuilder:validation:Enum=null
+	// +kubebuilder:validation:Required
+	Type AuthType `json:"type"`
+}
+
 // +kubebuilder:validation:Type=object
 
 // Rule is a policy rule which must be applied to all endpoints which match the

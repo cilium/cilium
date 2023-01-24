@@ -81,31 +81,47 @@ type XfrmStateStats struct {
 	UseTime      uint64
 }
 
+// XfrmReplayState represents the sequence number states for
+// "legacy" anti-replay mode.
+type XfrmReplayState struct {
+	OSeq   uint32
+	Seq    uint32
+	BitMap uint32
+}
+
+func (r XfrmReplayState) String() string {
+	return fmt.Sprintf("{OSeq: 0x%x, Seq: 0x%x, BitMap: 0x%x}",
+		r.OSeq, r.Seq, r.BitMap)
+}
+
 // XfrmState represents the state of an ipsec policy. It optionally
 // contains an XfrmStateAlgo for encryption and one for authentication.
 type XfrmState struct {
-	Dst          net.IP
-	Src          net.IP
-	Proto        Proto
-	Mode         Mode
-	Spi          int
-	Reqid        int
-	ReplayWindow int
-	Limits       XfrmStateLimits
-	Statistics   XfrmStateStats
-	Mark         *XfrmMark
-	OutputMark   *XfrmMark
-	Ifid         int
-	Auth         *XfrmStateAlgo
-	Crypt        *XfrmStateAlgo
-	Aead         *XfrmStateAlgo
-	Encap        *XfrmStateEncap
-	ESN          bool
+	Dst           net.IP
+	Src           net.IP
+	Proto         Proto
+	Mode          Mode
+	Spi           int
+	Reqid         int
+	ReplayWindow  int
+	Limits        XfrmStateLimits
+	Statistics    XfrmStateStats
+	Mark          *XfrmMark
+	OutputMark    *XfrmMark
+	Ifid          int
+	Auth          *XfrmStateAlgo
+	Crypt         *XfrmStateAlgo
+	Aead          *XfrmStateAlgo
+	Encap         *XfrmStateEncap
+	ESN           bool
+	DontEncapDSCP bool
+	OSeqMayWrap   bool
+	Replay        *XfrmReplayState
 }
 
 func (sa XfrmState) String() string {
-	return fmt.Sprintf("Dst: %v, Src: %v, Proto: %s, Mode: %s, SPI: 0x%x, ReqID: 0x%x, ReplayWindow: %d, Mark: %v, OutputMark: %v, Ifid: %d, Auth: %v, Crypt: %v, Aead: %v, Encap: %v, ESN: %t",
-		sa.Dst, sa.Src, sa.Proto, sa.Mode, sa.Spi, sa.Reqid, sa.ReplayWindow, sa.Mark, sa.OutputMark, sa.Ifid, sa.Auth, sa.Crypt, sa.Aead, sa.Encap, sa.ESN)
+	return fmt.Sprintf("Dst: %v, Src: %v, Proto: %s, Mode: %s, SPI: 0x%x, ReqID: 0x%x, ReplayWindow: %d, Mark: %v, OutputMark: %v, Ifid: %d, Auth: %v, Crypt: %v, Aead: %v, Encap: %v, ESN: %t, DontEncapDSCP: %t, OSeqMayWrap: %t, Replay: %v",
+		sa.Dst, sa.Src, sa.Proto, sa.Mode, sa.Spi, sa.Reqid, sa.ReplayWindow, sa.Mark, sa.OutputMark, sa.Ifid, sa.Auth, sa.Crypt, sa.Aead, sa.Encap, sa.ESN, sa.DontEncapDSCP, sa.OSeqMayWrap, sa.Replay)
 }
 func (sa XfrmState) Print(stats bool) string {
 	if !stats {

@@ -19,52 +19,54 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetEndpointIDConfigParams creates a new GetEndpointIDConfigParams object
-// with the default values initialized.
+// NewGetEndpointIDConfigParams creates a new GetEndpointIDConfigParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointIDConfigParams() *GetEndpointIDConfigParams {
-	var ()
 	return &GetEndpointIDConfigParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetEndpointIDConfigParamsWithTimeout creates a new GetEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetEndpointIDConfigParamsWithTimeout(timeout time.Duration) *GetEndpointIDConfigParams {
-	var ()
 	return &GetEndpointIDConfigParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetEndpointIDConfigParamsWithContext creates a new GetEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetEndpointIDConfigParamsWithContext(ctx context.Context) *GetEndpointIDConfigParams {
-	var ()
 	return &GetEndpointIDConfigParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetEndpointIDConfigParamsWithHTTPClient creates a new GetEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetEndpointIDConfigParamsWithHTTPClient(client *http.Client) *GetEndpointIDConfigParams {
-	var ()
 	return &GetEndpointIDConfigParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetEndpointIDConfigParams contains all the parameters to send to the API endpoint
-for the get endpoint ID config operation typically these are written to a http.Request
+/*
+GetEndpointIDConfigParams contains all the parameters to send to the API endpoint
+
+	for the get endpoint ID config operation.
+
+	Typically these are written to a http.Request.
 */
 type GetEndpointIDConfigParams struct {
 
-	/*ID
-	  String describing an endpoint with the format ``[prefix:]id``. If no prefix
+	/* ID.
+
+	     String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
 	local Cilium UUID which is assigned to all endpoints.
@@ -77,13 +79,27 @@ type GetEndpointIDConfigParams struct {
 	  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
 	  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
 
-
 	*/
 	ID string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get endpoint ID config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointIDConfigParams) WithDefaults() *GetEndpointIDConfigParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get endpoint ID config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointIDConfigParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get endpoint ID config params

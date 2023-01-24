@@ -19,59 +19,75 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewDeleteFqdnCacheParams creates a new DeleteFqdnCacheParams object
-// with the default values initialized.
+// NewDeleteFqdnCacheParams creates a new DeleteFqdnCacheParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteFqdnCacheParams() *DeleteFqdnCacheParams {
-	var ()
 	return &DeleteFqdnCacheParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewDeleteFqdnCacheParamsWithTimeout creates a new DeleteFqdnCacheParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewDeleteFqdnCacheParamsWithTimeout(timeout time.Duration) *DeleteFqdnCacheParams {
-	var ()
 	return &DeleteFqdnCacheParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewDeleteFqdnCacheParamsWithContext creates a new DeleteFqdnCacheParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewDeleteFqdnCacheParamsWithContext(ctx context.Context) *DeleteFqdnCacheParams {
-	var ()
 	return &DeleteFqdnCacheParams{
-
 		Context: ctx,
 	}
 }
 
 // NewDeleteFqdnCacheParamsWithHTTPClient creates a new DeleteFqdnCacheParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewDeleteFqdnCacheParamsWithHTTPClient(client *http.Client) *DeleteFqdnCacheParams {
-	var ()
 	return &DeleteFqdnCacheParams{
 		HTTPClient: client,
 	}
 }
 
-/*DeleteFqdnCacheParams contains all the parameters to send to the API endpoint
-for the delete fqdn cache operation typically these are written to a http.Request
+/*
+DeleteFqdnCacheParams contains all the parameters to send to the API endpoint
+
+	for the delete fqdn cache operation.
+
+	Typically these are written to a http.Request.
 */
 type DeleteFqdnCacheParams struct {
 
-	/*Matchpattern
-	  A toFQDNs compatible matchPattern expression
+	/* Matchpattern.
 
+	   A toFQDNs compatible matchPattern expression
 	*/
 	Matchpattern *string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the delete fqdn cache params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteFqdnCacheParams) WithDefaults() *DeleteFqdnCacheParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the delete fqdn cache params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteFqdnCacheParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the delete fqdn cache params
@@ -130,16 +146,17 @@ func (o *DeleteFqdnCacheParams) WriteToRequest(r runtime.ClientRequest, reg strf
 
 		// query param matchpattern
 		var qrMatchpattern string
+
 		if o.Matchpattern != nil {
 			qrMatchpattern = *o.Matchpattern
 		}
 		qMatchpattern := qrMatchpattern
 		if qMatchpattern != "" {
+
 			if err := r.SetQueryParam("matchpattern", qMatchpattern); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if len(res) > 0 {

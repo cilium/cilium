@@ -22,64 +22,81 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPutServiceIDParams creates a new PutServiceIDParams object
-// with the default values initialized.
+// NewPutServiceIDParams creates a new PutServiceIDParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPutServiceIDParams() *PutServiceIDParams {
-	var ()
 	return &PutServiceIDParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPutServiceIDParamsWithTimeout creates a new PutServiceIDParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPutServiceIDParamsWithTimeout(timeout time.Duration) *PutServiceIDParams {
-	var ()
 	return &PutServiceIDParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPutServiceIDParamsWithContext creates a new PutServiceIDParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPutServiceIDParamsWithContext(ctx context.Context) *PutServiceIDParams {
-	var ()
 	return &PutServiceIDParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPutServiceIDParamsWithHTTPClient creates a new PutServiceIDParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPutServiceIDParamsWithHTTPClient(client *http.Client) *PutServiceIDParams {
-	var ()
 	return &PutServiceIDParams{
 		HTTPClient: client,
 	}
 }
 
-/*PutServiceIDParams contains all the parameters to send to the API endpoint
-for the put service ID operation typically these are written to a http.Request
+/*
+PutServiceIDParams contains all the parameters to send to the API endpoint
+
+	for the put service ID operation.
+
+	Typically these are written to a http.Request.
 */
 type PutServiceIDParams struct {
 
-	/*Config
-	  Service configuration
+	/* Config.
 
+	   Service configuration
 	*/
 	Config *models.ServiceSpec
-	/*ID
-	  ID of service
 
+	/* ID.
+
+	   ID of service
 	*/
 	ID int64
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the put service ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutServiceIDParams) WithDefaults() *PutServiceIDParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the put service ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutServiceIDParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the put service ID params
@@ -144,7 +161,6 @@ func (o *PutServiceIDParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 		return err
 	}
 	var res []error
-
 	if o.Config != nil {
 		if err := r.SetBodyParam(o.Config); err != nil {
 			return err

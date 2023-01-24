@@ -23,24 +23,10 @@ const (
 	//
 	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.25.5"
+	CustomResourceDefinitionSchemaVersion = "1.26.5"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
-
-	// Cilium Egress NAT Policy (CENP)
-
-	// CENPSingularName is the singular name of Cilium Egress NAT Policy
-	CENPSingularName = "ciliumegressnatpolicy"
-
-	// CENPPluralName is the plural name of Cilium Egress NAT Policy
-	CENPPluralName = "ciliumegressnatpolicies"
-
-	// CENPKindDefinition is the kind name of Cilium Egress NAT Policy
-	CENPKindDefinition = "CiliumEgressNATPolicy"
-
-	// CENPName is the full name of Cilium Egress NAT Policy
-	CENPName = CENPPluralName + "." + CustomResourceDefinitionGroup
 
 	// Cilium Endpoint Slice (CES)
 
@@ -70,19 +56,24 @@ const (
 	// BGPPName is the full name of Cilium BGP Peering Policy
 	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
 
-	// Cilium BGP Load Balancer IP Pool (BGPPool)
+	// Cilium Load Balancer IP Pool (IPPool)
 
-	// BGPPoolSingularName is the singular name of Cilium BGP Load Balancer IP Pool
-	BGPPoolSingularName = "ciliumbgploadbalancerippool"
+	// PoolSingularName is the singular name of Cilium Load Balancer IP Pool
+	PoolSingularName = "ciliumloadbalancerippool"
 
-	// BGPPoolPluralName is the plural name of Cilium BGP Load Balancer IP Pool
-	BGPPoolPluralName = "ciliumbgploadbalancerippools"
+	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
+	PoolPluralName = "ciliumloadbalancerippools"
 
-	// BGPPoolKindDefinition is the kind name of Cilium BGP Peering Policy
-	BGPPoolKindDefinition = "CiliumBGPLoadBalancerIPPool"
+	// PoolKindDefinition is the kind name of Cilium Peering Policy
+	PoolKindDefinition = "CiliumLoadBalancerIPPool"
 
-	// BGPPoolName is the full name of Cilium BGP Load Balancer IP Pool
-	BGPPoolName = BGPPoolPluralName + "." + CustomResourceDefinitionGroup
+	// LBIPPoolName is the full name of Cilium Load Balancer IP Pool
+	LBIPPoolName = PoolPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumNodeConfig (CNC)
+	CNCPluralName     = "ciliumnodeconfigs"
+	CNCKindDefinition = "CiliumNodeConfig"
+	CNCName           = CNCPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -126,14 +117,14 @@ func init() {
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&CiliumEgressNATPolicy{},
-		&CiliumEgressNATPolicyList{},
 		&CiliumEndpointSlice{},
 		&CiliumEndpointSliceList{},
 		&CiliumBGPPeeringPolicy{},
 		&CiliumBGPPeeringPolicyList{},
-		&CiliumBGPLoadBalancerIPPool{},
-		&CiliumBGPLoadBalancerIPPoolList{},
+		&CiliumLoadBalancerIPPool{},
+		&CiliumLoadBalancerIPPoolList{},
+		&CiliumNodeConfig{},
+		&CiliumNodeConfigList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

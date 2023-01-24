@@ -28,27 +28,29 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error)
+	DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error)
 
-	GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error)
+	GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error)
 
-	PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK, error)
+	PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  DeletePrefilter deletes list of c ID rs
+DeletePrefilter deletes list of c ID rs
 */
-func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error) {
+func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeletePrefilterParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeletePrefilter",
 		Method:             "DELETE",
 		PathPattern:        "/prefilter",
@@ -59,7 +61,12 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilte
 		Reader:             &DeletePrefilterReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -74,15 +81,14 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilte
 }
 
 /*
-  GetPrefilter retrieves list of c ID rs
+GetPrefilter retrieves list of c ID rs
 */
-func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error) {
+func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetPrefilterParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetPrefilter",
 		Method:             "GET",
 		PathPattern:        "/prefilter",
@@ -93,7 +99,12 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, erro
 		Reader:             &GetPrefilterReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -108,15 +119,14 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, erro
 }
 
 /*
-  PatchPrefilter updates list of c ID rs
+PatchPrefilter updates list of c ID rs
 */
-func (a *Client) PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK, error) {
+func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPatchPrefilterParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PatchPrefilter",
 		Method:             "PATCH",
 		PathPattern:        "/prefilter",
@@ -127,7 +137,12 @@ func (a *Client) PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK
 		Reader:             &PatchPrefilterReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

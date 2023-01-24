@@ -38,7 +38,6 @@ func (o *PostIpamReader) ReadResponse(response runtime.ClientResponse, consumer 
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewPostIpamCreated() *PostIpamCreated {
 	return &PostIpamCreated{}
 }
 
-/*PostIpamCreated handles this case with default header values.
+/*
+PostIpamCreated describes a response with status code 201, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type PostIpamCreated struct {
 	Payload *models.IPAMResponse
 }
 
+// IsSuccess returns true when this post ipam created response has a 2xx status code
+func (o *PostIpamCreated) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this post ipam created response has a 3xx status code
+func (o *PostIpamCreated) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam created response has a 4xx status code
+func (o *PostIpamCreated) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post ipam created response has a 5xx status code
+func (o *PostIpamCreated) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam created response a status code equal to that given
+func (o *PostIpamCreated) IsCode(code int) bool {
+	return code == 201
+}
+
 func (o *PostIpamCreated) Error() string {
+	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated  %+v", 201, o.Payload)
+}
+
+func (o *PostIpamCreated) String() string {
 	return fmt.Sprintf("[POST /ipam][%d] postIpamCreated  %+v", 201, o.Payload)
 }
 
@@ -82,7 +111,8 @@ func NewPostIpamFailure() *PostIpamFailure {
 	return &PostIpamFailure{}
 }
 
-/*PostIpamFailure handles this case with default header values.
+/*
+PostIpamFailure describes a response with status code 502, with default header values.
 
 Allocation failure
 */
@@ -90,7 +120,36 @@ type PostIpamFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this post ipam failure response has a 2xx status code
+func (o *PostIpamFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam failure response has a 3xx status code
+func (o *PostIpamFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam failure response has a 4xx status code
+func (o *PostIpamFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post ipam failure response has a 5xx status code
+func (o *PostIpamFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post ipam failure response a status code equal to that given
+func (o *PostIpamFailure) IsCode(code int) bool {
+	return code == 502
+}
+
 func (o *PostIpamFailure) Error() string {
+	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure  %+v", 502, o.Payload)
+}
+
+func (o *PostIpamFailure) String() string {
 	return fmt.Sprintf("[POST /ipam][%d] postIpamFailure  %+v", 502, o.Payload)
 }
 

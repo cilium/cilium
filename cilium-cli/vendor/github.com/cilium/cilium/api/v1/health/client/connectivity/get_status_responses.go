@@ -32,7 +32,6 @@ func (o *GetStatusReader) ReadResponse(response runtime.ClientResponse, consumer
 			return nil, err
 		}
 		return result, nil
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -43,7 +42,8 @@ func NewGetStatusOK() *GetStatusOK {
 	return &GetStatusOK{}
 }
 
-/*GetStatusOK handles this case with default header values.
+/*
+GetStatusOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -51,7 +51,36 @@ type GetStatusOK struct {
 	Payload *models.HealthStatusResponse
 }
 
+// IsSuccess returns true when this get status o k response has a 2xx status code
+func (o *GetStatusOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get status o k response has a 3xx status code
+func (o *GetStatusOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get status o k response has a 4xx status code
+func (o *GetStatusOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get status o k response has a 5xx status code
+func (o *GetStatusOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get status o k response a status code equal to that given
+func (o *GetStatusOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetStatusOK) Error() string {
+	return fmt.Sprintf("[GET /status][%d] getStatusOK  %+v", 200, o.Payload)
+}
+
+func (o *GetStatusOK) String() string {
 	return fmt.Sprintf("[GET /status][%d] getStatusOK  %+v", 200, o.Payload)
 }
 

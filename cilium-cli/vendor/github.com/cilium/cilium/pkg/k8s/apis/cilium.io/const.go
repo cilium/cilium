@@ -58,7 +58,7 @@ const (
 	PodNameLabel = "io.kubernetes.pod.name"
 
 	// AppKubernetes is the label which is recommended by the official k8s
-	// documentation ad the lablel for every resource object.
+	// documentation add the label for every resource object.
 	AppKubernetes = "app.kubernetes.io"
 
 	// CtrlPrefixPolicyStatus is the prefix used for the controllers set up

@@ -20,55 +20,56 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// NewGetClusterNodesParams creates a new GetClusterNodesParams object
-// with the default values initialized.
+// NewGetClusterNodesParams creates a new GetClusterNodesParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetClusterNodesParams() *GetClusterNodesParams {
-	var ()
 	return &GetClusterNodesParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetClusterNodesParamsWithTimeout creates a new GetClusterNodesParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetClusterNodesParamsWithTimeout(timeout time.Duration) *GetClusterNodesParams {
-	var ()
 	return &GetClusterNodesParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetClusterNodesParamsWithContext creates a new GetClusterNodesParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetClusterNodesParamsWithContext(ctx context.Context) *GetClusterNodesParams {
-	var ()
 	return &GetClusterNodesParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetClusterNodesParamsWithHTTPClient creates a new GetClusterNodesParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetClusterNodesParamsWithHTTPClient(client *http.Client) *GetClusterNodesParams {
-	var ()
 	return &GetClusterNodesParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetClusterNodesParams contains all the parameters to send to the API endpoint
-for the get cluster nodes operation typically these are written to a http.Request
+/*
+GetClusterNodesParams contains all the parameters to send to the API endpoint
+
+	for the get cluster nodes operation.
+
+	Typically these are written to a http.Request.
 */
 type GetClusterNodesParams struct {
 
-	/*ClientID
-	  Client UUID should be used when the client wants to request
+	/* ClientID.
+
+	     Client UUID should be used when the client wants to request
 	a diff of nodes added and / or removed since the last time
 	that client has made a request.
-
 
 	*/
 	ClientID *int64
@@ -76,6 +77,21 @@ type GetClusterNodesParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get cluster nodes params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetClusterNodesParams) WithDefaults() *GetClusterNodesParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get cluster nodes params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetClusterNodesParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get cluster nodes params
@@ -136,7 +152,6 @@ func (o *GetClusterNodesParams) WriteToRequest(r runtime.ClientRequest, reg strf
 		if err := r.SetHeaderParam("client-id", swag.FormatInt64(*o.ClientID)); err != nil {
 			return err
 		}
-
 	}
 
 	if len(res) > 0 {

@@ -90,6 +90,7 @@ const (
 	SizeofTcU32Sel       = 0x10 // without keys
 	SizeofTcGen          = 0x14
 	SizeofTcConnmark     = SizeofTcGen + 0x04
+	SizeofTcCsum         = SizeofTcGen + 0x04
 	SizeofTcMirred       = SizeofTcGen + 0x08
 	SizeofTcTunnelKey    = SizeofTcGen + 0x04
 	SizeofTcSkbEdit      = SizeofTcGen
@@ -695,6 +696,36 @@ func (x *TcConnmark) Serialize() []byte {
 }
 
 const (
+	TCA_CSUM_UNSPEC = iota
+	TCA_CSUM_PARMS
+	TCA_CSUM_TM
+	TCA_CSUM_PAD
+	TCA_CSUM_MAX = TCA_CSUM_PAD
+)
+
+// struct tc_csum {
+//   tc_gen;
+//   __u32 update_flags;
+// }
+
+type TcCsum struct {
+	TcGen
+	UpdateFlags uint32
+}
+
+func (msg *TcCsum) Len() int {
+	return SizeofTcCsum
+}
+
+func DeserializeTcCsum(b []byte) *TcCsum {
+	return (*TcCsum)(unsafe.Pointer(&b[0:SizeofTcCsum][0]))
+}
+
+func (x *TcCsum) Serialize() []byte {
+	return (*(*[SizeofTcCsum]byte)(unsafe.Pointer(x)))[:]
+}
+
+const (
 	TCA_ACT_MIRRED = 8
 )
 
@@ -860,6 +891,10 @@ const (
 	TCA_FQ_FLOW_REFILL_DELAY  // flow credit refill delay in usec
 	TCA_FQ_ORPHAN_MASK        // mask applied to orphaned skb hashes
 	TCA_FQ_LOW_RATE_THRESHOLD // per packet delay under this rate
+	TCA_FQ_CE_THRESHOLD       // DCTCP-like CE-marking threshold
+	TCA_FQ_TIMER_SLACK        // timer slack
+	TCA_FQ_HORIZON            // time horizon in us
+	TCA_FQ_HORIZON_DROP       // drop packets beyond horizon, or cap their EDT
 )
 
 const (

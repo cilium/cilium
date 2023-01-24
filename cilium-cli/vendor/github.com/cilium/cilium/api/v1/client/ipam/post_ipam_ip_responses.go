@@ -56,7 +56,6 @@ func (o *PostIpamIPReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,14 +66,44 @@ func NewPostIpamIPOK() *PostIpamIPOK {
 	return &PostIpamIPOK{}
 }
 
-/*PostIpamIPOK handles this case with default header values.
+/*
+PostIpamIPOK describes a response with status code 200, with default header values.
 
 Success
 */
 type PostIpamIPOK struct {
 }
 
+// IsSuccess returns true when this post ipam Ip o k response has a 2xx status code
+func (o *PostIpamIPOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this post ipam Ip o k response has a 3xx status code
+func (o *PostIpamIPOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip o k response has a 4xx status code
+func (o *PostIpamIPOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post ipam Ip o k response has a 5xx status code
+func (o *PostIpamIPOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam Ip o k response a status code equal to that given
+func (o *PostIpamIPOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PostIpamIPOK) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK ", 200)
+}
+
+func (o *PostIpamIPOK) String() string {
 	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpOK ", 200)
 }
 
@@ -88,14 +117,44 @@ func NewPostIpamIPInvalid() *PostIpamIPInvalid {
 	return &PostIpamIPInvalid{}
 }
 
-/*PostIpamIPInvalid handles this case with default header values.
+/*
+PostIpamIPInvalid describes a response with status code 400, with default header values.
 
 Invalid IP address
 */
 type PostIpamIPInvalid struct {
 }
 
+// IsSuccess returns true when this post ipam Ip invalid response has a 2xx status code
+func (o *PostIpamIPInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam Ip invalid response has a 3xx status code
+func (o *PostIpamIPInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip invalid response has a 4xx status code
+func (o *PostIpamIPInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post ipam Ip invalid response has a 5xx status code
+func (o *PostIpamIPInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam Ip invalid response a status code equal to that given
+func (o *PostIpamIPInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PostIpamIPInvalid) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid ", 400)
+}
+
+func (o *PostIpamIPInvalid) String() string {
 	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpInvalid ", 400)
 }
 
@@ -109,14 +168,44 @@ func NewPostIpamIPExists() *PostIpamIPExists {
 	return &PostIpamIPExists{}
 }
 
-/*PostIpamIPExists handles this case with default header values.
+/*
+PostIpamIPExists describes a response with status code 409, with default header values.
 
 IP already allocated
 */
 type PostIpamIPExists struct {
 }
 
+// IsSuccess returns true when this post ipam Ip exists response has a 2xx status code
+func (o *PostIpamIPExists) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam Ip exists response has a 3xx status code
+func (o *PostIpamIPExists) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip exists response has a 4xx status code
+func (o *PostIpamIPExists) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this post ipam Ip exists response has a 5xx status code
+func (o *PostIpamIPExists) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this post ipam Ip exists response a status code equal to that given
+func (o *PostIpamIPExists) IsCode(code int) bool {
+	return code == 409
+}
+
 func (o *PostIpamIPExists) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists ", 409)
+}
+
+func (o *PostIpamIPExists) String() string {
 	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpExists ", 409)
 }
 
@@ -130,7 +219,8 @@ func NewPostIpamIPFailure() *PostIpamIPFailure {
 	return &PostIpamIPFailure{}
 }
 
-/*PostIpamIPFailure handles this case with default header values.
+/*
+PostIpamIPFailure describes a response with status code 500, with default header values.
 
 IP allocation failure. Details in message.
 */
@@ -138,7 +228,36 @@ type PostIpamIPFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this post ipam Ip failure response has a 2xx status code
+func (o *PostIpamIPFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam Ip failure response has a 3xx status code
+func (o *PostIpamIPFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip failure response has a 4xx status code
+func (o *PostIpamIPFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post ipam Ip failure response has a 5xx status code
+func (o *PostIpamIPFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post ipam Ip failure response a status code equal to that given
+func (o *PostIpamIPFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PostIpamIPFailure) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure  %+v", 500, o.Payload)
+}
+
+func (o *PostIpamIPFailure) String() string {
 	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpFailure  %+v", 500, o.Payload)
 }
 
@@ -161,14 +280,44 @@ func NewPostIpamIPDisabled() *PostIpamIPDisabled {
 	return &PostIpamIPDisabled{}
 }
 
-/*PostIpamIPDisabled handles this case with default header values.
+/*
+PostIpamIPDisabled describes a response with status code 501, with default header values.
 
 Allocation for address family disabled
 */
 type PostIpamIPDisabled struct {
 }
 
+// IsSuccess returns true when this post ipam Ip disabled response has a 2xx status code
+func (o *PostIpamIPDisabled) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this post ipam Ip disabled response has a 3xx status code
+func (o *PostIpamIPDisabled) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this post ipam Ip disabled response has a 4xx status code
+func (o *PostIpamIPDisabled) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this post ipam Ip disabled response has a 5xx status code
+func (o *PostIpamIPDisabled) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this post ipam Ip disabled response a status code equal to that given
+func (o *PostIpamIPDisabled) IsCode(code int) bool {
+	return code == 501
+}
+
 func (o *PostIpamIPDisabled) Error() string {
+	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled ", 501)
+}
+
+func (o *PostIpamIPDisabled) String() string {
 	return fmt.Sprintf("[POST /ipam/{ip}][%d] postIpamIpDisabled ", 501)
 }
 

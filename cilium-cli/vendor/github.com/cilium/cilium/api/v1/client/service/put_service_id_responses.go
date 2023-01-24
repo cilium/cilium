@@ -62,7 +62,6 @@ func (o *PutServiceIDReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -73,14 +72,44 @@ func NewPutServiceIDOK() *PutServiceIDOK {
 	return &PutServiceIDOK{}
 }
 
-/*PutServiceIDOK handles this case with default header values.
+/*
+PutServiceIDOK describes a response with status code 200, with default header values.
 
 Updated
 */
 type PutServiceIDOK struct {
 }
 
+// IsSuccess returns true when this put service Id o k response has a 2xx status code
+func (o *PutServiceIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put service Id o k response has a 3xx status code
+func (o *PutServiceIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id o k response has a 4xx status code
+func (o *PutServiceIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put service Id o k response has a 5xx status code
+func (o *PutServiceIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put service Id o k response a status code equal to that given
+func (o *PutServiceIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PutServiceIDOK) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdOK ", 200)
+}
+
+func (o *PutServiceIDOK) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdOK ", 200)
 }
 
@@ -94,14 +123,44 @@ func NewPutServiceIDCreated() *PutServiceIDCreated {
 	return &PutServiceIDCreated{}
 }
 
-/*PutServiceIDCreated handles this case with default header values.
+/*
+PutServiceIDCreated describes a response with status code 201, with default header values.
 
 Created
 */
 type PutServiceIDCreated struct {
 }
 
+// IsSuccess returns true when this put service Id created response has a 2xx status code
+func (o *PutServiceIDCreated) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put service Id created response has a 3xx status code
+func (o *PutServiceIDCreated) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id created response has a 4xx status code
+func (o *PutServiceIDCreated) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put service Id created response has a 5xx status code
+func (o *PutServiceIDCreated) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put service Id created response a status code equal to that given
+func (o *PutServiceIDCreated) IsCode(code int) bool {
+	return code == 201
+}
+
 func (o *PutServiceIDCreated) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdCreated ", 201)
+}
+
+func (o *PutServiceIDCreated) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdCreated ", 201)
 }
 
@@ -115,7 +174,8 @@ func NewPutServiceIDInvalidFrontend() *PutServiceIDInvalidFrontend {
 	return &PutServiceIDInvalidFrontend{}
 }
 
-/*PutServiceIDInvalidFrontend handles this case with default header values.
+/*
+PutServiceIDInvalidFrontend describes a response with status code 460, with default header values.
 
 Invalid frontend in service configuration
 */
@@ -123,7 +183,36 @@ type PutServiceIDInvalidFrontend struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put service Id invalid frontend response has a 2xx status code
+func (o *PutServiceIDInvalidFrontend) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put service Id invalid frontend response has a 3xx status code
+func (o *PutServiceIDInvalidFrontend) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id invalid frontend response has a 4xx status code
+func (o *PutServiceIDInvalidFrontend) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put service Id invalid frontend response has a 5xx status code
+func (o *PutServiceIDInvalidFrontend) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put service Id invalid frontend response a status code equal to that given
+func (o *PutServiceIDInvalidFrontend) IsCode(code int) bool {
+	return code == 460
+}
+
 func (o *PutServiceIDInvalidFrontend) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidFrontend  %+v", 460, o.Payload)
+}
+
+func (o *PutServiceIDInvalidFrontend) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidFrontend  %+v", 460, o.Payload)
 }
 
@@ -146,7 +235,8 @@ func NewPutServiceIDInvalidBackend() *PutServiceIDInvalidBackend {
 	return &PutServiceIDInvalidBackend{}
 }
 
-/*PutServiceIDInvalidBackend handles this case with default header values.
+/*
+PutServiceIDInvalidBackend describes a response with status code 461, with default header values.
 
 Invalid backend in service configuration
 */
@@ -154,7 +244,36 @@ type PutServiceIDInvalidBackend struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put service Id invalid backend response has a 2xx status code
+func (o *PutServiceIDInvalidBackend) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put service Id invalid backend response has a 3xx status code
+func (o *PutServiceIDInvalidBackend) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id invalid backend response has a 4xx status code
+func (o *PutServiceIDInvalidBackend) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put service Id invalid backend response has a 5xx status code
+func (o *PutServiceIDInvalidBackend) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put service Id invalid backend response a status code equal to that given
+func (o *PutServiceIDInvalidBackend) IsCode(code int) bool {
+	return code == 461
+}
+
 func (o *PutServiceIDInvalidBackend) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidBackend  %+v", 461, o.Payload)
+}
+
+func (o *PutServiceIDInvalidBackend) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdInvalidBackend  %+v", 461, o.Payload)
 }
 
@@ -177,7 +296,8 @@ func NewPutServiceIDFailure() *PutServiceIDFailure {
 	return &PutServiceIDFailure{}
 }
 
-/*PutServiceIDFailure handles this case with default header values.
+/*
+PutServiceIDFailure describes a response with status code 500, with default header values.
 
 Error while creating service
 */
@@ -185,7 +305,36 @@ type PutServiceIDFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put service Id failure response has a 2xx status code
+func (o *PutServiceIDFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put service Id failure response has a 3xx status code
+func (o *PutServiceIDFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id failure response has a 4xx status code
+func (o *PutServiceIDFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put service Id failure response has a 5xx status code
+func (o *PutServiceIDFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this put service Id failure response a status code equal to that given
+func (o *PutServiceIDFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PutServiceIDFailure) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *PutServiceIDFailure) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdFailure  %+v", 500, o.Payload)
 }
 
@@ -208,7 +357,8 @@ func NewPutServiceIDUpdateBackendFailure() *PutServiceIDUpdateBackendFailure {
 	return &PutServiceIDUpdateBackendFailure{}
 }
 
-/*PutServiceIDUpdateBackendFailure handles this case with default header values.
+/*
+PutServiceIDUpdateBackendFailure describes a response with status code 501, with default header values.
 
 Error while updating backend states
 */
@@ -216,7 +366,36 @@ type PutServiceIDUpdateBackendFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put service Id update backend failure response has a 2xx status code
+func (o *PutServiceIDUpdateBackendFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put service Id update backend failure response has a 3xx status code
+func (o *PutServiceIDUpdateBackendFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put service Id update backend failure response has a 4xx status code
+func (o *PutServiceIDUpdateBackendFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put service Id update backend failure response has a 5xx status code
+func (o *PutServiceIDUpdateBackendFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this put service Id update backend failure response a status code equal to that given
+func (o *PutServiceIDUpdateBackendFailure) IsCode(code int) bool {
+	return code == 501
+}
+
 func (o *PutServiceIDUpdateBackendFailure) Error() string {
+	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdUpdateBackendFailure  %+v", 501, o.Payload)
+}
+
+func (o *PutServiceIDUpdateBackendFailure) String() string {
 	return fmt.Sprintf("[PUT /service/{id}][%d] putServiceIdUpdateBackendFailure  %+v", 501, o.Payload)
 }
 

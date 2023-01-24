@@ -17,11 +17,20 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
+	// PprofAddressAgent is the default value for pprof in the agent
+	PprofAddressAgent = "localhost"
+
+	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
+	PprofAddressAPIServer = "localhost"
+
 	// PprofPortAgent is the default value for pprof in the agent
 	PprofPortAgent = 6060
 
 	// PprofPortAgent is the default value for pprof in the operator
 	PprofPortOperator = 6061
+
+	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
+	PprofPortAPIServer = 6063
 
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
@@ -37,6 +46,12 @@ const (
 
 	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDRBase = "f00d::"
+
+	// IPv6NAT46x64CIDR is the default prefix for NAT46x64 gateway
+	IPv6NAT46x64CIDR = IPv6NAT46x64CIDRBase + "/96"
+
+	// IPv6NAT46x64CIDRBase is the default base for IPv6NAT46x64CIDR
+	IPv6NAT46x64CIDRBase = "64:ff9b::"
 
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
@@ -181,6 +196,15 @@ const (
 	// EnableIPv6NDP is the default value for IPv6 NDP support enablement
 	EnableIPv6NDP = false
 
+	// EnableSRv6 is the default value for the SRv6 support enablement.
+	EnableSRv6 = false
+
+	// SRv6EncapMode is the encapsulation mode for SRv6.
+	SRv6EncapMode = "reduced"
+
+	// EnableSCTP is the default value for SCTP support enablement
+	EnableSCTP = false
+
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
 
@@ -273,10 +297,6 @@ const (
 	// EndpointQueueSize is the default queue size for an endpoint.
 	EndpointQueueSize = 25
 
-	// SelectiveRegeneration specifies whether regeneration of endpoints will be
-	// invoked only for endpoints which are selected by policy changes.
-	SelectiveRegeneration = true
-
 	// K8sSyncTimeout specifies the default time to wait after the last event
 	// of a Kubernetes resource type before timing out while waiting for synchronization.
 	K8sSyncTimeout = 3 * time.Minute
@@ -312,9 +332,9 @@ const (
 	LoopbackIPv4 = "169.254.42.1"
 
 	// ForceLocalPolicyEvalAtSource is the default value for
-	// option.ForceLocalPolicyEvalAtSource. It is enabled by default to
-	// provide backwards compatibility, it can be disabled via an option
-	ForceLocalPolicyEvalAtSource = true
+	// option.ForceLocalPolicyEvalAtSource. It can be enabled to provide
+	// backwards compatibility.
+	ForceLocalPolicyEvalAtSource = false
 
 	// EnableEndpointRoutes is the value for option.EnableEndpointRoutes.
 	// It is disabled by default for backwards compatibility.
@@ -368,14 +388,33 @@ const (
 	// CiliumNode.Spec.ENI.DisablePrefixDelegation if no value is set.
 	ENIDisableNodeLevelPD = false
 
+	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
+
+	// ENIGarbageCollectionTagManagedValue is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagManagedValue = "true"
+
+	// ENIGarbageCollectionTagClusterName is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagClusterName = "io.cilium/cluster-name"
+
+	// ENIGarbageCollectionTagClusterValue is part of the ENIGarbageCollectionTags default tag set
+	ENIGarbageCollectionTagClusterValue = ClusterName
+
+	// ENIGarbageCollectionInterval is the default interval for the ENIGarbageCollectionInterval operator flag
+	ENIGarbageCollectionInterval = 5 * time.Minute
+
+	// ENIGarbageCollectionMaxPerInterval is the maximum number of ENIs which might be garbage collected
+	// per GC interval
+	ENIGarbageCollectionMaxPerInterval = 25
+
 	// ParallelAllocWorkers is the default max number of parallel workers doing allocation in the operator
 	ParallelAllocWorkers = 50
 
 	// IPAMAPIBurst is the default burst value when rate limiting access to external APIs
-	IPAMAPIBurst = 4
+	IPAMAPIBurst = 20
 
 	// IPAMAPIQPSLimit is the default QPS limit when rate limiting access to external APIs
-	IPAMAPIQPSLimit = 20.0
+	IPAMAPIQPSLimit = 4.0
 
 	// IPAMPodCIDRAllocationThreshold is the default value for
 	// CiliumNode.Spec.IPAM.PodCIDRAllocationThreshold if no value is set
@@ -487,4 +526,36 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+)
+
+var (
+	// BPFEventBufferConfigs contains default configuration entries for bpf map event buffers.
+	// These are to be merged with the client configuration to create the final config.
+	// Note: The TTL corresponds to GC interval times, which is a somewhat expensive operation.
+	// Under the worst case GC may need to memcopy almost the entire buffer, which will
+	// cause memory spikes. Be mindful of this when increasing the default buffer configurations.
+	BPFEventBufferConfigs = map[string]string{
+		"cilium_lxc": "enabled,128,0",
+		// cilium_ipcache is the likely the most useful use of this feature, but also has
+		// the highest churn.
+		"cilium_ipcache":           "enabled,1024,0",
+		"cilium_tunnel_map":        "enabled,128,0",
+		"cilium_lb_affinity_match": "enabled,128,0",
+
+		// ip4
+		"cilium_lb4_services_v2":    "enabled,128,0",
+		"cilium_lb4_backends_v2":    "enabled,128,0",
+		"cilium_lb4_reverse_nat":    "enabled,128,0",
+		"cilium_lb4_backends_v3":    "enabled,128,0",
+		"cilium_lb4_source_range":   "enabled,128,0",
+		"cilium_lb4_affinity_match": "enabled,128,0",
+
+		// ip6
+		"cilium_lb6_services_v2":    "enabled,128,0",
+		"cilium_lb6_backends_v2":    "enabled,128,0",
+		"cilium_lb6_reverse_nat":    "enabled,128,0",
+		"cilium_lb6_backends_v3":    "enabled,128,0",
+		"cilium_lb6_source_range":   "enabled,128,0",
+		"cilium_lb6_affinity_match": "enabled,128,0",
+	}
 )

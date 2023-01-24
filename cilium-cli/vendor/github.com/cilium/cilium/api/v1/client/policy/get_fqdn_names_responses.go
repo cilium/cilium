@@ -38,7 +38,6 @@ func (o *GetFqdnNamesReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetFqdnNamesOK() *GetFqdnNamesOK {
 	return &GetFqdnNamesOK{}
 }
 
-/*GetFqdnNamesOK handles this case with default header values.
+/*
+GetFqdnNamesOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetFqdnNamesOK struct {
 	Payload *models.NameManager
 }
 
+// IsSuccess returns true when this get fqdn names o k response has a 2xx status code
+func (o *GetFqdnNamesOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get fqdn names o k response has a 3xx status code
+func (o *GetFqdnNamesOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get fqdn names o k response has a 4xx status code
+func (o *GetFqdnNamesOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get fqdn names o k response has a 5xx status code
+func (o *GetFqdnNamesOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get fqdn names o k response a status code equal to that given
+func (o *GetFqdnNamesOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetFqdnNamesOK) Error() string {
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK  %+v", 200, o.Payload)
+}
+
+func (o *GetFqdnNamesOK) String() string {
 	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesOK  %+v", 200, o.Payload)
 }
 
@@ -82,7 +111,8 @@ func NewGetFqdnNamesBadRequest() *GetFqdnNamesBadRequest {
 	return &GetFqdnNamesBadRequest{}
 }
 
-/*GetFqdnNamesBadRequest handles this case with default header values.
+/*
+GetFqdnNamesBadRequest describes a response with status code 400, with default header values.
 
 Invalid request (error parsing parameters)
 */
@@ -90,7 +120,36 @@ type GetFqdnNamesBadRequest struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get fqdn names bad request response has a 2xx status code
+func (o *GetFqdnNamesBadRequest) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get fqdn names bad request response has a 3xx status code
+func (o *GetFqdnNamesBadRequest) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get fqdn names bad request response has a 4xx status code
+func (o *GetFqdnNamesBadRequest) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get fqdn names bad request response has a 5xx status code
+func (o *GetFqdnNamesBadRequest) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get fqdn names bad request response a status code equal to that given
+func (o *GetFqdnNamesBadRequest) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *GetFqdnNamesBadRequest) Error() string {
+	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *GetFqdnNamesBadRequest) String() string {
 	return fmt.Sprintf("[GET /fqdn/names][%d] getFqdnNamesBadRequest  %+v", 400, o.Payload)
 }
 

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -85,7 +86,6 @@ func (m *K8sStatus) validateStateEnum(path, location string, value string) error
 }
 
 func (m *K8sStatus) validateState(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.State) { // not required
 		return nil
 	}
@@ -95,6 +95,11 @@ func (m *K8sStatus) validateState(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this k8s status based on context it is used
+func (m *K8sStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 
