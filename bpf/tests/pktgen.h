@@ -18,15 +18,20 @@
 #include <linux/tcp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
- *  without having to come up with custom addresses.
+ * without having to come up with custom addresses.
+ *
+ * These are declared as volatile const to make them end up in .rodata. Cilium
+ * inlines global data from .data into bytecode as immediate values for compat
+ * with kernels before 5.2 that lack read-only map support. This test suite
+ * doesn't make the same assumptions, so disable the static data inliner by
+ * putting variables in another section.
  */
-
-#define mac_one   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF}
-#define mac_two   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37}
-#define mac_three {0x31, 0x41, 0x59, 0x26, 0x35, 0x89}
-#define mac_four  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2}
-#define mac_five  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D}
-#define mac_six   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E}
+static volatile const __u8 mac_one[] =   {0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xEF};
+static volatile const __u8 mac_two[] =   {0x13, 0x37, 0x13, 0x37, 0x13, 0x37};
+static volatile const __u8 mac_three[] = {0x31, 0x41, 0x59, 0x26, 0x35, 0x89};
+static volatile const __u8 mac_four[] =  {0x0D, 0x1D, 0x22, 0x59, 0xA9, 0xC2};
+static volatile const __u8 mac_five[] =  {0x15, 0x21, 0x39, 0x45, 0x4D, 0x5D};
+static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
 
 /* A collection of pre-defined IP addresses, so tests can reuse them without
  *  having to come up with custom ips.
