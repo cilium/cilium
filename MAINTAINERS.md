@@ -40,6 +40,7 @@ by the "janitor role" which is rotated between all committers.
  * [Ilya Dmitrichenko] (Docker)
  * [Jarno Rajahalme] (Isovalent)
  * [John Fastabend] (Isovalent)
+ * [Julian Wiedmann] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
  * [Liz Rice] (Isovalent)
@@ -95,6 +96,7 @@ project.
 [Jarno Rajahalme]: https://github.com/jrajahalme
 [Joe Stringer]: https://github.com/joestringer
 [John Fastabend]: https://github.com/jrfastab
+[Julian Wiedmann]: https://github.com/julianwiedmann
 [Kornilios Kourtis]: https://github.com/kkourt
 [Laurent Bernaille]: https://github.com/lbernail
 [Liz Rice]: https://github.com/lizrice
