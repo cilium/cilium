@@ -32,7 +32,9 @@ var Cell = cell.Module(
 		// Signaler is used by all cells that observe resources to signal the controller to start reconciliation.
 		agent.NewSignaler,
 		// Local Node Store Specer provides the module with information about the current node.
-		agent.NewLocalNodeStoreSpecer,
+		agent.NewNodeSpecer,
+		agent.NewLocalNodeResource,
+		agent.NewLocalCiliumNodeResource,
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
 		// goBGP is currently the only supported RouterManager, if more are
