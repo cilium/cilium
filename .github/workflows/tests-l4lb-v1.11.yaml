@@ -82,7 +82,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -126,7 +126,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -167,14 +167,14 @@ jobs:
           cilium version
 
       - name: Checkout upstream for test files
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           # This is intentionally set to stable branch to avoid using test.sh from pull requests.
           ref: v1.11
           persist-credentials: false
 
       - name: Checkout pull request for Helm chart
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false

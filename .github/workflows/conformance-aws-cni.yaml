@@ -89,7 +89,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -125,7 +125,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -270,7 +270,7 @@ jobs:
 
       # Checkout source code to install Cilium using local Helm chart.
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
