@@ -55,7 +55,12 @@ func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/shared-service": "True"},
+		Annotations: map[string]string{"io.cilium/shared-service": "true"},
+	}}
+	c.Assert(getAnnotationShared(svc), check.Equals, false)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/shared-service": "True"},
 	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
@@ -67,14 +72,19 @@ func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
 
 func (s *K8sSuite) TestGetAnnotationServiceAffinity(c *check.C) {
 	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/service-affinity": "local"},
+		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/service-affinity": "local"},
 	}}
 	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityLocal)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
-		Annotations: map[string]string{"io.cilium/service-affinity": "remote"},
+		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/service-affinity": "remote"},
 	}}
 	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityRemote)
+
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
+		Annotations: map[string]string{"io.cilium/service-affinity": "remote"},
+	}}
+	c.Assert(getAnnotationServiceAffinity(svc), check.Equals, serviceAffinityNone)
 
 	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{},
