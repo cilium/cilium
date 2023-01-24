@@ -21,53 +21,54 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewGetIdentityParams creates a new GetIdentityParams object
-// with the default values initialized.
+// NewGetIdentityParams creates a new GetIdentityParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetIdentityParams() *GetIdentityParams {
-	var ()
 	return &GetIdentityParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetIdentityParamsWithTimeout creates a new GetIdentityParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetIdentityParamsWithTimeout(timeout time.Duration) *GetIdentityParams {
-	var ()
 	return &GetIdentityParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetIdentityParamsWithContext creates a new GetIdentityParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetIdentityParamsWithContext(ctx context.Context) *GetIdentityParams {
-	var ()
 	return &GetIdentityParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetIdentityParamsWithHTTPClient creates a new GetIdentityParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetIdentityParamsWithHTTPClient(client *http.Client) *GetIdentityParams {
-	var ()
 	return &GetIdentityParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetIdentityParams contains all the parameters to send to the API endpoint
-for the get identity operation typically these are written to a http.Request
+/*
+GetIdentityParams contains all the parameters to send to the API endpoint
+
+	for the get identity operation.
+
+	Typically these are written to a http.Request.
 */
 type GetIdentityParams struct {
 
-	/*Labels
-	  List of labels
+	/* Labels.
 
+	   List of labels
 
 	*/
 	Labels models.Labels
@@ -75,6 +76,21 @@ type GetIdentityParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get identity params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetIdentityParams) WithDefaults() *GetIdentityParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get identity params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetIdentityParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get identity params
@@ -128,7 +144,6 @@ func (o *GetIdentityParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
-
 	if o.Labels != nil {
 		if err := r.SetBodyParam(o.Labels); err != nil {
 			return err

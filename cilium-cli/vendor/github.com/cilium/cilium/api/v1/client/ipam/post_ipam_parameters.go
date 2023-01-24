@@ -20,60 +20,78 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// NewPostIpamParams creates a new PostIpamParams object
-// with the default values initialized.
+// NewPostIpamParams creates a new PostIpamParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPostIpamParams() *PostIpamParams {
-	var ()
 	return &PostIpamParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPostIpamParamsWithTimeout creates a new PostIpamParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPostIpamParamsWithTimeout(timeout time.Duration) *PostIpamParams {
-	var ()
 	return &PostIpamParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPostIpamParamsWithContext creates a new PostIpamParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPostIpamParamsWithContext(ctx context.Context) *PostIpamParams {
-	var ()
 	return &PostIpamParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPostIpamParamsWithHTTPClient creates a new PostIpamParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPostIpamParamsWithHTTPClient(client *http.Client) *PostIpamParams {
-	var ()
 	return &PostIpamParams{
 		HTTPClient: client,
 	}
 }
 
-/*PostIpamParams contains all the parameters to send to the API endpoint
-for the post ipam operation typically these are written to a http.Request
+/*
+PostIpamParams contains all the parameters to send to the API endpoint
+
+	for the post ipam operation.
+
+	Typically these are written to a http.Request.
 */
 type PostIpamParams struct {
 
-	/*Expiration*/
+	// Expiration.
 	Expiration *bool
-	/*Family*/
+
+	// Family.
 	Family *string
-	/*Owner*/
+
+	// Owner.
 	Owner *string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the post ipam params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PostIpamParams) WithDefaults() *PostIpamParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the post ipam params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PostIpamParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the post ipam params
@@ -156,39 +174,40 @@ func (o *PostIpamParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Regi
 		if err := r.SetHeaderParam("expiration", swag.FormatBool(*o.Expiration)); err != nil {
 			return err
 		}
-
 	}
 
 	if o.Family != nil {
 
 		// query param family
 		var qrFamily string
+
 		if o.Family != nil {
 			qrFamily = *o.Family
 		}
 		qFamily := qrFamily
 		if qFamily != "" {
+
 			if err := r.SetQueryParam("family", qFamily); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.Owner != nil {
 
 		// query param owner
 		var qrOwner string
+
 		if o.Owner != nil {
 			qrOwner = *o.Owner
 		}
 		qOwner := qrOwner
 		if qOwner != "" {
+
 			if err := r.SetQueryParam("owner", qOwner); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if len(res) > 0 {

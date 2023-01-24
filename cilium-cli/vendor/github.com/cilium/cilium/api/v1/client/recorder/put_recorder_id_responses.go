@@ -44,7 +44,6 @@ func (o *PutRecorderIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,14 +54,44 @@ func NewPutRecorderIDOK() *PutRecorderIDOK {
 	return &PutRecorderIDOK{}
 }
 
-/*PutRecorderIDOK handles this case with default header values.
+/*
+PutRecorderIDOK describes a response with status code 200, with default header values.
 
 Updated
 */
 type PutRecorderIDOK struct {
 }
 
+// IsSuccess returns true when this put recorder Id o k response has a 2xx status code
+func (o *PutRecorderIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put recorder Id o k response has a 3xx status code
+func (o *PutRecorderIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put recorder Id o k response has a 4xx status code
+func (o *PutRecorderIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put recorder Id o k response has a 5xx status code
+func (o *PutRecorderIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put recorder Id o k response a status code equal to that given
+func (o *PutRecorderIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PutRecorderIDOK) Error() string {
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK ", 200)
+}
+
+func (o *PutRecorderIDOK) String() string {
 	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdOK ", 200)
 }
 
@@ -76,14 +105,44 @@ func NewPutRecorderIDCreated() *PutRecorderIDCreated {
 	return &PutRecorderIDCreated{}
 }
 
-/*PutRecorderIDCreated handles this case with default header values.
+/*
+PutRecorderIDCreated describes a response with status code 201, with default header values.
 
 Created
 */
 type PutRecorderIDCreated struct {
 }
 
+// IsSuccess returns true when this put recorder Id created response has a 2xx status code
+func (o *PutRecorderIDCreated) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put recorder Id created response has a 3xx status code
+func (o *PutRecorderIDCreated) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put recorder Id created response has a 4xx status code
+func (o *PutRecorderIDCreated) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put recorder Id created response has a 5xx status code
+func (o *PutRecorderIDCreated) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put recorder Id created response a status code equal to that given
+func (o *PutRecorderIDCreated) IsCode(code int) bool {
+	return code == 201
+}
+
 func (o *PutRecorderIDCreated) Error() string {
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated ", 201)
+}
+
+func (o *PutRecorderIDCreated) String() string {
 	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdCreated ", 201)
 }
 
@@ -97,7 +156,8 @@ func NewPutRecorderIDFailure() *PutRecorderIDFailure {
 	return &PutRecorderIDFailure{}
 }
 
-/*PutRecorderIDFailure handles this case with default header values.
+/*
+PutRecorderIDFailure describes a response with status code 500, with default header values.
 
 Error while creating recorder
 */
@@ -105,7 +165,36 @@ type PutRecorderIDFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put recorder Id failure response has a 2xx status code
+func (o *PutRecorderIDFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put recorder Id failure response has a 3xx status code
+func (o *PutRecorderIDFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put recorder Id failure response has a 4xx status code
+func (o *PutRecorderIDFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put recorder Id failure response has a 5xx status code
+func (o *PutRecorderIDFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this put recorder Id failure response a status code equal to that given
+func (o *PutRecorderIDFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PutRecorderIDFailure) Error() string {
+	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *PutRecorderIDFailure) String() string {
 	return fmt.Sprintf("[PUT /recorder/{id}][%d] putRecorderIdFailure  %+v", 500, o.Payload)
 }
 

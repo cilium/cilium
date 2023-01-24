@@ -38,7 +38,6 @@ func (o *GetPrefilterReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetPrefilterOK() *GetPrefilterOK {
 	return &GetPrefilterOK{}
 }
 
-/*GetPrefilterOK handles this case with default header values.
+/*
+GetPrefilterOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetPrefilterOK struct {
 	Payload *models.Prefilter
 }
 
+// IsSuccess returns true when this get prefilter o k response has a 2xx status code
+func (o *GetPrefilterOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get prefilter o k response has a 3xx status code
+func (o *GetPrefilterOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get prefilter o k response has a 4xx status code
+func (o *GetPrefilterOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get prefilter o k response has a 5xx status code
+func (o *GetPrefilterOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get prefilter o k response a status code equal to that given
+func (o *GetPrefilterOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetPrefilterOK) Error() string {
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK  %+v", 200, o.Payload)
+}
+
+func (o *GetPrefilterOK) String() string {
 	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterOK  %+v", 200, o.Payload)
 }
 
@@ -82,7 +111,8 @@ func NewGetPrefilterFailure() *GetPrefilterFailure {
 	return &GetPrefilterFailure{}
 }
 
-/*GetPrefilterFailure handles this case with default header values.
+/*
+GetPrefilterFailure describes a response with status code 500, with default header values.
 
 Prefilter get failed
 */
@@ -90,7 +120,36 @@ type GetPrefilterFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get prefilter failure response has a 2xx status code
+func (o *GetPrefilterFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get prefilter failure response has a 3xx status code
+func (o *GetPrefilterFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get prefilter failure response has a 4xx status code
+func (o *GetPrefilterFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get prefilter failure response has a 5xx status code
+func (o *GetPrefilterFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get prefilter failure response a status code equal to that given
+func (o *GetPrefilterFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *GetPrefilterFailure) Error() string {
+	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *GetPrefilterFailure) String() string {
 	return fmt.Sprintf("[GET /prefilter][%d] getPrefilterFailure  %+v", 500, o.Payload)
 }
 

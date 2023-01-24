@@ -36,6 +36,7 @@ type RegexMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to EngineType:
+	//
 	//	*RegexMatcher_GoogleRe2
 	EngineType isRegexMatcher_EngineType `protobuf_oneof:"engine_type"`
 	// The regex match string. The string must be supported by the configured engine.
@@ -130,7 +131,7 @@ type RegexMatchAndSubstitute struct {
 	// defined by the chosen regular expression engine. Google's `RE2
 	// <https://github.com/google/re2>`_ regular expression engine uses a
 	// backslash followed by the capture group number to denote a numbered
-	// capture group. E.g., ``\1`` refers to capture group 1, and ``\2`` refers
+	// capture group. E.g., “\1“ refers to capture group 1, and “\2“ refers
 	// to capture group 2.
 	Substitution string `protobuf:"bytes,2,opt,name=substitution,proto3" json:"substitution,omitempty"`
 }
@@ -209,9 +210,8 @@ type RegexMatcher_GoogleRE2 struct {
 	//
 	// .. note::
 	//
-	//  Although this field is deprecated, the program size will still be checked against the
-	//  global ``re2.max_program_size.error_level`` runtime value.
-	//
+	//	Although this field is deprecated, the program size will still be checked against the
+	//	global ``re2.max_program_size.error_level`` runtime value.
 	//
 	// Deprecated: Do not use.
 	MaxProgramSize *wrapperspb.UInt32Value `protobuf:"bytes,1,opt,name=max_program_size,json=maxProgramSize,proto3" json:"max_program_size,omitempty"`

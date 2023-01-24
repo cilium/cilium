@@ -186,8 +186,8 @@ type ApiConfigSource struct {
 	//
 	// .. note::
 	//
-	//  The cluster with name ``cluster_name`` must be statically defined and its
-	//  type must not be ``EDS``.
+	//	The cluster with name ``cluster_name`` must be statically defined and its
+	//	type must not be ``EDS``.
 	ClusterNames []string `protobuf:"bytes,2,rep,name=cluster_names,json=clusterNames,proto3" json:"cluster_names,omitempty"`
 	// Multiple gRPC services be provided for GRPC. If > 1 cluster is defined,
 	// services will be cycled through if any kind of failure occurs.
@@ -463,6 +463,7 @@ type ConfigSource struct {
 	// [#not-implemented-hide:]
 	Authorities []*v3.Authority `protobuf:"bytes,7,rep,name=authorities,proto3" json:"authorities,omitempty"`
 	// Types that are assignable to ConfigSourceSpecifier:
+	//
 	//	*ConfigSource_Path
 	//	*ConfigSource_ApiConfigSource
 	//	*ConfigSource_Ads
@@ -581,13 +582,13 @@ type ConfigSource_Path struct {
 	//
 	// .. note::
 	//
-	//  The path to the source must exist at config load time.
+	//	The path to the source must exist at config load time.
 	//
 	// .. note::
 	//
-	//   Envoy will only watch the file path for *moves.* This is because in general only moves
-	//   are atomic. The same method of swapping files as is demonstrated in the
-	//   :ref:`runtime documentation <config_runtime_symbolic_link_swap>` can be used here also.
+	//	Envoy will only watch the file path for *moves.* This is because in general only moves
+	//	are atomic. The same method of swapping files as is demonstrated in the
+	//	:ref:`runtime documentation <config_runtime_symbolic_link_swap>` can be used here also.
 	Path string `protobuf:"bytes,1,opt,name=path,proto3,oneof"`
 }
 

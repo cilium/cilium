@@ -33,7 +33,7 @@ const _ = proto.ProtoPackageIsVersion4
 // provider of http tracer, then
 // :ref:`start_child_span <envoy_v3_api_field_extensions.filters.http.router.v3.Router.start_child_span>`
 // in the router must be set to true to get the correct topology and tracing data. Moreover, SkyWalking
-// Tracer does not support SkyWalking extension header (``sw8-x``) temporarily.
+// Tracer does not support SkyWalking extension header (“sw8-x“) temporarily.
 // [#extension: envoy.tracers.skywalking]
 type SkyWalkingConfig struct {
 	state         protoimpl.MessageState
@@ -101,13 +101,13 @@ type ClientConfig struct {
 	// that configured by :ref:`Bootstrap node <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.node>`
 	// message's :ref:`cluster <envoy_v3_api_field_config.core.v3.Node.cluster>` field or command line
 	// option :option:`--service-cluster` will be used. If both this field and local service cluster
-	// name are empty, ``EnvoyProxy`` is used as the service name by default.
+	// name are empty, “EnvoyProxy“ is used as the service name by default.
 	ServiceName string `protobuf:"bytes,1,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
 	// Service instance name for SkyWalking tracer. If this field is empty, then local service node
 	// that configured by :ref:`Bootstrap node <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.node>`
 	// message's :ref:`id <envoy_v3_api_field_config.core.v3.Node.id>` field or command line  option
 	// :option:`--service-node` will be used. If both this field and local service node are empty,
-	// ``EnvoyProxy`` is used as the instance name by default.
+	// “EnvoyProxy“ is used as the instance name by default.
 	InstanceName string `protobuf:"bytes,2,opt,name=instance_name,json=instanceName,proto3" json:"instance_name,omitempty"`
 	// Authentication token config for SkyWalking. SkyWalking can use token authentication to secure
 	// that monitoring application data can be trusted. In current version, Token is considered as a
@@ -115,6 +115,7 @@ type ClientConfig struct {
 	// [#comment:TODO(wbpcode): Get backend token through the SDS API.]
 	//
 	// Types that are assignable to BackendTokenSpecifier:
+	//
 	//	*ClientConfig_BackendToken
 	BackendTokenSpecifier isClientConfig_BackendTokenSpecifier `protobuf_oneof:"backend_token_specifier"`
 	// Envoy caches the segment in memory when the SkyWalking backend service is temporarily unavailable.

@@ -28,29 +28,31 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetStatus(params *GetStatusParams) (*GetStatusOK, error)
+	GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error)
 
-	PutStatusProbe(params *PutStatusProbeParams) (*PutStatusProbeOK, error)
+	PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  GetStatus gets connectivity status of the cilium cluster
+	GetStatus gets connectivity status of the cilium cluster
 
-  Returns the connectivity status to all other cilium-health instances
+	Returns the connectivity status to all other cilium-health instances
+
 using interval-based probing.
-
 */
-func (a *Client) GetStatus(params *GetStatusParams) (*GetStatusOK, error) {
+func (a *Client) GetStatus(params *GetStatusParams, opts ...ClientOption) (*GetStatusOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetStatusParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetStatus",
 		Method:             "GET",
 		PathPattern:        "/status",
@@ -61,7 +63,12 @@ func (a *Client) GetStatus(params *GetStatusParams) (*GetStatusOK, error) {
 		Reader:             &GetStatusReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -76,19 +83,18 @@ func (a *Client) GetStatus(params *GetStatusParams) (*GetStatusOK, error) {
 }
 
 /*
-  PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster
+	PutStatusProbe runs synchronous connectivity probe to determine status of the cilium cluster
 
-  Runs a synchronous probe to all other cilium-health instances and
+	Runs a synchronous probe to all other cilium-health instances and
+
 returns the connectivity status.
-
 */
-func (a *Client) PutStatusProbe(params *PutStatusProbeParams) (*PutStatusProbeOK, error) {
+func (a *Client) PutStatusProbe(params *PutStatusProbeParams, opts ...ClientOption) (*PutStatusProbeOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPutStatusProbeParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PutStatusProbe",
 		Method:             "PUT",
 		PathPattern:        "/status/probe",
@@ -99,7 +105,12 @@ func (a *Client) PutStatusProbe(params *PutStatusProbeParams) (*PutStatusProbeOK
 		Reader:             &PutStatusProbeReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

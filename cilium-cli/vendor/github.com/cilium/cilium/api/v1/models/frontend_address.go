@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -20,7 +21,6 @@ import (
 // FrontendAddress Layer 4 address. The protocol is currently ignored, all services will
 // behave as if protocol any is specified. To restrict to a particular
 // protocol, use policy.
-//
 //
 // swagger:model FrontendAddress
 type FrontendAddress struct {
@@ -91,7 +91,6 @@ func (m *FrontendAddress) validateProtocolEnum(path, location string, value stri
 }
 
 func (m *FrontendAddress) validateProtocol(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Protocol) { // not required
 		return nil
 	}
@@ -134,7 +133,6 @@ func (m *FrontendAddress) validateScopeEnum(path, location string, value string)
 }
 
 func (m *FrontendAddress) validateScope(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Scope) { // not required
 		return nil
 	}
@@ -144,6 +142,11 @@ func (m *FrontendAddress) validateScope(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this frontend address based on context it is used
+func (m *FrontendAddress) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

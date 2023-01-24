@@ -21,56 +21,72 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewDeletePolicyParams creates a new DeletePolicyParams object
-// with the default values initialized.
+// NewDeletePolicyParams creates a new DeletePolicyParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeletePolicyParams() *DeletePolicyParams {
-	var ()
 	return &DeletePolicyParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewDeletePolicyParamsWithTimeout creates a new DeletePolicyParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewDeletePolicyParamsWithTimeout(timeout time.Duration) *DeletePolicyParams {
-	var ()
 	return &DeletePolicyParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewDeletePolicyParamsWithContext creates a new DeletePolicyParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewDeletePolicyParamsWithContext(ctx context.Context) *DeletePolicyParams {
-	var ()
 	return &DeletePolicyParams{
-
 		Context: ctx,
 	}
 }
 
 // NewDeletePolicyParamsWithHTTPClient creates a new DeletePolicyParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewDeletePolicyParamsWithHTTPClient(client *http.Client) *DeletePolicyParams {
-	var ()
 	return &DeletePolicyParams{
 		HTTPClient: client,
 	}
 }
 
-/*DeletePolicyParams contains all the parameters to send to the API endpoint
-for the delete policy operation typically these are written to a http.Request
+/*
+DeletePolicyParams contains all the parameters to send to the API endpoint
+
+	for the delete policy operation.
+
+	Typically these are written to a http.Request.
 */
 type DeletePolicyParams struct {
 
-	/*Labels*/
+	// Labels.
 	Labels models.Labels
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the delete policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeletePolicyParams) WithDefaults() *DeletePolicyParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the delete policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeletePolicyParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the delete policy params
@@ -124,7 +140,6 @@ func (o *DeletePolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 		return err
 	}
 	var res []error
-
 	if o.Labels != nil {
 		if err := r.SetBodyParam(o.Labels); err != nil {
 			return err

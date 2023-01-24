@@ -143,6 +143,7 @@ type EnvoyInternalAddress struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to AddressNameSpecifier:
+	//
 	//	*EnvoyInternalAddress_ServerListenerName
 	AddressNameSpecifier isEnvoyInternalAddress_AddressNameSpecifier `protobuf_oneof:"address_name_specifier"`
 }
@@ -212,7 +213,7 @@ type SocketAddress struct {
 
 	Protocol SocketAddress_Protocol `protobuf:"varint,1,opt,name=protocol,proto3,enum=envoy.config.core.v3.SocketAddress_Protocol" json:"protocol,omitempty"`
 	// The address for this socket. :ref:`Listeners <config_listeners>` will bind
-	// to the address. An empty address is not allowed. Specify ``0.0.0.0`` or ``::``
+	// to the address. An empty address is not allowed. Specify “0.0.0.0“ or “::“
 	// to bind to any address. [#comment:TODO(zuercher) reinstate when implemented:
 	// It is possible to distinguish a Listener address via the prefix/suffix matching
 	// in :ref:`FilterChainMatch <envoy_v3_api_msg_config.listener.v3.FilterChainMatch>`.] When used
@@ -224,6 +225,7 @@ type SocketAddress struct {
 	// via :ref:`resolver_name <envoy_v3_api_field_config.core.v3.SocketAddress.resolver_name>`.
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are assignable to PortSpecifier:
+	//
 	//	*SocketAddress_PortValue
 	//	*SocketAddress_NamedPort
 	PortSpecifier isSocketAddress_PortSpecifier `protobuf_oneof:"port_specifier"`
@@ -234,9 +236,9 @@ type SocketAddress struct {
 	// *STRICT_DNS* or *LOGICAL_DNS* will generate an error at runtime.
 	ResolverName string `protobuf:"bytes,5,opt,name=resolver_name,json=resolverName,proto3" json:"resolver_name,omitempty"`
 	// When binding to an IPv6 address above, this enables `IPv4 compatibility
-	// <https://tools.ietf.org/html/rfc3493#page-11>`_. Binding to ``::`` will
+	// <https://tools.ietf.org/html/rfc3493#page-11>`_. Binding to “::“ will
 	// allow both IPv4 and IPv6 connections, with peer IPv4 addresses mapped into
-	// IPv6 space as ``::FFFF:<IPv4-address>``.
+	// IPv6 space as “::FFFF:<IPv4-address>“.
 	Ipv4Compat bool `protobuf:"varint,6,opt,name=ipv4_compat,json=ipv4Compat,proto3" json:"ipv4_compat,omitempty"`
 }
 
@@ -493,6 +495,7 @@ type Address struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Address:
+	//
 	//	*Address_SocketAddress
 	//	*Address_Pipe
 	//	*Address_EnvoyInternalAddress
@@ -589,7 +592,7 @@ type CidrRange struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// IPv4 or IPv6 address, e.g. ``192.0.0.0`` or ``2001:db8::``.
+	// IPv4 or IPv6 address, e.g. “192.0.0.0“ or “2001:db8::“.
 	AddressPrefix string `protobuf:"bytes,1,opt,name=address_prefix,json=addressPrefix,proto3" json:"address_prefix,omitempty"`
 	// Length of prefix, e.g. 0, 32. Defaults to 0 when unset.
 	PrefixLen *wrapperspb.UInt32Value `protobuf:"bytes,2,opt,name=prefix_len,json=prefixLen,proto3" json:"prefix_len,omitempty"`

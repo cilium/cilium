@@ -44,7 +44,6 @@ func (o *GetFqdnCacheReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,7 +54,8 @@ func NewGetFqdnCacheOK() *GetFqdnCacheOK {
 	return &GetFqdnCacheOK{}
 }
 
-/*GetFqdnCacheOK handles this case with default header values.
+/*
+GetFqdnCacheOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -63,7 +63,36 @@ type GetFqdnCacheOK struct {
 	Payload []*models.DNSLookup
 }
 
+// IsSuccess returns true when this get fqdn cache o k response has a 2xx status code
+func (o *GetFqdnCacheOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get fqdn cache o k response has a 3xx status code
+func (o *GetFqdnCacheOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get fqdn cache o k response has a 4xx status code
+func (o *GetFqdnCacheOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get fqdn cache o k response has a 5xx status code
+func (o *GetFqdnCacheOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get fqdn cache o k response a status code equal to that given
+func (o *GetFqdnCacheOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetFqdnCacheOK) Error() string {
+	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheOK  %+v", 200, o.Payload)
+}
+
+func (o *GetFqdnCacheOK) String() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheOK  %+v", 200, o.Payload)
 }
 
@@ -86,7 +115,8 @@ func NewGetFqdnCacheBadRequest() *GetFqdnCacheBadRequest {
 	return &GetFqdnCacheBadRequest{}
 }
 
-/*GetFqdnCacheBadRequest handles this case with default header values.
+/*
+GetFqdnCacheBadRequest describes a response with status code 400, with default header values.
 
 Invalid request (error parsing parameters)
 */
@@ -94,7 +124,36 @@ type GetFqdnCacheBadRequest struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get fqdn cache bad request response has a 2xx status code
+func (o *GetFqdnCacheBadRequest) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get fqdn cache bad request response has a 3xx status code
+func (o *GetFqdnCacheBadRequest) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get fqdn cache bad request response has a 4xx status code
+func (o *GetFqdnCacheBadRequest) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get fqdn cache bad request response has a 5xx status code
+func (o *GetFqdnCacheBadRequest) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get fqdn cache bad request response a status code equal to that given
+func (o *GetFqdnCacheBadRequest) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *GetFqdnCacheBadRequest) Error() string {
+	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *GetFqdnCacheBadRequest) String() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheBadRequest  %+v", 400, o.Payload)
 }
 
@@ -117,14 +176,44 @@ func NewGetFqdnCacheNotFound() *GetFqdnCacheNotFound {
 	return &GetFqdnCacheNotFound{}
 }
 
-/*GetFqdnCacheNotFound handles this case with default header values.
+/*
+GetFqdnCacheNotFound describes a response with status code 404, with default header values.
 
 No DNS data with provided parameters found
 */
 type GetFqdnCacheNotFound struct {
 }
 
+// IsSuccess returns true when this get fqdn cache not found response has a 2xx status code
+func (o *GetFqdnCacheNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get fqdn cache not found response has a 3xx status code
+func (o *GetFqdnCacheNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get fqdn cache not found response has a 4xx status code
+func (o *GetFqdnCacheNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get fqdn cache not found response has a 5xx status code
+func (o *GetFqdnCacheNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get fqdn cache not found response a status code equal to that given
+func (o *GetFqdnCacheNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetFqdnCacheNotFound) Error() string {
+	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheNotFound ", 404)
+}
+
+func (o *GetFqdnCacheNotFound) String() string {
 	return fmt.Sprintf("[GET /fqdn/cache][%d] getFqdnCacheNotFound ", 404)
 }
 

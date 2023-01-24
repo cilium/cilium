@@ -9,16 +9,22 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 )
 
 // ConfigurationMap Map of configuration key/value pairs.
-//
 //
 // swagger:model ConfigurationMap
 type ConfigurationMap map[string]string
 
 // Validate validates this configuration map
 func (m ConfigurationMap) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this configuration map based on context it is used
+func (m ConfigurationMap) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

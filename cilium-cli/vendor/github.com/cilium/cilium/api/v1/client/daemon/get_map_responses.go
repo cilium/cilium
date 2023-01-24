@@ -32,7 +32,6 @@ func (o *GetMapReader) ReadResponse(response runtime.ClientResponse, consumer ru
 			return nil, err
 		}
 		return result, nil
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -43,7 +42,8 @@ func NewGetMapOK() *GetMapOK {
 	return &GetMapOK{}
 }
 
-/*GetMapOK handles this case with default header values.
+/*
+GetMapOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -51,7 +51,36 @@ type GetMapOK struct {
 	Payload *models.BPFMapList
 }
 
+// IsSuccess returns true when this get map o k response has a 2xx status code
+func (o *GetMapOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get map o k response has a 3xx status code
+func (o *GetMapOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get map o k response has a 4xx status code
+func (o *GetMapOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get map o k response has a 5xx status code
+func (o *GetMapOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get map o k response a status code equal to that given
+func (o *GetMapOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetMapOK) Error() string {
+	return fmt.Sprintf("[GET /map][%d] getMapOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMapOK) String() string {
 	return fmt.Sprintf("[GET /map][%d] getMapOK  %+v", 200, o.Payload)
 }
 

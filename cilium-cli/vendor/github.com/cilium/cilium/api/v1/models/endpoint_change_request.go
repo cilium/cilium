@@ -9,13 +9,15 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // EndpointChangeRequest Structure which contains the mutable elements of an Endpoint.
-//
 //
 // swagger:model EndpointChangeRequest
 type EndpointChangeRequest struct {
@@ -73,7 +75,7 @@ type EndpointChangeRequest struct {
 
 	// Current state of endpoint
 	// Required: true
-	State EndpointState `json:"state"`
+	State *EndpointState `json:"state"`
 
 	// Whether to build an endpoint synchronously
 	//
@@ -107,7 +109,6 @@ func (m *EndpointChangeRequest) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Addressing) { // not required
 		return nil
 	}
@@ -116,6 +117,8 @@ func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) erro
 		if err := m.Addressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("addressing")
 			}
 			return err
 		}
@@ -125,7 +128,6 @@ func (m *EndpointChangeRequest) validateAddressing(formats strfmt.Registry) erro
 }
 
 func (m *EndpointChangeRequest) validateDatapathConfiguration(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.DatapathConfiguration) { // not required
 		return nil
 	}
@@ -134,6 +136,8 @@ func (m *EndpointChangeRequest) validateDatapathConfiguration(formats strfmt.Reg
 		if err := m.DatapathConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("datapath-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("datapath-configuration")
 			}
 			return err
 		}
@@ -143,7 +147,6 @@ func (m *EndpointChangeRequest) validateDatapathConfiguration(formats strfmt.Reg
 }
 
 func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Labels) { // not required
 		return nil
 	}
@@ -151,6 +154,8 @@ func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
 	if err := m.Labels.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("labels")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("labels")
 		}
 		return err
 	}
@@ -160,11 +165,111 @@ func (m *EndpointChangeRequest) validateLabels(formats strfmt.Registry) error {
 
 func (m *EndpointChangeRequest) validateState(formats strfmt.Registry) error {
 
-	if err := m.State.Validate(formats); err != nil {
+	if err := validate.Required("state", "body", m.State); err != nil {
+		return err
+	}
+
+	if err := validate.Required("state", "body", m.State); err != nil {
+		return err
+	}
+
+	if m.State != nil {
+		if err := m.State.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint change request based on the context it is used
+func (m *EndpointChangeRequest) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateAddressing(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateDatapathConfiguration(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateLabels(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateState(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointChangeRequest) contextValidateAddressing(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Addressing != nil {
+		if err := m.Addressing.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointChangeRequest) contextValidateDatapathConfiguration(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.DatapathConfiguration != nil {
+		if err := m.DatapathConfiguration.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("datapath-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("datapath-configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointChangeRequest) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Labels.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("state")
+			return ve.ValidateName("labels")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("labels")
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointChangeRequest) contextValidateState(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.State != nil {
+		if err := m.State.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
 	}
 
 	return nil

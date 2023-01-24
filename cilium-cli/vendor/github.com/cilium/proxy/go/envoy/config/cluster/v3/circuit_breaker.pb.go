@@ -114,8 +114,8 @@ type CircuitBreakers_Thresholds struct {
 	//
 	// .. note::
 	//
-	//    If this field is set, the retry budget will override any configured retry circuit
-	//    breaker.
+	//	If this field is set, the retry budget will override any configured retry circuit
+	//	breaker.
 	RetryBudget *CircuitBreakers_Thresholds_RetryBudget `protobuf:"bytes,8,opt,name=retry_budget,json=retryBudget,proto3" json:"retry_budget,omitempty"`
 	// If track_remaining is true, then stats will be published that expose
 	// the number of resources remaining until the circuit breakers open. If
@@ -123,8 +123,8 @@ type CircuitBreakers_Thresholds struct {
 	//
 	// .. note::
 	//
-	//    If a retry budget is used in lieu of the max_retries circuit breaker,
-	//    the remaining retry resources remaining will not be tracked.
+	//	If a retry budget is used in lieu of the max_retries circuit breaker,
+	//	the remaining retry resources remaining will not be tracked.
 	TrackRemaining bool `protobuf:"varint,6,opt,name=track_remaining,json=trackRemaining,proto3" json:"track_remaining,omitempty"`
 	// The maximum number of connection pools per cluster that Envoy will concurrently support at
 	// once. If not specified, the default is unlimited. Set this for clusters which create a

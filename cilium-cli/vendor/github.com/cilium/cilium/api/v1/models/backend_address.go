@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -39,6 +40,9 @@ type BackendAddress struct {
 	// State of the backend for load-balancing service traffic
 	// Enum: [active terminating quarantined maintenance]
 	State string `json:"state,omitempty"`
+
+	// Backend weight
+	Weight *uint16 `json:"weight,omitempty"`
 }
 
 // Validate validates this backend address
@@ -104,7 +108,6 @@ func (m *BackendAddress) validateStateEnum(path, location string, value string) 
 }
 
 func (m *BackendAddress) validateState(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.State) { // not required
 		return nil
 	}
@@ -114,6 +117,11 @@ func (m *BackendAddress) validateState(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this backend address based on context it is used
+func (m *BackendAddress) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

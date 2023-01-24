@@ -19,69 +19,87 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetFqdnCacheParams creates a new GetFqdnCacheParams object
-// with the default values initialized.
+// NewGetFqdnCacheParams creates a new GetFqdnCacheParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetFqdnCacheParams() *GetFqdnCacheParams {
-	var ()
 	return &GetFqdnCacheParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetFqdnCacheParamsWithTimeout creates a new GetFqdnCacheParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetFqdnCacheParamsWithTimeout(timeout time.Duration) *GetFqdnCacheParams {
-	var ()
 	return &GetFqdnCacheParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetFqdnCacheParamsWithContext creates a new GetFqdnCacheParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetFqdnCacheParamsWithContext(ctx context.Context) *GetFqdnCacheParams {
-	var ()
 	return &GetFqdnCacheParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetFqdnCacheParamsWithHTTPClient creates a new GetFqdnCacheParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetFqdnCacheParamsWithHTTPClient(client *http.Client) *GetFqdnCacheParams {
-	var ()
 	return &GetFqdnCacheParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetFqdnCacheParams contains all the parameters to send to the API endpoint
-for the get fqdn cache operation typically these are written to a http.Request
+/*
+GetFqdnCacheParams contains all the parameters to send to the API endpoint
+
+	for the get fqdn cache operation.
+
+	Typically these are written to a http.Request.
 */
 type GetFqdnCacheParams struct {
 
-	/*Cidr
-	  A CIDR range of IPs
+	/* Cidr.
 
+	   A CIDR range of IPs
 	*/
 	Cidr *string
-	/*Matchpattern
-	  A toFQDNs compatible matchPattern expression
 
+	/* Matchpattern.
+
+	   A toFQDNs compatible matchPattern expression
 	*/
 	Matchpattern *string
-	/*Source
-	  Source from which FQDN entries come from
 
+	/* Source.
+
+	   Source from which FQDN entries come from
 	*/
 	Source *string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get fqdn cache params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetFqdnCacheParams) WithDefaults() *GetFqdnCacheParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get fqdn cache params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetFqdnCacheParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get fqdn cache params
@@ -162,48 +180,51 @@ func (o *GetFqdnCacheParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.
 
 		// query param cidr
 		var qrCidr string
+
 		if o.Cidr != nil {
 			qrCidr = *o.Cidr
 		}
 		qCidr := qrCidr
 		if qCidr != "" {
+
 			if err := r.SetQueryParam("cidr", qCidr); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.Matchpattern != nil {
 
 		// query param matchpattern
 		var qrMatchpattern string
+
 		if o.Matchpattern != nil {
 			qrMatchpattern = *o.Matchpattern
 		}
 		qMatchpattern := qrMatchpattern
 		if qMatchpattern != "" {
+
 			if err := r.SetQueryParam("matchpattern", qMatchpattern); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if o.Source != nil {
 
 		// query param source
 		var qrSource string
+
 		if o.Source != nil {
 			qrSource = *o.Source
 		}
 		qSource := qrSource
 		if qSource != "" {
+
 			if err := r.SetQueryParam("source", qSource); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	if len(res) > 0 {

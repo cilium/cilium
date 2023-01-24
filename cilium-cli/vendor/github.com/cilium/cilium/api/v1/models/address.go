@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/strfmt"
 )
 
@@ -19,5 +21,10 @@ type Address string
 
 // Validate validates this address
 func (m Address) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this address based on context it is used
+func (m Address) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

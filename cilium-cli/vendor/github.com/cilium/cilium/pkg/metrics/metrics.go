@@ -177,6 +177,12 @@ const (
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
 
+	// LabelVersionRevision is the label for the version revision
+	LabelVersionRevision = "revision"
+
+	// LabelArch is the label for the platform architecture (e.g. linux/amd64)
+	LabelArch = "arch"
+
 	// LabelDirection is the label for traffic direction
 	LabelDirection = "direction"
 
@@ -1325,9 +1331,10 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 				Namespace: Namespace,
 				Name:      "version",
 				Help:      "Cilium version",
-			}, []string{LabelVersion})
+			}, []string{LabelVersion, LabelVersionRevision, LabelArch})
 
-			VersionMetric.WithLabelValues(version.GetCiliumVersion().Version)
+			v := version.GetCiliumVersion()
+			VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 
 			collectors = append(collectors, VersionMetric)
 			c.VersionMetric = true
@@ -1409,7 +1416,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			collectors = append(collectors, APILimiterProcessedRequests)
 			c.APILimiterProcessedRequests = true
 
-		case Namespace + "_arping_requests_total":
+		case Namespace + "_" + SubsystemNodeNeigh + "_arping_requests_total":
 			ArpingRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Subsystem: SubsystemNodeNeigh,
@@ -1531,10 +1538,19 @@ func NewBPFMapPressureGauge(mapname string, threshold float64) *GaugeWithThresho
 }
 
 func init() {
+	ResetMetrics()
+}
+
+func registerDefaultMetrics() {
 	MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{Namespace: Namespace}))
 	MustRegister(collectors.NewGoCollector())
 	MustRegister(newStatusCollector())
 	MustRegister(newbpfCollector())
+}
+
+func ResetMetrics() {
+	registry = prometheus.NewPedanticRegistry()
+	registerDefaultMetrics()
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to

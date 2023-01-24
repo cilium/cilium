@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -86,7 +87,6 @@ func (m *EncryptionStatus) validateModeEnum(path, location string, value string)
 }
 
 func (m *EncryptionStatus) validateMode(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Mode) { // not required
 		return nil
 	}
@@ -100,7 +100,6 @@ func (m *EncryptionStatus) validateMode(formats strfmt.Registry) error {
 }
 
 func (m *EncryptionStatus) validateWireguard(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Wireguard) { // not required
 		return nil
 	}
@@ -109,6 +108,38 @@ func (m *EncryptionStatus) validateWireguard(formats strfmt.Registry) error {
 		if err := m.Wireguard.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("wireguard")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("wireguard")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this encryption status based on the context it is used
+func (m *EncryptionStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateWireguard(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EncryptionStatus) contextValidateWireguard(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Wireguard != nil {
+		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("wireguard")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("wireguard")
 			}
 			return err
 		}

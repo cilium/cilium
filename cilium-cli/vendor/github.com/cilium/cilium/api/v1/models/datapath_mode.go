@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -20,6 +21,15 @@ import (
 //
 // swagger:model DatapathMode
 type DatapathMode string
+
+func NewDatapathMode(value DatapathMode) *DatapathMode {
+	return &value
+}
+
+// Pointer returns a pointer to a freshly-allocated DatapathMode.
+func (m DatapathMode) Pointer() *DatapathMode {
+	return &m
+}
 
 const (
 
@@ -59,5 +69,10 @@ func (m DatapathMode) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// ContextValidate validates this datapath mode based on context it is used
+func (m DatapathMode) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }

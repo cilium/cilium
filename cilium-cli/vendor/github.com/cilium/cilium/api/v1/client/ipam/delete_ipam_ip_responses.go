@@ -56,7 +56,6 @@ func (o *DeleteIpamIPReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,14 +66,44 @@ func NewDeleteIpamIPOK() *DeleteIpamIPOK {
 	return &DeleteIpamIPOK{}
 }
 
-/*DeleteIpamIPOK handles this case with default header values.
+/*
+DeleteIpamIPOK describes a response with status code 200, with default header values.
 
 Success
 */
 type DeleteIpamIPOK struct {
 }
 
+// IsSuccess returns true when this delete ipam Ip o k response has a 2xx status code
+func (o *DeleteIpamIPOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete ipam Ip o k response has a 3xx status code
+func (o *DeleteIpamIPOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip o k response has a 4xx status code
+func (o *DeleteIpamIPOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete ipam Ip o k response has a 5xx status code
+func (o *DeleteIpamIPOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete ipam Ip o k response a status code equal to that given
+func (o *DeleteIpamIPOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeleteIpamIPOK) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK ", 200)
+}
+
+func (o *DeleteIpamIPOK) String() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpOK ", 200)
 }
 
@@ -88,14 +117,44 @@ func NewDeleteIpamIPInvalid() *DeleteIpamIPInvalid {
 	return &DeleteIpamIPInvalid{}
 }
 
-/*DeleteIpamIPInvalid handles this case with default header values.
+/*
+DeleteIpamIPInvalid describes a response with status code 400, with default header values.
 
 Invalid IP address
 */
 type DeleteIpamIPInvalid struct {
 }
 
+// IsSuccess returns true when this delete ipam Ip invalid response has a 2xx status code
+func (o *DeleteIpamIPInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete ipam Ip invalid response has a 3xx status code
+func (o *DeleteIpamIPInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip invalid response has a 4xx status code
+func (o *DeleteIpamIPInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete ipam Ip invalid response has a 5xx status code
+func (o *DeleteIpamIPInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete ipam Ip invalid response a status code equal to that given
+func (o *DeleteIpamIPInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *DeleteIpamIPInvalid) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid ", 400)
+}
+
+func (o *DeleteIpamIPInvalid) String() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpInvalid ", 400)
 }
 
@@ -109,14 +168,44 @@ func NewDeleteIpamIPNotFound() *DeleteIpamIPNotFound {
 	return &DeleteIpamIPNotFound{}
 }
 
-/*DeleteIpamIPNotFound handles this case with default header values.
+/*
+DeleteIpamIPNotFound describes a response with status code 404, with default header values.
 
 IP address not found
 */
 type DeleteIpamIPNotFound struct {
 }
 
+// IsSuccess returns true when this delete ipam Ip not found response has a 2xx status code
+func (o *DeleteIpamIPNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete ipam Ip not found response has a 3xx status code
+func (o *DeleteIpamIPNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip not found response has a 4xx status code
+func (o *DeleteIpamIPNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete ipam Ip not found response has a 5xx status code
+func (o *DeleteIpamIPNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete ipam Ip not found response a status code equal to that given
+func (o *DeleteIpamIPNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *DeleteIpamIPNotFound) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound ", 404)
+}
+
+func (o *DeleteIpamIPNotFound) String() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpNotFound ", 404)
 }
 
@@ -130,7 +219,8 @@ func NewDeleteIpamIPFailure() *DeleteIpamIPFailure {
 	return &DeleteIpamIPFailure{}
 }
 
-/*DeleteIpamIPFailure handles this case with default header values.
+/*
+DeleteIpamIPFailure describes a response with status code 500, with default header values.
 
 Address release failure
 */
@@ -138,7 +228,36 @@ type DeleteIpamIPFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete ipam Ip failure response has a 2xx status code
+func (o *DeleteIpamIPFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete ipam Ip failure response has a 3xx status code
+func (o *DeleteIpamIPFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip failure response has a 4xx status code
+func (o *DeleteIpamIPFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete ipam Ip failure response has a 5xx status code
+func (o *DeleteIpamIPFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete ipam Ip failure response a status code equal to that given
+func (o *DeleteIpamIPFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *DeleteIpamIPFailure) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeleteIpamIPFailure) String() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpFailure  %+v", 500, o.Payload)
 }
 
@@ -161,14 +280,44 @@ func NewDeleteIpamIPDisabled() *DeleteIpamIPDisabled {
 	return &DeleteIpamIPDisabled{}
 }
 
-/*DeleteIpamIPDisabled handles this case with default header values.
+/*
+DeleteIpamIPDisabled describes a response with status code 501, with default header values.
 
 Allocation for address family disabled
 */
 type DeleteIpamIPDisabled struct {
 }
 
+// IsSuccess returns true when this delete ipam Ip disabled response has a 2xx status code
+func (o *DeleteIpamIPDisabled) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete ipam Ip disabled response has a 3xx status code
+func (o *DeleteIpamIPDisabled) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete ipam Ip disabled response has a 4xx status code
+func (o *DeleteIpamIPDisabled) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete ipam Ip disabled response has a 5xx status code
+func (o *DeleteIpamIPDisabled) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete ipam Ip disabled response a status code equal to that given
+func (o *DeleteIpamIPDisabled) IsCode(code int) bool {
+	return code == 501
+}
+
 func (o *DeleteIpamIPDisabled) Error() string {
+	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled ", 501)
+}
+
+func (o *DeleteIpamIPDisabled) String() string {
 	return fmt.Sprintf("[DELETE /ipam/{ip}][%d] deleteIpamIpDisabled ", 501)
 }
 

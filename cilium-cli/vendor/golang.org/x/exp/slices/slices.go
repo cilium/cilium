@@ -151,10 +151,32 @@ func Insert[S ~[]E, E any](s S, i int, v ...E) S {
 // Delete removes the elements s[i:j] from s, returning the modified slice.
 // Delete panics if s[i:j] is not a valid slice of s.
 // Delete modifies the contents of the slice s; it does not create a new slice.
-// Delete is O(len(s)-(j-i)), so if many items must be deleted, it is better to
+// Delete is O(len(s)-j), so if many items must be deleted, it is better to
 // make a single call deleting them all together than to delete one at a time.
+// Delete might not modify the elements s[len(s)-(j-i):len(s)]. If those
+// elements contain pointers you might consider zeroing those elements so that
+// objects they reference can be garbage collected.
 func Delete[S ~[]E, E any](s S, i, j int) S {
+	_ = s[i:j] // bounds check
+
 	return append(s[:i], s[j:]...)
+}
+
+// Replace replaces the elements s[i:j] by the given v, and returns the
+// modified slice. Replace panics if s[i:j] is not a valid slice of s.
+func Replace[S ~[]E, E any](s S, i, j int, v ...E) S {
+	tot := len(s[:i]) + len(v) + len(s[j:])
+	if tot <= cap(s) {
+		s2 := s[:tot]
+		copy(s2[i+len(v):], s[j:])
+		copy(s2[i:], v)
+		return s2
+	}
+	s2 := make(S, tot)
+	copy(s2, s[:i])
+	copy(s2[i:], v)
+	copy(s2[i+len(v):], s[j:])
+	return s2
 }
 
 // Clone returns a copy of the slice.
@@ -205,11 +227,19 @@ func CompactFunc[S ~[]E, E any](s S, eq func(E, E) bool) S {
 
 // Grow increases the slice's capacity, if necessary, to guarantee space for
 // another n elements. After Grow(n), at least n elements can be appended
-// to the slice without another allocation. Grow may modify elements of the
-// slice between the length and the capacity. If n is negative or too large to
+// to the slice without another allocation. If n is negative or too large to
 // allocate the memory, Grow panics.
 func Grow[S ~[]E, E any](s S, n int) S {
-	return append(s, make(S, n)...)[:len(s)]
+	if n < 0 {
+		panic("cannot be negative")
+	}
+	if n -= cap(s) - len(s); n > 0 {
+		// TODO(https://go.dev/issue/53888): Make using []E instead of S
+		// to workaround a compiler bug where the runtime.growslice optimization
+		// does not take effect. Revert when the compiler is fixed.
+		s = append([]E(s)[:cap(s)], make([]E, n)...)[:len(s)]
+	}
+	return s
 }
 
 // Clip removes unused capacity from the slice, returning s[:len(s):len(s)].

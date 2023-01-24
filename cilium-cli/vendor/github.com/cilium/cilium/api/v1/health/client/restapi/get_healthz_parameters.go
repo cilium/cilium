@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetHealthzParams creates a new GetHealthzParams object
-// with the default values initialized.
+// NewGetHealthzParams creates a new GetHealthzParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetHealthzParams() *GetHealthzParams {
-
 	return &GetHealthzParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetHealthzParamsWithTimeout creates a new GetHealthzParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetHealthzParamsWithTimeout(timeout time.Duration) *GetHealthzParams {
-
 	return &GetHealthzParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetHealthzParamsWithContext creates a new GetHealthzParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetHealthzParamsWithContext(ctx context.Context) *GetHealthzParams {
-
 	return &GetHealthzParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetHealthzParamsWithHTTPClient creates a new GetHealthzParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetHealthzParamsWithHTTPClient(client *http.Client) *GetHealthzParams {
-
 	return &GetHealthzParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetHealthzParams contains all the parameters to send to the API endpoint
-for the get healthz operation typically these are written to a http.Request
+/*
+GetHealthzParams contains all the parameters to send to the API endpoint
+
+	for the get healthz operation.
+
+	Typically these are written to a http.Request.
 */
 type GetHealthzParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get healthz params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetHealthzParams) WithDefaults() *GetHealthzParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get healthz params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetHealthzParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get healthz params

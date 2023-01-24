@@ -95,6 +95,7 @@ type SocketOption struct {
 	// The numeric name as passed to setsockopt
 	Name int64 `protobuf:"varint,3,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to Value:
+	//
 	//	*SocketOption_IntValue
 	//	*SocketOption_BufValue
 	Value isSocketOption_Value `protobuf_oneof:"value"`

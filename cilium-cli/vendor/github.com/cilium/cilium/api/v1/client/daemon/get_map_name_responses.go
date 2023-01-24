@@ -38,7 +38,6 @@ func (o *GetMapNameReader) ReadResponse(response runtime.ClientResponse, consume
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetMapNameOK() *GetMapNameOK {
 	return &GetMapNameOK{}
 }
 
-/*GetMapNameOK handles this case with default header values.
+/*
+GetMapNameOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetMapNameOK struct {
 	Payload *models.BPFMap
 }
 
+// IsSuccess returns true when this get map name o k response has a 2xx status code
+func (o *GetMapNameOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get map name o k response has a 3xx status code
+func (o *GetMapNameOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get map name o k response has a 4xx status code
+func (o *GetMapNameOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get map name o k response has a 5xx status code
+func (o *GetMapNameOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get map name o k response a status code equal to that given
+func (o *GetMapNameOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetMapNameOK) Error() string {
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK  %+v", 200, o.Payload)
+}
+
+func (o *GetMapNameOK) String() string {
 	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameOK  %+v", 200, o.Payload)
 }
 
@@ -82,14 +111,44 @@ func NewGetMapNameNotFound() *GetMapNameNotFound {
 	return &GetMapNameNotFound{}
 }
 
-/*GetMapNameNotFound handles this case with default header values.
+/*
+GetMapNameNotFound describes a response with status code 404, with default header values.
 
 Map not found
 */
 type GetMapNameNotFound struct {
 }
 
+// IsSuccess returns true when this get map name not found response has a 2xx status code
+func (o *GetMapNameNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get map name not found response has a 3xx status code
+func (o *GetMapNameNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get map name not found response has a 4xx status code
+func (o *GetMapNameNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get map name not found response has a 5xx status code
+func (o *GetMapNameNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get map name not found response a status code equal to that given
+func (o *GetMapNameNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetMapNameNotFound) Error() string {
+	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound ", 404)
+}
+
+func (o *GetMapNameNotFound) String() string {
 	return fmt.Sprintf("[GET /map/{name}][%d] getMapNameNotFound ", 404)
 }
 

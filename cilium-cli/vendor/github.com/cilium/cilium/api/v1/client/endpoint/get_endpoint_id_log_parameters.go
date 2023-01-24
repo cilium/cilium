@@ -19,52 +19,54 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetEndpointIDLogParams creates a new GetEndpointIDLogParams object
-// with the default values initialized.
+// NewGetEndpointIDLogParams creates a new GetEndpointIDLogParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointIDLogParams() *GetEndpointIDLogParams {
-	var ()
 	return &GetEndpointIDLogParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetEndpointIDLogParamsWithTimeout creates a new GetEndpointIDLogParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetEndpointIDLogParamsWithTimeout(timeout time.Duration) *GetEndpointIDLogParams {
-	var ()
 	return &GetEndpointIDLogParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetEndpointIDLogParamsWithContext creates a new GetEndpointIDLogParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetEndpointIDLogParamsWithContext(ctx context.Context) *GetEndpointIDLogParams {
-	var ()
 	return &GetEndpointIDLogParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetEndpointIDLogParamsWithHTTPClient creates a new GetEndpointIDLogParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetEndpointIDLogParamsWithHTTPClient(client *http.Client) *GetEndpointIDLogParams {
-	var ()
 	return &GetEndpointIDLogParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetEndpointIDLogParams contains all the parameters to send to the API endpoint
-for the get endpoint ID log operation typically these are written to a http.Request
+/*
+GetEndpointIDLogParams contains all the parameters to send to the API endpoint
+
+	for the get endpoint ID log operation.
+
+	Typically these are written to a http.Request.
 */
 type GetEndpointIDLogParams struct {
 
-	/*ID
-	  String describing an endpoint with the format ``[prefix:]id``. If no prefix
+	/* ID.
+
+	     String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
 	local Cilium UUID which is assigned to all endpoints.
@@ -77,13 +79,27 @@ type GetEndpointIDLogParams struct {
 	  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
 	  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
 
-
 	*/
 	ID string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get endpoint ID log params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointIDLogParams) WithDefaults() *GetEndpointIDLogParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get endpoint ID log params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointIDLogParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get endpoint ID log params

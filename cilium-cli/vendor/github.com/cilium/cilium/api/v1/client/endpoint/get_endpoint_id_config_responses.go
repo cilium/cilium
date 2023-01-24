@@ -44,7 +44,6 @@ func (o *GetEndpointIDConfigReader) ReadResponse(response runtime.ClientResponse
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,7 +54,8 @@ func NewGetEndpointIDConfigOK() *GetEndpointIDConfigOK {
 	return &GetEndpointIDConfigOK{}
 }
 
-/*GetEndpointIDConfigOK handles this case with default header values.
+/*
+GetEndpointIDConfigOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -63,7 +63,36 @@ type GetEndpointIDConfigOK struct {
 	Payload *models.EndpointConfigurationStatus
 }
 
+// IsSuccess returns true when this get endpoint Id config o k response has a 2xx status code
+func (o *GetEndpointIDConfigOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get endpoint Id config o k response has a 3xx status code
+func (o *GetEndpointIDConfigOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id config o k response has a 4xx status code
+func (o *GetEndpointIDConfigOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get endpoint Id config o k response has a 5xx status code
+func (o *GetEndpointIDConfigOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id config o k response a status code equal to that given
+func (o *GetEndpointIDConfigOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetEndpointIDConfigOK) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDConfigOK) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigOK  %+v", 200, o.Payload)
 }
 
@@ -88,14 +117,44 @@ func NewGetEndpointIDConfigNotFound() *GetEndpointIDConfigNotFound {
 	return &GetEndpointIDConfigNotFound{}
 }
 
-/*GetEndpointIDConfigNotFound handles this case with default header values.
+/*
+GetEndpointIDConfigNotFound describes a response with status code 404, with default header values.
 
 Endpoint not found
 */
 type GetEndpointIDConfigNotFound struct {
 }
 
+// IsSuccess returns true when this get endpoint Id config not found response has a 2xx status code
+func (o *GetEndpointIDConfigNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id config not found response has a 3xx status code
+func (o *GetEndpointIDConfigNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id config not found response has a 4xx status code
+func (o *GetEndpointIDConfigNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id config not found response has a 5xx status code
+func (o *GetEndpointIDConfigNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id config not found response a status code equal to that given
+func (o *GetEndpointIDConfigNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetEndpointIDConfigNotFound) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound ", 404)
+}
+
+func (o *GetEndpointIDConfigNotFound) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigNotFound ", 404)
 }
 
@@ -109,14 +168,44 @@ func NewGetEndpointIDConfigTooManyRequests() *GetEndpointIDConfigTooManyRequests
 	return &GetEndpointIDConfigTooManyRequests{}
 }
 
-/*GetEndpointIDConfigTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDConfigTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type GetEndpointIDConfigTooManyRequests struct {
 }
 
+// IsSuccess returns true when this get endpoint Id config too many requests response has a 2xx status code
+func (o *GetEndpointIDConfigTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id config too many requests response has a 3xx status code
+func (o *GetEndpointIDConfigTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id config too many requests response has a 4xx status code
+func (o *GetEndpointIDConfigTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id config too many requests response has a 5xx status code
+func (o *GetEndpointIDConfigTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id config too many requests response a status code equal to that given
+func (o *GetEndpointIDConfigTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *GetEndpointIDConfigTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests ", 429)
+}
+
+func (o *GetEndpointIDConfigTooManyRequests) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/config][%d] getEndpointIdConfigTooManyRequests ", 429)
 }
 

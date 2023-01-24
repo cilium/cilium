@@ -38,25 +38,26 @@ type SubstitutionFormatString struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Format:
+	//
 	//	*SubstitutionFormatString_TextFormat
 	//	*SubstitutionFormatString_JsonFormat
 	//	*SubstitutionFormatString_TextFormatSource
 	Format isSubstitutionFormatString_Format `protobuf_oneof:"format"`
 	// If set to true, when command operators are evaluated to null,
 	//
-	// * for ``text_format``, the output of the empty operator is changed from ``-`` to an
-	//   empty string, so that empty values are omitted entirely.
-	// * for ``json_format`` the keys with null values are omitted in the output structure.
+	//   - for “text_format“, the output of the empty operator is changed from “-“ to an
+	//     empty string, so that empty values are omitted entirely.
+	//   - for “json_format“ the keys with null values are omitted in the output structure.
 	OmitEmptyValues bool `protobuf:"varint,3,opt,name=omit_empty_values,json=omitEmptyValues,proto3" json:"omit_empty_values,omitempty"`
 	// Specify a *content_type* field.
-	// If this field is not set then ``text/plain`` is used for *text_format* and
-	// ``application/json`` is used for *json_format*.
+	// If this field is not set then “text/plain“ is used for *text_format* and
+	// “application/json“ is used for *json_format*.
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   content_type: "text/html; charset=UTF-8"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
+	//	content_type: "text/html; charset=UTF-8"
 	ContentType string `protobuf:"bytes,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// Specifies a collection of Formatter plugins that can be called from the access log configuration.
 	// See the formatters extensions documentation for details.
@@ -154,18 +155,19 @@ type SubstitutionFormatString_TextFormat struct {
 	// Specify a format with command operators to form a text string.
 	// Its details is described in :ref:`format string<config_access_log_format_strings>`.
 	//
-	// For example, setting ``text_format`` like below,
+	// For example, setting “text_format“ like below,
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   text_format: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
+	//
+	//	text_format: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
 	//
 	// generates plain text similar to:
 	//
 	// .. code-block:: text
 	//
-	//   upstream connect error:503:path=/foo
+	//	upstream connect error:503:path=/foo
 	//
 	// Deprecated in favor of :ref:`text_format_source <envoy_v3_api_field_config.core.v3.SubstitutionFormatString.text_format_source>`. To migrate text format strings, use the :ref:`inline_string <envoy_v3_api_field_config.core.v3.DataSource.inline_string>` field.
 	//
@@ -181,21 +183,21 @@ type SubstitutionFormatString_JsonFormat struct {
 	// See the documentation for a specific command operator for details.
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   json_format:
-	//     status: "%RESPONSE_CODE%"
-	//     message: "%LOCAL_REPLY_BODY%"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
+	//
+	//	json_format:
+	//	  status: "%RESPONSE_CODE%"
+	//	  message: "%LOCAL_REPLY_BODY%"
 	//
 	// The following JSON object would be created:
 	//
 	// .. code-block:: json
 	//
-	//  {
-	//    "status": 500,
-	//    "message": "My error message"
-	//  }
-	//
+	//	{
+	//	  "status": 500,
+	//	  "message": "My error message"
+	//	}
 	JsonFormat *structpb.Struct `protobuf:"bytes,2,opt,name=json_format,json=jsonFormat,proto3,oneof"`
 }
 
@@ -203,20 +205,20 @@ type SubstitutionFormatString_TextFormatSource struct {
 	// Specify a format with command operators to form a text string.
 	// Its details is described in :ref:`format string<config_access_log_format_strings>`.
 	//
-	// For example, setting ``text_format`` like below,
+	// For example, setting “text_format“ like below,
 	//
 	// .. validated-code-block:: yaml
-	//   :type-name: envoy.config.core.v3.SubstitutionFormatString
 	//
-	//   text_format_source:
-	//     inline_string: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
+	//	:type-name: envoy.config.core.v3.SubstitutionFormatString
+	//
+	//	text_format_source:
+	//	  inline_string: "%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\n"
 	//
 	// generates plain text similar to:
 	//
 	// .. code-block:: text
 	//
-	//   upstream connect error:503:path=/foo
-	//
+	//	upstream connect error:503:path=/foo
 	TextFormatSource *DataSource `protobuf:"bytes,5,opt,name=text_format_source,json=textFormatSource,proto3,oneof"`
 }
 

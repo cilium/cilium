@@ -56,7 +56,6 @@ func (o *PutEndpointIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,14 +66,44 @@ func NewPutEndpointIDCreated() *PutEndpointIDCreated {
 	return &PutEndpointIDCreated{}
 }
 
-/*PutEndpointIDCreated handles this case with default header values.
+/*
+PutEndpointIDCreated describes a response with status code 201, with default header values.
 
 Created
 */
 type PutEndpointIDCreated struct {
 }
 
+// IsSuccess returns true when this put endpoint Id created response has a 2xx status code
+func (o *PutEndpointIDCreated) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this put endpoint Id created response has a 3xx status code
+func (o *PutEndpointIDCreated) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id created response has a 4xx status code
+func (o *PutEndpointIDCreated) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put endpoint Id created response has a 5xx status code
+func (o *PutEndpointIDCreated) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put endpoint Id created response a status code equal to that given
+func (o *PutEndpointIDCreated) IsCode(code int) bool {
+	return code == 201
+}
+
 func (o *PutEndpointIDCreated) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated ", 201)
+}
+
+func (o *PutEndpointIDCreated) String() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdCreated ", 201)
 }
 
@@ -88,7 +117,8 @@ func NewPutEndpointIDInvalid() *PutEndpointIDInvalid {
 	return &PutEndpointIDInvalid{}
 }
 
-/*PutEndpointIDInvalid handles this case with default header values.
+/*
+PutEndpointIDInvalid describes a response with status code 400, with default header values.
 
 Invalid endpoint in request
 */
@@ -96,7 +126,36 @@ type PutEndpointIDInvalid struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put endpoint Id invalid response has a 2xx status code
+func (o *PutEndpointIDInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put endpoint Id invalid response has a 3xx status code
+func (o *PutEndpointIDInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id invalid response has a 4xx status code
+func (o *PutEndpointIDInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put endpoint Id invalid response has a 5xx status code
+func (o *PutEndpointIDInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put endpoint Id invalid response a status code equal to that given
+func (o *PutEndpointIDInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PutEndpointIDInvalid) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid  %+v", 400, o.Payload)
+}
+
+func (o *PutEndpointIDInvalid) String() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdInvalid  %+v", 400, o.Payload)
 }
 
@@ -119,14 +178,44 @@ func NewPutEndpointIDExists() *PutEndpointIDExists {
 	return &PutEndpointIDExists{}
 }
 
-/*PutEndpointIDExists handles this case with default header values.
+/*
+PutEndpointIDExists describes a response with status code 409, with default header values.
 
 Endpoint already exists
 */
 type PutEndpointIDExists struct {
 }
 
+// IsSuccess returns true when this put endpoint Id exists response has a 2xx status code
+func (o *PutEndpointIDExists) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put endpoint Id exists response has a 3xx status code
+func (o *PutEndpointIDExists) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id exists response has a 4xx status code
+func (o *PutEndpointIDExists) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put endpoint Id exists response has a 5xx status code
+func (o *PutEndpointIDExists) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put endpoint Id exists response a status code equal to that given
+func (o *PutEndpointIDExists) IsCode(code int) bool {
+	return code == 409
+}
+
 func (o *PutEndpointIDExists) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists ", 409)
+}
+
+func (o *PutEndpointIDExists) String() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdExists ", 409)
 }
 
@@ -140,14 +229,44 @@ func NewPutEndpointIDTooManyRequests() *PutEndpointIDTooManyRequests {
 	return &PutEndpointIDTooManyRequests{}
 }
 
-/*PutEndpointIDTooManyRequests handles this case with default header values.
+/*
+PutEndpointIDTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type PutEndpointIDTooManyRequests struct {
 }
 
+// IsSuccess returns true when this put endpoint Id too many requests response has a 2xx status code
+func (o *PutEndpointIDTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put endpoint Id too many requests response has a 3xx status code
+func (o *PutEndpointIDTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id too many requests response has a 4xx status code
+func (o *PutEndpointIDTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this put endpoint Id too many requests response has a 5xx status code
+func (o *PutEndpointIDTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this put endpoint Id too many requests response a status code equal to that given
+func (o *PutEndpointIDTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *PutEndpointIDTooManyRequests) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests ", 429)
+}
+
+func (o *PutEndpointIDTooManyRequests) String() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdTooManyRequests ", 429)
 }
 
@@ -161,7 +280,8 @@ func NewPutEndpointIDFailed() *PutEndpointIDFailed {
 	return &PutEndpointIDFailed{}
 }
 
-/*PutEndpointIDFailed handles this case with default header values.
+/*
+PutEndpointIDFailed describes a response with status code 500, with default header values.
 
 Endpoint creation failed
 */
@@ -169,7 +289,36 @@ type PutEndpointIDFailed struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this put endpoint Id failed response has a 2xx status code
+func (o *PutEndpointIDFailed) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this put endpoint Id failed response has a 3xx status code
+func (o *PutEndpointIDFailed) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this put endpoint Id failed response has a 4xx status code
+func (o *PutEndpointIDFailed) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this put endpoint Id failed response has a 5xx status code
+func (o *PutEndpointIDFailed) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this put endpoint Id failed response a status code equal to that given
+func (o *PutEndpointIDFailed) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PutEndpointIDFailed) Error() string {
+	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed  %+v", 500, o.Payload)
+}
+
+func (o *PutEndpointIDFailed) String() string {
 	return fmt.Sprintf("[PUT /endpoint/{id}][%d] putEndpointIdFailed  %+v", 500, o.Payload)
 }
 

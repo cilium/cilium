@@ -90,6 +90,9 @@ const (
 	// L4PolicyID is the identifier of a L4 Policy
 	L4PolicyID = "PolicyID.L4"
 
+	// AuthType is an enum for the type of authentication required, if any.
+	AuthType = "AuthType"
+
 	// IsRedirect is a boolean for if the entry is a redirect or not
 	IsRedirect = "IsRedirect"
 
@@ -256,14 +259,20 @@ const (
 	// ServiceHealthCheckNodePort is the port on which we serve health checks
 	ServiceHealthCheckNodePort = "svcHealthCheckNodePort"
 
-	// ServiceTrafficPolicy is the traffic policy of the service
-	ServiceTrafficPolicy = "svcTrafficPolicy"
+	// ServiceExtTrafficPolicy is the external traffic policy of the service
+	ServiceExtTrafficPolicy = "svcExtTrafficPolicy"
+
+	// ServiceIntTrafficPolicy is the internal traffic policy of the service
+	ServiceIntTrafficPolicy = "svcIntTrafficPolicy"
 
 	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
 	BackendIDs = "backendIDs"
 
 	// BackendID is the ID of the backend
 	BackendID = "backendID"
+
+	// BackendWeight is a weight of service backend.
+	BackendWeight = "backendWeight"
 
 	// Backends is the list of the service backends
 	Backends = "backends"
@@ -307,14 +316,14 @@ const (
 	// CiliumEgressGatewayPolicyName is the name of a CiliumEgressGatewayPolicy
 	CiliumEgressGatewayPolicyName = "ciliumEgressGatewayPolicyName"
 
-	// CiliumEgressNATPolicyName is the name of a CiliumEgressNATPolicy
-	CiliumEgressNATPolicyName = "ciliumEgressNATPolicyName"
-
 	// CiliumClusterwideEnvoyConfigName is the name of a CiliumClusterwideEnvoyConfig
 	CiliumClusterwideEnvoyConfigName = "ciliumClusterwideEnvoyConfigName"
 
 	// CiliumEnvoyConfigName is the name of a CiliumEnvoyConfig
 	CiliumEnvoyConfigName = "ciliumEnvoyConfigName"
+
+	// Listener is the name of an Envoy Listener defined in CEC or CCEC
+	Listener = "listener"
 
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
@@ -632,6 +641,18 @@ const (
 	// IPSec old SPI
 	OldSPI = "oldSPI"
 
-	// NumEntries is the number of entries counted
-	NumEntries = "entries"
+	// CGroupId is the numerical cgroup id
+	CGroupID = "cgroupID"
+
+	// Expected is an expected value
+	Expected = "expected"
+
+	// ConfigSource is a configuration source (for process options, e.g. agent)
+	ConfigSource = "configSource"
+
+	// ConfigKey is a single key in a configuration source
+	ConfigKey = "configKey"
+
+	// ConfigAnnotation is an annotation on a node
+	ConfigAnnotation = "configAnnotation"
 )

@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetRecorderParams creates a new GetRecorderParams object
-// with the default values initialized.
+// NewGetRecorderParams creates a new GetRecorderParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetRecorderParams() *GetRecorderParams {
-
 	return &GetRecorderParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetRecorderParamsWithTimeout creates a new GetRecorderParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetRecorderParamsWithTimeout(timeout time.Duration) *GetRecorderParams {
-
 	return &GetRecorderParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetRecorderParamsWithContext creates a new GetRecorderParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetRecorderParamsWithContext(ctx context.Context) *GetRecorderParams {
-
 	return &GetRecorderParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetRecorderParamsWithHTTPClient creates a new GetRecorderParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetRecorderParamsWithHTTPClient(client *http.Client) *GetRecorderParams {
-
 	return &GetRecorderParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetRecorderParams contains all the parameters to send to the API endpoint
-for the get recorder operation typically these are written to a http.Request
+/*
+GetRecorderParams contains all the parameters to send to the API endpoint
+
+	for the get recorder operation.
+
+	Typically these are written to a http.Request.
 */
 type GetRecorderParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get recorder params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderParams) WithDefaults() *GetRecorderParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get recorder params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get recorder params

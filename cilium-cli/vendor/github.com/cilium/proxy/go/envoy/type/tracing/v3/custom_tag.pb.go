@@ -40,6 +40,7 @@ type CustomTag struct {
 	// Used to specify what kind of custom tag.
 	//
 	// Types that are assignable to Type:
+	//
 	//	*CustomTag_Literal_
 	//	*CustomTag_Environment_
 	//	*CustomTag_RequestHeader

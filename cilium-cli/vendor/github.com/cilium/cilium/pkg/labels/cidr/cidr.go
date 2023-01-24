@@ -5,7 +5,6 @@ package cidr
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -79,13 +78,14 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
 // and all broader CIDRS which include the specified CIDR in them. For example:
 // CIDR: 10.0.0.0/8 =>
-//     "cidr:10.0.0.0/8", "cidr:10.0.0.0/7", "cidr:8.0.0.0/6",
-//     "cidr:8.0.0.0/5", "cidr:0.0.0.0/4, "cidr:0.0.0.0/3",
-//     "cidr:0.0.0.0/2",  "cidr:0.0.0.0/1",  "cidr:0.0.0.0/0"
+//
+//	"cidr:10.0.0.0/8", "cidr:10.0.0.0/7", "cidr:8.0.0.0/6",
+//	"cidr:8.0.0.0/5", "cidr:0.0.0.0/4, "cidr:0.0.0.0/3",
+//	"cidr:0.0.0.0/2",  "cidr:0.0.0.0/1",  "cidr:0.0.0.0/0"
 //
 // The identity reserved:world is always added as it includes any CIDR.
-func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
-	ones, _ := cidr.Mask.Size()
+func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
+	ones := prefix.Bits()
 	result := make([]string, 0, ones+1)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
@@ -93,10 +93,10 @@ func GetCIDRLabels(cidr *net.IPNet) labels.Labels {
 	// to generate the set of prefixes starting from the /0 up to the
 	// specified prefix length.
 	if ones > 0 {
-		ip, _ := netip.AddrFromSlice(cidr.IP)
+		ip := prefix.Addr()
 		for i := 0; i <= ones; i++ {
-			prefix := netip.PrefixFrom(ip, i)
-			label := maskedIPToLabelString(prefix.Masked().Addr(), i)
+			p := netip.PrefixFrom(ip, i)
+			label := maskedIPToLabelString(p.Masked().Addr(), i)
 			result = append(result, label)
 		}
 	}

@@ -56,7 +56,6 @@ func (o *GetIdentityIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -67,7 +66,8 @@ func NewGetIdentityIDOK() *GetIdentityIDOK {
 	return &GetIdentityIDOK{}
 }
 
-/*GetIdentityIDOK handles this case with default header values.
+/*
+GetIdentityIDOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -75,7 +75,36 @@ type GetIdentityIDOK struct {
 	Payload *models.Identity
 }
 
+// IsSuccess returns true when this get identity Id o k response has a 2xx status code
+func (o *GetIdentityIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get identity Id o k response has a 3xx status code
+func (o *GetIdentityIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get identity Id o k response has a 4xx status code
+func (o *GetIdentityIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get identity Id o k response has a 5xx status code
+func (o *GetIdentityIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get identity Id o k response a status code equal to that given
+func (o *GetIdentityIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetIdentityIDOK) Error() string {
+	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdOK  %+v", 200, o.Payload)
+}
+
+func (o *GetIdentityIDOK) String() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdOK  %+v", 200, o.Payload)
 }
 
@@ -100,14 +129,44 @@ func NewGetIdentityIDBadRequest() *GetIdentityIDBadRequest {
 	return &GetIdentityIDBadRequest{}
 }
 
-/*GetIdentityIDBadRequest handles this case with default header values.
+/*
+GetIdentityIDBadRequest describes a response with status code 400, with default header values.
 
 Invalid identity provided
 */
 type GetIdentityIDBadRequest struct {
 }
 
+// IsSuccess returns true when this get identity Id bad request response has a 2xx status code
+func (o *GetIdentityIDBadRequest) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get identity Id bad request response has a 3xx status code
+func (o *GetIdentityIDBadRequest) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get identity Id bad request response has a 4xx status code
+func (o *GetIdentityIDBadRequest) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get identity Id bad request response has a 5xx status code
+func (o *GetIdentityIDBadRequest) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get identity Id bad request response a status code equal to that given
+func (o *GetIdentityIDBadRequest) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *GetIdentityIDBadRequest) Error() string {
+	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdBadRequest ", 400)
+}
+
+func (o *GetIdentityIDBadRequest) String() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdBadRequest ", 400)
 }
 
@@ -121,14 +180,44 @@ func NewGetIdentityIDNotFound() *GetIdentityIDNotFound {
 	return &GetIdentityIDNotFound{}
 }
 
-/*GetIdentityIDNotFound handles this case with default header values.
+/*
+GetIdentityIDNotFound describes a response with status code 404, with default header values.
 
 Identity not found
 */
 type GetIdentityIDNotFound struct {
 }
 
+// IsSuccess returns true when this get identity Id not found response has a 2xx status code
+func (o *GetIdentityIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get identity Id not found response has a 3xx status code
+func (o *GetIdentityIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get identity Id not found response has a 4xx status code
+func (o *GetIdentityIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get identity Id not found response has a 5xx status code
+func (o *GetIdentityIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get identity Id not found response a status code equal to that given
+func (o *GetIdentityIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetIdentityIDNotFound) Error() string {
+	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdNotFound ", 404)
+}
+
+func (o *GetIdentityIDNotFound) String() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdNotFound ", 404)
 }
 
@@ -142,7 +231,8 @@ func NewGetIdentityIDUnreachable() *GetIdentityIDUnreachable {
 	return &GetIdentityIDUnreachable{}
 }
 
-/*GetIdentityIDUnreachable handles this case with default header values.
+/*
+GetIdentityIDUnreachable describes a response with status code 520, with default header values.
 
 Identity storage unreachable. Likely a network problem.
 */
@@ -150,7 +240,36 @@ type GetIdentityIDUnreachable struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get identity Id unreachable response has a 2xx status code
+func (o *GetIdentityIDUnreachable) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get identity Id unreachable response has a 3xx status code
+func (o *GetIdentityIDUnreachable) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get identity Id unreachable response has a 4xx status code
+func (o *GetIdentityIDUnreachable) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get identity Id unreachable response has a 5xx status code
+func (o *GetIdentityIDUnreachable) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get identity Id unreachable response a status code equal to that given
+func (o *GetIdentityIDUnreachable) IsCode(code int) bool {
+	return code == 520
+}
+
 func (o *GetIdentityIDUnreachable) Error() string {
+	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdUnreachable  %+v", 520, o.Payload)
+}
+
+func (o *GetIdentityIDUnreachable) String() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdUnreachable  %+v", 520, o.Payload)
 }
 
@@ -173,7 +292,8 @@ func NewGetIdentityIDInvalidStorageFormat() *GetIdentityIDInvalidStorageFormat {
 	return &GetIdentityIDInvalidStorageFormat{}
 }
 
-/*GetIdentityIDInvalidStorageFormat handles this case with default header values.
+/*
+GetIdentityIDInvalidStorageFormat describes a response with status code 521, with default header values.
 
 Invalid identity format in storage
 */
@@ -181,7 +301,36 @@ type GetIdentityIDInvalidStorageFormat struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get identity Id invalid storage format response has a 2xx status code
+func (o *GetIdentityIDInvalidStorageFormat) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get identity Id invalid storage format response has a 3xx status code
+func (o *GetIdentityIDInvalidStorageFormat) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get identity Id invalid storage format response has a 4xx status code
+func (o *GetIdentityIDInvalidStorageFormat) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get identity Id invalid storage format response has a 5xx status code
+func (o *GetIdentityIDInvalidStorageFormat) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get identity Id invalid storage format response a status code equal to that given
+func (o *GetIdentityIDInvalidStorageFormat) IsCode(code int) bool {
+	return code == 521
+}
+
 func (o *GetIdentityIDInvalidStorageFormat) Error() string {
+	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdInvalidStorageFormat  %+v", 521, o.Payload)
+}
+
+func (o *GetIdentityIDInvalidStorageFormat) String() string {
 	return fmt.Sprintf("[GET /identity/{id}][%d] getIdentityIdInvalidStorageFormat  %+v", 521, o.Payload)
 }
 

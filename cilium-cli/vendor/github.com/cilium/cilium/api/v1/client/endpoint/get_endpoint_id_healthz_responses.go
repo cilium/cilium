@@ -50,7 +50,6 @@ func (o *GetEndpointIDHealthzReader) ReadResponse(response runtime.ClientRespons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -61,7 +60,8 @@ func NewGetEndpointIDHealthzOK() *GetEndpointIDHealthzOK {
 	return &GetEndpointIDHealthzOK{}
 }
 
-/*GetEndpointIDHealthzOK handles this case with default header values.
+/*
+GetEndpointIDHealthzOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -69,7 +69,36 @@ type GetEndpointIDHealthzOK struct {
 	Payload *models.EndpointHealth
 }
 
+// IsSuccess returns true when this get endpoint Id healthz o k response has a 2xx status code
+func (o *GetEndpointIDHealthzOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get endpoint Id healthz o k response has a 3xx status code
+func (o *GetEndpointIDHealthzOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id healthz o k response has a 4xx status code
+func (o *GetEndpointIDHealthzOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get endpoint Id healthz o k response has a 5xx status code
+func (o *GetEndpointIDHealthzOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id healthz o k response a status code equal to that given
+func (o *GetEndpointIDHealthzOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetEndpointIDHealthzOK) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointIDHealthzOK) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzOK  %+v", 200, o.Payload)
 }
 
@@ -94,14 +123,44 @@ func NewGetEndpointIDHealthzInvalid() *GetEndpointIDHealthzInvalid {
 	return &GetEndpointIDHealthzInvalid{}
 }
 
-/*GetEndpointIDHealthzInvalid handles this case with default header values.
+/*
+GetEndpointIDHealthzInvalid describes a response with status code 400, with default header values.
 
 Invalid identity provided
 */
 type GetEndpointIDHealthzInvalid struct {
 }
 
+// IsSuccess returns true when this get endpoint Id healthz invalid response has a 2xx status code
+func (o *GetEndpointIDHealthzInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id healthz invalid response has a 3xx status code
+func (o *GetEndpointIDHealthzInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id healthz invalid response has a 4xx status code
+func (o *GetEndpointIDHealthzInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id healthz invalid response has a 5xx status code
+func (o *GetEndpointIDHealthzInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id healthz invalid response a status code equal to that given
+func (o *GetEndpointIDHealthzInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *GetEndpointIDHealthzInvalid) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid ", 400)
+}
+
+func (o *GetEndpointIDHealthzInvalid) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzInvalid ", 400)
 }
 
@@ -115,14 +174,44 @@ func NewGetEndpointIDHealthzNotFound() *GetEndpointIDHealthzNotFound {
 	return &GetEndpointIDHealthzNotFound{}
 }
 
-/*GetEndpointIDHealthzNotFound handles this case with default header values.
+/*
+GetEndpointIDHealthzNotFound describes a response with status code 404, with default header values.
 
 Endpoint not found
 */
 type GetEndpointIDHealthzNotFound struct {
 }
 
+// IsSuccess returns true when this get endpoint Id healthz not found response has a 2xx status code
+func (o *GetEndpointIDHealthzNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id healthz not found response has a 3xx status code
+func (o *GetEndpointIDHealthzNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id healthz not found response has a 4xx status code
+func (o *GetEndpointIDHealthzNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id healthz not found response has a 5xx status code
+func (o *GetEndpointIDHealthzNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id healthz not found response a status code equal to that given
+func (o *GetEndpointIDHealthzNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetEndpointIDHealthzNotFound) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound ", 404)
+}
+
+func (o *GetEndpointIDHealthzNotFound) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzNotFound ", 404)
 }
 
@@ -136,14 +225,44 @@ func NewGetEndpointIDHealthzTooManyRequests() *GetEndpointIDHealthzTooManyReques
 	return &GetEndpointIDHealthzTooManyRequests{}
 }
 
-/*GetEndpointIDHealthzTooManyRequests handles this case with default header values.
+/*
+GetEndpointIDHealthzTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type GetEndpointIDHealthzTooManyRequests struct {
 }
 
+// IsSuccess returns true when this get endpoint Id healthz too many requests response has a 2xx status code
+func (o *GetEndpointIDHealthzTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint Id healthz too many requests response has a 3xx status code
+func (o *GetEndpointIDHealthzTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint Id healthz too many requests response has a 4xx status code
+func (o *GetEndpointIDHealthzTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint Id healthz too many requests response has a 5xx status code
+func (o *GetEndpointIDHealthzTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint Id healthz too many requests response a status code equal to that given
+func (o *GetEndpointIDHealthzTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *GetEndpointIDHealthzTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests ", 429)
+}
+
+func (o *GetEndpointIDHealthzTooManyRequests) String() string {
 	return fmt.Sprintf("[GET /endpoint/{id}/healthz][%d] getEndpointIdHealthzTooManyRequests ", 429)
 }
 

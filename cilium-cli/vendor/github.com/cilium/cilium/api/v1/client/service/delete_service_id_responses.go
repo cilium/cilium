@@ -44,7 +44,6 @@ func (o *DeleteServiceIDReader) ReadResponse(response runtime.ClientResponse, co
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,14 +54,44 @@ func NewDeleteServiceIDOK() *DeleteServiceIDOK {
 	return &DeleteServiceIDOK{}
 }
 
-/*DeleteServiceIDOK handles this case with default header values.
+/*
+DeleteServiceIDOK describes a response with status code 200, with default header values.
 
 Success
 */
 type DeleteServiceIDOK struct {
 }
 
+// IsSuccess returns true when this delete service Id o k response has a 2xx status code
+func (o *DeleteServiceIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete service Id o k response has a 3xx status code
+func (o *DeleteServiceIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete service Id o k response has a 4xx status code
+func (o *DeleteServiceIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete service Id o k response has a 5xx status code
+func (o *DeleteServiceIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete service Id o k response a status code equal to that given
+func (o *DeleteServiceIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeleteServiceIDOK) Error() string {
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK ", 200)
+}
+
+func (o *DeleteServiceIDOK) String() string {
 	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdOK ", 200)
 }
 
@@ -76,14 +105,44 @@ func NewDeleteServiceIDNotFound() *DeleteServiceIDNotFound {
 	return &DeleteServiceIDNotFound{}
 }
 
-/*DeleteServiceIDNotFound handles this case with default header values.
+/*
+DeleteServiceIDNotFound describes a response with status code 404, with default header values.
 
 Service not found
 */
 type DeleteServiceIDNotFound struct {
 }
 
+// IsSuccess returns true when this delete service Id not found response has a 2xx status code
+func (o *DeleteServiceIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete service Id not found response has a 3xx status code
+func (o *DeleteServiceIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete service Id not found response has a 4xx status code
+func (o *DeleteServiceIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete service Id not found response has a 5xx status code
+func (o *DeleteServiceIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete service Id not found response a status code equal to that given
+func (o *DeleteServiceIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *DeleteServiceIDNotFound) Error() string {
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound ", 404)
+}
+
+func (o *DeleteServiceIDNotFound) String() string {
 	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdNotFound ", 404)
 }
 
@@ -97,7 +156,8 @@ func NewDeleteServiceIDFailure() *DeleteServiceIDFailure {
 	return &DeleteServiceIDFailure{}
 }
 
-/*DeleteServiceIDFailure handles this case with default header values.
+/*
+DeleteServiceIDFailure describes a response with status code 500, with default header values.
 
 Service deletion failed
 */
@@ -105,7 +165,36 @@ type DeleteServiceIDFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete service Id failure response has a 2xx status code
+func (o *DeleteServiceIDFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete service Id failure response has a 3xx status code
+func (o *DeleteServiceIDFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete service Id failure response has a 4xx status code
+func (o *DeleteServiceIDFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete service Id failure response has a 5xx status code
+func (o *DeleteServiceIDFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete service Id failure response a status code equal to that given
+func (o *DeleteServiceIDFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *DeleteServiceIDFailure) Error() string {
+	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeleteServiceIDFailure) String() string {
 	return fmt.Sprintf("[DELETE /service/{id}][%d] deleteServiceIdFailure  %+v", 500, o.Payload)
 }
 

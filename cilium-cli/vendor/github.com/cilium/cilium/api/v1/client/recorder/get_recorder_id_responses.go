@@ -38,7 +38,6 @@ func (o *GetRecorderIDReader) ReadResponse(response runtime.ClientResponse, cons
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetRecorderIDOK() *GetRecorderIDOK {
 	return &GetRecorderIDOK{}
 }
 
-/*GetRecorderIDOK handles this case with default header values.
+/*
+GetRecorderIDOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetRecorderIDOK struct {
 	Payload *models.Recorder
 }
 
+// IsSuccess returns true when this get recorder Id o k response has a 2xx status code
+func (o *GetRecorderIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get recorder Id o k response has a 3xx status code
+func (o *GetRecorderIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get recorder Id o k response has a 4xx status code
+func (o *GetRecorderIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get recorder Id o k response has a 5xx status code
+func (o *GetRecorderIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get recorder Id o k response a status code equal to that given
+func (o *GetRecorderIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetRecorderIDOK) Error() string {
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK  %+v", 200, o.Payload)
+}
+
+func (o *GetRecorderIDOK) String() string {
 	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdOK  %+v", 200, o.Payload)
 }
 
@@ -82,14 +111,44 @@ func NewGetRecorderIDNotFound() *GetRecorderIDNotFound {
 	return &GetRecorderIDNotFound{}
 }
 
-/*GetRecorderIDNotFound handles this case with default header values.
+/*
+GetRecorderIDNotFound describes a response with status code 404, with default header values.
 
 Recorder not found
 */
 type GetRecorderIDNotFound struct {
 }
 
+// IsSuccess returns true when this get recorder Id not found response has a 2xx status code
+func (o *GetRecorderIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get recorder Id not found response has a 3xx status code
+func (o *GetRecorderIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get recorder Id not found response has a 4xx status code
+func (o *GetRecorderIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get recorder Id not found response has a 5xx status code
+func (o *GetRecorderIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get recorder Id not found response a status code equal to that given
+func (o *GetRecorderIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetRecorderIDNotFound) Error() string {
+	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound ", 404)
+}
+
+func (o *GetRecorderIDNotFound) String() string {
 	return fmt.Sprintf("[GET /recorder/{id}][%d] getRecorderIdNotFound ", 404)
 }
 

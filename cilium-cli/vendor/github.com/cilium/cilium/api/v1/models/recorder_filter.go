@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-openapi/errors"
@@ -29,7 +30,7 @@ type RecorderFilter struct {
 	DstPrefix string `json:"dst-prefix,omitempty"`
 
 	// Layer 4 protocol
-	// Enum: [TCP UDP ANY]
+	// Enum: [TCP UDP SCTP ANY]
 	Protocol string `json:"protocol,omitempty"`
 
 	// Layer 4 source port, zero (or in future range)
@@ -57,7 +58,7 @@ var recorderFilterTypeProtocolPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["TCP","UDP","ANY"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["TCP","UDP","SCTP","ANY"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -73,6 +74,9 @@ const (
 	// RecorderFilterProtocolUDP captures enum value "UDP"
 	RecorderFilterProtocolUDP string = "UDP"
 
+	// RecorderFilterProtocolSCTP captures enum value "SCTP"
+	RecorderFilterProtocolSCTP string = "SCTP"
+
 	// RecorderFilterProtocolANY captures enum value "ANY"
 	RecorderFilterProtocolANY string = "ANY"
 )
@@ -86,7 +90,6 @@ func (m *RecorderFilter) validateProtocolEnum(path, location string, value strin
 }
 
 func (m *RecorderFilter) validateProtocol(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Protocol) { // not required
 		return nil
 	}
@@ -96,6 +99,11 @@ func (m *RecorderFilter) validateProtocol(formats strfmt.Registry) error {
 		return err
 	}
 
+	return nil
+}
+
+// ContextValidate validates this recorder filter based on context it is used
+func (m *RecorderFilter) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	return nil
 }
 

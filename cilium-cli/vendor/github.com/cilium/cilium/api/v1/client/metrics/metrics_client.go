@@ -28,23 +28,25 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetMetrics(params *GetMetricsParams) (*GetMetricsOK, error)
+	GetMetrics(params *GetMetricsParams, opts ...ClientOption) (*GetMetricsOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  GetMetrics retrieves cilium metrics
+GetMetrics retrieves cilium metrics
 */
-func (a *Client) GetMetrics(params *GetMetricsParams) (*GetMetricsOK, error) {
+func (a *Client) GetMetrics(params *GetMetricsParams, opts ...ClientOption) (*GetMetricsOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetMetricsParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetMetrics",
 		Method:             "GET",
 		PathPattern:        "/metrics/",
@@ -55,7 +57,12 @@ func (a *Client) GetMetrics(params *GetMetricsParams) (*GetMetricsOK, error) {
 		Reader:             &GetMetricsReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

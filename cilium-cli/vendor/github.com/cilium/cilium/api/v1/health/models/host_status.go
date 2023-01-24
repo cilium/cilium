@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -18,7 +19,6 @@ import (
 
 // HostStatus Connectivity status to host cilium-health instance via different paths,
 // probing via all known IP addresses
-//
 //
 // swagger:model HostStatus
 type HostStatus struct {
@@ -49,7 +49,6 @@ func (m *HostStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *HostStatus) validatePrimaryAddress(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.PrimaryAddress) { // not required
 		return nil
 	}
@@ -58,6 +57,8 @@ func (m *HostStatus) validatePrimaryAddress(formats strfmt.Registry) error {
 		if err := m.PrimaryAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("primary-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("primary-address")
 			}
 			return err
 		}
@@ -67,7 +68,6 @@ func (m *HostStatus) validatePrimaryAddress(formats strfmt.Registry) error {
 }
 
 func (m *HostStatus) validateSecondaryAddresses(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.SecondaryAddresses) { // not required
 		return nil
 	}
@@ -81,6 +81,62 @@ func (m *HostStatus) validateSecondaryAddresses(formats strfmt.Registry) error {
 			if err := m.SecondaryAddresses[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this host status based on the context it is used
+func (m *HostStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidatePrimaryAddress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSecondaryAddresses(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *HostStatus) contextValidatePrimaryAddress(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.PrimaryAddress != nil {
+		if err := m.PrimaryAddress.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("primary-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("primary-address")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *HostStatus) contextValidateSecondaryAddresses(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.SecondaryAddresses); i++ {
+
+		if m.SecondaryAddresses[i] != nil {
+			if err := m.SecondaryAddresses[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("secondary-addresses" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

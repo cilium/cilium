@@ -32,7 +32,6 @@ func (o *GetConfigReader) ReadResponse(response runtime.ClientResponse, consumer
 			return nil, err
 		}
 		return result, nil
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -43,7 +42,8 @@ func NewGetConfigOK() *GetConfigOK {
 	return &GetConfigOK{}
 }
 
-/*GetConfigOK handles this case with default header values.
+/*
+GetConfigOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -51,7 +51,36 @@ type GetConfigOK struct {
 	Payload *models.DaemonConfiguration
 }
 
+// IsSuccess returns true when this get config o k response has a 2xx status code
+func (o *GetConfigOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get config o k response has a 3xx status code
+func (o *GetConfigOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get config o k response has a 4xx status code
+func (o *GetConfigOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get config o k response has a 5xx status code
+func (o *GetConfigOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get config o k response a status code equal to that given
+func (o *GetConfigOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetConfigOK) Error() string {
+	return fmt.Sprintf("[GET /config][%d] getConfigOK  %+v", 200, o.Payload)
+}
+
+func (o *GetConfigOK) String() string {
 	return fmt.Sprintf("[GET /config][%d] getConfigOK  %+v", 200, o.Payload)
 }
 
