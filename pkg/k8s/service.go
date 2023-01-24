@@ -43,14 +43,25 @@ func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
 }
 
 func getAnnotationShared(svc *slim_corev1.Service) bool {
+	// The SharedService annotation is ignored if the service is not declared as global.
+	if !getAnnotationIncludeExternal(svc) {
+		return false
+	}
+
 	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
 		return strings.ToLower(value) == "true"
 	}
 
-	return getAnnotationIncludeExternal(svc)
+	// A global service is marked as shared by default.
+	return true
 }
 
 func getAnnotationServiceAffinity(svc *slim_corev1.Service) string {
+	// The ServiceAffinity annotation is ignored if the service is not declared as global.
+	if !getAnnotationIncludeExternal(svc) {
+		return serviceAffinityNone
+	}
+
 	if value, ok := svc.ObjectMeta.Annotations[annotation.ServiceAffinity]; ok {
 		return strings.ToLower(value)
 	}
