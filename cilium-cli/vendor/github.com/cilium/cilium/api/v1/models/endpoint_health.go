@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -57,7 +59,6 @@ func (m *EndpointHealth) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Bpf) { // not required
 		return nil
 	}
@@ -65,6 +66,8 @@ func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
 	if err := m.Bpf.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("bpf")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("bpf")
 		}
 		return err
 	}
@@ -73,7 +76,6 @@ func (m *EndpointHealth) validateBpf(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.OverallHealth) { // not required
 		return nil
 	}
@@ -81,6 +83,8 @@ func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
 	if err := m.OverallHealth.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("overallHealth")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("overallHealth")
 		}
 		return err
 	}
@@ -89,7 +93,6 @@ func (m *EndpointHealth) validateOverallHealth(formats strfmt.Registry) error {
 }
 
 func (m *EndpointHealth) validatePolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Policy) { // not required
 		return nil
 	}
@@ -97,6 +100,72 @@ func (m *EndpointHealth) validatePolicy(formats strfmt.Registry) error {
 	if err := m.Policy.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("policy")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("policy")
+		}
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint health based on the context it is used
+func (m *EndpointHealth) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateBpf(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateOverallHealth(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidatePolicy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointHealth) contextValidateBpf(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Bpf.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("bpf")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("bpf")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointHealth) contextValidateOverallHealth(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.OverallHealth.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("overallHealth")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("overallHealth")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointHealth) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Policy.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("policy")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("policy")
 		}
 		return err
 	}

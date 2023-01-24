@@ -191,6 +191,7 @@ type AccessLog struct {
 	// [#extension-category: envoy.access_loggers]
 	//
 	// Types that are assignable to ConfigType:
+	//
 	//	*AccessLog_TypedConfig
 	ConfigType isAccessLog_ConfigType `protobuf_oneof:"config_type"`
 }
@@ -272,6 +273,7 @@ type AccessLogFilter struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to FilterSpecifier:
+	//
 	//	*AccessLogFilter_StatusCodeFilter
 	//	*AccessLogFilter_DurationFilter
 	//	*AccessLogFilter_NotHealthCheckFilter
@@ -1162,6 +1164,7 @@ type ExtensionFilter struct {
 	// Custom configuration that depends on the filter being instantiated.
 	//
 	// Types that are assignable to ConfigType:
+	//
 	//	*ExtensionFilter_TypedConfig
 	ConfigType isExtensionFilter_ConfigType `protobuf_oneof:"config_type"`
 }

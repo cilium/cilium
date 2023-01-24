@@ -21,59 +21,75 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPatchPrefilterParams creates a new PatchPrefilterParams object
-// with the default values initialized.
+// NewPatchPrefilterParams creates a new PatchPrefilterParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchPrefilterParams() *PatchPrefilterParams {
-	var ()
 	return &PatchPrefilterParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPatchPrefilterParamsWithTimeout creates a new PatchPrefilterParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPatchPrefilterParamsWithTimeout(timeout time.Duration) *PatchPrefilterParams {
-	var ()
 	return &PatchPrefilterParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPatchPrefilterParamsWithContext creates a new PatchPrefilterParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPatchPrefilterParamsWithContext(ctx context.Context) *PatchPrefilterParams {
-	var ()
 	return &PatchPrefilterParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPatchPrefilterParamsWithHTTPClient creates a new PatchPrefilterParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPatchPrefilterParamsWithHTTPClient(client *http.Client) *PatchPrefilterParams {
-	var ()
 	return &PatchPrefilterParams{
 		HTTPClient: client,
 	}
 }
 
-/*PatchPrefilterParams contains all the parameters to send to the API endpoint
-for the patch prefilter operation typically these are written to a http.Request
+/*
+PatchPrefilterParams contains all the parameters to send to the API endpoint
+
+	for the patch prefilter operation.
+
+	Typically these are written to a http.Request.
 */
 type PatchPrefilterParams struct {
 
-	/*PrefilterSpec
-	  List of CIDR ranges for filter table
+	/* PrefilterSpec.
 
+	   List of CIDR ranges for filter table
 	*/
 	PrefilterSpec *models.PrefilterSpec
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the patch prefilter params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchPrefilterParams) WithDefaults() *PatchPrefilterParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the patch prefilter params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchPrefilterParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the patch prefilter params
@@ -127,7 +143,6 @@ func (o *PatchPrefilterParams) WriteToRequest(r runtime.ClientRequest, reg strfm
 		return err
 	}
 	var res []error
-
 	if o.PrefilterSpec != nil {
 		if err := r.SetBodyParam(o.PrefilterSpec); err != nil {
 			return err

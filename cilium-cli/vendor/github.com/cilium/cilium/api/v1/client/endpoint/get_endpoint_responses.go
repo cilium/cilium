@@ -44,7 +44,6 @@ func (o *GetEndpointReader) ReadResponse(response runtime.ClientResponse, consum
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,7 +54,8 @@ func NewGetEndpointOK() *GetEndpointOK {
 	return &GetEndpointOK{}
 }
 
-/*GetEndpointOK handles this case with default header values.
+/*
+GetEndpointOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -63,7 +63,36 @@ type GetEndpointOK struct {
 	Payload []*models.Endpoint
 }
 
+// IsSuccess returns true when this get endpoint o k response has a 2xx status code
+func (o *GetEndpointOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get endpoint o k response has a 3xx status code
+func (o *GetEndpointOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint o k response has a 4xx status code
+func (o *GetEndpointOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get endpoint o k response has a 5xx status code
+func (o *GetEndpointOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint o k response a status code equal to that given
+func (o *GetEndpointOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetEndpointOK) Error() string {
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK  %+v", 200, o.Payload)
+}
+
+func (o *GetEndpointOK) String() string {
 	return fmt.Sprintf("[GET /endpoint][%d] getEndpointOK  %+v", 200, o.Payload)
 }
 
@@ -86,14 +115,44 @@ func NewGetEndpointNotFound() *GetEndpointNotFound {
 	return &GetEndpointNotFound{}
 }
 
-/*GetEndpointNotFound handles this case with default header values.
+/*
+GetEndpointNotFound describes a response with status code 404, with default header values.
 
 Endpoints with provided parameters not found
 */
 type GetEndpointNotFound struct {
 }
 
+// IsSuccess returns true when this get endpoint not found response has a 2xx status code
+func (o *GetEndpointNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint not found response has a 3xx status code
+func (o *GetEndpointNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint not found response has a 4xx status code
+func (o *GetEndpointNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint not found response has a 5xx status code
+func (o *GetEndpointNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint not found response a status code equal to that given
+func (o *GetEndpointNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetEndpointNotFound) Error() string {
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
+}
+
+func (o *GetEndpointNotFound) String() string {
 	return fmt.Sprintf("[GET /endpoint][%d] getEndpointNotFound ", 404)
 }
 
@@ -107,14 +166,44 @@ func NewGetEndpointTooManyRequests() *GetEndpointTooManyRequests {
 	return &GetEndpointTooManyRequests{}
 }
 
-/*GetEndpointTooManyRequests handles this case with default header values.
+/*
+GetEndpointTooManyRequests describes a response with status code 429, with default header values.
 
 Rate-limiting too many requests in the given time frame
 */
 type GetEndpointTooManyRequests struct {
 }
 
+// IsSuccess returns true when this get endpoint too many requests response has a 2xx status code
+func (o *GetEndpointTooManyRequests) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get endpoint too many requests response has a 3xx status code
+func (o *GetEndpointTooManyRequests) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get endpoint too many requests response has a 4xx status code
+func (o *GetEndpointTooManyRequests) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get endpoint too many requests response has a 5xx status code
+func (o *GetEndpointTooManyRequests) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get endpoint too many requests response a status code equal to that given
+func (o *GetEndpointTooManyRequests) IsCode(code int) bool {
+	return code == 429
+}
+
 func (o *GetEndpointTooManyRequests) Error() string {
+	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests ", 429)
+}
+
+func (o *GetEndpointTooManyRequests) String() string {
 	return fmt.Sprintf("[GET /endpoint][%d] getEndpointTooManyRequests ", 429)
 }
 

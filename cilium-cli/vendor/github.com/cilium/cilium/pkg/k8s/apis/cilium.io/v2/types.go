@@ -229,7 +229,9 @@ type EndpointIdentity struct {
 // The labels under metav1.ObjectMeta can be used when searching for
 // CiliumIdentity instances that include particular labels. This can be done
 // with invocations such as:
-//   kubectl get ciliumid -l 'foo=bar'
+//
+//	kubectl get ciliumid -l 'foo=bar'
+//
 // Each node using a ciliumidentity updates the status field with it's name and
 // a timestamp when it first allocates or uses an identity, and periodically
 // after that. It deletes its entry when no longer using this identity.
@@ -309,6 +311,9 @@ type CiliumEndpointList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"CiliumInternalIP\")].ip",description="Cilium internal IP for this node",name="CiliumInternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".spec.addresses[?(@.type==\"InternalIP\")].ip",description="IP of the node",name="InternalIP",type=string
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="Time duration since creation of Ciliumnode",name="Age",type=date
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 

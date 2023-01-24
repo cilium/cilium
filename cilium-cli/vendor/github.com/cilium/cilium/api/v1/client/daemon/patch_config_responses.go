@@ -44,7 +44,6 @@ func (o *PatchConfigReader) ReadResponse(response runtime.ClientResponse, consum
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,14 +54,44 @@ func NewPatchConfigOK() *PatchConfigOK {
 	return &PatchConfigOK{}
 }
 
-/*PatchConfigOK handles this case with default header values.
+/*
+PatchConfigOK describes a response with status code 200, with default header values.
 
 Success
 */
 type PatchConfigOK struct {
 }
 
+// IsSuccess returns true when this patch config o k response has a 2xx status code
+func (o *PatchConfigOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this patch config o k response has a 3xx status code
+func (o *PatchConfigOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch config o k response has a 4xx status code
+func (o *PatchConfigOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch config o k response has a 5xx status code
+func (o *PatchConfigOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch config o k response a status code equal to that given
+func (o *PatchConfigOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PatchConfigOK) Error() string {
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK ", 200)
+}
+
+func (o *PatchConfigOK) String() string {
 	return fmt.Sprintf("[PATCH /config][%d] patchConfigOK ", 200)
 }
 
@@ -76,7 +105,8 @@ func NewPatchConfigBadRequest() *PatchConfigBadRequest {
 	return &PatchConfigBadRequest{}
 }
 
-/*PatchConfigBadRequest handles this case with default header values.
+/*
+PatchConfigBadRequest describes a response with status code 400, with default header values.
 
 Bad configuration parameters
 */
@@ -84,7 +114,36 @@ type PatchConfigBadRequest struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch config bad request response has a 2xx status code
+func (o *PatchConfigBadRequest) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch config bad request response has a 3xx status code
+func (o *PatchConfigBadRequest) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch config bad request response has a 4xx status code
+func (o *PatchConfigBadRequest) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch config bad request response has a 5xx status code
+func (o *PatchConfigBadRequest) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch config bad request response a status code equal to that given
+func (o *PatchConfigBadRequest) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *PatchConfigBadRequest) Error() string {
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest  %+v", 400, o.Payload)
+}
+
+func (o *PatchConfigBadRequest) String() string {
 	return fmt.Sprintf("[PATCH /config][%d] patchConfigBadRequest  %+v", 400, o.Payload)
 }
 
@@ -107,7 +166,8 @@ func NewPatchConfigFailure() *PatchConfigFailure {
 	return &PatchConfigFailure{}
 }
 
-/*PatchConfigFailure handles this case with default header values.
+/*
+PatchConfigFailure describes a response with status code 500, with default header values.
 
 Recompilation failed
 */
@@ -115,7 +175,36 @@ type PatchConfigFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch config failure response has a 2xx status code
+func (o *PatchConfigFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch config failure response has a 3xx status code
+func (o *PatchConfigFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch config failure response has a 4xx status code
+func (o *PatchConfigFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch config failure response has a 5xx status code
+func (o *PatchConfigFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch config failure response a status code equal to that given
+func (o *PatchConfigFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PatchConfigFailure) Error() string {
+	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure  %+v", 500, o.Payload)
+}
+
+func (o *PatchConfigFailure) String() string {
 	return fmt.Sprintf("[PATCH /config][%d] patchConfigFailure  %+v", 500, o.Payload)
 }
 

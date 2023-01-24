@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -47,7 +48,6 @@ func (m *FrontendMapping) Validate(formats strfmt.Registry) error {
 }
 
 func (m *FrontendMapping) validateBackends(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Backends) { // not required
 		return nil
 	}
@@ -61,6 +61,8 @@ func (m *FrontendMapping) validateBackends(formats strfmt.Registry) error {
 			if err := m.Backends[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("backends" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("backends" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -72,7 +74,6 @@ func (m *FrontendMapping) validateBackends(formats strfmt.Registry) error {
 }
 
 func (m *FrontendMapping) validateFrontendAddress(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.FrontendAddress) { // not required
 		return nil
 	}
@@ -81,6 +82,62 @@ func (m *FrontendMapping) validateFrontendAddress(formats strfmt.Registry) error
 		if err := m.FrontendAddress.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("frontend-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("frontend-address")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this frontend mapping based on the context it is used
+func (m *FrontendMapping) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateBackends(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateFrontendAddress(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *FrontendMapping) contextValidateBackends(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Backends); i++ {
+
+		if m.Backends[i] != nil {
+			if err := m.Backends[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("backends" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("backends" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *FrontendMapping) contextValidateFrontendAddress(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.FrontendAddress != nil {
+		if err := m.FrontendAddress.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("frontend-address")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("frontend-address")
 			}
 			return err
 		}

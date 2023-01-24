@@ -19,59 +19,75 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewPutPolicyParams creates a new PutPolicyParams object
-// with the default values initialized.
+// NewPutPolicyParams creates a new PutPolicyParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPutPolicyParams() *PutPolicyParams {
-	var ()
 	return &PutPolicyParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPutPolicyParamsWithTimeout creates a new PutPolicyParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPutPolicyParamsWithTimeout(timeout time.Duration) *PutPolicyParams {
-	var ()
 	return &PutPolicyParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPutPolicyParamsWithContext creates a new PutPolicyParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPutPolicyParamsWithContext(ctx context.Context) *PutPolicyParams {
-	var ()
 	return &PutPolicyParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPutPolicyParamsWithHTTPClient creates a new PutPolicyParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPutPolicyParamsWithHTTPClient(client *http.Client) *PutPolicyParams {
-	var ()
 	return &PutPolicyParams{
 		HTTPClient: client,
 	}
 }
 
-/*PutPolicyParams contains all the parameters to send to the API endpoint
-for the put policy operation typically these are written to a http.Request
+/*
+PutPolicyParams contains all the parameters to send to the API endpoint
+
+	for the put policy operation.
+
+	Typically these are written to a http.Request.
 */
 type PutPolicyParams struct {
 
-	/*Policy
-	  Policy rules
+	/* Policy.
 
+	   Policy rules
 	*/
 	Policy string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the put policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutPolicyParams) WithDefaults() *PutPolicyParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the put policy params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PutPolicyParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the put policy params
@@ -125,7 +141,6 @@ func (o *PutPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 		return err
 	}
 	var res []error
-
 	if err := r.SetBodyParam(o.Policy); err != nil {
 		return err
 	}

@@ -28,28 +28,30 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error)
+	GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  GetHealthz gets health of cilium node
+	GetHealthz gets health of cilium node
 
-  Returns health and status information of the local node including
+	Returns health and status information of the local node including
+
 load and uptime, as well as the status of related components including
 the Cilium daemon.
-
 */
-func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
+func (a *Client) GetHealthz(params *GetHealthzParams, opts ...ClientOption) (*GetHealthzOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetHealthzParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetHealthz",
 		Method:             "GET",
 		PathPattern:        "/healthz",
@@ -60,7 +62,12 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 		Reader:             &GetHealthzReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

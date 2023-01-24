@@ -143,6 +143,7 @@ type Secret struct {
 	// Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to Type:
+	//
 	//	*Secret_TlsCertificate
 	//	*Secret_SessionTicketKeys
 	//	*Secret_ValidationContext

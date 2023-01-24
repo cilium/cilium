@@ -102,9 +102,9 @@ func (h *PortRuleL7) Equal(o PortRuleL7) bool {
 // Validate returns an error if the layer 4 protocol is not valid
 func (l4 L4Proto) Validate() error {
 	switch l4 {
-	case ProtoAny, ProtoTCP, ProtoUDP:
+	case ProtoAny, ProtoTCP, ProtoUDP, ProtoSCTP:
 	default:
-		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | any }", l4)
+		return fmt.Errorf("invalid protocol %q, must be { tcp | udp | sctp | any }", l4)
 	}
 
 	return nil
@@ -118,4 +118,26 @@ func ParseL4Proto(proto string) (L4Proto, error) {
 
 	p := L4Proto(strings.ToUpper(proto))
 	return p, p.Validate()
+}
+
+// ResourceQualifiedName returns the qualified name of an Envoy resource,
+// prepending CEC namespace and CEC name to the resource name and using
+// '/' as a separator.
+//
+// In case of an empty CEC namespace or an empty CEC name, leading separators
+// are stripped away.
+func ResourceQualifiedName(namespace, name, resource string) string {
+	var sb strings.Builder
+
+	if namespace != "" {
+		sb.WriteString(namespace)
+		sb.WriteRune('/')
+	}
+	if name != "" {
+		sb.WriteString(name)
+		sb.WriteRune('/')
+	}
+	sb.WriteString(resource)
+
+	return sb.String()
 }

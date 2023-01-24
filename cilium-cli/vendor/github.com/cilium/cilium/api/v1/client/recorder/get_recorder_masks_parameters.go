@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetRecorderMasksParams creates a new GetRecorderMasksParams object
-// with the default values initialized.
+// NewGetRecorderMasksParams creates a new GetRecorderMasksParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetRecorderMasksParams() *GetRecorderMasksParams {
-
 	return &GetRecorderMasksParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetRecorderMasksParamsWithTimeout creates a new GetRecorderMasksParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetRecorderMasksParamsWithTimeout(timeout time.Duration) *GetRecorderMasksParams {
-
 	return &GetRecorderMasksParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetRecorderMasksParamsWithContext creates a new GetRecorderMasksParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetRecorderMasksParamsWithContext(ctx context.Context) *GetRecorderMasksParams {
-
 	return &GetRecorderMasksParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetRecorderMasksParamsWithHTTPClient creates a new GetRecorderMasksParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetRecorderMasksParamsWithHTTPClient(client *http.Client) *GetRecorderMasksParams {
-
 	return &GetRecorderMasksParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetRecorderMasksParams contains all the parameters to send to the API endpoint
-for the get recorder masks operation typically these are written to a http.Request
+/*
+GetRecorderMasksParams contains all the parameters to send to the API endpoint
+
+	for the get recorder masks operation.
+
+	Typically these are written to a http.Request.
 */
 type GetRecorderMasksParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get recorder masks params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderMasksParams) WithDefaults() *GetRecorderMasksParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get recorder masks params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetRecorderMasksParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get recorder masks params

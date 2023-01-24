@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 // Copyright Istio Authors
 // Copyright Authors of Hubble
-// Copyright Authors of Cilium
 
 // GetWorkloadMetaFromPod and cronJobNameRegexp are copied from
 // https://github.com/istio/istio/blob/1aca7a67afd7b3e1d24fafb2fbfbeaf1e41534c0/pkg/kube/util.go

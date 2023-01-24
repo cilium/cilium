@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -86,7 +87,6 @@ func (m *DebugInfo) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.CiliumStatus) { // not required
 		return nil
 	}
@@ -95,6 +95,8 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 		if err := m.CiliumStatus.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium-status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cilium-status")
 			}
 			return err
 		}
@@ -104,7 +106,6 @@ func (m *DebugInfo) validateCiliumStatus(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Encryption) { // not required
 		return nil
 	}
@@ -113,6 +114,8 @@ func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
 		if err := m.Encryption.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption")
 			}
 			return err
 		}
@@ -122,7 +125,6 @@ func (m *DebugInfo) validateEncryption(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.EndpointList) { // not required
 		return nil
 	}
@@ -136,6 +138,8 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 			if err := m.EndpointList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -147,7 +151,6 @@ func (m *DebugInfo) validateEndpointList(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Policy) { // not required
 		return nil
 	}
@@ -156,6 +159,8 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 		if err := m.Policy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("policy")
 			}
 			return err
 		}
@@ -165,7 +170,6 @@ func (m *DebugInfo) validatePolicy(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ServiceList) { // not required
 		return nil
 	}
@@ -179,6 +183,126 @@ func (m *DebugInfo) validateServiceList(formats strfmt.Registry) error {
 			if err := m.ServiceList[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("service-list" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this debug info based on the context it is used
+func (m *DebugInfo) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateCiliumStatus(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateEncryption(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateEndpointList(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidatePolicy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateServiceList(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *DebugInfo) contextValidateCiliumStatus(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.CiliumStatus != nil {
+		if err := m.CiliumStatus.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cilium-status")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cilium-status")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DebugInfo) contextValidateEncryption(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Encryption != nil {
+		if err := m.Encryption.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("encryption")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.EndpointList); i++ {
+
+		if m.EndpointList[i] != nil {
+			if err := m.EndpointList[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("endpoint-list" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *DebugInfo) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Policy != nil {
+		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("policy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *DebugInfo) contextValidateServiceList(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.ServiceList); i++ {
+
+		if m.ServiceList[i] != nil {
+			if err := m.ServiceList[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("service-list" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("service-list" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -231,7 +355,6 @@ func (m *DebugInfoEncryption) Validate(formats strfmt.Registry) error {
 }
 
 func (m *DebugInfoEncryption) validateWireguard(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Wireguard) { // not required
 		return nil
 	}
@@ -240,6 +363,38 @@ func (m *DebugInfoEncryption) validateWireguard(formats strfmt.Registry) error {
 		if err := m.Wireguard.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption" + "." + "wireguard")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption" + "." + "wireguard")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this debug info encryption based on the context it is used
+func (m *DebugInfoEncryption) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateWireguard(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *DebugInfoEncryption) contextValidateWireguard(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Wireguard != nil {
+		if err := m.Wireguard.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("encryption" + "." + "wireguard")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption" + "." + "wireguard")
 			}
 			return err
 		}

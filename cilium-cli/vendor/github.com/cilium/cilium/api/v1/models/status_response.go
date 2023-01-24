@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -49,6 +51,9 @@ type StatusResponse struct {
 	// Status of CNI chaining
 	CniChaining *CNIChainingStatus `json:"cni-chaining,omitempty"`
 
+	// Status of the CNI configuration file
+	CniFile *Status `json:"cni-file,omitempty"`
+
 	// Status of local container runtime
 	ContainerRuntime *Status `json:"container-runtime,omitempty"`
 
@@ -72,6 +77,9 @@ type StatusResponse struct {
 
 	// Status of IP address management
 	Ipam *IPAMStatus `json:"ipam,omitempty"`
+
+	// Status of IPv6 BIG TCP
+	IPV6BigTCP *IPV6BigTCP `json:"ipv6-big-tcp,omitempty"`
 
 	// Status of kube-proxy replacement
 	KubeProxyReplacement *KubeProxyReplacement `json:"kube-proxy-replacement,omitempty"`
@@ -127,6 +135,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
+	if err := m.validateCniFile(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateContainerRuntime(formats); err != nil {
 		res = append(res, err)
 	}
@@ -156,6 +168,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateIpam(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIPV6BigTCP(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -194,7 +210,6 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateBandwidthManager(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.BandwidthManager) { // not required
 		return nil
 	}
@@ -203,6 +218,8 @@ func (m *StatusResponse) validateBandwidthManager(formats strfmt.Registry) error
 		if err := m.BandwidthManager.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("bandwidth-manager")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bandwidth-manager")
 			}
 			return err
 		}
@@ -212,7 +229,6 @@ func (m *StatusResponse) validateBandwidthManager(formats strfmt.Registry) error
 }
 
 func (m *StatusResponse) validateBpfMaps(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.BpfMaps) { // not required
 		return nil
 	}
@@ -221,6 +237,8 @@ func (m *StatusResponse) validateBpfMaps(formats strfmt.Registry) error {
 		if err := m.BpfMaps.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("bpf-maps")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bpf-maps")
 			}
 			return err
 		}
@@ -230,7 +248,6 @@ func (m *StatusResponse) validateBpfMaps(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Cilium) { // not required
 		return nil
 	}
@@ -239,6 +256,8 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 		if err := m.Cilium.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cilium")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cilium")
 			}
 			return err
 		}
@@ -248,7 +267,6 @@ func (m *StatusResponse) validateCilium(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateClockSource(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ClockSource) { // not required
 		return nil
 	}
@@ -257,6 +275,8 @@ func (m *StatusResponse) validateClockSource(formats strfmt.Registry) error {
 		if err := m.ClockSource.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("clock-source")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("clock-source")
 			}
 			return err
 		}
@@ -266,7 +286,6 @@ func (m *StatusResponse) validateClockSource(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Cluster) { // not required
 		return nil
 	}
@@ -275,6 +294,8 @@ func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
 		if err := m.Cluster.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cluster")
 			}
 			return err
 		}
@@ -284,7 +305,6 @@ func (m *StatusResponse) validateCluster(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateClusterMesh(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ClusterMesh) { // not required
 		return nil
 	}
@@ -293,6 +313,8 @@ func (m *StatusResponse) validateClusterMesh(formats strfmt.Registry) error {
 		if err := m.ClusterMesh.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cluster-mesh")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cluster-mesh")
 			}
 			return err
 		}
@@ -302,7 +324,6 @@ func (m *StatusResponse) validateClusterMesh(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.CniChaining) { // not required
 		return nil
 	}
@@ -311,6 +332,27 @@ func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
 		if err := m.CniChaining.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("cni-chaining")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cni-chaining")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateCniFile(formats strfmt.Registry) error {
+	if swag.IsZero(m.CniFile) { // not required
+		return nil
+	}
+
+	if m.CniFile != nil {
+		if err := m.CniFile.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-file")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cni-file")
 			}
 			return err
 		}
@@ -320,7 +362,6 @@ func (m *StatusResponse) validateCniChaining(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ContainerRuntime) { // not required
 		return nil
 	}
@@ -329,6 +370,8 @@ func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error
 		if err := m.ContainerRuntime.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("container-runtime")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("container-runtime")
 			}
 			return err
 		}
@@ -338,7 +381,6 @@ func (m *StatusResponse) validateContainerRuntime(formats strfmt.Registry) error
 }
 
 func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Controllers) { // not required
 		return nil
 	}
@@ -346,6 +388,8 @@ func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
 	if err := m.Controllers.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("controllers")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("controllers")
 		}
 		return err
 	}
@@ -354,7 +398,6 @@ func (m *StatusResponse) validateControllers(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateEncryption(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Encryption) { // not required
 		return nil
 	}
@@ -363,6 +406,8 @@ func (m *StatusResponse) validateEncryption(formats strfmt.Registry) error {
 		if err := m.Encryption.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("encryption")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption")
 			}
 			return err
 		}
@@ -372,7 +417,6 @@ func (m *StatusResponse) validateEncryption(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateHostFirewall(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HostFirewall) { // not required
 		return nil
 	}
@@ -381,6 +425,8 @@ func (m *StatusResponse) validateHostFirewall(formats strfmt.Registry) error {
 		if err := m.HostFirewall.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-firewall")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-firewall")
 			}
 			return err
 		}
@@ -390,7 +436,6 @@ func (m *StatusResponse) validateHostFirewall(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HostRouting) { // not required
 		return nil
 	}
@@ -399,6 +444,8 @@ func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
 		if err := m.HostRouting.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-routing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-routing")
 			}
 			return err
 		}
@@ -408,7 +455,6 @@ func (m *StatusResponse) validateHostRouting(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Hubble) { // not required
 		return nil
 	}
@@ -417,6 +463,8 @@ func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
 		if err := m.Hubble.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("hubble")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("hubble")
 			}
 			return err
 		}
@@ -426,7 +474,6 @@ func (m *StatusResponse) validateHubble(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateIdentityRange(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.IdentityRange) { // not required
 		return nil
 	}
@@ -435,6 +482,8 @@ func (m *StatusResponse) validateIdentityRange(formats strfmt.Registry) error {
 		if err := m.IdentityRange.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity-range")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("identity-range")
 			}
 			return err
 		}
@@ -444,7 +493,6 @@ func (m *StatusResponse) validateIdentityRange(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Ipam) { // not required
 		return nil
 	}
@@ -453,6 +501,27 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 		if err := m.Ipam.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("ipam")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateIPV6BigTCP(formats strfmt.Registry) error {
+	if swag.IsZero(m.IPV6BigTCP) { // not required
+		return nil
+	}
+
+	if m.IPV6BigTCP != nil {
+		if err := m.IPV6BigTCP.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv6-big-tcp")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv6-big-tcp")
 			}
 			return err
 		}
@@ -462,7 +531,6 @@ func (m *StatusResponse) validateIpam(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateKubeProxyReplacement(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.KubeProxyReplacement) { // not required
 		return nil
 	}
@@ -471,6 +539,8 @@ func (m *StatusResponse) validateKubeProxyReplacement(formats strfmt.Registry) e
 		if err := m.KubeProxyReplacement.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kube-proxy-replacement")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kube-proxy-replacement")
 			}
 			return err
 		}
@@ -480,7 +550,6 @@ func (m *StatusResponse) validateKubeProxyReplacement(formats strfmt.Registry) e
 }
 
 func (m *StatusResponse) validateKubernetes(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Kubernetes) { // not required
 		return nil
 	}
@@ -489,6 +558,8 @@ func (m *StatusResponse) validateKubernetes(formats strfmt.Registry) error {
 		if err := m.Kubernetes.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kubernetes")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kubernetes")
 			}
 			return err
 		}
@@ -498,7 +569,6 @@ func (m *StatusResponse) validateKubernetes(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Kvstore) { // not required
 		return nil
 	}
@@ -507,6 +577,8 @@ func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
 		if err := m.Kvstore.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstore")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kvstore")
 			}
 			return err
 		}
@@ -516,7 +588,6 @@ func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateMasquerading(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Masquerading) { // not required
 		return nil
 	}
@@ -525,6 +596,8 @@ func (m *StatusResponse) validateMasquerading(formats strfmt.Registry) error {
 		if err := m.Masquerading.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("masquerading")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("masquerading")
 			}
 			return err
 		}
@@ -534,7 +607,6 @@ func (m *StatusResponse) validateMasquerading(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NodeMonitor) { // not required
 		return nil
 	}
@@ -543,6 +615,8 @@ func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
 		if err := m.NodeMonitor.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("nodeMonitor")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nodeMonitor")
 			}
 			return err
 		}
@@ -552,7 +626,6 @@ func (m *StatusResponse) validateNodeMonitor(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Proxy) { // not required
 		return nil
 	}
@@ -561,6 +634,8 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 		if err := m.Proxy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("proxy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("proxy")
 			}
 			return err
 		}
@@ -570,7 +645,6 @@ func (m *StatusResponse) validateProxy(formats strfmt.Registry) error {
 }
 
 func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Stale) { // not required
 		return nil
 	}
@@ -581,6 +655,474 @@ func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
 			return err
 		}
 
+	}
+
+	return nil
+}
+
+// ContextValidate validate this status response based on the context it is used
+func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateBandwidthManager(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateBpfMaps(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateCilium(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateClockSource(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateCluster(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateClusterMesh(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateCniChaining(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateCniFile(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateContainerRuntime(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateControllers(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateEncryption(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHostFirewall(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHostRouting(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHubble(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIdentityRange(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIpam(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIPV6BigTCP(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateKubeProxyReplacement(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateKubernetes(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateKvstore(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateMasquerading(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNodeMonitor(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateProxy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *StatusResponse) contextValidateBandwidthManager(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.BandwidthManager != nil {
+		if err := m.BandwidthManager.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bandwidth-manager")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bandwidth-manager")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateBpfMaps(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.BpfMaps != nil {
+		if err := m.BpfMaps.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bpf-maps")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("bpf-maps")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateCilium(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Cilium != nil {
+		if err := m.Cilium.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cilium")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cilium")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateClockSource(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ClockSource != nil {
+		if err := m.ClockSource.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("clock-source")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("clock-source")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateCluster(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Cluster != nil {
+		if err := m.Cluster.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cluster")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cluster")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateClusterMesh(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ClusterMesh != nil {
+		if err := m.ClusterMesh.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cluster-mesh")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cluster-mesh")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateCniChaining(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.CniChaining != nil {
+		if err := m.CniChaining.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-chaining")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cni-chaining")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateCniFile(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.CniFile != nil {
+		if err := m.CniFile.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("cni-file")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("cni-file")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateContainerRuntime(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ContainerRuntime != nil {
+		if err := m.ContainerRuntime.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("container-runtime")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("container-runtime")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateControllers(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Controllers.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("controllers")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("controllers")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateEncryption(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Encryption != nil {
+		if err := m.Encryption.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("encryption")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("encryption")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateHostFirewall(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HostFirewall != nil {
+		if err := m.HostFirewall.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host-firewall")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-firewall")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateHostRouting(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HostRouting != nil {
+		if err := m.HostRouting.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host-routing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-routing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateHubble(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Hubble != nil {
+		if err := m.Hubble.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("hubble")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("hubble")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateIdentityRange(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.IdentityRange != nil {
+		if err := m.IdentityRange.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("identity-range")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("identity-range")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateIpam(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Ipam != nil {
+		if err := m.Ipam.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipam")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipam")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateIPV6BigTCP(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.IPV6BigTCP != nil {
+		if err := m.IPV6BigTCP.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("ipv6-big-tcp")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("ipv6-big-tcp")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateKubeProxyReplacement(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.KubeProxyReplacement != nil {
+		if err := m.KubeProxyReplacement.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kube-proxy-replacement")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kube-proxy-replacement")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateKubernetes(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Kubernetes != nil {
+		if err := m.Kubernetes.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kubernetes")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kubernetes")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateKvstore(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Kvstore != nil {
+		if err := m.Kvstore.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("kvstore")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("kvstore")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateMasquerading(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Masquerading != nil {
+		if err := m.Masquerading.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("masquerading")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("masquerading")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateNodeMonitor(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.NodeMonitor != nil {
+		if err := m.NodeMonitor.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("nodeMonitor")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("nodeMonitor")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) contextValidateProxy(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Proxy != nil {
+		if err := m.Proxy.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("proxy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("proxy")
+			}
+			return err
+		}
 	}
 
 	return nil

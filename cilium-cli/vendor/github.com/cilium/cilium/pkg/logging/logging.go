@@ -41,7 +41,7 @@ const (
 // default to avoid external dependencies from writing out unexpectedly
 var DefaultLogger = InitializeDefaultLogger()
 
-func init() {
+func initializeKLog() {
 	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
 
 	//Create a new flag set and set error handler
@@ -151,6 +151,10 @@ func AddHooks(hooks ...logrus.Hook) {
 // SetupLogging sets up each logging service provided in loggers and configures
 // each logger with the provided logOpts.
 func SetupLogging(loggers []string, logOpts LogOptions, tag string, debug bool) error {
+	// Bridge klog to logrus. Note that this will open multiple pipes and fork
+	// background goroutines that are not cleaned up.
+	initializeKLog()
+
 	// Updating the default log format
 	SetLogFormat(logOpts.GetLogFormat())
 

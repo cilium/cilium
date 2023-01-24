@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetLrpParams creates a new GetLrpParams object
-// with the default values initialized.
+// NewGetLrpParams creates a new GetLrpParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetLrpParams() *GetLrpParams {
-
 	return &GetLrpParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetLrpParamsWithTimeout creates a new GetLrpParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetLrpParamsWithTimeout(timeout time.Duration) *GetLrpParams {
-
 	return &GetLrpParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetLrpParamsWithContext creates a new GetLrpParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetLrpParamsWithContext(ctx context.Context) *GetLrpParams {
-
 	return &GetLrpParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetLrpParamsWithHTTPClient creates a new GetLrpParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetLrpParamsWithHTTPClient(client *http.Client) *GetLrpParams {
-
 	return &GetLrpParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetLrpParams contains all the parameters to send to the API endpoint
-for the get lrp operation typically these are written to a http.Request
+/*
+GetLrpParams contains all the parameters to send to the API endpoint
+
+	for the get lrp operation.
+
+	Typically these are written to a http.Request.
 */
 type GetLrpParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get lrp params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetLrpParams) WithDefaults() *GetLrpParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get lrp params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetLrpParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get lrp params

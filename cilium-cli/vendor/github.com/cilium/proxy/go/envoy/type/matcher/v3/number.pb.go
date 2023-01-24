@@ -35,6 +35,7 @@ type DoubleMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to MatchPattern:
+	//
 	//	*DoubleMatcher_Range
 	//	*DoubleMatcher_Exact
 	MatchPattern isDoubleMatcher_MatchPattern `protobuf_oneof:"match_pattern"`

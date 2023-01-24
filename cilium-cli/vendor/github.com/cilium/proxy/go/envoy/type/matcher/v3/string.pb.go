@@ -35,6 +35,7 @@ type StringMatcher struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to MatchPattern:
+	//
 	//	*StringMatcher_Exact
 	//	*StringMatcher_Prefix
 	//	*StringMatcher_Suffix

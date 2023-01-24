@@ -38,7 +38,6 @@ func (o *GetDebuginfoReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetDebuginfoOK() *GetDebuginfoOK {
 	return &GetDebuginfoOK{}
 }
 
-/*GetDebuginfoOK handles this case with default header values.
+/*
+GetDebuginfoOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetDebuginfoOK struct {
 	Payload *models.DebugInfo
 }
 
+// IsSuccess returns true when this get debuginfo o k response has a 2xx status code
+func (o *GetDebuginfoOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get debuginfo o k response has a 3xx status code
+func (o *GetDebuginfoOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get debuginfo o k response has a 4xx status code
+func (o *GetDebuginfoOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get debuginfo o k response has a 5xx status code
+func (o *GetDebuginfoOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get debuginfo o k response a status code equal to that given
+func (o *GetDebuginfoOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetDebuginfoOK) Error() string {
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK  %+v", 200, o.Payload)
+}
+
+func (o *GetDebuginfoOK) String() string {
 	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoOK  %+v", 200, o.Payload)
 }
 
@@ -82,7 +111,8 @@ func NewGetDebuginfoFailure() *GetDebuginfoFailure {
 	return &GetDebuginfoFailure{}
 }
 
-/*GetDebuginfoFailure handles this case with default header values.
+/*
+GetDebuginfoFailure describes a response with status code 500, with default header values.
 
 DebugInfo get failed
 */
@@ -90,7 +120,36 @@ type GetDebuginfoFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this get debuginfo failure response has a 2xx status code
+func (o *GetDebuginfoFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get debuginfo failure response has a 3xx status code
+func (o *GetDebuginfoFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get debuginfo failure response has a 4xx status code
+func (o *GetDebuginfoFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get debuginfo failure response has a 5xx status code
+func (o *GetDebuginfoFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get debuginfo failure response a status code equal to that given
+func (o *GetDebuginfoFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *GetDebuginfoFailure) Error() string {
+	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure  %+v", 500, o.Payload)
+}
+
+func (o *GetDebuginfoFailure) String() string {
 	return fmt.Sprintf("[GET /debuginfo][%d] getDebuginfoFailure  %+v", 500, o.Payload)
 }
 

@@ -32,7 +32,6 @@ func (o *GetLrpReader) ReadResponse(response runtime.ClientResponse, consumer ru
 			return nil, err
 		}
 		return result, nil
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -43,7 +42,8 @@ func NewGetLrpOK() *GetLrpOK {
 	return &GetLrpOK{}
 }
 
-/*GetLrpOK handles this case with default header values.
+/*
+GetLrpOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -51,7 +51,36 @@ type GetLrpOK struct {
 	Payload []*models.LRPSpec
 }
 
+// IsSuccess returns true when this get lrp o k response has a 2xx status code
+func (o *GetLrpOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get lrp o k response has a 3xx status code
+func (o *GetLrpOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get lrp o k response has a 4xx status code
+func (o *GetLrpOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get lrp o k response has a 5xx status code
+func (o *GetLrpOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get lrp o k response a status code equal to that given
+func (o *GetLrpOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetLrpOK) Error() string {
+	return fmt.Sprintf("[GET /lrp][%d] getLrpOK  %+v", 200, o.Payload)
+}
+
+func (o *GetLrpOK) String() string {
 	return fmt.Sprintf("[GET /lrp][%d] getLrpOK  %+v", 200, o.Payload)
 }
 

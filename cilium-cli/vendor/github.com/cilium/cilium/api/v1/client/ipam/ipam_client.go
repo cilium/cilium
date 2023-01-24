@@ -28,27 +28,29 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error)
+	DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error)
 
-	PostIpam(params *PostIpamParams) (*PostIpamCreated, error)
+	PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error)
 
-	PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error)
+	PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  DeleteIpamIP releases an allocated IP address
+DeleteIpamIP releases an allocated IP address
 */
-func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error) {
+func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams, opts ...ClientOption) (*DeleteIpamIPOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteIpamIPParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeleteIpamIP",
 		Method:             "DELETE",
 		PathPattern:        "/ipam/{ip}",
@@ -59,7 +61,12 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, erro
 		Reader:             &DeleteIpamIPReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -74,15 +81,14 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, erro
 }
 
 /*
-  PostIpam allocates an IP address
+PostIpam allocates an IP address
 */
-func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
+func (a *Client) PostIpam(params *PostIpamParams, opts ...ClientOption) (*PostIpamCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPostIpamParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PostIpam",
 		Method:             "POST",
 		PathPattern:        "/ipam",
@@ -93,7 +99,12 @@ func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 		Reader:             &PostIpamReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -108,15 +119,14 @@ func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 }
 
 /*
-  PostIpamIP allocates an IP address
+PostIpamIP allocates an IP address
 */
-func (a *Client) PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error) {
+func (a *Client) PostIpamIP(params *PostIpamIPParams, opts ...ClientOption) (*PostIpamIPOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPostIpamIPParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PostIpamIP",
 		Method:             "POST",
 		PathPattern:        "/ipam/{ip}",
@@ -127,7 +137,12 @@ func (a *Client) PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error) {
 		Reader:             &PostIpamIPReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}

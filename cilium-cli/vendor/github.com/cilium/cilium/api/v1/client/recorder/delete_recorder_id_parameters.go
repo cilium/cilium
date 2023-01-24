@@ -20,59 +20,75 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// NewDeleteRecorderIDParams creates a new DeleteRecorderIDParams object
-// with the default values initialized.
+// NewDeleteRecorderIDParams creates a new DeleteRecorderIDParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteRecorderIDParams() *DeleteRecorderIDParams {
-	var ()
 	return &DeleteRecorderIDParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewDeleteRecorderIDParamsWithTimeout creates a new DeleteRecorderIDParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewDeleteRecorderIDParamsWithTimeout(timeout time.Duration) *DeleteRecorderIDParams {
-	var ()
 	return &DeleteRecorderIDParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewDeleteRecorderIDParamsWithContext creates a new DeleteRecorderIDParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewDeleteRecorderIDParamsWithContext(ctx context.Context) *DeleteRecorderIDParams {
-	var ()
 	return &DeleteRecorderIDParams{
-
 		Context: ctx,
 	}
 }
 
 // NewDeleteRecorderIDParamsWithHTTPClient creates a new DeleteRecorderIDParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewDeleteRecorderIDParamsWithHTTPClient(client *http.Client) *DeleteRecorderIDParams {
-	var ()
 	return &DeleteRecorderIDParams{
 		HTTPClient: client,
 	}
 }
 
-/*DeleteRecorderIDParams contains all the parameters to send to the API endpoint
-for the delete recorder ID operation typically these are written to a http.Request
+/*
+DeleteRecorderIDParams contains all the parameters to send to the API endpoint
+
+	for the delete recorder ID operation.
+
+	Typically these are written to a http.Request.
 */
 type DeleteRecorderIDParams struct {
 
-	/*ID
-	  ID of recorder
+	/* ID.
 
+	   ID of recorder
 	*/
 	ID int64
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the delete recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteRecorderIDParams) WithDefaults() *DeleteRecorderIDParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the delete recorder ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteRecorderIDParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the delete recorder ID params

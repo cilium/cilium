@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -57,7 +58,6 @@ func (m *EndpointPolicyStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ProxyStatistics) { // not required
 		return nil
 	}
@@ -71,6 +71,8 @@ func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) 
 			if err := m.ProxyStatistics[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -82,7 +84,6 @@ func (m *EndpointPolicyStatus) validateProxyStatistics(formats strfmt.Registry) 
 }
 
 func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Realized) { // not required
 		return nil
 	}
@@ -91,6 +92,8 @@ func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
 			}
 			return err
 		}
@@ -100,7 +103,6 @@ func (m *EndpointPolicyStatus) validateRealized(formats strfmt.Registry) error {
 }
 
 func (m *EndpointPolicyStatus) validateSpec(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Spec) { // not required
 		return nil
 	}
@@ -109,6 +111,82 @@ func (m *EndpointPolicyStatus) validateSpec(formats strfmt.Registry) error {
 		if err := m.Spec.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("spec")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("spec")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint policy status based on the context it is used
+func (m *EndpointPolicyStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateProxyStatistics(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRealized(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSpec(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointPolicyStatus) contextValidateProxyStatistics(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.ProxyStatistics); i++ {
+
+		if m.ProxyStatistics[i] != nil {
+			if err := m.ProxyStatistics[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("proxy-statistics" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicyStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Realized != nil {
+		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointPolicyStatus) contextValidateSpec(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Spec != nil {
+		if err := m.Spec.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("spec")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("spec")
 			}
 			return err
 		}
