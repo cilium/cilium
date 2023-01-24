@@ -2133,16 +2133,19 @@ func TestRequestIPWithMismatchedLabel(t *testing.T) {
 			return false
 		}
 
-		t.Error("Unexpected patch to a service")
+		svc := fixture.PatchedSvc(action)
+		if svc.Status.Conditions[0].Reason != "pool_selector_mismatch" {
+			t.Error("Expected service to receive 'pool_selector_mismatch' condition")
+		}
 
 		return true
-	}, 100*time.Millisecond)
+	}, 1*time.Second)
 
 	go fixture.hive.Start(context.Background())
 	defer fixture.hive.Stop(context.Background())
 
-	if !await.Block() {
-		t.Fatal("Unexpected service status update")
+	if await.Block() {
+		t.Fatal("Expected status update of service")
 	}
 }
 
