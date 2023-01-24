@@ -85,6 +85,9 @@ COPY --from=cilium-envoy / /
 # When used within the Cilium container, Hubble CLI should target the
 # local unix domain socket instead of Hubble Relay.
 ENV HUBBLE_SERVER=unix:///var/run/cilium/hubble.sock
+# This version of Cilium originally shipped with an older verison of the
+# Hubble CLI using legacy JSON output which we want to preserve.
+ENV HUBBLE_COMPAT=legacy-json-output
 COPY --from=hubble /out/${TARGETOS}/${TARGETARCH}/bin/hubble /usr/bin/hubble
 COPY --from=hubble /out/linux/bash_completion /etc/bash_completion.d/hubble
 
