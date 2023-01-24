@@ -87,12 +87,14 @@ func TestBPF(t *testing.T) {
 			continue
 		}
 
-		profiles := loadAndRunSpec(t, entry, instrLog)
-		for _, profile := range profiles {
-			if len(profile.Blocks) > 0 {
-				mergedProfiles = addProfile(mergedProfiles, profile)
+		t.Run(entry.Name(), func(t *testing.T) {
+			profiles := loadAndRunSpec(t, entry, instrLog)
+			for _, profile := range profiles {
+				if len(profile.Blocks) > 0 {
+					mergedProfiles = addProfile(mergedProfiles, profile)
+				}
 			}
-		}
+		})
 	}
 
 	if *testCoverageReport != "" {
