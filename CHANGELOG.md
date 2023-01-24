@@ -1,5 +1,108 @@
 # Changelog
 
+## v1.13.0-rc5
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* cilium: completion of nat46/64 gateway (Backport PR #22948, Upstream PR #22421, @borkmann)
+* Support Kubernetes v1.21 new field internalTrafficPolicy=Local. (Backport PR #23001, Upstream PR #21871, @gentoo-root)
+
+**Minor Changes:**
+* Bump Linux minimum version to 4.19.57 (or equivalent) (Backport PR #23232, Upstream PR #23124, @joestringer)
+* feat(hubble): add L7 verdicts to hubble_policy_verdicts_total metric (Backport PR #23147, Upstream PR #22622, @raphink)
+* Fix crash of CES queue delay metric when CESTracker is nil (Backport PR #23147, Upstream PR #22884, @dlapcevic)
+* helm: Add  `node-role.kubernetes.io/control-plane` key (Backport PR #23001, Upstream PR #22893, @my-git9)
+* operator: Add RBAC permission for CiliumNodeConfigs resource (Backport PR #23001, Upstream PR #22824, @sayboras)
+* pkg/metrics: include revision and arch info in cilium_version (Backport PR #23147, Upstream PR #22795, @ArthurChiao)
+
+**Bugfixes:**
+* bpf: lb: catch write error in lb6_xlate() (Backport PR #23147, Upstream PR #23075, @julianwiedmann)
+* bpf: lb: fix check for L3 pseudo-hdr csum update in lb6_xlate() (Backport PR #23001, Upstream PR #22953, @julianwiedmann)
+* bpf: nodeport: fix tracing for handle_nat_fwd() (Backport PR #23001, Upstream PR #22678, @julianwiedmann)
+* bpf: nodeport: handle revDNAT for local backends at to-netdev/to-overlay (Backport PR #23232, Upstream PR #22756, @julianwiedmann)
+* clustermesh: Add missing brackets of IPv6 address for etcd option (Backport PR #23147, Upstream PR #22962, @YutaroHayakawa)
+* daemon: Fix BPF host routing can't be enabled if the devices are wildcard (Backport PR #23232, Upstream PR #23009, @ysksuzuki)
+* datapath: Fix L7 ingress with XDP (Backport PR #23147, Upstream PR #22985, @brb)
+* envoy: Fix lock leak in config validation failure (Backport PR #23147, Upstream PR #23077, @joestringer)
+* Fix bugs where ciliumendpoints for statefulset pods where being incorrectly overwritten/deleted (Backport PR #23147, Upstream PR #21768, @tommyp1ckles)
+* Fix double-accounted RX packets in CT statistics when Nodeport is in use. (Backport PR #23147, Upstream PR #22810, @julianwiedmann)
+* Fix missing node neigh metric for counting arping requests (Backport PR #23001, Upstream PR #22930, @christarazi)
+* Fix packet drops when service pod connects to itself via clusterIP, and selected by an ingress policy. (Backport PR #23147, Upstream PR #22972, @aditighag)
+* Fix socket-lb tracing in environments with systemd and container runtimes like containerd, crio, and docker. (Backport PR #23001, Upstream PR #22773, @aditighag)
+* ingress/model: Support multiple certs based on SNI (Backport PR #23232, Upstream PR #22671, @sayboras)
+
+**CI Changes:**
+* .github: Pin docker buildx version to v0.9.1 (v2) (Backport PR #23233, Upstream PR #23220, @joestringer)
+* [v1.13] ci: update cilium-cli to v0.12.12 in v1.13 workflows (#23129, @tklauser)
+* bpf: test: fix xdp_lb4_forward_to_other_node test (Backport PR #23147, Upstream PR #23018, @julianwiedmann)
+* ctmap: fix-up host_local flag in the DSR NAT entry for GC test (Backport PR #23147, Upstream PR #23037, @julianwiedmann)
+* gh/workflows: ci-datapath updates (Backport PR #23147, Upstream PR #22811, @brb)
+* gh/workflows: Extend ci-datapath config to include lb-mode and endpoint-routes (Backport PR #23147, Upstream PR #22825, @brb)
+* gha: Pin minikube version used in CI (Backport PR #23232, Upstream PR #23099, @sayboras)
+* per-node config improvements: testing, null selector, cleanups (Backport PR #23147, Upstream PR #22950, @squeed)
+* test/l4lb,nat46x64: Replace Kind/Helm with DinD (Backport PR #23242, Upstream PR #22653, @brb)
+* test: Quarantine TLS test for now (Backport PR #23001, Upstream PR #22684, @jrajahalme)
+* workflows: fix skip condition for encryption tests in datapath conformance (Backport PR #23001, Upstream PR #22763, @tklauser)
+
+**Misc Changes:**
+* Add Cilium configuration documentation (Backport PR #23001, Upstream PR #22744, @squeed)
+* bpf: fix cb collision for nat46x64 (Backport PR #22948, Upstream PR #23012, @borkmann)
+* bpf: lb: fix L3 pseudo-hdr csum update for SCTP in __lb6_rev_nat() (Backport PR #23147, Upstream PR #23063, @julianwiedmann)
+* bpf: nodeport: fix-up error check in rev_nodeport_lb*() for XDP (Backport PR #23147, Upstream PR #23119, @julianwiedmann)
+* bpf: nodeport: NAT64 cleanups (Backport PR #22948, Upstream PR #22915, @julianwiedmann)
+* bpf: nodeport: reset EDT aggregate ID for XDP-to-TC tunnel punt (Backport PR #23147, Upstream PR #23029, @julianwiedmann)
+* bpf: Relax constant check for dst_id for clang 14+ (Backport PR #23147, Upstream PR #22919, @sayboras)
+* build(deps): bump actions/cache from 3.2.0 to 3.2.3 (#22992, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.1 to 3.0.2 (#22961, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.2.0 to 3.3.0 (#23116, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.37 to 2.1.38 (#23073, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.38 to 2.1.39 (#23191, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.1 to 3.4.0 (#23253, @dependabot[bot])
+* build(deps): update package dependencies (Backport PR #23232, Upstream PR #23140, @fengshunli)
+* build: Avoid re-building when building docs from the main Makefile (Backport PR #23147, Upstream PR #22979, @jrajahalme)
+* build: Bump base image build time for SBOM (Backport PR #23233, Upstream PR #23148, @joestringer)
+* Change start time for policy_implementation_delay to when a CNP is first received by the Agent (Backport PR #23001, Upstream PR #22503, @learnitall)
+* chore(deps): update docker.io/library/golang docker tag to v1.19.5 (v1.13) (#23243, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.5 (v1.13) (#23244, @renovate[bot])
+* ci, github: Fix IPv6 conformance test (Backport PR #23001, Upstream PR #22774, @borkmann)
+* ci: extend nat46x64 l4lb test suite (Backport PR #23242, Upstream PR #23020, @borkmann)
+* cilium: follow-up neigh fixes for gw (Backport PR #22948, Upstream PR #22814, @borkmann)
+* datapath: Get rid of NO_REDIRECT define (Backport PR #23147, Upstream PR #23076, @brb)
+* docs: Add install guide for deploying Cilium on K0s using k0sctl. (Backport PR #23001, Upstream PR #22029, @xinity)
+* docs: Document internalTrafficPolicy-related changes in the upgrade guide (Backport PR #23001, Upstream PR #22927, @gentoo-root)
+* docs: Fix inconsistent node label in egress gateway guide (Backport PR #23232, Upstream PR #23225, @pchaigno)
+* docs: Fix markup to properly emphasize Kubernetes version in a note (Backport PR #23001, Upstream PR #22976, @Shunpoco)
+* docs: Improve IPsec guide (Backport PR #23232, Upstream PR #23135, @pchaigno)
+* docs: Improve wording for deny policies limitation (Backport PR #23232, Upstream PR #23095, @joestringer)
+* docs: Mark pod-short option in Hubble metrics as deprecated (Backport PR #23232, Upstream PR #23025, @lambdanis)
+* docs: move star wars demo to getting started (Backport PR #23147, Upstream PR #22379, @yoyo-go)
+* docs: update committer security requirements (Backport PR #23232, Upstream PR #23134, @xmulligan)
+* docs: Update Minikube ver. requirement and manual BPFFS mount instructions (Backport PR #23232, Upstream PR #22913, @kimstacy)
+* Document socket LB tracing (Backport PR #23232, Upstream PR #23141, @aditighag)
+* Fix issues with policy handling introduced by new policy match support for L4 ports on any protocol. (Backport PR #23232, Upstream PR #22975, @jrajahalme)
+* Generate Software Bill of Materials during release (Backport PR #23147, Upstream PR #22191, @sandipanpanda)
+* gh: fix indentation bug in ingress workflows (Backport PR #23232, Upstream PR #23195, @julianwiedmann)
+* gha: Bump k8s version in kind conformance tests (Backport PR #23147, Upstream PR #22325, @sayboras)
+* gha: Improve coverage for Ingress/GatewayAPI (Backport PR #23147, Upstream PR #23007, @sayboras)
+* github: do not generate SBOM from source (Backport PR #23233, Upstream PR #23161, @aanm)
+* hubble: Fix panic if IP address cannot be parsed (Backport PR #23147, Upstream PR #22994, @gandro)
+* hubble: Update the reason label for hubble_drop_total metric (Backport PR #23232, Upstream PR #22408, @michi-covalent)
+* images/runtime: bump iptables package to 1.8.8 (Backport PR #23232, Upstream PR #23163, @jibi)
+* images: Update Hubble CLI to v0.11.0 (Backport PR #23147, Upstream PR #23043, @gandro)
+* Improve fqdn events logging management (Backport PR #23001, Upstream PR #22745, @pippolo84)
+* IPsec: Refactor `ipSecReplaceState{In,Out}` functions (Backport PR #23232, Upstream PR #23158, @pchaigno)
+* iptables: skip reverse IP lookup (Backport PR #23147, Upstream PR #22977, @jibi)
+* k8s: Add node-role.kubernetes.io/control-plane taint (Backport PR #23147, Upstream PR #22894, @sayboras)
+* k8s: Update dependencies to v0.26.0 (Backport PR #23001, Upstream PR #22891, @sayboras)
+* Make cilium pprof listen address configurable (Backport PR #23147, Upstream PR #22768, @chancez)
+* pkg/maps,pkg/defaults: allow configuring map events on missing map types. (Backport PR #23001, Upstream PR #22746, @tommyp1ckles)
+* refactoring of fetching cilium manifests in OKD installation (Backport PR #23232, Upstream PR #22695, @zisisli)
+
+**Other Changes:**
+* install: Update image digests for v1.13.0-rc4 (#22852, @joestringer)
+
 ## v1.13.0-rc4
 
 Summary of Changes
