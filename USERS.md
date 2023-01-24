@@ -123,6 +123,11 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services
       Q: @ant31
       L: https://conny.de
+      
+    * N: Cosmonic
+      D: Cilium is the CNI for Cosmonic's Nomad based PaaS
+      U: Networking, NetworkPolicy, Transparent Encryption
+      L: https://cilium.io/blog/2023/01/18/cosmonic-user-story/
 
     * N: Crane
       D: Crane uses Cilium as the default CNI
