@@ -242,6 +242,10 @@ func (manager *Manager) regenerateGatewayConfigs() {
 }
 
 func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
+	if !manager.installRoutes {
+		return false
+	}
+
 	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		if !gwc.localNodeConfiguredAsGateway {
 			return
@@ -292,7 +296,8 @@ func (manager *Manager) removeUnusedIpRulesAndRoutes() {
 nextIpRule:
 	for _, ipRule := range ipRules {
 		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
-			return gwc.localNodeConfiguredAsGateway &&
+			return manager.installRoutes &&
+				gwc.localNodeConfiguredAsGateway &&
 				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
 		}
 
@@ -417,13 +422,11 @@ func (manager *Manager) reconcile() {
 
 	manager.regenerateGatewayConfigs()
 
-	if manager.installRoutes {
-		shouldRetry := manager.addMissingIpRulesAndRoutes(false)
-		manager.removeUnusedIpRulesAndRoutes()
+	shouldRetry := manager.addMissingIpRulesAndRoutes(false)
+	manager.removeUnusedIpRulesAndRoutes()
 
-		if shouldRetry {
-			manager.addMissingIpRulesAndRoutes(true)
-		}
+	if shouldRetry {
+		manager.addMissingIpRulesAndRoutes(true)
 	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
