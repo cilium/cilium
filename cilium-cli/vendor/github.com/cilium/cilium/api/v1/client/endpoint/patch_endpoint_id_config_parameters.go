@@ -21,54 +21,57 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPatchEndpointIDConfigParams creates a new PatchEndpointIDConfigParams object
-// with the default values initialized.
+// NewPatchEndpointIDConfigParams creates a new PatchEndpointIDConfigParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchEndpointIDConfigParams() *PatchEndpointIDConfigParams {
-	var ()
 	return &PatchEndpointIDConfigParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPatchEndpointIDConfigParamsWithTimeout creates a new PatchEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPatchEndpointIDConfigParamsWithTimeout(timeout time.Duration) *PatchEndpointIDConfigParams {
-	var ()
 	return &PatchEndpointIDConfigParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPatchEndpointIDConfigParamsWithContext creates a new PatchEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPatchEndpointIDConfigParamsWithContext(ctx context.Context) *PatchEndpointIDConfigParams {
-	var ()
 	return &PatchEndpointIDConfigParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPatchEndpointIDConfigParamsWithHTTPClient creates a new PatchEndpointIDConfigParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPatchEndpointIDConfigParamsWithHTTPClient(client *http.Client) *PatchEndpointIDConfigParams {
-	var ()
 	return &PatchEndpointIDConfigParams{
 		HTTPClient: client,
 	}
 }
 
-/*PatchEndpointIDConfigParams contains all the parameters to send to the API endpoint
-for the patch endpoint ID config operation typically these are written to a http.Request
+/*
+PatchEndpointIDConfigParams contains all the parameters to send to the API endpoint
+
+	for the patch endpoint ID config operation.
+
+	Typically these are written to a http.Request.
 */
 type PatchEndpointIDConfigParams struct {
 
-	/*EndpointConfiguration*/
+	// EndpointConfiguration.
 	EndpointConfiguration *models.EndpointConfigurationSpec
-	/*ID
-	  String describing an endpoint with the format ``[prefix:]id``. If no prefix
+
+	/* ID.
+
+	     String describing an endpoint with the format ``[prefix:]id``. If no prefix
 	is specified, a prefix of ``cilium-local:`` is assumed. Not all endpoints
 	will be addressable by all endpoint ID prefixes with the exception of the
 	local Cilium UUID which is assigned to all endpoints.
@@ -81,13 +84,27 @@ type PatchEndpointIDConfigParams struct {
 	  - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
 	  - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
 
-
 	*/
 	ID string
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the patch endpoint ID config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchEndpointIDConfigParams) WithDefaults() *PatchEndpointIDConfigParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the patch endpoint ID config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchEndpointIDConfigParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the patch endpoint ID config params
@@ -152,7 +169,6 @@ func (o *PatchEndpointIDConfigParams) WriteToRequest(r runtime.ClientRequest, re
 		return err
 	}
 	var res []error
-
 	if o.EndpointConfiguration != nil {
 		if err := r.SetBodyParam(o.EndpointConfiguration); err != nil {
 			return err

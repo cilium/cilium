@@ -21,56 +21,72 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewPatchConfigParams creates a new PatchConfigParams object
-// with the default values initialized.
+// NewPatchConfigParams creates a new PatchConfigParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewPatchConfigParams() *PatchConfigParams {
-	var ()
 	return &PatchConfigParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewPatchConfigParamsWithTimeout creates a new PatchConfigParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewPatchConfigParamsWithTimeout(timeout time.Duration) *PatchConfigParams {
-	var ()
 	return &PatchConfigParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewPatchConfigParamsWithContext creates a new PatchConfigParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewPatchConfigParamsWithContext(ctx context.Context) *PatchConfigParams {
-	var ()
 	return &PatchConfigParams{
-
 		Context: ctx,
 	}
 }
 
 // NewPatchConfigParamsWithHTTPClient creates a new PatchConfigParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewPatchConfigParamsWithHTTPClient(client *http.Client) *PatchConfigParams {
-	var ()
 	return &PatchConfigParams{
 		HTTPClient: client,
 	}
 }
 
-/*PatchConfigParams contains all the parameters to send to the API endpoint
-for the patch config operation typically these are written to a http.Request
+/*
+PatchConfigParams contains all the parameters to send to the API endpoint
+
+	for the patch config operation.
+
+	Typically these are written to a http.Request.
 */
 type PatchConfigParams struct {
 
-	/*Configuration*/
+	// Configuration.
 	Configuration *models.DaemonConfigurationSpec
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the patch config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchConfigParams) WithDefaults() *PatchConfigParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the patch config params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *PatchConfigParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the patch config params
@@ -124,7 +140,6 @@ func (o *PatchConfigParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
-
 	if o.Configuration != nil {
 		if err := r.SetBodyParam(o.Configuration); err != nil {
 			return err

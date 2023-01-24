@@ -50,7 +50,6 @@ func (o *DeletePolicyReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -61,7 +60,8 @@ func NewDeletePolicyOK() *DeletePolicyOK {
 	return &DeletePolicyOK{}
 }
 
-/*DeletePolicyOK handles this case with default header values.
+/*
+DeletePolicyOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -69,7 +69,36 @@ type DeletePolicyOK struct {
 	Payload *models.Policy
 }
 
+// IsSuccess returns true when this delete policy o k response has a 2xx status code
+func (o *DeletePolicyOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete policy o k response has a 3xx status code
+func (o *DeletePolicyOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete policy o k response has a 4xx status code
+func (o *DeletePolicyOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete policy o k response has a 5xx status code
+func (o *DeletePolicyOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete policy o k response a status code equal to that given
+func (o *DeletePolicyOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeletePolicyOK) Error() string {
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
+}
+
+func (o *DeletePolicyOK) String() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyOK  %+v", 200, o.Payload)
 }
 
@@ -94,7 +123,8 @@ func NewDeletePolicyInvalid() *DeletePolicyInvalid {
 	return &DeletePolicyInvalid{}
 }
 
-/*DeletePolicyInvalid handles this case with default header values.
+/*
+DeletePolicyInvalid describes a response with status code 400, with default header values.
 
 Invalid request
 */
@@ -102,7 +132,36 @@ type DeletePolicyInvalid struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete policy invalid response has a 2xx status code
+func (o *DeletePolicyInvalid) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete policy invalid response has a 3xx status code
+func (o *DeletePolicyInvalid) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete policy invalid response has a 4xx status code
+func (o *DeletePolicyInvalid) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete policy invalid response has a 5xx status code
+func (o *DeletePolicyInvalid) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete policy invalid response a status code equal to that given
+func (o *DeletePolicyInvalid) IsCode(code int) bool {
+	return code == 400
+}
+
 func (o *DeletePolicyInvalid) Error() string {
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid  %+v", 400, o.Payload)
+}
+
+func (o *DeletePolicyInvalid) String() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyInvalid  %+v", 400, o.Payload)
 }
 
@@ -125,14 +184,44 @@ func NewDeletePolicyNotFound() *DeletePolicyNotFound {
 	return &DeletePolicyNotFound{}
 }
 
-/*DeletePolicyNotFound handles this case with default header values.
+/*
+DeletePolicyNotFound describes a response with status code 404, with default header values.
 
 Policy not found
 */
 type DeletePolicyNotFound struct {
 }
 
+// IsSuccess returns true when this delete policy not found response has a 2xx status code
+func (o *DeletePolicyNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete policy not found response has a 3xx status code
+func (o *DeletePolicyNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete policy not found response has a 4xx status code
+func (o *DeletePolicyNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete policy not found response has a 5xx status code
+func (o *DeletePolicyNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete policy not found response a status code equal to that given
+func (o *DeletePolicyNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *DeletePolicyNotFound) Error() string {
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound ", 404)
+}
+
+func (o *DeletePolicyNotFound) String() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyNotFound ", 404)
 }
 
@@ -146,7 +235,8 @@ func NewDeletePolicyFailure() *DeletePolicyFailure {
 	return &DeletePolicyFailure{}
 }
 
-/*DeletePolicyFailure handles this case with default header values.
+/*
+DeletePolicyFailure describes a response with status code 500, with default header values.
 
 Error while deleting policy
 */
@@ -154,7 +244,36 @@ type DeletePolicyFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete policy failure response has a 2xx status code
+func (o *DeletePolicyFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete policy failure response has a 3xx status code
+func (o *DeletePolicyFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete policy failure response has a 4xx status code
+func (o *DeletePolicyFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete policy failure response has a 5xx status code
+func (o *DeletePolicyFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete policy failure response a status code equal to that given
+func (o *DeletePolicyFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *DeletePolicyFailure) Error() string {
+	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeletePolicyFailure) String() string {
 	return fmt.Sprintf("[DELETE /policy][%d] deletePolicyFailure  %+v", 500, o.Payload)
 }
 

@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -49,7 +50,6 @@ func (m *TraceTo) Validate(formats strfmt.Registry) error {
 }
 
 func (m *TraceTo) validateDports(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Dports) { // not required
 		return nil
 	}
@@ -63,6 +63,8 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 			if err := m.Dports[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("dports" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("dports" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -74,7 +76,6 @@ func (m *TraceTo) validateDports(formats strfmt.Registry) error {
 }
 
 func (m *TraceTo) validateLabels(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Labels) { // not required
 		return nil
 	}
@@ -82,6 +83,60 @@ func (m *TraceTo) validateLabels(formats strfmt.Registry) error {
 	if err := m.Labels.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("labels")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("labels")
+		}
+		return err
+	}
+
+	return nil
+}
+
+// ContextValidate validate this trace to based on the context it is used
+func (m *TraceTo) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateDports(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateLabels(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *TraceTo) contextValidateDports(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Dports); i++ {
+
+		if m.Dports[i] != nil {
+			if err := m.Dports[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("dports" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("dports" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *TraceTo) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Labels.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("labels")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("labels")
 		}
 		return err
 	}

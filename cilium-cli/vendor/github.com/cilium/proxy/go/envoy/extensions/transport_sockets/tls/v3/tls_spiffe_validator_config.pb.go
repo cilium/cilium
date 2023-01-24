@@ -33,19 +33,20 @@ const _ = proto.ProtoPackageIsVersion4
 // Example:
 //
 // .. validated-code-block:: yaml
-//   :type-name: envoy.extensions.transport_sockets.tls.v3.CertificateValidationContext
 //
-//   custom_validator_config:
-//     name: envoy.tls.cert_validator.spiffe
-//     typed_config:
-//       "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig
-//       trust_domains:
-//       - name: foo.com
-//         trust_bundle:
-//           filename: "foo.pem"
-//       - name: envoy.com
-//         trust_bundle:
-//           filename: "envoy.pem"
+//	:type-name: envoy.extensions.transport_sockets.tls.v3.CertificateValidationContext
+//
+//	custom_validator_config:
+//	  name: envoy.tls.cert_validator.spiffe
+//	  typed_config:
+//	    "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig
+//	    trust_domains:
+//	    - name: foo.com
+//	      trust_bundle:
+//	        filename: "foo.pem"
+//	    - name: envoy.com
+//	      trust_bundle:
+//	        filename: "envoy.pem"
 //
 // In this example, a presented peer certificate whose SAN matches `spiffe//foo.com/**` is validated against
 // the "foo.pem" x.509 certificate. All the trust bundles are isolated from each other, so no trust domain can mint
@@ -56,7 +57,6 @@ const _ = proto.ProtoPackageIsVersion4
 //
 // - :ref:`allow_expired_certificate <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.allow_expired_certificate>` to allow expired certificates.
 // - :ref:`match_typed_subject_alt_names <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>` to match **URI** SAN of certificates. Unlike the default validator, SPIFFE validator only matches **URI** SAN (which equals to SVID in SPIFFE terminology) and ignore other SAN types.
-//
 type SPIFFECertValidatorConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

@@ -35,8 +35,8 @@ const _ = proto.ProtoPackageIsVersion4
 //
 // .. attention::
 //
-//   Use of this message type has been deprecated in favor of direct use of
-//   :ref:`Tracing.Http <envoy_v3_api_msg_config.trace.v3.Tracing.Http>`.
+//	Use of this message type has been deprecated in favor of direct use of
+//	:ref:`Tracing.Http <envoy_v3_api_msg_config.trace.v3.Tracing.Http>`.
 type Tracing struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -104,6 +104,7 @@ type Tracing_Http struct {
 	// [#extension-category: envoy.tracers]
 	//
 	// Types that are assignable to ConfigType:
+	//
 	//	*Tracing_Http_TypedConfig
 	ConfigType isTracing_Http_ConfigType `protobuf_oneof:"config_type"`
 }

@@ -15,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blang/semver/v4"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -23,11 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/blang/semver/v4"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
@@ -294,10 +292,6 @@ func (c *fakeClient) ListCiliumClusterwideNetworkPolicies(ctx context.Context, o
 }
 
 func (c *fakeClient) ListCiliumIdentities(ctx context.Context) (*ciliumv2.CiliumIdentityList, error) {
-	panic("implement me")
-}
-
-func (c *fakeClient) ListCiliumEgressNATPolicies(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumEgressNATPolicyList, error) {
 	panic("implement me")
 }
 

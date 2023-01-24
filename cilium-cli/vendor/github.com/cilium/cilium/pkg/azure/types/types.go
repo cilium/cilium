@@ -42,8 +42,7 @@ type AzureSpec struct {
 	InterfaceName string `json:"interface-name,omitempty"`
 }
 
-// AzureStatus is the status of Azure addressing of the node
-//
+// AzureStatus is the status of Azure addressing of the node.
 // This struct is embedded into v2.CiliumNode
 //
 // +k8s:deepcopy-gen=true

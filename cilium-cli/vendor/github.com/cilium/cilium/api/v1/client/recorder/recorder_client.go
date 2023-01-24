@@ -28,31 +28,33 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecorderIDOK, error)
+	DeleteRecorderID(params *DeleteRecorderIDParams, opts ...ClientOption) (*DeleteRecorderIDOK, error)
 
-	GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error)
+	GetRecorder(params *GetRecorderParams, opts ...ClientOption) (*GetRecorderOK, error)
 
-	GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, error)
+	GetRecorderID(params *GetRecorderIDParams, opts ...ClientOption) (*GetRecorderIDOK, error)
 
-	GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderMasksOK, error)
+	GetRecorderMasks(params *GetRecorderMasksParams, opts ...ClientOption) (*GetRecorderMasksOK, error)
 
-	PutRecorderID(params *PutRecorderIDParams) (*PutRecorderIDOK, *PutRecorderIDCreated, error)
+	PutRecorderID(params *PutRecorderIDParams, opts ...ClientOption) (*PutRecorderIDOK, *PutRecorderIDCreated, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  DeleteRecorderID deletes a recorder
+DeleteRecorderID deletes a recorder
 */
-func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecorderIDOK, error) {
+func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams, opts ...ClientOption) (*DeleteRecorderIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteRecorderIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeleteRecorderID",
 		Method:             "DELETE",
 		PathPattern:        "/recorder/{id}",
@@ -63,7 +65,12 @@ func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecord
 		Reader:             &DeleteRecorderIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -78,15 +85,14 @@ func (a *Client) DeleteRecorderID(params *DeleteRecorderIDParams) (*DeleteRecord
 }
 
 /*
-  GetRecorder retrieves list of all recorders
+GetRecorder retrieves list of all recorders
 */
-func (a *Client) GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error) {
+func (a *Client) GetRecorder(params *GetRecorderParams, opts ...ClientOption) (*GetRecorderOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetRecorderParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetRecorder",
 		Method:             "GET",
 		PathPattern:        "/recorder",
@@ -97,7 +103,12 @@ func (a *Client) GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error) 
 		Reader:             &GetRecorderReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -112,15 +123,14 @@ func (a *Client) GetRecorder(params *GetRecorderParams) (*GetRecorderOK, error) 
 }
 
 /*
-  GetRecorderID retrieves configuration of a recorder
+GetRecorderID retrieves configuration of a recorder
 */
-func (a *Client) GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, error) {
+func (a *Client) GetRecorderID(params *GetRecorderIDParams, opts ...ClientOption) (*GetRecorderIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetRecorderIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetRecorderID",
 		Method:             "GET",
 		PathPattern:        "/recorder/{id}",
@@ -131,7 +141,12 @@ func (a *Client) GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, e
 		Reader:             &GetRecorderIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -146,15 +161,14 @@ func (a *Client) GetRecorderID(params *GetRecorderIDParams) (*GetRecorderIDOK, e
 }
 
 /*
-  GetRecorderMasks retrieves list of all recorder masks
+GetRecorderMasks retrieves list of all recorder masks
 */
-func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderMasksOK, error) {
+func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams, opts ...ClientOption) (*GetRecorderMasksOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetRecorderMasksParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetRecorderMasks",
 		Method:             "GET",
 		PathPattern:        "/recorder/masks",
@@ -165,7 +179,12 @@ func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderM
 		Reader:             &GetRecorderMasksReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -180,15 +199,14 @@ func (a *Client) GetRecorderMasks(params *GetRecorderMasksParams) (*GetRecorderM
 }
 
 /*
-  PutRecorderID creates or update recorder
+PutRecorderID creates or update recorder
 */
-func (a *Client) PutRecorderID(params *PutRecorderIDParams) (*PutRecorderIDOK, *PutRecorderIDCreated, error) {
+func (a *Client) PutRecorderID(params *PutRecorderIDParams, opts ...ClientOption) (*PutRecorderIDOK, *PutRecorderIDCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPutRecorderIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PutRecorderID",
 		Method:             "PUT",
 		PathPattern:        "/recorder/{id}",
@@ -199,7 +217,12 @@ func (a *Client) PutRecorderID(params *PutRecorderIDParams) (*PutRecorderIDOK, *
 		Reader:             &PutRecorderIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}

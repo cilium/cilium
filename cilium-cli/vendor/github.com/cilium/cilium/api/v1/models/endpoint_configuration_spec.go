@@ -9,6 +9,8 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
@@ -45,7 +47,6 @@ func (m *EndpointConfigurationSpec) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointConfigurationSpec) validateLabelConfiguration(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.LabelConfiguration) { // not required
 		return nil
 	}
@@ -54,6 +55,8 @@ func (m *EndpointConfigurationSpec) validateLabelConfiguration(formats strfmt.Re
 		if err := m.LabelConfiguration.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("label-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("label-configuration")
 			}
 			return err
 		}
@@ -63,14 +66,65 @@ func (m *EndpointConfigurationSpec) validateLabelConfiguration(formats strfmt.Re
 }
 
 func (m *EndpointConfigurationSpec) validateOptions(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Options) { // not required
 		return nil
 	}
 
-	if err := m.Options.Validate(formats); err != nil {
+	if m.Options != nil {
+		if err := m.Options.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("options")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("options")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint configuration spec based on the context it is used
+func (m *EndpointConfigurationSpec) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateLabelConfiguration(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateOptions(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointConfigurationSpec) contextValidateLabelConfiguration(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.LabelConfiguration != nil {
+		if err := m.LabelConfiguration.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("label-configuration")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("label-configuration")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointConfigurationSpec) contextValidateOptions(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Options.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("options")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("options")
 		}
 		return err
 	}

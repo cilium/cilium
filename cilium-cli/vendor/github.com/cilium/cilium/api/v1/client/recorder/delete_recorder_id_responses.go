@@ -44,7 +44,6 @@ func (o *DeleteRecorderIDReader) ReadResponse(response runtime.ClientResponse, c
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,14 +54,44 @@ func NewDeleteRecorderIDOK() *DeleteRecorderIDOK {
 	return &DeleteRecorderIDOK{}
 }
 
-/*DeleteRecorderIDOK handles this case with default header values.
+/*
+DeleteRecorderIDOK describes a response with status code 200, with default header values.
 
 Success
 */
 type DeleteRecorderIDOK struct {
 }
 
+// IsSuccess returns true when this delete recorder Id o k response has a 2xx status code
+func (o *DeleteRecorderIDOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this delete recorder Id o k response has a 3xx status code
+func (o *DeleteRecorderIDOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete recorder Id o k response has a 4xx status code
+func (o *DeleteRecorderIDOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete recorder Id o k response has a 5xx status code
+func (o *DeleteRecorderIDOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete recorder Id o k response a status code equal to that given
+func (o *DeleteRecorderIDOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *DeleteRecorderIDOK) Error() string {
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK ", 200)
+}
+
+func (o *DeleteRecorderIDOK) String() string {
 	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdOK ", 200)
 }
 
@@ -76,14 +105,44 @@ func NewDeleteRecorderIDNotFound() *DeleteRecorderIDNotFound {
 	return &DeleteRecorderIDNotFound{}
 }
 
-/*DeleteRecorderIDNotFound handles this case with default header values.
+/*
+DeleteRecorderIDNotFound describes a response with status code 404, with default header values.
 
 Recorder not found
 */
 type DeleteRecorderIDNotFound struct {
 }
 
+// IsSuccess returns true when this delete recorder Id not found response has a 2xx status code
+func (o *DeleteRecorderIDNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete recorder Id not found response has a 3xx status code
+func (o *DeleteRecorderIDNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete recorder Id not found response has a 4xx status code
+func (o *DeleteRecorderIDNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this delete recorder Id not found response has a 5xx status code
+func (o *DeleteRecorderIDNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this delete recorder Id not found response a status code equal to that given
+func (o *DeleteRecorderIDNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *DeleteRecorderIDNotFound) Error() string {
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound ", 404)
+}
+
+func (o *DeleteRecorderIDNotFound) String() string {
 	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdNotFound ", 404)
 }
 
@@ -97,7 +156,8 @@ func NewDeleteRecorderIDFailure() *DeleteRecorderIDFailure {
 	return &DeleteRecorderIDFailure{}
 }
 
-/*DeleteRecorderIDFailure handles this case with default header values.
+/*
+DeleteRecorderIDFailure describes a response with status code 500, with default header values.
 
 Recorder deletion failed
 */
@@ -105,7 +165,36 @@ type DeleteRecorderIDFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this delete recorder Id failure response has a 2xx status code
+func (o *DeleteRecorderIDFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this delete recorder Id failure response has a 3xx status code
+func (o *DeleteRecorderIDFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this delete recorder Id failure response has a 4xx status code
+func (o *DeleteRecorderIDFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this delete recorder Id failure response has a 5xx status code
+func (o *DeleteRecorderIDFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this delete recorder Id failure response a status code equal to that given
+func (o *DeleteRecorderIDFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *DeleteRecorderIDFailure) Error() string {
+	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure  %+v", 500, o.Payload)
+}
+
+func (o *DeleteRecorderIDFailure) String() string {
 	return fmt.Sprintf("[DELETE /recorder/{id}][%d] deleteRecorderIdFailure  %+v", 500, o.Payload)
 }
 

@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetFqdnNamesParams creates a new GetFqdnNamesParams object
-// with the default values initialized.
+// NewGetFqdnNamesParams creates a new GetFqdnNamesParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetFqdnNamesParams() *GetFqdnNamesParams {
-
 	return &GetFqdnNamesParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetFqdnNamesParamsWithTimeout creates a new GetFqdnNamesParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetFqdnNamesParamsWithTimeout(timeout time.Duration) *GetFqdnNamesParams {
-
 	return &GetFqdnNamesParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetFqdnNamesParamsWithContext creates a new GetFqdnNamesParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetFqdnNamesParamsWithContext(ctx context.Context) *GetFqdnNamesParams {
-
 	return &GetFqdnNamesParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetFqdnNamesParamsWithHTTPClient creates a new GetFqdnNamesParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetFqdnNamesParamsWithHTTPClient(client *http.Client) *GetFqdnNamesParams {
-
 	return &GetFqdnNamesParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetFqdnNamesParams contains all the parameters to send to the API endpoint
-for the get fqdn names operation typically these are written to a http.Request
+/*
+GetFqdnNamesParams contains all the parameters to send to the API endpoint
+
+	for the get fqdn names operation.
+
+	Typically these are written to a http.Request.
 */
 type GetFqdnNamesParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get fqdn names params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetFqdnNamesParams) WithDefaults() *GetFqdnNamesParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get fqdn names params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetFqdnNamesParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get fqdn names params

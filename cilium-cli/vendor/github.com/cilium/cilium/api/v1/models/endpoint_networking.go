@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -59,7 +60,6 @@ func (m *EndpointNetworking) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Addressing) { // not required
 		return nil
 	}
@@ -73,6 +73,8 @@ func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
 			if err := m.Addressing[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("addressing" + "." + strconv.Itoa(i))
 				}
 				return err
 			}
@@ -84,7 +86,6 @@ func (m *EndpointNetworking) validateAddressing(formats strfmt.Registry) error {
 }
 
 func (m *EndpointNetworking) validateHostAddressing(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.HostAddressing) { // not required
 		return nil
 	}
@@ -93,6 +94,62 @@ func (m *EndpointNetworking) validateHostAddressing(formats strfmt.Registry) err
 		if err := m.HostAddressing.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("host-addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-addressing")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint networking based on the context it is used
+func (m *EndpointNetworking) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateAddressing(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHostAddressing(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Addressing); i++ {
+
+		if m.Addressing[i] != nil {
+			if err := m.Addressing[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("addressing" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("addressing" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *EndpointNetworking) contextValidateHostAddressing(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.HostAddressing != nil {
+		if err := m.HostAddressing.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("host-addressing")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("host-addressing")
 			}
 			return err
 		}

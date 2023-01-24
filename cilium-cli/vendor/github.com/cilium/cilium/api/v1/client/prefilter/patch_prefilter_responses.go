@@ -44,7 +44,6 @@ func (o *PatchPrefilterReader) ReadResponse(response runtime.ClientResponse, con
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -55,7 +54,8 @@ func NewPatchPrefilterOK() *PatchPrefilterOK {
 	return &PatchPrefilterOK{}
 }
 
-/*PatchPrefilterOK handles this case with default header values.
+/*
+PatchPrefilterOK describes a response with status code 200, with default header values.
 
 Updated
 */
@@ -63,7 +63,36 @@ type PatchPrefilterOK struct {
 	Payload *models.Prefilter
 }
 
+// IsSuccess returns true when this patch prefilter o k response has a 2xx status code
+func (o *PatchPrefilterOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this patch prefilter o k response has a 3xx status code
+func (o *PatchPrefilterOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch prefilter o k response has a 4xx status code
+func (o *PatchPrefilterOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch prefilter o k response has a 5xx status code
+func (o *PatchPrefilterOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch prefilter o k response a status code equal to that given
+func (o *PatchPrefilterOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *PatchPrefilterOK) Error() string {
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK  %+v", 200, o.Payload)
+}
+
+func (o *PatchPrefilterOK) String() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterOK  %+v", 200, o.Payload)
 }
 
@@ -88,7 +117,8 @@ func NewPatchPrefilterInvalidCIDR() *PatchPrefilterInvalidCIDR {
 	return &PatchPrefilterInvalidCIDR{}
 }
 
-/*PatchPrefilterInvalidCIDR handles this case with default header values.
+/*
+PatchPrefilterInvalidCIDR describes a response with status code 461, with default header values.
 
 Invalid CIDR prefix
 */
@@ -96,7 +126,36 @@ type PatchPrefilterInvalidCIDR struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch prefilter invalid c Id r response has a 2xx status code
+func (o *PatchPrefilterInvalidCIDR) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch prefilter invalid c Id r response has a 3xx status code
+func (o *PatchPrefilterInvalidCIDR) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch prefilter invalid c Id r response has a 4xx status code
+func (o *PatchPrefilterInvalidCIDR) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this patch prefilter invalid c Id r response has a 5xx status code
+func (o *PatchPrefilterInvalidCIDR) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this patch prefilter invalid c Id r response a status code equal to that given
+func (o *PatchPrefilterInvalidCIDR) IsCode(code int) bool {
+	return code == 461
+}
+
 func (o *PatchPrefilterInvalidCIDR) Error() string {
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR  %+v", 461, o.Payload)
+}
+
+func (o *PatchPrefilterInvalidCIDR) String() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterInvalidCIdR  %+v", 461, o.Payload)
 }
 
@@ -119,7 +178,8 @@ func NewPatchPrefilterFailure() *PatchPrefilterFailure {
 	return &PatchPrefilterFailure{}
 }
 
-/*PatchPrefilterFailure handles this case with default header values.
+/*
+PatchPrefilterFailure describes a response with status code 500, with default header values.
 
 Prefilter update failed
 */
@@ -127,7 +187,36 @@ type PatchPrefilterFailure struct {
 	Payload models.Error
 }
 
+// IsSuccess returns true when this patch prefilter failure response has a 2xx status code
+func (o *PatchPrefilterFailure) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this patch prefilter failure response has a 3xx status code
+func (o *PatchPrefilterFailure) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this patch prefilter failure response has a 4xx status code
+func (o *PatchPrefilterFailure) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this patch prefilter failure response has a 5xx status code
+func (o *PatchPrefilterFailure) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this patch prefilter failure response a status code equal to that given
+func (o *PatchPrefilterFailure) IsCode(code int) bool {
+	return code == 500
+}
+
 func (o *PatchPrefilterFailure) Error() string {
+	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure  %+v", 500, o.Payload)
+}
+
+func (o *PatchPrefilterFailure) String() string {
 	return fmt.Sprintf("[PATCH /prefilter][%d] patchPrefilterFailure  %+v", 500, o.Payload)
 }
 

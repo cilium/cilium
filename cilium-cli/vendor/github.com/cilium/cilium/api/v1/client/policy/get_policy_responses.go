@@ -38,7 +38,6 @@ func (o *GetPolicyReader) ReadResponse(response runtime.ClientResponse, consumer
 			return nil, err
 		}
 		return nil, result
-
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -49,7 +48,8 @@ func NewGetPolicyOK() *GetPolicyOK {
 	return &GetPolicyOK{}
 }
 
-/*GetPolicyOK handles this case with default header values.
+/*
+GetPolicyOK describes a response with status code 200, with default header values.
 
 Success
 */
@@ -57,7 +57,36 @@ type GetPolicyOK struct {
 	Payload *models.Policy
 }
 
+// IsSuccess returns true when this get policy o k response has a 2xx status code
+func (o *GetPolicyOK) IsSuccess() bool {
+	return true
+}
+
+// IsRedirect returns true when this get policy o k response has a 3xx status code
+func (o *GetPolicyOK) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get policy o k response has a 4xx status code
+func (o *GetPolicyOK) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get policy o k response has a 5xx status code
+func (o *GetPolicyOK) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get policy o k response a status code equal to that given
+func (o *GetPolicyOK) IsCode(code int) bool {
+	return code == 200
+}
+
 func (o *GetPolicyOK) Error() string {
+	return fmt.Sprintf("[GET /policy][%d] getPolicyOK  %+v", 200, o.Payload)
+}
+
+func (o *GetPolicyOK) String() string {
 	return fmt.Sprintf("[GET /policy][%d] getPolicyOK  %+v", 200, o.Payload)
 }
 
@@ -82,14 +111,44 @@ func NewGetPolicyNotFound() *GetPolicyNotFound {
 	return &GetPolicyNotFound{}
 }
 
-/*GetPolicyNotFound handles this case with default header values.
+/*
+GetPolicyNotFound describes a response with status code 404, with default header values.
 
 No policy rules found
 */
 type GetPolicyNotFound struct {
 }
 
+// IsSuccess returns true when this get policy not found response has a 2xx status code
+func (o *GetPolicyNotFound) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get policy not found response has a 3xx status code
+func (o *GetPolicyNotFound) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get policy not found response has a 4xx status code
+func (o *GetPolicyNotFound) IsClientError() bool {
+	return true
+}
+
+// IsServerError returns true when this get policy not found response has a 5xx status code
+func (o *GetPolicyNotFound) IsServerError() bool {
+	return false
+}
+
+// IsCode returns true when this get policy not found response a status code equal to that given
+func (o *GetPolicyNotFound) IsCode(code int) bool {
+	return code == 404
+}
+
 func (o *GetPolicyNotFound) Error() string {
+	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound ", 404)
+}
+
+func (o *GetPolicyNotFound) String() string {
 	return fmt.Sprintf("[GET /policy][%d] getPolicyNotFound ", 404)
 }
 

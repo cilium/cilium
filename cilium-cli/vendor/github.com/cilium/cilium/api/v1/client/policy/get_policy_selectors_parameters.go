@@ -19,52 +19,68 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
-// NewGetPolicySelectorsParams creates a new GetPolicySelectorsParams object
-// with the default values initialized.
+// NewGetPolicySelectorsParams creates a new GetPolicySelectorsParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetPolicySelectorsParams() *GetPolicySelectorsParams {
-
 	return &GetPolicySelectorsParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetPolicySelectorsParamsWithTimeout creates a new GetPolicySelectorsParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetPolicySelectorsParamsWithTimeout(timeout time.Duration) *GetPolicySelectorsParams {
-
 	return &GetPolicySelectorsParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetPolicySelectorsParamsWithContext creates a new GetPolicySelectorsParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetPolicySelectorsParamsWithContext(ctx context.Context) *GetPolicySelectorsParams {
-
 	return &GetPolicySelectorsParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetPolicySelectorsParamsWithHTTPClient creates a new GetPolicySelectorsParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetPolicySelectorsParamsWithHTTPClient(client *http.Client) *GetPolicySelectorsParams {
-
 	return &GetPolicySelectorsParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetPolicySelectorsParams contains all the parameters to send to the API endpoint
-for the get policy selectors operation typically these are written to a http.Request
+/*
+GetPolicySelectorsParams contains all the parameters to send to the API endpoint
+
+	for the get policy selectors operation.
+
+	Typically these are written to a http.Request.
 */
 type GetPolicySelectorsParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get policy selectors params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicySelectorsParams) WithDefaults() *GetPolicySelectorsParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get policy selectors params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetPolicySelectorsParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get policy selectors params

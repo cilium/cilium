@@ -163,6 +163,14 @@ func (h *Handle) LinkSetGroup(link Link, group int) error {
 	return ErrNotImplemented
 }
 
+func (h *Handle) LinkSetGSOMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
+func (h *Handle) LinkSetGROMaxSize(link Link, maxSize int) error {
+	return ErrNotImplemented
+}
+
 func (h *Handle) setProtinfoAttr(link Link, mode bool, attr int) error {
 	return ErrNotImplemented
 }

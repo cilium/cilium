@@ -21,53 +21,54 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 )
 
-// NewGetEndpointParams creates a new GetEndpointParams object
-// with the default values initialized.
+// NewGetEndpointParams creates a new GetEndpointParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewGetEndpointParams() *GetEndpointParams {
-	var ()
 	return &GetEndpointParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewGetEndpointParamsWithTimeout creates a new GetEndpointParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewGetEndpointParamsWithTimeout(timeout time.Duration) *GetEndpointParams {
-	var ()
 	return &GetEndpointParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewGetEndpointParamsWithContext creates a new GetEndpointParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewGetEndpointParamsWithContext(ctx context.Context) *GetEndpointParams {
-	var ()
 	return &GetEndpointParams{
-
 		Context: ctx,
 	}
 }
 
 // NewGetEndpointParamsWithHTTPClient creates a new GetEndpointParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewGetEndpointParamsWithHTTPClient(client *http.Client) *GetEndpointParams {
-	var ()
 	return &GetEndpointParams{
 		HTTPClient: client,
 	}
 }
 
-/*GetEndpointParams contains all the parameters to send to the API endpoint
-for the get endpoint operation typically these are written to a http.Request
+/*
+GetEndpointParams contains all the parameters to send to the API endpoint
+
+	for the get endpoint operation.
+
+	Typically these are written to a http.Request.
 */
 type GetEndpointParams struct {
 
-	/*Labels
-	  List of labels
+	/* Labels.
 
+	   List of labels
 
 	*/
 	Labels models.Labels
@@ -75,6 +76,21 @@ type GetEndpointParams struct {
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the get endpoint params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointParams) WithDefaults() *GetEndpointParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the get endpoint params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *GetEndpointParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the get endpoint params
@@ -128,7 +144,6 @@ func (o *GetEndpointParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
-
 	if o.Labels != nil {
 		if err := r.SetBodyParam(o.Labels); err != nil {
 			return err

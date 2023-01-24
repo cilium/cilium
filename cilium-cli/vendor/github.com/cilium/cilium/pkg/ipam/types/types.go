@@ -482,3 +482,20 @@ func (m *InstanceMap) NumInstances() (size int) {
 	m.mutex.RUnlock()
 	return
 }
+
+// Exists returns whether the instance ID is in the instanceMap
+func (m *InstanceMap) Exists(instanceID string) (exists bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	if instance := m.data[instanceID]; instance != nil {
+		return true
+	}
+	return false
+}
+
+// Delete instance from m.data
+func (m *InstanceMap) Delete(instanceID string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	delete(m.data, instanceID)
+}

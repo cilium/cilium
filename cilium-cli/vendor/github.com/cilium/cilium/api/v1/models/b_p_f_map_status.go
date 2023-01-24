@@ -9,6 +9,7 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-openapi/errors"
@@ -19,7 +20,6 @@ import (
 // BPFMapStatus BPF map status
 //
 // +k8s:deepcopy-gen=true
-//
 //
 // swagger:model BPFMapStatus
 type BPFMapStatus struct {
@@ -46,7 +46,6 @@ func (m *BPFMapStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *BPFMapStatus) validateMaps(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Maps) { // not required
 		return nil
 	}
@@ -60,6 +59,42 @@ func (m *BPFMapStatus) validateMaps(formats strfmt.Registry) error {
 			if err := m.Maps[i].Validate(formats); err != nil {
 				if ve, ok := err.(*errors.Validation); ok {
 					return ve.ValidateName("maps" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("maps" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+// ContextValidate validate this b p f map status based on the context it is used
+func (m *BPFMapStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateMaps(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *BPFMapStatus) contextValidateMaps(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Maps); i++ {
+
+		if m.Maps[i] != nil {
+			if err := m.Maps[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("maps" + "." + strconv.Itoa(i))
+				} else if ce, ok := err.(*errors.CompositeError); ok {
+					return ce.ValidateName("maps" + "." + strconv.Itoa(i))
 				}
 				return err
 			}

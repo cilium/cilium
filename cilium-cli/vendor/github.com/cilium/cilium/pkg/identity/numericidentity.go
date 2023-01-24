@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -201,7 +202,7 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 type Configuration interface {
 	LocalClusterName() string
 	CiliumNamespaceName() string
-	LocalClusterID() int
+	LocalClusterID() uint32
 }
 
 // InitWellKnownIdentities establishes all well-known identities. Returns the
@@ -313,10 +314,14 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-operator
 	//   k8s:io.cilium/app=operator
+	//   k8s:app.kubernetes.io/part-of=cilium
+	//   k8s:app.kubernetes.io/name=cilium-operator
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	ciliumOperatorLabels := []string{
 		"k8s:name=cilium-operator",
 		"k8s:io.cilium/app=operator",
+		"k8s:app.kubernetes.io/part-of=cilium",
+		"k8s:app.kubernetes.io/name=cilium-operator",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
@@ -329,11 +334,15 @@ func InitWellKnownIdentities(c Configuration) int {
 	//   k8s:io.cilium.k8s.policy.cluster=default
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-operator
 	//   k8s:io.cilium/app=etcd-operator
+	//   k8s:app.kubernetes.io/name: cilium-etcd-operator
+	//   k8s:app.kubernetes.io/part-of: cilium
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
 	//   k8s:name=cilium-etcd-operator
 	ciliumEtcdOperatorLabels := []string{
 		"k8s:name=cilium-etcd-operator",
 		"k8s:io.cilium/app=etcd-operator",
+		"k8s:app.kubernetes.io/name: cilium-etcd-operator",
+		"k8s:app.kubernetes.io/part-of: cilium",
 		fmt.Sprintf("k8s:%s=%s", api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		fmt.Sprintf("k8s:%s=cilium-etcd-operator", api.PolicyLabelServiceAccount),
 		fmt.Sprintf("k8s:%s=%s", api.PolicyLabelCluster, c.LocalClusterName()),
@@ -445,9 +454,10 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 // NumericIdentity is the numeric representation of a security identity.
 //
 // Bits:
-//    0-15: identity identifier
-//   16-23: cluster identifier
-//      24: LocalIdentityFlag: Indicates that the identity has a local scope
+//
+//	 0-15: identity identifier
+//	16-23: cluster identifier
+//	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
@@ -512,16 +522,24 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 }
 
 // ClusterID returns the cluster ID associated with the identity
-func (id NumericIdentity) ClusterID() int {
-	return int((uint32(id) >> 16) & 0xFF)
+func (id NumericIdentity) ClusterID() uint32 {
+	return (uint32(id) >> 16) & 0xFF
 }
 
-// GetAllReservedIdentities returns a list of all reserved numeric identities.
+// GetAllReservedIdentities returns a list of all reserved numeric identities
+// in ascending order.
+// NOTE: While this func is unused from the cilium repository, is it imported
+// and called by the hubble cli.
 func GetAllReservedIdentities() []NumericIdentity {
-	identities := []NumericIdentity{}
+	identities := make([]NumericIdentity, 0, len(reservedIdentities))
 	for _, id := range reservedIdentities {
 		identities = append(identities, id)
 	}
+	// Because our reservedIdentities source is a go map, and go map order is
+	// randomized, we need to sort the resulting slice before returning it.
+	sort.Slice(identities, func(i, j int) bool {
+		return identities[i].Uint32() < identities[j].Uint32()
+	})
 	return identities
 }
 

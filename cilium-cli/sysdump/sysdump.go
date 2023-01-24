@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -434,7 +435,13 @@ func (c *Collector) Run() error {
 			Description: "Collecting Cilium egress NAT policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumEgressNATPolicies(ctx, metav1.ListOptions{})
+				gvr := schema.GroupVersionResource{
+					Group:    "cilium.io",
+					Version:  "v2alpha1",
+					Resource: "ciliumegressnatpolicies",
+				}
+				allNamespace := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, gvr, &allNamespace, metav1.ListOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to collect Cilium egress NAT policies: %w", err)
 				}

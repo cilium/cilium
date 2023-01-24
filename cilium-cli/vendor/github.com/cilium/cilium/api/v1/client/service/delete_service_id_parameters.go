@@ -20,59 +20,75 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// NewDeleteServiceIDParams creates a new DeleteServiceIDParams object
-// with the default values initialized.
+// NewDeleteServiceIDParams creates a new DeleteServiceIDParams object,
+// with the default timeout for this client.
+//
+// Default values are not hydrated, since defaults are normally applied by the API server side.
+//
+// To enforce default values in parameter, use SetDefaults or WithDefaults.
 func NewDeleteServiceIDParams() *DeleteServiceIDParams {
-	var ()
 	return &DeleteServiceIDParams{
-
 		timeout: cr.DefaultTimeout,
 	}
 }
 
 // NewDeleteServiceIDParamsWithTimeout creates a new DeleteServiceIDParams object
-// with the default values initialized, and the ability to set a timeout on a request
+// with the ability to set a timeout on a request.
 func NewDeleteServiceIDParamsWithTimeout(timeout time.Duration) *DeleteServiceIDParams {
-	var ()
 	return &DeleteServiceIDParams{
-
 		timeout: timeout,
 	}
 }
 
 // NewDeleteServiceIDParamsWithContext creates a new DeleteServiceIDParams object
-// with the default values initialized, and the ability to set a context for a request
+// with the ability to set a context for a request.
 func NewDeleteServiceIDParamsWithContext(ctx context.Context) *DeleteServiceIDParams {
-	var ()
 	return &DeleteServiceIDParams{
-
 		Context: ctx,
 	}
 }
 
 // NewDeleteServiceIDParamsWithHTTPClient creates a new DeleteServiceIDParams object
-// with the default values initialized, and the ability to set a custom HTTPClient for a request
+// with the ability to set a custom HTTPClient for a request.
 func NewDeleteServiceIDParamsWithHTTPClient(client *http.Client) *DeleteServiceIDParams {
-	var ()
 	return &DeleteServiceIDParams{
 		HTTPClient: client,
 	}
 }
 
-/*DeleteServiceIDParams contains all the parameters to send to the API endpoint
-for the delete service ID operation typically these are written to a http.Request
+/*
+DeleteServiceIDParams contains all the parameters to send to the API endpoint
+
+	for the delete service ID operation.
+
+	Typically these are written to a http.Request.
 */
 type DeleteServiceIDParams struct {
 
-	/*ID
-	  ID of service
+	/* ID.
 
+	   ID of service
 	*/
 	ID int64
 
 	timeout    time.Duration
 	Context    context.Context
 	HTTPClient *http.Client
+}
+
+// WithDefaults hydrates default values in the delete service ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteServiceIDParams) WithDefaults() *DeleteServiceIDParams {
+	o.SetDefaults()
+	return o
+}
+
+// SetDefaults hydrates default values in the delete service ID params (not the query body).
+//
+// All values with no default are reset to their zero value.
+func (o *DeleteServiceIDParams) SetDefaults() {
+	// no default values defined for this parameter
 }
 
 // WithTimeout adds the timeout to the delete service ID params

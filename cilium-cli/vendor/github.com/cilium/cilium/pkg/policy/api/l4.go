@@ -15,6 +15,7 @@ const (
 
 	ProtoTCP    L4Proto = "TCP"
 	ProtoUDP    L4Proto = "UDP"
+	ProtoSCTP   L4Proto = "SCTP"
 	ProtoICMP   L4Proto = "ICMP"
 	ProtoICMPv6 L4Proto = "ICMPV6"
 	ProtoAny    L4Proto = "ANY"
@@ -35,14 +36,14 @@ type PortProtocol struct {
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
-	// matches. Accepted values: "TCP", "UDP", ""/"ANY"
+	// matches. Accepted values: "TCP", "UDP", "SCTP", "ANY"
 	//
 	// Matching on ICMP is not supported.
 	//
 	// Named port specified for a container may narrow this down, but may not
 	// contradict this.
 	//
-	// +kubebuilder:validation:Enum=TCP;UDP;ANY
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;ANY
 	// +kubebuilder:validation:Optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }
@@ -111,6 +112,41 @@ type TLSContext struct {
 	PrivateKey string `json:"privateKey,omitempty"`
 }
 
+// EnvoyConfig defines a reference to a CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
+type EnvoyConfig struct {
+	// Kind is the resource type being referred to. Defaults to CiliumEnvoyConfig or
+	// CiliumClusterwideEnvoyConfig for CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy,
+	// respectively. The only case this is currently explicitly needed is when referring to a
+	// CiliumClusterwideEnvoyConfig from CiliumNetworkPolicy, as using a namespaced listener
+	// from a cluster scoped policy is not allowed.
+	//
+	// +kubebuilder:validation:Enum=CiliumEnvoyConfig;CiliumClusterwideEnvoyConfig
+	// +kubebuilder:validation:Optional
+	Kind string `json:"kind"`
+
+	// Name is the resource name of the CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig where
+	// the listener is defined in.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// Listener defines a reference to an Envoy listener specified in a CEC or CCEC resource.
+type Listener struct {
+	// EnvoyConfig is a reference to the CEC or CCNP resource in which
+	// the listener is defined.
+	//
+	// +kubebuilder:validation:Required
+	EnvoyConfig *EnvoyConfig `json:"envoyConfig"`
+
+	// Name is the name of the listener.
+	//
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
 // PortRule is a list of ports/protocol combinations with optional Layer 7
 // rules which must be met.
 type PortRule struct {
@@ -138,6 +174,19 @@ type PortRule struct {
 	//
 	// +kubebuilder:validation:Optional
 	OriginatingTLS *TLSContext `json:"originatingTLS,omitempty"`
+
+	// ServerNames is a list of allowed TLS SNI values. If not empty, then
+	// TLS must be present and one of the provided SNIs must be indicated in the
+	// TLS handshake.
+	//
+	// +kubebuilder:validation:Optional
+	ServerNames []string `json:"serverNames,omitempty"`
+
+	// listener specifies the name of a custom Envoy listener to which this traffic should be
+	// redirected to.
+	//
+	// +kubebuilder:validation:Optional
+	Listener *Listener `json:"listener,omitempty"`
 
 	// Rules is a list of additional port level rules which must be met in
 	// order for the PortRule to allow the traffic. If omitted or empty,
@@ -216,9 +265,9 @@ func (rules *L7Rules) Len() int {
 	return len(rules.HTTP) + len(rules.Kafka) + len(rules.DNS) + len(rules.L7)
 }
 
-// IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
+// IsEmpty returns whether the `L7Rules` is nil or contains no rules.
 func (rules *L7Rules) IsEmpty() bool {
-	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.DNS == nil && rules.L7 == nil)
+	return rules.Len() == 0
 }
 
 // PortRules is a slice of PortRule.

@@ -28,31 +28,33 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientOption is the option for Client methods
+type ClientOption func(*runtime.ClientOperation)
+
 // ClientService is the interface for Client methods
 type ClientService interface {
-	DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error)
+	DeleteServiceID(params *DeleteServiceIDParams, opts ...ClientOption) (*DeleteServiceIDOK, error)
 
-	GetLrp(params *GetLrpParams) (*GetLrpOK, error)
+	GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error)
 
-	GetService(params *GetServiceParams) (*GetServiceOK, error)
+	GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error)
 
-	GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error)
+	GetServiceID(params *GetServiceIDParams, opts ...ClientOption) (*GetServiceIDOK, error)
 
-	PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *PutServiceIDCreated, error)
+	PutServiceID(params *PutServiceIDParams, opts ...ClientOption) (*PutServiceIDOK, *PutServiceIDCreated, error)
 
 	SetTransport(transport runtime.ClientTransport)
 }
 
 /*
-  DeleteServiceID deletes a service
+DeleteServiceID deletes a service
 */
-func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error) {
+func (a *Client) DeleteServiceID(params *DeleteServiceIDParams, opts ...ClientOption) (*DeleteServiceIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewDeleteServiceIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "DeleteServiceID",
 		Method:             "DELETE",
 		PathPattern:        "/service/{id}",
@@ -63,7 +65,12 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceI
 		Reader:             &DeleteServiceIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -78,15 +85,14 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceI
 }
 
 /*
-  GetLrp retrieves list of all local redirect policies
+GetLrp retrieves list of all local redirect policies
 */
-func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
+func (a *Client) GetLrp(params *GetLrpParams, opts ...ClientOption) (*GetLrpOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetLrpParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetLrp",
 		Method:             "GET",
 		PathPattern:        "/lrp",
@@ -97,7 +103,12 @@ func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
 		Reader:             &GetLrpReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -112,15 +123,14 @@ func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
 }
 
 /*
-  GetService retrieves list of all services
+GetService retrieves list of all services
 */
-func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
+func (a *Client) GetService(params *GetServiceParams, opts ...ClientOption) (*GetServiceOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetServiceParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetService",
 		Method:             "GET",
 		PathPattern:        "/service",
@@ -131,7 +141,12 @@ func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 		Reader:             &GetServiceReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -146,15 +161,14 @@ func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 }
 
 /*
-  GetServiceID retrieves configuration of a service
+GetServiceID retrieves configuration of a service
 */
-func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error) {
+func (a *Client) GetServiceID(params *GetServiceIDParams, opts ...ClientOption) (*GetServiceIDOK, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewGetServiceIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "GetServiceID",
 		Method:             "GET",
 		PathPattern:        "/service/{id}",
@@ -165,7 +179,12 @@ func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, erro
 		Reader:             &GetServiceIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, err
 	}
@@ -180,15 +199,14 @@ func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, erro
 }
 
 /*
-  PutServiceID creates or update service
+PutServiceID creates or update service
 */
-func (a *Client) PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *PutServiceIDCreated, error) {
+func (a *Client) PutServiceID(params *PutServiceIDParams, opts ...ClientOption) (*PutServiceIDOK, *PutServiceIDCreated, error) {
 	// TODO: Validate the params before sending
 	if params == nil {
 		params = NewPutServiceIDParams()
 	}
-
-	result, err := a.transport.Submit(&runtime.ClientOperation{
+	op := &runtime.ClientOperation{
 		ID:                 "PutServiceID",
 		Method:             "PUT",
 		PathPattern:        "/service/{id}",
@@ -199,7 +217,12 @@ func (a *Client) PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *Put
 		Reader:             &PutServiceIDReader{formats: a.formats},
 		Context:            params.Context,
 		Client:             params.HTTPClient,
-	})
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
 	if err != nil {
 		return nil, nil, err
 	}

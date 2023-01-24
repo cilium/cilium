@@ -9,9 +9,12 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"context"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // EndpointStatus The current state and configuration of the endpoint, its policy & datapath, and subcomponents
@@ -51,7 +54,7 @@ type EndpointStatus struct {
 
 	// Current state of endpoint
 	// Required: true
-	State EndpointState `json:"state"`
+	State *EndpointState `json:"state"`
 }
 
 // Validate validates this endpoint status
@@ -109,7 +112,6 @@ func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Controllers) { // not required
 		return nil
 	}
@@ -117,6 +119,8 @@ func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
 	if err := m.Controllers.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("controllers")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("controllers")
 		}
 		return err
 	}
@@ -125,7 +129,6 @@ func (m *EndpointStatus) validateControllers(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.ExternalIdentifiers) { // not required
 		return nil
 	}
@@ -134,6 +137,8 @@ func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) er
 		if err := m.ExternalIdentifiers.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("external-identifiers")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("external-identifiers")
 			}
 			return err
 		}
@@ -143,7 +148,6 @@ func (m *EndpointStatus) validateExternalIdentifiers(formats strfmt.Registry) er
 }
 
 func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Health) { // not required
 		return nil
 	}
@@ -152,6 +156,8 @@ func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
 		if err := m.Health.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("health")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("health")
 			}
 			return err
 		}
@@ -161,7 +167,6 @@ func (m *EndpointStatus) validateHealth(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Identity) { // not required
 		return nil
 	}
@@ -170,6 +175,8 @@ func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
 		if err := m.Identity.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("identity")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("identity")
 			}
 			return err
 		}
@@ -179,7 +186,6 @@ func (m *EndpointStatus) validateIdentity(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Labels) { // not required
 		return nil
 	}
@@ -188,6 +194,8 @@ func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
 		if err := m.Labels.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("labels")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("labels")
 			}
 			return err
 		}
@@ -197,7 +205,6 @@ func (m *EndpointStatus) validateLabels(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Log) { // not required
 		return nil
 	}
@@ -205,6 +212,8 @@ func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
 	if err := m.Log.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("log")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("log")
 		}
 		return err
 	}
@@ -213,7 +222,6 @@ func (m *EndpointStatus) validateLog(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.NamedPorts) { // not required
 		return nil
 	}
@@ -221,6 +229,8 @@ func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
 	if err := m.NamedPorts.Validate(formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
 			return ve.ValidateName("namedPorts")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("namedPorts")
 		}
 		return err
 	}
@@ -229,7 +239,6 @@ func (m *EndpointStatus) validateNamedPorts(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Networking) { // not required
 		return nil
 	}
@@ -238,6 +247,8 @@ func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
 		if err := m.Networking.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("networking")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("networking")
 			}
 			return err
 		}
@@ -247,7 +258,6 @@ func (m *EndpointStatus) validateNetworking(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Policy) { // not required
 		return nil
 	}
@@ -256,6 +266,8 @@ func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
 		if err := m.Policy.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("policy")
 			}
 			return err
 		}
@@ -265,7 +277,6 @@ func (m *EndpointStatus) validatePolicy(formats strfmt.Registry) error {
 }
 
 func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
-
 	if swag.IsZero(m.Realized) { // not required
 		return nil
 	}
@@ -274,6 +285,8 @@ func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
 		if err := m.Realized.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
 			}
 			return err
 		}
@@ -284,11 +297,247 @@ func (m *EndpointStatus) validateRealized(formats strfmt.Registry) error {
 
 func (m *EndpointStatus) validateState(formats strfmt.Registry) error {
 
-	if err := m.State.Validate(formats); err != nil {
+	if err := validate.Required("state", "body", m.State); err != nil {
+		return err
+	}
+
+	if err := validate.Required("state", "body", m.State); err != nil {
+		return err
+	}
+
+	if m.State != nil {
+		if err := m.State.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ContextValidate validate this endpoint status based on the context it is used
+func (m *EndpointStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateControllers(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateExternalIdentifiers(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateHealth(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateIdentity(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateLabels(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateLog(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNamedPorts(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateNetworking(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidatePolicy(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateRealized(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateState(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateControllers(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Controllers.ContextValidate(ctx, formats); err != nil {
 		if ve, ok := err.(*errors.Validation); ok {
-			return ve.ValidateName("state")
+			return ve.ValidateName("controllers")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("controllers")
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateExternalIdentifiers(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.ExternalIdentifiers != nil {
+		if err := m.ExternalIdentifiers.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("external-identifiers")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("external-identifiers")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateHealth(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Health != nil {
+		if err := m.Health.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("health")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("health")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateIdentity(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Identity != nil {
+		if err := m.Identity.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("identity")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("identity")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateLabels(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Labels != nil {
+		if err := m.Labels.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("labels")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("labels")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateLog(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.Log.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("log")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("log")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateNamedPorts(ctx context.Context, formats strfmt.Registry) error {
+
+	if err := m.NamedPorts.ContextValidate(ctx, formats); err != nil {
+		if ve, ok := err.(*errors.Validation); ok {
+			return ve.ValidateName("namedPorts")
+		} else if ce, ok := err.(*errors.CompositeError); ok {
+			return ce.ValidateName("namedPorts")
+		}
+		return err
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateNetworking(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Networking != nil {
+		if err := m.Networking.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("networking")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("networking")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidatePolicy(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Policy != nil {
+		if err := m.Policy.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("policy")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("policy")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateRealized(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Realized != nil {
+		if err := m.Realized.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("realized")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("realized")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateState(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.State != nil {
+		if err := m.State.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("state")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("state")
+			}
+			return err
+		}
 	}
 
 	return nil

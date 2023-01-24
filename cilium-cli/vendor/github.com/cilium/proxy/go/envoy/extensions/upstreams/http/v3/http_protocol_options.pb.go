@@ -40,35 +40,36 @@ const _ = proto.ProtoPackageIsVersion4
 //
 // .. code::
 //
-//   clusters:
-//     - name: some_service
-//       connect_timeout: 5s
-//       upstream_http_protocol_options:
-//         auto_sni: true
-//       common_http_protocol_options:
-//         idle_timeout: 1s
-//       http2_protocol_options:
-//         max_concurrent_streams: 100
-//        .... [further cluster config]
+//	clusters:
+//	  - name: some_service
+//	    connect_timeout: 5s
+//	    upstream_http_protocol_options:
+//	      auto_sni: true
+//	    common_http_protocol_options:
+//	      idle_timeout: 1s
+//	    http2_protocol_options:
+//	      max_concurrent_streams: 100
+//	     .... [further cluster config]
 //
 // Would now look like this:
 //
 // .. code::
 //
-//   clusters:
-//     - name: some_service
-//       connect_timeout: 5s
-//       typed_extension_protocol_options:
-//         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-//           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-//           upstream_http_protocol_options:
-//             auto_sni: true
-//           common_http_protocol_options:
-//             idle_timeout: 1s
-//           explicit_http_config:
-//             http2_protocol_options:
-//               max_concurrent_streams: 100
-//        .... [further cluster config]
+//	clusters:
+//	  - name: some_service
+//	    connect_timeout: 5s
+//	    typed_extension_protocol_options:
+//	      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+//	        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+//	        upstream_http_protocol_options:
+//	          auto_sni: true
+//	        common_http_protocol_options:
+//	          idle_timeout: 1s
+//	        explicit_http_config:
+//	          http2_protocol_options:
+//	            max_concurrent_streams: 100
+//	     .... [further cluster config]
+//
 // [#next-free-field: 6]
 type HttpProtocolOptions struct {
 	state         protoimpl.MessageState
@@ -82,6 +83,7 @@ type HttpProtocolOptions struct {
 	// This controls the actual protocol to be used upstream.
 	//
 	// Types that are assignable to UpstreamProtocolOptions:
+	//
 	//	*HttpProtocolOptions_ExplicitHttpConfig_
 	//	*HttpProtocolOptions_UseDownstreamProtocolConfig
 	//	*HttpProtocolOptions_AutoConfig
@@ -198,6 +200,7 @@ type HttpProtocolOptions_ExplicitHttpConfig struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ProtocolConfig:
+	//
 	//	*HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions
 	//	*HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions
 	//	*HttpProtocolOptions_ExplicitHttpConfig_Http3ProtocolOptions
@@ -278,8 +281,9 @@ type HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions struct {
 
 type HttpProtocolOptions_ExplicitHttpConfig_Http3ProtocolOptions struct {
 	// .. warning::
-	//   QUIC support is currently alpha and should be used with caution. Please
-	//   see :ref:`here <arch_overview_http3>` for details.
+	//
+	//	QUIC support is currently alpha and should be used with caution. Please
+	//	see :ref:`here <arch_overview_http3>` for details.
 	Http3ProtocolOptions *v3.Http3ProtocolOptions `protobuf:"bytes,3,opt,name=http3_protocol_options,json=http3ProtocolOptions,proto3,oneof"`
 }
 
@@ -305,8 +309,9 @@ type HttpProtocolOptions_UseDownstreamHttpConfig struct {
 	HttpProtocolOptions  *v3.Http1ProtocolOptions `protobuf:"bytes,1,opt,name=http_protocol_options,json=httpProtocolOptions,proto3" json:"http_protocol_options,omitempty"`
 	Http2ProtocolOptions *v3.Http2ProtocolOptions `protobuf:"bytes,2,opt,name=http2_protocol_options,json=http2ProtocolOptions,proto3" json:"http2_protocol_options,omitempty"`
 	// .. warning::
-	//   QUIC support is currently alpha and should be used with caution. Please
-	//   see :ref:`here <arch_overview_http3>` for details.
+	//
+	//	QUIC support is currently alpha and should be used with caution. Please
+	//	see :ref:`here <arch_overview_http3>` for details.
 	Http3ProtocolOptions *v3.Http3ProtocolOptions `protobuf:"bytes,3,opt,name=http3_protocol_options,json=http3ProtocolOptions,proto3" json:"http3_protocol_options,omitempty"`
 }
 
@@ -386,10 +391,11 @@ type HttpProtocolOptions_AutoHttpConfig struct {
 	// when HTTP/3 will be used, and when Envoy will fail over to TCP.
 	//
 	// .. warning::
-	//   QUIC support is currently alpha and should be used with caution. Please
-	//   see :ref:`here <arch_overview_http3>` for details.
-	//   AutoHttpConfig config is undergoing especially rapid change and as it
-	//   is alpha is not guaranteed to be API-stable.
+	//
+	//	QUIC support is currently alpha and should be used with caution. Please
+	//	see :ref:`here <arch_overview_http3>` for details.
+	//	AutoHttpConfig config is undergoing especially rapid change and as it
+	//	is alpha is not guaranteed to be API-stable.
 	Http3ProtocolOptions *v3.Http3ProtocolOptions `protobuf:"bytes,3,opt,name=http3_protocol_options,json=http3ProtocolOptions,proto3" json:"http3_protocol_options,omitempty"`
 	// The presence of alternate protocols cache options causes the use of the
 	// alternate protocols cache, which is responsible for parsing and caching
@@ -397,7 +403,8 @@ type HttpProtocolOptions_AutoHttpConfig struct {
 	// advertise supporting it.
 	//
 	// .. note::
-	//   This is required when HTTP/3 is enabled.
+	//
+	//	This is required when HTTP/3 is enabled.
 	AlternateProtocolsCacheOptions *v3.AlternateProtocolsCacheOptions `protobuf:"bytes,4,opt,name=alternate_protocols_cache_options,json=alternateProtocolsCacheOptions,proto3" json:"alternate_protocols_cache_options,omitempty"`
 }
 
