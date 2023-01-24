@@ -205,6 +205,22 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
 
+	// Test if disabling the --install-egress-gateway-routes agent option
+	// will result in stale IP routes/rules getting removed
+	egressGatewayManager.installRoutes = false
+	egressGatewayManager.reconcile()
+
+	assertIPRules(c, []ipRule{})
+
+	// Enabling it back should result in the routes/rules being in place
+	// again
+	egressGatewayManager.installRoutes = true
+	egressGatewayManager.reconcile()
+
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
+	})
+
 	// Update the endpoint labels in order for it to not be a match
 	_ = updateEndpointAndIdentity(&ep1, id1, map[string]string{})
 	egressGatewayManager.OnUpdateEndpoint(&ep1)
