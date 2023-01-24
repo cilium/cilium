@@ -161,6 +161,8 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		}
 		c.log("🔮 Detected Cilium installation in namespace %q", ns)
 		c.Options.CiliumNamespace = ns
+	} else {
+		c.log("ℹ️  Cilium namespace: %s", c.Options.CiliumNamespace)
 	}
 
 	if c.Options.CiliumOperatorNamespace == "" {
@@ -168,8 +170,10 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		if err != nil {
 			return nil, err
 		}
-		c.log("Detected Cilium operator in namespace %q", ns)
+		c.log("🔮 Detected Cilium operator in namespace %q", ns)
 		c.Options.CiliumOperatorNamespace = ns
+	} else {
+		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
 	}
 
 	// Grab the Kubernetes nodes for the target cluster.
