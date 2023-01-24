@@ -468,6 +468,7 @@ jenkinsfiles @cilium/ci-structure
 /test/k8s/datapath_configuration.go @cilium/sig-datapath @cilium/ci-structure
 /test/k8s/verifier.go @cilium/loader @cilium/ci-structure
 /test/runtime/connectivity.go @cilium/sig-datapath @cilium/ci-structure
+/test/verifier @cilium/loader @cilium/ci-structure
 # Policy tests
 /test/k8s/net_policies.go @cilium/sig-policy @cilium/ci-structure
 /test/runtime/net_policies.go @cilium/sig-policy @cilium/ci-structure
