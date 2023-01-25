@@ -361,7 +361,7 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 					   const struct ipv6hdr *ip6 __maybe_unused,
 					   const union v6addr *svc_addr __maybe_unused,
-					   __u16 dport __maybe_unused,
+					   __be16 dport __maybe_unused,
 					   int code, int ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -467,12 +467,12 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
-	__u16 port __maybe_unused;
 	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr;
 	__s8 ext_err = 0;
+	__be16 port;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -484,7 +484,8 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	addr.p3 = ctx_load_meta(ctx, CB_ADDR_V6_3);
 	addr.p4 = ctx_load_meta(ctx, CB_ADDR_V6_4);
 
-	port = (__u16)ctx_load_meta(ctx, CB_PORT);
+	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip6(ctx, ip6, &addr,
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
@@ -1494,8 +1495,8 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 					   struct iphdr *ip4 __maybe_unused,
-					   __u32 svc_addr __maybe_unused,
-					   __u16 dport __maybe_unused,
+					   __be32 svc_addr __maybe_unused,
+					   __be16 dport __maybe_unused,
 					   int code, __be16 ohead __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -1615,17 +1616,18 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret, oif = 0;
-	__u32 addr;
-	__u16 port;
 	__be16 ohead = 0;
 	__s8 ext_err = 0;
+	__be32 addr;
+	__be16 port;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 	addr = ctx_load_meta(ctx, CB_ADDR_V4);
-	port = (__u16)ctx_load_meta(ctx, CB_PORT);
+	port = (__be16)ctx_load_meta(ctx, CB_PORT);
+
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	ret = dsr_set_ipip4(ctx, ip4,
 			    addr,
