@@ -110,3 +110,32 @@ Deploying a Simple Example Service
       kubectl exec -ti deployment/x-wing -- curl rebel-base
 
    You will see replies from pods in both clusters again.
+
+Global and Shared Services Reference
+####################################
+
+The flow chart below summarizes the overall behavior considering a service present
+in two clusters (i.e., Cluster1 and Cluster2), and different combinations of the
+``io.cilium/global-service`` and ``io.cilium/shared-service`` annotation values.
+The terminating nodes represent the endpoints used in each combination by the two
+clusters for the service under examination.
+
+.. image:: images/services_flowchart.svg
+
+..
+   The flow chart was generated on https://mermaid.live with code:
+
+   flowchart LR
+      Cluster1Global{Cluster1\nGlobal?}-->|yes|Cluster2Global{Cluster2\nGlobal?}
+      Cluster2Global-->|yes|Cluster1Shared{Cluster1\nShared?}
+
+      Cluster1Shared-->|yes|Cluster2Shared{Cluster2\nShared?}
+      Cluster2Shared-->|yes|Cluster1BothCluster2Both[Cluster1: Local + Remote\nCluster2: Local + Remote]
+      Cluster2Shared-->|no|Cluster1SelfClusterBoth[Cluster1: Local only\nCluster2: Local + Remote]
+
+      Cluster1Shared-->|no|Cluster2Shared2{Cluster2\nShared?}
+      Cluster2Shared2-->|yes|Cluster1BothCluster2Self[Cluster1: Local + Remote\nCluster2: Local only]
+      Cluster2Shared2-->|no|Cluster1SelfCluster2Self[Cluster1: Local only\nCluster2: Local only]
+
+      Cluster1Global-->|no|Cluster1SelfCluster2Self
+      Cluster2Global-->|no|Cluster1SelfCluster2Self
