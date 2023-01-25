@@ -91,7 +91,7 @@ func (o *testObserver) OnDelete(k store.NamedKey) {
 
 func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	kvstore.SetupDummy("etcd")
-	defer kvstore.Client().Close()
+	defer kvstore.Client().Close(context.TODO())
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
