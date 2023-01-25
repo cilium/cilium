@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 func CiliumHealth() check.Scenario {
@@ -43,7 +44,7 @@ func runHealthProbe(ctx context.Context, t *check.ConnectivityTest, pod *check.P
 	for {
 		retryTimer := time.After(time.Second)
 
-		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, "", cmd)
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
 			t.Warnf("cilium-health probe failed: %q, stdout: %q, retrying...", err, stdout)
 			continue
