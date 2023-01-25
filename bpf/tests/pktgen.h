@@ -37,7 +37,7 @@ static volatile const __u8 mac_six[] =   {0x08, 0x14, 0x1C, 0x32, 0x52, 0x7E};
  *  having to come up with custom ips.
  */
 
-#define IPV4(a, b, c, d) (((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
+#define IPV4(a, b, c, d) __bpf_htonl(((d) << 24) + ((c) << 16) + ((b) << 8) + (a))
 
 /* IPv4 addresses for hosts, external to the cluster */
 #define v4_ext_one	IPV4(110, 0, 11, 1)
