@@ -216,7 +216,7 @@ jobs:
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
-            --helm-set=bpf.masquerade=false"
+            --helm-set=bpf.hostLegacyRouting=true"
           TUNNEL="--helm-set-string=tunnel=vxlan"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
