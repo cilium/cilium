@@ -167,7 +167,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
 				}
 
-				backend, errChan := kvstore.NewClient(context.TODO(), kvstore.EtcdBackendName,
+				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					}, &extraOpts)
@@ -213,7 +213,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					},
 				})
 				if err != nil {
-					remoteNodes.Close(context.TODO())
+					remoteNodes.Close(ctx)
 					backend.Close()
 					return err
 				}
@@ -221,8 +221,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 
 				remoteIdentityCache, err := allocator.WatchRemoteIdentities(backend)
 				if err != nil {
-					remoteServices.Close(context.TODO())
-					remoteNodes.Close(context.TODO())
+					remoteServices.Close(ctx)
+					remoteNodes.Close(ctx)
 					backend.Close()
 					return err
 				}
