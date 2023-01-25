@@ -152,7 +152,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 			remoteServices.Close(context.TODO())
 		}
 		if backend != nil {
-			backend.Close()
+			backend.Close(context.TODO())
 		}
 	}()
 }
@@ -176,7 +176,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				err, isErr := <-errChan
 				if isErr {
 					if backend != nil {
-						backend.Close()
+						backend.Close(ctx)
 					}
 					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluster")
 					return err
@@ -208,7 +208,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					Observer:                rc.mesh.conf.NodeObserver(),
 				})
 				if err != nil {
-					backend.Close()
+					backend.Close(ctx)
 					return err
 				}
 
@@ -228,7 +228,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				})
 				if err != nil {
 					remoteNodes.Close(ctx)
-					backend.Close()
+					backend.Close(ctx)
 					return err
 				}
 				rc.swg.Stop()
@@ -237,7 +237,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				if err != nil {
 					remoteServices.Close(ctx)
 					remoteNodes.Close(ctx)
-					backend.Close()
+					backend.Close(ctx)
 					return err
 				}
 

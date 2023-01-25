@@ -28,7 +28,7 @@ func (e *ConsulSuite) SetUpTest(c *C) {
 }
 
 func (e *ConsulSuite) TearDownTest(c *C) {
-	Client().Close()
+	Client().Close(context.TODO())
 }
 
 var handler http.HandlerFunc
