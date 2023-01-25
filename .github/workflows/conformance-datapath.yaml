@@ -301,7 +301,7 @@ jobs:
             cd /host/
             ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }} \
-              --encryption=${{ matrix.encryption }} --node-encryption=${{ matrix.encryption-node }}"
+              --encryption=${{ matrix.encryption }} --node-encryption=${{ matrix.encryption-node }}
 
             ./cilium-cli status --wait
             ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
