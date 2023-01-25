@@ -712,11 +712,6 @@ func SkipQuarantined() bool {
 	return !config.CiliumTestConfig.RunQuarantined
 }
 
-// SkipGKEQuarantined returns whether test under quarantine on GKE should be skipped
-func SkipGKEQuarantined() bool {
-	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
-}
-
 // SkipRaceDetectorEnabled returns whether tests failing with race detector
 // enabled should be skipped.
 func SkipRaceDetectorEnabled() bool {
