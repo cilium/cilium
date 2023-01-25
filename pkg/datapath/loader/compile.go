@@ -218,7 +218,7 @@ func pidFromProcess(proc *os.Process) string {
 
 // compileAndLink links the specified program from the specified path to the
 // intermediate representation, to the output specified in the prog's info.
-func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool, compileArgs ...string) error {
+func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, compileArgs ...string) error {
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
 	defer cancelCompile()
 	compilerStdout, compilerStderr, err := prepareCmdPipes(compileCmd)
@@ -257,13 +257,9 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 		}
 
 		if compileOut != nil {
-			scopedLog := log.Warn
-			if debug {
-				scopedLog = log.Debug
-			}
 			scanner := bufio.NewScanner(bytes.NewReader(compileOut))
 			for scanner.Scan() {
-				scopedLog(scanner.Text())
+				log.Warn(scanner.Text())
 			}
 		}
 	}
@@ -315,10 +311,8 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 	case outputSource:
 		compileCmd := exec.CommandContext(ctx, compiler, args...)
 		_, err = compileCmd.CombinedOutput(log, true)
-	case outputObject:
-		err = compileAndLink(ctx, prog, dir, true, args...)
-	case outputAssembly:
-		err = compileAndLink(ctx, prog, dir, false, args...)
+	case outputObject, outputAssembly:
+		err = compileAndLink(ctx, prog, dir, args...)
 	default:
 		log.Fatalf("Unhandled progInfo.OutputType %s", prog.OutputType)
 	}
