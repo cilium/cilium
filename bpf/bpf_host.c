@@ -550,7 +550,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
-			int ret = nodeport_lb4(ctx, secctx, ext_err);
+			int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, secctx, ext_err);
 
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);

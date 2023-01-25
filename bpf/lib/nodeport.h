@@ -2178,29 +2178,26 @@ drop_err:
  * iii) reply from remote backend EP.
  */
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
+					struct iphdr *ip4,
+					int l3_off,
 					__u32 src_sec_identity,
 					__s8 *ext_err)
 {
 	bool backend_local, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
-	int ret,  l3_off = ETH_HLEN, l4_off;
 	bool is_svc_proto = true;
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	__u32 cluster_id = 0;
 	__u32 monitor = 0;
+	int ret, l4_off;
 
 	cilium_capture_in(ctx);
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE) {
 			is_svc_proto = false;
