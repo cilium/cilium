@@ -28,6 +28,7 @@ by the "janitor role" which is rotated between all committers.
  * [Beatriz Martínez] (Isovalent)
  * [Bill Mulligan] (Isovalent)
  * [Bruno M. Custódio] (Isovalent)
+ * [Casey Callendrello] (Isovalent)
  * [Chance Zibolski] (Isovalent)
  * [Chris Tarazi] (Isovalent)
  * [Daniel Borkmann] (Isovalent)
@@ -82,6 +83,7 @@ project.
 [Beatriz Martínez]: https://github.com/b3a-dev
 [Bill Mulligan]: https://github.com/xmulligan
 [Bruno M. Custódio]: https://github.com/bmcustodio
+[Casey Callendrello]: https://github.com/squeed
 [Chance Zibolski]: https://github.com/chancez
 [Chris Tarazi]: https://github.com/christarazi
 [Daniel Borkmann]: https://github.com/borkmann
