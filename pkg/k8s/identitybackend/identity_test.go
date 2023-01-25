@@ -110,6 +110,9 @@ func createCiliumIdentity(id int, labels map[string]string) v2.CiliumIdentity {
 	return v2.CiliumIdentity{
 		ObjectMeta: v1.ObjectMeta{
 			Name: strconv.Itoa(id),
+			CreationTimestamp: v1.Time{
+				Time: time.Now(),
+			},
 		},
 		SecurityLabels: getLabelsMap(labels),
 	}
