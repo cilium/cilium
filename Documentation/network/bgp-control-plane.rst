@@ -249,7 +249,7 @@ the ingress IPs of any LoadBalancer services that matches the ``.serviceSelector
 of the virtual router.
 
 If you wish to announce ALL services within the cluster, a ``NotIn`` match expression 
-without values can be used like:
+with a dummy key and value can be used like:
 
 .. code-block:: yaml
 
@@ -261,7 +261,7 @@ without values can be used like:
       # [...]
       serviceSelector:
          matchExpressions:
-            - {key: somekey, operator: NotIn, values: []}
+            - {key: somekey, operator: NotIn, values: ['never-used-value']}
 
 There are a few special purpose selector fields which don't match on labels but
 instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
