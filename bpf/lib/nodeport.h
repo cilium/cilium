@@ -52,19 +52,6 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
-static __always_inline bool
-bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
-{
-	/* From XDP layer, we do not go through an egress hook from
-	 * here, hence nothing to be skipped.
-	 */
-#if __ctx_is == __ctx_skb
-	return ctx->tc_index & TC_INDEX_F_SKIP_RECIRCULATION;
-#else
-	return false;
-#endif
-}
-
 static __always_inline __u64 ctx_adjust_hroom_dsr_flags(void)
 {
 #ifdef HAVE_CSUM_LEVEL
@@ -1162,9 +1149,6 @@ skip_rev_dnat:
 	}
 
 out:
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	return DROP_MISSED_TAIL_CALL;
@@ -2261,9 +2245,6 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 	}
 
 out:
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	return DROP_MISSED_TAIL_CALL;

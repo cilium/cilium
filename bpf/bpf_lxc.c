@@ -378,17 +378,8 @@ ct_recreate6:
 			ret = xlate_dsr_v6(ctx, tuple, l4_off);
 			if (ret != 0)
 				return ret;
-		} else
-# endif /* ENABLE_DSR */
-		/* See comment in handle_ipv4_from_lxc(). */
-		if (ct_state->node_port) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0,
-					  trace.reason, trace.monitor);
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-			return DROP_MISSED_TAIL_CALL;
 		}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state->rev_nat_index) {
@@ -882,21 +873,8 @@ ct_recreate4:
 			ret = xlate_dsr_v4(ctx, tuple, l4_off, has_l4_header);
 			if (ret != 0)
 				return ret;
-		} else
-# endif /* ENABLE_DSR */
-		/* This handles reply traffic for the case where the nodeport EP
-		 * is local to the node. We'll do the tail call to perform
-		 * the reverse DNAT.
-		 */
-		if (ct_state->node_port) {
-			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
-					  *dst_id, 0, 0,
-					  trace.reason, trace.monitor);
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-			return DROP_MISSED_TAIL_CALL;
 		}
-
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state->rev_nat_index) {
@@ -1433,9 +1411,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
+# ifdef ENABLE_DSR
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
-# ifdef ENABLE_DSR
 		int ret2;
 
 		ret2 = handle_dsr_v6(ctx, &dsr);
@@ -1445,19 +1423,8 @@ skip_policy_enforcement:
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
 			ct_update6_dsr(get_ct_map6(tuple), tuple, dsr);
-# endif /* ENABLE_DSR */
-		if (!dsr) {
-			bool node_port =
-				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
-							      tuple);
-
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map6(tuple), tuple,
-						   node_port);
-		}
 	}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 	if (ret == CT_NEW) {
@@ -1767,9 +1734,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
+# ifdef ENABLE_DSR
 	if (ret == CT_NEW || ret == CT_REOPENED) {
 		bool dsr = false;
-# ifdef ENABLE_DSR
 		int ret2;
 
 		ret2 = handle_dsr_v4(ctx, &dsr);
@@ -1779,19 +1746,8 @@ skip_policy_enforcement:
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
 			ct_update4_dsr(get_ct_map4(tuple), tuple, dsr);
-# endif /* ENABLE_DSR */
-		if (!dsr) {
-			bool node_port =
-				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-							      tuple);
-
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map4(tuple), tuple,
-						   node_port);
-		}
 	}
+# endif /* ENABLE_DSR */
 #endif /* ENABLE_NODEPORT */
 
 	if (ret == CT_NEW) {
