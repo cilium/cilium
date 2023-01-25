@@ -163,7 +163,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
-            lb-mode: 'dsr'
+            lb-mode: 'snat'
             endpoint-routes: 'true'
 
           - name: '6'
@@ -182,7 +182,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
-            lb-mode: 'dsr'
+            lb-mode: 'snat'
 
     timeout-minutes: 60
     steps:
