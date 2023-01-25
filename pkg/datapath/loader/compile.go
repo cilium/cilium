@@ -254,13 +254,9 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 			"linker-pid":   pidFromProcess(linkCmd.Process),
 		}).Error(err)
 		if compileOut != nil {
-			scopedLog := log.Warn
-			if debug {
-				scopedLog = log.Debug
-			}
 			scanner := bufio.NewScanner(bytes.NewReader(compileOut))
 			for scanner.Scan() {
-				scopedLog(scanner.Text())
+				log.Warn(scanner.Text())
 			}
 		}
 	}
