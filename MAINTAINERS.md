@@ -55,7 +55,6 @@ by the "janitor role" which is rotated between all committers.
  * [Nirmoy Das] (AMD)
  * [Paul Chaignon] (Isovalent)
  * [Quentin Monnet] (Isovalent)
- * [Ray Bejjani]
  * [Robin Hahling] (Isovalent)
  * [Tam Mach] (Isovalent)
  * [Thomas Graf] (Isovalent)
@@ -73,6 +72,7 @@ by the "janitor role" which is rotated between all committers.
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
  * [Ilya Dmitrichenko] (Docker)
+ * [Ray Bejjani]
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
