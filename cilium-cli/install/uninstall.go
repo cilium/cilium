@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/workerpool"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -26,6 +27,7 @@ type UninstallParameters struct {
 	HelmValuesSecretName string
 	RedactHelmCertKeys   bool
 	HelmChartDirectory   string
+	WorkerCount          int
 }
 
 type K8sUninstaller struct {
@@ -48,6 +50,8 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.autodetect(ctx)
 
+	k.Log("🔥 Enabling CNI cleanup...")
+	k.enableCNIUninstall(ctx)
 	k.Log("🔥 Deleting agent DaemonSet...")
 	k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{})
 	// We need to wait for daemonset to be deleted before proceeding with further cleanups
@@ -140,4 +144,31 @@ func (k *K8sUninstaller) waitForPodsToBeDeleted(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func (k *K8sUninstaller) enableCNIUninstall(ctx context.Context) {
+	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
+	if err != nil {
+		k.Log("❌ Failed to enable cni cleanup: %v", err)
+		return
+	}
+	wp := workerpool.NewWithContext(ctx, k.params.WorkerCount)
+	defer wp.Close()
+
+	for _, pod := range pods.Items {
+		pod := pod
+		wp.Submit(pod.Name, func(ctx context.Context) error {
+			_, err := k.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName,
+				[]string{
+					"/bin/sh",
+					"-c",
+					"echo -n true > /tmp/cilium/config-map/cni-uninstall || true",
+				})
+			if err != nil {
+				k.Log("❌ Failed to enable cni cleanup in pod %s: %v", pod.Name, err)
+			}
+			return nil
+		})
+	}
+	wp.Drain()
 }
