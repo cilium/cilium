@@ -461,8 +461,8 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 					}
 				}
 				if !ok {
-					count, _ := uniqueFailures[fail]
-					uniqueFailures[fail] = count + 1
+					count, _ := uniqueFailures[msg]
+					uniqueFailures[msg] = count + 1
 				}
 			}
 		}
