@@ -150,12 +150,13 @@ union v6addr {
 	__u8 addr[16];
 } __packed;
 
-static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
-					       __u16 *proto)
+static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
+						      int l2_off, __u16 *proto)
 {
-	void *data = ctx_data(ctx);
+	const __u64 tot_len = l2_off + ETH_HLEN;
 	void *data_end = ctx_data_end(ctx);
-	struct ethhdr *eth = data;
+	void *data = ctx_data(ctx);
+	struct ethhdr *eth;
 
 	if (ETH_HLEN == 0) {
 		/* The packet is received on L2-less device. Determine L3
@@ -165,20 +166,30 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 		return true;
 	}
 
-	if (data + ETH_HLEN > data_end)
+	if (data + tot_len > data_end)
 		return false;
+
+	eth = data + l2_off;
+
 	*proto = eth->h_proto;
 	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
 		return false; /* non-Ethernet II unsupported */
+
 	return true;
+}
+
+static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
+					       __u16 *proto)
+{
+	return validate_ethertype_l2_off(ctx, 0, proto);
 }
 
 static __always_inline __maybe_unused bool
 ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 			 void **l3, const __u32 l3_len, const bool pull,
-			 __u32 eth_hlen)
+			 __u32 l3_off)
 {
-	const __u64 tot_len = eth_hlen + l3_len;
+	const __u64 tot_len = l3_off + l3_len;
 	void *data_end;
 	void *data;
 
@@ -194,16 +205,17 @@ ____revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	*data_ = data;
 	*data_end_ = data_end;
 
-	*l3 = data + eth_hlen;
+	*l3 = data + l3_off;
 	return true;
 }
 
 static __always_inline __maybe_unused bool
 __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
-		       void **l3, const __u32 l3_len, const bool pull)
+		       void **l3, const __u32 l3_off, const __u32 l3_len,
+		       const bool pull)
 {
 	return ____revalidate_data_pull(ctx, data, data_end, l3, l3_len, pull,
-					ETH_HLEN);
+					l3_off);
 }
 
 /* revalidate_data_pull() initializes the provided pointers from the ctx and
@@ -214,14 +226,17 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
  * false otherwise.
  */
 #define revalidate_data_pull(ctx, data, data_end, ip)			\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, ETH_HLEN, sizeof(**ip), true)
+
+#define revalidate_data_l3_off(ctx, data, data_end, ip, l3_off)		\
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, l3_off, sizeof(**ip), false)
 
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
-	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
+	revalidate_data_l3_off(ctx, data, data_end, ip, ETH_HLEN)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))

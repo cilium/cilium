@@ -310,7 +310,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, *identity, ext_err);
+		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err);
 
 		if (ret < 0)
 			return ret;

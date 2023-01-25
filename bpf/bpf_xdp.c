@@ -101,17 +101,25 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb4(ctx, 0, &ext_err);
+		void *data, *data_end;
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
+
+		ret = nodeport_lb4(ctx, ip4, ETH_HLEN, 0, &ext_err);
 		if (ret == NAT_46X64_RECIRC) {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
-						      CTX_ACT_DROP,
-						      METRIC_INGRESS);
-		} else if (IS_ERR(ret)) {
-			return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-							  CTX_ACT_DROP, METRIC_INGRESS);
+			ret = DROP_MISSED_TAIL_CALL;
 		}
 	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	return bpf_xdp_exit(ctx, ret);
 }
