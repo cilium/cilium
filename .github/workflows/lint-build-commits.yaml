@@ -103,7 +103,7 @@ jobs:
             ${{ github.event.pull_request.commits_url }})
           PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
           PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
-          git rebase --exec "make -C test build -j $(nproc)" $PR_PARENT_SHA
+          git rebase --exec "make -C test build -j $(nproc) && make -C test build-darwin" $PR_PARENT_SHA
 
       - name: Failed commit during the build
         if: ${{ failure() }}
