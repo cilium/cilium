@@ -193,7 +193,7 @@ type BackendOperations interface {
 	Watch(ctx context.Context, w *Watcher)
 
 	// Close closes the kvstore client
-	Close()
+	Close(ctx context.Context)
 
 	// GetCapabilities returns the capabilities of the backend
 	GetCapabilities() Capabilities
