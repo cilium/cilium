@@ -30,9 +30,8 @@
 
 #define SECCTX_FROM_IPCACHE 1
 
-__u8 client_mac[ETH_ALEN] = mac_one;
-__u8 node_mac[ETH_ALEN] = mac_two;
-__u8 ext_svc_mac[ETH_ALEN] = mac_three;
+static volatile const __u8 *client_mac = mac_one;
+static volatile const __u8 *ext_svc_mac = mac_two;
 
 #include "bpf_host.c"
 
@@ -69,7 +68,7 @@ int egressgw_pktgen(struct __ctx_buff *ctx)
 	if (!l2)
 		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, client_mac, ext_svc_mac);
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)ext_svc_mac);
 
 	/* Push IPv4 header */
 	l3 = pktgen__push_default_iphdr(&builder);
@@ -151,10 +150,10 @@ int egressgw_check(const struct __ctx_buff *ctx)
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (memcmp(l2->h_source, client_mac, sizeof(client_mac)) != 0)
-		test_fatal("src MAC is not the node MAC")
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the client MAC")
 
-	if (memcmp(l2->h_dest, ext_svc_mac, sizeof(ext_svc_mac)) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the external svc MAC")
 
 	if (l3->saddr != EGRESS_IP)
