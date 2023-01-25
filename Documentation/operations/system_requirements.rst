@@ -129,6 +129,15 @@ to ``/etc/systemd/network/01-no-dhcp.network`` and then
         systemctl daemon-reload
         systemctl restart systemd-networkd
 
+Ubuntu 22.04 on Raspberry Pi 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Before running Cilium on Ubuntu 22.04 on a Raspberry Pi, please make sure to install the following package:
+
+.. code-block:: shell-session
+
+        sudo apt install linux-modules-extra-raspi
+
 .. _admin_kernel_version:
 
 Linux Kernel
