@@ -33,7 +33,7 @@ func TestGetAnnotationServiceType(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/service-type": "LoadBalancer",
+							"ingress.cilium.io/service-type": "LoadBalancer",
 						},
 					},
 				},
@@ -46,7 +46,7 @@ func TestGetAnnotationServiceType(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/service-type": "NodePort",
+							"ingress.cilium.io/service-type": "NodePort",
 						},
 					},
 				},
@@ -86,7 +86,7 @@ func TestGetAnnotationSecureNodePort(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/secure-node-port": "1000",
+							"ingress.cilium.io/secure-node-port": "1000",
 						},
 					},
 				},
@@ -99,7 +99,7 @@ func TestGetAnnotationSecureNodePort(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/secure-node-port": "invalid-numeric-value",
+							"ingress.cilium.io/secure-node-port": "invalid-numeric-value",
 						},
 					},
 				},
@@ -146,7 +146,7 @@ func TestGetAnnotationInsecureNodePort(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/insecure-node-port": "1000",
+							"ingress.cilium.io/insecure-node-port": "1000",
 						},
 					},
 				},
@@ -159,7 +159,7 @@ func TestGetAnnotationInsecureNodePort(t *testing.T) {
 				ingress: &slim_networkingv1.Ingress{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium.ingress/insecure-node-port": "invalid-numeric-value",
+							"ingress.cilium.io/insecure-node-port": "invalid-numeric-value",
 						},
 					},
 				},

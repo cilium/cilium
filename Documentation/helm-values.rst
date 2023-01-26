@@ -1306,7 +1306,7 @@
      - list
      - ``["service.beta.kubernetes.io","service.kubernetes.io","cloud.google.com"]``
    * - ingressController.loadbalancerMode
-     - Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource io.cilium.ingress/loadbalancer-mode: shared
+     - Default ingress load balancer mode Supported values: shared, dedicated For granular control, use the following annotations on the ingress resource ingress.cilium.io/loadbalancer-mode: shared
      - string
      - ``"dedicated"``
    * - ingressController.secretsNamespace
