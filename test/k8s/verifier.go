@@ -72,9 +72,9 @@ var (
 // directory. All test commands are executed in this privileged Pod after
 // uninstalling Cilium from the cluster.
 //
-// The test is skipped on all but 4.19 kernels. These are already covered in the GHA datapath
+// The test is skipped on all kernels >= 5.4. These are already covered in the GHA datapath
 // verifier workflow, see .github/workflows/tests-datapath-verifier.yaml.
-var _ = SkipDescribeIf(helpers.DoesNotRunOn419Kernel, "K8sDatapathVerifier", func() {
+var _ = SkipDescribeIf(helpers.RunsOn54OrLaterKernel, "K8sDatapathVerifier", func() {
 	var kubectl *helpers.Kubectl
 
 	collectObjectFiles := func() {
