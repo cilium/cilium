@@ -54,13 +54,6 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 	return
 }
 
-// AllocateIPWithAllocationResult allocates an IP address, and returns the
-// allocation result.
-func (ipam *IPAM) AllocateIPWithAllocationResult(ip net.IP, owner string) (result *AllocationResult, err error) {
-	needSyncUpstream := true
-	return ipam.allocateIP(ip, owner, needSyncUpstream)
-}
-
 // AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
 func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (result *AllocationResult, err error) {
 	needSyncUpstream := false
