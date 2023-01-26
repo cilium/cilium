@@ -1543,7 +1543,7 @@ loadBalancer:
   # -- L7 LoadBalancer
   l7:
     # -- Enable L7 service load balancing via envoy proxy.
-    # The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol,
+    # The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7,
     # will be forwarded to the local backend proxy to be load balanced to the service endpoints.
     # Please refer to docs for supported annotations for more configuration.
     #
@@ -1557,7 +1557,7 @@ loadBalancer:
     ports: []
     # -- Default LB algorithm
     # The default LB algorithm to be used for services, which can be overridden by the
-    # service annotation (e.g. io.cilium.service/lb-algorithm)
+    # service annotation (e.g. service.cilium.io/lb-l7-algorithm)
     # Applicable values: round_robin, least_request, random
     algorithm: round_robin
 

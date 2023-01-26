@@ -18,7 +18,7 @@ Load-balancing with Global Services
 
 Establishing load-balancing between clusters is achieved by defining a
 Kubernetes service with identical name and namespace in each cluster and adding
-the annotation ``io.cilium/global-service: "true"`` to declare it global.
+the annotation ``service.cilium.io/global: "true"`` to declare it global.
 Cilium will automatically perform load-balancing to pods in both clusters.
 
 .. literalinclude:: ../../../examples/kubernetes/clustermesh/global-service-example/rebel-base-global-shared.yaml
@@ -28,7 +28,7 @@ Disabling Global Service Sharing
 ################################
 
 By default, a Global Service will load-balance across backends in multiple clusters.
-This implicitly configures ``io.cilium/shared-service: "true"``. To prevent service
+This implicitly configures ``service.cilium.io/shared: "true"``. To prevent service
 backends from being shared to other clusters, this option should be disabled.
 
 Below example will expose remote endpoint without sharing local endpoints.
@@ -40,8 +40,8 @@ Below example will expose remote endpoint without sharing local endpoints.
    metadata:
      name: rebel-base
      annotations:
-       io.cilium/global-service: "true"
-       io.cilium/shared-service: "false"
+       service.cilium.io/global: "true"
+       service.cilium.io/shared: "false"
    spec:
      type: ClusterIP
      ports:
@@ -75,11 +75,11 @@ Deploying a Simple Example Service
 
    You will see replies from pods in both clusters.
 
-4. In cluster 1, add ``io.cilium/shared-service="false"`` to existing global service
+4. In cluster 1, add ``service.cilium.io/shared="false"`` to existing global service
 
    .. code-block:: shell-session
 
-      kubectl annotate service rebel-base io.cilium/shared-service="false" --overwrite
+      kubectl annotate service rebel-base service.cilium.io/shared="false" --overwrite
 
 5. From cluster 1, access the global service one more time:
 
@@ -97,11 +97,11 @@ Deploying a Simple Example Service
 
    You will see replies from pods only from cluster 2, as the global service in cluster 1 is no longer shared.
 
-7. In cluster 1, remove ``io.cilium/shared-service`` annotation of existing global service
+7. In cluster 1, remove ``service.cilium.io/shared`` annotation of existing global service
 
    .. code-block:: shell-session
 
-      kubectl annotate service rebel-base io.cilium/shared-service-
+      kubectl annotate service rebel-base service.cilium.io/shared-
 
 8. From either cluster, access the global service:
 
