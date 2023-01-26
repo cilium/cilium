@@ -65,7 +65,6 @@ by the "janitor role" which is rotated between all committers.
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
- * [Zang Li] (Google)
 
 ## Cilium & Hubble Emeritus Committers
 
@@ -73,6 +72,8 @@ We would like to acknowledge previous committers and their huge contributions to
 
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
+ * [Zang Li] (Google)
+
 
 Please see the AUTHORS file for the full list of contributors to the Cilium
 project.
