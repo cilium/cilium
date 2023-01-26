@@ -609,6 +609,16 @@ All labels listed are included in the metric, even if empty. For example, a metr
 ``http:labelsContext=source_namespace,source_pod`` will add the ``source_namespace`` and ``source_pod``
 labels to all Hubble HTTP metrics.
 
+.. note::
+
+    To limit metrics cardinality hubble will remove data series bound to specific pod after one minute from pod deletion.
+    Metric is considered to be bound to a specific pod when at least one of the following conditions is met:
+
+    * ``sourceContext`` is set to ``pod`` and metric series has ``source`` label matching ``<pod_namespace>/<pod_name>``
+    * ``destinationContext`` is set to ``pod`` and metric series has ``destination`` label matching ``<pod_namespace>/<pod_name>``
+    * ``labelsContext`` contains both ``source_namespace`` and ``source_pod`` and metric series labels match namespace and name of deleted pod
+    * ``labelsContext`` contains both ``destination_namespace`` and ``destination_pod`` and metric series labels match namespace and name of deleted pod
+
 .. _hubble_exported_metrics:
 
 Exported Metrics

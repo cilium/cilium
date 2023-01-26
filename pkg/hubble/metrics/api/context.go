@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/utils/strings/slices"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -137,12 +138,16 @@ type ContextOptions struct {
 	// Destination is the destination context to include in metrics for ingress traffic (overrides Destination)
 	DestinationIngress ContextIdentifierList
 
+	allDestinationCtx ContextIdentifierList
+
 	// Source is the source context to include in metrics for both egress and ingress traffic
 	Source ContextIdentifierList
 	// Source is the source context to include in metrics for egress traffic (overrides Source)
 	SourceEgress ContextIdentifierList
 	// Source is the source context to include in metrics for ingress traffic (overrides Source)
 	SourceIngress ContextIdentifierList
+
+	allSourceCtx ContextIdentifierList
 
 	// Labels is the full set of labels that have been allowlisted when using the
 	// ContextLabels ContextIdentifier.
@@ -206,31 +211,37 @@ func ParseContextOptions(options Options) (*ContextOptions, error) {
 		switch strings.ToLower(key) {
 		case "destinationcontext":
 			o.Destination, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.Destination...)
 			if err != nil {
 				return nil, err
 			}
 		case "destinationegresscontext":
 			o.DestinationEgress, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationEgress...)
 			if err != nil {
 				return nil, err
 			}
 		case "destinationingresscontext":
 			o.DestinationIngress, err = parseContext(value)
+			o.allDestinationCtx = append(o.allDestinationCtx, o.DestinationIngress...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourcecontext":
 			o.Source, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.Source...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourceegresscontext":
 			o.SourceEgress, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.SourceEgress...)
 			if err != nil {
 				return nil, err
 			}
 		case "sourceingresscontext":
 			o.SourceIngress, err = parseContext(value)
+			o.allSourceCtx = append(o.allSourceCtx, o.SourceIngress...)
 			if err != nil {
 				return nil, err
 			}
@@ -523,4 +534,34 @@ func (o *ContextOptions) Status() string {
 	sort.Strings(status)
 
 	return strings.Join(status, ",")
+}
+
+func (o *ContextOptions) DeleteMetricsAssociatedWithPod(name string, namespace string, vec *prometheus.MetricVec) {
+	for _, contextID := range o.allSourceCtx {
+		if contextID == ContextPod {
+			vec.DeletePartialMatch(prometheus.Labels{
+				"source": namespace + "/" + name,
+			})
+		}
+	}
+	for _, contextID := range o.allDestinationCtx {
+		if contextID == ContextPod {
+			vec.DeletePartialMatch(prometheus.Labels{
+				"destination": namespace + "/" + name,
+			})
+		}
+	}
+
+	if o.Labels.HasLabel("source_pod") && o.Labels.HasLabel("source_namespace") {
+		vec.DeletePartialMatch(prometheus.Labels{
+			"source_namespace": namespace,
+			"source_pod":       name,
+		})
+	}
+	if o.Labels.HasLabel("destination_pod") && o.Labels.HasLabel("destination_namespace") {
+		vec.DeletePartialMatch(prometheus.Labels{
+			"destination_namespace": namespace,
+			"destination_pod":       name,
+		})
+	}
 }

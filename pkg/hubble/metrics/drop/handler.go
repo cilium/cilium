@@ -42,6 +42,14 @@ func (d *dropHandler) Status() string {
 	return d.context.Status()
 }
 
+func (d *dropHandler) Context() *api.ContextOptions {
+	return d.context
+}
+
+func (d *dropHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{d.drops.MetricVec}
+}
+
 func (d *dropHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED {
 		return nil
