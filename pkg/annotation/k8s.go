@@ -9,6 +9,9 @@ const (
 	// Prefix is the common prefix for all annotations
 	Prefix = "io.cilium"
 
+	// IngressPrefix is the common prefix for ingress related annotations.
+	IngressPrefix = "ingress.cilium.io"
+
 	// NetworkPrefix is the common prefix for network related annotations.
 	NetworkPrefix = "network.cilium.io"
 

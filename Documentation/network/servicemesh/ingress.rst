@@ -55,31 +55,31 @@ Supported Ingress Annotations
    * - Name
      - Description
      - Default Value
-   * - ``io.cilium.ingress/loadbalancer-mode``
+   * - ``ingress.cilium.io/loadbalancer-mode``
      - The loadbalancer mode for the ingress. Applicable values are ``dedicated`` and ``shared``.
      - Defaults to Helm option ``ingressController.loadbalancerMode`` value.
-   * - ``io.cilium.ingress/service-type``
+   * - ``ingress.cilium.io/service-type``
      - The Service type for dedicated Ingress. Applicable values are ``LoadBalancer`` and ``NodePort``.
      - Defaults to ``LoadBalancer`` if unspecified.
-   * - ``io.cilium.ingress/insecure-node-port``
-     - The NodePort to use for the HTTP Ingress. Applicable only if ``io.cilium.ingress/service-type`` is ``NodePort``.
+   * - ``ingress.cilium.io/insecure-node-port``
+     - The NodePort to use for the HTTP Ingress. Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``.
      - If unspecified, a random NodePort will be allocated by kubernetes.
-   * - ``io.cilium.ingress/secure-node-port``
-     - The NodePort to use for the HTTPS Ingress. Applicable only if ``io.cilium.ingress/service-type`` is ``NodePort``.
+   * - ``ingress.cilium.io/secure-node-port``
+     - The NodePort to use for the HTTPS Ingress. Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``.
      - If unspecified, a random NodePort will be allocated by kubernetes.
-   * - ``io.cilium/tcp-keep-alive``
+   * - ``ingress.cilium.io/tcp-keep-alive``
      - Enable TCP keep-alive
      - 1 (enabled)
-   * - ``io.cilium/tcp-keep-alive-idle``
+   * - ``ingress.cilium.io/tcp-keep-alive-idle``
      - TCP keep-alive idle time (in seconds)
      - 10s
-   * - ``io.cilium/tcp-keep-alive-probe-interval``
+   * - ``ingress.cilium.io/tcp-keep-alive-probe-interval``
      - TCP keep-alive probe intervals (in seconds)
      - 5s
-   * - ``io.cilium/tcp-keep-alive-probe-max-failures``
+   * - ``ingress.cilium.io/tcp-keep-alive-probe-max-failures``
      - TCP keep-alive probe max failures
      - 10
-   * - ``io.cilium/websocket``
+   * - ``ingress.cilium.io/websocket``
      - Enable websocket
      - disabled
 
