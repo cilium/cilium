@@ -400,6 +400,17 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	var revertStack revert.RevertStack
 	revertFunc = revertStack.Revert
+	defer func() {
+		if err != nil {
+			// We ignore errors while reverting. This is best-effort.
+			// revertFunc must be called after p.mutex is unlocked, because
+			// some functions in the revert stack (like removeRevertFunc)
+			// require it
+			p.mutex.Unlock()
+			revertFunc()
+			p.mutex.Lock()
+		}
+	}()
 
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
@@ -443,7 +454,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 	pp := getProxyPort(l4.GetL7Parser(), l4.GetIngress())
 	if pp == nil {
 		err = proxyNotFoundError(l4.GetL7Parser(), l4.GetIngress())
-		revertFunc()
 		return 0, err, nil, nil
 	}
 
@@ -462,7 +472,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			// been already configured.
 			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
-				revertFunc() // Ignore errors while reverting. This is best-effort.
 				return 0, err, nil, nil
 			}
 		}
@@ -521,7 +530,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	// an error occurred, and we have no more retries
 	scopedLog.WithError(err).Error("Unable to create ", l4.GetL7Parser(), " proxy")
-	revertFunc() // Ignore errors while reverting. This is best-effort.
 	return 0, err, nil, nil
 }
 
