@@ -56,11 +56,13 @@ jobs:
           persist-credentials: false
 
       - name: Create minikube cluster with multiple nodes
-        run: |
-          # Use at least 3 nodes, so that at least 2 worker nodes are available for scheduling
-          minikube start --network-plugin=cni --cni=false \
-            --docker-opt="default-ulimit=nofile=102400:102400" \
-            --nodes 3 \
+        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8
+        with:
+          minikube-version: ${{ env.minikube_version }}
+          network-plugin: cni
+          cni: false
+          wait: false
+          start-args: --nodes 3 --docker-opt "default-ulimit=nofile=102400:102400"
 
       # Start minikube tunnel
       - name: Setup minikube
