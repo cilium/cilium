@@ -3,6 +3,8 @@
 
 package annotation
 
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 const (
 	// Prefix is the common prefix for all annotations
 	Prefix = "io.cilium"
@@ -82,3 +84,16 @@ const (
 	// to that node.
 	WireguardPubKey = Prefix + ".network.wg-pub-key"
 )
+
+// Get returns the annotation value associated with the given key, or any of
+// the additional aliases if not found.
+func Get(obj metav1.Object, key string, aliases ...string) (value string, ok bool) {
+	keys := append([]string{key}, aliases...)
+	for _, k := range keys {
+		if value, ok = obj.GetAnnotations()[k]; ok {
+			return value, ok
+		}
+	}
+
+	return "", false
+}
