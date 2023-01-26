@@ -112,7 +112,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 // CollectStaleMapGarbage cleans up stale content in the BPF maps from the
 // datapath.
 func (ms *MapSweeper) CollectStaleMapGarbage() {
-	if err := filepath.Walk(bpf.MapPrefixPath(), ms.walk); err != nil {
+	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
 		log.WithError(err).Warn("Error while scanning for stale maps")
 	}
 }
@@ -217,7 +217,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	}
 
 	for _, m := range maps {
-		p := path.Join(bpf.MapPrefixPath(), m)
+		p := path.Join(bpf.TCGlobalsPath(), m)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
 			ms.RemoveMapPath(p)
 		}

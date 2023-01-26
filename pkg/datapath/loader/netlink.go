@@ -103,7 +103,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 	// bpffs in the process.
 	finalize := func() {}
 	opts := ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{PinPath: bpf.MapPrefixPath()},
+		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 	}
 	l.Debug("Loading Collection into kernel")
 	coll, err := bpf.LoadCollection(spec, opts)
@@ -111,13 +111,13 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		// Temporarily rename bpffs pins of maps whose definitions have changed in
 		// a new version of a datapath ELF.
 		l.Debug("Starting bpffs map migration")
-		if err := bpf.StartBPFFSMigration(bpf.MapPrefixPath(), spec); err != nil {
+		if err := bpf.StartBPFFSMigration(bpf.TCGlobalsPath(), spec); err != nil {
 			return nil, fmt.Errorf("Failed to start bpffs map migration: %w", err)
 		}
 
 		finalize = func() {
 			l.Debug("Finalizing bpffs map migration")
-			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, false); err != nil {
+			if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, false); err != nil {
 				l.WithError(err).Error("Could not finalize bpffs map migration")
 			}
 		}
@@ -148,7 +148,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		if err := attachProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
 			// Program replacement unsuccessful, revert bpffs migration.
 			l.Debug("Reverting bpffs map migration")
-			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
+			if err := bpf.FinalizeBPFFSMigration(bpf.TCGlobalsPath(), spec, true); err != nil {
 				l.WithError(err).Error("Failed to revert bpffs map migration")
 			}
 

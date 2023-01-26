@@ -107,7 +107,7 @@ func (m *Map) OpenOrCreate() error {
 	}
 
 	opts := ciliumebpf.MapOptions{
-		PinPath: bpf.MapPrefixPath(),
+		PinPath: bpf.TCGlobalsPath(),
 	}
 
 	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(bpf.MapType(m.spec.Type))

@@ -744,7 +744,7 @@ func getListenerFilter(isIngress bool, mayUseOriginalSourceAddr bool, l7lb bool)
 	conf := &cilium.BpfMetadata{
 		IsIngress:                   isIngress,
 		MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
-		BpfRoot:                     bpf.GetMapRoot(),
+		BpfRoot:                     bpf.BPFFSRoot(),
 		EgressMarkSourceEndpointId:  l7lb,
 	}
 	// Set Ingress source addresses if configuring for L7 LB

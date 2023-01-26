@@ -48,7 +48,7 @@ var _ = SkipDescribeIf(func() bool {
 		IngressIPv6 customCallDirection = 2
 		EgressIPv6  customCallDirection = 3
 		// eBPF virtual file system
-		bpffsDir string = defaults.DefaultMapRoot + "/" + defaults.DefaultMapPrefix + "/"
+		bpffsDir string = defaults.BPFFSRoot + "/" + defaults.TCGlobalsPath + "/"
 	)
 
 	BeforeAll(func() {

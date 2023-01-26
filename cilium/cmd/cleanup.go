@@ -111,8 +111,8 @@ type bpfCleanup struct{}
 func (c bpfCleanup) whatWillBeRemoved() []string {
 	return []string{
 		fmt.Sprintf("all BPF maps in %s containing '%s' and '%s'",
-			bpf.MapPrefixPath(), ciliumLinkPrefix, tunnel.MapName),
-		fmt.Sprintf("mounted bpffs at %s", bpf.GetMapRoot()),
+			bpf.TCGlobalsPath(), ciliumLinkPrefix, tunnel.MapName),
+		fmt.Sprintf("mounted bpffs at %s", bpf.BPFFSRoot()),
 	}
 }
 
@@ -399,7 +399,7 @@ func removeDirs() error {
 }
 
 func removeAllMaps() error {
-	mapDir := bpf.MapPrefixPath()
+	mapDir := bpf.TCGlobalsPath()
 	maps, err := os.ReadDir(mapDir)
 	if err != nil {
 		if os.IsNotExist(err) {
