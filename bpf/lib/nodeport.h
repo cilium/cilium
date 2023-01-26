@@ -100,32 +100,6 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
-static __always_inline int
-maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
-		 __u32 ifindex __maybe_unused,
-		 bool *l2_hdr_required __maybe_unused)
-{
-	if (IS_L3_DEV(ifindex))
-		/* NodePort request is going to be redirected to L3 dev, so skip
-		 * L2 addr settings.
-		 */
-		*l2_hdr_required = false;
-	else if (ETH_HLEN == 0) {
-		/* NodePort request is going to be redirected from L3 to L2 dev,
-		 * so we need to create L2 hdr first.
-		 */
-		__u16 proto = ctx_get_protocol(ctx);
-
-		if (ctx_change_head(ctx, __ETH_HLEN, 0))
-			return DROP_INVALID;
-
-		if (eth_store_proto(ctx, proto, 0) < 0)
-			return DROP_WRITE_ERROR;
-	}
-
-	return 0;
-}
-
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
@@ -570,7 +544,8 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v6(ctx, l3_off, ip6, ctx_get_ifindex(ctx), &oif);
+	ret = fib_redirect_v6(ctx, l3_off, ip6, false,
+			      ctx_get_ifindex(ctx), &oif);
 	if (likely(ret == CTX_ACT_REDIRECT)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -601,7 +576,8 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	ret = fib_redirect_v4(ctx, l3_off, ip4, ctx_get_ifindex(ctx), &oif);
+	ret = fib_redirect_v4(ctx, l3_off, ip4, false,
+			      ctx_get_ifindex(ctx), &oif);
 	if (likely(ret == CTX_ACT_REDIRECT)) {
 		cilium_capture_out(ctx);
 		return ret;
