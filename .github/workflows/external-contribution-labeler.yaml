@@ -10,6 +10,7 @@ jobs:
   labeler:
     if: |
       (
+        (github.repository == 'cilium/cilium') &&
         (github.event.pull_request.author_association != 'OWNER') &&
         (github.event.pull_request.author_association != 'COLLABORATOR') &&
         (github.event.pull_request.author_association != 'MEMBER')
