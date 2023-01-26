@@ -60,9 +60,9 @@ jobs:
         id: vars
         run: |
           if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo ::set-output name=tag::${{ github.event.pull_request.head.sha }}
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=tag::${{ github.sha }}
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
           fi
 
       - name: Precheck generated connectivity manifest files
