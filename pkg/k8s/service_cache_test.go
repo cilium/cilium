@@ -335,7 +335,7 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 			Name:      "foo",
 			Namespace: "bar",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+				"service.cilium.io/global": "true",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
@@ -598,7 +598,7 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 					"foo": "bar",
 				},
 				Annotations: map[string]string{
-					"io.cilium/global-service": "true",
+					"service.cilium.io/global": "true",
 				},
 			},
 			Spec: slim_corev1.ServiceSpec{
@@ -777,7 +777,7 @@ func (s *K8sSuite) TestNonSharedService(c *check.C) {
 			Name:      "foo",
 			Namespace: "bar",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "false",
+				"service.cilium.io/global": "false",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{

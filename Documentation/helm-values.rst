@@ -1426,11 +1426,11 @@
      - object
      - ``{"algorithm":"round_robin","backend":"disabled","ports":[]}``
    * - loadBalancer.l7.algorithm
-     - Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. io.cilium.service/lb-algorithm) Applicable values: round_robin, least_request, random
+     - Default LB algorithm The default LB algorithm to be used for services, which can be overridden by the service annotation (e.g. service.cilium.io/lb-l7-algorithm) Applicable values: round_robin, least_request, random
      - string
      - ``"round_robin"``
    * - loadBalancer.l7.backend
-     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. io.cilium.service/lb-protocol, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing.
+     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing.
      - string
      - ``"disabled"``
    * - loadBalancer.l7.ports

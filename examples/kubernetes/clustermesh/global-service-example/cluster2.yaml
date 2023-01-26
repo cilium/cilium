@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: rebel-base
   annotations:
-    io.cilium/global-service: "true"
+    service.cilium.io/global: "true"
 spec:
   type: ClusterIP
   ports:

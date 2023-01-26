@@ -157,7 +157,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 			Name:      "foo",
 			Namespace: "default",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+				"service.cilium.io/global": "true",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
@@ -233,7 +233,7 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesUpdate(c *C) {
 			Name:      "foo",
 			Namespace: "default",
 			Annotations: map[string]string{
-				"io.cilium/global-service": "true",
+				"service.cilium.io/global": "true",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
