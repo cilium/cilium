@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.12.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Bugtool: add flag to exclude object for endpoints (Backport PR #23003, Upstream PR #22370, @tbalthazar)
+* Fix crash of CES queue delay metric when CESTracker is nil (Backport PR #23260, Upstream PR #22884, @dlapcevic)
+
+**Bugfixes:**
+* Added Agent init check that removes all CiliumEndpoints referencing local Node that are not managed. This fixes issues where sometimes CiliumEndpoints referencing still running Pods can become unmanaged during Cilium restart. (Backport PR #23096, Upstream PR #20350, @tommyp1ckles)
+* bpf: add drop notification for missed L7 LB tailcall in to-netdev (Backport PR #23003, Upstream PR #22679, @julianwiedmann)
+* bpf: lb: catch write error in lb6_xlate() (Backport PR #23301, Upstream PR #23075, @julianwiedmann)
+* bpf: nat: fix snat_v4_can_skip() for egress gateway (Backport PR #23331, Upstream PR #23274, @jibi)
+* bpf: nodeport: fix drop notification in IPv6 revNAT (Backport PR #23003, Upstream PR #22543, @julianwiedmann)
+* bpf: nodeport: fix tracing for handle_nat_fwd() (Backport PR #23260, Upstream PR #22678, @julianwiedmann)
+* bpf: nodeport: wire up trace aggregation for rev_nodeport_lb6() (Backport PR #23260, Upstream PR #22794, @julianwiedmann)
+* clustermesh: Add missing brackets of IPv6 address for etcd option (Backport PR #23260, Upstream PR #22962, @YutaroHayakawa)
+* daemon: Do not remove PERM L2 entries in L4LB (Backport PR #23003, Upstream PR #22676, @brb)
+* datapath: Fix L7 ingress with XDP (Backport PR #23260, Upstream PR #22985, @brb)
+* envoy: Fix lock leak in config validation failure (Backport PR #23301, Upstream PR #23077, @joestringer)
+* Fix a data race in dnsproxy which could lead to DNS requests drops. (Backport PR #23003, Upstream PR #22619, @aspsk)
+* Fix bugs where ciliumendpoints for statefulset pods where being incorrectly overwritten/deleted (Backport PR #23096, Upstream PR #21768, @tommyp1ckles)
+* Fix missing node neigh metric for counting arping requests (Backport PR #23260, Upstream PR #22930, @christarazi)
+* Fix packet drops when service pod connects to itself via clusterIP, and selected by an ingress policy. (Backport PR #23260, Upstream PR #22972, @aditighag)
+* Fixes `semaphore_rejected_total` metric and adds new `scope` to `proxy_upstream_reply_seconds` metric. (Backport PR #23260, Upstream PR #21267, @rahulkjoshi)
+* helm: Delete validations for certManagerIssuerRef (Backport PR #23301, Upstream PR #22921, @Shunpoco)
+* ipsec: Fix packet mark for FWD XFRM policy (Backport PR #23301, Upstream PR #23254, @pchaigno)
+* Reduce the risk of packet fragmentation on IPv6 when using KPR with DSR mode. (Backport PR #23301, Upstream PR #23235, @julianwiedmann)
+
+**CI Changes:**
+* .github: Pin docker buildx version to v0.9.1 (v2) (Backport PR #23260, Upstream PR #23220, @joestringer)
+* [v1.12] ci: update cilium-cli to v0.12.12 in v1.12 workflows (#23130, @tklauser)
+* bpf: test: fix xdp_lb4_forward_to_other_node test (Backport PR #23260, Upstream PR #23018, @julianwiedmann)
+* ctmap: fix-up host_local flag in the DSR NAT entry for GC test (Backport PR #23260, Upstream PR #23037, @julianwiedmann)
+* daemon/cmd: improve stale cilium endpoint error handling. (Backport PR #23096, Upstream PR #22600, @tommyp1ckles)
+* test/helpers: Fix retry condition for CiliumExecContext (Backport PR #23003, Upstream PR #22726, @christarazi)
+* test/k8s: remove l7_demos test (Backport PR #23260, Upstream PR #20619, @tklauser)
+* test: net_policies: delete custom IP routes after test completion (Backport PR #23260, Upstream PR #21857, @julianwiedmann)
+* test: service: fix formatting of error msg in doFragmentedRequest() (Backport PR #23003, Upstream PR #22772, @julianwiedmann)
+
+**Misc Changes:**
+* .github/workflows: use right event type for auto labeler (Backport PR #23003, Upstream PR #22508, @aanm)
+* .github: add PR labeler for external contributions (Backport PR #23003, Upstream PR #22461, @aanm)
+* Add sphinxcontrib-googleanalytics to doc requirements (Backport PR #23260, Upstream PR #22821, @chalin)
+* backporting: leave `backport/author` PRs alone (Backport PR #23003, Upstream PR #22654, @bimmlerd)
+* build(deps): bump actions/cache from 3.0.11 to 3.2.3 (#22989, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.1 to 3.0.2 (#22959, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.1 to 3.1.2 (#22990, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.2.0 to 3.3.0 (#23115, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.36 to 2.1.37 (#22735, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.37 to 2.1.38 (#23072, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.38 to 2.1.39 (#23189, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.1 to 3.4.0 (#23252, @dependabot[bot])
+* build(deps): update package dependencies (Backport PR #23301, Upstream PR #23140, @fengshunli)
+* chore(deps): update base-images (v1.12) (#22567, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.9 docker digest to 00d6368 (v1.12) (#22827, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.18.9 docker digest to 00d6368 (v1.12) (#23142, @renovate[bot])
+* ci, github: Fix IPv6 conformance test (Backport PR #23003, Upstream PR #22774, @borkmann)
+* contrib: Update PR template for backport (Backport PR #23301, Upstream PR #23058, @sayboras)
+* daemon: Do not fail CI runs for already deleted CEP (Backport PR #23306, Upstream PR #22474, @jrajahalme)
+* docs: Fix inconsistent node label in egress gateway guide (Backport PR #23301, Upstream PR #23225, @pchaigno)
+* docs: Improve IPsec guide (Backport PR #23301, Upstream PR #23135, @pchaigno)
+* docs: Improve wording for deny policies limitation (Backport PR #23301, Upstream PR #23095, @joestringer)
+* docs: update committer security requirements (Backport PR #23301, Upstream PR #23134, @xmulligan)
+* gh: fix indentation bug in ingress workflows (Backport PR #23301, Upstream PR #23195, @julianwiedmann)
+* gha: Bump k8s version in kind conformance tests (Backport PR #23054, Upstream PR #22325, @sayboras)
+* Improve fqdn events logging management (Backport PR #23260, Upstream PR #22745, @pippolo84)
+* IPsec: Refactor `ipSecReplaceState{In,Out}` functions (Backport PR #23301, Upstream PR #23158, @pchaigno)
+* iptables: skip reverse IP lookup (Backport PR #23260, Upstream PR #22977, @jibi)
+* Make cilium pprof listen address configurable (Backport PR #23094, Upstream PR #22768, @chancez)
+* Rate limit "hubble events queue is full" logs (Backport PR #23301, Upstream PR #22864, @lambdanis)
+* refactoring of fetching cilium manifests in OKD installation (Backport PR #23301, Upstream PR #22695, @zisisli)
+* Update Cilium install guide about EKS aws-node DaemonSet potential connectivity problem on uninstall (Backport PR #23260, Upstream PR #22620, @NikAleksandrov)
+* Update CNI to 1.2.0 (#23320, @michi-covalent)
+* Update Layer 7 Protocol Visibility Document. (Backport PR #23260, Upstream PR #22807, @obaranov1)
+
+**Other Changes:**
+* [v1.12] images: Bump Hubble CLI to v0.11.1 (#23300, @gandro)
+* [v1.12] install/kubernetes: make securityContext SELinux options configurable (#23038, @tklauser)
+* gha: Pin minikube version used in CI (#23364, @sayboras)
+* install: Update image digests for v1.12.5 (#22819, @joestringer)
+* update golang to 1.18.10 (#23160, @aanm)
+* Upgrade github.com/emicklei/go-restful to v2.16.0 (#23308, @michi-covalent)
+* v1.12 backport for Service with no backends (#23034, @julianwiedmann)
+* v1.12 backports 2023-01-06 (#22964, @gentoo-root)
+
 ## v1.12.5
 
 Summary of Changes
