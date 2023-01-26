@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -30,7 +29,7 @@ func getScopeFromKey(key string) string {
 }
 
 func increaseMetric(key, kind, action string, duration time.Duration, err error) {
-	if !option.Config.MetricsConfig.KVStoreOperationsDurationEnabled {
+	if !metrics.KVStoreOperationsDuration.IsEnabled() {
 		return
 	}
 	namespace := getScopeFromKey(key)
@@ -40,14 +39,14 @@ func increaseMetric(key, kind, action string, duration time.Duration, err error)
 }
 
 func trackEventQueued(key string, typ EventType, duration time.Duration) {
-	if !option.Config.MetricsConfig.KVStoreEventsQueueDurationEnabled {
+	if !metrics.KVStoreEventsQueueDuration.IsEnabled() {
 		return
 	}
 	metrics.KVStoreEventsQueueDuration.WithLabelValues(getScopeFromKey(key), typ.String()).Observe(duration.Seconds())
 }
 
 func recordQuorumError(err string) {
-	if !option.Config.MetricsConfig.KVStoreQuorumErrorsEnabled {
+	if !metrics.KVStoreQuorumErrors.IsEnabled() {
 		return
 	}
 	metrics.KVStoreQuorumErrors.WithLabelValues(err).Inc()

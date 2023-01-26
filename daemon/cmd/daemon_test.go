@@ -118,16 +118,9 @@ func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) 
 }
 
 func (ds *DaemonSuite) SetUpSuite(c *C) {
-	// Register metrics once before running the suite
-	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
-	metrics.MustRegister(ds.collectors...)
 }
 
 func (ds *DaemonSuite) TearDownSuite(c *C) {
-	// Unregister the metrics after the suite has finished
-	for _, c := range ds.collectors {
-		metrics.Unregister(c)
-	}
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
@@ -150,6 +143,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 		),
+		metrics.Cell,
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p

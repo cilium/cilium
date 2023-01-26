@@ -17,12 +17,14 @@ import (
 	. "gopkg.in/check.v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -136,6 +138,15 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
+
+	reg, err := metrics.NewRegistry(metrics.RegistryParams{
+		Config:     metrics.RegistryConfig{},
+		Lifecycle:  &hive.DefaultLifecycle{},
+		Shutdowner: nil,
+		Metrics:    nil,
+	})
+	c.Assert(err, IsNil)
+
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test2",
 		ConfigDirectory:       dir,
@@ -143,7 +154,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 		nodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
-	})
+	}, reg)
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
 

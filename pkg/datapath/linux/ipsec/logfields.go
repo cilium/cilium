@@ -6,8 +6,12 @@ package ipsec
 import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
-const subsystem = "ipsec"
+var subsystem = metric.Subsystem{
+	Name:    "ipsec",
+	DocName: "IPSec",
+}
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem.Name)

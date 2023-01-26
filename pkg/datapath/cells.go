@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -29,6 +30,7 @@ var Cell = cell.Module(
 	cell.Provide(
 		newWireguardAgent,
 		newDatapath,
+		ipsec.NewXFRMCollector,
 	),
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
@@ -64,7 +66,7 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	return wgAgent
 }
 
-func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent) types.Datapath {
+func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent, xfrmMetrics ipsec.XfrmCollectorMetric) types.Datapath {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -83,5 +85,5 @@ func newDatapath(lc hive.Lifecycle, wgAgent *wg.Agent) types.Datapath {
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent, xfrmMetrics.XfrmCollector)
 }

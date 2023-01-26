@@ -42,7 +42,7 @@ var (
 )
 
 func k8sEventMetric(scope, action string) {
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s.Name, scope, action)
 }
 
 func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {

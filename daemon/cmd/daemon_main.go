@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -681,9 +680,6 @@ func initializeFlags() {
 	flags.MarkHidden(option.MaxCtrlIntervalName)
 	option.BindEnv(Vp, option.MaxCtrlIntervalName)
 
-	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
-	option.BindEnv(Vp, option.Metrics)
-
 	flags.Bool(option.EnableMonitorName, true, "Enable the monitor unix domain socket server")
 	option.BindEnv(Vp, option.EnableMonitorName)
 
@@ -746,14 +742,6 @@ func initializeFlags() {
 
 	flags.Bool(option.PreAllocateMapsName, defaults.PreAllocateMaps, "Enable BPF map pre-allocation")
 	option.BindEnv(Vp, option.PreAllocateMapsName)
-
-	// We expect only one of the possible variables to be filled. The evaluation order is:
-	// --prometheus-serve-addr, CILIUM_PROMETHEUS_SERVE_ADDR, then PROMETHEUS_SERVE_ADDR
-	// The second environment variable (without the CILIUM_ prefix) is here to
-	// handle the case where someone uses a new image with an older spec, and the
-	// older spec used the older variable name.
-	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
-	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
 	flags.Int(option.AuthMapEntriesName, option.AuthMapEntriesDefault, "Maximum number of entries in auth map")
 	option.BindEnv(Vp, option.AuthMapEntriesName)
@@ -1098,9 +1086,6 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 }
 
 func initLogging() {
-	// add hooks after setting up metrics in the option.Config
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumAgentName))
-
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), "cilium-agent", option.Config.Debug); err != nil {
 		log.Fatal(err)
@@ -1584,6 +1569,8 @@ type daemonParams struct {
 	IPCache              *ipcache.IPCache
 	EgressGatewayManager *egressgateway.Manager
 	CNIConfigManager     cni.CNIConfigManager
+	MetricsRegistry      *metrics.Registry
+	LegacyMetrics        *metrics.LegacyMetrics
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1624,6 +1611,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.PolicyUpdater,
 				params.EgressGatewayManager,
 				params.CNIConfigManager,
+				params.MetricsRegistry,
+				params.LegacyMetrics,
 			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
@@ -1789,14 +1778,6 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	bootstrapStats.healthCheck.End(true)
 
 	d.startStatusCollector(cleaner)
-
-	go func(errs <-chan error) {
-		err := <-errs
-		if err != nil {
-			log.WithError(err).Error("Cannot start metrics server")
-			params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-		}
-	}(initMetrics())
 
 	d.startAgentHealthHTTPService()
 	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {

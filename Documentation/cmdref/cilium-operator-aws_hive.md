@@ -29,10 +29,12 @@ cilium-operator-aws hive [flags]
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
+      --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
 ```
 

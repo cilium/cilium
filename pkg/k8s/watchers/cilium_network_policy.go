@@ -210,7 +210,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		if policyImportErr == nil {
 			rev, policyImportErr = k.policyManager.PolicyAdd(rules, &policy.AddOptions{
 				ReplaceWithLabels:   cnp.GetIdentityLabels(),
-				Source:              metrics.LabelEventSourceK8s,
+				Source:              metrics.LabelEventSourceK8s.Name,
 				ProcessingStartTime: initialRecvTime,
 			})
 		}
@@ -383,8 +383,8 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 // Cilium Network Policies depending on the operation's success.
 func reportCNPChangeMetrics(err error) {
 	if err != nil {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 	} else {
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess.Name).Inc()
 	}
 }

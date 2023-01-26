@@ -173,7 +173,7 @@ retryLoop:
 
 	if c.UpdateDuration != nil {
 		latency := c.UpdateDuration.End(err == nil).Total()
-		metrics.KubernetesCNPStatusCompletion.WithLabelValues(fmt.Sprintf("%d", numAttempts), outcome).Observe(latency.Seconds())
+		metrics.KubernetesCNPStatusCompletion.WithLabelValues(fmt.Sprintf("%d", numAttempts), outcome.Name).Observe(latency.Seconds())
 	}
 
 	return err

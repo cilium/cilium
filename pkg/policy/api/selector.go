@@ -165,12 +165,12 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
 			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
 		return nil
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess.Name).Inc()
 
 	requirements, selectable := selector.Requirements()
 	if !selectable {

@@ -211,19 +211,19 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				epID := ep.StringID()
-				if option.Config.MetricsConfig.FQDNActiveNames || option.Config.MetricsConfig.FQDNActiveIPs {
+				if d.legacyMetrics.FQDNActiveNames.IsEnabled() || d.legacyMetrics.FQDNActiveIPs.IsEnabled() {
 					countFQDNs, countIPs := ep.DNSHistory.Count()
-					if option.Config.MetricsConfig.FQDNActiveNames {
-						metrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
+					if d.legacyMetrics.FQDNActiveNames.IsEnabled() {
+						d.legacyMetrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
 					}
-					if option.Config.MetricsConfig.FQDNActiveIPs {
-						metrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
+					if d.legacyMetrics.FQDNActiveIPs.IsEnabled() {
+						d.legacyMetrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
 					}
 				}
 				namesToClean = append(namesToClean, ep.DNSHistory.GC(GCStart, ep.DNSZombies)...)
 				alive, dead := ep.DNSZombies.GC()
-				if option.Config.MetricsConfig.FQDNActiveZombiesConnections {
-					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
+				if d.legacyMetrics.FQDNAliveZombieConnections.IsEnabled() {
+					d.legacyMetrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
 				}
 
 				// Alive zombie need to be added to the global cache as name->IP

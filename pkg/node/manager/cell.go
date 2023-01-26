@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -64,8 +65,8 @@ type NodeManager interface {
 	StartNeighborRefresh(nh datapath.NodeHandler)
 }
 
-func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache) (NodeManager, error) {
-	mngr, err := New("all", option.Config, ipCache)
+func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache, metricsRegistry *metrics.Registry) (NodeManager, error) {
+	mngr, err := New("all", option.Config, ipCache, metricsRegistry)
 	if err != nil {
 		return nil, err
 	}

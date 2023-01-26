@@ -4,13 +4,13 @@
 package clustermesh
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -40,23 +40,24 @@ type globalServiceCache struct {
 	byName map[string]*globalService
 
 	// metricTotalGlobalServices is the gauge metric for total of global services
-	metricTotalGlobalServices *prometheus.GaugeVec
+	metricTotalGlobalServices metric.Vec[metric.Gauge]
 }
 
-func newGlobalServiceCache(clusterName, nodeName string) *globalServiceCache {
+func newGlobalServiceCache(clusterName, nodeName string, reg *metrics.Registry) *globalServiceCache {
 	gsc := &globalServiceCache{
 		clusterName: clusterName,
 		nodeName:    nodeName,
 		byName:      map[string]*globalService{},
-		metricTotalGlobalServices: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "global_services",
-			Help:      "The total number of global services in the cluster mesh",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
+		metricTotalGlobalServices: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "global_services",
+			Help:             "The total number of global services in the cluster mesh",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
 	}
 
-	_ = metrics.Register(gsc.metricTotalGlobalServices)
+	_ = reg.Register(gsc.metricTotalGlobalServices)
 	return gsc
 }
 

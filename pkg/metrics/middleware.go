@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/prometheus/client_golang/prometheus"
-
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -18,8 +17,8 @@ import (
 // It records the timestamp of an API call in the provided gauge.
 type APIEventTSHelper struct {
 	Next      http.Handler
-	TSGauge   GaugeVec
-	Histogram prometheus.ObserverVec
+	TSGauge   metric.Vec[metric.Gauge]
+	Histogram metric.Vec[metric.Observer]
 }
 
 type ResponderWrapper struct {
@@ -57,7 +56,7 @@ func (m *APIEventTSHelper) ServeHTTP(r http.ResponseWriter, req *http.Request) {
 	var path string
 	if reqOk {
 		path = getShortPath(req.URL.Path)
-		m.TSGauge.WithLabelValues(LabelEventSourceAPI, path, req.Method).SetToCurrentTime()
+		m.TSGauge.WithLabelValues(LabelEventSourceAPI.Name, path, req.Method).SetToCurrentTime()
 	}
 	duration := spanstat.Start()
 	rw := &ResponderWrapper{ResponseWriter: r}

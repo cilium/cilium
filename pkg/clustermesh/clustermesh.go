@@ -10,8 +10,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -21,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
@@ -30,8 +29,10 @@ const (
 	// configNotificationsChannelSize is the size of the channel used to
 	// notify a clustermesh of configuration changes
 	configNotificationsChannelSize = 512
+)
 
-	subsystem = "clustermesh"
+var (
+	subsystem = metric.Subsystem{Name: "clustermesh", DocName: "Cluster mesh"}
 )
 
 // Configuration is the configuration that must be provided to
@@ -152,63 +153,68 @@ type ClusterMesh struct {
 
 	// metricTotalRemoteClusters is gauge metric keeping track of total number
 	// of remote clusters.
-	metricTotalRemoteClusters *prometheus.GaugeVec
+	metricTotalRemoteClusters metric.Vec[metric.Gauge]
 
 	// metricLastFailureTimestamp is a gauge metric tracking the last failure timestamp
-	metricLastFailureTimestamp *prometheus.GaugeVec
+	metricLastFailureTimestamp metric.Vec[metric.Gauge]
 
 	// metricReadinessStatus is a gauge metric tracking the readiness status of a remote cluster
-	metricReadinessStatus *prometheus.GaugeVec
+	metricReadinessStatus metric.Vec[metric.Gauge]
 
 	// metricTotalFailure is a gauge metric tracking the number of failures when connecting to a remote cluster
-	metricTotalFailures *prometheus.GaugeVec
+	metricTotalFailures metric.Vec[metric.Gauge]
 
 	// metricTotalNodes is a gauge metric tracking the number of total nodes in a remote cluster
-	metricTotalNodes *prometheus.GaugeVec
+	metricTotalNodes metric.Vec[metric.Gauge]
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
-func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
+func NewClusterMesh(c Configuration, reg *metrics.Registry) (*ClusterMesh, error) {
 	cm := &ClusterMesh{
 		conf:           c,
 		clusters:       map[string]*remoteCluster{},
 		controllers:    controller.NewManager(),
-		globalServices: newGlobalServiceCache(c.Name, c.NodeName),
-		metricTotalRemoteClusters: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "remote_clusters",
-			Help:      "The total number of remote clusters meshed with the local cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
+		globalServices: newGlobalServiceCache(c.Name, c.NodeName, reg),
+		metricTotalRemoteClusters: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "remote_clusters",
+			Help:             "The total number of remote clusters meshed with the local cluster",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
 
-		metricLastFailureTimestamp: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "remote_cluster_last_failure_ts",
-			Help:      "The timestamp of the last failure of the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		metricLastFailureTimestamp: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "remote_cluster_last_failure_ts",
+			Help:             "The timestamp of the last failure of the remote cluster",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
-		metricReadinessStatus: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "remote_cluster_readiness_status",
-			Help:      "The readiness status of the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		metricReadinessStatus: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "remote_cluster_readiness_status",
+			Help:             "The readiness status of the remote cluster",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
-		metricTotalFailures: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "remote_cluster_failures",
-			Help:      "The total number of failures related to the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		metricTotalFailures: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "remote_cluster_failures",
+			Help:             "The total number of failures related to the remote cluster",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
-		metricTotalNodes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "remote_cluster_nodes",
-			Help:      "The total number of nodes in the remote cluster",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
+		metricTotalNodes: metric.NewGaugeVec(metric.GaugeOpts{
+			Namespace:        metrics.Namespace,
+			Subsystem:        subsystem,
+			EnabledByDefault: true,
+			Name:             "remote_cluster_nodes",
+			Help:             "The total number of nodes in the remote cluster",
+		}, metric.LabelDescriptions{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 		ipcache: c.IPCache,
 	}
 
@@ -223,13 +229,12 @@ func NewClusterMesh(c Configuration) (*ClusterMesh, error) {
 		return nil, err
 	}
 
-	_ = metrics.RegisterList([]prometheus.Collector{
-		cm.metricTotalRemoteClusters,
-		cm.metricLastFailureTimestamp,
-		cm.metricReadinessStatus,
-		cm.metricTotalFailures,
-		cm.metricTotalNodes,
-	})
+	_ = reg.Register(cm.metricTotalRemoteClusters)
+	_ = reg.Register(cm.metricLastFailureTimestamp)
+	_ = reg.Register(cm.metricReadinessStatus)
+	_ = reg.Register(cm.metricTotalFailures)
+	_ = reg.Register(cm.metricTotalNodes)
+
 	return cm, nil
 }
 
@@ -248,11 +253,12 @@ func (cm *ClusterMesh) Close() {
 		delete(cm.clusters, name)
 	}
 	cm.controllers.RemoveAllAndWait()
-	metrics.Unregister(cm.metricTotalRemoteClusters)
-	metrics.Unregister(cm.metricLastFailureTimestamp)
-	metrics.Unregister(cm.metricReadinessStatus)
-	metrics.Unregister(cm.metricTotalFailures)
-	metrics.Unregister(cm.metricTotalNodes)
+
+	cm.metricTotalRemoteClusters.SetEnabled(false)
+	cm.metricLastFailureTimestamp.SetEnabled(false)
+	cm.metricReadinessStatus.SetEnabled(false)
+	cm.metricTotalFailures.SetEnabled(false)
+	cm.metricTotalNodes.SetEnabled(false)
 }
 
 func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {

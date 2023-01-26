@@ -210,6 +210,9 @@ type Daemon struct {
 
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
+
+	metricsRegistry *metrics.Registry
+	legacyMetrics   *metrics.LegacyMetrics
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -404,8 +407,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	policyUpdater *policy.Updater,
 	egressGatewayManager *egressgateway.Manager,
 	cniConfigManager cni.CNIConfigManager,
+	metricsRegistry *metrics.Registry,
+	legacyMetrics *metrics.LegacyMetrics,
 ) (*Daemon, *endpointRestoreState, error) {
-
 	var (
 		err           error
 		netConf       *cnitypes.NetConf
@@ -549,6 +553,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		policyUpdater:        policyUpdater,
 		egressGatewayManager: egressGatewayManager,
 		cniConfigManager:     cniConfigManager,
+		metricsRegistry:      metricsRegistry,
+		legacyMetrics:        legacyMetrics,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -1304,7 +1310,7 @@ func (d *Daemon) bootstrapClusterMesh(nodeMngr nodemanager.NodeManager) {
 				NodeManager:           nodeMngr,
 				RemoteIdentityWatcher: d.identityAllocator,
 				IPCache:               d.ipcache,
-			})
+			}, d.metricsRegistry)
 			if err != nil {
 				log.WithError(err).Fatal("Unable to initialize ClusterMesh")
 			}

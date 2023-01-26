@@ -33,12 +33,6 @@ import (
 
 const anyPort = "*"
 
-var (
-	updateMetric = metrics.ServicesCount.WithLabelValues("update")
-	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
-	addMetric    = metrics.ServicesCount.WithLabelValues("add")
-)
-
 // ErrLocalRedirectServiceExists represents an error when a Local redirect
 // service exists with the same Frontend.
 type ErrLocalRedirectServiceExists struct {
@@ -716,9 +710,9 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	if new {
-		addMetric.Inc()
+		metrics.ServicesCount.WithLabelValues("add").Inc()
 	} else {
-		updateMetric.Inc()
+		metrics.ServicesCount.WithLabelValues("update").Inc()
 	}
 
 	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
@@ -1579,7 +1573,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 	}
 
-	deleteMetric.Inc()
+	metrics.ServicesCount.WithLabelValues("delete").Inc()
 	s.notifyMonitorServiceDelete(svc.frontend.ID)
 
 	return nil

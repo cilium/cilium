@@ -651,25 +651,25 @@ func (h *putPolicy) Handle(params PutPolicyParams) middleware.Responder {
 	var rules policyAPI.Rules
 	if err := json.Unmarshal([]byte(params.Policy), &rules); err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 		return NewPutPolicyInvalidPolicy()
 	}
 
 	for _, r := range rules {
 		if err := r.Sanitize(); err != nil {
 			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 			return api.Error(PutPolicyFailureCode, err)
 		}
 	}
 
-	rev, err := d.PolicyAdd(rules, &policy.AddOptions{Source: metrics.LabelEventSourceAPI})
+	rev, err := d.PolicyAdd(rules, &policy.AddOptions{Source: metrics.LabelEventSourceAPI.Name})
 	if err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 		return api.Error(PutPolicyFailureCode, err)
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess.Name).Inc()
 
 	policy := &models.Policy{
 		Revision: int64(rev),

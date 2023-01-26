@@ -206,60 +206,60 @@ func (s *Server) collectNodeConnectivityMetrics() {
 
 		// Aggregated status for endpoint connectivity
 		metrics.NodeConnectivityStatus.WithLabelValues(
-			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerEndpoint).
+			localClusterName, localNodeName, targetClusterName, targetNodeName, location.Name, metrics.LabelPeerEndpoint.Name).
 			Set(metrics.BoolToFloat64(isEndpointReachable))
 
 		// Aggregated status for node connectivity
 		metrics.NodeConnectivityStatus.WithLabelValues(
-			localClusterName, localNodeName, targetClusterName, targetNodeName, location, metrics.LabelPeerNode).
+			localClusterName, localNodeName, targetClusterName, targetNodeName, location.Name, metrics.LabelPeerNode.Name).
 			Set(metrics.BoolToFloat64(isNodeReachable))
 
 		// HTTP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.HTTP, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
-			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
+			location.Name, metrics.LabelPeerEndpoint.Name, metrics.LabelTrafficHTTP.Name, metrics.LabelAddressTypePrimary.Name)
 
 		// HTTP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
 			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
+				location.Name, metrics.LabelPeerEndpoint.Name, metrics.LabelTrafficHTTP.Name, metrics.LabelAddressTypeSecondary.Name)
 		}
 
 		// HTTP node primary
 		collectConnectivityMetric(nodePathPrimaryAddress.HTTP, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
-			location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypePrimary)
+			location.Name, metrics.LabelPeerNode.Name, metrics.LabelTrafficHTTP.Name, metrics.LabelAddressTypePrimary.Name)
 
 		// HTTP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
 			collectConnectivityMetric(secondary.HTTP, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerNode, metrics.LabelTrafficHTTP, metrics.LabelAddressTypeSecondary)
+				location.Name, metrics.LabelPeerNode.Name, metrics.LabelTrafficHTTP.Name, metrics.LabelAddressTypeSecondary.Name)
 		}
 
 		// ICMP endpoint primary
 		collectConnectivityMetric(endpointPathStatus.PrimaryAddress.Icmp, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, endpointPathStatus.PrimaryAddress.IP,
-			location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
+			location.Name, metrics.LabelPeerEndpoint.Name, metrics.LabelTrafficICMP.Name, metrics.LabelAddressTypePrimary.Name)
 
 		// ICMP endpoint secondary
 		for _, secondary := range endpointPathStatus.SecondaryAddresses {
 			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerEndpoint, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
+				location.Name, metrics.LabelPeerEndpoint.Name, metrics.LabelTrafficICMP.Name, metrics.LabelAddressTypeSecondary.Name)
 		}
 
 		// ICMP node primary
 		collectConnectivityMetric(nodePathPrimaryAddress.Icmp, localClusterName, localNodeName,
 			targetClusterName, targetNodeName, nodePathPrimaryAddress.IP,
-			location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypePrimary)
+			location.Name, metrics.LabelPeerNode.Name, metrics.LabelTrafficICMP.Name, metrics.LabelAddressTypePrimary.Name)
 
 		// ICMP node secondary
 		for _, secondary := range nodePathSecondaryAddress {
 			collectConnectivityMetric(secondary.Icmp, localClusterName, localNodeName,
 				targetClusterName, targetNodeName, secondary.IP,
-				location, metrics.LabelPeerNode, metrics.LabelTrafficICMP, metrics.LabelAddressTypeSecondary)
+				location.Name, metrics.LabelPeerNode.Name, metrics.LabelTrafficICMP.Name, metrics.LabelAddressTypeSecondary.Name)
 		}
 	}
 }

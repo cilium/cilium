@@ -8,9 +8,10 @@ import (
 	"reflect"
 	"runtime"
 
+	"go.uber.org/dig"
+
 	"github.com/cilium/cilium/pkg/hive/internal"
 	pkgmetric "github.com/cilium/cilium/pkg/metrics/metric"
-	"go.uber.org/dig"
 )
 
 func Metric[S any](ctor func() S) Cell {

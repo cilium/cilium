@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
@@ -31,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -39,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/version"
 )
 
@@ -425,9 +422,6 @@ const (
 
 	ProcFs = "procfs"
 
-	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
-	PrometheusServeAddr = "prometheus-serve-addr"
-
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
@@ -790,10 +784,6 @@ const (
 
 	// K8sEventHandover is the name of the K8sEventHandover option
 	K8sEventHandover = "enable-k8s-event-handover"
-
-	// Metrics represents the metrics subsystem that Cilium should expose
-	// to prometheus.
-	Metrics = "metrics"
 
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
@@ -1846,9 +1836,6 @@ type DaemonConfig struct {
 	// mirroring it into the kvstore for reduced overhead in large
 	// clusters.
 	K8sEventHandover bool
-
-	// MetricsConfig is the configuration set in metrics
-	MetricsConfig metrics.Configuration
 
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 string
@@ -2973,7 +2960,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)
 	c.ProcFs = vp.GetString(ProcFs)
-	c.PrometheusServeAddr = vp.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = vp.GetInt(ProxyConnectTimeout)
 	c.ProxyGID = vp.GetInt(ProxyGID)
 	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
@@ -3236,23 +3222,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.MonitorQueueSize = getDefaultMonitorQueueSize(runtime.NumCPU())
 	}
 
-	// Metrics Setup
-	metrics.ResetMetrics()
-	defaultMetrics := metrics.DefaultMetrics()
-	flagMetrics := append(vp.GetStringSlice(Metrics), c.additionalMetrics()...)
-	for _, metric := range flagMetrics {
-		switch metric[0] {
-		case '+':
-			defaultMetrics[metric[1:]] = struct{}{}
-		case '-':
-			delete(defaultMetrics, metric[1:])
-		}
-	}
-	var collectors []prometheus.Collector
-	metricsSlice := common.MapStringStructToSlice(defaultMetrics)
-	c.MetricsConfig, collectors = metrics.CreateConfiguration(metricsSlice)
-	metrics.MustRegister(collectors...)
-
 	if err := c.parseExcludedLocalAddresses(vp.GetStringSlice(ExcludeLocalAddress)); err != nil {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
@@ -3366,17 +3335,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
-}
-
-func (c *DaemonConfig) additionalMetrics() []string {
-	addMetric := func(name string) string {
-		return "+" + metrics.Namespace + "_" + name
-	}
-	var m []string
-	if c.DNSProxyConcurrencyLimit > 0 {
-		m = append(m, addMetric(metrics.SubsystemFQDN+"_semaphore_rejected_total"))
-	}
-	return m
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {

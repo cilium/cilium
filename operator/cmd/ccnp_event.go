@@ -25,7 +25,7 @@ import (
 )
 
 func k8sEventMetric(scope, action string) {
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s.Name, scope, action).SetToCurrentTime()
 }
 
 // enableCCNPWatcher is similar to enableCNPWatcher but handles the watch events for

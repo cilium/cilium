@@ -16,6 +16,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -56,6 +58,14 @@ var (
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),
+
+		// Provides metrics registry and prometheus HTTP endpoint.
+		metrics.Cell,
+
+		cell.Invoke(func(loggingHook *metrics.LoggingHook) {
+			// add hooks after setting up metrics in the option.Config
+			logging.DefaultLogger.Hooks.Add(loggingHook)
+		}),
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

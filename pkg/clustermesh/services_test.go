@@ -18,6 +18,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/rand"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -93,6 +95,15 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
+
+	reg, err := metrics.NewRegistry(metrics.RegistryParams{
+		Config:     metrics.RegistryConfig{},
+		Lifecycle:  &hive.DefaultLifecycle{},
+		Shutdowner: nil,
+		Metrics:    nil,
+	})
+	c.Assert(err, IsNil)
+
 	cm, err := NewClusterMesh(Configuration{
 		Name:                  "test2",
 		ConfigDirectory:       dir,
@@ -101,7 +112,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		ServiceMerger:         &s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
-	})
+	}, reg)
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
 
@@ -350,9 +361,17 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 }
 
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
+	reg, err := metrics.NewRegistry(metrics.RegistryParams{
+		Config:     metrics.RegistryConfig{},
+		Lifecycle:  &hive.DefaultLifecycle{},
+		Shutdowner: nil,
+		Metrics:    nil,
+	})
+	c.Assert(err, IsNil)
+
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := newGlobalServiceCache("cluster", "node")
+	cache := newGlobalServiceCache("cluster", "node", reg)
 	merger := fakeServiceMerger{}
 
 	observer := remoteServiceObserver{

@@ -10,8 +10,8 @@ import "golang.org/x/sys/unix"
 // Errno2Outcome converts a unix.Errno to LabelOutcome
 func Errno2Outcome(errno unix.Errno) string {
 	if errno != 0 {
-		return LabelValueOutcomeFail
+		return LabelValueOutcomeFail.Name
 	}
 
-	return LabelValueOutcomeSuccess
+	return LabelValueOutcomeSuccess.Name
 }

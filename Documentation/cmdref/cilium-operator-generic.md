@@ -68,6 +68,7 @@ cilium-operator-generic [flags]
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
+      --metrics strings                                      Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --nodes-gc-interval duration                           GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-pprof                                       Enable serving pprof debugging API
@@ -76,6 +77,7 @@ cilium-operator-generic [flags]
       --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                           Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string                          cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
+      --prometheus-serve-addr string                         IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off) (default ":9962")
       --remove-cilium-node-taints                            Remove node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes once Cilium is up and running (default true)
       --set-cilium-is-up-condition                           Set CiliumIsUp Node condition to mark a Kubernetes Node that a Cilium pod is up and running in that node (default true)
       --set-cilium-node-taints                               Set node taint "node.cilium.io/agent-not-ready" from Kubernetes nodes if Cilium is scheduled but not up and running

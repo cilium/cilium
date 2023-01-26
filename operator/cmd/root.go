@@ -33,7 +33,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
-	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -83,6 +82,11 @@ var (
 		"operator",
 		"Cilium Operator",
 
+		cell.Invoke(func(metricHook *metrics.LoggingHook) {
+			// add hooks after setting up metrics
+			logging.DefaultLogger.Hooks.Add(metricHook)
+		}),
+
 		cell.Invoke(
 			registerOperatorHooks,
 		),
@@ -114,6 +118,8 @@ var (
 		),
 		api.MetricsHandlerCell,
 		api.ServerCell,
+
+		metrics.Cell,
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
@@ -215,9 +221,6 @@ func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
-
-	// add hooks after setting up metrics in the option.Confog
-	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
 
 	// Logging should always be bootstrapped first. Do not add any code above this!
 	if err := logging.SetupLogging(option.Config.LogDriver, logging.LogOptions(option.Config.LogOpt), binaryName, option.Config.Debug); err != nil {

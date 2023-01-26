@@ -7,12 +7,11 @@ import (
 	"context"
 	"unsafe"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -137,14 +136,14 @@ func (vs Values) Bytes() uint64 {
 	return b
 }
 
-func updateMetric(getCounter func() (prometheus.Counter, error), newValue float64) {
+func updateMetric(getCounter func() (metric.Counter, error), newValue float64) {
 	counter, err := getCounter()
 	if err != nil {
 		log.WithError(err).Warn("Failed to update prometheus metrics")
 		return
 	}
 
-	oldValue := metrics.GetCounterValue(counter)
+	oldValue := counter.Get()
 	if newValue > oldValue {
 		counter.Add(newValue - oldValue)
 	}
@@ -154,14 +153,14 @@ func updateMetric(getCounter func() (prometheus.Counter, error), newValue float6
 // and determines which prometheus metrics along with respective labels
 // need to be updated.
 func updatePrometheusMetrics(key *Key, values *Values) {
-	updateMetric(func() (prometheus.Counter, error) {
+	updateMetric(func() (metric.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}
 		return metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
 	}, float64(values.Count()))
 
-	updateMetric(func() (prometheus.Counter, error) {
+	updateMetric(func() (metric.Counter, error) {
 		if key.IsDrop() {
 			return metrics.DropBytes.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
 		}

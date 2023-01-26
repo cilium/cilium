@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -72,7 +71,7 @@ func createMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID u
 	ubaSize = unsafe.Sizeof(u)
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, err := unix.Syscall(
@@ -82,7 +81,7 @@ func createMap(mapType MapType, keySize, valueSize, maxEntries, flags, innerID u
 		ubaSize,
 	)
 	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpCreate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
@@ -121,7 +120,7 @@ type bpfAttrMapOpElem struct {
 // UpdateElementFromPointers updates the map in fd with the given value in the given key.
 func UpdateElementFromPointers(fd int, mapName string, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, err := unix.Syscall(
@@ -131,7 +130,7 @@ func UpdateElementFromPointers(fd int, mapName string, structPtr unsafe.Pointer,
 		sizeOfStruct,
 	)
 	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpUpdate, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
@@ -175,7 +174,7 @@ func UpdateElement(fd int, mapName string, key, value unsafe.Pointer, flags uint
 // is stored in the value unsafe.Pointer.
 func LookupElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, err := unix.Syscall(
@@ -185,7 +184,7 @@ func LookupElementFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct ui
 		sizeOfStruct,
 	)
 	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpLookup, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
@@ -218,7 +217,7 @@ func deleteElement(fd int, key unsafe.Pointer) (uintptr, unix.Errno) {
 		key:   uint64(uintptr(key)),
 	}
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, err := unix.Syscall(
@@ -229,7 +228,7 @@ func deleteElement(fd int, key unsafe.Pointer) (uintptr, unix.Errno) {
 	)
 	runtime.KeepAlive(key)
 	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
@@ -251,7 +250,7 @@ func DeleteElement(fd int, key unsafe.Pointer) error {
 // map in fd. When there are no more keys, io.EOF is returned.
 func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintptr) error {
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, err := unix.Syscall(
@@ -261,7 +260,7 @@ func GetNextKeyFromPointers(fd int, structPtr unsafe.Pointer, sizeOfStruct uintp
 		sizeOfStruct,
 	)
 	runtime.KeepAlive(structPtr)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetNextKey, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 
@@ -327,7 +326,7 @@ func ObjPin(fd int, pathname string) error {
 	}
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	ret, _, errno := unix.Syscall(
@@ -339,7 +338,7 @@ func ObjPin(fd int, pathname string) error {
 	runtime.KeepAlive(pathStr)
 	runtime.KeepAlive(&uba)
 
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjPin, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
 	}
 
@@ -361,7 +360,7 @@ func ObjGet(pathname string) (int, error) {
 	}
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	fd, _, errno := unix.Syscall(
@@ -372,7 +371,7 @@ func ObjGet(pathname string) (int, error) {
 	)
 	runtime.KeepAlive(pathStr)
 	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpObjGet, metrics.Errno2Outcome(errno)).Observe(duration.End(errno == 0).Total().Seconds())
 	}
 
@@ -400,7 +399,7 @@ func MapFdFromID(id int) (int, error) {
 	}
 
 	var duration *spanstat.SpanStat
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		duration = spanstat.Start()
 	}
 	fd, _, err := unix.Syscall(
@@ -410,7 +409,7 @@ func MapFdFromID(id int) (int, error) {
 		unsafe.Sizeof(uba),
 	)
 	runtime.KeepAlive(&uba)
-	if option.Config.MetricsConfig.BPFSyscallDurationEnabled {
+	if metrics.BPFSyscallDuration.IsEnabled() {
 		metrics.BPFSyscallDuration.WithLabelValues(metricOpGetFDByID, metrics.Errno2Outcome(err)).Observe(duration.End(err == 0).Total().Seconds())
 	}
 

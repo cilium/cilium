@@ -4,13 +4,16 @@
 package server
 
 import (
+	"reflect"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	. "gopkg.in/check.v1"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 type ServerTestSuite struct{}
@@ -256,6 +259,20 @@ func (s *ServerTestSuite) Test_server_getClusterNodeName(c *C) {
 }
 
 func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
+	legacyMetrics := metrics.NewLegacyMetrics()
+	metricByName := make(map[string]metric.WithMetadata)
+	collectorByName := make(map[string]prometheus.Collector)
+	set := reflect.ValueOf(legacyMetrics).Elem()
+	for i := 0; i < set.NumField(); i++ {
+		if m, ok := set.Field(i).Interface().(metric.WithMetadata); ok {
+			m.SetEnabled(false)
+			metricByName[m.Opts().FullyQualifiedName()] = m
+			if coll, ok := m.(prometheus.Collector); ok {
+				collectorByName[m.Opts().FullyQualifiedName()] = coll
+			}
+		}
+	}
+
 	tests := []struct {
 		name           string
 		localStatus    *healthModels.SelfStatus
@@ -309,25 +326,31 @@ func (s *ServerTestSuite) Test_server_collectNodeConnectivityMetrics(c *C) {
 	for _, tt := range tests {
 		c.Log("Test :", tt.name)
 
-		_, collectors := metrics.CreateConfiguration([]string{tt.metricName})
 		s := &Server{
 			connectivity: tt.connectivity,
 			localStatus:  tt.localStatus,
 		}
+
+		metricByName[tt.metricName].SetEnabled(true)
+
 		s.collectNodeConnectivityMetrics()
 
+		collector := collectorByName[tt.metricName]
+
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
-		lintProblems, err := testutil.CollectAndLint(collectors[0])
+		lintProblems, err := testutil.CollectAndLint(collector)
 		c.Assert(err, IsNil)
 		c.Assert(lintProblems, HasLen, 0)
 
 		// check the number of metrics
-		count := testutil.CollectAndCount(collectors[0])
+		count := testutil.CollectAndCount(collector)
 		c.Assert(count, Equals, tt.expectedCount)
 
 		// compare the metric output
-		err = testutil.CollectAndCompare(collectors[0], strings.NewReader(tt.expectedMetric))
+		err = testutil.CollectAndCompare(collector, strings.NewReader(tt.expectedMetric))
 		c.Assert(err, IsNil)
+
+		metricByName[tt.metricName].SetEnabled(false)
 	}
 
 }

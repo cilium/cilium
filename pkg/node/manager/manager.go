@@ -10,8 +10,6 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/cilium/workerpool"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -27,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -114,15 +113,15 @@ type manager struct {
 
 	// metricEventsReceived is the prometheus metric to track the number of
 	// node events received
-	metricEventsReceived *prometheus.CounterVec
+	metricEventsReceived metric.Vec[metric.Counter]
 
 	// metricNumNodes is the prometheus metric to track the number of nodes
 	// being managed
-	metricNumNodes prometheus.Gauge
+	metricNumNodes metric.Gauge
 
 	// metricDatapathValidations is the prometheus metric to track the
 	// number of datapath node validation calls
-	metricDatapathValidations prometheus.Counter
+	metricDatapathValidations metric.Counter
 
 	// conf is the configuration of the caller passed in via NewManager.
 	// This field is immutable after NewManager()
@@ -169,7 +168,7 @@ func (m *manager) Iter(f func(nh datapath.NodeHandler)) {
 }
 
 // New returns a new node manager
-func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
+func New(name string, c Configuration, ipCache IPCache, reg *metrics.Registry) (*manager, error) {
 	m := &manager{
 		name:              name,
 		nodes:             map[nodeTypes.Identity]*nodeEntry{},
@@ -179,31 +178,35 @@ func New(name string, c Configuration, ipCache IPCache) (*manager, error) {
 		ipcache:           ipCache,
 	}
 
-	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
+	subsystem := metric.Subsystem{
+		Name:    "nodes",
+		DocName: "Nodes",
+	}
+
+	m.metricEventsReceived = metric.NewCounterVec(metric.CounterOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
+		Subsystem: subsystem,
 		Name:      name + "_events_received_total",
 		Help:      "Number of node events received",
-	}, []string{"event_type", "source"})
+	}, metric.LabelDescriptions{{Name: "event_type"}, {Name: "source"}})
 
-	m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
+	m.metricNumNodes = metric.NewGauge(metric.GaugeOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
+		Subsystem: subsystem,
 		Name:      name + "_num",
 		Help:      "Number of nodes managed",
 	})
 
-	m.metricDatapathValidations = prometheus.NewCounter(prometheus.CounterOpts{
+	m.metricDatapathValidations = metric.NewCounter(metric.CounterOpts{
 		Namespace: metrics.Namespace,
-		Subsystem: "nodes",
+		Subsystem: subsystem,
 		Name:      name + "_datapath_validations_total",
 		Help:      "Number of validation calls to implement the datapath implementation of a node",
 	})
 
-	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
-	if err != nil {
-		return nil, err
-	}
+	_ = reg.Register(m.metricDatapathValidations)
+	_ = reg.Register(m.metricEventsReceived)
+	_ = reg.Register(m.metricNumNodes)
 
 	return m, nil
 }
@@ -224,9 +227,9 @@ func (m *manager) Stop(hive.HookContext) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	metrics.Unregister(m.metricNumNodes)
-	metrics.Unregister(m.metricEventsReceived)
-	metrics.Unregister(m.metricDatapathValidations)
+	m.metricNumNodes.SetEnabled(false)
+	m.metricEventsReceived.SetEnabled(false)
+	m.metricDatapathValidations.SetEnabled(false)
 
 	return nil
 }

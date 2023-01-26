@@ -271,12 +271,15 @@ func (m *Map) WithEvents(c option.BPFEventBufferConfig) *Map {
 // the pressure of this map. This metric is only reported if over the
 // threshold.
 func (m *Map) WithPressureMetricThreshold(threshold float64) *Map {
+	if !metrics.MapPressure.IsEnabled() {
+		return m
+	}
+
 	// When pressure metric is enabled, we keep track of map keys in cache
 	if m.cache == nil {
 		m.cache = map[string]*cacheEntry{}
 	}
-
-	m.pressureGauge = metrics.NewBPFMapPressureGauge(m.NonPrefixedName(), threshold)
+	m.pressureGauge = metrics.MapPressure.BPFMapPressureGauge(m.NonPrefixedName(), threshold)
 
 	return m
 }
@@ -294,7 +297,7 @@ func (m *Map) updatePressureMetric() {
 
 	// Do a lazy check of MetricsConfig as it is not available at map static
 	// initialization.
-	if !option.Config.MetricsConfig.BPFMapPressure {
+	if metrics.MapPressure == nil || !metrics.MapPressure.IsEnabled() {
 		if !m.withValueCache {
 			m.cache = nil
 		}
@@ -909,7 +912,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 	}
 
 	err = UpdateElement(m.fd, m.name, key.GetKeyPtr(), value.GetValuePtr(), 0)
-	if option.Config.MetricsConfig.BPFMapOps {
+	if metrics.BPFMapOps.IsEnabled() {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
 	return err
@@ -989,7 +992,7 @@ func (m *Map) deleteMapEntry(key MapKey, ignoreMissing bool) (deleted bool, err 
 	// occurs at least in the context of cleanup of NAT mappings from CT GC.
 	handleError := errno != unix.ENOENT || !ignoreMissing
 
-	if option.Config.MetricsConfig.BPFMapOps && handleError {
+	if metrics.BPFMapOps.IsEnabled() && handleError {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
 
@@ -1076,7 +1079,7 @@ func (m *Map) GetNextKey(key MapKey, nextKey MapKey) error {
 	}
 
 	err := GetNextKey(m.fd, key.GetKeyPtr(), nextKey.GetKeyPtr())
-	if option.Config.MetricsConfig.BPFMapOps {
+	if metrics.BPFMapOps.IsEnabled() {
 		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpGetNextKey, metrics.Error2Outcome(err)).Inc()
 	}
 	return err
@@ -1179,7 +1182,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		case OK:
 		case Insert:
 			err := UpdateElement(m.fd, m.name, e.Key.GetKeyPtr(), e.Value.GetValuePtr(), 0)
-			if option.Config.MetricsConfig.BPFMapOps {
+			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == nil {
@@ -1195,7 +1198,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			m.addToEventsLocked(MapUpdate, *e)
 		case Delete:
 			_, err := deleteElement(m.fd, e.Key.GetKeyPtr())
-			if option.Config.MetricsConfig.BPFMapOps {
+			if metrics.BPFMapOps.IsEnabled() {
 				metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Error2Outcome(err)).Inc()
 			}
 			if err == 0 || err == unix.ENOENT {

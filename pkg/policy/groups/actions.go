@@ -219,7 +219,7 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 
 	if derivativeErr != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
 		if statusErr != nil {
@@ -239,12 +239,12 @@ func addDerivativePolicy(ctx context.Context, clientset client.Clientset, cnp *c
 		statusErr := updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
 			metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
-			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+			metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail.Name).Inc()
 			scopedLog.WithError(err).Error("Cannot update status for derivative policy")
 		}
 		return statusErr
 	}
-	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess.Name).Inc()
 
 	err = updateDerivativeStatus(clientset, cnp, derivativePolicy.GetName(), nil, clusterScoped)
 	if err != nil {

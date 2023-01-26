@@ -76,16 +76,11 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 		panic("ParseLabelPrefixCfg() failed")
 	}
 
-	// Register metrics once before running the suite
-	_, s.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
-	metrics.MustRegister(s.collectors...)
+	metrics.NewLegacyMetrics()
+	metrics.NewMapPressureMetric()
 }
 
 func (s *EndpointSuite) TearDownSuite(c *C) {
-	// Unregister the metrics after the suite has finished
-	for _, c := range s.collectors {
-		metrics.Unregister(c)
-	}
 }
 
 func (s *EndpointSuite) GetPolicyRepository() *policy.Repository {
@@ -441,7 +436,7 @@ func isFinalState(state State) bool {
 }
 
 func getMetricValue(state State) int64 {
-	return int64(metrics.GetGaugeValue(metrics.EndpointStateCount.WithLabelValues(string(state))))
+	return int64(metrics.EndpointStateCount.WithLabelValues(string(state)).Get())
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {

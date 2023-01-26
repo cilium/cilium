@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -34,8 +36,12 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 }
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
-	var err error
-	nm, err = manager.New("", &fakeConfig.Config{}, nil)
+	reg, err := metrics.NewRegistry(metrics.RegistryParams{
+		Config:    metrics.RegistryConfig{},
+		Lifecycle: &hive.DefaultLifecycle{},
+	})
+	c.Assert(err, IsNil)
+	nm, err = manager.New("", &fakeConfig.Config{}, nil, reg)
 	c.Assert(err, IsNil)
 }
 

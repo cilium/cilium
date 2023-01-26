@@ -133,7 +133,7 @@ func (ds *DaemonSuite) TestUpdateLabelsFailed(c *C) {
 }
 
 func getMetricValue(state string) int64 {
-	return int64(metrics.GetGaugeValue(metrics.EndpointStateCount.WithLabelValues(state)))
+	return int64(metrics.EndpointStateCount.WithLabelValues(state).Get())
 }
 
 func assertOnMetric(c *C, state string, expected int64) {

@@ -1064,7 +1064,7 @@ func (e *Endpoint) SkipStateClean() {
 }
 
 func (e *Endpoint) initPolicyMapPressureMetric() {
-	if !option.Config.MetricsConfig.BPFMapPressure {
+	if !metrics.MapPressure.IsEnabled() {
 		return
 	}
 
@@ -1072,7 +1072,7 @@ func (e *Endpoint) initPolicyMapPressureMetric() {
 		return
 	}
 
-	e.policyMapPressureGauge = metrics.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
+	e.policyMapPressureGauge = metrics.MapPressure.BPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {

@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/procfs"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 const (
@@ -36,36 +37,76 @@ const (
 	labelErrorBundleCheck      = "bundle_check"
 )
 
-type xfrmCollector struct {
+type XfrmCollectorMetric struct {
+	XfrmCollector *XfrmCollector
+}
+
+type XfrmCollector struct {
+	enabled bool
+
 	xfrmStatFunc func() (procfs.XfrmStat, error)
 
 	// Inbound errors
 	xfrmErrorDesc *prometheus.Desc
 }
 
-// NewXFRMCollector returns a new prometheus.Collector for /proc/net/xfrm_stat
+// NewXFRMCollector returns a new xfrmCollector for /proc/net/xfrm_stat
 // https://www.kernel.org/doc/Documentation/networking/xfrm_proc.txt
-func NewXFRMCollector() prometheus.Collector {
-	return newXFRMCollector(procfs.NewXfrmStat)
+func NewXFRMCollector() XfrmCollectorMetric {
+	return XfrmCollectorMetric{
+		XfrmCollector: newXFRMCollector(procfs.NewXfrmStat),
+	}
 }
 
-func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) prometheus.Collector {
-	return &xfrmCollector{
+func newXFRMCollector(statFn func() (procfs.XfrmStat, error)) *XfrmCollector {
+	return &XfrmCollector{
 		xfrmStatFunc: statFn,
 
 		xfrmErrorDesc: prometheus.NewDesc(
-			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_error"),
+			prometheus.BuildFQName(metrics.Namespace, subsystem.Name, "xfrm_error"),
 			"Total number of xfrm errors",
-			[]string{labelErrorType, metrics.LabelError}, nil,
+			[]string{labelErrorType, metrics.LabelError.Name}, nil,
 		),
 	}
 }
 
-func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
+func (x *XfrmCollector) Labels() metric.LabelDescriptions {
+	return metric.LabelDescriptions{
+		{
+			Name: labelErrorType,
+			// TODO known values
+		},
+		metrics.LabelError,
+	}
+}
+
+func (x *XfrmCollector) Opts() metric.Opts {
+	return metric.Opts{
+		Namespace:        metrics.Namespace,
+		Subsystem:        subsystem,
+		Name:             "xfrm_error",
+		Help:             "Total number of xfrm errors",
+		EnabledByDefault: false,
+	}
+}
+
+func (x *XfrmCollector) IsEnabled() bool {
+	return x.enabled
+}
+
+func (x *XfrmCollector) SetEnabled(enabled bool) {
+	x.enabled = enabled
+}
+
+func (x *XfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.xfrmErrorDesc
 }
 
-func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
+func (x *XfrmCollector) Collect(ch chan<- prometheus.Metric) {
+	if !x.enabled {
+		return
+	}
+
 	stats, err := x.xfrmStatFunc()
 	if err != nil {
 		log.WithError(err).Error("Error while getting xfrm stats")

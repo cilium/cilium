@@ -150,6 +150,7 @@ func (x *XFRMCollectorTest) Test_xfrmCollector_Collect(c *C) {
 	for _, tt := range tests {
 		c.Log("Test : ", tt.name)
 		collector := newXFRMCollector(tt.statsFn)
+		collector.SetEnabled(true)
 
 		// perform static checks such as prometheus naming convention, number of labels matching, etc
 		lintProblems, err := testutil.CollectAndLint(collector)

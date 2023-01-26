@@ -34,15 +34,15 @@ var (
 
 	// labelIPv6CTDumpInterrupts marks the count for conntrack dump resets (IPv6).
 	labelIPv6CTDumpInterrupts = map[string]string{
-		metrics.LabelDatapathArea:   "conntrack",
-		metrics.LabelDatapathName:   "dump_interrupts",
-		metrics.LabelDatapathFamily: "ipv6",
+		metrics.LabelDatapathArea.Name:   "conntrack",
+		metrics.LabelDatapathName.Name:   "dump_interrupts",
+		metrics.LabelDatapathFamily.Name: "ipv6",
 	}
 	// labelIPv4CTDumpInterrupts marks the count for conntrack dump resets (IPv4).
 	labelIPv4CTDumpInterrupts = map[string]string{
-		metrics.LabelDatapathArea:   "conntrack",
-		metrics.LabelDatapathName:   "dump_interrupts",
-		metrics.LabelDatapathFamily: "ipv4",
+		metrics.LabelDatapathArea.Name:   "conntrack",
+		metrics.LabelDatapathName.Name:   "dump_interrupts",
+		metrics.LabelDatapathFamily.Name: "ipv4",
 	}
 
 	mapInfo map[mapType]mapAttributes

@@ -14,7 +14,9 @@ import (
 
 	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -105,12 +107,21 @@ func (s *ClusterMeshTestSuite) TestWatchConfigDirectory(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
+
+	reg, err := metrics.NewRegistry(metrics.RegistryParams{
+		Config:     metrics.RegistryConfig{},
+		Lifecycle:  &hive.DefaultLifecycle{},
+		Shutdowner: nil,
+		Metrics:    nil,
+	})
+	c.Assert(err, IsNil)
+
 	cm, err := NewClusterMesh(Configuration{
 		Name:            "test1",
 		ConfigDirectory: baseDir,
 		NodeKeyCreator:  testNodeCreator,
 		IPCache:         ipc,
-	})
+	}, reg)
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))
 	defer cm.Close()

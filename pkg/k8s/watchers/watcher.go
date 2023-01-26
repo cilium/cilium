@@ -981,7 +981,7 @@ func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, valid, equal bool) {
 	k8smetrics.LastInteraction.Reset()
 
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
+	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s.Name, scope, action).SetToCurrentTime()
 	validStr := strconv.FormatBool(valid)
 	equalStr := strconv.FormatBool(equal)
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, validStr, equalStr).Inc()

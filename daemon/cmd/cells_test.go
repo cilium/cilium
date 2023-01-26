@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/metrics"
 )
 
 var goleakOptions = []goleak.Option{
@@ -29,8 +28,6 @@ var goleakOptions = []goleak.Option{
 // the hive commands and documentation can be generated from it.
 func TestAgentCell(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions...)
-	defer metrics.ResetMetrics()
-
 	logging.SetLogLevelToDebug()
 	err := hive.New(Agent).Populate()
 	assert.NoError(t, err, "Populate()")

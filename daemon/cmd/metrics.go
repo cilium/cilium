@@ -12,7 +12,6 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
@@ -26,7 +25,7 @@ func NewGetMetricsHandler(d *Daemon) restapi.GetMetricsHandler {
 }
 
 func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responder {
-	metrics, err := metrics.DumpMetrics()
+	metrics, err := h.daemon.metricsRegistry.DumpMetrics()
 	if err != nil {
 		return api.Error(
 			restapi.GetMetricsInternalServerErrorCode,
@@ -34,17 +33,6 @@ func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responde
 	}
 
 	return restapi.NewGetMetricsOK().WithPayload(metrics)
-}
-
-func initMetrics() <-chan error {
-	var errs <-chan error
-
-	if option.Config.PrometheusServeAddr != "" {
-		log.Infof("Serving prometheus metrics on %s", option.Config.PrometheusServeAddr)
-		errs = metrics.Enable(option.Config.PrometheusServeAddr)
-	}
-
-	return errs
 }
 
 type bootstrapStatistics struct {
@@ -71,16 +59,16 @@ type bootstrapStatistics struct {
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
-	if !option.Config.MetricsConfig.BootstrapTimesEnabled {
+	if !metrics.BootstrapTimes.IsEnabled() {
 		return
 	}
 
 	for scope, stat := range b.getMap() {
 		if stat.SuccessTotal() != time.Duration(0) {
-			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeSuccess).Observe(stat.SuccessTotal().Seconds())
+			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeSuccess.Name).Observe(stat.SuccessTotal().Seconds())
 		}
 		if stat.FailureTotal() != time.Duration(0) {
-			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeFail).Observe(stat.FailureTotal().Seconds())
+			metrics.BootstrapTimes.WithLabelValues(scope, metrics.LabelValueOutcomeFail.Name).Observe(stat.FailureTotal().Seconds())
 		}
 	}
 }

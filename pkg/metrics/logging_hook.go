@@ -9,35 +9,41 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
+
+type loggerHookMetrics struct {
+	ErrorsWarnings metric.Vec[metric.Counter]
+}
+
+func NewLoggingHookMetrics() *loggerHookMetrics {
+	return &loggerHookMetrics{
+		ErrorsWarnings: metric.NewCounterVec(metric.CounterOpts{
+			Namespace:        Namespace,
+			Name:             "errors_warnings_total",
+			Help:             "Number of total errors in cilium-agent instances",
+			EnabledByDefault: true,
+		}, metric.LabelDescriptions{
+			{Name: "level", Description: "Log level", KnownValues: []metric.KnownValue{
+				{Name: "error"},
+				{Name: "warning"},
+			}},
+			{Name: "subsystem"},
+		}),
+	}
+}
 
 // LoggingHook is a hook for logrus which counts error and warning messages as a
 // Prometheus metric.
 type LoggingHook struct {
-	metric CounterVec
+	metric metric.Vec[metric.Counter]
 }
 
 // NewLoggingHook returns a new instance of LoggingHook for the given Cilium
 // component.
-func NewLoggingHook(component string) *LoggingHook {
-	// NOTE(mrostecki): For now errors and warning metric exists only for Cilium
-	// daemon, but support of Prometheus metrics in some other components (i.e.
-	// cilium-health - GH-4268) is planned.
-
-	// Pick a metric for the component.
-	var metric CounterVec
-	switch component {
-	case components.CiliumAgentName:
-		metric = ErrorsWarnings
-	case components.CiliumOperatortName:
-		metric = ErrorsWarnings
-	default:
-		panic(fmt.Sprintf("component %s is unsupported by LoggingHook", component))
-	}
-
-	return &LoggingHook{metric: metric}
+func NewLoggingHook(metrics *loggerHookMetrics) *LoggingHook {
+	return &LoggingHook{metric: metrics.ErrorsWarnings}
 }
 
 // Levels returns the list of logging levels on which the hook is triggered.

@@ -1314,7 +1314,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		if want.err == nil {
 			_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
 				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
-				Source:            metrics.LabelEventSourceK8s,
+				Source:            metrics.LabelEventSourceK8s.Name,
 			})
 			c.Assert(policyImportErr, IsNil)
 		}
