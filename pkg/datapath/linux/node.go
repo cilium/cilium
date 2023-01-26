@@ -362,7 +362,7 @@ func (n *linuxNodeHandler) createNodeRouteSpec(prefix *cidr.CIDR, isLocalNode bo
 		}
 
 		nexthop = n.nodeAddressing.IPv6().Router()
-		local = n.nodeAddressing.IPv6().PrimaryExternal()
+		local = nexthop
 	}
 
 	if !isLocalNode {
