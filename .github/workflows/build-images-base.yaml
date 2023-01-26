@@ -44,16 +44,16 @@ jobs:
       - name: Generating image tag for Cilium-Runtime
         id: runtime-tag
         run: |
-          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ./images/runtime | awk '{ print $3 }')"
+          echo tag="$(git ls-tree --full-tree HEAD -- ./images/runtime | awk '{ print $3 }')" >> $GITHUB_OUTPUT
 
       - name: Checking if tag for Cilium-Runtime already exists
         id: cilium-runtime-tag-in-repositories
         shell: bash
         run: |
           if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/cilium-runtime:${{  steps.runtime-tag.outputs.tag }} &>/dev/null; then
-            echo ::set-output name=exists::"true"
+            echo exists="true" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=exists::"false"
+            echo exists="false" >> $GITHUB_OUTPUT
           fi
 
       - name: Login to quay.io
@@ -104,16 +104,16 @@ jobs:
       - name: Generating image tag for Cilium-Builder
         id: builder-tag
         run: |
-          echo ::set-output name=tag::"$(git ls-tree --full-tree HEAD -- ./images/builder | awk '{ print $3 }')"
+          echo tag="$(git ls-tree --full-tree HEAD -- ./images/builder | awk '{ print $3 }')" >> $GITHUB_OUTPUT
 
       - name: Checking if tag for Cilium-Builder already exists
         id: cilium-builder-tag-in-repositories
         shell: bash
         run: |
           if docker buildx imagetools inspect quay.io/${{ github.repository_owner }}/cilium-builder:${{  steps.builder-tag.outputs.tag }} &>/dev/null; then
-            echo ::set-output name=exists::"true"
+            echo exists="true" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=exists::"false"
+            echo exists="false" >> $GITHUB_OUTPUT
           fi
 
       - name: Login to quay.io
