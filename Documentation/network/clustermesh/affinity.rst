@@ -18,10 +18,10 @@ Enabling Global Service Affinity
 ################################
 
 Load-balancing across multiple clusters might not be ideal in some cases.
-The annotation ``io.cilium/service-affinity: "local|remote|none"`` can be used
+The annotation ``service.cilium.io/affinity: "local|remote|none"`` can be used
 to specify the preferred endpoint destination.
 
-For example, if the value of annotation ``io.cilium/service-affinity`` is local,
+For example, if the value of annotation ``service.cilium.io/affinity`` is local,
 the Global Service will load-balance across healthy ``local`` backends, and only user
 remote endpoints if and only if all of local backends are not available or unhealthy.
 
@@ -32,7 +32,7 @@ remote endpoints if and only if all of local backends are not available or unhea
    metadata:
      name: rebel-base
      annotations:
-        io.cilium/global-service: "true"
+        service.cilium.io/global: "true"
         # Possible values:
         # - local
         #    preferred endpoints from local cluster if available
@@ -40,7 +40,7 @@ remote endpoints if and only if all of local backends are not available or unhea
         #    preferred endpoints from remote cluster if available
         # none (default)
         #    no preference. Default behavior if this annotation does not exist
-        io.cilium/service-affinity: "local"
+        service.cilium.io/affinity: "local"
    spec:
      type: ClusterIP
      ports:
@@ -49,11 +49,11 @@ remote endpoints if and only if all of local backends are not available or unhea
        name: rebel-base
 
 
-1. In cluster 1, add ``io.cilium/service-affinity="local"`` to existing global service
+1. In cluster 1, add ``service.cilium.io/affinity="local"`` to existing global service
 
    .. code-block:: shell-session
 
-      kubectl annotate service rebel-base io.cilium/service-affinity=local --overwrite
+      kubectl annotate service rebel-base service.cilium.io/affinity=local --overwrite
 
 2. From cluster 1, access the global service:
 
@@ -90,11 +90,11 @@ remote endpoints if and only if all of local backends are not available or unhea
                                               3 => 10.244.2.31:80 (active) (preferred)
                                               4 => 10.244.2.200:80 (active)
 
-5. In cluster 1, change ``io.cilium/service-affinity`` value to ``remote`` for existing global service
+5. In cluster 1, change ``service.cilium.io/affinity`` value to ``remote`` for existing global service
 
    .. code-block:: shell-session
 
-      kubectl annotate service rebel-base io.cilium/service-affinity=remote --overwrite
+      kubectl annotate service rebel-base service.cilium.io/affinity=remote --overwrite
 
 6. From cluster 1, access the global service:
 
@@ -131,11 +131,11 @@ remote endpoints if and only if all of local backends are not available or unhea
 
    You will see replies from pods in both clusters as usual.
 
-9. In cluster 1, remove ``io.cilium/service-affinity`` annotation for existing global service
+9. In cluster 1, remove ``service.cilium.io/affinity`` annotation for existing global service
 
    .. code-block:: shell-session
 
-      kubectl annotate service rebel-base io.cilium/service-affinity- --overwrite
+      kubectl annotate service rebel-base service.cilium.io/affinity- --overwrite
 
 10. From either cluster, access the global service:
 

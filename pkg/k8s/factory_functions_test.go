@@ -888,7 +888,7 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 				o2: &slim_corev1.Service{
 					ObjectMeta: slim_metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"io.cilium/shared-service": "true",
+							"service.cilium.io/shared": "true",
 						},
 					},
 				},
