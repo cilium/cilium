@@ -26,17 +26,17 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
 
-type ErrCIDRColision struct {
+type ErrCIDRCollision struct {
 	cidr      string
 	allocator podcidr.CIDRAllocator
 }
 
-func (e ErrCIDRColision) Error() string {
-	return fmt.Sprintf("requested CIDR %s colides with %s", e.cidr, e.allocator)
+func (e ErrCIDRCollision) Error() string {
+	return fmt.Sprintf("requested CIDR %s collides with %s", e.cidr, e.allocator)
 }
 
-func (e *ErrCIDRColision) Is(target error) bool {
-	t, ok := target.(*ErrCIDRColision)
+func (e *ErrCIDRCollision) Is(target error) bool {
+	t, ok := target.(*ErrCIDRCollision)
 	if !ok {
 		return false
 	}
@@ -114,7 +114,7 @@ func newCIDRSets(isV6 bool, strCIDRs []string, maskSize int) ([]podcidr.CIDRAllo
 		// Check if CIDRs collide with each other.
 		for _, cidrAllocator := range cidrAllocators {
 			if cidrAllocator.InRange(cidr) {
-				return nil, &ErrCIDRColision{
+				return nil, &ErrCIDRCollision{
 					cidr:      strCIDR,
 					allocator: cidrAllocator,
 				}

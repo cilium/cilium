@@ -35,7 +35,7 @@ func Test_newCIDRSets(t *testing.T) {
 				strCIDRs: []string{"10.0.0.0/16", "10.0.0.0/8"},
 				maskSize: 24,
 			},
-			wantErr: &ErrCIDRColision{
+			wantErr: &ErrCIDRCollision{
 				cidr: "10.0.0.0/8",
 			},
 		},
@@ -55,7 +55,7 @@ func Test_newCIDRSets(t *testing.T) {
 				strCIDRs: []string{"fd00::/100", "fd00::/96"},
 				maskSize: 112,
 			},
-			wantErr: &ErrCIDRColision{
+			wantErr: &ErrCIDRCollision{
 				cidr: "fd00::/96",
 			},
 		},
