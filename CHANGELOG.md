@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.11.13
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Bugtool: add flag to exclude object for endpoints (Backport PR #23313, Upstream PR #22370, @tbalthazar)
+* Fix crash of CES queue delay metric when CESTracker is nil (Backport PR #23313, Upstream PR #22884, @dlapcevic)
+
+**Bugfixes:**
+* Added Agent init check that removes all CiliumEndpoints referencing local Node that are not managed. This fixes issues where sometimes CiliumEndpoints referencing still running Pods can become unmanaged during Cilium restart. (Backport PR #22563, Upstream PR #20350, @tommyp1ckles)
+* Clear stale CNP status nodes if updates have been disabled (Backport PR #22563, Upstream PR #20366, @pippolo84)
+* clustermesh: Add missing brackets of IPv6 address for etcd option (Backport PR #23313, Upstream PR #22962, @YutaroHayakawa)
+* docs: Update Cilium Sphinx RTD Theme reference (Backport PR #22563, Upstream PR #22321, @kimstacy)
+* envoy: Fix regression on passing TLS SNI option to upstream TLS connections (#23031, @jrajahalme)
+* Fail validate-cnp preflight check if a CiliumClusterwideNetworkPolicy is using an empty toEndpoints/fromEndpoints selector (Backport PR #22563, Upstream PR #21990, @thorn3r)
+* Fix a data race in dnsproxy which could lead to DNS requests drops. (Backport PR #23313, Upstream PR #22619, @aspsk)
+
+**CI Changes:**
+* .github: Pin docker buildx version to v0.9.1 (v2) (Backport PR #23313, Upstream PR #23220, @joestringer)
+* daemon/cmd: improve stale cilium endpoint error handling. (Backport PR #23313, Upstream PR #22600, @tommyp1ckles)
+* golangci-lint-action: Remove skip-go-installation option (#23216, @michi-covalent)
+* test/helpers: Fix retry condition for CiliumExecContext (Backport PR #23313, Upstream PR #22726, @christarazi)
+* test: service: fix formatting of error msg in doFragmentedRequest() (Backport PR #23313, Upstream PR #22772, @julianwiedmann)
+
+**Misc Changes:**
+* .github/workflows: use right event type for auto labeler (Backport PR #22563, Upstream PR #22508, @aanm)
+* .github: add PR labeler for external contributions (Backport PR #22563, Upstream PR #22461, @aanm)
+* Add sphinxcontrib-googleanalytics to doc requirements (Backport PR #23313, Upstream PR #22821, @chalin)
+* backporting: leave `backport/author` PRs alone (Backport PR #23313, Upstream PR #22654, @bimmlerd)
+* build(deps): bump actions/cache from 3.0.11 to 3.2.3 (#22986, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.1 to 3.0.2 (#22958, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.1 to 3.1.2 (#22987, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.2.0 to 3.3.0 (#23114, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.37 to 2.1.38 (#23071, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.38 to 2.1.39 (#23187, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.1 to 3.4.0 (#23251, @dependabot[bot])
+* build(deps): update package dependencies (Backport PR #23313, Upstream PR #23140, @fengshunli)
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 0e0402c (v1.11) (#22638, @renovate[bot])
+* ci, github: Fix IPv6 conformance test (Backport PR #23055, Upstream PR #22774, @borkmann)
+* contrib: Update PR template for backport (Backport PR #23313, Upstream PR #23058, @sayboras)
+* daemon/cmd: Fix error handling for getting proxy port (Backport PR #22563, Upstream PR #22296, @christarazi)
+* docs: add instructions to build the base images from external forks (Backport PR #22563, Upstream PR #22304, @aanm)
+* docs: Fix `kubectl create` output in docs after some deployments have moved from K8s "extensions" to "apps". (Backport PR #22563, Upstream PR #22002, @cleverhu)
+* docs: Improve IPsec guide (Backport PR #23313, Upstream PR #23135, @pchaigno)
+* docs: Improve wording for deny policies limitation (Backport PR #23313, Upstream PR #23095, @joestringer)
+* docs: update committer security requirements (Backport PR #23313, Upstream PR #23134, @xmulligan)
+* gha: Bump k8s version in kind conformance tests (Backport PR #23055, Upstream PR #22325, @sayboras)
+* IPsec: Refactor `ipSecReplaceState{In,Out}` functions (Backport PR #23313, Upstream PR #23158, @pchaigno)
+* k8s: don't consider 4xx a successful interaction (Backport PR #22563, Upstream PR #22393, @bimmlerd)
+* Update CNI to 1.2.0 (Backport PR #23313, Upstream PR #23267, @michi-covalent)
+* Update Layer 7 Protocol Visibility Document. (Backport PR #23313, Upstream PR #22807, @obaranov1)
+* vendor: Pick up security fixes (#23215, @michi-covalent)
+
+**Other Changes:**
+* [v1.11] images: Bump Hubble CLI to v0.11.1 (#23302, @gandro)
+* install: Update image digests for v1.11.12 (#22818, @joestringer)
+
 ## v1.11.12
 
 Summary of Changes
