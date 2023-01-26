@@ -9,6 +9,9 @@ const (
 	// Prefix is the common prefix for all annotations
 	Prefix = "io.cilium"
 
+	// NetworkPrefix is the common prefix for network related annotations.
+	NetworkPrefix = "network.cilium.io"
+
 	// ServicePrefix is the common prefix for service related annotations.
 	ServicePrefix = "service.cilium.io"
 
@@ -17,38 +20,47 @@ const (
 	// rules should be applied to.
 	Name = Prefix + ".name"
 
-	// V4CIDRName is the annotation name used to store the IPv4
+	// V4CIDRName / V4CIDRNameAlias is the annotation name used to store the IPv4
 	// pod CIDR in the node's annotations.
-	V4CIDRName = Prefix + ".network.ipv4-pod-cidr"
-	// V6CIDRName is the annotation name used to store the IPv6
+	V4CIDRName      = NetworkPrefix + "/ipv4-pod-cidr"
+	V4CIDRNameAlias = Prefix + ".network.ipv4-pod-cidr"
+	// V6CIDRName / V6CIDRNameAlias is the annotation name used to store the IPv6
 	// pod CIDR in the node's annotations.
-	V6CIDRName = Prefix + ".network.ipv6-pod-cidr"
+	V6CIDRName      = NetworkPrefix + "/ipv6-pod-cidr"
+	V6CIDRNameAlias = Prefix + ".network.ipv6-pod-cidr"
 
-	// V4HealthName is the annotation name used to store the IPv4
-	// address of the cilium-health endpoint in the node's annotations.
-	V4HealthName = Prefix + ".network.ipv4-health-ip"
-	// V6HealthName is the annotation name used to store the IPv6
-	// address of the cilium-health endpoint in the node's annotations.
-	V6HealthName = Prefix + ".network.ipv6-health-ip"
+	// V4HealthName / V4HealthNameAlias is the annotation name used to store the
+	// IPv4 address of the cilium-health endpoint in the node's annotations.
+	V4HealthName      = NetworkPrefix + "/ipv4-health-ip"
+	V4HealthNameAlias = Prefix + ".network.ipv4-health-ip"
+	// V6HealthName / V6HealthNameAlias is the annotation name used to store the
+	// IPv6 address of the cilium-health endpoint in the node's annotations.
+	V6HealthName      = NetworkPrefix + "/ipv6-health-ip"
+	V6HealthNameAlias = Prefix + ".network.ipv6-health-ip"
 
-	// V4IngressName is the annotation name used to store the IPv4
-	// address of the Ingress listener in the node's annotations.
-	V4IngressName = Prefix + ".network.ipv4-Ingress-ip"
-	// V6IngressName is the annotation name used to store the IPv6
-	// address of the Ingress listener in the node's annotations.
-	V6IngressName = Prefix + ".network.ipv6-Ingress-ip"
+	// V4IngressName / V4IngressNameAlias is the annotation name used to store
+	// the IPv4 address of the Ingress listener in the node's annotations.
+	V4IngressName      = NetworkPrefix + "/ipv4-Ingress-ip"
+	V4IngressNameAlias = Prefix + ".network.ipv4-Ingress-ip"
+	// V6IngressName / V6IngressNameAlias is the annotation name used to store
+	// the IPv6 address of the Ingress listener in the node's annotations.
+	V6IngressName      = NetworkPrefix + "/ipv6-Ingress-ip"
+	V6IngressNameAlias = Prefix + ".network.ipv6-Ingress-ip"
 
-	// CiliumHostIP is the annotation name used to store the IPv4 address
-	// of the cilium host interface in the node's annotations.
-	CiliumHostIP = Prefix + ".network.ipv4-cilium-host"
+	// CiliumHostIP / CiliumHostIPAlias is the annotation name used to store the
+	// IPv4 address of the cilium host interface in the node's annotations.
+	CiliumHostIP      = NetworkPrefix + "/ipv4-cilium-host"
+	CiliumHostIPAlias = Prefix + ".network.ipv4-cilium-host"
 
-	// CiliumHostIPv6 is the annotation name used to store the IPv6 address
-	// of the cilium host interface in the node's annotation.
-	CiliumHostIPv6 = Prefix + ".network.ipv6-cilium-host"
+	// CiliumHostIPv6 / CiliumHostIPv6Alias is the annotation name used to store
+	// the IPv6 address of the cilium host interface in the node's annotation.
+	CiliumHostIPv6      = NetworkPrefix + "/ipv6-cilium-host"
+	CiliumHostIPv6Alias = Prefix + ".network.ipv6-cilium-host"
 
-	// CiliumEncryptionKey is the annotation name used to store the encryption
-	// key of the cilium host interface in the node's annotation.
-	CiliumEncryptionKey = Prefix + ".network.encryption-key"
+	// CiliumEncryptionKey / CiliumEncryptionKeyAlias is the annotation name used to
+	// store the encryption key of the cilium host interface in the node's annotation.
+	CiliumEncryptionKey      = NetworkPrefix + "/encryption-key"
+	CiliumEncryptionKeyAlias = Prefix + ".network.encryption-key"
 
 	// GlobalService / GlobalServiceAlias if set to true, marks a service to
 	// become a global service.
@@ -86,10 +98,11 @@ const (
 	// both TCP and UDP connection. Current use case is NodeLocalDNS.
 	NoTrack = Prefix + ".no-track-port"
 
-	// WireguardPubKey is the annotation name used to store the Wireguard
-	// public key in the CiliumNode CRD that we need to use to encrypt traffic
-	// to that node.
-	WireguardPubKey = Prefix + ".network.wg-pub-key"
+	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
+	// the Wireguard public key in the CiliumNode CRD that we need to use to encrypt
+	// traffic to that node.
+	WireguardPubKey      = NetworkPrefix + "/wg-pub-key"
+	WireguardPubKeyAlias = Prefix + ".network.wg-pub-key"
 )
 
 // Get returns the annotation value associated with the given key, or any of
