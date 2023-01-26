@@ -3604,8 +3604,8 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 
 		// Get bugtool output. Since bugtool output is dumped in the pod's filesystem,
 		// copy it over with `kubectl cp`.
-		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s",
-			KubectlCmd, namespace, pod, CiliumBugtool)
+		bugtoolCmd := fmt.Sprintf("%s exec -n %s %s -- %s %s",
+			KubectlCmd, namespace, pod, CiliumBugtool, CiliumBugtoolArgs)
 		res := kub.ExecContext(ctx, bugtoolCmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
 			logger.Errorf("%s failed: %s", bugtoolCmd, res.CombineOutput().String())
