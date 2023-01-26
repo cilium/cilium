@@ -671,6 +671,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 
 	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
+		log.WithField("url", "https://github.com/cilium/cilium/issues/22246").
+			Warn("You are using the legacy BGP feature, which will only receive security updates and bugfixes. " +
+				"It is recommended to migrate to the BGP Control Plane feature if possible, which has better support.")
+
 		d.bgpSpeaker, err = speaker.New(ctx, clientset, speaker.Opts{
 			LoadBalancerIP: option.Config.BGPAnnounceLBIP,
 			PodCIDR:        option.Config.BGPAnnouncePodCIDR,
