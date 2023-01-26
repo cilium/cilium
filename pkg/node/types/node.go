@@ -36,6 +36,7 @@ func (nn Identity) String() string {
 // ParseCiliumNode parses a CiliumNode custom resource and returns a Node
 // instance. Invalid IP and CIDRs are silently ignored
 func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
+	wireguardPubKey, _ := annotation.Get(n, annotation.WireguardPubKey, annotation.WireguardPubKeyAlias)
 	node = Node{
 		Name:            n.Name,
 		EncryptionKey:   uint8(n.Spec.Encryption.Key),
@@ -45,7 +46,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		Labels:          n.ObjectMeta.Labels,
 		Annotations:     n.ObjectMeta.Annotations,
 		NodeIdentity:    uint32(n.Spec.NodeIdentity),
-		WireguardPubKey: n.ObjectMeta.Annotations[annotation.WireguardPubKey],
+		WireguardPubKey: wireguardPubKey,
 	}
 
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {

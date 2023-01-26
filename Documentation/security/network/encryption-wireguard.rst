@@ -22,7 +22,7 @@ traffic between Cilium-managed endpoints using `WireGuard® <https://www.wiregua
 When WireGuard is enabled in Cilium, the agent running on each cluster node
 will establish a secure WireGuard tunnel between it and all other known nodes
 in the cluster. Each node automatically creates its own encryption key-pair and
-distributes its public key via the ``io.cilium.network.wg-pub-key`` annotation
+distributes its public key via the ``network.cilium.io/wg-pub-key`` annotation
 in the Kubernetes ``CiliumNode`` custom resource object. Each node's public key
 is then used by other nodes to decrypt and encrypt traffic from and to
 Cilium-managed endpoints running on that node.

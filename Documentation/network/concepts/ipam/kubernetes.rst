@@ -40,12 +40,12 @@ Field                Description
 ====================================== ==========================================================
 Annotation                             Description
 ====================================== ==========================================================
-``io.cilium.network.ipv4-pod-cidr``    IPv4 PodCIDR range
-``io.cilium.network.ipv6-pod-cidr``    IPv6 PodCIDR range
-``io.cilium.network.ipv4-cilium-host`` IPv4 address of the cilium host interface
-``io.cilium.network.ipv6-cilium-host`` IPv6 address of the cilium host interface
-``io.cilium.network.ipv4-health-ip``   IPv4 address of the cilium-health endpoint
-``io.cilium.network.ipv6-health-ip``   IPv6 address of the cilium-health endpoint
+``network.cilium.io/ipv4-pod-cidr``    IPv4 PodCIDR range
+``network.cilium.io/ipv6-pod-cidr``    IPv6 PodCIDR range
+``network.cilium.io/ipv4-cilium-host`` IPv4 address of the cilium host interface
+``network.cilium.io/ipv6-cilium-host`` IPv6 address of the cilium host interface
+``network.cilium.io/ipv4-health-ip``   IPv4 address of the cilium-health endpoint
+``network.cilium.io/ipv6-health-ip``   IPv6 address of the cilium-health endpoint
 ====================================== ==========================================================
 
 .. note:: The annotation-based mechanism is primarily useful in combination with
