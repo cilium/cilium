@@ -604,7 +604,7 @@ ct_recreate6:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif;
 
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6,
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false,
 				      ctx->ingress_ifindex, &oif);
 		if (likely(ret == CTX_ACT_REDIRECT))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
@@ -1108,7 +1108,7 @@ skip_vtep:
 	if (is_defined(ENABLE_HOST_ROUTING)) {
 		int oif;
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4,
+		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false,
 				      ctx->ingress_ifindex, &oif);
 		if (likely(ret == CTX_ACT_REDIRECT))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
