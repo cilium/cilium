@@ -11,10 +11,39 @@
 #include "neigh.h"
 #include "l3.h"
 
+#ifndef IS_L3_DEV
+# define IS_L3_DEV(ifindex)	false
+#endif
+
+static __always_inline int
+maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
+		 __u32 ifindex __maybe_unused,
+		 bool *l2_hdr_required __maybe_unused)
+{
+	if (IS_L3_DEV(ifindex)) {
+		/* The packet is going to be redirected to L3 dev, so
+		 * skip L2 addr settings.
+		 */
+		*l2_hdr_required = false;
+	} else if (ETH_HLEN == 0) {
+		/* The packet is going to be redirected from L3 to L2
+		 * device, so we need to create L2 header first.
+		 */
+		__u16 proto = ctx_get_protocol(ctx);
+
+		if (ctx_change_head(ctx, __ETH_HLEN, 0))
+			return DROP_INVALID;
+		if (eth_store_proto(ctx, proto, 0) < 0)
+			return DROP_WRITE_ERROR;
+	}
+	return 0;
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
-		struct ipv6hdr *ip6, int iif, int *oif)
+		struct ipv6hdr *ip6, const bool needs_l2_check,
+		int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -51,6 +80,15 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
+	if (needs_l2_check) {
+		bool l2_hdr_required = true;
+
+		ret = maybe_add_l2_hdr(ctx, *oif, &l2_hdr_required);
+		if (ret != 0)
+			return CTX_ACT_DROP;
+		if (!l2_hdr_required)
+			goto out_send;
+	}
 	if (no_neigh) {
 		if (neigh_resolver_available()) {
 			if (nh)
@@ -76,6 +114,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 			return CTX_ACT_DROP;
 	}
+out_send:
 	return ctx_redirect(ctx, *oif, 0);
 }
 #endif /* ENABLE_IPV6 */
@@ -83,7 +122,8 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 #ifdef ENABLE_IPV4
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
-		struct iphdr *ip4, int iif, int *oif)
+		struct iphdr *ip4, const bool needs_l2_check,
+		int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -118,6 +158,15 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
+	if (needs_l2_check) {
+		bool l2_hdr_required = true;
+
+		ret = maybe_add_l2_hdr(ctx, *oif, &l2_hdr_required);
+		if (ret != 0)
+			return CTX_ACT_DROP;
+		if (!l2_hdr_required)
+			goto out_send;
+	}
 	if (no_neigh) {
 		if (neigh_resolver_available()) {
 			if (nh)
@@ -143,6 +192,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
 			return CTX_ACT_DROP;
 	}
+out_send:
 	return ctx_redirect(ctx, *oif, 0);
 }
 #endif /* ENABLE_IPV4 */
