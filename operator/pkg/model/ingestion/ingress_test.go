@@ -905,9 +905,9 @@ var complexNodePortIngress = slim_networkingv1.Ingress{
 		Name:      "dummy-ingress",
 		Namespace: "dummy-namespace",
 		Annotations: map[string]string{
-			"io.cilium.ingress/service-type":       "NodePort",
-			"io.cilium.ingress/insecure-node-port": "30000",
-			"io.cilium.ingress/secure-node-port":   "30001",
+			"ingress.cilium.io/service-type":       "NodePort",
+			"ingress.cilium.io/insecure-node-port": "30000",
+			"ingress.cilium.io/secure-node-port":   "30001",
 		},
 		UID: "d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e",
 	},
