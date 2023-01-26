@@ -36,7 +36,7 @@ const (
 	sockMap = "cilium_sock_ops"
 
 	// Default prefix for map objects
-	mapPrefix = defaults.DefaultMapPrefix
+	mapPrefix = defaults.TCGlobalsPath
 
 	contextTimeout = 5 * time.Minute
 )
@@ -62,7 +62,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 // #bpftool cgroup attach $cgrp sock_ops /sys/fs/bpf/$bpfObject
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
-	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), bpfObject)
 	cgrp := cgroups.GetCgroupRoot()
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
@@ -80,7 +80,7 @@ func bpftoolAttach(bpfObject string) error {
 // #bpftool cgroup detach $cgrp sock_ops /sys/fs/bpf/$bpfObject
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
-	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), bpfObject)
 	cgrp := cgroups.GetCgroupRoot()
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
@@ -114,9 +114,9 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 
 	prog := "bpftool"
 	var mapArgList []string
-	bpffs := filepath.Join(bpf.GetMapRoot(), bpfFsFile)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), bpfFsFile)
 
-	maps, err := os.ReadDir(filepath.Join(bpf.GetMapRoot(), "/tc/globals/"))
+	maps, err := os.ReadDir(filepath.Join(bpf.BPFFSRoot(), "/tc/globals/"))
 	if err != nil {
 		return err
 	}
@@ -140,7 +140,7 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 			continue
 		}
 
-		mapString := []string{"map", "name", f.Name(), "pinned", filepath.Join(bpf.GetMapRoot(), "/tc/globals/", f.Name())}
+		mapString := []string{"map", "name", f.Name(), "pinned", filepath.Join(bpf.BPFFSRoot(), "/tc/globals/", f.Name())}
 		mapArgList = append(mapArgList, mapString...)
 	}
 
@@ -159,14 +159,14 @@ func bpftoolLoad(bpfObject string, bpfFsFile string) error {
 
 // #rm $bpfObject
 func bpftoolUnload(bpfObject string) {
-	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), bpfObject)
 
 	os.Remove(bpffs)
 }
 
 // #bpftool prog show pinned /sys/fs/bpf/
 func bpftoolGetProgID(progName string) (string, error) {
-	bpffs := filepath.Join(bpf.GetMapRoot(), progName)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), progName)
 	prog := "bpftool"
 
 	args := []string{"prog", "show", "pinned", bpffs}
@@ -192,7 +192,7 @@ func bpftoolGetProgID(progName string) (string, error) {
 // #bpftool prog show pinned /sys/fs/bpf/bpf_sockops
 // #bpftool map show id 21
 func bpftoolGetMapID(progName string, mapName string) (int, error) {
-	bpffs := filepath.Join(bpf.GetMapRoot(), progName)
+	bpffs := filepath.Join(bpf.BPFFSRoot(), progName)
 	prog := "bpftool"
 
 	args := []string{"prog", "show", "pinned", bpffs}
@@ -230,7 +230,7 @@ func bpftoolGetMapID(progName string, mapName string) (int, error) {
 
 // #bpftool map pin id map_id /sys/fs/bpf/tc/globals
 func bpftoolPinMapID(mapName string, mapID int) error {
-	mapFile := filepath.Join(bpf.GetMapRoot(), mapPrefix, mapName)
+	mapFile := filepath.Join(bpf.BPFFSRoot(), mapPrefix, mapName)
 	prog := "bpftool"
 
 	args := []string{"map", "pin", "id", strconv.Itoa(mapID), mapFile}

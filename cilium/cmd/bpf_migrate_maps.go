@@ -24,10 +24,10 @@ func init() {
 	// Allow configuring bpffs path using env variable, default to /sys/fs/bpf.
 	bpffsRoot := os.Getenv("TC_BPF_MNT")
 	if bpffsRoot == "" {
-		bpffsRoot = defaults.DefaultMapRoot
+		bpffsRoot = defaults.BPFFSRoot
 	}
 
-	bpffsPath = filepath.Join(bpffsRoot, defaults.DefaultMapPrefix)
+	bpffsPath = filepath.Join(bpffsRoot, defaults.TCGlobalsPath)
 }
 
 var (
