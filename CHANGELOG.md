@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.10.19
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* envoy: Fix regression on passing TLS SNI option to upstream TLS connections (#23036, @jrajahalme)
+* v1.10: install: fix TerminationMessagePolicy for the Hubble Relay deployment (#23089, @rolinh)
+
+**CI Changes:**
+* .github: Pin docker buildx version to v0.9.1 (v2) (Backport PR #23316, Upstream PR #23220, @joestringer)
+
+**Misc Changes:**
+* build(deps): bump actions/cache from 3.0.11 to 3.2.3 (#22983, @dependabot[bot])
+* build(deps): bump actions/download-artifact from 3.0.1 to 3.0.2 (#22957, @dependabot[bot])
+* build(deps): bump actions/upload-artifact from 3.1.1 to 3.1.2 (#22982, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.2.0 to 3.3.0 (#23113, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.37 to 2.1.38 (#23066, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.38 to 2.1.39 (#23186, @dependabot[bot])
+* build(deps): bump golangci/golangci-lint-action from 3.3.1 to 3.4.0 (#23250, @dependabot[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 0e0402c (v1.10) (#22640, @renovate[bot])
+* Update CNI to 1.2.0 (#23321, @michi-covalent)
+
+**Other Changes:**
+* [v1.10] images: Bump Hubble CLI to v0.11.1 (#23303, @gandro)
+* install: Update image digests for v1.10.18 (#22817, @joestringer)
+
 ## v1.10.18
 
 Summary of Changes
