@@ -482,6 +482,7 @@ ct_recreate6:
 
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
+		/* See comment in handle_ipv4_from_lxc(). */
 		if (ct_state->dsr) {
 			ret = xlate_dsr_v6(ctx, tuple, l4_off);
 			if (ret != 0)
@@ -926,6 +927,10 @@ ct_recreate4:
 
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
+		/* DSR RevDNAT typically happens in to-netdev. This part is only
+		 * needed for old connections that were established prior to
+		 * the bpf_host support:
+		 */
 		if (ct_state->dsr) {
 			ret = xlate_dsr_v4(ctx, tuple, l4_off, has_l4_header);
 			if (ret != 0)
@@ -1439,22 +1444,11 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-		bool dsr = false;
 # ifdef ENABLE_DSR
-		int ret2;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-
-		ret2 = handle_dsr_v6(ctx, ip6, &dsr);
-		if (ret2 != 0)
-			return ret2;
-
-		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update_dsr(get_ct_map6(tuple), tuple, dsr);
+		if (ret == CT_REOPENED && ct_state->dsr)
+			ct_update_dsr(get_ct_map6(tuple), tuple, false);
 # endif /* ENABLE_DSR */
-		if (!dsr) {
+		{
 			bool node_port =
 				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
 							      tuple, false);
@@ -1778,22 +1772,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 skip_policy_enforcement:
 #ifdef ENABLE_NODEPORT
 	if (ret == CT_NEW || ret == CT_REOPENED) {
-		bool dsr = false;
 # ifdef ENABLE_DSR
-		int ret2;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		ret2 = handle_dsr_v4(ctx, ip4, &dsr);
-		if (ret2 != 0)
-			return ret2;
-
-		ct_state_new.dsr = dsr;
-		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update_dsr(get_ct_map4(tuple), tuple, dsr);
+		/* Clear .dsr flag for old connections: */
+		if (ret == CT_REOPENED && ct_state->dsr)
+			ct_update_dsr(get_ct_map4(tuple), tuple, false);
 # endif /* ENABLE_DSR */
-		if (!dsr) {
+		{
 			bool node_port =
 				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 							      tuple, false);
