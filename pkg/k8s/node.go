@@ -122,9 +122,9 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	// Any code bellow this line will depend on k8s node annotations. If we are
 	// not annotating the node then we should not use any annotations.
 
-	k8sNodeAddHostIP := func(annotation string) {
-		if ciliumInternalIP, ok := k8sNode.Annotations[annotation]; !ok || ciliumInternalIP == "" {
-			scopedLog.Debugf("Missing %s. Annotation required when IPSec Enabled", annotation)
+	k8sNodeAddHostIP := func(key string, alias string) {
+		if ciliumInternalIP, ok := annotation.Get(k8sNode, key, alias); !ok || ciliumInternalIP == "" {
+			scopedLog.Debugf("Missing %s (or %s). Annotation required when IPSec Enabled", key, alias)
 		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
 			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
 		} else {
@@ -137,10 +137,10 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 		}
 	}
 
-	k8sNodeAddHostIP(annotation.CiliumHostIP)
-	k8sNodeAddHostIP(annotation.CiliumHostIPv6)
+	k8sNodeAddHostIP(annotation.CiliumHostIP, annotation.CiliumHostIPAlias)
+	k8sNodeAddHostIP(annotation.CiliumHostIPv6, annotation.CiliumHostIPv6Alias)
 
-	if key, ok := k8sNode.Annotations[annotation.CiliumEncryptionKey]; ok {
+	if key, ok := annotation.Get(k8sNode, annotation.CiliumEncryptionKey, annotation.CiliumEncryptionKeyAlias); ok {
 		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
 			newNode.EncryptionKey = uint8(u)
 		}
@@ -150,7 +150,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	// the CIDR assigned by k8s controller manager
 	// In case it's invalid or empty then we fall back to our annotations.
 	if newNode.IPv4AllocCIDR == nil {
-		if ipv4CIDR, ok := k8sNode.Annotations[annotation.V4CIDRName]; !ok || ipv4CIDR == "" {
+		if ipv4CIDR, ok := annotation.Get(k8sNode, annotation.V4CIDRName, annotation.V4CIDRNameAlias); !ok || ipv4CIDR == "" {
 			scopedLog.Debug("Empty IPv4 CIDR annotation in node")
 		} else {
 			allocCIDR, err := cidr.ParseCIDR(ipv4CIDR)
@@ -163,7 +163,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	if newNode.IPv6AllocCIDR == nil {
-		if ipv6CIDR, ok := k8sNode.Annotations[annotation.V6CIDRName]; !ok || ipv6CIDR == "" {
+		if ipv6CIDR, ok := annotation.Get(k8sNode, annotation.V6CIDRName, annotation.V6CIDRNameAlias); !ok || ipv6CIDR == "" {
 			scopedLog.Debug("Empty IPv6 CIDR annotation in node")
 		} else {
 			allocCIDR, err := cidr.ParseCIDR(ipv6CIDR)
@@ -176,7 +176,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	if newNode.IPv4HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V4HealthName]; !ok || healthIP == "" {
+		if healthIP, ok := annotation.Get(k8sNode, annotation.V4HealthName, annotation.V4HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv4 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V4HealthIP, healthIP).Error("BUG, invalid IPv4 health endpoint annotation in node")
@@ -186,7 +186,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	if newNode.IPv6HealthIP == nil {
-		if healthIP, ok := k8sNode.Annotations[annotation.V6HealthName]; !ok || healthIP == "" {
+		if healthIP, ok := annotation.Get(k8sNode, annotation.V6HealthName, annotation.V6HealthNameAlias); !ok || healthIP == "" {
 			scopedLog.Debug("Empty IPv6 health endpoint annotation in node")
 		} else if ip := net.ParseIP(healthIP); ip == nil {
 			scopedLog.WithField(logfields.V6HealthIP, healthIP).Error("BUG, invalid IPv6 health endpoint annotation in node")
@@ -196,7 +196,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	if newNode.IPv4IngressIP == nil {
-		if ingressIP, ok := k8sNode.Annotations[annotation.V4IngressName]; !ok || ingressIP == "" {
+		if ingressIP, ok := annotation.Get(k8sNode, annotation.V4IngressName, annotation.V4IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug("Empty IPv4 Ingress annotation in node")
 		} else if ip := net.ParseIP(ingressIP); ip == nil {
 			scopedLog.WithField(logfields.V4IngressIP, ingressIP).Error("BUG, invalid IPv4 Ingress annotation in node")
@@ -206,7 +206,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 	}
 
 	if newNode.IPv6IngressIP == nil {
-		if ingressIP, ok := k8sNode.Annotations[annotation.V6IngressName]; !ok || ingressIP == "" {
+		if ingressIP, ok := annotation.Get(k8sNode, annotation.V6IngressName, annotation.V6IngressNameAlias); !ok || ingressIP == "" {
 			scopedLog.Debug("Empty IPv6 Ingress annotation in node")
 		} else if ip := net.ParseIP(ingressIP); ip == nil {
 			scopedLog.WithField(logfields.V6IngressIP, ingressIP).Error("BUG, invalid IPv6 Ingress annotation in node")
