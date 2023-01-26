@@ -795,17 +795,27 @@ The Linux kernel provides few sysctls that are BPF related and covered in this s
 
 * ``/proc/sys/kernel/unprivileged_bpf_disabled``: Enables or disable unprivileged
   use of the ``bpf(2)`` system call. The Linux kernel has unprivileged use of
-  ``bpf(2)`` enabled by default, but once the switch is flipped, unprivileged use
-  will be permanently disabled until the next reboot. This sysctl knob is a one-time
-  switch, meaning if once set, then neither an application nor an admin can reset
-  the value anymore. This knob does not affect any cBPF programs such as seccomp
+  ``bpf(2)`` enabled by default.
+
+  Once the value is set to 1, unprivileged use will be permanently disabled until
+  the next reboot, neither an application nor an admin can reset the value anymore.
+
+  The value can also be set to 2, which means it can be changed at runtime to 0 or
+  1 later while disabling the unprivileged used for now. This value was added
+  in Linux 5.13. If ``BPF_UNPRIV_DEFAULT_OFF``
+  is enabled in the kernel config, then this knob will default to 2 instead of 0.
+
+  This knob does not affect any cBPF programs such as seccomp
   or traditional socket filters that do not use the ``bpf(2)`` system call for
   loading the program into the kernel.
 
-  +-------+-------------------------------------------------------------------+
-  | Value | Description                                                       |
-  +-------+-------------------------------------------------------------------+
-  | 0     | Unprivileged use of bpf syscall enabled (kernel's default value)  |
-  +-------+-------------------------------------------------------------------+
-  | 1     | Unprivileged use of bpf syscall disabled                          |
-  +-------+-------------------------------------------------------------------+
+  +-------+---------------------------------------------------------------------+
+  | Value | Description                                                         |
+  +-------+---------------------------------------------------------------------+
+  | 0     | Unprivileged use of bpf syscall enabled (kernel's default value)    |
+  +-------+---------------------------------------------------------------------+
+  | 1     | Unprivileged use of bpf syscall disabled (until reboot)             |
+  +-------+---------------------------------------------------------------------+
+  | 2     | Unprivileged use of bpf syscall disabled                            |
+  |       | (default if ``BPF_UNPRIV_DEFAULT_OFF`` is enabled in kernel config) |
+  +-------+---------------------------------------------------------------------+
