@@ -19,8 +19,6 @@ import (
 const (
 	metricAllocate = "allocate"
 	metricRelease  = "release"
-	familyIPv4     = "ipv4"
-	familyIPv6     = "ipv6"
 )
 
 // Error definitions
@@ -79,7 +77,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (re
 		return
 	}
 
-	family := familyIPv4
+	family := IPv4
 	if ip.To4() != nil {
 		if ipam.IPv4Allocator == nil {
 			err = ErrIPv4Disabled
@@ -96,7 +94,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (re
 			}
 		}
 	} else {
-		family = familyIPv6
+		family = IPv6
 		if ipam.IPv6Allocator == nil {
 			err = ErrIPv6Disabled
 			return
@@ -119,7 +117,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (re
 	}).Debugf("Allocated specific IP")
 
 	ipam.owner[ip.String()] = owner
-	metrics.IpamEvent.WithLabelValues(metricAllocate, family).Inc()
+	metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 	return
 }
 
@@ -245,7 +243,7 @@ func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, timeout time.
 }
 
 func (ipam *IPAM) releaseIPLocked(ip net.IP) error {
-	family := familyIPv4
+	family := IPv4
 	if ip.To4() != nil {
 		if ipam.IPv4Allocator == nil {
 			return ErrIPv4Disabled
@@ -255,7 +253,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP) error {
 			return err
 		}
 	} else {
-		family = familyIPv6
+		family = IPv6
 		if ipam.IPv6Allocator == nil {
 			return ErrIPv6Disabled
 		}
@@ -273,7 +271,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP) error {
 	delete(ipam.owner, ip.String())
 	delete(ipam.expirationTimers, ip.String())
 
-	metrics.IpamEvent.WithLabelValues(metricRelease, family).Inc()
+	metrics.IpamEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	return nil
 }
 
