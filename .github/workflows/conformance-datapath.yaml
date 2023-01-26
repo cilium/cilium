@@ -184,6 +184,15 @@ jobs:
             encryption-node: 'true'
             lb-mode: 'snat'
 
+          - name: '8'
+            kernel: 'bpf-next-main'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
     timeout-minutes: 60
     steps:
       - name: Set up job variables
