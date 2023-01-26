@@ -41,9 +41,9 @@ var nodeSampleJSON = `{
     "metadata": {
         "annotations": {
             "container.googleapis.com/instance_id": "111111111111111111",
-            "io.cilium.network.ipv4-cilium-host": "10.0.0.1",
-            "io.cilium.network.ipv4-health-ip": "10.0.0.1",
-            "io.cilium.network.ipv4-pod-cidr": "10.0.0.1/27",
+            "network.cilium.io/ipv4-cilium-host": "10.0.0.1",
+            "network.cilium.io/ipv4-health-ip": "10.0.0.1",
+            "network.cilium.io/ipv4-pod-cidr": "10.0.0.1/27",
             "node.alpha.kubernetes.io/ttl": "30",
             "volumes.kubernetes.io/controller-managed-attach-detach": "true"
         },
