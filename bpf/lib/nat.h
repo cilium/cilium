@@ -12,6 +12,7 @@
 #include <linux/icmpv6.h>
 #include <linux/ipv6.h>
 
+#include "bpf/compiler.h"
 #include "common.h"
 #include "drop.h"
 #include "signal.h"
@@ -145,6 +146,16 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } IP_MASQ_AGENT_IPV4 __section_maps_btf;
 #endif
+
+static __always_inline void *
+get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
+{
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV4, &cluster_id);
+#endif
+	return &SNAT_MAPPING_IPV4;
+}
 
 static __always_inline
 struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
@@ -1066,6 +1077,16 @@ struct {
 	});
 } PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
 #endif
+
+static __always_inline void *
+get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
+{
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV6, &cluster_id);
+#endif
+	return &SNAT_MAPPING_IPV6;
+}
 
 static __always_inline
 struct ipv6_nat_entry *snat_v6_lookup(struct ipv6_ct_tuple *tuple)
