@@ -46,7 +46,6 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		__s8 *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
-	struct bpf_redir_neigh *nh = NULL;
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
@@ -69,7 +68,6 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 					     &fib_params.ipv6_dst,
 					     sizeof(nh_params.ipv6_nh));
 			no_neigh = true;
-			nh = &nh_params;
 		} else {
 			return DROP_NO_FIB;
 		}
@@ -91,14 +89,12 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	}
 	if (no_neigh) {
 		if (neigh_resolver_available()) {
-			if (nh)
-				return redirect_neigh(*oif, nh, sizeof(*nh), 0);
-			else
-				return redirect_neigh(*oif, NULL, 0, 0);
+			return redirect_neigh(*oif, &nh_params,
+					      sizeof(nh_params), 0);
 		} else {
 			union macaddr *dmac, smac =
 				NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
-			dmac = (nh && nh_params.nh_family == AF_INET) ?
+			dmac = nh_params.nh_family == AF_INET ?
 			       neigh_lookup_ip4(&fib_params.ipv4_dst) :
 			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst);
 			if (!dmac) {
@@ -128,7 +124,6 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		__s8 *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
-	struct bpf_redir_neigh *nh = NULL;
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
@@ -149,7 +144,6 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 					     &fib_params.ipv6_dst,
 					     sizeof(nh_params.ipv6_nh));
 			no_neigh = true;
-			nh = &nh_params;
 		} else {
 			return DROP_NO_FIB;
 		}
@@ -171,14 +165,12 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	}
 	if (no_neigh) {
 		if (neigh_resolver_available()) {
-			if (nh)
-				return redirect_neigh(*oif, nh, sizeof(*nh), 0);
-			else
-				return redirect_neigh(*oif, NULL, 0, 0);
+			return redirect_neigh(*oif, &nh_params,
+					      sizeof(nh_params), 0);
 		} else {
 			union macaddr *dmac, smac =
 				NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
-			dmac = (nh && nh_params.nh_family == AF_INET6) ?
+			dmac = nh_params.nh_family == AF_INET6 ?
 			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst) :
 			       neigh_lookup_ip4(&fib_params.ipv4_dst);
 			if (!dmac) {
