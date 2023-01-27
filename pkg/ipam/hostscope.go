@@ -31,7 +31,7 @@ func newHostScopeAllocator(n *net.IPNet) Allocator {
 	return a
 }
 
-func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	if err := h.allocator.Allocate(ip); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResul
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	if err := h.allocator.Allocate(ip); err != nil {
 		return nil, err
 	}
@@ -47,11 +47,11 @@ func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) Release(ip net.IP) error {
+func (h *hostScopeAllocator) Release(ip net.IP, pool Pool) error {
 	return h.allocator.Release(ip)
 }
 
-func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
 	ip, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, erro
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
 	ip, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err

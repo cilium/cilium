@@ -746,7 +746,7 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 // allocate it if it is available. If the IP is unavailable or already
 // allocated, an error is returned. The custom resource will be updated to
 // reflect the newly allocated IP.
-func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (a *crdAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -775,7 +775,7 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 // custom resource and allocate it if it is available. If the IP is
 // unavailable or already allocated, an error is returned. The custom resource
 // will not be updated.
-func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -801,7 +801,7 @@ func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*Al
 // Release will release the specified IP or return an error if the IP has not
 // been allocated before. The custom resource will be updated to reflect the
 // released IP.
-func (a *crdAllocator) Release(ip net.IP) error {
+func (a *crdAllocator) Release(ip net.IP, pool Pool) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -825,7 +825,7 @@ func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.A
 // AllocateNext allocates the next available IP as offered by the custom
 // resource or return an error if no IP is available. The custom resource will
 // be updated to reflect the newly allocated IP.
-func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -849,7 +849,7 @@ func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
 // AllocateNextWithoutSyncUpstream allocates the next available IP as offered
 // by the custom resource or return an error if no IP is available. The custom
 // resource will not be updated.
-func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
