@@ -642,7 +642,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		__u16 proxy_port = 0;
 		int l4_off;
 
-		ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+		ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
@@ -1214,7 +1214,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 
 		has_l4_header = ipv4_has_l4_header(ip4);
 
-		ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+		ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;

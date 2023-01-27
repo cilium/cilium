@@ -499,6 +499,7 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
 /** Extract IPv6 CT tuple from packet
  * @arg ctx		Packet
  * @arg ip6		Pointer to L3 header
+ * @arg l3_off		Offset to L3 header
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -510,8 +511,8 @@ lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int *l4_off,
-		  struct ipv6_ct_tuple *tuple)
+lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
+		  int *l4_off, struct ipv6_ct_tuple *tuple)
 {
 	int ret;
 
@@ -523,7 +524,7 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int *l4_off,
 	if (ret < 0)
 		return ret;
 
-	*l4_off = ETH_HLEN + ret;
+	*l4_off = l3_off + ret;
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
@@ -1142,6 +1143,7 @@ lb4_fill_key(struct lb4_key *key, struct ipv4_ct_tuple *tuple)
 /** Extract IPv4 CT tuple from packet
  * @arg ctx		Packet
  * @arg ip4		Pointer to L3 header
+ * @arg l3_off		Offset to L3 header
  * @arg l4_off		Offset to L4 header
  * @arg tuple		CT tuple
  *
@@ -1151,7 +1153,7 @@ lb4_fill_key(struct lb4_key *key, struct ipv4_ct_tuple *tuple)
  *   - Negative error code
  */
 static __always_inline int
-lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int *l4_off,
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
 		  struct ipv4_ct_tuple *tuple)
 {
 	int ret;
@@ -1160,7 +1162,7 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int *l4_off,
 	tuple->daddr = ip4->daddr;
 	tuple->saddr = ip4->saddr;
 
-	*l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	*l4_off = l3_off + ipv4_hdrlen(ip4);
 
 	switch (tuple->nexthdr) {
 	case IPPROTO_TCP:
