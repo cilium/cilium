@@ -445,19 +445,12 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET6,
-			.ifindex	= ctx_get_ifindex(ctx),
-		},
-	};
 	__u16 port __maybe_unused;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr;
 	int ret, ohead = 0;
-	int ext_err = 0;
-	bool l2_hdr_required = true;
+	int oif, ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -487,38 +480,16 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
-		       (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
-		       (union v6addr *)&ip6->daddr);
-
-	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
-	if (ret != 0) {
-		ext_err = ret;
-		ret = DROP_NO_FIB;
-		goto drop_err;
+	ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, true,
+			      ctx_get_ifindex(ctx), &oif);
+	if (likely(ret == CTX_ACT_REDIRECT)) {
+		cilium_capture_out(ctx);
+		return ret;
 	}
-
-	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
-	if (ret != 0)
-		goto drop_err;
-	if (!l2_hdr_required)
-		goto out_send;
-
-	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-out_send:
-	cilium_capture_out(ctx);
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	ret = DROP_NO_FIB;
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 #endif /* ENABLE_DSR */
 
@@ -1545,25 +1516,17 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
 int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET,
-			.ifindex	= ctx_get_ifindex(ctx),
-		},
-	};
-	bool l2_hdr_required = true;
+	int ret, oif, ext_err = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u32 addr;
 	__u16 port;
 	__be16 ohead = 0;
-	int ret, ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
 	addr = ctx_load_meta(ctx, CB_ADDR_V4);
 	port = (__u16)ctx_load_meta(ctx, CB_PORT);
 #if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
@@ -1586,36 +1549,16 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
-	fib_params.l.ipv4_src = ip4->saddr;
-	fib_params.l.ipv4_dst = ip4->daddr;
-
-	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
-	if (ret != 0) {
-		ext_err = ret;
-		ret = DROP_NO_FIB;
-		goto drop_err;
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true,
+			      ctx_get_ifindex(ctx), &oif);
+	if (likely(ret == CTX_ACT_REDIRECT)) {
+		cilium_capture_out(ctx);
+		return ret;
 	}
-
-	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
-	if (ret != 0)
-		goto drop_err;
-	if (!l2_hdr_required)
-		goto out_send;
-
-	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-out_send:
-	cilium_capture_out(ctx);
-	return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+	ret = DROP_NO_FIB;
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 #endif /* ENABLE_DSR */
 
