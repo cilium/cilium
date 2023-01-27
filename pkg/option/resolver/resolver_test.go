@@ -58,7 +58,7 @@ func TestResolveConfigurations(t *testing.T) {
 			Name:   "nodename",
 			Labels: map[string]string{"a": "b"},
 			Annotations: map[string]string{
-				"io.cilium.config/anno-key": "anno-val",
+				"config.cilium.io/anno-key": "anno-val",
 			},
 		},
 	}
@@ -150,7 +150,7 @@ func TestWithBlockedFields(t *testing.T) {
 			Name:   "nodename",
 			Labels: map[string]string{"a": "b"},
 			Annotations: map[string]string{
-				"io.cilium.config/anno-key": "anno-val",
+				"config.cilium.io/anno-key": "anno-val",
 			},
 		},
 	}
