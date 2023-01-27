@@ -43,7 +43,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
-		int iif, int *oif)
+		int *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -61,18 +61,18 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 
 	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT);
-	switch (ret) {
-	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
-	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		nh_params.nh_family = fib_params.family;
-		__bpf_memcpy_builtin(&nh_params.ipv6_nh, &fib_params.ipv6_dst,
-				     sizeof(nh_params.ipv6_nh));
-		no_neigh = true;
-		nh = &nh_params;
-		break;
-	default:
-		return CTX_ACT_DROP;
+	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
+		*fib_err = ret;
+		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
+			nh_params.nh_family = fib_params.family;
+			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
+					     &fib_params.ipv6_dst,
+					     sizeof(nh_params.ipv6_nh));
+			no_neigh = true;
+			nh = &nh_params;
+		} else {
+			return CTX_ACT_DROP;
+		}
 	}
 
 	*oif = fib_params.ifindex;
@@ -123,7 +123,7 @@ out_send:
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
-		int iif, int *oif)
+		int *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -138,19 +138,19 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 
 	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT);
-	switch (ret) {
-	case BPF_FIB_LKUP_RET_SUCCESS:
-		break;
-	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* GW could also be v6, so copy union. */
-		nh_params.nh_family = fib_params.family;
-		__bpf_memcpy_builtin(&nh_params.ipv6_nh, &fib_params.ipv6_dst,
-				     sizeof(nh_params.ipv6_nh));
-		no_neigh = true;
-		nh = &nh_params;
-		break;
-	default:
-		return CTX_ACT_DROP;
+	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
+		*fib_err = ret;
+		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
+			/* GW could also be v6, so copy union. */
+			nh_params.nh_family = fib_params.family;
+			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
+					     &fib_params.ipv6_dst,
+					     sizeof(nh_params.ipv6_nh));
+			no_neigh = true;
+			nh = &nh_params;
+		} else {
+			return CTX_ACT_DROP;
+		}
 	}
 
 	*oif = fib_params.ifindex;
