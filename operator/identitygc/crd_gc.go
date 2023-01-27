@@ -95,6 +95,8 @@ func (igc *GC) gc(ctx context.Context) error {
 					logfields.K8sUID:   identity.UID,
 				}).Info("Marking identity for later deletion")
 
+				// Deep copy so we get a version we are allowed to update
+				identity = identity.DeepCopy()
 				if identity.Annotations == nil {
 					identity.Annotations = make(map[string]string)
 				}
