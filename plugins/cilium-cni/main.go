@@ -123,7 +123,9 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 
 func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err := client.IPAMAllocate("", podName, true)
+	// TODO: this will be configurable e.g. by pod annotations when using multi-homing
+	pool := ""
+	ipam, err := client.IPAMAllocate("", podName, pool, true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -134,18 +136,21 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (
 
 	releaseFunc := func(context.Context) {
 		if ipam.Address != nil {
-			releaseIP(client, ipam.Address.IPV4)
-			releaseIP(client, ipam.Address.IPV6)
+			releaseIP(client, ipam.Address.IPV4, pool)
+			releaseIP(client, ipam.Address.IPV6, pool)
 		}
 	}
 
 	return ipam, releaseFunc, nil
 }
 
-func releaseIP(client *client.Client, ip string) {
+func releaseIP(client *client.Client, ip, pool string) {
 	if ip != "" {
-		if err := client.IPAMReleaseIP(ip); err != nil {
-			log.WithError(err).WithField(logfields.IPAddr, ip).Warn("Unable to release IP")
+		if err := client.IPAMReleaseIP(ip, pool); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr: ip,
+				"pool":           pool,
+			}).Warn("Unable to release IP")
 		}
 	}
 }
