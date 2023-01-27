@@ -828,7 +828,7 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 	return nil
 }
 
-// InstallNoTrackRules is explicitly called when a pod has valid "io.cilium.no-track-port" annotation.
+// InstallNoTrackRules is explicitly called when a pod has valid "policy.cilium.io/no-track-port" annotation.
 // When InstallNoConntrackIptRules flag is set, a super set of v4 NOTRACK rules will be automatically
 // installed upon agent bootstrap (via function addNoTrackPodTrafficRules) and this function will be skipped.
 // When InstallNoConntrackIptRules is not set, this function will be executed to install NOTRACK rules.

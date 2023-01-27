@@ -64,7 +64,7 @@ type IptablesManager interface {
 	GetProxyPort(listener string) uint16
 
 	// InstallNoTrackRules is explicitly called when a pod has valid
-	// "io.cilium.no-track-port" annotation.  When
+	// "policy.cilium.io/no-track-port" annotation.  When
 	// InstallNoConntrackIptRules flag is set, a super set of v4 NOTRACK
 	// rules will be automatically installed upon agent bootstrap (via
 	// function addNoTrackPodTrafficRules) and this function will be
