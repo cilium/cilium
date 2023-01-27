@@ -20,9 +20,7 @@ CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 LLC_FLAGS := -march=bpf
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
-ifeq ("$(KERNEL)","49")
-LLC_FLAGS += -mcpu=v1
-else ifeq ("$(KERNEL)","netnext")
+ifeq ("$(KERNEL)","netnext")
 LLC_FLAGS += -mcpu=v3
 else
 LLC_FLAGS += -mcpu=v2
