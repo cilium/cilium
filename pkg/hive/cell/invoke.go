@@ -28,7 +28,6 @@ func (i *invoker) invoke() error {
 		log.WithField("function", afn.name).Debug("Invoking")
 		t0 := time.Now()
 		if err := i.cont.Invoke(afn.fn); err != nil {
-			log.WithError(err).WithField("", afn.name).Error("Invoke failed")
 			return err
 		}
 		d := time.Since(t0)

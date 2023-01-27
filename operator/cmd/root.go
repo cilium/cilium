@@ -493,8 +493,8 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			"address": option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
 		})
 
-		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
-			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, legacy.clientset, legacy.resources.Services, true, option.Config)
+		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices && legacy.resources.Services != nil {
+			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, legacy.clientset, *legacy.resources.Services, true, option.Config)
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd

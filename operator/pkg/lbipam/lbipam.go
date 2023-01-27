@@ -73,10 +73,6 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 
 	lbIPAM := &LBIPAM{
 		logger:       params.Logger,
-		poolResource: params.PoolResource,
-		svcResource:  params.SvcResource,
-		poolClient:   params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
-		svcClient:    params.Clientset.Slim().CoreV1(),
 		shutdowner:   params.Shutdowner,
 		pools:        make(map[string]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool),
 		rangesStore:  newRangesStore(),
@@ -85,6 +81,20 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
 	}
+
+	if !params.Clientset.IsEnabled() {
+		return lbIPAM
+	}
+
+	lbIPAM.poolClient = params.Clientset.CiliumV2alpha1().CiliumLoadBalancerIPPools()
+	lbIPAM.svcClient = params.Clientset.Slim().CoreV1()
+
+	if params.PoolResource == nil || params.SvcResource == nil {
+		return lbIPAM
+	}
+
+	lbIPAM.poolResource = *params.PoolResource
+	lbIPAM.svcResource = *params.SvcResource
 
 	params.LC.Append(lbIPAM)
 

@@ -58,11 +58,15 @@ func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
 }
 
 func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
+	if k.sharedResources.LocalNode == nil {
+		return
+	}
+
 	apiGroup := k8sAPIGroupNodeV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	events := k.sharedResources.LocalNode.Events(ctx)
+	events := (*k.sharedResources.LocalNode).Events(ctx)
 	var oldNode *v1.Node
 	for {
 		select {
@@ -98,8 +102,12 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 
 // GetK8sNode returns the *local Node* from the local store.
 func (k *K8sWatcher) GetK8sNode(ctx context.Context, nodeName string) (*v1.Node, error) {
+	if k.sharedResources.LocalNode == nil {
+		return nil, nil
+	}
+
 	// Retrieve the store. Blocks until synced (or ctx cancelled).
-	store, err := k.sharedResources.LocalNode.Store(ctx)
+	store, err := (*k.sharedResources.LocalNode).Store(ctx)
 	if err != nil {
 		return nil, err
 	}

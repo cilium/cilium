@@ -20,7 +20,7 @@ import (
 )
 
 type DiffStoreFixture struct {
-	diffStore DiffStore[*slimv1.Service]
+	diffStore cell.Optional[DiffStore[*slimv1.Service]]
 	signaler  agent.Signaler
 	slimCs    *slim_fake.Clientset
 	hive      *hive.Hive
@@ -34,12 +34,13 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 	// Construct a new Hive with faked out dependency cells.
 	fixture.hive = hive.New(
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slimv1.Service] {
-			return resource.New[*slimv1.Service](
+		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) cell.Optional[resource.Resource[*slimv1.Service]] {
+			res := resource.New[*slimv1.Service](
 				lc, utils.ListerWatcherFromTyped[*slimv1.ServiceList](
 					c.Slim().CoreV1().Services(""),
 				),
 			)
+			return &res
 		}),
 
 		// Provide the faked client cells directly
@@ -53,7 +54,7 @@ func newDiffStoreFixture() *DiffStoreFixture {
 
 		cell.Invoke(func(
 			signaler agent.Signaler,
-			diffFactory DiffStore[*slimv1.Service],
+			diffFactory cell.Optional[DiffStore[*slimv1.Service]],
 		) {
 			fixture.signaler = signaler
 			fixture.diffStore = diffFactory
@@ -93,7 +94,7 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err := fixture.diffStore.Diff()
+	upserted, deleted, err := (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +126,7 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +154,7 @@ func TestDiffSignal(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +215,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err := fixture.diffStore.Diff()
+	upserted, deleted, err := (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +262,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +321,7 @@ func TestDiffUpsertCoalesce(t *testing.T) {
 		t.Fatal("No signal sent by diffstore")
 	}
 
-	upserted, deleted, err = fixture.diffStore.Diff()
+	upserted, deleted, err = (*fixture.diffStore).Diff()
 	if err != nil {
 		t.Fatal(err)
 	}

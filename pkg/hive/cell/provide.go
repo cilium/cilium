@@ -96,3 +96,7 @@ func Provide(ctors ...any) Cell {
 func ProvidePrivate(ctors ...any) Cell {
 	return &provider{ctors: ctors, export: false}
 }
+
+// Optional indicates that a the value returned by a Cell may be nil and that any consumers of the value should
+// nil check the value before using it.
+type Optional[T any] *T

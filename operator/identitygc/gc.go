@@ -31,7 +31,7 @@ type params struct {
 	Lifecycle hive.Lifecycle
 
 	Clientset k8sClient.Clientset
-	Identity  resource.Resource[*v2.CiliumIdentity]
+	Identity  cell.Optional[resource.Resource[*v2.CiliumIdentity]]
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -42,7 +42,7 @@ type GC struct {
 	logger logrus.FieldLogger
 
 	clientset ciliumV2.CiliumIdentityInterface
-	identity  resource.Resource[*v2.CiliumIdentity]
+	identity  cell.Optional[resource.Resource[*v2.CiliumIdentity]]
 
 	allocationMode string
 

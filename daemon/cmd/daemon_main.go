@@ -1644,7 +1644,7 @@ type daemonParams struct {
 	Datapath        datapath.Datapath
 	WGAgent         *wg.Agent `optional:"true"`
 	LocalNodeStore  node.LocalNodeStore
-	BGPController   *bgpv1.Controller
+	BGPController   cell.Optional[bgpv1.Controller]
 	Shutdowner      hive.Shutdowner
 	SharedResources k8s.SharedResources
 	NodeManager     nodeManager.NodeManager

@@ -477,14 +477,14 @@ type LBServiceReconciler struct {
 	diffStore DiffStore[*slim_corev1.Service]
 }
 
-func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service]) lbServiceReconcilerOut {
+func NewLBServiceReconciler(diffStore cell.Optional[DiffStore[*slim_corev1.Service]]) lbServiceReconcilerOut {
 	if diffStore == nil {
 		return lbServiceReconcilerOut{}
 	}
 
 	return lbServiceReconcilerOut{
 		Reconciler: &LBServiceReconciler{
-			diffStore: diffStore,
+			diffStore: *diffStore,
 		},
 	}
 }

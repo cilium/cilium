@@ -42,15 +42,15 @@ var (
 
 type SharedResources struct {
 	cell.In
-	LocalNode       *LocalNodeResource
-	LocalCiliumNode *LocalCiliumNodeResource
-	Services        resource.Resource[*slim_corev1.Service]
-	Namespaces      resource.Resource[*slim_corev1.Namespace]
-	LBIPPools       resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	Identities      resource.Resource[*cilium_api_v2.CiliumIdentity]
+	LocalNode       cell.Optional[LocalNodeResource]
+	LocalCiliumNode cell.Optional[LocalCiliumNodeResource]
+	Services        cell.Optional[resource.Resource[*slim_corev1.Service]]
+	Namespaces      cell.Optional[resource.Resource[*slim_corev1.Namespace]]
+	LBIPPools       cell.Optional[resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]]
+	Identities      cell.Optional[resource.Resource[*cilium_api_v2.CiliumIdentity]]
 }
 
-func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Service], error) {
+func serviceResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[resource.Resource[*slim_corev1.Service]], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -60,7 +60,8 @@ func serviceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[
 	}
 	lw := utils.ListerWatcherFromTyped[*slim_corev1.ServiceList](cs.Slim().CoreV1().Services(""))
 	lw = utils.ListerWatcherWithModifier(lw, optsModifier)
-	return resource.New[*slim_corev1.Service](lc, lw), nil
+	res := resource.New[*slim_corev1.Service](lc, lw)
+	return &res, nil
 }
 
 // LocalNodeResource is a resource.Resource[*corev1.Node] but one which will only stream updates for the node object
@@ -69,7 +70,7 @@ type LocalNodeResource struct {
 	resource.Resource[*corev1.Node]
 }
 
-func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (*LocalNodeResource, error) {
+func localNodeResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[LocalNodeResource], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -84,7 +85,7 @@ type LocalCiliumNodeResource struct {
 	resource.Resource[*cilium_api_v2.CiliumNode]
 }
 
-func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (*LocalCiliumNodeResource, error) {
+func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[LocalCiliumNodeResource], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -93,30 +94,33 @@ func localCiliumNodeResource(lc hive.Lifecycle, cs client.Clientset) (*LocalCili
 	return &LocalCiliumNodeResource{Resource: resource.New[*cilium_api_v2.CiliumNode](lc, lw)}, nil
 }
 
-func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*slim_corev1.Namespace], error) {
+func namespaceResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[resource.Resource[*slim_corev1.Namespace]], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*slim_corev1.NamespaceList](cs.Slim().CoreV1().Namespaces())
-	return resource.New[*slim_corev1.Namespace](lc, lw), nil
+	res := resource.New[*slim_corev1.Namespace](lc, lw)
+	return &res, nil
 }
 
-func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool], error) {
+func lbIPPoolsResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumLoadBalancerIPPoolList](
 		cs.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw), nil
+	res := resource.New[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool](lc, lw)
+	return &res, nil
 }
 
-func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*cilium_api_v2.CiliumIdentity], error) {
+func ciliumIdentityResource(lc hive.Lifecycle, cs client.Clientset) (cell.Optional[resource.Resource[*cilium_api_v2.CiliumIdentity]], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumIdentityList](
 		cs.CiliumV2().CiliumIdentities(),
 	)
-	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw), nil
+	res := resource.New[*cilium_api_v2.CiliumIdentity](lc, lw)
+	return &res, nil
 }

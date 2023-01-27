@@ -928,7 +928,8 @@ func TestLBServiceReconciler(t *testing.T) {
 				diffstore.Delete(key)
 			}
 
-			reconciler := NewLBServiceReconciler(diffstore)
+			var ds DiffStore[*slim_corev1.Service] = diffstore
+			reconciler := NewLBServiceReconciler(&ds)
 			err = reconciler.Reconciler.Reconcile(context.Background(), nil, testSC, newc, &newcstate)
 			if err != nil {
 				t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)

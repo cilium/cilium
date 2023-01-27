@@ -118,16 +118,21 @@ func init() {
 	vp = rootHive.Viper()
 }
 
-func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) error {
+func registerHooks(lc hive.Lifecycle, clientset k8sClient.Clientset, services cell.Optional[resource.Resource[*slim_corev1.Service]]) error {
+	if services == nil {
+		return nil
+	}
+
 	lc.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
 			if !clientset.IsEnabled() {
 				return errors.New("Kubernetes client not configured, cannot continue.")
 			}
-			startServer(ctx, clientset, services)
+			startServer(ctx, clientset, *services)
 			return nil
 		},
 	})
+
 	return nil
 }
 

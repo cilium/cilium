@@ -32,7 +32,7 @@ type diffStoreParams[T k8sRuntime.Object] struct {
 	cell.In
 
 	Lifecycle hive.Lifecycle
-	Resource  resource.Resource[T]
+	Resource  cell.Optional[resource.Resource[T]]
 	Signaler  agent.Signaler
 }
 
@@ -55,13 +55,13 @@ type diffStore[T k8sRuntime.Object] struct {
 	updatedKeys map[resource.Key]bool
 }
 
-func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
+func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) cell.Optional[DiffStore[T]] {
 	if params.Resource == nil {
 		return nil
 	}
 
 	ds := &diffStore[T]{
-		resource: params.Resource,
+		resource: *params.Resource,
 		signaler: params.Signaler,
 
 		updatedKeys: make(map[resource.Key]bool),
@@ -71,7 +71,8 @@ func NewDiffStore[T k8sRuntime.Object](params diffStoreParams[T]) DiffStore[T] {
 
 	params.Lifecycle.Append(ds)
 
-	return ds
+	var dsi DiffStore[T] = ds
+	return &dsi
 }
 
 // Start implements hive.HookInterface

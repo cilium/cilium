@@ -99,6 +99,10 @@ type ServiceSyncConfiguration interface {
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
+	if services == nil {
+		return
+	}
+
 	log.Info("Starting to synchronize k8s services to kvstore")
 	sharedOnly = shared
 

@@ -33,13 +33,13 @@ type localNodeStoreSpecerParams struct {
 
 	Lifecycle          hive.Lifecycle
 	Config             *option.DaemonConfig
-	NodeResource       *k8s.LocalNodeResource
-	CiliumNodeResource *k8s.LocalCiliumNodeResource
+	NodeResource       cell.Optional[k8s.LocalNodeResource]
+	CiliumNodeResource cell.Optional[k8s.LocalCiliumNodeResource]
 	Signaler           Signaler
 }
 
 // NewNodeSpecer constructs a new nodeSpecer and registers it in the hive lifecycle
-func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
+func NewNodeSpecer(params localNodeStoreSpecerParams) (cell.Optional[nodeSpecer], error) {
 	if !params.Config.BGPControlPlaneEnabled() {
 		return nil, nil
 	}
@@ -51,7 +51,8 @@ func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
 			signaler:     params.Signaler,
 		}
 		params.Lifecycle.Append(cns)
-		return cns, nil
+		var ns nodeSpecer = cns
+		return &ns, nil
 
 	case ipamOption.IPAMKubernetes:
 		kns := &kubernetesNodeSpecer{
@@ -59,7 +60,8 @@ func NewNodeSpecer(params localNodeStoreSpecerParams) (nodeSpecer, error) {
 			signaler:     params.Signaler,
 		}
 		params.Lifecycle.Append(kns)
-		return kns, nil
+		var ns nodeSpecer = kns
+		return &ns, nil
 
 	default:
 		return nil, fmt.Errorf("BGP Control Plane doesn't support current IPAM-mode: '%s'", params.Config.IPAM)

@@ -134,9 +134,9 @@ type ControllerParams struct {
 	Lifecycle      hive.Lifecycle
 	Sig            Signaler
 	RouteMgr       BGPRouterManager
-	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
+	PolicyResource cell.Optional[resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]]
 	DaemonConfig   *option.DaemonConfig
-	NodeSpec       nodeSpecer
+	NodeSpec       cell.Optional[nodeSpecer]
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -147,18 +147,22 @@ type ControllerParams struct {
 // The constructor requires an implementation of BGPRouterManager to be provided.
 // This implementation defines which BGP backend will be used (GoBGP, FRR, Bird, etc...)
 // NOTE: only GoBGP currently implemented.
-func NewController(params ControllerParams) (*Controller, error) {
+func NewController(params ControllerParams) (cell.Optional[Controller], error) {
 	// If the BGP control plane is disabled, just return nil. This way the hive dependency graph is always static
 	// regardless of config. The lifecycle has not been appended so no work will be done.
 	if !params.DaemonConfig.BGPControlPlaneEnabled() {
 		return nil, nil
 	}
 
+	if params.PolicyResource == nil || params.NodeSpec == nil {
+		return nil, nil
+	}
+
 	c := Controller{
 		Sig:            params.Sig,
 		BGPMgr:         params.RouteMgr,
-		PolicyResource: params.PolicyResource,
-		NodeSpec:       params.NodeSpec,
+		PolicyResource: *params.PolicyResource,
+		NodeSpec:       *params.NodeSpec,
 	}
 
 	params.Lifecycle.Append(&c)

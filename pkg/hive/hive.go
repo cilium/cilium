@@ -290,7 +290,9 @@ func (h *Hive) Shutdown(opts ...ShutdownOption) {
 
 func (h *Hive) PrintObjects() {
 	if err := h.Populate(); err != nil {
-		log.WithError(err).Fatal("Failed to populate object graph")
+		fmt.Fprintln(os.Stderr, "Failed to populate object graph")
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
 	}
 
 	fmt.Printf("Cells:\n\n")

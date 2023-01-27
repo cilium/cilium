@@ -33,8 +33,8 @@ type LBIPAMParams struct {
 	Shutdowner hive.Shutdowner
 
 	Clientset    k8sClient.Clientset
-	PoolResource resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
-	SvcResource  resource.Resource[*slim_core_v1.Service]
+	PoolResource cell.Optional[resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]]
+	SvcResource  cell.Optional[resource.Resource[*slim_core_v1.Service]]
 
 	DaemonConfig *option.DaemonConfig
 }

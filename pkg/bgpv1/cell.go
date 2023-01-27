@@ -39,7 +39,7 @@ var Cell = cell.Module(
 	gobgp.ConfigReconcilers,
 )
 
-func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy] {
+func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) cell.Optional[resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]] {
 	// Do not create this resource if the BGP Control Plane is disabled
 	if !dc.BGPControlPlaneEnabled() {
 		return nil
@@ -49,8 +49,9 @@ func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *opti
 		return nil
 	}
 
-	return resource.New[*v2alpha1api.CiliumBGPPeeringPolicy](
+	res := resource.New[*v2alpha1api.CiliumBGPPeeringPolicy](
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPPeeringPolicyList](
 			c.CiliumV2alpha1().CiliumBGPPeeringPolicies(),
 		))
+	return &res
 }

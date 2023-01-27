@@ -23,6 +23,10 @@ import (
 )
 
 func (k *K8sWatcher) namespacesInit() {
+	if k.sharedResources.Namespaces == nil {
+		return
+	}
+
 	apiGroup := k8sAPIGroupNamespaceV1Core
 
 	var synced atomic.Bool
@@ -42,7 +46,7 @@ func (k *K8sWatcher) namespacesInit() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	events := k.sharedResources.Namespaces.Events(ctx)
+	events := (*k.sharedResources.Namespaces).Events(ctx)
 
 	go func() {
 		for {
@@ -115,13 +119,17 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 
 // GetCachedNamespace returns a namespace from the local store.
 func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
+	if k.sharedResources.Namespaces == nil {
+		return nil, nil
+	}
+
 	nsName := &slim_corev1.Namespace{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
 
-	store, err := k.sharedResources.Namespaces.Store(context.Background())
+	store, err := (*k.sharedResources.Namespaces).Store(context.Background())
 	if err != nil {
 		return nil, err
 	}

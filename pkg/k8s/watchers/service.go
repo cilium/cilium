@@ -32,11 +32,15 @@ func (k *K8sWatcher) servicesInit() {
 }
 
 func (k *K8sWatcher) serviceEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitGroup) {
+	if k.sharedResources.Services == nil {
+		return
+	}
+
 	apiGroup := resources.K8sAPIGroupServiceV1Core
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	events := k.sharedResources.Services.Events(ctx)
+	events := (*k.sharedResources.Services).Events(ctx)
 	for {
 		select {
 		case <-k.stop:

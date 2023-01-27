@@ -39,7 +39,11 @@ func (igc *GC) startCRDModeGC(ctx context.Context) error {
 }
 
 func (igc *GC) runHeartbeatUpdater(ctx context.Context) error {
-	for event := range igc.identity.Events(ctx) {
+	if igc.identity == nil {
+		return nil
+	}
+
+	for event := range (*igc.identity).Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
 			// Identity is marked as alive if it is new or it has
@@ -70,7 +74,11 @@ func (igc *GC) gc(ctx context.Context) error {
 		return nil
 	}
 
-	identitiesStore, err := igc.identity.Store(ctx)
+	if igc.identity == nil {
+		return nil
+	}
+
+	identitiesStore, err := (*igc.identity).Store(ctx)
 	if err != nil {
 		igc.logger.WithError(err).Error("unable to get Cilium identities from local store")
 		return err
