@@ -602,9 +602,9 @@ ct_recreate6:
 	}
 #endif
 	if (is_defined(ENABLE_HOST_ROUTING)) {
-		int oif;
+		int oif, fib_err;
 
-		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false,
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, &fib_err,
 				      ctx->ingress_ifindex, &oif);
 		if (likely(ret == CTX_ACT_REDIRECT))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
@@ -1106,9 +1106,9 @@ skip_vtep:
 	}
 #endif /* TUNNEL_MODE */
 	if (is_defined(ENABLE_HOST_ROUTING)) {
-		int oif;
+		int oif, fib_err;
 
-		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false,
+		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, &fib_err,
 				      ctx->ingress_ifindex, &oif);
 		if (likely(ret == CTX_ACT_REDIRECT))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
