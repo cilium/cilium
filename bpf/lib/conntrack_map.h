@@ -76,6 +76,33 @@ get_ct_map6(const struct ipv6_ct_tuple *tuple)
 
 	return &CT_MAP_ANY6;
 }
+
+static __always_inline void *
+get_cluster_ct_map6(const struct ipv6_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
+{
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID) {
+		if (tuple->nexthdr == IPPROTO_TCP)
+			return map_lookup_elem(&PER_CLUSTER_CT_TCP6, &cluster_id);
+
+		return map_lookup_elem(&PER_CLUSTER_CT_ANY6, &cluster_id);
+	}
+#endif
+	if (tuple->nexthdr == IPPROTO_TCP)
+		return &CT_MAP_TCP6;
+
+	return &CT_MAP_ANY6;
+}
+
+static __always_inline void *
+get_cluster_ct_any_map6(__u32 cluster_id __maybe_unused)
+{
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+		return map_lookup_elem(&PER_CLUSTER_CT_ANY6, &cluster_id);
+#endif
+	return &CT_MAP_ANY6;
+}
 #endif
 
 #ifdef ENABLE_IPV4
@@ -131,6 +158,33 @@ get_ct_map4(const struct ipv4_ct_tuple *tuple)
 	if (tuple->nexthdr == IPPROTO_TCP)
 		return &CT_MAP_TCP4;
 
+	return &CT_MAP_ANY4;
+}
+
+static __always_inline void *
+get_cluster_ct_map4(const struct ipv4_ct_tuple *tuple, __u32 cluster_id __maybe_unused)
+{
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID) {
+		if (tuple->nexthdr == IPPROTO_TCP)
+			return map_lookup_elem(&PER_CLUSTER_CT_TCP4, &cluster_id);
+
+		return map_lookup_elem(&PER_CLUSTER_CT_ANY4, &cluster_id);
+	}
+#endif
+	if (tuple->nexthdr == IPPROTO_TCP)
+		return &CT_MAP_TCP4;
+
+	return &CT_MAP_ANY4;
+}
+
+static __always_inline void *
+get_cluster_ct_any_map4(__u32 cluster_id __maybe_unused)
+{
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
+		return map_lookup_elem(&PER_CLUSTER_CT_ANY4, &cluster_id);
+#endif
 	return &CT_MAP_ANY4;
 }
 #endif
