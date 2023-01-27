@@ -41,20 +41,20 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
-	     struct bpf_fib_lookup *fib_params, __s8 *fib_err, int *oif)
+	     struct bpf_fib_lookup_padded *fib_params, __s8 *fib_err, int *oif)
 {
 	struct bpf_redir_neigh nh_params;
 	bool no_neigh = false;
 	int ret;
 
-	ret = fib_lookup(ctx, fib_params, sizeof(*fib_params),
+	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
 			 BPF_FIB_LOOKUP_DIRECT);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
 		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
-			nh_params.nh_family = fib_params->family;
+			nh_params.nh_family = fib_params->l.family;
 			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
-					     &fib_params->ipv6_dst,
+					     &fib_params->l.ipv6_dst,
 					     sizeof(nh_params.ipv6_nh));
 			no_neigh = true;
 		} else {
@@ -62,7 +62,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		}
 	}
 
-	*oif = fib_params->ifindex;
+	*oif = fib_params->l.ifindex;
 	if (needs_l2_check) {
 		bool l2_hdr_required = true;
 
@@ -78,10 +78,10 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 					      sizeof(nh_params), 0);
 		} else {
 			union macaddr *dmac, smac =
-				NATIVE_DEV_MAC_BY_IFINDEX(fib_params->ifindex);
+				NATIVE_DEV_MAC_BY_IFINDEX(fib_params->l.ifindex);
 			dmac = nh_params.nh_family == AF_INET ?
-			       neigh_lookup_ip4(&fib_params->ipv4_dst) :
-			       neigh_lookup_ip6((void *)&fib_params->ipv6_dst);
+			       neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
+			       neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
 			if (!dmac) {
 				*fib_err = BPF_FIB_MAP_NO_NEIGH;
 				return DROP_NO_FIB;
@@ -92,9 +92,9 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 				return DROP_WRITE_ERROR;
 		}
 	} else {
-		if (eth_store_daddr(ctx, fib_params->dmac, 0) < 0)
+		if (eth_store_daddr(ctx, fib_params->l.dmac, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(ctx, fib_params->smac, 0) < 0)
+		if (eth_store_saddr(ctx, fib_params->l.smac, 0) < 0)
 			return DROP_WRITE_ERROR;
 	}
 out_send:
@@ -107,15 +107,17 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
 		__s8 *fib_err, int iif, int *oif)
 {
-	struct bpf_fib_lookup fib_params = {
-		.family		= AF_INET6,
-		.ifindex	= iif,
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET6,
+			.ifindex	= iif,
+		},
 	};
 	int ret;
 
-	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src,
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
 		       (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_dst,
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 		       (union v6addr *)&ip6->daddr);
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
@@ -132,11 +134,13 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
 		__s8 *fib_err, int iif, int *oif)
 {
-	struct bpf_fib_lookup fib_params = {
-		.family		= AF_INET,
-		.ifindex	= iif,
-		.ipv4_src	= ip4->saddr,
-		.ipv4_dst	= ip4->daddr,
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET,
+			.ifindex	= iif,
+			.ipv4_src	= ip4->saddr,
+			.ipv4_dst	= ip4->daddr,
+		},
 	};
 	int ret;
 
