@@ -30,7 +30,7 @@ env:
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  cilium_version: v1.12.5
+  cilium_version: v1.12.6
   kubectl_version: v1.23.6
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
