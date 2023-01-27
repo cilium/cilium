@@ -1809,7 +1809,7 @@ func (s *K8sSuite) TestGetPolicyLabelsv1(c *C) {
 			np: &slim_networkingv1.NetworkPolicy{
 				ObjectMeta: slim_metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.Name: "foo",
+						annotation.PolicyName: "foo",
 					},
 				},
 			},
