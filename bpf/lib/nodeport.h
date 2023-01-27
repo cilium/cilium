@@ -612,14 +612,13 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
-	int verdict = CTX_ACT_REDIRECT;
-	bool l2_hdr_required = true;
+	int ret, oif;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, ext_err = 0;
-
+	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
+	int verdict = CTX_ACT_REDIRECT;
 	bool use_tunnel = false;
 	union v6addr *dst;
 #endif
@@ -627,7 +626,6 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (nat_46x64)
 		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
 	target.addr = tmp;
-
 #ifdef TUNNEL_MODE
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -657,10 +655,14 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	ctx_snat_done_set(ctx);
-
 #ifdef TUNNEL_MODE
-	if (use_tunnel)
-		goto out_send;
+	if (use_tunnel) {
+		cilium_capture_out(ctx);
+		if (verdict == CTX_ACT_REDIRECT)
+			return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+		ctx_move_xfer(ctx);
+		return verdict;
+	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -685,38 +687,14 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
 			       (union v6addr *)&ip6->daddr);
 	}
-
-	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
-	if (ret != 0) {
-		ext_err = ret;
-		ret = DROP_NO_FIB;
-		goto drop_err;
+	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	if (likely(ret == CTX_ACT_REDIRECT)) {
+		cilium_capture_out(ctx);
+		return ret;
 	}
-
-	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
-	if (ret != 0)
-		goto drop_err;
-	if (!l2_hdr_required)
-		goto out_send;
-
-	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-out_send:
-	cilium_capture_out(ctx);
-
-	if (verdict == CTX_ACT_REDIRECT)
-		return ctx_redirect(ctx, fib_params.l.ifindex, 0);
-
-	ctx_move_xfer(ctx);
-	return verdict;
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 /* See nodeport_lb4(). */
@@ -1631,24 +1609,21 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
-	int verdict = CTX_ACT_REDIRECT;
+	int ret, oif;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	bool l2_hdr_required = true;
-	int ret, ext_err = 0;
-
+	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
 	struct remote_endpoint_info *info;
+	int verdict = CTX_ACT_REDIRECT;
 	bool use_tunnel = false;
 #endif
-
 	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
 	 * So we need to assume that the direct routing device is going to be
 	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
 	 * This will change once we have resolved GH#17158.
 	 */
 	target.addr = IPV4_DIRECT_ROUTING;
-
 #ifdef TUNNEL_MODE
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -1686,51 +1661,30 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	ctx_snat_done_set(ctx);
-
 #ifdef TUNNEL_MODE
-	if (use_tunnel)
-		goto out_send;
+	if (use_tunnel) {
+		cilium_capture_out(ctx);
+		if (verdict == CTX_ACT_REDIRECT)
+			return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+		ctx_move_xfer(ctx);
+		return verdict;
+	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params), 0);
-	if (ret != 0) {
-		ext_err = ret;
-		ret = DROP_NO_FIB;
-		goto drop_err;
+	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	if (likely(ret == CTX_ACT_REDIRECT)) {
+		cilium_capture_out(ctx);
+		return ret;
 	}
-
-	ret = maybe_add_l2_hdr(ctx, fib_params.l.ifindex, &l2_hdr_required);
-	if (ret != 0)
-		goto drop_err;
-	if (!l2_hdr_required)
-		goto out_send;
-
-	if (eth_store_daddr(ctx, fib_params.l.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (eth_store_saddr(ctx, fib_params.l.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-
-out_send:
-	cilium_capture_out(ctx);
-
-	if (verdict == CTX_ACT_REDIRECT)
-		return ctx_redirect(ctx, fib_params.l.ifindex, 0);
-
-	ctx_move_xfer(ctx);
-	return verdict;
 drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 /* Main node-port entry point for host-external ingressing node-port traffic
