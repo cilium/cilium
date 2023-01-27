@@ -43,8 +43,8 @@ Hubble server
 
 The Hubble server component implements two gRPC services. The **Observer
 service** which may optionally be exposed via a TCP socket in addition to a
-local Unix domain socket and the  **Peer service**, which is served on both
-as well as a Kubernetes Service.
+local Unix domain socket and the **Peer service**, which is served on both
+as well as being exposed as a Kubernetes Service when enabled via TCP.
 
 The Observer service
 ^^^^^^^^^^^^^^^^^^^^
@@ -97,9 +97,8 @@ the peers in the cluster and subsequently sends information about peers that
 are updated, added, or removed from the cluster. Thus, it allows the caller to
 keep track of all Hubble instances and query their respective gRPC services.
 
-This service is typically only exposed on a local Unix domain socket and a
-Kubernetes Service and is primarily used by Hubble Relay in order to have
-a cluster-wide view of all Hubble instances.
+This service is exposed as a Kubernetes Service and is primarily used by Hubble
+Relay in order to have a cluster-wide view of all Hubble instances.
 
 The Peer service obtains peer change notifications by subscribing to Cilium's
 node manager. To this end, it internally defines a handler that implements

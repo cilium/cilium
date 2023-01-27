@@ -403,6 +403,12 @@ Helm Options
   The cilium-operator pprof configuration is now managed via the ``operator.pprof`` section.
   Additionally, a``hubble.relay.pprof`` section has been added.
 * All pprof configuration now support configuring the pprof listen address, defaulting to localhost.
+* The ``hubble.peerService.enabled`` value is deprecated. Currently ``true`` by
+  default, Cilium v1.14 will remove the option to set it to ``false`` as support
+  for Hubble Relay to query the Peer Service through the Hubble local UNIX
+  domain socket will be removed and the Kubernetes peer-svc mandatory when
+  Hubble Relay is enabled. Users overriding ``hubble.peerService.enabled`` to
+  ``false`` are encouraged to migrate to ``true`` with the Cilium v1.13 release.
 
 CRD Changes
 ~~~~~~~~~~~
