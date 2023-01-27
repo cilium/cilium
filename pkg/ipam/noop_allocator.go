@@ -15,23 +15,23 @@ var errNotSupported = errors.New("Operation not supported")
 // without relying on the cilium daemon or operator.
 type noOpAllocator struct{}
 
-func (n *noOpAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (n *noOpAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (n *noOpAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) Release(ip net.IP) error {
+func (n *noOpAllocator) Release(ip net.IP, pool Pool) error {
 	return errNotSupported
 }
 
-func (n *noOpAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (n *noOpAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
-func (n *noOpAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (n *noOpAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
 	return nil, errNotSupported
 }
 
