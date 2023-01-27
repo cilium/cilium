@@ -737,7 +737,7 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -819,7 +819,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -993,7 +993,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
@@ -1062,7 +1062,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	if (nat_46x64_fib)
 		goto skip_rev_dnat;
 #endif
-	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
+	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 			goto out;
@@ -1827,7 +1827,7 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 
 	has_l4_header = ipv4_has_l4_header(ip4),
 
-	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1926,7 +1926,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -2127,7 +2127,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
@@ -2207,7 +2207,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 
 	has_l4_header = ipv4_has_l4_header(ip4);
 
-	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
 		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
