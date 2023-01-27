@@ -56,14 +56,14 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 
 			if igc.enableMetrics {
 				igc.failedRuns++
-				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(igc.failedRuns)
+				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 			}
 		} else {
 			keysToDeletePrev = keysToDelete
 
 			if igc.enableMetrics {
 				igc.successfulRuns++
-				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(igc.successfulRuns)
+				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
 
 				metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
 				metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))

@@ -133,10 +133,10 @@ func (igc *GC) gc(ctx context.Context) error {
 	if igc.enableMetrics {
 		if ctx.Err() == nil {
 			igc.successfulRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(igc.successfulRuns)
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
 		} else {
 			igc.failedRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(igc.failedRuns)
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 		}
 		aliveEntries := totalEntries - deletedEntries
 		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(aliveEntries))

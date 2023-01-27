@@ -72,8 +72,8 @@ type GC struct {
 
 	enableMetrics bool
 	// counters for GC failed/successful runs
-	failedRuns     float64
-	successfulRuns float64
+	failedRuns     int
+	successfulRuns int
 }
 
 func registerGC(p params) {
