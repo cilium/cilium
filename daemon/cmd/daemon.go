@@ -53,10 +53,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -739,20 +741,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
 	}
 	// Upsert restored local Ingress IPs
-	restoredIngressIPs := []string{}
 	for _, ingressIP := range oldIngressIPs {
-		_, err := d.ipcache.Upsert(ingressIP.String(), nil, 0, nil, ipcache.Identity{
-			ID:     identity.ReservedIdentityIngress,
-			Source: source.Restored,
-		})
-		if err == nil {
-			restoredIngressIPs = append(restoredIngressIPs, ingressIP.String())
-		} else {
-			log.WithError(err).Warning("could not restore Ingress IP, a new one will be allocated")
-		}
+		d.ipcache.UpsertLabels(
+			ip.IPNetToPrefix(ingressIP),
+			labels.LabelIngress,
+			source.Restored,
+			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", ""),
+		)
 	}
-	if len(restoredIngressIPs) > 0 {
-		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
+	if len(oldIngressIPs) > 0 {
+		log.WithField(logfields.Ingress, oldIngressIPs).Info("Restored ingress IPs")
 	}
 
 	// Read the service IDs of existing services from the BPF map and
