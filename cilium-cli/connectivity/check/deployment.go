@@ -542,6 +542,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoOtherNodeDeploymentName)
 			svc := newService(echoOtherNodeDeploymentName, map[string]string{"name": echoOtherNodeDeploymentName}, serviceLabels, "http", 8080)
 			svc.ObjectMeta.Annotations = map[string]string{}
+			svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
 			svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
 
 			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
@@ -690,6 +691,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 			if ct.params.MultiCluster != "" {
 				svc.ObjectMeta.Annotations = map[string]string{}
+				svc.ObjectMeta.Annotations["service.cilium.io/global"] = "true"
 				svc.ObjectMeta.Annotations["io.cilium/global-service"] = "true"
 			}
 
