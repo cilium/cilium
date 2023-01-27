@@ -455,7 +455,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if err != nil {
 				return "", err
 			}
-			return p.Annotations[annotation.ProxyVisibility], nil
+			value, _ := annotation.Get(p, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
+			return value, nil
 		})
 		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
 			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
@@ -469,7 +470,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if err != nil {
 				return "", err
 			}
-			return p.Annotations[annotation.NoTrack], nil
+			value, _ := annotation.Get(p, annotation.NoTrack, annotation.NoTrackAlias)
+			return value, nil
 		})
 	}
 

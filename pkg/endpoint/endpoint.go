@@ -1601,18 +1601,20 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 				e.SetPod(pod)
 				e.SetK8sMetadata(cp)
 				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					po, _, _, _, _, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[annotation.NoTrack], nil
+					value, _ := annotation.Get(po, annotation.NoTrack, annotation.NoTrackAlias)
+					return value, nil
 				})
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					po, _, _, _, _, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
-					return annotations[annotation.ProxyVisibility], nil
+					value, _ := annotation.Get(po, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
+					return value, nil
 				})
 				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)

@@ -15,13 +15,17 @@ const (
 	// NetworkPrefix is the common prefix for network related annotations.
 	NetworkPrefix = "network.cilium.io"
 
+	// PolicyPrefix is the common prefix for policy related annotations.
+	PolicyPrefix = "policy.cilium.io"
+
 	// ServicePrefix is the common prefix for service related annotations.
 	ServicePrefix = "service.cilium.io"
 
-	// Name is an optional annotation to the NetworkPolicy
+	// PolicyName / PolicyNameAlias is an optional annotation to the NetworkPolicy
 	// resource which specifies the name of the policy node to which all
 	// rules should be applied to.
-	Name = Prefix + ".name"
+	PolicyName      = PolicyPrefix + "/name"
+	PolicyNameAlias = Prefix + ".name"
 
 	// V4CIDRName / V4CIDRNameAlias is the annotation name used to store the IPv4
 	// pod CIDR in the node's annotations.
@@ -90,16 +94,18 @@ const (
 	ServiceAffinity      = ServicePrefix + "/affinity"
 	ServiceAffinityAlias = Prefix + "/service-affinity"
 
-	// ProxyVisibility is the annotation name used to indicate whether proxy
-	// visibility should be enabled for a given pod (i.e., all traffic for the
-	// pod is redirected to the proxy for the given port / protocol in the
-	// annotation
-	ProxyVisibility = Prefix + ".proxy-visibility"
+	// ProxyVisibility / ProxyVisibilityAlias is the annotation name used to
+	// indicate whether proxy visibility should be enabled for a given pod (i.e.,
+	// all traffic for the pod is redirected to the proxy for the given port /
+	// protocol in the annotation
+	ProxyVisibility      = PolicyPrefix + "/proxy-visibility"
+	ProxyVisibilityAlias = Prefix + ".proxy-visibility"
 
-	// NoTrack is the annotation name used to store the port and protocol
-	// that we should bypass kernel conntrack for a given pod. This applies for
-	// both TCP and UDP connection. Current use case is NodeLocalDNS.
-	NoTrack = Prefix + ".no-track-port"
+	// NoTrack / NoTrackAlias is the annotation name used to store the port and
+	// protocol that we should bypass kernel conntrack for a given pod. This
+	// applies for both TCP and UDP connection. Current use case is NodeLocalDNS.
+	NoTrack      = PolicyPrefix + "/no-track-port"
+	NoTrackAlias = Prefix + ".no-track-port"
 
 	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
 	// the Wireguard public key in the CiliumNode CRD that we need to use to encrypt
