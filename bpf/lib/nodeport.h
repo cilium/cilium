@@ -446,11 +446,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
 	__u16 port __maybe_unused;
+	int ret, oif, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr;
-	int ret, ohead = 0;
-	int oif, ext_err = 0;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -496,11 +496,11 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
-	int ret, oif, ext_err = 0;
+	int ret, oif, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
-	int l3_off = ETH_HLEN;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
@@ -528,11 +528,11 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
-	int ret, oif, ext_err = 0;
+	int ret, oif, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
-	int l3_off = ETH_HLEN;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -1515,12 +1515,13 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
 int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
-	int ret, oif, ext_err = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	int ret, oif;
 	__u32 addr;
 	__u16 port;
 	__be16 ohead = 0;
+	__s8 ext_err = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
