@@ -100,9 +100,9 @@ Expose the port on your local machine
 
 .. code-block:: shell-session
 
-    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9962:9962
+    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
 
-Access it via your browser: http://localhost:9962
+Access it via your browser: http://localhost:9090
 
 Examples
 ========
