@@ -862,11 +862,11 @@
      - string
      - ``"cluster.local"``
    * - hubble.peerService.enabled
-     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client
+     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client. This configuration option is deprecated, the peer service will be non-optional starting Cilium v1.14.
      - bool
      - ``true``
    * - hubble.peerService.targetPort
-     - Target Port for the Peer service.
+     - Target Port for the Peer service, must match the hubble.listenAddress' port.
      - int
      - ``4244``
    * - hubble.preferIpv6
