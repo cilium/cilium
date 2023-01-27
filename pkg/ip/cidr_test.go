@@ -90,3 +90,19 @@ func TestNetsContainsAny(t *testing.T) {
 		})
 	}
 }
+
+func TestIPNetToPrefix(t *testing.T) {
+	_, v4CIDR, err := net.ParseCIDR("1.1.1.1/32")
+	assert.NoError(t, err)
+	_, v6CIDR, err := net.ParseCIDR("::ff/128")
+	assert.NoError(t, err)
+	assert.Equal(t, netip.MustParsePrefix(v4CIDR.String()), IPNetToPrefix(v4CIDR))
+	assert.Equal(t, netip.MustParsePrefix(v6CIDR.String()), IPNetToPrefix(v6CIDR))
+
+	_, v4CIDR, err = net.ParseCIDR("1.1.1.1/1")
+	assert.NoError(t, err)
+	assert.Equal(t, netip.MustParsePrefix(v4CIDR.String()), IPNetToPrefix(v4CIDR))
+
+	assert.Equal(t, netip.Prefix{}, IPNetToPrefix(nil))
+	assert.Equal(t, netip.Prefix{}, IPNetToPrefix(&net.IPNet{}))
+}
