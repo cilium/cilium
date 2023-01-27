@@ -13,33 +13,33 @@ move-to-projects-for-labels-xored:
       column: "Backport done to v1.10"
   v1.12:
     needs-backport/1.12:
-      project: "https://github.com/cilium/cilium/projects/217"
+      project: "https://github.com/cilium/cilium/projects/221"
       column: "Needs backport from master"
     backport-pending/1.12:
-      project: "https://github.com/cilium/cilium/projects/217"
+      project: "https://github.com/cilium/cilium/projects/221"
       column: "Backport pending to v1.12"
     backport-done/1.12:
-      project: "https://github.com/cilium/cilium/projects/217"
+      project: "https://github.com/cilium/cilium/projects/221"
       column: "Backport done to v1.12"
   v1.11:
     needs-backport/1.11:
-      project: "https://github.com/cilium/cilium/projects/216"
+      project: "https://github.com/cilium/cilium/projects/220"
       column: "Needs backport from master"
     backport-pending/1.11:
-      project: "https://github.com/cilium/cilium/projects/216"
+      project: "https://github.com/cilium/cilium/projects/220"
       column: "Backport pending to v1.10"
     backport-done/1.11:
-      project: "https://github.com/cilium/cilium/projects/216"
+      project: "https://github.com/cilium/cilium/projects/220"
       column: "Backport done to v1.11"
   v1.10:
     needs-backport/1.10:
-      project: "https://github.com/cilium/cilium/projects/215"
+      project: "https://github.com/cilium/cilium/projects/219"
       column: "Needs backport from master"
     backport-pending/1.10:
-      project: "https://github.com/cilium/cilium/projects/215"
+      project: "https://github.com/cilium/cilium/projects/219"
       column: "Backport pending to v1.10"
     backport-done/1.10:
-      project: "https://github.com/cilium/cilium/projects/215"
+      project: "https://github.com/cilium/cilium/projects/219"
       column: "Backport done to v1.10"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
