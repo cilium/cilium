@@ -60,5 +60,6 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
+WORKDIR /home/nonroot
 ENTRYPOINT ["/usr/bin/hubble-relay"]
 CMD ["serve"]
