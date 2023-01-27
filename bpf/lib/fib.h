@@ -43,7 +43,7 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
-		int *fib_err, int iif, int *oif)
+		__s8 *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -62,7 +62,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
-		*fib_err = ret;
+		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
 			nh_params.nh_family = fib_params.family;
 			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
@@ -125,7 +125,7 @@ out_send:
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
-		int *fib_err, int iif, int *oif)
+		__s8 *fib_err, int iif, int *oif)
 {
 	bool no_neigh = false;
 	struct bpf_redir_neigh *nh = NULL;
@@ -141,7 +141,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
 			 BPF_FIB_LOOKUP_DIRECT);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
-		*fib_err = ret;
+		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
 			/* GW could also be v6, so copy union. */
 			nh_params.nh_family = fib_params.family;
