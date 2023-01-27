@@ -181,8 +181,8 @@ github.com/chai2010/gettext-go v1.0.2/go.mod h1:y+wnP2cHYaVj19NZhYKAwEMH2CI1gNHe
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
-github.com/cilium/charts v0.0.0-20230124044000-7f81956a0518 h1:DaSBJyl5WhCrj8R3PTuFYrOeqL0twBofnW4SNp4HGXY=
-github.com/cilium/charts v0.0.0-20230124044000-7f81956a0518/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
+github.com/cilium/charts v0.0.0-20230127134207-b66f8b685c0c h1:d9vIJfqRSGZbDsYZ4eKhyT2hEHHrOBuOBQ4goSpoXCA=
+github.com/cilium/charts v0.0.0-20230127134207-b66f8b685c0c/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/cilium v1.13.0-rc5 h1:ZcO2twwdXBZS3wS09aBnNwT9LcGhXm2UUbF3pHifcfo=
 github.com/cilium/cilium v1.13.0-rc5/go.mod h1:F1Fyf/X2BIwljlsMIB+0NXd90juH+JJz3Z7ofO5rqpE=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
