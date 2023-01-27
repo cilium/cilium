@@ -48,7 +48,7 @@ jobs:
           script: |
             try {
               const result = await github.rest.orgs.checkMembershipForUser({
-                org: "${{ github.repository_owner }},"
+                org: "${{ github.repository_owner }}",
                 username: "${{github.event.pull_request.user.login}}",
               })
               return result.status == 204;
