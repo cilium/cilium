@@ -96,7 +96,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419Kernel, "K8sDatapathVerifier", fun
 	}
 
 	getKernel := func() string {
-		kernel := "49"
+		kernel := "54"
 		switch {
 		case helpers.RunsOnNetNextKernel():
 			kernel = "netnext"
