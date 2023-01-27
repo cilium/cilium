@@ -71,7 +71,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 			no_neigh = true;
 			nh = &nh_params;
 		} else {
-			return CTX_ACT_DROP;
+			return DROP_NO_FIB;
 		}
 	}
 
@@ -85,7 +85,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 
 		ret = maybe_add_l2_hdr(ctx, *oif, &l2_hdr_required);
 		if (ret != 0)
-			return CTX_ACT_DROP;
+			return ret;
 		if (!l2_hdr_required)
 			goto out_send;
 	}
@@ -101,18 +101,20 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 			dmac = (nh && nh_params.nh_family == AF_INET) ?
 			       neigh_lookup_ip4(&fib_params.ipv4_dst) :
 			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst);
-			if (!dmac)
-				return CTX_ACT_DROP;
+			if (!dmac) {
+				*fib_err = BPF_FIB_MAP_NO_NEIGH;
+				return DROP_NO_FIB;
+			}
 			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
-				return CTX_ACT_DROP;
+				return DROP_WRITE_ERROR;
 			if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-				return CTX_ACT_DROP;
+				return DROP_WRITE_ERROR;
 		}
 	} else {
 		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-			return CTX_ACT_DROP;
+			return DROP_WRITE_ERROR;
 		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-			return CTX_ACT_DROP;
+			return DROP_WRITE_ERROR;
 	}
 out_send:
 	return ctx_redirect(ctx, *oif, 0);
@@ -149,7 +151,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 			no_neigh = true;
 			nh = &nh_params;
 		} else {
-			return CTX_ACT_DROP;
+			return DROP_NO_FIB;
 		}
 	}
 
@@ -163,7 +165,7 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 
 		ret = maybe_add_l2_hdr(ctx, *oif, &l2_hdr_required);
 		if (ret != 0)
-			return CTX_ACT_DROP;
+			return ret;
 		if (!l2_hdr_required)
 			goto out_send;
 	}
@@ -179,18 +181,20 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 			dmac = (nh && nh_params.nh_family == AF_INET6) ?
 			       neigh_lookup_ip6((void *)&fib_params.ipv6_dst) :
 			       neigh_lookup_ip4(&fib_params.ipv4_dst);
-			if (!dmac)
-				return CTX_ACT_DROP;
+			if (!dmac) {
+				*fib_err = BPF_FIB_MAP_NO_NEIGH;
+				return DROP_NO_FIB;
+			}
 			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
-				return CTX_ACT_DROP;
+				return DROP_WRITE_ERROR;
 			if (eth_store_saddr_aligned(ctx, smac.addr, 0) < 0)
-				return CTX_ACT_DROP;
+				return DROP_WRITE_ERROR;
 		}
 	} else {
 		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-			return CTX_ACT_DROP;
+			return DROP_WRITE_ERROR;
 		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-			return CTX_ACT_DROP;
+			return DROP_WRITE_ERROR;
 	}
 out_send:
 	return ctx_redirect(ctx, *oif, 0);

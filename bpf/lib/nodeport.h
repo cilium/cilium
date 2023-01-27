@@ -486,7 +486,6 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 		cilium_capture_out(ctx);
 		return ret;
 	}
-	ret = DROP_NO_FIB;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 					  CTX_ACT_DROP, METRIC_EGRESS);
@@ -521,7 +520,6 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 		cilium_capture_out(ctx);
 		return ret;
 	}
-	ret = DROP_NO_FIB;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 					  CTX_ACT_DROP, METRIC_EGRESS);
@@ -554,7 +552,6 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 		cilium_capture_out(ctx);
 		return ret;
 	}
-	ret = DROP_NO_FIB;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 					  CTX_ACT_DROP, METRIC_EGRESS);
@@ -1557,7 +1554,6 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		cilium_capture_out(ctx);
 		return ret;
 	}
-	ret = DROP_NO_FIB;
 drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 					  CTX_ACT_DROP, METRIC_EGRESS);

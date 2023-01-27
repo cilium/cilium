@@ -77,6 +77,9 @@ enum {
 	XFER_ENCAP_DSTID = 3,
 };
 
+/* FIB errors from BPF neighbor map. */
+#define BPF_FIB_MAP_NO_NEIGH	100
+
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated.
  */
