@@ -256,7 +256,7 @@ jobs:
         shell: bash
         run: |
           for image in cilium-ci operator-aws-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker buildx imagetools inspect --raw quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       # Checkout source code to install Cilium using local Helm chart.

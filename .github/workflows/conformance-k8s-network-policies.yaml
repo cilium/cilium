@@ -68,8 +68,8 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
-          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker buildx imagetools inspect --raw quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
+          until docker buildx imagetools inspect --raw quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator-generic-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
 
       - name: Create kind cluster
         uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00
