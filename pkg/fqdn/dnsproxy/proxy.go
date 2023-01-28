@@ -570,10 +570,6 @@ func StartDNSProxy(
 	notifyFunc NotifyOnDNSMsgFunc,
 	concurrencyLimit int, concurrencyGracePeriod time.Duration,
 ) (*DNSProxy, error) {
-	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
-		return nil, fmt.Errorf("failed to start DNS proxy: %w", err)
-	}
-
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
