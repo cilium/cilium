@@ -193,6 +193,8 @@ func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
 	option.Config.FQDNRegexCompileLRUSize = 1024
+	err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize)
+	c.Assert(err, IsNil)
 	proxy, err := StartDNSProxy("", 0, true, 1000, // any address, any port, enable compression, max 1000 restore IPs
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
