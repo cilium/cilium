@@ -64,8 +64,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@15c905b16b06416d2086efa066dd8e3a35cc7f98
-        with:
-          version: v0.9.1
 
       - name: Login to quay.io for CI
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
@@ -105,6 +103,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
@@ -124,6 +123,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13_detect_race_condition
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
@@ -146,6 +146,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13_unstripped
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           # Only push when the event name was a GitHub push, this is to avoid
@@ -228,6 +229,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
@@ -250,6 +252,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_detect_race_condition
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
@@ -268,6 +271,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_unstripped
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
@@ -391,6 +395,7 @@ jobs:
         uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13
         with:
+          provenance: false
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
