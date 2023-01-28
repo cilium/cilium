@@ -26,16 +26,44 @@ Enable the Host Firewall in Cilium
 
 Deploy Cilium release via Helm:
 
-.. parsed-literal::
+.. tabs::
 
-    helm install cilium |CHART_RELEASE|        \\
-      --namespace kube-system                  \\
-      --set hostFirewall.enabled=true          \\
-      --set devices='{ethX,ethY}'
+    .. group-tab:: Cilium CLI
 
-The ``devices`` flag refers to the network devices Cilium is configured on such
-as ``eth0``. Omitting this option leads Cilium to auto-detect what interfaces
-the host firewall applies to.
+        The ``devices`` value refers to the network devices Cilium is configured on such
+        as ``eth0``. Omitting this option leads Cilium to auto-detect what interfaces
+        the host firewall applies to.
+
+        Note: Replace the devices flag with network interface names for your Kubernetes Node hosts.
+
+        .. parsed-literal::
+
+            cilium install \\
+                --helm-set hostFirewall.enabled=true \\
+                --helm-set devices="{eth0}"  \\
+                --version |CHART_RELEASE|
+
+        .. code-block:: shell-session
+            $ cilium config view | grep enable-host-firewall
+            enable-host-firewall                       true
+
+    .. group-tab:: Helm
+
+        The ``devices`` value refers to the network devices Cilium is configured on such
+        as ``eth0``. Omitting this option leads Cilium to auto-detect what interfaces
+        the host firewall applies to.
+
+        Note: Replace the devices flag with network interface names for your Kubernetes Node hosts.
+
+        .. parsed-literal::
+
+            helm install cilium cilium/cilium --version |CHART_RELEASE| \\
+              --namespace kube-system                  \\
+              --set hostFirewall.enabled=true          \\
+              --set devices='{ethX,ethY}'
+
+            kubectl wait -n kube-system --for condition=Ready pods -l=k8s-app=cilium
+
 
 At this point, the Cilium-managed nodes are ready to enforce network policies.
 
@@ -49,7 +77,7 @@ cluster.
 
 .. code-block:: shell-session
 
-    $ export NODE_NAME=k8s1
+    $ export NODE_NAME=<your_node_goes_here>
     $ kubectl label node $NODE_NAME node-access=ssh
     node/k8s1 labeled
 
@@ -71,8 +99,8 @@ recommended for production deployment*.
 
     $ CILIUM_NAMESPACE=kube-system
     $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
-    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
-    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
+    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec --container cilium-agent $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
+    $ kubectl -n $CILIUM_NAMESPACE exec --container cilium-agent $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID | grep PolicyAuditMode
     PolicyAuditMode          Enabled
@@ -145,7 +173,6 @@ communication to entire classes of destinations, such as all remotes nodes
     Make sure that none of the communications required to access the cluster or
     for the cluster to work properly are denied. They should appear as ``action
     allow``.
-
 
 
 Disable Policy Audit Mode
