@@ -74,6 +74,7 @@ type Configuration struct {
 	// Accessors to other subsystems, provided by the daemon
 	cache.IdentityAllocator
 	ipcacheTypes.PolicyHandler
+	ipcacheTypes.PolicyUpdateHandler
 	ipcacheTypes.DatapathHandler
 	k8s.CacheStatus
 }
@@ -222,6 +223,15 @@ func (ipc *IPCache) GetK8sMetadata(ip netip.Addr) *ipcacheTypes.K8sMetadata {
 	ipc.mutex.RLock()
 	defer ipc.mutex.RUnlock()
 	return ipc.getK8sMetadata(ip.String())
+}
+
+// GetK8sMetadata returns Kubernetes metadata for the given IP address,
+// accepting string for ease of integration with the rest of the code.
+// The returned pointer should *never* be modified.
+func (ipc *IPCache) GetK8sMetadataByString(ip string) *ipcacheTypes.K8sMetadata {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getK8sMetadata(ip)
 }
 
 // getK8sMetadata returns Kubernetes metadata for the given IP address.

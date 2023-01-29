@@ -34,9 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	hubblemetrics "github.com/cilium/cilium/pkg/hubble/metrics"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/ipcache"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -811,11 +809,16 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		return nil
 	}
 
-	var namedPortsChanged bool
+	var hostIP net.IP
+	var k8sMeta *ipcachetypes.K8sMetadata
+	hostKey := node.GetEndpointEncryptKeyIndex()
 
 	ipSliceEqual := oldPodIPs != nil && oldPodIPs.DeepEqual(&newPodIPs)
-
 	defer func() {
+		if len(oldPodIPs) == 0 {
+			return
+		}
+		oldRID := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindPod, oldPod.Namespace, oldPod.Name)
 		if !ipSliceEqual {
 			// delete all IPs that were not added regardless if the insertion of the
 			// entry in the ipcache map was successful or not because we will not
@@ -829,17 +832,17 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 					}
 				}
 				if !found {
-					npc := k.ipcache.Delete(oldPodIP, source.Kubernetes)
-					if npc {
-						namedPortsChanged = true
-					}
+					k.ipcache.RemoveMetadata(
+						ip.IPToNetPrefix(net.ParseIP(oldPodIP)),
+						oldRID,
+						// Metadata:
+						labels.LabelUnmanaged,
+						ipcachetypes.TunnelPeer{Addr: ip.MustAddrFromIP(hostIP)},
+						ipcachetypes.EncryptKey(hostKey),
+						ipcachetypes.K8sMetadata(*k8sMeta),
+					)
 				}
 			}
-		}
-
-		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
 		}
 	}()
 
@@ -860,54 +863,35 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 		return nil
 	}
 
-	hostIP := net.ParseIP(newPod.Status.HostIP)
+	hostIP = net.ParseIP(newPod.Status.HostIP)
 	if hostIP == nil {
 		return fmt.Errorf("no/invalid HostIP: %s", newPod.Status.HostIP)
 	}
-
-	hostKey := node.GetEndpointEncryptKeyIndex()
 
 	k8sMeta, err := k.getNamedPortsFromPod(newPod)
 	if err != nil {
 		return err
 	}
 
-	var errs []string
+	rid := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindPod, newPod.Namespace, newPod.Name)
 	for _, podIP := range newPodIPs {
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
-		npc, err := k.ipcache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
-			ID:     identity.ReservedIdentityUnmanaged,
-			Source: source.Kubernetes,
-		})
-		if npc {
-			namedPortsChanged = true
-		}
-		if err != nil {
-			// It is expected to receive an error overwrite where the existing
-			// source is:
-			// - KVStore, this can happen as KVStore event propagation can
-			//   usually be faster than k8s event propagation.
-			// - local since cilium-agent receives events for local pods.
-			// - custom resource since Cilium CR are slimmer and might have
-			//   faster propagation than Kubernetes resources.
-			if !errors.Is(err, &ipcache.ErrOverwrite{
-				ExistingSrc: source.KVStore,
-				NewSrc:      source.Kubernetes,
-			}) && !errors.Is(err, &ipcache.ErrOverwrite{
-				ExistingSrc: source.Local,
-				NewSrc:      source.Kubernetes,
-			}) && !errors.Is(err, &ipcache.ErrOverwrite{
-				ExistingSrc: source.CustomResource,
-				NewSrc:      source.Kubernetes,
-			}) {
-				errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s: %s", podIP, err))
-			}
-		}
-	}
-	if len(errs) != 0 {
-		return errors.New(strings.Join(errs, ", "))
+		//
+		// We always want to remove the IP from the metadata of the ipcache,
+		// even if it doesn't exist in the ipcache itself anymore, otherwise
+		// the IP will always be kept alive.
+		k.ipcache.UpsertMetadata(
+			ip.IPToNetPrefix(net.ParseIP(podIP)),
+			source.Kubernetes,
+			rid,
+			// Metadata:
+			labels.LabelUnmanaged,
+			ipcachetypes.TunnelPeer{Addr: ip.MustAddrFromIP(hostIP)},
+			ipcachetypes.EncryptKey(hostKey),
+			ipcachetypes.K8sMetadata(*k8sMeta),
+		)
 	}
 
 	return nil
@@ -930,24 +914,45 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		skipped bool
 	)
 
+	hostIP := net.ParseIP(pod.Status.HostIP)
+	if hostIP == nil {
+		return false, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+	}
+	hostKey := node.GetEndpointEncryptKeyIndex()
+
+	// Get Named ports, if any.
+	k8sMeta, err := k.getNamedPortsFromPod(pod)
+	if err != nil {
+		return false, err
+	}
+
+	rid := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindPod, pod.Namespace, pod.Name)
 	for _, podIP := range podIPs {
 		// a small race condition exists here as deletion could occur in
 		// parallel based on another event but it doesn't matter as the
 		// identity is going away
-		id, exists := k.ipcache.LookupByIP(podIP)
-		if !exists {
-			skipped = true
-			errs = append(errs, fmt.Sprintf("identity for IP %s does not exist in case", podIP))
-			continue
-		}
-
-		if id.Source != source.Kubernetes {
-			skipped = true
-			errs = append(errs, fmt.Sprintf("ipcache entry for IP %s not owned by kubernetes source", podIP))
-			continue
-		}
-
-		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		// id, exists := k.ipcache.LookupByIP(podIP)
+		// if !exists {
+		// 	skipped = true
+		// 	errs = append(errs, fmt.Sprintf("identity for IP %s does not exist in case", podIP))
+		// 	continue
+		// }
+		//
+		// if id.Source != source.Kubernetes {
+		// 	skipped = true
+		// 	errs = append(errs, fmt.Sprintf("ipcache entry for IP %s not owned by kubernetes source", podIP))
+		// 	continue
+		// }
+		//
+		k.ipcache.RemoveMetadata(
+			ip.IPToNetPrefix(net.ParseIP(podIP)),
+			rid,
+			// Metadata:
+			labels.LabelUnmanaged,
+			ipcachetypes.TunnelPeer{Addr: ip.MustAddrFromIP(hostIP)},
+			ipcachetypes.EncryptKey(hostKey),
+			ipcachetypes.K8sMetadata(*k8sMeta),
+		)
 	}
 
 	if len(errs) != 0 {

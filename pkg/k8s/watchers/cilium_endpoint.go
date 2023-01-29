@@ -6,17 +6,19 @@ package watchers
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/ip"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -109,17 +111,11 @@ func (k *K8sWatcher) ciliumEndpointsInit(ctx context.Context, asyncControllers *
 }
 
 func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint) {
-	var namedPortsChanged bool
-	defer func() {
-		if namedPortsChanged {
-			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
-		}
-	}()
 	var ipsAdded []string
 	if oldEndpoint != nil && oldEndpoint.Networking != nil {
 		// Delete the old IP addresses from the IP cache
 		defer func() {
-			namedPortsChanged = k.removeEndpointIPCacheMetadata(oldEndpoint, ipsAdded)
+			k.removeEndpointIPCacheMetadata(oldEndpoint, ipsAdded)
 		}()
 	}
 
@@ -152,33 +148,30 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		return
 	}
 
-	ips, namedPortsChanged := k.upsertEndpointIPCacheMetadata(endpoint)
-	ipsAdded = append(ipsAdded, ips...)
+	ipsAdded = append(ipsAdded, k.upsertEndpointIPCacheMetadata(endpoint)...)
 }
 
 func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
-	namedPortsChanged := k.removeEndpointIPCacheMetadata(endpoint, nil)
-	if namedPortsChanged {
-		k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
-	}
+	k.removeEndpointIPCacheMetadata(endpoint, nil)
 }
 
-func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint) ([]string, bool) {
+func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint) []string {
 	id := identity.ReservedIdentityUnmanaged
+	epLabels := labels.LabelUnmanaged
 	if endpoint.Identity != nil {
 		id = identity.NumericIdentity(endpoint.Identity.ID)
+		epLabels = labels.NewLabelsFromModel(endpoint.Identity.Labels)
 	}
+
+	nodeIP := netip.MustParseAddr(endpoint.Networking.NodeIP)
 
 	// default to the standard key
 	encryptionKey := node.GetEndpointEncryptKeyIndex()
 	if endpoint.Encryption != nil {
 		encryptionKey = uint8(endpoint.Encryption.Key)
 	}
-	var ipsAdded []string
 
-	nodeIP := net.ParseIP(endpoint.Networking.NodeIP)
-
-	k8sMeta := &ipcachetypes.K8sMetadata{
+	k8sMeta := ipcachetypes.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
@@ -194,33 +187,88 @@ func (k *K8sWatcher) upsertEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 		}
 	}
 
-	var namedPortsChanged bool
+	var ipsAdded []string
+	rid := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindCEP, endpoint.Namespace, endpoint.Name)
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV4)
-			portsChanged, _ := k.ipcache.Upsert(pair.IPV4, nodeIP, encryptionKey, k8sMeta,
-				ipcache.Identity{ID: id, Source: source.CustomResource})
-			if portsChanged {
-				namedPortsChanged = true
-			}
+			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV4))
+			k.ipcache.OverrideIdentity(
+				prefix,
+				epLabels,
+				source.CustomResource,
+				rid,
+			)
+			k.ipcache.UpsertMetadata(
+				prefix,
+				source.CustomResource,
+				rid,
+				// Metadata:
+				ipcachetypes.TunnelPeer{Addr: nodeIP},
+				ipcachetypes.EncryptKey(encryptionKey),
+				ipcachetypes.RequestedIdentity(id),
+				ipcachetypes.K8sMetadata(k8sMeta),
+			)
 		}
 
 		if pair.IPV6 != "" {
 			ipsAdded = append(ipsAdded, pair.IPV6)
-			portsChanged, _ := k.ipcache.Upsert(pair.IPV6, nodeIP, encryptionKey, k8sMeta,
-				ipcache.Identity{ID: id, Source: source.CustomResource})
-			if portsChanged {
-				namedPortsChanged = true
-			}
+			prefix := ip.IPToNetPrefix(net.ParseIP(pair.IPV6))
+			k.ipcache.OverrideIdentity(
+				prefix,
+				epLabels,
+				source.CustomResource,
+				rid,
+			)
+			k.ipcache.UpsertMetadata(
+				prefix,
+				source.CustomResource,
+				rid,
+				// Metadata:
+				ipcachetypes.TunnelPeer{Addr: nodeIP},
+				ipcachetypes.EncryptKey(encryptionKey),
+				ipcachetypes.RequestedIdentity(id),
+				ipcachetypes.K8sMetadata(k8sMeta),
+			)
 		}
 	}
 
-	return ipsAdded, namedPortsChanged
+	return ipsAdded
 }
 
-func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint, ipsAdded []string) bool {
-	var namedPortsChanged bool
+func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoint, ipsAdded []string) {
+	id := identity.ReservedIdentityUnmanaged
+	epLabels := labels.LabelUnmanaged
+	if endpoint.Identity != nil {
+		id = identity.NumericIdentity(endpoint.Identity.ID)
+		epLabels = labels.NewLabelsFromModel(endpoint.Identity.Labels)
+	}
 
+	nodeIP := netip.MustParseAddr(endpoint.Networking.NodeIP)
+
+	// default to the standard key
+	encryptionKey := node.GetEndpointEncryptKeyIndex()
+	if endpoint.Encryption != nil {
+		encryptionKey = uint8(endpoint.Encryption.Key)
+	}
+
+	k8sMeta := ipcachetypes.K8sMetadata{
+		Namespace:  endpoint.Namespace,
+		PodName:    endpoint.Name,
+		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
+	}
+	for _, port := range endpoint.NamedPorts {
+		p, err := u8proto.ParseProtocol(port.Protocol)
+		if err != nil {
+			continue
+		}
+		k8sMeta.NamedPorts[port.Name] = ciliumTypes.PortProto{
+			Port:  port.Port,
+			Proto: uint8(p),
+		}
+	}
+
+	rid := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindCEP, endpoint.Namespace, endpoint.Name)
 	for _, oldPair := range endpoint.Networking.Addressing {
 		v4Added, v6Added := false, false
 		for _, ipAdded := range ipsAdded {
@@ -232,18 +280,38 @@ func (k *K8sWatcher) removeEndpointIPCacheMetadata(endpoint *types.CiliumEndpoin
 			}
 		}
 		if !v4Added {
-			portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV4, source.CustomResource, endpoint.Namespace, endpoint.Name)
-			if portsChanged {
-				namedPortsChanged = true
-			}
+			prefix := ip.IPToNetPrefix(net.ParseIP(oldPair.IPV4))
+			k.ipcache.RemoveIdentityOverride(
+				prefix,
+				epLabels,
+				rid,
+			)
+			k.ipcache.RemoveMetadata(
+				prefix,
+				rid,
+				// Metadata:
+				ipcachetypes.TunnelPeer{Addr: nodeIP},
+				ipcachetypes.EncryptKey(encryptionKey),
+				ipcachetypes.RequestedIdentity(id),
+				ipcachetypes.K8sMetadata(k8sMeta),
+			)
 		}
 		if !v6Added {
-			portsChanged := k.ipcache.DeleteOnMetadataMatch(oldPair.IPV6, source.CustomResource, endpoint.Namespace, endpoint.Name)
-			if portsChanged {
-				namedPortsChanged = true
-			}
+			prefix := ip.IPToNetPrefix(net.ParseIP(oldPair.IPV6))
+			k.ipcache.RemoveIdentityOverride(
+				prefix,
+				epLabels,
+				rid,
+			)
+			k.ipcache.RemoveMetadata(
+				prefix,
+				rid,
+				// Metadata:
+				ipcachetypes.TunnelPeer{Addr: nodeIP},
+				ipcachetypes.EncryptKey(encryptionKey),
+				ipcachetypes.RequestedIdentity(id),
+				ipcachetypes.K8sMetadata(k8sMeta),
+			)
 		}
 	}
-
-	return namedPortsChanged
 }

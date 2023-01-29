@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
@@ -41,14 +41,25 @@ func (m *MockIPCache) Delete(IP string, source source.Source) (namedPortsChanged
 	return false
 }
 
-func (m *MockIPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
+func (m *MockIPCache) UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcachetypes.ResourceID) {
 }
 
-func (m *MockIPCache) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID) {
+func (m *MockIPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource ipcachetypes.ResourceID) {
 }
 
-func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool) {
-	return false
+func (m *MockIPCache) UpsertMetadata(prefix netip.Prefix, src source.Source, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+}
+
+func (m *MockIPCache) RemoveMetadata(prefix netip.Prefix, resource ipcachetypes.ResourceID, aux ...ipcache.IPMetadata) {
+}
+
+func (m *MockIPCache) RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcachetypes.ResourceID) {
+}
+
+func (m *MockIPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcachetypes.ResourceID) {
+}
+
+func (m *MockIPCache) RemoveIdentityOverride(prefix netip.Prefix, identityLabels labels.Labels, resource ipcachetypes.ResourceID) {
 }
 
 func (m *MockIPCache) UpsertPrefixes(prefixes []netip.Prefix, src source.Source, resource ipcachetypes.ResourceID) uint64 {

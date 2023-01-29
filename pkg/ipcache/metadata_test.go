@@ -566,6 +566,39 @@ func TestOverrideIdentity(t *testing.T) {
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.Equal(t, barID.ReferenceCount, 1)
 	assert.False(t, ok)
+
+	// Add unmanaged labels to simulate what the pod watcher does when it
+	// receives a pod-add event.
+	ipc.metadata.upsertLocked(inClusterPrefix, source.Kubernetes, "pod-uid", labels.LabelUnmanaged)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
+
+	// Override identity based on new labels, simulating what the CEP does when
+	// it receives a CEP-add event.
+	ipc.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "cep-uid", overrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, barID.ID, id.ID)
+	assert.Equal(t, barID.Labels, allocator.LookupIdentityByID(ctx, id.ID).Labels)
+	assert.True(t, ok)
+
+	// Remove the override and assert that the identity falls back to unmanaged.
+	ipc.metadata.remove(inClusterPrefix, "cep-uid", overrideIdentity(true), barLabels)
+	remaining, err = ipc.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	id, ok = ipc.LookupByPrefix(inClusterPrefix.String())
+	assert.Equal(t, identity.ReservedIdentityUnmanaged, id.ID)
+	assert.True(t, ok)
 }
 
 func TestUpsertMetadataTunnelPeerAndEncryptKey(t *testing.T) {

@@ -22,6 +22,12 @@ type PolicyHandler interface {
 	UpdateIdentities(added, deleted cache.IdentityCache, wg *sync.WaitGroup)
 }
 
+// PolicyUpdateHandler is responsible for handling policy updates into the core
+// policy engine. See Updater.TriggerPolicyUpdates() for more details.
+type PolicyUpdateHandler interface {
+	TriggerPolicyUpdates(force bool, reason string)
+}
+
 // DatapathHandler is responsible for ensuring that policy updates in the
 // core policy engine are pushed into the underlying BPF policy maps, to ensure
 // that the policies are actively being enforced in the datapath for any new
@@ -42,12 +48,14 @@ type ResourceID string
 type ResourceKind string
 
 var (
+	ResourceKindCEP      = ResourceKind("cep")
 	ResourceKindCNP      = ResourceKind("cnp")
 	ResourceKindCCNP     = ResourceKind("ccnp")
 	ResourceKindDaemon   = ResourceKind("daemon")
 	ResourceKindEndpoint = ResourceKind("ep")
 	ResourceKindNetpol   = ResourceKind("netpol")
 	ResourceKindNode     = ResourceKind("node")
+	ResourceKindPod      = ResourceKind("pod")
 )
 
 // NewResourceID returns a ResourceID populated with the standard fields for
@@ -117,6 +125,17 @@ type K8sMetadata struct {
 	PodName string
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts types.NamedPortMap
+}
+
+// IsValid returns true if K8sMetadata is valid.
+func (m *K8sMetadata) IsValid() bool {
+	// NamedPorts are optional, so no need to check them here.
+	return m.Namespace != "" && m.PodName != ""
+}
+
+// String returns the string representation of the key elements of K8sMetadata.
+func (m *K8sMetadata) String() string {
+	return m.Namespace + "/" + m.PodName
 }
 
 // Equal returns true if two K8sMetadata pointers contain the same data or are
