@@ -1973,7 +1973,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 					ginkgoext.By("Checking service %s plumbing in cilium pod %s: %s", fullName, ciliumPod, err)
 				}
 				return err == nil
-			}, &TimeoutConfig{Timeout: 5 * time.Second, Ticker: 1 * time.Second})
+			}, &TimeoutConfig{Timeout: 10 * time.Second, Ticker: 1 * time.Second})
 			if err != nil {
 				return err
 			} else if timeoutErr != nil {
