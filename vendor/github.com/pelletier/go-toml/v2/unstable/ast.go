@@ -1,4 +1,4 @@
-package ast
+package unstable
 
 import (
 	"fmt"
@@ -7,13 +7,16 @@ import (
 	"github.com/pelletier/go-toml/v2/internal/danger"
 )
 
-// Iterator starts uninitialized, you need to call Next() first.
+// Iterator over a sequence of nodes.
+//
+// Starts uninitialized, you need to call Next() first.
 //
 // For example:
 //
 //	it := n.Children()
 //	for it.Next() {
-//			it.Node()
+//		n := it.Node()
+//		// do something with n
 //	}
 type Iterator struct {
 	started bool
@@ -32,42 +35,31 @@ func (c *Iterator) Next() bool {
 }
 
 // IsLast returns true if the current node of the iterator is the last
-// one.  Subsequent call to Next() will return false.
+// one.  Subsequent calls to Next() will return false.
 func (c *Iterator) IsLast() bool {
 	return c.node.next == 0
 }
 
-// Node returns a copy of the node pointed at by the iterator.
+// Node returns a pointer to the node pointed at by the iterator.
 func (c *Iterator) Node() *Node {
 	return c.node
 }
 
-// Root contains a full AST.
+// Node in a TOML expression AST.
 //
-// It is immutable once constructed with Builder.
-type Root struct {
-	nodes []Node
-}
-
-// Iterator over the top level nodes.
-func (r *Root) Iterator() Iterator {
-	it := Iterator{}
-	if len(r.nodes) > 0 {
-		it.node = &r.nodes[0]
-	}
-	return it
-}
-
-func (r *Root) at(idx Reference) *Node {
-	return &r.nodes[idx]
-}
-
-// Arrays have one child per element in the array.  InlineTables have
-// one child per key-value pair in the table.  KeyValues have at least
-// two children. The first one is the value. The rest make a
-// potentially dotted key.  Table and Array table have one child per
-// element of the key they represent (same as KeyValue, but without
-// the last node being the value).
+// Depending on Kind, its sequence of children should be interpreted
+// differently.
+//
+//   - Array have one child per element in the array.
+//   - InlineTable have one child per key-value in the table (each of kind
+//     InlineTable).
+//   - KeyValue have at least two children. The first one is the value. The rest
+//     make a potentially dotted key.
+//   - Table and ArrayTable's children represent a dotted key (same as
+//     KeyValue, but without the first node being the value).
+//
+// When relevant, Raw describes the range of bytes this node is refering to in
+// the input document. Use Parser.Raw() to retrieve the actual bytes.
 type Node struct {
 	Kind Kind
 	Raw  Range  // Raw bytes from the input.
@@ -80,13 +72,13 @@ type Node struct {
 	child int // 0 if no child
 }
 
+// Range of bytes in the document.
 type Range struct {
 	Offset uint32
 	Length uint32
 }
 
-// Next returns a copy of the next node, or an invalid Node if there
-// is no next node.
+// Next returns a pointer to the next node, or nil if there is no next node.
 func (n *Node) Next() *Node {
 	if n.next == 0 {
 		return nil
@@ -96,9 +88,9 @@ func (n *Node) Next() *Node {
 	return (*Node)(danger.Stride(ptr, size, n.next))
 }
 
-// Child returns a copy of the first child node of this node. Other
-// children can be accessed calling Next on the first child.  Returns
-// an invalid Node if there is none.
+// Child returns a pointer to the first child node of this node. Other children
+// can be accessed calling Next on the first child.  Returns an nil if this Node
+// has no child.
 func (n *Node) Child() *Node {
 	if n.child == 0 {
 		return nil
@@ -113,9 +105,9 @@ func (n *Node) Valid() bool {
 	return n != nil
 }
 
-// Key returns the child nodes making the Key on a supported
-// node. Panics otherwise.  They are guaranteed to be all be of the
-// Kind Key. A simple key would return just one element.
+// Key returns the children nodes making the Key on a supported node. Panics
+// otherwise.  They are guaranteed to be all be of the Kind Key. A simple key
+// would return just one element.
 func (n *Node) Key() Iterator {
 	switch n.Kind {
 	case KeyValue:
