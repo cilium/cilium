@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/pelletier/go-toml/v2/internal/characters"
 )
 
 // Marshal serializes a Go value as a TOML document.
@@ -437,7 +439,7 @@ func (enc *Encoder) encodeString(b []byte, v string, options valueOptions) []byt
 func needsQuoting(v string) bool {
 	// TODO: vectorize
 	for _, b := range []byte(v) {
-		if b == '\'' || b == '\r' || b == '\n' || invalidAscii(b) {
+		if b == '\'' || b == '\r' || b == '\n' || characters.InvalidAscii(b) {
 			return true
 		}
 	}
