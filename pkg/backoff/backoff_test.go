@@ -44,6 +44,14 @@ func (f *fakeNodeManager) ClusterSizeDependantInterval(baseInterval time.Duratio
 	return time.Duration(int64(waitNanoseconds))
 }
 
+func (b *BackoffSuite) TestNewNodeManager(c *check.C) {
+	mgr := NewNodeManager(func(baseInterval time.Duration) time.Duration { return 2 * baseInterval })
+	c.Assert(mgr.ClusterSizeDependantInterval(1*time.Second), check.Equals, 2*time.Second)
+
+	mgr = NewNodeManager(nil)
+	c.Assert(mgr.ClusterSizeDependantInterval(1*time.Second), check.Equals, 1*time.Second)
+}
+
 func (b *BackoffSuite) TestClusterSizeDependantInterval(c *check.C) {
 	var (
 		nnodes      = 0
