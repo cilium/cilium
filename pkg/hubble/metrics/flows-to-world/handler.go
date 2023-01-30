@@ -94,7 +94,7 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 		return nil
 	}
 	// if this is potentially a forwarded reply packet, ignore it to avoid collecting statistics about ephemeral ports
-	isReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
+	isReply := flow.GetIsReply() != nil && flow.GetIsReply().GetValue()
 	if flow.GetVerdict() != flowpb.Verdict_DROPPED && isReply {
 		return nil
 	}
