@@ -89,7 +89,7 @@ spec:
       priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
-      automountServiceAccountToken: false
+      automountServiceAccountToken: {{ .Values.serviceAccounts.relay.automount }}
       terminationGracePeriodSeconds: 0
       {{- with .Values.hubble.relay.nodeSelector }}
       nodeSelector:

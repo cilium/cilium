@@ -36,14 +36,7 @@ spec:
       priorityClassName: {{ .Values.hubble.ui.priorityClassName }}
       serviceAccount: {{ .Values.serviceAccounts.ui.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.ui.name | quote }}
-      {{- with .Values.hubble.ui.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
-      {{- with .Values.hubble.ui.tolerations }}
-      tolerations:
-        {{- toYaml . | trim | nindent 8 }}
-      {{- end }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.ui.automount }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -100,6 +93,9 @@ spec:
           mountPath: /var/lib/hubble-ui/certs
           readOnly: true
         {{- end }}
+        {{- with .Values.hubble.ui.backend.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - configMap:
@@ -125,5 +121,11 @@ spec:
                 - key: tls.key
                   path: client.key
       {{- end }}
+      {{- end }}
+      {{- with .Values.hubble.ui.frontend.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with .Values.hubble.ui.backend.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}
