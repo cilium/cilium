@@ -160,6 +160,9 @@ spec:
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
       volumes:
       - name: etcd-server-secrets
@@ -174,10 +177,14 @@ spec:
           defaultMode: 0400
       - name: etcd-data-dir
         emptyDir: {}
+      {{- with .Values.clustermesh.apiserver.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshApiserver.automount }}
       {{- with .Values.clustermesh.apiserver.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
