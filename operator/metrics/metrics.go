@@ -95,7 +95,12 @@ var (
 	// This metric is used to collect number of CEP changes happening at various buckets.
 	CiliumEndpointsChangeCount *prometheus.HistogramVec
 
+	// CiliumEndpointSliceSyncTotal indicates the total number of completed CES syncs with k8s-apiserver by success/fail outcome.
+	CiliumEndpointSliceSyncTotal *prometheus.CounterVec
+
 	// CiliumEndpointSliceSyncErrors used to track the total number of errors occurred during syncing CES with k8s-apiserver.
+	// This metric is going to be deprecated in Cilium 1.14 and removed in 1.15.
+	// It is replaced by CiliumEndpointSliceSyncTotal metric.
 	CiliumEndpointSliceSyncErrors prometheus.Counter
 
 	// CiliumEndpointSliceQueueDelay measures the time spent by CES's in the workqueue. This measures time difference between
@@ -183,6 +188,13 @@ func registerMetrics() []prometheus.Collector {
 		Help:      "Number of CES sync errors",
 	})
 	collectors = append(collectors, CiliumEndpointSliceSyncErrors)
+
+	CiliumEndpointSliceSyncTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Name:      "ces_sync_total",
+		Help:      "The number of completed CES syncs by outcome",
+	}, []string{"outcome"})
+	collectors = append(collectors, CiliumEndpointSliceSyncTotal)
 
 	CiliumEndpointSliceQueueDelay = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: Namespace,
