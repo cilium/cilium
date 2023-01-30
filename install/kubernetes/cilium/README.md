@@ -87,15 +87,18 @@ contributors across the globe, there is almost always someone available to help.
 | cluster.id | int | `nil` | Unique ID of the cluster. Must be unique across all connected clusters and in the range of 1 to 255. Only required for Cluster Mesh. |
 | cluster.name | string | `"default"` | Name of the cluster. Only required for Cluster Mesh. |
 | clustermesh.apiserver.etcd.image | object | `{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/coreos/etcd","tag":"v3.4.13@sha256:04833b601fa130512450afa45c4fe484fee1293634f34c7ddc231bd193c74017"}` | Clustermesh API server etcd image. |
+| clustermesh.apiserver.etcd.securityContext | object | `{}` | Security context to be added to clustermesh-apiserver etcd containers |
 | clustermesh.apiserver.extraVolumeMounts | list | `[]` | Additional clustermesh-apiserver volumeMounts. |
 | clustermesh.apiserver.extraVolumes | list | `[]` | Additional clustermesh-apiserver volumes. |
 | clustermesh.apiserver.image | object | `{"digest":"sha256:10429f6e365e2d30f62ba2dd6640b62a220246dc1ce941e2421cd41568332ea5","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.11.14","useDigest":true}` | Clustermesh API server image. |
 | clustermesh.apiserver.nodeSelector | object | `{}` | Node labels for pod assignment ref: https://kubernetes.io/docs/user-guide/node-selection/ |
 | clustermesh.apiserver.podAnnotations | object | `{}` | Annotations to be added to clustermesh-apiserver pods |
 | clustermesh.apiserver.podLabels | object | `{}` | Labels to be added to clustermesh-apiserver pods |
+| clustermesh.apiserver.podSecurityContext | object | `{}` | Security context to be added to clustermesh-apiserver pods |
 | clustermesh.apiserver.priorityClassName | string | `""` | The priority class to use for clustermesh-apiserver |
 | clustermesh.apiserver.replicas | int | `1` | Number of replicas run for the clustermesh-apiserver deployment. |
 | clustermesh.apiserver.resources | object | `{}` | Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as     resources:       limits:         cpu: 1000m         memory: 1024M       requests:         cpu: 100m         memory: 64Mi |
+| clustermesh.apiserver.securityContext | object | `{}` | Security context to be added to clustermesh-apiserver containers |
 | clustermesh.apiserver.service.annotations | object | `{}` | Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0 |
 | clustermesh.apiserver.service.nodePort | int | `32379` | Optional port to use as the node port for apiserver access. |
 | clustermesh.apiserver.service.type | string | `"NodePort"` | The type of service used for apiserver access. |
@@ -184,6 +187,7 @@ contributors across the globe, there is almost always someone available to help.
 | etcd.podAnnotations | object | `{}` | Annotations to be added to cilium-etcd-operator pods |
 | etcd.podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
 | etcd.podLabels | object | `{}` | Labels to be added to cilium-etcd-operator pods |
+| etcd.podSecurityContext | object | `{}` | Security context to be added to cilium-etcd-operator pods |
 | etcd.priorityClassName | string | `""` | The priority class to use for cilium-etcd-operator |
 | etcd.resources | object | `{}` | cilium-etcd-operator resource limits & requests ref: https://kubernetes.io/docs/user-guide/compute-resources/ |
 | etcd.securityContext | object | `{}` | Security context to be added to cilium-etcd-operator pods |
@@ -348,6 +352,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.podAnnotations | object | `{}` | Annotations to be added to cilium-operator pods |
 | operator.podDisruptionBudget | object | `{"enabled":false,"maxUnavailable":1}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
 | operator.podLabels | object | `{}` | Labels to be added to cilium-operator pods |
+| operator.podSecurityContext | object | `{}` | Security context to be added to cilium-operator pods |
 | operator.priorityClassName | string | `""` | The priority class to use for cilium-operator |
 | operator.prometheus | object | `{"enabled":false,"port":6942,"serviceMonitor":{"annotations":{},"enabled":false,"labels":{}}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
 | operator.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-operator |
@@ -369,6 +374,7 @@ contributors across the globe, there is almost always someone available to help.
 | podAnnotations | object | `{}` | Annotations to be added to agent pods |
 | podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
 | podLabels | object | `{}` | Labels to be added to agent pods |
+| podSecurityContext | object | `{}` | Security Context for cilium-agent pods. |
 | policyEnforcementMode | string | `"default"` | The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes |
 | pprof.enabled | bool | `false` | Enable Go pprof debugging |
 | preflight.enabled | bool | `false` | Enable Cilium pre-flight resources (required for upgrade) |
@@ -383,6 +389,7 @@ contributors across the globe, there is almost always someone available to help.
 | preflight.podAnnotations | object | `{}` | Annotations to be added to preflight pods |
 | preflight.podDisruptionBudget | object | `{"enabled":true,"maxUnavailable":2}` | PodDisruptionBudget settings ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/ |
 | preflight.podLabels | object | `{}` | Labels to be added to the preflight pod. |
+| preflight.podSecurityContext | object | `{}` | Security context to be added to preflight pods. |
 | preflight.priorityClassName | string | `""` | The priority class to use for the preflight pod. |
 | preflight.resources | object | `{}` | preflight resource limits & requests ref: https://kubernetes.io/docs/user-guide/compute-resources/ |
 | preflight.securityContext | object | `{}` | Security context to be added to preflight pods |

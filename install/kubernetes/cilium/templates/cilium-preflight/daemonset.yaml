@@ -26,6 +26,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 6 }}
       {{- end }}
+      {{- with .Values.preflight.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
         - name: clean-cilium-state
           image: {{ include "cilium.image" .Values.preflight.image | quote }}

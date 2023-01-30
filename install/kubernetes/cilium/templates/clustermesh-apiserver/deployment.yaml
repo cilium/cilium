@@ -31,6 +31,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.clustermesh.apiserver.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       initContainers:
       - name: etcd-init
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.etcd.image | quote }}
@@ -101,6 +105,10 @@ spec:
         - name: etcd-data-dir
           mountPath: /var/run/etcd
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.etcd.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -149,6 +157,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.clustermesh.apiserver.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       volumes:
       - name: etcd-server-secrets
         secret:
