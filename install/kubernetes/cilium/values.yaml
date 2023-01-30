@@ -164,6 +164,9 @@ extraConfig: {}
 #    test 2
 #    test 3
 
+# -- Security Context for cilium-agent pods.
+podSecurityContext: {}
+
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
@@ -1015,6 +1018,9 @@ hubble:
         tag: "v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
         pullPolicy: "IfNotPresent"
 
+      # -- Hubble-ui backend security context.
+      securityContext: {}
+
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
 
@@ -1040,6 +1046,9 @@ hubble:
         repository: "quay.io/cilium/hubble-ui"
         tag: "v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
         pullPolicy: "IfNotPresent"
+
+      # -- Hubble-ui frontend security context.
+      securityContext: {}
 
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
@@ -1533,6 +1542,9 @@ etcd:
   nodeSelector:
     kubernetes.io/os: linux
 
+  # -- Security context to be added to cilium-etcd-operator pods
+  podSecurityContext: {}
+
   # -- Annotations to be added to cilium-etcd-operator pods
   podAnnotations: {}
 
@@ -1672,6 +1684,9 @@ operator:
 
   # -- Additional cilium-operator volumeMounts.
   extraVolumeMounts: []
+
+  # -- Security context to be added to cilium-operator pods
+  podSecurityContext: {}
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
@@ -1900,6 +1915,9 @@ preflight:
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+  # -- Security context to be added to preflight pods.
+  podSecurityContext: {}
+
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
 
@@ -2003,6 +2021,9 @@ clustermesh:
         tag: "v3.5.4@sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
         pullPolicy: "IfNotPresent"
 
+      # -- Security context to be added to clustermesh-apiserver etcd containers
+      securityContext: {}
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -2027,6 +2048,12 @@ clustermesh:
 
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+
+    # -- Security context to be added to clustermesh-apiserver containers
+    securityContext: {}
+
+    # -- Security context to be added to clustermesh-apiserver pods
+    podSecurityContext: {}
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
