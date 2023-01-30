@@ -479,7 +479,7 @@ ct_recreate6:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 		union v6addr *daddr = (union v6addr *)&ip6->daddr;
 
 		/* Lookup the destination prefix in the list of known
@@ -1065,7 +1065,7 @@ skip_vtep:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;

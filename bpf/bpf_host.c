@@ -310,7 +310,7 @@ skip_host_firewall:
 						      info->key, secctx, info->sec_label,
 						      &trace);
 	} else {
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		/* IPv6 lookup key: daddr/96 */
 		dst = (union v6addr *) &ip6->daddr;
@@ -608,7 +608,7 @@ skip_vtep:
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;

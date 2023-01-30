@@ -223,10 +223,10 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		       __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel,
+		       __u8 encrypt_key, struct tunnel_key *key, __u32 seclabel,
 		       __u32 dstid, const struct trace_ctx *trace)
 {
-	struct endpoint_key *tunnel;
+	struct tunnel_value *tunnel;
 
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
@@ -251,10 +251,10 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 }
 
 static __always_inline int
-encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
+encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u32 seclabel, const struct trace_ctx *trace)
 {
-	struct endpoint_key *tunnel;
+	struct tunnel_value *tunnel;
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)
