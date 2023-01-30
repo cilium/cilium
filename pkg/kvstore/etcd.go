@@ -26,6 +26,7 @@ import (
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/contexthelpers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -931,6 +932,19 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 		return
 	}
 
+	// errLimiter is used to rate limit the retry of the first Get request in case an error
+	// has occurred, to prevent overloading the etcd server due to the more aggressive
+	// default rate limiter.
+	errLimiter := backoff.Exponential{
+		Name: "etcd-list-before-watch-error",
+		Min:  50 * time.Millisecond,
+		Max:  1 * time.Minute,
+	}
+
+	if e.extraOptions != nil {
+		errLimiter.NodeManager = backoff.NewNodeManager(e.extraOptions.ClusterSizeDependantInterval)
+	}
+
 reList:
 	for {
 		select {
@@ -946,8 +960,10 @@ reList:
 			client.WithSerializable())
 		if err != nil {
 			scopedLog.WithError(Hint(err)).Warn("Unable to list keys before starting watcher")
+			errLimiter.Wait(ctx)
 			continue
 		}
+		errLimiter.Reset()
 
 		nextRev := res.Header.Revision + 1
 		scopedLog.Debugf("List response from etcd len=%d: %+v", res.Count, res)

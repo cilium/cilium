@@ -163,11 +163,15 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
+				extraOpts := kvstore.ExtraOptions{NoLockQuorumCheck: true}
+				if rc.mesh.conf.NodeManager != nil {
+					extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
+				}
+
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
-					},
-					&kvstore.ExtraOptions{NoLockQuorumCheck: true})
+					}, &extraOpts)
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the
