@@ -191,11 +191,13 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					rc.getLogger().Info("Found remote cluster configuration")
 				} else {
 					rc.getLogger().WithError(err).Warning("Unable to get remote cluster configuration")
+					backend.Close(ctx)
 					return err
 				}
 
 				if err := rc.mesh.canConnect(rc.name, config); err != nil {
 					rc.getLogger().WithError(err).Error("Unable to connect to the remote cluster")
+					backend.Close(ctx)
 					return err
 				}
 
