@@ -17,6 +17,7 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
+#include <linux/udp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -610,6 +611,56 @@ struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 	return layer;
 }
 
+/* Push an empty UDP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_udphdr(struct pktgen *builder)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	struct udphdr *layer;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct udphdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct udphdr) > ctx_data_end(ctx))
+		return 0;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct udphdr))
+		return 0;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	layer_idx = pktgen__free_layer(builder);
+
+	if (layer_idx < 0)
+		return 0;
+
+	builder->layers[layer_idx] = PKT_LAYER_UDP;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += sizeof(struct udphdr);
+
+	return layer;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_default_udphdr(struct pktgen *builder)
+{
+	struct udphdr *hdr = pktgen__push_udphdr(builder);
+
+	if (!hdr)
+		return NULL;
+
+	if ((void *)hdr + sizeof(*hdr) > ctx_data_end(builder->ctx))
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	return hdr;
+}
+
 /* Push room for x bytes of data onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
@@ -671,6 +722,7 @@ void pktgen__finish(const struct pktgen *builder)
 	struct ipv6hdr *ipv6_layer;
 	struct ipv6_opt_hdr *ipv6_opt_layer;
 	struct tcphdr *tcp_layer;
+	struct udphdr *udp_layer;
 	__u64 layer_off;
 	__u16 v4len;
 	__be16 v6len;
@@ -896,7 +948,17 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_UDP:
-			/* No sizes or checksums for UDP, so nothing to do */
+			layer_off = builder->layer_offsets[i];
+			/* Check that any value within the struct will not exceed a u16 which
+			 * is the max allowed offset within a packet from ctx->data.
+			 */
+			if (layer_off >= MAX_PACKET_OFF - sizeof(struct udphdr))
+				return;
+
+			udp_layer = ctx_data(builder->ctx) + layer_off;
+			if ((void *)udp_layer + sizeof(struct udphdr) >
+			    ctx_data_end(builder->ctx))
+				return;
 			break;
 
 		case PKT_LAYER_ICMP:
