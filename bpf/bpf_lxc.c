@@ -486,7 +486,7 @@ ct_recreate6:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 		union v6addr *daddr = (union v6addr *)&ip6->daddr;
 
 		/* Lookup the destination prefix in the list of known
@@ -1009,7 +1009,7 @@ ct_recreate4:
 	{
 		struct egress_gw_policy_entry *egress_gw_policy;
 		struct endpoint_info *gateway_node_ep;
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		/* If the packet is destined to an entity inside the cluster,
 		 * either EP or node, it should not be forwarded to an egress
@@ -1085,7 +1085,7 @@ skip_vtep:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;

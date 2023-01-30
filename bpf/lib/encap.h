@@ -197,10 +197,10 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		       __u8 encrypt_key __maybe_unused,
-		       struct endpoint_key *key, __u32 seclabel,
+		       struct tunnel_key *key, __u32 seclabel,
 		       const struct trace_ctx *trace)
 {
-	struct endpoint_key *tunnel;
+	struct tunnel_value *tunnel;
 
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
@@ -242,10 +242,10 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 }
 
 static __always_inline int
-encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
+encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 			  __u32 seclabel, const struct trace_ctx *trace)
 {
-	struct endpoint_key *tunnel;
+	struct tunnel_value *tunnel;
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)
