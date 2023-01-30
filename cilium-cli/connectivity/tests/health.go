@@ -47,15 +47,13 @@ func runHealthProbe(ctx context.Context, t *check.ConnectivityTest, pod *check.P
 		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
 			t.Warnf("cilium-health probe failed: %q, stdout: %q, retrying...", err, stdout)
-			continue
+		} else {
+			err = validateHealthStatus(t, pod, stdout)
+			if err == nil {
+				return
+			}
+			t.Warnf("cilium-health validation failed: %q, retrying...", err)
 		}
-
-		err = validateHealthStatus(t, pod, stdout)
-		if err == nil {
-			return
-		}
-		t.Warnf("cilium-health validation failed: %q, retrying...", err)
-
 		// Wait until it's time to retry or context is cancelled.
 		select {
 		case <-done:
