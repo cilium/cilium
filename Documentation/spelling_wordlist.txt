@@ -743,6 +743,7 @@ podAnnotations
 podCIDR
 podDisruptionBudget
 podLabels
+podSecurityContext
 podcasts
 policyAuditMode
 policyEnforcementMode
