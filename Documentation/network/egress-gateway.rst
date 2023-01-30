@@ -209,6 +209,20 @@ One or more IPv4 destination CIDRs can be specified with ``destinationCIDRs``:
     pods, nodes, Kubernetes API server) will be excluded from the egress gateway
     SNAT logic.
 
+It's possible to specify exceptions to the ``destinationCIDRs`` list with
+``excludedCIDRs``:
+
+.. code-block:: yaml
+
+    destinationCIDRs:
+    - "a.b.0.0/16"
+    excludedCIDRs:
+    - "a.b.c.0/24"
+
+In this case traffic destined to the ``a.b.0.0/16`` CIDR, except for the
+``a.b.c.0/24`` destination, will go through egress gateway and leave the cluster
+with the designated egress IP.
+
 Selecting and configuring the gateway node
 ------------------------------------------
 
