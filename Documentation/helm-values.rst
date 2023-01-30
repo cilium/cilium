@@ -156,7 +156,15 @@
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"extraVolumeMounts":[],"extraVolumes":[],"image":{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd"},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+   * - certgen.extraVolumeMounts
+     - Additional certgen volumeMounts.
+     - list
+     - ``[]``
+   * - certgen.extraVolumes
+     - Additional certgen volumes.
+     - list
+     - ``[]``
    * - certgen.podLabels
      - Labels to be added to hubble-certgen pods
      - object
@@ -219,6 +227,14 @@
      - ``{}``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.extraVolumeMounts
+     - Additional clustermesh-apiserver volumeMounts.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.extraVolumes
+     - Additional clustermesh-apiserver volumes.
      - list
      - ``[]``
    * - clustermesh.apiserver.image
@@ -659,6 +675,14 @@
      - ``["https://CHANGE-ME:2379"]``
    * - etcd.extraArgs
      - Additional cilium-etcd-operator container arguments.
+     - list
+     - ``[]``
+   * - etcd.extraVolumeMounts
+     - Additional cilium-etcd-operator volumeMounts.
+     - list
+     - ``[]``
+   * - etcd.extraVolumes
+     - Additional cilium-etcd-operator volumes.
      - list
      - ``[]``
    * - etcd.image
@@ -1117,6 +1141,14 @@
      - Additional hubble-ui backend environment variables.
      - list
      - ``[]``
+   * - hubble.ui.backend.extraVolumeMounts
+     - Additional hubble-ui backend volumeMounts.
+     - list
+     - ``[]``
+   * - hubble.ui.backend.extraVolumes
+     - Additional hubble-ui backend volumes.
+     - list
+     - ``[]``
    * - hubble.ui.backend.image
      - Hubble-ui backend image.
      - object
@@ -1131,6 +1163,14 @@
      - ``false``
    * - hubble.ui.frontend.extraEnv
      - Additional hubble-ui frontend environment variables.
+     - list
+     - ``[]``
+   * - hubble.ui.frontend.extraVolumeMounts
+     - Additional hubble-ui frontend volumeMounts.
+     - list
+     - ``[]``
+   * - hubble.ui.frontend.extraVolumes
+     - Additional hubble-ui frontend volumes.
      - list
      - ``[]``
    * - hubble.ui.frontend.image
@@ -1761,6 +1801,14 @@
      - Additional preflight environment variables.
      - list
      - ``[]``
+   * - preflight.extraVolumeMounts
+     - Additional preflight volumeMounts.
+     - list
+     - ``[]``
+   * - preflight.extraVolumes
+     - Additional preflight volumes.
+     - list
+     - ``[]``
    * - preflight.image
      - Cilium pre-flight image.
      - object
@@ -1932,11 +1980,11 @@
    * - serviceAccounts.clustermeshcertgen
      - Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
      - object
-     - ``{"annotations":{},"create":true,"name":"clustermesh-apiserver-generate-certs"}``
+     - ``{"annotations":{},"automount":true,"create":true,"name":"clustermesh-apiserver-generate-certs"}``
    * - serviceAccounts.hubblecertgen
      - Hubblecertgen is used if hubble.tls.auto.method=cronJob
      - object
-     - ``{"annotations":{},"create":true,"name":"hubble-generate-certs"}``
+     - ``{"annotations":{},"automount":true,"create":true,"name":"hubble-generate-certs"}``
    * - sleepAfterInit
      - Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node.
      - bool

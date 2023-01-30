@@ -53,40 +53,49 @@ serviceAccounts:
   cilium:
     create: true
     name: cilium
+    automount: true
     annotations: {}
   etcd:
     create: true
     name: cilium-etcd-operator
+    automount: true
     annotations: {}
   operator:
     create: true
     name: cilium-operator
+    automount: true
     annotations: {}
   preflight:
     create: true
     name: cilium-pre-flight
+    automount: true
     annotations: {}
   relay:
     create: true
     name: hubble-relay
+    automount: false
     annotations: {}
   ui:
     create: true
     name: hubble-ui
+    automount: true
     annotations: {}
   clustermeshApiserver:
     create: true
     name: clustermesh-apiserver
+    automount: true
     annotations: {}
   # -- Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
   clustermeshcertgen:
     create: true
     name: clustermesh-apiserver-generate-certs
+    automount: true
     annotations: {}
   # -- Hubblecertgen is used if hubble.tls.auto.method=cronJob
   hubblecertgen:
     create: true
     name: hubble-generate-certs
+    automount: true
     annotations: {}
 
 # -- Configure termination grace period for cilium-agent DaemonSet.
@@ -808,6 +817,12 @@ certgen:
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []
 
+  # -- Additional certgen volumes.
+  extraVolumes: []
+
+  # -- Additional certgen volumeMounts.
+  extraVolumeMounts: []
+
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
@@ -1181,6 +1196,12 @@ hubble:
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
 
+      # -- Additional hubble-ui backend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui backend volumeMounts.
+      extraVolumeMounts: []
+
       # -- Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
       resources: {}
       #   limits:
@@ -1200,6 +1221,12 @@ hubble:
 
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
+
+      # -- Additional hubble-ui frontend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui frontend volumeMounts.
+      extraVolumeMounts: []
 
       # -- Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
       resources: {}
@@ -1713,6 +1740,12 @@ etcd:
   # -- Additional cilium-etcd-operator container arguments.
   extraArgs: []
 
+  # -- Additional cilium-etcd-operator volumes.
+  extraVolumes: []
+
+  # -- Additional cilium-etcd-operator volumeMounts.
+  extraVolumeMounts: []
+
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
@@ -2068,6 +2101,12 @@ preflight:
   # -- Additional preflight environment variables.
   extraEnv: []
 
+  # -- Additional preflight volumes.
+  extraVolumes: []
+
+  # -- Additional preflight volumeMounts.
+  extraVolumeMounts: []
+
   # -- Affinity for cilium-preflight
   affinity:
     podAffinity:
@@ -2241,6 +2280,12 @@ clustermesh:
 
     # -- Additional clustermesh-apiserver environment variables.
     extraEnv: []
+
+    # -- Additional clustermesh-apiserver volumes.
+    extraVolumes: []
+
+    # -- Additional clustermesh-apiserver volumeMounts.
+    extraVolumeMounts: []
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
