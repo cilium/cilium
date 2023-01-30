@@ -29,6 +29,26 @@ type NodeManager interface {
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
 }
 
+// nodeManager is a wrapper to enable using a plain function as NodeManager to implement
+// cluster size dependent intervals
+type nodeManager struct {
+	clusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+}
+
+// NewNodeManager returns a new NodeManager implementing cluster size dependent intervals
+// based on the given function. If the function is nil, then no tuning is performed.
+func NewNodeManager(clusterSizeDependantInterval func(baseInterval time.Duration) time.Duration) NodeManager {
+	return &nodeManager{clusterSizeDependantInterval: clusterSizeDependantInterval}
+}
+
+func (n *nodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
+	if n.clusterSizeDependantInterval == nil {
+		return baseInterval
+	}
+
+	return n.clusterSizeDependantInterval(baseInterval)
+}
+
 // Exponential implements an exponential backoff
 type Exponential struct {
 	// Min is the minimal backoff time, if unspecified, 1 second will be
