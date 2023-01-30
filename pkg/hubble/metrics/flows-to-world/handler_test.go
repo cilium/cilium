@@ -220,6 +220,10 @@ func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 	}
 	h.ProcessFlow(context.Background(), &flow)
 
+	// flows without is_reply field should be counted.
+	flow.IsReply = nil
+	h.ProcessFlow(context.Background(), &flow)
+
 	// reply flows should not be counted
 	flow.IsReply = wrapperspb.Bool(true)
 	h.ProcessFlow(context.Background(), &flow)
@@ -231,7 +235,7 @@ func TestFlowsToWorldHandler_SynOnly(t *testing.T) {
 
 	expected := strings.NewReader(`# HELP hubble_flows_to_world_total Total number of flows to reserved:world
 # TYPE hubble_flows_to_world_total counter
-hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a",verdict="DROPPED"} 1
+hubble_flows_to_world_total{destination="cilium.io",protocol="TCP",source="src-a",verdict="DROPPED"} 2
 `)
 	assert.NoError(t, testutil.CollectAndCompare(h.flowsToWorld, expected))
 }
