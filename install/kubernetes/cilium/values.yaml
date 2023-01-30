@@ -177,6 +177,9 @@ tolerations:
   #   value: "value"
   #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+# -- Security Context for cilium-agent pods.
+podSecurityContext: {}
+
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
@@ -706,7 +709,7 @@ hubble:
       # Defaults to midnight of the first day of every fourth month. For syntax, see
       # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
       schedule: "0 0 1 */4 *"
-      
+
       # [Example]
       # certManagerIssuerRef:
       #   group: cert-manager.io
@@ -850,7 +853,7 @@ hubble:
           #       - key: tls.key
           #         path: client.key
           #       - key: ca.crt
-        #         path: hubble-relay-ca.crt
+          #         path: hubble-relay-ca.crt
 
     # -- Roll out Hubble-ui pods automatically when configmap is updated.
     rollOutPods: false
@@ -1038,7 +1041,7 @@ k8s: {}
 
   # -- requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR
   # range via the Kubernetes node resource
-# requireIPv6PodCIDR: false
+  # requireIPv6PodCIDR: false
 
 # -- Keep the deprecated selector labels when deploying Cilium DaemonSet.
 keepDeprecatedLabels: false
@@ -1324,6 +1327,9 @@ etcd:
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
 
+  # -- Security context to be added to cilium-etcd-operator pods
+  podSecurityContext: {}
+
   # -- Annotations to be added to cilium-etcd-operator pods
   podAnnotations: {}
 
@@ -1467,6 +1473,9 @@ operator:
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
+
+  # -- Security context to be added to cilium-operator pods
+  podSecurityContext: {}
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
@@ -1689,6 +1698,9 @@ preflight:
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
 
+  # -- Security context to be added to preflight pods.
+  podSecurityContext: {}
+
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
 
@@ -1783,6 +1795,9 @@ clustermesh:
         tag: "v3.4.13@sha256:04833b601fa130512450afa45c4fe484fee1293634f34c7ddc231bd193c74017"
         pullPolicy: "IfNotPresent"
 
+      # -- Security context to be added to clustermesh-apiserver etcd containers
+      securityContext: {}
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -1808,6 +1823,12 @@ clustermesh:
 
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+
+    # -- Security context to be added to clustermesh-apiserver containers
+    securityContext: {}
+
+    # -- Security context to be added to clustermesh-apiserver pods
+    podSecurityContext: {}
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
@@ -1870,7 +1891,7 @@ clustermesh:
         # fourth month. For syntax, see
         # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
         # schedule: "0 0 1 */4 *"
-        
+
         # [Example]
         # certManagerIssuerRef:
         #   group: cert-manager.io

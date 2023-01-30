@@ -174,6 +174,9 @@ tolerations:
   #   value: "value"
   #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+# -- Security Context for cilium-agent pods.
+podSecurityContext: {}
+
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
@@ -1321,6 +1324,9 @@ etcd:
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
 
+  # -- Security context to be added to cilium-etcd-operator pods
+  podSecurityContext: {}
+
   # -- Annotations to be added to cilium-etcd-operator pods
   podAnnotations: {}
 
@@ -1464,6 +1470,9 @@ operator:
   # -- Node labels for cilium-operator pod assignment
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
+
+  # -- Security context to be added to cilium-operator pods
+  podSecurityContext: {}
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
@@ -1686,6 +1695,9 @@ preflight:
   # ref: https://kubernetes.io/docs/user-guide/node-selection/
   nodeSelector: {}
 
+  # -- Security context to be added to preflight pods.
+  podSecurityContext: {}
+
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
 
@@ -1780,6 +1792,9 @@ clustermesh:
         tag: "${ETCD_VERSION}"
         pullPolicy: "${PULL_POLICY}"
 
+      # -- Security context to be added to clustermesh-apiserver etcd containers
+      securityContext: {}
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -1805,6 +1820,12 @@ clustermesh:
 
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+
+    # -- Security context to be added to clustermesh-apiserver containers
+    securityContext: {}
+
+    # -- Security context to be added to clustermesh-apiserver pods
+    podSecurityContext: {}
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}

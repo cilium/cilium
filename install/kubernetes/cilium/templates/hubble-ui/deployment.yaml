@@ -57,6 +57,10 @@ spec:
             mountPath: /etc/nginx/conf.d/default.conf
             subPath: nginx.conf
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.hubble.ui.frontend.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       - name: backend
         image: {{ include "cilium.image" .Values.hubble.ui.backend.image | quote }}
         imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
@@ -97,6 +101,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.hubble.ui.backend.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       volumes:
       - configMap:
           defaultMode: 420
