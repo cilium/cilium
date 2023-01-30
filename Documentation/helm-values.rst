@@ -225,6 +225,10 @@
      - Specifies the resources for etcd container in the apiserver
      - object
      - ``{}``
+   * - clustermesh.apiserver.etcd.securityContext
+     - Security context to be added to clustermesh-apiserver etcd containers
+     - object
+     - ``{}``
    * - clustermesh.apiserver.extraEnv
      - Additional clustermesh-apiserver environment variables.
      - list
@@ -265,6 +269,10 @@
      - Labels to be added to clustermesh-apiserver pods
      - object
      - ``{}``
+   * - clustermesh.apiserver.podSecurityContext
+     - Security context to be added to clustermesh-apiserver pods
+     - object
+     - ``{}``
    * - clustermesh.apiserver.priorityClassName
      - The priority class to use for clustermesh-apiserver
      - string
@@ -275,6 +283,10 @@
      - ``1``
    * - clustermesh.apiserver.resources
      - Resource requests and limits for the clustermesh-apiserver
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.securityContext
+     - Security context to be added to clustermesh-apiserver containers
      - object
      - ``{}``
    * - clustermesh.apiserver.service.annotations
@@ -717,6 +729,10 @@
      - Labels to be added to cilium-etcd-operator pods
      - object
      - ``{}``
+   * - etcd.podSecurityContext
+     - Security context to be added to cilium-etcd-operator pods
+     - object
+     - ``{}``
    * - etcd.priorityClassName
      - The priority class to use for cilium-etcd-operator
      - string
@@ -1157,6 +1173,10 @@
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
+   * - hubble.ui.backend.securityContext
+     - Hubble-ui backend security context.
+     - object
+     - ``{}``
    * - hubble.ui.enabled
      - Whether to enable the Hubble UI.
      - bool
@@ -1179,6 +1199,10 @@
      - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-ui","tag":"v0.10.0@sha256:118ad2fcfd07fabcae4dde35ec88d33564c9ca7abe520aa45b1eb13ba36c6e0a"}``
    * - hubble.ui.frontend.resources
      - Resource requests and limits for the 'frontend' container of the 'hubble-ui' deployment.
+     - object
+     - ``{}``
+   * - hubble.ui.frontend.securityContext
+     - Hubble-ui frontend security context.
      - object
      - ``{}``
    * - hubble.ui.frontend.server.ipv6
@@ -1665,6 +1689,10 @@
      - Labels to be added to cilium-operator pods
      - object
      - ``{}``
+   * - operator.podSecurityContext
+     - Security context to be added to cilium-operator pods
+     - object
+     - ``{}``
    * - operator.pprof.address
      - Configure pprof listen address for cilium-operator
      - string
@@ -1773,6 +1801,10 @@
      - Labels to be added to agent pods
      - object
      - ``{}``
+   * - podSecurityContext
+     - Security Context for cilium-agent pods.
+     - object
+     - ``{}``
    * - policyEnforcementMode
      - The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
      - string
@@ -1835,6 +1867,10 @@
      - ``nil``
    * - preflight.podLabels
      - Labels to be added to the preflight pod.
+     - object
+     - ``{}``
+   * - preflight.podSecurityContext
+     - Security context to be added to preflight pods.
      - object
      - ``{}``
    * - preflight.priorityClassName

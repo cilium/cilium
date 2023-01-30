@@ -179,6 +179,9 @@ extraConfig: {}
 #    test 2
 #    test 3
 
+# -- Security Context for cilium-agent pods.
+podSecurityContext: {}
+
 # -- Annotations to be added to agent pods
 podAnnotations: {}
 
@@ -1190,6 +1193,9 @@ hubble:
         tag: "${HUBBLE_UI_BACKEND_VERSION}"
         pullPolicy: "${PULL_POLICY}"
 
+      # -- Hubble-ui backend security context.
+      securityContext: {}
+
       # -- Additional hubble-ui backend environment variables.
       extraEnv: []
 
@@ -1215,6 +1221,9 @@ hubble:
         repository: "${HUBBLE_UI_FRONTEND_REPO}"
         tag: "${HUBBLE_UI_FRONTEND_VERSION}"
         pullPolicy: "${PULL_POLICY}"
+
+      # -- Hubble-ui frontend security context.
+      securityContext: {}
 
       # -- Additional hubble-ui frontend environment variables.
       extraEnv: []
@@ -1763,6 +1772,9 @@ etcd:
   nodeSelector:
     kubernetes.io/os: linux
 
+  # -- Security context to be added to cilium-etcd-operator pods
+  podSecurityContext: {}
+
   # -- Annotations to be added to cilium-etcd-operator pods
   podAnnotations: {}
 
@@ -1907,6 +1919,9 @@ operator:
 
   # -- Additional cilium-operator volumeMounts.
   extraVolumeMounts: []
+
+  # -- Security context to be added to cilium-operator pods
+  podSecurityContext: {}
 
   # -- Annotations to be added to cilium-operator pods
   podAnnotations: {}
@@ -2137,6 +2152,9 @@ preflight:
     #   value: "value"
     #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
+  # -- Security context to be added to preflight pods.
+  podSecurityContext: {}
+
   # -- Annotations to be added to preflight pods
   podAnnotations: {}
 
@@ -2249,6 +2267,9 @@ clustermesh:
       #     cpu: 1000m
       #     memory: 256Mi
 
+      # -- Security context to be added to clustermesh-apiserver etcd containers
+      securityContext: {}
+
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
@@ -2283,6 +2304,12 @@ clustermesh:
 
     # -- Additional clustermesh-apiserver volumeMounts.
     extraVolumeMounts: []
+
+    # -- Security context to be added to clustermesh-apiserver containers
+    securityContext: {}
+
+    # -- Security context to be added to clustermesh-apiserver pods
+    podSecurityContext: {}
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
