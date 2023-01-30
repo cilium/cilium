@@ -370,7 +370,7 @@ ct_recreate6:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		/* Lookup the destination prefix in the list of known
 		 * destination prefixes. If there is a match, the packet will
@@ -804,7 +804,7 @@ ct_recreate4:
 #ifdef ENABLE_EGRESS_GATEWAY
 	{
 		struct egress_gw_policy_entry *egress_gw_policy;
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		/* If the packet is destined to an entity inside the cluster,
 		 * either EP or node, it should not be forwarded to an egress
@@ -849,7 +849,7 @@ skip_egress_gateway:
 	if (!dst_remote_ep)
 # endif /* ENABLE_WIREGUARD */
 	{
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		key.ip4 = orig_dip & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
