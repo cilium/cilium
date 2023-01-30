@@ -74,6 +74,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.hubble.ui.frontend.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       - name: backend
         image: {{ include "cilium.image" .Values.hubble.ui.backend.image | quote }}
         imagePullPolicy: {{ .Values.hubble.ui.backend.image.pullPolicy }}
@@ -117,6 +121,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
+        {{- with .Values.hubble.ui.backend.securityContext }}
+        securityContext:
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
       {{- with .Values.hubble.ui.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
