@@ -399,12 +399,6 @@ ct_recreate6:
 					  ct_state->rev_nat_index, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
-
-			/* A reverse translate packet is always allowed except
-			 * for delivery on the local node in which case this
-			 * marking is cleared again.
-			 */
-			policy_mark_skip(ctx);
 		}
 		break;
 
