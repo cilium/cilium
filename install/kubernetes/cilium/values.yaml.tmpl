@@ -34,40 +34,49 @@ serviceAccounts:
   cilium:
     create: true
     name: cilium
+    automount: true
     annotations: {}
   etcd:
     create: true
     name: cilium-etcd-operator
+    automount: true
     annotations: {}
   operator:
     create: true
     name: cilium-operator
+    automount: true
     annotations: {}
   preflight:
     create: true
     name: cilium-pre-flight
+    automount: true
     annotations: {}
   relay:
     create: true
     name: hubble-relay
+    automount: false
     annotations: {}
   ui:
     create: true
     name: hubble-ui
+    automount: true
     annotations: {}
   clustermeshApiserver:
     create: true
     name: clustermesh-apiserver
+    automount: true
     annotations: {}
   # -- Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
   clustermeshcertgen:
     create: true
     name: clustermesh-apiserver-generate-certs
+    automount: true
     annotations: {}
   # -- Hubblecertgen is used if hubble.tls.auto.method=cronJob
   hubblecertgen:
     create: true
     name: hubble-generate-certs
+    automount: true
     annotations: {}
 
 # -- Install the cilium agent resources.
@@ -588,6 +597,12 @@ certgen:
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
 
+  # -- Additional certgen volumes.
+  extraVolumes: []
+
+  # -- Additional certgen volumeMounts.
+  extraVolumeMounts: []
+
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
@@ -688,7 +703,7 @@ hubble:
       # Defaults to midnight of the first day of every fourth month. For syntax, see
       # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
       schedule: "0 0 1 */4 *"
-      
+
       # [Example]
       # certManagerIssuerRef:
       #   group: cert-manager.io
@@ -853,6 +868,13 @@ hubble:
         repository: "${HUBBLE_UI_BACKEND_REPO}"
         tag: "${HUBBLE_UI_BACKEND_VERSION}"
         pullPolicy: "${PULL_POLICY}"
+
+      # -- Additional hubble-ui backend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui backend volumeMounts.
+      extraVolumeMounts: []
+
       # [Example]
       # resources:
       #   limits:
@@ -871,6 +893,13 @@ hubble:
         repository: "${HUBBLE_UI_FRONTEND_REPO}"
         tag: "${HUBBLE_UI_FRONTEND_VERSION}"
         pullPolicy: "${PULL_POLICY}"
+
+      # -- Additional hubble-ui frontend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui frontend volumeMounts.
+      extraVolumeMounts: []
+
       # [Example]
       # resources:
       #   limits:
@@ -1273,6 +1302,12 @@ etcd:
     #   configMap: certs-configmap
     #   readOnly: true
 
+  # -- Additional cilium-etcd-operator volumes.
+  extraVolumes: []
+
+  # -- Additional cilium-etcd-operator volumeMounts.
+  extraVolumeMounts: []
+
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   tolerations:
@@ -1606,6 +1641,12 @@ preflight:
   # -- Additional preflight environment variables.
   extraEnv: {}
 
+  # -- Additional preflight volumes.
+  extraVolumes: []
+
+  # -- Additional preflight volumeMounts.
+  extraVolumeMounts: []
+
   # -- Additional preflight init containers.
   extraInitContainers: []
 
@@ -1759,6 +1800,12 @@ clustermesh:
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector: {}
 
+    # -- Additional clustermesh-apiserver volumes.
+    extraVolumes: []
+
+    # -- Additional clustermesh-apiserver volumeMounts.
+    extraVolumeMounts: []
+
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}
 
@@ -1820,7 +1867,7 @@ clustermesh:
         # fourth month. For syntax, see
         # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
         # schedule: "0 0 1 */4 *"
-        
+
         # [Example]
         # certManagerIssuerRef:
         #   group: cert-manager.io

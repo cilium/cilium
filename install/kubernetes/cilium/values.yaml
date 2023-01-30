@@ -37,40 +37,49 @@ serviceAccounts:
   cilium:
     create: true
     name: cilium
+    automount: true
     annotations: {}
   etcd:
     create: true
     name: cilium-etcd-operator
+    automount: true
     annotations: {}
   operator:
     create: true
     name: cilium-operator
+    automount: true
     annotations: {}
   preflight:
     create: true
     name: cilium-pre-flight
+    automount: true
     annotations: {}
   relay:
     create: true
     name: hubble-relay
+    automount: false
     annotations: {}
   ui:
     create: true
     name: hubble-ui
+    automount: true
     annotations: {}
   clustermeshApiserver:
     create: true
     name: clustermesh-apiserver
+    automount: true
     annotations: {}
   # -- Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob
   clustermeshcertgen:
     create: true
     name: clustermesh-apiserver-generate-certs
+    automount: true
     annotations: {}
   # -- Hubblecertgen is used if hubble.tls.auto.method=cronJob
   hubblecertgen:
     create: true
     name: hubble-generate-certs
+    automount: true
     annotations: {}
 
 # -- Install the cilium agent resources.
@@ -591,6 +600,12 @@ certgen:
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
 
+  # -- Additional certgen volumes.
+  extraVolumes: []
+
+  # -- Additional certgen volumeMounts.
+  extraVolumeMounts: []
+
 hubble:
   # -- Enable Hubble (true by default).
   enabled: true
@@ -835,7 +850,7 @@ hubble:
           #       - key: tls.key
           #         path: client.key
           #       - key: ca.crt
-          #         path: hubble-relay-ca.crt
+        #         path: hubble-relay-ca.crt
 
     # -- Roll out Hubble-ui pods automatically when configmap is updated.
     rollOutPods: false
@@ -856,6 +871,13 @@ hubble:
         repository: "quay.io/cilium/hubble-ui-backend"
         tag: "v0.9.2@sha256:a3ac4d5b87889c9f7cc6323e86d3126b0d382933bd64f44382a92778b0cde5d7"
         pullPolicy: "IfNotPresent"
+
+      # -- Additional hubble-ui backend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui backend volumeMounts.
+      extraVolumeMounts: []
+
       # [Example]
       # resources:
       #   limits:
@@ -874,6 +896,13 @@ hubble:
         repository: "quay.io/cilium/hubble-ui"
         tag: "v0.9.2@sha256:d3596efc94a41c6b772b9afe6fe47c17417658956e04c3e2a28d293f2670663e"
         pullPolicy: "IfNotPresent"
+
+      # -- Additional hubble-ui frontend volumes.
+      extraVolumes: []
+
+      # -- Additional hubble-ui frontend volumeMounts.
+      extraVolumeMounts: []
+
       # [Example]
       # resources:
       #   limits:
@@ -1009,7 +1038,7 @@ k8s: {}
 
   # -- requireIPv6PodCIDR enables waiting for Kubernetes to provide the PodCIDR
   # range via the Kubernetes node resource
-  # requireIPv6PodCIDR: false
+# requireIPv6PodCIDR: false
 
 # -- Keep the deprecated selector labels when deploying Cilium DaemonSet.
 keepDeprecatedLabels: false
@@ -1275,6 +1304,12 @@ etcd:
     #   mountPath: /certs
     #   configMap: certs-configmap
     #   readOnly: true
+
+  # -- Additional cilium-etcd-operator volumes.
+  extraVolumes: []
+
+  # -- Additional cilium-etcd-operator volumeMounts.
+  extraVolumeMounts: []
 
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
   # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -1609,6 +1644,12 @@ preflight:
   # -- Additional preflight environment variables.
   extraEnv: {}
 
+  # -- Additional preflight volumes.
+  extraVolumes: []
+
+  # -- Additional preflight volumeMounts.
+  extraVolumeMounts: []
+
   # -- Additional preflight init containers.
   extraInitContainers: []
 
@@ -1761,6 +1802,12 @@ clustermesh:
     # -- Node labels for pod assignment
     # ref: https://kubernetes.io/docs/user-guide/node-selection/
     nodeSelector: {}
+
+    # -- Additional clustermesh-apiserver volumes.
+    extraVolumes: []
+
+    # -- Additional clustermesh-apiserver volumeMounts.
+    extraVolumeMounts: []
 
     # -- Annotations to be added to clustermesh-apiserver pods
     podAnnotations: {}

@@ -35,13 +35,22 @@ spec:
             - "--clustermesh-apiserver-remote-cert-generate"
             - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
             {{- end }}
+          {{- with .Values.certgen.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       hostNetwork: true
       serviceAccount: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshcertgen.automount }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: OnFailure
+      {{- with .Values.certgen.extraVolumes }}
+      volumes:
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
   ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
 {{- end }}

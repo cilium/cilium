@@ -380,6 +380,8 @@ extraEnv
 extraHostPathMounts
 extraInitContainers
 extraIpAddresses
+extraVolumeMounts
+extraVolumes
 facto
 failureThreshold
 fallback
@@ -938,6 +940,7 @@ virtualbox
 virtualization
 vlan
 vmlinux
+volumeMounts
 vxlan
 waitForKubeProxy
 waitForMount

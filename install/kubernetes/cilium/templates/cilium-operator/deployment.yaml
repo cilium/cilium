@@ -147,7 +147,7 @@ spec:
         {{- range $key, $value := .Values.operator.extraEnv }}
         - name: {{ $key }}
           value: {{ $value }}
-        {{- end }}        
+        {{- end }}
         {{- if .Values.operator.prometheus.enabled }}
         ports:
         - name: prometheus
@@ -213,6 +213,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.operator.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.operator.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.operator.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.operator.automount }}
       {{- with .Values.operator.nodeSelector }}
       nodeSelector:
         {{- toYaml . | trim | nindent 8 }}
