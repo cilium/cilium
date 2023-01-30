@@ -318,9 +318,15 @@ func (manager *Manager) removeUnusedIpRulesAndRoutes() {
 nextIpRule:
 	for _, ipRule := range ipRules {
 		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
-			return manager.installRoutes &&
-				gwc.localNodeConfiguredAsGateway &&
-				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
+			if !manager.installRoutes {
+				return false
+			}
+
+			if !gwc.localNodeConfiguredAsGateway {
+				return false
+			}
+
+			return ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
 		}
 
 		for _, policyConfig := range manager.policyConfigs {
