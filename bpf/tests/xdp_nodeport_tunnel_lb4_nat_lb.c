@@ -33,6 +33,7 @@
 #define IPV4_DIRECT_ROUTING	LB_IP
 
 #define BACKEND_NODE_IP		v4_node_two
+#define BACKEND_TUNNEL_SRC_PORT	__bpf_htons(1234)
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
@@ -43,6 +44,9 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 lb_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *local_backend_mac = mac_four;
+static volatile const __u8 *remote_backend_mac = mac_five;
+
+static __be16 nat_source_port;
 
 #include <bpf_xdp.c>
 
@@ -432,5 +436,190 @@ int nodeport_tunnel_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != BACKEND_PORT)
 		test_fatal("dst port hasn't been NATed to backend port");
 
+	nat_source_port = l4->source;
+
 	test_finish();
+}
+
+int build_encap_reply(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct genevehdr *geneve;
+	struct tcphdr *tcp;
+	struct udphdr *udp;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	/* Push ethernet header */
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)remote_backend_mac, (__u8 *)lb_mac);
+
+	/* Push IPv4 header */
+	l3 = pktgen__push_default_iphdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->saddr = BACKEND_NODE_IP;
+	l3->daddr = LB_IP;
+
+	udp = pktgen__push_udphdr(&builder);
+	if (!udp)
+		return TEST_ERROR;
+
+	udp->source = BACKEND_TUNNEL_SRC_PORT;
+	udp->dest = bpf_htons(TUNNEL_PORT);
+
+	geneve = pktgen__push_default_genevehdr(&builder);
+	if (!geneve)
+		return TEST_ERROR;
+
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	l3 = pktgen__push_default_iphdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->saddr = BACKEND_IP_REMOTE;
+	l3->daddr = IPV4_GATEWAY;
+
+	tcp = pktgen__push_default_tcphdr(&builder);
+	if (!tcp)
+		return TEST_ERROR;
+
+	tcp->source = BACKEND_PORT;
+	tcp->dest = nat_source_port;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+struct xdp_meta_skip_svc {
+	__u32 data;
+};
+
+int check_encap_reply(const struct __ctx_buff *ctx)
+{
+	struct xdp_meta_skip_svc *meta;
+	void *data, *data_end;
+	__u32 *status_code;
+	struct genevehdr *geneve;
+	struct tcphdr *tcp;
+	struct udphdr *udp;
+	struct ethhdr *l2, *inner_l2;
+	struct iphdr *l3, *inner_l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	meta = (void *)status_code + sizeof(*status_code);
+	if ((void *)meta + sizeof(*meta) > data_end)
+		test_fatal("meta data out of bounds");
+
+	l2 = (void *)meta + sizeof(*meta);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	udp = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)udp + sizeof(*udp) > data_end)
+		test_fatal("UDP header out of bounds");
+
+	geneve = (void *)udp + sizeof(*udp);
+	if ((void *)geneve + sizeof(*geneve) > data_end)
+		test_fatal("GENEVE out of bounds");
+
+	inner_l2 = (void *)geneve + sizeof(*geneve);
+	if ((void *)inner_l2 + sizeof(*inner_l2) > data_end)
+		test_fatal("inner l2 out of bounds");
+
+	inner_l3 = (void *)inner_l2 + sizeof(*inner_l2);
+	if ((void *)inner_l3 + sizeof(*inner_l3) > data_end)
+		test_fatal("inner l3 out of bounds");
+
+	tcp = (void *)inner_l3 + sizeof(*inner_l3);
+	if ((void *)tcp + sizeof(*tcp) > data_end)
+		test_fatal("TCP header out of bounds");
+
+	if (!(meta->data & XFER_PKT_NO_SVC))
+		test_fatal("packet doesn't have no-svc flag");
+
+	if (memcmp(l2->h_source, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC has changed")
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC has changed")
+
+	if (l3->saddr != BACKEND_NODE_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != LB_IP)
+		test_fatal("dst IP has changed");
+
+	if (udp->source != BACKEND_TUNNEL_SRC_PORT)
+		test_fatal("src port has changed");
+
+	if (udp->dest != bpf_htons(TUNNEL_PORT))
+		test_fatal("dst port has changed");
+
+	if (geneve->protocol_type != bpf_htons(ETH_P_TEB))
+		test_fatal("GENEVE doesn't have correct proto type");
+
+	if (inner_l3->saddr != BACKEND_IP_REMOTE)
+		test_fatal("inner src IP has changed");
+
+	if (inner_l3->daddr != IPV4_GATEWAY)
+		test_fatal("inner dst IP has changed");
+
+	if (tcp->source != BACKEND_PORT)
+		test_fatal("inner src port has changed");
+
+	if (tcp->dest != nat_source_port)
+		test_fatal("inner src port has changed");
+
+	test_finish();
+}
+
+/* Test that XDP let's the encapsulated reply pass through.
+ * (It isn't handled until from-overlay).
+ */
+PKTGEN("xdp", "xdp_nodeport_tunnel_nat_fwd_reply")
+int nodeport_nat_fwd_reply_pktgen(struct __ctx_buff *ctx)
+{
+	return build_encap_reply(ctx);
+}
+
+SETUP("xdp", "xdp_nodeport_tunnel_nat_fwd_reply")
+int nodeport_nat_fwd_reply_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("xdp", "xdp_nodeport_tunnel_nat_fwd_reply")
+int nodeport_nat_fwd_reply_check(const struct __ctx_buff *ctx)
+{
+	return check_encap_reply(ctx);
 }
