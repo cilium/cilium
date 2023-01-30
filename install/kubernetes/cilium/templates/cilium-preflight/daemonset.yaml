@@ -73,6 +73,9 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
+          {{- with .Values.preflight.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.preflight.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
@@ -129,6 +132,9 @@ spec:
             readOnly: true
           {{- end }}
           {{- end }}
+          {{- with .Values.preflight.extraVolumeMounts }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
           {{- with .Values.preflight.extraEnv }}
           {{- toYaml . | trim | nindent 10 }}
           {{- end }}
@@ -153,6 +159,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.preflight.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.preflight.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.preflight.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.preflight.automount }}
       terminationGracePeriodSeconds: {{ .Values.preflight.terminationGracePeriodSeconds }}
       {{- with .Values.preflight.tolerations }}
       tolerations:
@@ -186,6 +193,9 @@ spec:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
           optional: true
+      {{- end }}
+      {{- with .Values.preflight.extraVolumes }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- end }}
 {{- end }}
