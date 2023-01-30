@@ -239,6 +239,14 @@ func (c *CiliumEndpointSliceController) processNextWorkItem() bool {
 	defer c.queue.Done(cKey)
 
 	err := c.syncCES(cKey.(string))
+	if operatorOption.Config.EnableMetrics {
+		if err != nil {
+			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		} else {
+			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		}
+	}
+
 	c.handleErr(err, cKey)
 
 	return true

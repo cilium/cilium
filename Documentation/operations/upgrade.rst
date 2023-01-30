@@ -312,6 +312,16 @@ Annotations:
 1.14 Upgrade Notes
 ------------------
 
+Added Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_operator_ces_sync_total``
+
+Deprecated Metrics
+~~~~~~~~~~~~~~~~~~
+
+* ``cilium_operator_ces_sync_errors_total`` is deprecated. Please use ``cilium_operator_ces_sync_total`` instead.
+
 Helm Options
 ~~~~~~~~~~~~
 
