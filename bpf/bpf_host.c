@@ -289,7 +289,7 @@ skip_host_firewall:
 		else
 			return ret;
 	} else {
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		/* IPv6 lookup key: daddr/96 */
 		dst = (union v6addr *) &ip6->daddr;
@@ -565,7 +565,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return ret;
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
-		struct endpoint_key key = {};
+		struct tunnel_key key = {};
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
