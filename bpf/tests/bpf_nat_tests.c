@@ -6,6 +6,7 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
+#define ENABLE_SCTP
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #include <node_config.h>
@@ -94,6 +95,19 @@ __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr)
 		};
 		memcpy(dst, &inner_l4, sizeof(struct udphdr));
 		dst += sizeof(struct udphdr);
+	}
+		break;
+	case IPPROTO_SCTP: {
+		struct {
+			__be16 sport;
+			__be16 dport;
+		} inner_l4;
+
+		inner_l4.sport = bpf_htons(32768),
+		inner_l4.dport = bpf_htons(333),
+
+		memcpy(dst, &inner_l4, sizeof(inner_l4));
+		dst += sizeof(inner_l4);
 	}
 		break;
 	case IPPROTO_ICMP: {
@@ -429,6 +443,58 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 		test_fatal("can't load embedded l4 headers");
 	assert(in_l4hdr.un.echo.id == bpf_htons(123));
 
+	test_finish();
+}
+
+CHECK("tc", "nat4_icmp_error_sctp")
+int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
+{
+	int pkt_size = mk_icmp4_error_pkt(pkt, IPPROTO_SCTP);
+	{
+		void *data = (void *)(long)ctx->data;
+		void *data_end = (void *)(long)ctx->data_end;
+
+		if (data + pkt_size > data_end)
+			return TEST_ERROR;
+
+		memcpy(data, pkt, pkt_size);
+	}
+
+	test_init();
+	/* This test is validating the SCTP case.
+	 */
+
+	int ret;
+
+	/* As a pre-requist we intruct the NAT table
+	 * to simulate an ingress packet sent by
+	 * endpoint to the world.
+	 */
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_SCTP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(9999),
+		.dport = bpf_htons(333),
+		.flags = 0,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = NODEPORT_PORT_MIN_NAT,
+		.max_port = NODEPORT_PORT_MIN_NAT + 1,
+	};
+	struct ipv4_nat_entry state;
+
+	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target);
+	assert(ret == 0);
+
+	/* This is the entry-point of the test, calling
+	 * snat_v4_rev_nat().
+	 */
+	ret = snat_v4_rev_nat(ctx, &target);
+	assert(ret == 0);
+
+	/* nothing really change with udp/tcp */
 	test_finish();
 }
 
