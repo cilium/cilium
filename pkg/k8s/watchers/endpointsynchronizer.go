@@ -324,7 +324,23 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 // previous CEP, this has to handle cases where agent was upgraded from a version
 // that did not store CEP UIDs in the restore state header.
 // It is only safe to do so if the CEP is local.
+//
+// In all cases where the endpoint cannot take ownership of a CEP, it is assumed
+// that this is a temporary state where either the local/remote agent managing the CEP
+// is shutting down and will delete the CEP, or the CEP is stale and needs to be cleaned
+// up by the operator.
 func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *cilium_v2.CiliumEndpoint) error {
+	// It's possible we already own this CEP, as in the case of a restore after restart.
+	// If the Endpoint already owns the CEP (by holding the matching CEP UID reference) then we don't have to
+	// worry about other ownership checks.
+	//
+	// This will cover cases such as if the NodeIP changes (as with a reboot). In which case we can safely
+	// take ownership and overwrite the CEPs status.
+	cepUID := e.GetCiliumEndpointUID()
+	if cepUID == localCEP.UID {
+		return nil
+	}
+
 	var nodeIP string
 	if netStatus := localCEP.Status.Networking; netStatus == nil {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP that has no nodeIP status")
@@ -339,9 +355,9 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 
 	// If the endpoint has a CEP UID, which does not match the current CEP, we cannot take
 	// ownership.
-	if epUID := e.GetCiliumEndpointUID(); epUID != "" && epUID != localCEP.GetUID() {
+	if cepUID != "" && cepUID != localCEP.GetUID() {
 		return fmt.Errorf("endpoint sync could not take ownership of CEP %q, endpoint UID (%q) did not match CEP UID: %q",
-			localCEP.GetNamespace()+"/"+localCEP.GetName(), epUID, localCEP.GetUID())
+			localCEP.GetNamespace()+"/"+localCEP.GetName(), cepUID, localCEP.GetUID())
 	}
 
 	if cepUID := e.GetCiliumEndpointUID(); cepUID == "" {
