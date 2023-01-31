@@ -104,14 +104,13 @@
       ]
     }
   ],
-  "renovateFork": true,
   "regexManagers": [
     {
       "fileMatch": [
         "images/cilium/hubble-version.sh"
       ],
       "matchStrings": [
-        "hubble_version=\"(?<currentValue>.*)\"(\\\\shubble_sha256[.*]=\"(?<currentDigest>.*)\")*\\\\s\""
+        "hubble_version=\"(?<currentValue>.*)"
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "cilium/hubble"
