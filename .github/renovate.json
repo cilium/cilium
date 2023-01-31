@@ -103,5 +103,17 @@
         "v1.10"
       ]
     }
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "images/cilium/hubble-version.sh"
+      ],
+      "matchStrings": [
+        "hubble_version=\"(?<currentValue>.*)\"(\\\\shubble_sha256[.*]=\"(?<currentDigest>.*)\")*\\\\s\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "cilium/hubble"
+    }
   ]
 }
