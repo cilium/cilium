@@ -117,7 +117,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           provenance: false
           context: /tmp/.cache/${{ matrix.name }}
@@ -139,7 +139,7 @@ jobs:
       # master branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_master
         with:
           provenance: false
@@ -159,7 +159,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_master_detect_race_condition
         with:
           provenance: false
@@ -182,7 +182,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_master_unstripped
         with:
           provenance: false
@@ -265,7 +265,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr
         with:
           provenance: false
@@ -281,7 +281,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_detect_race_condition
         with:
           provenance: false
@@ -300,7 +300,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_unstripped
         with:
           provenance: false
@@ -384,7 +384,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         with:
           provenance: false
           context: .
