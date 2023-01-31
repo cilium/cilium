@@ -133,6 +133,6 @@ kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 set -e
 
 echo
-echo "Images are pushed into the kind registry like so:"
-echo "  export DOCKER_REGISTRY=localhost:5000"
-echo "  make dev-docker-image"
+echo "Kind is up! Time to install cilium:"
+echo "  make kind-image"
+echo "  make kind-install-cilium"
