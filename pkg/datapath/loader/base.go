@@ -17,7 +17,6 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/socketlb"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -284,8 +284,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgLib] = option.Config.BpfDir
 	args[initArgRundir] = option.Config.StateDir
-	args[initArgCgroupRoot] = cgroups.GetCgroupRoot()
-	args[initArgBpffsRoot] = bpf.BPFFSRoot()
 
 	if option.Config.EnableIPv4 {
 		args[initArgIPv4NodeIP] = node.GetInternalIPv4Router().String()
@@ -306,17 +304,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
 
-	if option.Config.EnableSocketLB {
-		args[initArgSocketLB] = "true"
-		if option.Config.EnableSocketLBPeer {
-			args[initArgSocketLBPeer] = "true"
-		} else {
-			args[initArgSocketLBPeer] = "false"
-		}
-	} else {
-		args[initArgSocketLB] = "false"
-		args[initArgSocketLBPeer] = "false"
-	}
+	args[initArgSocketLB] = "<nil>"
+	args[initArgSocketLBPeer] = "<nil>"
+	args[initArgCgroupRoot] = "<nil>"
+	args[initArgBpffsRoot] = "<nil>"
 
 	if len(option.Config.GetDevices()) != 0 {
 		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
@@ -358,11 +349,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgNodePort] = "false"
 	}
 
-	if option.Config.NodePortBindProtection {
-		args[initArgNodePortBind] = "true"
-	} else {
-		args[initArgNodePortBind] = "false"
-	}
+	args[initArgNodePortBind] = "<nil>"
 
 	args[initBPFCPU] = GetBPFCPU()
 	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
@@ -420,6 +407,20 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	cmd.Env = bpf.Environment()
 	if _, err := cmd.CombinedOutput(log, true); err != nil {
 		return err
+	}
+
+	if option.Config.EnableSocketLB {
+		// compile bpf_sock.c and attach/detach progs for socketLB
+		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+			log.WithError(err).Fatal("failed to compile bpf_sock.c")
+		}
+		if err := socketlb.Enable(); err != nil {
+			return err
+		}
+	} else {
+		if err := socketlb.Disable(); err != nil {
+			return err
+		}
 	}
 
 	extraArgs := []string{"-Dcapture_enabled=0"}
