@@ -63,8 +63,7 @@ jobs:
           echo author_association_from_api=${{ steps.author_association.outputs.result }}
 
       - uses: actions/github-script@98814c53be79b1d30f795b907e553d8679345975
-        if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' }} && \
-            ${{ steps.author_association.outputs.result != 'true' }}
+        if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' && steps.author_association.outputs.result != 'true' }}
         with:
           script: |
             github.rest.issues.addLabels({
