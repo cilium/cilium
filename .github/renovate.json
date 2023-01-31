@@ -104,6 +104,7 @@
       ]
     }
   ],
+  "renovateFork": true,
   "regexManagers": [
     {
       "fileMatch": [
