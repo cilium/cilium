@@ -100,7 +100,7 @@ SETUP("tc", "tc_egressgw_redirect")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
 	struct egress_gw_policy_key in_key = {
-		.lpm_key = { 32 + 24, {} },
+		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
 		.saddr   = CLIENT_IP,
 		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
 	};
@@ -200,7 +200,7 @@ SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
 	struct egress_gw_policy_key in_key = {
-		.lpm_key = { 32 + 24, {} },
+		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
 		.saddr   = CLIENT_IP,
 		.daddr   = EXTERNAL_SVC_IP & 0Xffffff,
 	};
@@ -213,7 +213,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
 
 	struct egress_gw_policy_key in_key_excluded_cidr = {
-		.lpm_key = { 32 + 32, {} },
+		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
 		.saddr   = CLIENT_IP,
 		.daddr   = EXTERNAL_SVC_IP,
 	};
@@ -262,7 +262,7 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 	 * entry will persist across the different tests.
 	 */
 	struct egress_gw_policy_key in_key_excluded_cidr = {
-		.lpm_key = { 32 + 32, {} },
+		.lpm_key = { EGRESS_PREFIX_LEN(32), {} },
 		.saddr   = CLIENT_IP,
 		.daddr   = EXTERNAL_SVC_IP,
 	};
