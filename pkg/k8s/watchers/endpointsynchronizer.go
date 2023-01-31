@@ -130,9 +130,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
-				// Initialize the CEP by deleting the upstream instance and recreating
-				// it. Deleting first allows for upgrade scenarios where the format has
-				// changed but our k8s CEP code cannot read in the upstream value.
 				if needInit {
 					state := e.GetState()
 					// Don't bother to create if the
