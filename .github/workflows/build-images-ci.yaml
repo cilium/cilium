@@ -102,7 +102,7 @@ jobs:
 
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13
         with:
           context: .
@@ -121,7 +121,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13_detect_race_condition
         with:
           context: .
@@ -143,7 +143,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13_unstripped
         with:
           context: .
@@ -225,7 +225,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr
         with:
           context: .
@@ -247,7 +247,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_detect_race_condition
         with:
           context: .
@@ -265,7 +265,7 @@ jobs:
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_pr_unstripped
         with:
           context: .
@@ -388,7 +388,7 @@ jobs:
 
       # v1.13 branch pushes
       - name: CI Build ${{ matrix.name }}
-        uses: docker/build-push-action@37abcedcc1da61a57767b7588cb9d03eb57e28b3
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
         id: docker_build_ci_v1_13
         with:
           context: .
