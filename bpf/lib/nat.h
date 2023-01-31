@@ -379,7 +379,11 @@ static __always_inline int snat_v4_icmp_rewrite_embedded(struct __ctx_buff *ctx,
 
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
-		case IPPROTO_UDP: {
+		case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
+		{
 			/* In case that the destination port has been NATed from
 			 * target to dest. We want the embedded packet which
 			 * should refer to endpoint dest going back to original.
@@ -929,6 +933,9 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target)
 				switch (tuple.nexthdr) {
 				case IPPROTO_TCP:
 				case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+				case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 					/* No reasons to handle IP fragmentation for this case
 					 * as it is expected that DF isn't set for this particular
 					 * context.
@@ -1680,6 +1687,9 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target)
 			switch (tuple.nexthdr) {
 			case IPPROTO_TCP:
 			case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+			case IPPROTO_SCTP:
+#endif  /* ENABLE_SCTP */
 				/* No reasons to handle IP fragmentation for this case
 				 * as it is expected that DF isn't set for this particular
 				 * context.
