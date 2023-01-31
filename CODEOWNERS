@@ -270,7 +270,7 @@ Makefile* @cilium/build
 /daemon/cmd/prefilter.go @cilium/sig-datapath
 /daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
-/daemon/cmd/sysctl_linux.go @cilium/sig-datapath
+/daemon/cmd/sysctl* @cilium/sig-datapath
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -360,27 +360,36 @@ jenkinsfiles @cilium/ci-structure
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
 /operator/ @cilium/operator
+/operator/pkg/ciliumenvoyconfig @cilium/sig-servicemesh
 /operator/pkg/gateway-api @cilium/operator @cilium/sig-servicemesh
 /operator/pkg/ingress @cilium/operator @cilium/sig-servicemesh
+/operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/operator @cilium/sig-servicemesh
 /pkg/ @cilium/tophat
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
+/pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
+/pkg/allocator/ @cilium/kvstore
 /pkg/api/ @cilium/api
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/bandwidth/ @cilium/sig-datapath
 /pkg/bgp/ @cilium/sig-k8s @cilium/sig-lb
+/pkg/bgpv1/ @cilium/sig-k8s @cilium/sig-lb
 /pkg/bpf/ @cilium/sig-datapath
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
+/pkg/checker/ @cilium/ci-structure
+/pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
 /pkg/clustermesh @cilium/sig-clustermesh
 /pkg/command/ @cilium/cli
 /pkg/completion/ @cilium/proxy
 /pkg/components/ @cilium/sig-agent
+/pkg/contexthelpers/ @cilium/kvstore
 /pkg/controller @cilium/sig-agent
 /pkg/counter @cilium/sig-datapath
+/pkg/crypto/ @cilium/sig-hubble @cilium/sig-policy
 /pkg/datapath/ @cilium/sig-datapath
 /pkg/datapath/linux/config/ @cilium/loader
 /pkg/datapath/linux/ipsec/ @cilium/ipsec
@@ -398,11 +407,14 @@ jenkinsfiles @cilium/ci-structure
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
 /pkg/envoy/ @cilium/proxy
+/pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
+/pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/health
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
+/pkg/idpool/ @cilium/kvstore
 /pkg/ipam/ @cilium/sig-ipam
 /pkg/ipam/allocator/alibabacloud/ @cilium/sig-ipam @cilium/alibabacloud
 /pkg/ipam/allocator/aws/ @cilium/sig-ipam @cilium/aws
@@ -425,6 +437,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/maps/ @cilium/sig-datapath
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
+/pkg/modules/ @cilium/sig-datapath
 /pkg/monitor @cilium/sig-datapath
 /pkg/monitor/api @cilium/api @cilium/sig-datapath
 /pkg/monitor/format @cilium/cli @cilium/sig-datapath
@@ -432,6 +445,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/mountinfo @cilium/sig-datapath
 /pkg/mtu @cilium/sig-datapath
 /pkg/multicast @cilium/sig-datapath
+/pkg/netns/ @cilium/sig-datapath @cilium/sig-k8s
 /pkg/node @cilium/sig-agent
 /pkg/nodediscovery/ @cilium/sig-agent
 /pkg/option @cilium/sig-agent @cilium/cli
@@ -445,10 +459,14 @@ jenkinsfiles @cilium/ci-structure
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/sockops/ @cilium/sig-datapath @cilium/loader
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/sig-datapath
+/pkg/types/ @cilium/sig-datapath
 /pkg/wireguard @cilium/wireguard
+/pkg/version/ @cilium/sig-agent
+/pkg/versioncheck/ @cilium/sig-agent
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
 /proxylib/ @cilium/proxy
@@ -484,6 +502,7 @@ jenkinsfiles @cilium/ci-structure
 # Standalone L4LB tests
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
+/test/bigtcp @cilium/sig-datapath @cilium/ci-structure
 # Misc. tests
 /test/k8s/cli.go @cilium/cli @cilium/ci-structure
 /test/k8s/health.go @cilium/health @cilium/ci-structure
