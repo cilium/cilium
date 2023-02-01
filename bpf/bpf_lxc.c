@@ -639,25 +639,18 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		struct lb6_service *svc;
 		struct lb6_key key = {};
 		__u16 proxy_port = 0;
-		int l4_off, hdrlen;
+		int l4_off;
 
-		tuple.nexthdr = ip6->nexthdr;
-		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-
-		hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
-		l4_off = ETH_HLEN + hdrlen;
-
-		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
+		ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
 		}
+
+		lb6_fill_key(&key, &tuple);
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		/*
 		 * Check if the destination address is among the address that should
