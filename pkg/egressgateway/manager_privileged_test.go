@@ -120,7 +120,7 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 	option.Config.EnableIPv4EgressGateway = true
 	option.Config.InstallEgressGatewayRoutes = true
 
-	egressmap.InitEgressMaps()
+	egressmap.InitEgressMaps(egressmap.MaxPolicyEntries)
 
 	nodeTypes.SetName(node1)
 }

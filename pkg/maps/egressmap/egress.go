@@ -14,11 +14,11 @@ var (
 )
 
 // InitEgressMaps initializes the egress policy map.
-func InitEgressMaps() error {
-	return initEgressPolicyMap(PolicyMapName, true)
+func InitEgressMaps(maxPolicyEntries int) error {
+	return initEgressPolicyMap(PolicyMapName, maxPolicyEntries, true)
 }
 
 // OpenEgressMaps initializes the egress policy map.
 func OpenEgressMaps() error {
-	return initEgressPolicyMap(PolicyMapName, false)
+	return initEgressPolicyMap(PolicyMapName, 0, false)
 }
