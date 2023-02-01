@@ -39,7 +39,7 @@ type egressPolicyMap struct {
 }
 
 // initEgressPolicyMap initializes the egress policy map.
-func initEgressPolicyMap(policyMapName string, create bool) error {
+func initEgressPolicyMap(policyMapName string, maxPolicyEntries int, create bool) error {
 	var m *ebpf.Map
 
 	if create {
@@ -48,7 +48,7 @@ func initEgressPolicyMap(policyMapName string, create bool) error {
 			Type:       ebpf.LPMTrie,
 			KeySize:    uint32(unsafe.Sizeof(EgressPolicyKey4{})),
 			ValueSize:  uint32(unsafe.Sizeof(EgressPolicyVal4{})),
-			MaxEntries: uint32(MaxPolicyEntries),
+			MaxEntries: uint32(maxPolicyEntries),
 			Pinning:    ebpf.PinByName,
 		})
 
