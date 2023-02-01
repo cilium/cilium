@@ -116,7 +116,7 @@ Global and Shared Services Reference
 
 The flow chart below summarizes the overall behavior considering a service present
 in two clusters (i.e., Cluster1 and Cluster2), and different combinations of the
-``io.cilium/global-service`` and ``io.cilium/shared-service`` annotation values.
+``service.cilium.io/global`` and ``service.cilium.io/shared`` annotation values.
 The terminating nodes represent the endpoints used in each combination by the two
 clusters for the service under examination.
 
