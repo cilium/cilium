@@ -507,36 +507,28 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat);
 }
 
-/** Extract IPv6 LB key from packet
+static __always_inline void
+lb6_fill_key(struct lb6_key *key, struct ipv6_ct_tuple *tuple)
+{
+	/* FIXME: set after adding support for different L4 protocols in LB */
+	key->proto = 0;
+	ipv6_addr_copy(&key->address, &tuple->daddr);
+	key->dport = tuple->sport;
+}
+
+/** Extract IPv6 CT tuple from packet
  * @arg ctx		Packet
- * @arg tuple		Tuple
+ * @arg ip6		Pointer to L3 header
  * @arg l4_off		Offset to L4 header
- * @arg key		Pointer to store LB key in
- * @arg csum_off	Pointer to store L4 checksum field offset and flags
+ * @arg tuple		CT tuple
  *
- * Expects the ctx to be validated for direct packet access up to L4. Fills
- * lb6_key based on L4 nexthdr.
+ * Expects the ctx to be validated for direct packet access up to L4.
  *
  * Returns:
  *   - CTX_ACT_OK on successful extraction
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused,
-					   struct ipv6_ct_tuple *tuple,
-					   int l4_off __maybe_unused,
-					   struct lb6_key *key,
-					   struct csum_offset *csum_off)
-{
-	/* FIXME(brb): set after adding support for different L4 protocols in LB */
-	key->proto = 0;
-	ipv6_addr_copy(&key->address, &tuple->daddr);
-	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
-
-	return extract_l4_port(ctx, tuple->nexthdr, l4_off, CT_EGRESS, &key->dport,
-			       NULL);
-}
-
 static __always_inline int
 lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int *l4_off,
 		  struct ipv6_ct_tuple *tuple)
