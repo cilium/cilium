@@ -231,8 +231,10 @@ func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *
 								"--trusted-ca-file=/var/lib/etcd-secrets/ca.crt",
 								"--cert-file=/var/lib/etcd-secrets/tls.crt",
 								"--key-file=/var/lib/etcd-secrets/tls.key",
-								"--listen-client-urls=https://127.0.0.1:2379,https://$(HOSTNAME_IP):2379",
-								"--advertise-client-urls=https://$(HOSTNAME_IP):2379",
+								// Surrounding the IPv4 address with brackets works in this case, since etcd
+								// uses net.SplitHostPort() internally and it accepts that format.
+								"--listen-client-urls=https://127.0.0.1:2379,https://[$(HOSTNAME_IP)]:2379",
+								"--advertise-client-urls=https://[$(HOSTNAME_IP)]:2379",
 								"--initial-cluster-token=clustermesh-apiserver",
 								"--auto-compaction-retention=1",
 							},
