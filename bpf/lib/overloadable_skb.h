@@ -169,7 +169,7 @@ static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
-		   __u32 *ifindex)
+		   int *ifindex)
 {
 	struct bpf_tunnel_key key = {};
 	int ret;
