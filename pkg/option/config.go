@@ -636,6 +636,10 @@ const (
 	// entries.
 	SockRevNatEntriesName = "bpf-sock-rev-map-max"
 
+	// EgressGatewayPolicyMapEntriesName configures max entries for egress gateway's policy
+	// map.
+	EgressGatewayPolicyMapEntriesName = "egress-gateway-policy-map-max"
+
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
 	LogSystemLoadConfigName = "log-system-load"
@@ -1477,6 +1481,10 @@ type DaemonConfig struct {
 	// SockRevNatEntries is the maximum number of sock rev nat mappings
 	// allowed in the BPF rev nat table
 	SockRevNatEntries int
+
+	// EgressGatewayPolicyMapEntries is the maximum number of entries
+	// allowed in the BPF egress gateway policy map.
+	EgressGatewayPolicyMapEntries int
 
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
@@ -2956,6 +2964,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPMasqAgent = vp.GetBool(EnableIPMasqAgent)
 	c.EnableIPv4EgressGateway = vp.GetBool(EnableIPv4EgressGateway)
 	c.InstallEgressGatewayRoutes = vp.GetBool(InstallEgressGatewayRoutes)
+	c.EgressGatewayPolicyMapEntries = vp.GetInt(EgressGatewayPolicyMapEntriesName)
 	c.EnableEnvoyConfig = vp.GetBool(EnableEnvoyConfig)
 	c.EnableIngressController = vp.GetBool(EnableIngressController)
 	c.EnableGatewayAPI = vp.GetBool(EnableGatewayAPI)

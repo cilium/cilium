@@ -345,7 +345,7 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if option.Config.EnableIPv4EgressGateway {
-		if err := egressmap.InitEgressMaps(); err != nil {
+		if err := egressmap.InitEgressMaps(option.Config.EgressGatewayPolicyMapEntries); err != nil {
 			return err
 		}
 	}
