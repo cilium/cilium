@@ -116,7 +116,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
-		    enum trace_reason ct_reason, __u32 monitor, __u32 *ifindex)
+		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)
 {
 	__u32 node_id;
 	int ret;
@@ -145,7 +145,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
 {
-	__u32 ifindex;
+	int ifindex;
 	int ret = 0;
 
 #ifdef ENABLE_WIREGUARD
@@ -201,7 +201,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
 			 __u32 dstid, const struct trace_ctx *trace)
 {
-	__u32 ifindex __maybe_unused;
+	int ifindex __maybe_unused;
 	int ret __maybe_unused;
 
 #ifdef ENABLE_IPSEC
