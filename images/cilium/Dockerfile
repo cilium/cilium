@@ -13,7 +13,6 @@ FROM quay.io/cilium/cilium-envoy:ff9a74a473dd5c1f6bfd7ce10938dab648f70c09@sha256
 #
 FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as hubble
 ARG BUILDPLATFORM
-COPY images/cilium/hubble-version.sh /tmp/hubble-version.sh
 COPY images/cilium/download-hubble.sh /tmp/download-hubble.sh
 RUN /tmp/download-hubble.sh
 RUN /out/${BUILDPLATFORM}/bin/hubble completion bash > /out/linux/bash_completion
