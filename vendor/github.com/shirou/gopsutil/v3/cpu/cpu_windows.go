@@ -14,8 +14,7 @@ import (
 )
 
 var (
-	procGetActiveProcessorCount = common.Modkernel32.NewProc("GetActiveProcessorCount")
-	procGetNativeSystemInfo     = common.Modkernel32.NewProc("GetNativeSystemInfo")
+	procGetNativeSystemInfo = common.Modkernel32.NewProc("GetNativeSystemInfo")
 )
 
 type win32_Processor struct {
@@ -204,15 +203,12 @@ type systemInfo struct {
 func CountsWithContext(ctx context.Context, logical bool) (int, error) {
 	if logical {
 		// https://github.com/giampaolo/psutil/blob/d01a9eaa35a8aadf6c519839e987a49d8be2d891/psutil/_psutil_windows.c#L97
-		err := procGetActiveProcessorCount.Find()
-		if err == nil { // Win7+
-			ret, _, _ := procGetActiveProcessorCount.Call(uintptr(0xffff)) // ALL_PROCESSOR_GROUPS is 0xffff according to Rust's winapi lib https://docs.rs/winapi/*/x86_64-pc-windows-msvc/src/winapi/shared/ntdef.rs.html#120
-			if ret != 0 {
-				return int(ret), nil
-			}
+		ret := windows.GetActiveProcessorCount(windows.ALL_PROCESSOR_GROUPS)
+		if ret != 0 {
+			return int(ret), nil
 		}
 		var systemInfo systemInfo
-		_, _, err = procGetNativeSystemInfo.Call(uintptr(unsafe.Pointer(&systemInfo)))
+		_, _, err := procGetNativeSystemInfo.Call(uintptr(unsafe.Pointer(&systemInfo)))
 		if systemInfo.dwNumberOfProcessors == 0 {
 			return 0, err
 		}

@@ -793,7 +793,7 @@ github.com/sasha-s/go-deadlock
 # github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 ## explicit
 github.com/servak/go-fastping
-# github.com/shirou/gopsutil/v3 v3.22.10
+# github.com/shirou/gopsutil/v3 v3.23.1
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/cpu
 github.com/shirou/gopsutil/v3/internal/common
@@ -854,11 +854,11 @@ github.com/tidwall/pretty
 # github.com/tidwall/sjson v1.2.5
 ## explicit; go 1.14
 github.com/tidwall/sjson
-# github.com/tklauser/go-sysconf v0.3.10
+# github.com/tklauser/go-sysconf v0.3.11
 ## explicit; go 1.13
 github.com/tklauser/go-sysconf
-# github.com/tklauser/numcpus v0.4.0
-## explicit; go 1.11
+# github.com/tklauser/numcpus v0.6.0
+## explicit; go 1.13
 github.com/tklauser/numcpus
 # github.com/vishvananda/netlink v1.2.1-beta.2.0.20220608195807-1a118fe229fc
 ## explicit; go 1.12
