@@ -837,7 +837,7 @@ drop_err:
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__u32 src_identity)
 {
-	int ret, l3_off = ETH_HLEN, l4_off, hdrlen;
+	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -853,17 +853,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
-
-	l4_off = l3_off + hdrlen;
-
-	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
+	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -872,6 +862,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		else
 			return ret;
 	}
+
+	lb6_fill_key(&key, &tuple);
+	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb6_lookup_service(&key, false, false);
 	if (svc) {
