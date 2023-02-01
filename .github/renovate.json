@@ -4,7 +4,11 @@
     "config:base",
     ":gitSignOff"
   ],
-  "includePaths": ["images/**"],
+  "includePaths": [
+    "images/**",
+    "examples/hubble/*"
+  ],
+  "ignorePaths": [],
   "ignorePresets": [":prHourlyLimit2"],
   "separateMajorMinor": true,
   "separateMultipleMajor": true,
@@ -101,6 +105,22 @@
         "v1.12",
         "v1.11",
         "v1.10"
+      ]
+    }
+  ],
+  "kubernetes": {
+    "fileMatch": [
+      "examples/hubble/hubble-cli\\.yaml"
+    ]
+  },
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "images/cilium/download-hubble\\.sh"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
       ]
     }
   ]
