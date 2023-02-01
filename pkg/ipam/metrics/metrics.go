@@ -8,13 +8,14 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
 const ipamSubsystem = "ipam"
 
 type prometheusMetrics struct {
-	registry             *prometheus.Registry
+	registry             metrics.RegisterGatherer
 	Allocation           *prometheus.HistogramVec
 	Release              *prometheus.HistogramVec
 	AllocateInterfaceOps *prometheus.CounterVec
@@ -36,7 +37,7 @@ type prometheusMetrics struct {
 
 // NewPrometheusMetrics returns a new interface metrics implementation backed by
 // Prometheus metrics.
-func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prometheusMetrics {
+func NewPrometheusMetrics(namespace string, registry metrics.RegisterGatherer) *prometheusMetrics {
 	m := &prometheusMetrics{
 		registry: registry,
 	}
@@ -254,7 +255,7 @@ func NewTriggerMetrics(namespace, name string) *triggerMetrics {
 	}
 }
 
-func (t *triggerMetrics) Register(registry *prometheus.Registry) {
+func (t *triggerMetrics) Register(registry metrics.RegisterGatherer) {
 	registry.MustRegister(t.total)
 	registry.MustRegister(t.folds)
 	registry.MustRegister(t.callDuration)

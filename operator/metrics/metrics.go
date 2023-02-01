@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
+	controllerRuntimeMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/cilium/cilium/api/v1/operator/models"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -24,9 +25,14 @@ var (
 // Namespace is the namespace key to use for cilium operator metrics.
 const Namespace = "cilium_operator"
 
+type RegisterGatherer interface {
+	prometheus.Registerer
+	prometheus.Gatherer
+}
+
 var (
 	// Registry is the global prometheus registry for cilium-operator metrics.
-	Registry   *prometheus.Registry
+	Registry   RegisterGatherer
 	shutdownCh chan struct{}
 )
 
@@ -34,7 +40,18 @@ var (
 func Register() {
 	log.Info("Registering Operator metrics")
 
-	Registry = prometheus.NewPedanticRegistry()
+	if operatorOption.Config.EnableGatewayAPI {
+		// Use the same Registry as controller-runtime, so that we don't need
+		// to expose multiple metrics endpoints or servers.
+		//
+		// Ideally, we should use our own Registry instance, but the metrics
+		// registration is done by init() functions, which are executed before
+		// this function is called.
+		Registry = controllerRuntimeMetrics.Registry
+	} else {
+		Registry = prometheus.NewPedanticRegistry()
+	}
+
 	registerMetrics()
 
 	m := http.NewServeMux()
