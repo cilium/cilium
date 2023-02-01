@@ -962,7 +962,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					TransportSocket: &envoy_config_core.TransportSocket{
+						Name: "cilium.tls_wrapper",
+					},
 				},
 				{
 					Name:                          ingressClusterName,
@@ -979,7 +981,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					CleanupInterval:               &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
 					LbPolicy:                      envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
-					TransportSocket:               &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					TransportSocket: &envoy_config_core.TransportSocket{
+						Name: "cilium.tls_wrapper",
+					},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
@@ -1063,6 +1067,16 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
 							}}}},
+						}},
+					},
+				},
+				{
+					Name: "deprecation",
+					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
+						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
+							// This is to avoid empty type URL issue for cilium.tls_wrapper
+							// TODO: Remove this once we have a type URL for upstream and downstream cilium.tls_wrapper
+							"envoy.reloadable_features.no_extension_lookup_by_name": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
 						}},
 					},
 				},
