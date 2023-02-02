@@ -16,7 +16,7 @@ spec:
           command:
             - "/usr/bin/cilium-certgen"
           args:
-            - "--cilium-namespace={{ .Release.Namespace }}"
+            - "--cilium-namespace={{ template "cilium.namespace" . }}"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}

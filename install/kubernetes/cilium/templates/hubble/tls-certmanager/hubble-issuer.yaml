@@ -5,7 +5,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: hubble-ca-secret
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 data:
   ca.crt: {{ .ca.Cert | b64enc }}
   ca.key: {{ .ca.Key  | b64enc }}
@@ -14,7 +14,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: hubble-issuer
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 spec:
   ca:
     secretName: hubble-ca-secret

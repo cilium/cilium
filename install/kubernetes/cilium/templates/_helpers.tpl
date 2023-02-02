@@ -1,4 +1,16 @@
 {{/*
+overridde the release namespace for multi-namespace deployments in combined charts.
+*/}}
+{{- define "cilium.namespace" -}}
+{{- if .Values.namespaceOverride -}}
+{{- .Values.namespaceOverride -}}
+{{- else -}}
+{{- .Release.Namespace -}}
+{{- end -}}
+{{- end -}}
+
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "cilium.chart" -}}
@@ -43,7 +55,7 @@ where:
 {{- if $priorityClass }}
   {{- $priorityClass }}
 {{- else if and $root.Values.enableCriticalPriorityClass $criticalPriorityClass -}}
-  {{- if and (eq $root.Release.Namespace "kube-system") (semverCompare ">=1.10-0" $root.Capabilities.KubeVersion.Version) -}}
+  {{- if and (eq "cilium.namespace" "kube-system") (semverCompare ">=1.10-0" $root.Capabilities.KubeVersion.Version) -}}
     {{- $criticalPriorityClass }}
   {{- else if semverCompare ">=1.17-0" $root.Capabilities.KubeVersion.Version -}}
     {{- $criticalPriorityClass }}
@@ -120,7 +132,7 @@ and `commonCASecretName` variables.
     {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- with lookup "v1" "Secret" .Release.Namespace $secretName }}
+      {{- with lookup "v1" "Secret" (include "cilium.namespace" .) $secretName }}
         {{- $crt := index .data "ca.crt" }}
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}

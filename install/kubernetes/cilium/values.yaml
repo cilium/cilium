@@ -7,6 +7,8 @@
 # For example: 1.7, 1.8, 1.9
 # upgradeCompatibility: '1.8'
 
+namespaceOverride: ""
+
 debug:
   # -- Enable debug logging
   enabled: false

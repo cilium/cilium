@@ -4,7 +4,7 @@ apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
   name: cilium-etcd-operator
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     io.cilium/app: etcd-operator
     name: cilium-etcd-operator

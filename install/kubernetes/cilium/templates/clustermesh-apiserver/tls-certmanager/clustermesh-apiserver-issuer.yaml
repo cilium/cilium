@@ -5,7 +5,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: clustermesh-apiserver-ca-cert
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 data:
   ca.crt: {{ .cmca.Cert | b64enc }}
   ca.key: {{ .cmca.Key  | b64enc }}
@@ -14,7 +14,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: clustermesh-apiserver-issuer
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 spec:
   ca:
     secretName: clustermesh-apiserver-ca-cert

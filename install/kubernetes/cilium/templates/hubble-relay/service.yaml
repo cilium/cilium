@@ -3,7 +3,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: hubble-relay
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     k8s-app: hubble-relay
     app.kubernetes.io/name: hubble-relay
