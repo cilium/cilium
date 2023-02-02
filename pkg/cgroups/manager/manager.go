@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/cgroups"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -73,7 +73,7 @@ func NewCgroupManager() *CgroupManager {
 	return initManager(nil, cgroupImpl{}, podEventsChannelSize)
 }
 
-func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
+func (m *CgroupManager) OnAddPod(pod *slim_corev1.Pod) {
 	if pod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -83,7 +83,7 @@ func (m *CgroupManager) OnAddPod(pod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
+func (m *CgroupManager) OnUpdatePod(oldPod, newPod *slim_corev1.Pod) {
 	if newPod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -94,7 +94,7 @@ func (m *CgroupManager) OnUpdatePod(oldPod, newPod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) OnDeletePod(pod *v1.Pod) {
+func (m *CgroupManager) OnDeletePod(pod *slim_corev1.Pod) {
 	if pod.Spec.NodeName != nodetypes.GetName() {
 		return
 	}
@@ -145,8 +145,8 @@ type containerMetadata struct {
 }
 
 type podEvent struct {
-	pod            *v1.Pod
-	oldPod         *v1.Pod
+	pod            *slim_corev1.Pod
+	oldPod         *slim_corev1.Pod
 	cgroupId       uint64
 	eventType      int
 	podMetadataOut chan *PodMetadata
@@ -227,7 +227,7 @@ func (m *CgroupManager) processPodEvents() {
 	}
 }
 
-func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
+func (m *CgroupManager) updatePodMetadata(pod, oldPod *slim_corev1.Pod) {
 	id := string(pod.ObjectMeta.UID)
 	pm, ok := m.podMetadataById[id]
 	if !ok {
@@ -320,7 +320,7 @@ func (m *CgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 	}
 }
 
-func (m *CgroupManager) deletePodMetadata(pod *v1.Pod) {
+func (m *CgroupManager) deletePodMetadata(pod *slim_corev1.Pod) {
 	podId := string(pod.ObjectMeta.UID)
 
 	if _, ok := m.podMetadataById[podId]; !ok {

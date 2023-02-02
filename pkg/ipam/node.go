@@ -20,7 +20,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -278,8 +278,8 @@ func getPendingPodCount(nodeName string) (int, error) {
 		return pendingPods, fmt.Errorf("unable to access pod to node name index: %w", err)
 	}
 	for _, pod := range values {
-		p := pod.(*v1.Pod)
-		if p.Status.Phase == v1.PodPending {
+		p := pod.(*slim_corev1.Pod)
+		if p.Status.Phase == slim_corev1.PodPending {
 			pendingPods++
 		}
 	}

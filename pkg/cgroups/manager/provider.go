@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/cgroups"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 var (
@@ -62,7 +62,7 @@ func getCgroupPathProvider() (cgroupPathProvider, error) {
 
 type cgroupPathProvider interface {
 	getBasePath() (string, error)
-	getContainerPath(podId string, containerId string, qos v1.PodQOSClass) (string, error)
+	getContainerPath(podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error)
 }
 
 type defaultProvider struct {
@@ -101,7 +101,7 @@ func (cp defaultProvider) getBasePath() (string, error) {
 	return validateCgroupPath(cp.basePath)
 }
 
-func (cp defaultProvider) getContainerPath(podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func (cp defaultProvider) getContainerPath(podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	return getDefaultContainerPathCommon(cp.basePath, podId, containerId, qos)
 }
 
@@ -109,7 +109,7 @@ func (cp systemdProvider) getBasePath() (string, error) {
 	return validateCgroupPath(cp.basePath)
 }
 
-func (cp systemdProvider) getContainerPath(podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func (cp systemdProvider) getContainerPath(podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	subPaths := []string{"kubepods"}
 
 	return getSystemdContainerPathCommon(subPaths, podId, containerId, qos)
@@ -119,7 +119,7 @@ func (cp nestedProvider) getBasePath() (string, error) {
 	return validateCgroupPath(cp.basePath)
 }
 
-func (cp nestedProvider) getContainerPath(podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func (cp nestedProvider) getContainerPath(podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	return getDefaultContainerPathCommon(cp.basePath, podId, containerId, qos)
 }
 
@@ -127,20 +127,20 @@ func (cp nestedSystemProvider) getBasePath() (string, error) {
 	return validateCgroupPath(cp.basePath)
 }
 
-func (cp nestedSystemProvider) getContainerPath(podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func (cp nestedSystemProvider) getContainerPath(podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	subPaths := []string{"kubelet", "kubepods"}
 
 	return getSystemdContainerPathCommon(subPaths, podId, containerId, qos)
 }
 
-func getSystemdContainerPathCommon(subPaths []string, podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func getSystemdContainerPathCommon(subPaths []string, podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	var (
 		ret  string
 		err  error
 		path string
 	)
 	podIdStr := fmt.Sprintf("pod%s", podId)
-	if qos == v1.PodQOSGuaranteed {
+	if qos == slim_corev1.PodQOSGuaranteed {
 		if path, err = toSystemd(append(subPaths, podIdStr)); err != nil {
 			return "", fmt.Errorf("unable to construct cgroup path %w", err)
 		}
@@ -173,14 +173,14 @@ func validateCgroupPath(path string) (string, error) {
 	return "", fmt.Errorf("no valid cgroup path found")
 }
 
-func getBaseCgroupPathForQos(path string, qos v1.PodQOSClass) string {
-	if qos == v1.PodQOSGuaranteed {
+func getBaseCgroupPathForQos(path string, qos slim_corev1.PodQOSClass) string {
+	if qos == slim_corev1.PodQOSGuaranteed {
 		return path
 	}
 	return filepath.Join(path, strings.ToLower(string(qos)))
 }
 
-func getDefaultContainerPathCommon(path string, podId string, containerId string, qos v1.PodQOSClass) (string, error) {
+func getDefaultContainerPathCommon(path string, podId string, containerId string, qos slim_corev1.PodQOSClass) (string, error) {
 	podIdStr := fmt.Sprintf("pod%s", podId)
 	path = filepath.Join(getBaseCgroupPathForQos(path, qos), podIdStr, containerId)
 

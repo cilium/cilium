@@ -10,7 +10,7 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
 type ProviderSuite struct{}
@@ -76,7 +76,7 @@ type inputParams struct {
 	provider    cgroupPathProvider
 	podId       string
 	containerId string
-	qos         v1.PodQOSClass
+	qos         slim_corev1.PodQOSClass
 	fsMock      fs
 }
 
@@ -107,7 +107,7 @@ func (p *ProviderSuite) TestGetContainerPath(c *C) {
 		{
 			name: "default provider + guaranteed qos pod",
 			input: func(input *inputParams) {
-				input.qos = v1.PodQOSGuaranteed
+				input.qos = slim_corev1.PodQOSGuaranteed
 				input.fsMock = fsMock{
 					cgroupRoot + defaultCgroupBasePath: struct{}{},
 					cDefaultGuaranteedPath:             struct{}{},
@@ -130,7 +130,7 @@ func (p *ProviderSuite) TestGetContainerPath(c *C) {
 			name: "systemd provider + guaranteed qos pod + crio",
 			input: func(input *inputParams) {
 				input.provider = newSystemdProvider()
-				input.qos = v1.PodQOSGuaranteed
+				input.qos = slim_corev1.PodQOSGuaranteed
 				input.fsMock = fsMock{
 					cgroupRoot + systemdCgroupBasePath: struct{}{},
 					cSystemdGuaranteedPath:             struct{}{},
