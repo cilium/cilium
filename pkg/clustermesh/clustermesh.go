@@ -122,8 +122,12 @@ func GetClusterConfig(clusterName string, backend kvstore.BackendOperations) (*c
 // allocated on a remote cluster.
 type RemoteIdentityWatcher interface {
 	// WatchRemoteIdentities starts watching for identities in another kvstore and
-	// syncs all identities to the local identity cache.
-	WatchRemoteIdentities(backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+	// syncs all identities to the local identity cache. RemoteName should be unique
+	// unless replacing an existing remote's backend.
+	WatchRemoteIdentities(remoteName string, backend kvstore.BackendOperations) (*allocator.RemoteCache, error)
+
+	// RemoveRemoteIdentities removes any reference to a remote identity source.
+	RemoveRemoteIdentities(name string)
 
 	// Close stops the watcher.
 	Close()
