@@ -81,6 +81,17 @@ func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata
 	return false
 }
 
+// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
+func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
+	config.matchedEndpointIDs = make(map[endpointID]struct{})
+
+	for _, endpoint := range epDataStore {
+		if config.matchesEndpointLabels(endpoint) {
+			config.matchedEndpointIDs[endpoint.id] = struct{}{}
+		}
+	}
+}
+
 // selectsEndpoint determines if the given endpoint is selected by the policy
 // config
 func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
