@@ -23,6 +23,24 @@ enum {
 	ACTION_CLOSE,
 };
 
+#ifdef ENABLE_IPV4
+struct ct_buffer4 {
+	struct ipv4_ct_tuple tuple;
+	struct ct_state ct_state;
+	__u32 monitor;
+	int ret;
+};
+#endif
+
+#ifdef ENABLE_IPV6
+struct ct_buffer6 {
+	struct ipv6_ct_tuple tuple;
+	struct ct_state ct_state;
+	__u32 monitor;
+	int ret;
+};
+#endif
+
 static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
 {
 	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
