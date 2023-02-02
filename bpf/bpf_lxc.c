@@ -304,13 +304,6 @@ encode_custom_prog_meta(struct __ctx_buff *ctx, int ret, __u32 identity)
 #endif
 
 #ifdef ENABLE_IPV6
-struct ct_buffer6 {
-	struct ipv6_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-};
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);
@@ -748,13 +741,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-struct ct_buffer4 {
-	struct ipv4_ct_tuple tuple;
-	struct ct_state ct_state;
-	__u32 monitor;
-	int ret;
-};
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
 	__type(key, __u32);

@@ -96,49 +96,59 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	return verdict;
 }
 
-static __always_inline int
-ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
-			 struct trace_ctx *trace, __s8 *ext_err)
+static __always_inline bool
+ipv6_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+				struct ct_buffer6 *ct_buffer)
 {
-	struct ct_state ct_state_new = {}, ct_state = {};
-	__u8 policy_match_type = POLICY_MATCH_NONE;
-	__u8 audited = 0;
+	int l4_off, hdrlen;
 	__u32 dst_sec_identity = WORLD_ID;
-	__u16 node_id = 0;
 	struct remote_endpoint_info *info;
-	int ret, verdict = CTX_ACT_OK, l4_off, hdrlen;
-	struct ipv6_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	__u16 proxy_port = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
+	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 
 	/* Retrieve destination identity. */
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-	info = lookup_ip6_remote_endpoint(&tuple.daddr, 0);
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
+	info = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 	if (info && info->sec_identity)
 		dst_sec_identity = info->sec_identity;
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-		   tuple.daddr.p4, dst_sec_identity);
+		   tuple->daddr.p4, dst_sec_identity);
 
 	/* Only enforce host policies for packets to host IPs. */
 	if (dst_sec_identity != HOST_ID)
-		return CTX_ACT_OK;
+		return false;
 
 	/* Lookup connection in conntrack map. */
-	tuple.nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
+	tuple->nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+	hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
+	if (hdrlen < 0) {
+		ct_buffer->ret = hdrlen;
+		return true;
+	}
 	l4_off = ETH_HLEN + hdrlen;
-	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &trace->monitor);
-	if (ret < 0)
-		return ret;
+	ct_buffer->ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_INGRESS,
+				    &ct_buffer->ct_state, &ct_buffer->monitor);
 
+	return true;
+}
+
+static __always_inline int
+__ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+			   struct ct_buffer6 *ct_buffer, __u32 *src_sec_identity,
+			   struct trace_ctx *trace, __s8 *ext_err)
+{
+	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state = &ct_buffer->ct_state;
+	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
+	__u16 node_id = 0;
+	int ret = ct_buffer->ret;
+	int verdict = CTX_ACT_OK;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
+	struct remote_endpoint_info *info;
+	__u16 proxy_port = 0;
+
+	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
@@ -155,24 +165,24 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_sec_identity, dst_sec_identity, tuple.dport,
-					    tuple.nexthdr, false,
+	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
+					    tuple->nexthdr, false,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(dst_sec_identity, *src_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
-		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.node_port = ct_state->node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create6 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
 		 * case, it's OK to return ext_err from ct_create6 along with
 		 * its error code.
 		 */
-		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
+		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
 				 ext_err);
 		if (IS_ERR(ret))
@@ -181,8 +191,8 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_sec_identity, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 1,
+		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
+					   tuple->nexthdr, POLICY_INGRESS, 1,
 					   verdict, proxy_port, policy_match_type, audited);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
@@ -190,6 +200,25 @@ out:
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
 	return verdict;
+}
+
+static __always_inline int
+ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
+			 struct trace_ctx *trace, __s8 *ext_err)
+{
+	struct ct_buffer6 ct_buffer = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	if (!ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer))
+		return CTX_ACT_OK;
+	if (ct_buffer.ret < 0)
+		return ct_buffer.ret;
+
+	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
 }
 # endif /* ENABLE_IPV6 */
 
@@ -328,25 +357,14 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	return verdict;
 }
 
-static __always_inline int
-ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
-			 struct trace_ctx *trace, __s8 *ext_err)
+static __always_inline bool
+ipv4_host_policy_ingress_lookup(struct __ctx_buff *ctx, struct iphdr *ip4,
+				struct ct_buffer4 *ct_buffer)
 {
-	struct ct_state ct_state_new = {}, ct_state = {};
-	int ret, verdict = CTX_ACT_OK, l4_off, l3_off = ETH_HLEN;
-	__u8 policy_match_type = POLICY_MATCH_NONE;
-	__u8 audited = 0;
+	int l4_off, l3_off = ETH_HLEN;
 	__u32 dst_sec_identity = WORLD_ID;
-	__u16 node_id = 0;
 	struct remote_endpoint_info *info;
-	struct ipv4_ct_tuple tuple = {};
-	bool is_untracked_fragment = false;
-	void *data, *data_end;
-	struct iphdr *ip4;
-	__u16 proxy_port = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
@@ -357,18 +375,37 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	/* Only enforce host policies for packets to host IPs. */
 	if (dst_sec_identity != HOST_ID)
-		return CTX_ACT_OK;
+		return false;
 
 	/* Lookup connection in conntrack map. */
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	tuple->nexthdr = ip4->protocol;
+	tuple->daddr = ip4->daddr;
+	tuple->saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &trace->monitor);
-	if (ret < 0)
-		return ret;
+	ct_buffer->ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off, CT_INGRESS,
+				    &ct_buffer->ct_state, &ct_buffer->monitor);
 
+	return true;
+}
+
+static __always_inline int
+__ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
+			   struct ct_buffer4 *ct_buffer, __u32 *src_sec_identity,
+			   struct trace_ctx *trace, __s8 *ext_err)
+{
+	struct ct_state ct_state_new = {};
+	struct ct_state *ct_state = &ct_buffer->ct_state;
+	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
+	__u16 node_id = 0;
+	int ret = ct_buffer->ret;
+	int verdict = CTX_ACT_OK;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
+	struct remote_endpoint_info *info;
+	bool is_untracked_fragment = false;
+	__u16 proxy_port = 0;
+
+	trace->monitor = ct_buffer->monitor;
 	trace->reason = (enum trace_reason)ret;
 
 	/* Retrieve source identity. */
@@ -392,25 +429,25 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_sec_identity, dst_sec_identity, tuple.dport,
-					    tuple.nexthdr,
+	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
+					    tuple->nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
-		verdict = auth_lookup(dst_sec_identity, *src_sec_identity, node_id, (__u8)*ext_err);
+		verdict = auth_lookup(HOST_ID, *src_sec_identity, node_id, (__u8)*ext_err);
 
 	/* Only create CT entry for accepted connections */
 	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_sec_identity;
-		ct_state_new.node_port = ct_state.node_port;
+		ct_state_new.node_port = ct_state->node_port;
 		/* ext_err may contain a value from __policy_can_access, and
 		 * ct_create4 overwrites it only if it returns an error itself.
 		 * As the error from __policy_can_access is dropped in that
 		 * case, it's OK to return ext_err from ct_create4 along with
 		 * its error code.
 		 */
-		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
+		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple,
 				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
 				 ext_err);
 		if (IS_ERR(ret))
@@ -419,8 +456,8 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
-		send_policy_verdict_notify(ctx, *src_sec_identity, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 0,
+		send_policy_verdict_notify(ctx, *src_sec_identity, tuple->dport,
+					   tuple->nexthdr, POLICY_INGRESS, 0,
 					   verdict, proxy_port, policy_match_type, audited);
 out:
 	/* This change is necessary for packets redirected from the lxc device to
@@ -428,6 +465,25 @@ out:
 	 */
 	ctx_change_type(ctx, PACKET_HOST);
 	return verdict;
+}
+
+static __always_inline int
+ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
+			 struct trace_ctx *trace, __s8 *ext_err)
+{
+	struct ct_buffer4 ct_buffer = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	if (!ipv4_host_policy_ingress_lookup(ctx, ip4, &ct_buffer))
+		return CTX_ACT_OK;
+	if (ct_buffer.ret < 0)
+		return ct_buffer.ret;
+
+	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
 }
 # endif /* ENABLE_IPV4 */
 #endif /* ENABLE_HOST_FIREWALL && IS_BPF_HOST */
