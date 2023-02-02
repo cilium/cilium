@@ -235,6 +235,18 @@ func (manager *Manager) onChangeNodeLocked() {
 	manager.reconcile()
 }
 
+func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
+	for _, policy := range manager.policyConfigs {
+		policy.matchedEndpointIDs = make(map[endpointID]struct{})
+
+		for _, endpoint := range manager.epDataStore {
+			if policy.matchesEndpointLabels(endpoint) {
+				policy.matchedEndpointIDs[endpoint.id] = struct{}{}
+			}
+		}
+	}
+}
+
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
@@ -419,6 +431,8 @@ func (manager *Manager) reconcile() {
 	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
 		return
 	}
+
+	manager.updatePoliciesMatchedEndpointIDs()
 
 	manager.regenerateGatewayConfigs()
 
