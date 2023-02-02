@@ -62,15 +62,16 @@ type PolicyConfig struct {
 
 	policyGwConfig *policyGatewayConfig
 
-	gatewayConfig gatewayConfig
+	matchedEndpointIDs map[endpointID]struct{}
+	gatewayConfig      gatewayConfig
 }
 
 // PolicyID includes policy name and namespace
 type policyID = types.NamespacedName
 
-// selectsEndpoint determines if the given endpoint is selected by the policy
-// config based on matching labels of config and endpoint.
-func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
+// matchesEndpointLabels determines if the given endpoint is a match for the
+// policy config based on matching labels.
+func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
 	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
 	for _, selector := range config.endpointSelectors {
 		if selector.Matches(labelsToMatch) {
@@ -78,6 +79,13 @@ func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool
 		}
 	}
 	return false
+}
+
+// selectsEndpoint determines if the given endpoint is selected by the policy
+// config
+func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
+	_, ok := config.matchedEndpointIDs[endpointInfo.id]
+	return ok
 }
 
 func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) bool {
@@ -268,9 +276,10 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	return &PolicyConfig{
-		endpointSelectors: endpointSelectorList,
-		dstCIDRs:          dstCidrList,
-		policyGwConfig:    policyGwc,
+		endpointSelectors:  endpointSelectorList,
+		dstCIDRs:           dstCidrList,
+		matchedEndpointIDs: make(map[endpointID]struct{}),
+		policyGwConfig:     policyGwc,
 		id: types.NamespacedName{
 			Name: name,
 		},
