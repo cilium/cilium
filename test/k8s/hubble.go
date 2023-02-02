@@ -225,8 +225,8 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 		})
 
 		It("Test L7 Flow", func() {
-			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 			defer removeVisibilityAnnotation(namespaceForTest, app1Labels)
+			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
@@ -250,8 +250,8 @@ var _ = Describe("K8sAgentHubbleTest", func() {
 		})
 
 		It("Test L7 Flow with hubble-relay", func() {
-			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 			defer removeVisibilityAnnotation(namespaceForTest, app1Labels)
+			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
