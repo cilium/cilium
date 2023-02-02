@@ -364,12 +364,6 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-#  ifndef ENABLE_IPV4_FRAGMENTS
-	/* Indicate that this is a datagram fragment for which we cannot
-	 * retrieve L4 ports. Do not set flag if we support fragmentation.
-	 */
-	is_untracked_fragment = ipv4_is_fragment(ip4);
-#  endif
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			 &ct_state, &trace->monitor);
 	if (ret < 0)
@@ -389,6 +383,13 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret == CT_REPLY || ret == CT_RELATED)
 		goto out;
+
+#  ifndef ENABLE_IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipv4_is_fragment(ip4);
+#  endif
 
 	/* Perform policy lookup */
 	verdict = policy_can_access_ingress(ctx, *src_sec_identity, dst_sec_identity, tuple.dport,
