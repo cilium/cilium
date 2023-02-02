@@ -264,6 +264,7 @@ function bpf_load_cgroups()
 	CALLS_MAP=$6
 	CGRP=$7
 	BPFMNT=$8
+	NAME=$9
 
 	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
@@ -278,6 +279,11 @@ function bpf_load_cgroups()
 		return 1
 	fi
 
+	set +e
+	bpftool link detach pinned "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME" || true
+	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
+	set -e
+
 	if ! bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
 		rm -f "$TMP_FILE"
 		cilium bpf migrate-maps -e "$OUT" -r 1
@@ -289,10 +295,15 @@ function bpf_clear_cgroups()
 {
 	CGRP=$1
 	HOOK=$2
+	NAME=$3
 
 	set +e
+	bpftool link detach pinned "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME" || true
+	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
+
 	ID=$(bpftool cgroup show $CGRP | grep -w $HOOK | awk '{print $1}')
 	set -e
+	
 	if [ -n "$ID" ]; then
 		bpftool cgroup detach $CGRP $HOOK id $ID
 	fi
@@ -504,67 +515,67 @@ if [ "$HOSTLB" = "true" ]; then
 	CALLS_MAP="cilium_calls_lb"
 	COPTS=""
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f "${PROCSYSNETDIR}/ipv6/conf/all/forwarding" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_connect
 		if [ "$HOSTLB_PEER" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_getpeername
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_post_bind
 		else
-			bpf_clear_cgroups $CGROUP_ROOT post_bind6
+			bpf_clear_cgroups "$CGROUP_ROOT" post_bind6 cil_sock6_post_bind
 		fi
 		if [ "$MODE" = "ipip" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_pre_bind
 		else
-			bpf_clear_cgroups $CGROUP_ROOT bind6
+			bpf_clear_cgroups "$CGROUP_ROOT" bind6 cil_sock6_pre_bind
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_sendmsg
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock6_recvmsg
 		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg6
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg6
+			bpf_clear_cgroups "$CGROUP_ROOT" sendmsg6 cil_sock6_sendmsg
+			bpf_clear_cgroups "$CGROUP_ROOT" recvmsg6 cil_sock6_recvmsg
 		fi
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_connect
 		if [ "$HOSTLB_PEER" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_getpeername
 		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_post_bind
 		else
-			bpf_clear_cgroups $CGROUP_ROOT post_bind4
+			bpf_clear_cgroups "$CGROUP_ROOT" post_bind4 cil_sock4_post_bind
 		fi
 		if [ "$MODE" = "ipip" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr bind4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_pre_bind
 		else
-			bpf_clear_cgroups $CGROUP_ROOT bind4
+			bpf_clear_cgroups "$CGROUP_ROOT" bind4 cil_sock4_pre_bind
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_sendmsg
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 "$CALLS_MAP" "$CGROUP_ROOT" "$BPFFS_ROOT" cil_sock4_recvmsg
 		else
-			bpf_clear_cgroups $CGROUP_ROOT sendmsg4
-			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
+			bpf_clear_cgroups "$CGROUP_ROOT" sendmsg4 cil_sock4_sendmsg
+			bpf_clear_cgroups "$CGROUP_ROOT" recvmsg4 cil_sock4_recvmsg
 		fi
 	fi
 
 	cilium bpf migrate-maps -e bpf_sock.o -r 0
 
 else
-	bpf_clear_cgroups $CGROUP_ROOT bind4
-	bpf_clear_cgroups $CGROUP_ROOT bind6
-	bpf_clear_cgroups $CGROUP_ROOT post_bind4
-	bpf_clear_cgroups $CGROUP_ROOT post_bind6
-	bpf_clear_cgroups $CGROUP_ROOT connect4
-	bpf_clear_cgroups $CGROUP_ROOT connect6
-	bpf_clear_cgroups $CGROUP_ROOT sendmsg4
-	bpf_clear_cgroups $CGROUP_ROOT sendmsg6
-	bpf_clear_cgroups $CGROUP_ROOT recvmsg4
-	bpf_clear_cgroups $CGROUP_ROOT recvmsg6
-	bpf_clear_cgroups $CGROUP_ROOT getpeername4
-	bpf_clear_cgroups $CGROUP_ROOT getpeername6
+	bpf_clear_cgroups "$CGROUP_ROOT" bind4 cil_sock4_pre_bind
+	bpf_clear_cgroups "$CGROUP_ROOT" bind6 cil_sock6_pre_bind
+	bpf_clear_cgroups "$CGROUP_ROOT" post_bind4 cil_sock4_post_bind
+	bpf_clear_cgroups "$CGROUP_ROOT" post_bind6 cil_sock6_post_bind
+	bpf_clear_cgroups "$CGROUP_ROOT" connect4 cil_sock4_connect
+	bpf_clear_cgroups "$CGROUP_ROOT" connect6 cil_sock6_connect
+	bpf_clear_cgroups "$CGROUP_ROOT" sendmsg4 cil_sock4_sendmsg
+	bpf_clear_cgroups "$CGROUP_ROOT" sendmsg6 cil_sock6_sendmsg
+	bpf_clear_cgroups "$CGROUP_ROOT" recvmsg4 cil_sock4_recvmsg
+	bpf_clear_cgroups "$CGROUP_ROOT" recvmsg6 cil_sock6_recvmsg
+	bpf_clear_cgroups "$CGROUP_ROOT" getpeername4 cil_sock4_getpeername
+	bpf_clear_cgroups "$CGROUP_ROOT" getpeername6 cil_sock6_getpeername
 fi
 
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
