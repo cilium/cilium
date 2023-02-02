@@ -144,6 +144,8 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
+	config.updateMatchedEndpointIDs(manager.epDataStore)
+
 	manager.policyConfigs[config.id] = &config
 
 	manager.reconcile(eventAddPolicy)
@@ -250,13 +252,7 @@ func (manager *Manager) onChangeNodeLocked(e eventType) {
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
-		policy.matchedEndpointIDs = make(map[endpointID]struct{})
-
-		for _, endpoint := range manager.epDataStore {
-			if policy.matchesEndpointLabels(endpoint) {
-				policy.matchedEndpointIDs[endpoint.id] = struct{}{}
-			}
-		}
+		policy.updateMatchedEndpointIDs(manager.epDataStore)
 	}
 }
 
@@ -445,7 +441,10 @@ func (manager *Manager) reconcile(e eventType) {
 		return
 	}
 
-	manager.updatePoliciesMatchedEndpointIDs()
+	switch e {
+	case eventUpdateEndpoint, eventDeleteEndpoint:
+		manager.updatePoliciesMatchedEndpointIDs()
+	}
 
 	manager.regenerateGatewayConfigs()
 
