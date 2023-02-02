@@ -10,5 +10,8 @@ metadata:
     app.kubernetes.io/part-of: cilium
   annotations:
     "helm.sh/hook": post-install,post-upgrade
+    {{- with .Values.certgen.annotations.job }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{ include "clustermesh-apiserver-generate-certs.job.spec" . }}
 {{- end }}
