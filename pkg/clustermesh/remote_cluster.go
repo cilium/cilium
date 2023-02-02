@@ -239,7 +239,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				}
 				rc.swg.Stop()
 
-				remoteIdentityCache, err := allocator.WatchRemoteIdentities(backend)
+				remoteIdentityCache, err := allocator.WatchRemoteIdentities(rc.name, backend)
 				if err != nil {
 					remoteServices.Close(ctx)
 					remoteNodes.Close(ctx)
@@ -269,6 +269,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.releaseOldConnection()
 				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
 				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
+				allocator.RemoveRemoteIdentities(rc.name)
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
 				return nil
 			},
