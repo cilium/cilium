@@ -34,9 +34,6 @@ const (
 	DeleteService
 )
 
-// Used to implement the topology aware hints.
-const LabelTopologyZone = "topology.kubernetes.io/zone"
-
 // String returns the cache action as a string
 func (c CacheAction) String() string {
 	switch c {
@@ -730,7 +727,7 @@ func (s *ServiceCache) updateSelfNodeLabels(labels map[string]string,
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	zone := labels[LabelTopologyZone]
+	zone := labels[core_v1.LabelTopologyZone]
 
 	if s.selfNodeZoneLabel == zone {
 		return
