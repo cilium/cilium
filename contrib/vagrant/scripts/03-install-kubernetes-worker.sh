@@ -65,6 +65,22 @@ EOF
     sudo docker ps
 }
 
+# node_ip_addresses returns the parameter for kubelet --node-ip
+# need to cover 3 scenarios:
+# 1. $node_ipv6 == "", this happens when ipv6 is disabled
+# 2. $node_ip == $node_ipv6, this happens when IPV6_EXT=1
+# 3. $node_ip != $node_ipv6 && $node_ipv6 != ""
+# we concatenate two vars on scenario 3 and return the non-empty var for the others
+function node_ip_addresses() {
+    if [[ -z "$node_ipv6" ]]; then
+        echo -n $node_ip
+    elif [[ "$node_ipv6" == "$node_ip" ]]; then
+        echo -n $node_ipv6
+    else
+        echo -n "$node_ip,$node_ipv6"
+    fi
+}
+
 log "Installing kubernetes worker components..."
 
 set -e
@@ -335,7 +351,7 @@ ExecStart=/usr/bin/kubelet \\
   --kubeconfig=/var/lib/kubelet/kubelet.kubeconfig \\
   --fail-swap-on=false \\
   --make-iptables-util-chains=false \\
-  --node-ip=${node_ip} \\
+  --node-ip=$(node_ip_addresses) \\
   --register-node=true \\
   --serialize-image-pulls=false \\
   --tls-cert-file=/var/lib/kubelet/kubelet-kubelet-${hostname}.pem \\
