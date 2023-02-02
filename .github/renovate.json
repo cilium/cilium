@@ -59,9 +59,8 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.20",
+      "allowedVersions": "<1.21",
       "matchBaseBranches": [
-        "master",
         "v1.13"
       ]
     },
