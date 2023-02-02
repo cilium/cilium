@@ -453,7 +453,7 @@ var (
 		ReservedIdentityWorld:      labels.LabelWorld,
 		ReservedIdentityWorldIPv4:  labels.LabelWorldIPv4,
 		ReservedIdentityWorldIPv6:  labels.LabelWorldIPv6,
-		ReservedIdentityUnmanaged:  labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameUnmanaged}),
+		ReservedIdentityUnmanaged:  labels.LabelUnmanaged,
 		ReservedIdentityHealth:     labels.LabelHealth,
 		ReservedIdentityInit:       labels.NewLabelsFromModel([]string{"reserved:" + labels.IDNameInit}),
 		ReservedIdentityRemoteNode: labels.LabelRemoteNode,
