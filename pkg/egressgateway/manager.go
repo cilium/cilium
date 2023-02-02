@@ -34,6 +34,19 @@ type k8sCacheSyncedChecker interface {
 	K8sCacheIsSynced() bool
 }
 
+type eventType int
+
+const (
+	eventNone = iota
+	eventK8sSyncDone
+	eventAddPolicy
+	eventDeletePolicy
+	eventUpdateNode
+	eventDeleteNode
+	eventUpdateEndpoint
+	eventDeleteEndpoint
+)
+
 // The egressgateway manager stores the internal data tracking the node, policy,
 // endpoint, and lease mappings. It also hooks up all the callbacks to update
 // egress bpf policy map accordingly.
@@ -110,7 +123,7 @@ func (manager *Manager) runReconciliationAfterK8sSync() {
 		}
 
 		manager.Lock()
-		manager.reconcile()
+		manager.reconcile(eventK8sSyncDone)
 		manager.Unlock()
 	}()
 }
@@ -133,7 +146,7 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 
 	manager.policyConfigs[config.id] = &config
 
-	manager.reconcile()
+	manager.reconcile(eventAddPolicy)
 }
 
 // OnDeleteEgressPolicy deletes the internal state associated with the given
@@ -153,7 +166,7 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 
 	delete(manager.policyConfigs, configID)
 
-	manager.reconcile()
+	manager.reconcile(eventDeletePolicy)
 }
 
 // OnUpdateEndpoint is the event handler for endpoint additions and updates.
@@ -190,7 +203,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 
 	manager.epDataStore[epData.id] = epData
 
-	manager.reconcile()
+	manager.reconcile(eventUpdateEndpoint)
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
@@ -205,7 +218,7 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 
 	delete(manager.epDataStore, id)
 
-	manager.reconcile()
+	manager.reconcile(eventDeleteEndpoint)
 }
 
 // OnUpdateNode is the event handler for node additions and updates.
@@ -213,7 +226,7 @@ func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
 	manager.Lock()
 	defer manager.Unlock()
 	manager.nodeDataStore[node.Name] = node
-	manager.onChangeNodeLocked()
+	manager.onChangeNodeLocked(eventUpdateNode)
 }
 
 // OnDeleteNode is the event handler for node deletions.
@@ -221,10 +234,10 @@ func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
 	manager.Lock()
 	defer manager.Unlock()
 	delete(manager.nodeDataStore, node.Name)
-	manager.onChangeNodeLocked()
+	manager.onChangeNodeLocked(eventDeleteNode)
 }
 
-func (manager *Manager) onChangeNodeLocked() {
+func (manager *Manager) onChangeNodeLocked(e eventType) {
 	manager.nodes = []nodeTypes.Node{}
 	for _, n := range manager.nodeDataStore {
 		manager.nodes = append(manager.nodes, n)
@@ -232,7 +245,7 @@ func (manager *Manager) onChangeNodeLocked() {
 	sort.Slice(manager.nodes, func(i, j int) bool {
 		return manager.nodes[i].Name < manager.nodes[j].Name
 	})
-	manager.reconcile()
+	manager.reconcile(e)
 }
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
@@ -427,7 +440,7 @@ nextPolicyKey:
 //
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
-func (manager *Manager) reconcile() {
+func (manager *Manager) reconcile(e eventType) {
 	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
 		return
 	}
