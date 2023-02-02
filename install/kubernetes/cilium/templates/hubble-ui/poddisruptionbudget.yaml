@@ -4,7 +4,7 @@ apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
   name: hubble-ui
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui

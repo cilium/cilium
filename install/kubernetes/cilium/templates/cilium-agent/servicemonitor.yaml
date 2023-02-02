@@ -4,7 +4,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: cilium-agent
-  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default .Release.Namespace }}
+  namespace: {{ .Values.prometheus.serviceMonitor.namespace | default (include "cilium.namespace" .) }}
   labels:
     app.kubernetes.io/part-of: cilium
     {{- with .Values.prometheus.serviceMonitor.labels }}
@@ -20,7 +20,7 @@ spec:
       k8s-app: cilium
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ template "cilium.namespace" . }}
   endpoints:
   - port: metrics
     interval: {{ .Values.prometheus.serviceMonitor.interval | quote }}

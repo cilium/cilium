@@ -3,7 +3,7 @@ apiVersion: {{ include "cronjob.apiVersion" . }}
 kind: CronJob
 metadata:
   name: clustermesh-apiserver-generate-certs
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     k8s-app: clustermesh-apiserver-generate-certs
     app.kubernetes.io/part-of: cilium

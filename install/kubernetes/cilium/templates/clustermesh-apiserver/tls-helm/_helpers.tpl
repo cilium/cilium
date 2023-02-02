@@ -17,13 +17,13 @@ certificate would be signed by a different CA.
     {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}
-      {{- with lookup "v1" "Secret" .Release.Namespace "clustermesh-apiserver-ca-cert" }}
+      {{- with lookup "v1" "Secret" (include "cilium.namespace" .) "clustermesh-apiserver-ca-cert" }}
         {{- $crt := index .data "ca.crt" }}
         {{- $key := index .data "ca.key" }}
         {{- $ca = buildCustomCert $crt $key -}}
       {{- else }}
         {{- $_ := include "cilium.ca.setup" . -}}
-        {{- with lookup "v1" "Secret" .Release.Namespace .commonCASecretName }}
+        {{- with lookup "v1" "Secret" (include "cilium.namespace" .) .commonCASecretName }}
           {{- $crt := index .data "ca.crt" }}
           {{- $key := index .data "ca.key" }}
           {{- $ca = buildCustomCert $crt $key -}}

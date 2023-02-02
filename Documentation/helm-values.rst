@@ -1561,6 +1561,10 @@
      - Agent container name.
      - string
      - ``"cilium"``
+   * - namespaceOverride
+     - String to override release namespace for all resources
+     - string
+     - ``""``
    * - nat46x64Gateway
      - Configure standalone NAT46/NAT64 gateway
      - object
