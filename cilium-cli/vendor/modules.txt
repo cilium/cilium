@@ -138,8 +138,8 @@ github.com/cilium/cilium/pkg/safetime
 github.com/cilium/cilium/pkg/spanstat
 github.com/cilium/cilium/pkg/version
 github.com/cilium/cilium/pkg/versioncheck
-# github.com/cilium/hubble v0.10.0
-## explicit; go 1.18
+# github.com/cilium/hubble v0.11.1
+## explicit; go 1.19
 github.com/cilium/hubble/pkg/printer
 # github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9
 ## explicit; go 1.13
