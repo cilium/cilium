@@ -187,11 +187,6 @@ func configureAPI(api *restapi.CiliumAPIAPI) http.Handler {
 			return middleware.NotImplemented("operation policy.GetPolicy has not yet been implemented")
 		})
 	}
-	if api.PolicyGetPolicyResolveHandler == nil {
-		api.PolicyGetPolicyResolveHandler = policy.GetPolicyResolveHandlerFunc(func(params policy.GetPolicyResolveParams) middleware.Responder {
-			return middleware.NotImplemented("operation policy.GetPolicyResolve has not yet been implemented")
-		})
-	}
 	if api.PolicyGetPolicySelectorsHandler == nil {
 		api.PolicyGetPolicySelectorsHandler = policy.GetPolicySelectorsHandlerFunc(func(params policy.GetPolicySelectorsParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetPolicySelectors has not yet been implemented")

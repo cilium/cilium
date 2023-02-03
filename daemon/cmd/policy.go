@@ -4,10 +4,8 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	stdlog "log"
 	"net/netip"
 	"sync"
 	"time"
@@ -93,113 +91,6 @@ func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()
 	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
-}
-
-type getPolicyResolve struct {
-	daemon *Daemon
-}
-
-func NewGetPolicyResolveHandler(d *Daemon) GetPolicyResolveHandler {
-	return &getPolicyResolve{daemon: d}
-}
-
-func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /policy/resolve request")
-
-	d := h.daemon
-
-	var policyEnforcementMsg string
-	isPolicyEnforcementEnabled := true
-	fromEgress := true
-	toIngress := true
-	d.policy.Mutex.RLock()
-
-	// If policy enforcement isn't enabled, then traffic is allowed.
-	if policy.GetPolicyEnabled() == option.NeverEnforce {
-		policyEnforcementMsg = "Policy enforcement is disabled for the daemon."
-		isPolicyEnforcementEnabled = false
-	} else if policy.GetPolicyEnabled() == option.DefaultEnforcement {
-		// If there are no rules matching the set of from / to labels provided in
-		// the API request, that means that policy enforcement is not enabled
-		// for the endpoints corresponding to said sets of labels; thus, we allow
-		// traffic between these sets of labels, and do not enforce policy between them.
-		_, fromEgress = d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.TraceSelector.From.Labels))
-		toIngress, _ = d.policy.GetRulesMatching(labels.NewSelectLabelArrayFromModel(params.TraceSelector.To.Labels))
-		if !fromEgress && !toIngress {
-			policyEnforcementMsg = "Policy enforcement is disabled because " +
-				"no rules in the policy repository match any endpoint selector " +
-				"from the provided destination sets of labels."
-			isPolicyEnforcementEnabled = false
-		}
-	}
-
-	d.policy.Mutex.RUnlock()
-
-	// Return allowed verdict if policy enforcement isn't enabled between the two sets of labels.
-	if !isPolicyEnforcementEnabled {
-		buffer := new(bytes.Buffer)
-		ctx := params.TraceSelector
-		searchCtx := policy.SearchContext{
-			From:    labels.NewSelectLabelArrayFromModel(ctx.From.Labels),
-			Trace:   policy.TRACE_ENABLED,
-			To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
-			DPorts:  ctx.To.Dports,
-			Logging: stdlog.New(buffer, "", 0),
-		}
-		if ctx.Verbose {
-			searchCtx.Trace = policy.TRACE_VERBOSE
-		}
-		verdict := policyAPI.Allowed.String()
-		searchCtx.PolicyTrace("Label verdict: %s\n", verdict)
-		msg := fmt.Sprintf("%s\n  %s\n%s", searchCtx.String(), policyEnforcementMsg, buffer.String())
-		return NewGetPolicyResolveOK().WithPayload(&models.PolicyTraceResult{
-			Log:     msg,
-			Verdict: verdict,
-		})
-	}
-
-	// If we hit the following code, policy enforcement is enabled for at least
-	// one of the endpoints corresponding to the provided sets of labels, or for
-	// the daemon.
-	ingressBuffer := new(bytes.Buffer)
-
-	ctx := params.TraceSelector
-	ingressSearchCtx := policy.SearchContext{
-		Trace:   policy.TRACE_ENABLED,
-		Logging: stdlog.New(ingressBuffer, "", 0),
-		From:    labels.NewSelectLabelArrayFromModel(ctx.From.Labels),
-		To:      labels.NewSelectLabelArrayFromModel(ctx.To.Labels),
-		DPorts:  ctx.To.Dports,
-	}
-	if ctx.Verbose {
-		ingressSearchCtx.Trace = policy.TRACE_VERBOSE
-	}
-
-	egressBuffer := new(bytes.Buffer)
-	egressSearchCtx := ingressSearchCtx
-	egressSearchCtx.Logging = stdlog.New(egressBuffer, "", 0)
-
-	ingressVerdict := policyAPI.Allowed
-	egressVerdict := policyAPI.Allowed
-	d.policy.Mutex.RLock()
-	if fromEgress {
-		egressVerdict = d.policy.AllowsEgressRLocked(&egressSearchCtx)
-	}
-	if toIngress {
-		ingressVerdict = d.policy.AllowsIngressRLocked(&ingressSearchCtx)
-	}
-	d.policy.Mutex.RUnlock()
-
-	result := models.PolicyTraceResult{
-		Log: egressBuffer.String() + "\n" + ingressBuffer.String(),
-	}
-	if ingressVerdict == policyAPI.Allowed && egressVerdict == policyAPI.Allowed {
-		result.Verdict = policyAPI.Allowed.String()
-	} else {
-		result.Verdict = policyAPI.Denied.String()
-	}
-
-	return NewGetPolicyResolveOK().WithPayload(&result)
 }
 
 // PolicyAddEvent is a wrapper around the parameters for policyAdd.

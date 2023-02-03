@@ -556,18 +556,6 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
-  "/policy/resolve":
-    get:
-      summary: Resolve policy for an identity context
-      tags:
-      - policy
-      parameters:
-      - "$ref": "#/parameters/trace-selector"
-      responses:
-        '200':
-          description: Success
-          schema:
-            "$ref": "#/definitions/PolicyTraceResult"
   "/policy/selectors":
     get:
       summary: See what selectors match which identities
