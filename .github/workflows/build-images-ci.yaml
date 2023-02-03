@@ -245,7 +245,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ github.repository_owner }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_pr.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
