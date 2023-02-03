@@ -8,7 +8,9 @@
     "images/**",
     "examples/hubble/*"
   ],
-  "ignorePaths": [],
+  "ignorePaths": [
+    "images/cilium-test/Dockerfile"
+  ],
   "ignorePresets": [":prHourlyLimit2"],
   "separateMajorMinor": true,
   "separateMultipleMajor": true,
