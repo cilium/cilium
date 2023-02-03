@@ -13,7 +13,7 @@ TEST_TIMEOUT ?= 5s
 RELEASE_UID ?= $(shell id -u)
 RELEASE_GID ?= $(shell id -g)
 
-GOLANGCILINT_WANT_VERSION = 1.50.1
+GOLANGCILINT_WANT_VERSION = 1.51.0
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 $(TARGET):
