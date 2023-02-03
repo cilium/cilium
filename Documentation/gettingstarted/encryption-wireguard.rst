@@ -225,6 +225,9 @@ which may be resolved in upcoming Cilium releases:
 
 The current status of these limitations is tracked in :gh-issue:`15462`.
 
+In addition, WireGuard encryption is not currently supported in combination with
+IPv6-only clusters.
+
 Legal
 =====
 
