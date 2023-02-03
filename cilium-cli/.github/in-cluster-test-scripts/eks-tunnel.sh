@@ -28,7 +28,7 @@ sleep 10s
 [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
 # Run connectivity test
-cilium connectivity test --debug --all-flows --collect-sysdump-on-failure \
+cilium connectivity test --debug --all-flows --collect-sysdump-on-failure --external-target amazon.com \
   --test '!dns-only,!to-fqdns,!client-egress-l7,!health'
   # workaround for nslookup issues in tunnel mode causing tests to fail reliably
   # TODO: remove once:
