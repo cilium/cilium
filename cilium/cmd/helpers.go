@@ -20,9 +20,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -435,4 +437,47 @@ func mergeMaps(m1, m2 map[string]interface{}) map[string]interface{} {
 		m3[k] = v
 	}
 	return m3
+}
+
+// parseL4PortsSlice parses a given `slice` of strings. Each string should be in
+// the form of `<port>[/<protocol>]`, where the `<port>` is an integer or a port name and
+// `<protocol>` is an optional layer 4 protocol `tcp` or `udp`. In case
+// `protocol` is not present, or is set to `any`, the parsed port will be set to
+// `models.PortProtocolAny`.
+func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
+	rules := []*models.Port{}
+	for _, v := range slice {
+		vSplit := strings.Split(v, "/")
+		var protoStr string
+		switch len(vSplit) {
+		case 1:
+			protoStr = models.PortProtocolANY
+		case 2:
+			protoStr = strings.ToUpper(vSplit[1])
+			switch protoStr {
+			case models.PortProtocolTCP, models.PortProtocolUDP, models.PortProtocolSCTP, models.PortProtocolICMP, models.PortProtocolICMPV6, models.PortProtocolANY:
+			default:
+				return nil, fmt.Errorf("invalid protocol %q", protoStr)
+			}
+		default:
+			return nil, fmt.Errorf("invalid format %q. Should be <port>[/<protocol>]", v)
+		}
+		var port uint16
+		portStr := vSplit[0]
+		if !iana.IsSvcName(portStr) {
+			portUint64, err := strconv.ParseUint(portStr, 10, 16)
+			if err != nil {
+				return nil, fmt.Errorf("invalid port %q: %s", portStr, err)
+			}
+			port = uint16(portUint64)
+			portStr = ""
+		}
+		l4 := &models.Port{
+			Port:     port,
+			Name:     portStr,
+			Protocol: protoStr,
+		}
+		rules = append(rules, l4)
+	}
+	return rules, nil
 }

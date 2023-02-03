@@ -1155,27 +1155,6 @@ func init() {
         }
       }
     },
-    "/policy/resolve": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "Resolve policy for an identity context",
-        "parameters": [
-          {
-            "$ref": "#/parameters/trace-selector"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PolicyTraceResult"
-            }
-          }
-        }
-      }
-    },
     "/policy/selectors": {
       "get": {
         "tags": [
@@ -5767,32 +5746,6 @@ func init() {
               "$ref": "#/definitions/Error"
             },
             "x-go-name": "Failure"
-          }
-        }
-      }
-    },
-    "/policy/resolve": {
-      "get": {
-        "tags": [
-          "policy"
-        ],
-        "summary": "Resolve policy for an identity context",
-        "parameters": [
-          {
-            "description": "Context to provide policy evaluation on",
-            "name": "trace-selector",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/TraceSelector"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/PolicyTraceResult"
-            }
           }
         }
       }
