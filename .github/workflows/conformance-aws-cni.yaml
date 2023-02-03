@@ -68,6 +68,7 @@ env:
   region: us-east-2
   cilium_cli_version: v0.12.12
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  k8s_version: 1.24
   eksctl_version: v0.122.0
   kubectl_version: v1.23.6
 
@@ -234,6 +235,7 @@ jobs:
             metadata:
               name: ${{ env.clusterName }}
               region: ${{ env.region }}
+              version: "${{ env.k8s_version }}"
               tags:
                usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
                owner: "${{ steps.vars.outputs.owner }}"

@@ -69,6 +69,7 @@ env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   location: westeurope
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 30
+  k8s_version: 1.24
   cilium_cli_version: v0.12.12
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -223,6 +224,7 @@ jobs:
             --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ env.location }} \
+            --kubernetes-version ${{ env.k8s_version }} \
             --network-plugin none \
             --node-count 2 \
             ${{ env.cost_reduction }} \
