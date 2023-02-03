@@ -163,6 +163,16 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            host: {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }}
+            path: /healthz
+            port: 9234
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 5
         volumeMounts:
         - name: cilium-config-path
           mountPath: /tmp/cilium/config-map
