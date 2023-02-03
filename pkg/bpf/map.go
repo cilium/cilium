@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 )
 
 // MapType is an enumeration for valid BPF map types
@@ -55,8 +54,6 @@ const (
 
 var (
 	mapControllers = controller.NewManager()
-
-	supportedMapTypes *probes.MapTypes
 )
 
 func (t MapType) String() string {
@@ -138,44 +135,6 @@ func (d DesiredAction) String() string {
 	default:
 		return "unknown"
 	}
-}
-
-// GetMapType determines whether the specified map type is supported by the
-// kernel (as determined by bpftool feature checks), and if the map type is not
-// supported, returns a more primitive map type that may be used to implement
-// the map on older implementations. Otherwise, returns the specified map type.
-func GetMapType(t MapType) MapType {
-	// If the supported map types have not been set, default to the system
-	// prober. This path enables unit tests to mock out the supported map
-	// types.
-	if supportedMapTypes == nil {
-		setMapTypesFromProber(probes.NewProbeManager())
-	}
-	switch t {
-	case MapTypeLPMTrie:
-		fallthrough
-	case MapTypeLRUHash:
-		if !supportedMapTypes.HaveLruHashMapType {
-			return MapTypeHash
-		}
-	}
-	return t
-}
-
-// setMapTypesFromProber initializes the supported map types from the given
-// prober. This function is useful for testing purposes, as we require
-// injecting our own mocked prober.
-func setMapTypesFromProber(prober prober) {
-	features := prober.Probe()
-	supportedMapTypes = &features.MapTypes
-}
-
-// prober abstracts the notion of a kernel feature prober. This is useful for
-// testing purposes as it allows us to mock out the kernel, enabling control
-// control over what features are returned.
-type prober interface {
-	// Probe returns the kernel feaures available on machine.
-	Probe() probes.Features
 }
 
 var commonNameRegexps = []*regexp.Regexp{
