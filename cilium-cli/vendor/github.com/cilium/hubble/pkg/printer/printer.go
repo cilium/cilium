@@ -1,16 +1,5 @@
-// Copyright 2019-2021 Authors of Hubble
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Hubble
 
 package printer
 
@@ -90,7 +79,7 @@ func New(fopts ...Option) *Printer {
 		// initialize tabwriter since it's going to be needed
 		p.tw = tabwriter.NewWriter(opts.w, 2, 0, 3, ' ', 0)
 		p.color.disable() // the tabwriter is not compatible with colors, thus disable coloring
-	case JSONOutput, JSONPBOutput:
+	case JSONLegacyOutput, JSONPBOutput:
 		p.jsonEncoder = json.NewEncoder(p.opts.w)
 	}
 
@@ -213,6 +202,7 @@ func GetFlowType(f *pb.Flow) string {
 			l7Protocol = "http"
 		case *pb.Layer7_Dns:
 			l7Protocol = "dns"
+			l7Type += " " + l7.GetDns().ObservationSource
 		case *pb.Layer7_Kafka:
 			l7Protocol = "kafka"
 		}
@@ -225,9 +215,25 @@ func GetFlowType(f *pb.Flow) string {
 	case api.MessageTypeDrop:
 		return api.DropReason(uint8(f.GetEventType().GetSubType()))
 	case api.MessageTypePolicyVerdict:
-		return api.MessageTypeNamePolicyVerdict + ":" + api.PolicyMatchType(f.GetPolicyMatchType()).String()
+		return fmt.Sprintf("%s:%s %s",
+			api.MessageTypeNamePolicyVerdict,
+			api.PolicyMatchType(f.GetPolicyMatchType()).String(),
+			f.GetTrafficDirection().String())
+
 	case api.MessageTypeCapture:
 		return f.GetDebugCapturePoint().String()
+	case api.MessageTypeTraceSock:
+		switch f.GetSockXlatePoint() {
+		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_FWD:
+			return "post-xlate-fwd"
+		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_REV:
+			return "post-xlate-rev"
+		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_FWD:
+			return "pre-xlate-fwd"
+		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_REV:
+			return "pre-xlate-rev"
+		}
+		return f.GetSockXlatePoint().String()
 	}
 
 	return "UNKNOWN"
@@ -252,6 +258,10 @@ func (p Printer) getVerdict(f *pb.Flow) string {
 			msg = "AUDITED"
 		}
 		return p.color.verdictAudit(msg)
+	case pb.Verdict_TRACED:
+		return p.color.verdictTraced(msg)
+	case pb.Verdict_TRANSLATED:
+		return p.color.verdictTranslated(msg)
 	default:
 		return msg
 	}
@@ -351,7 +361,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 		if err != nil {
 			return fmt.Errorf("failed to write out packet: %v", err)
 		}
-	case JSONOutput:
+	case JSONLegacyOutput:
 		return p.jsonEncoder.Encode(f)
 	case JSONPBOutput:
 		return p.jsonEncoder.Encode(res)
@@ -403,7 +413,7 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 	}
 
 	switch p.opts.output {
-	case JSONOutput, JSONPBOutput:
+	case JSONPBOutput:
 		return json.NewEncoder(p.opts.werr).Encode(r)
 	case DictOutput:
 		// this is a bit crude, but in case stdout and stderr are interleaved,
@@ -553,7 +563,7 @@ func (p *Printer) WriteProtoAgentEvent(r *observerpb.GetAgentEventsResponse) err
 	}
 
 	switch p.opts.output {
-	case JSONOutput:
+	case JSONLegacyOutput:
 		return p.jsonEncoder.Encode(e)
 	case JSONPBOutput:
 		return p.jsonEncoder.Encode(r)
@@ -640,7 +650,7 @@ func fmtEndpointShort(ep *pb.Endpoint) string {
 	str := fmt.Sprintf("ID: %d", ep.GetID())
 	if ns, pod := ep.GetNamespace(), ep.GetPodName(); ns != "" && pod != "" {
 		str = fmt.Sprintf("%s/%s (%s)", ns, pod, str)
-	} else if lbls := ep.GetLabels(); len(lbls) == 1 && strings.HasPrefix("reserved:", lbls[0]) {
+	} else if lbls := ep.GetLabels(); len(lbls) == 1 && strings.HasPrefix(lbls[0], "reserved:") {
 		str = fmt.Sprintf("%s (%s)", lbls[0], str)
 	}
 
@@ -655,7 +665,7 @@ func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) err
 	}
 
 	switch p.opts.output {
-	case JSONOutput:
+	case JSONLegacyOutput:
 		return p.jsonEncoder.Encode(e)
 	case JSONPBOutput:
 		return p.jsonEncoder.Encode(r)
@@ -739,12 +749,13 @@ func (p *Printer) WriteProtoDebugEvent(r *observerpb.GetDebugEventsResponse) err
 func (p *Printer) Hostname(ip, port string, ns, pod, svc string, names []string) (host string) {
 	host = ip
 	if p.opts.enableIPTranslation {
-		if pod != "" {
+		switch {
+		case pod != "":
 			// path.Join omits the slash if ns is empty
 			host = path.Join(ns, pod)
-		} else if svc != "" {
+		case svc != "":
 			host = path.Join(ns, svc)
-		} else if len(names) != 0 {
+		case len(names) != 0:
 			host = strings.Join(names, ",")
 		}
 	}
@@ -866,7 +877,7 @@ func (p *Printer) WriteServerStatusResponse(res *observerpb.ServerStatusResponse
 		if ew.err != nil {
 			return fmt.Errorf("failed to write out server status: %v", ew.err)
 		}
-	case JSONOutput, JSONPBOutput:
+	case JSONPBOutput:
 		return p.jsonEncoder.Encode(res)
 	}
 	return nil
