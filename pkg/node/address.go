@@ -574,7 +574,7 @@ const mismatchRouterIPsMsg = "Mismatch of router IPs found during restoration. T
 func ValidatePostInit() error {
 	addrsMu.RLock()
 	defer addrsMu.RUnlock()
-	if option.Config.EnableIPv4 || option.Config.Tunnel != option.TunnelDisabled {
+	if option.Config.EnableIPv4 || option.Config.Tunnel != option.TunnelDisabled || option.Config.EnableWireguard {
 		if addrs.ipv4Address == nil {
 			return fmt.Errorf("external IPv4 node address could not be derived, please configure via --ipv4-node")
 		}
