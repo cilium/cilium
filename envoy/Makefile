@@ -29,6 +29,15 @@ install:
 ifndef DISABLE_ENVOY_INSTALLATION
 	docker create -ti --name cilium-envoy $(CILIUM_ENVOY_REF) bash
 	docker cp cilium-envoy:/usr/bin/cilium-envoy $(BINDIR)/cilium-envoy
+	GLIBC_VERSION=$$(patchelf --print-interpreter /usr/bin/cilium-envoy | sed -n 's!\(.*\)/glibc-\([0-9.]*\)/ld-linux-.*!\2!p'); \
+	if [ -n $${GLIBC_VERSION} ]; then \
+	    docker cp cilium-envoy:/usr/lib/glibc-$${GLIBC_VERSION} $(LIBDIR); \
+	    GLIBC_DIR=$(LIBDIR)/glibc-$${GLIBC_VERSION}; \
+	    LD_LINUX=$$(patchelf --print-interpreter /usr/bin/cilium-envoy); \
+	    if [ "$$(dirname $${LD_LINUX})" != "$${GLIBC_DIR}" ]; then \
+	        patchelf --set-interpreter $${GLIBC_DIR}/$$(basename $${LD_LINUX}) --set-rpath $${GLIBC_DIR} $(BINDIR)/cilium-envoy; \
+	    fi; \
+	fi
 	docker rm -fv cilium-envoy
 endif
 
