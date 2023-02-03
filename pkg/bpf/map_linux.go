@@ -548,9 +548,8 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 		os.Remove(m.path)
 	}
 
-	mapType := GetMapType(m.MapType)
-	flags := m.Flags | GetPreAllocateMapFlags(mapType)
-	fd, isNew, err := OpenOrCreateMap(m.path, mapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
+	flags := m.Flags | GetPreAllocateMapFlags(m.MapType)
+	fd, isNew, err := OpenOrCreateMap(m.path, m.MapType, m.KeySize, m.ValueSize, m.MaxEntries, flags, m.InnerID, pin)
 	if err != nil {
 		return false, err
 	}
@@ -558,7 +557,6 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 	registerMap(m.path, m)
 
 	m.fd = fd
-	m.MapType = mapType
 	m.Flags = flags
 	return isNew, nil
 }
@@ -592,7 +590,6 @@ func (m *Map) open() error {
 	registerMap(m.path, m)
 
 	m.fd = fd
-	m.MapType = GetMapType(m.MapType)
 	return nil
 }
 
@@ -1252,13 +1249,12 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 //
 // Returns true if the map was upgraded.
 func (m *Map) CheckAndUpgrade(desired *MapInfo) bool {
-	desiredMapType := GetMapType(desired.MapType)
-	desired.Flags |= GetPreAllocateMapFlags(desiredMapType)
+	desired.Flags |= GetPreAllocateMapFlags(desired.MapType)
 
 	return objCheck(
 		m.fd,
 		m.path,
-		desiredMapType,
+		desired.MapType,
 		desired.KeySize,
 		desired.ValueSize,
 		desired.MaxEntries,

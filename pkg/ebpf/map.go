@@ -110,8 +110,7 @@ func (m *Map) OpenOrCreate() error {
 		PinPath: bpf.MapPrefixPath(),
 	}
 
-	mapType := bpf.GetMapType(bpf.MapType(m.spec.Type))
-	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(mapType)
+	m.spec.Flags = m.spec.Flags | bpf.GetPreAllocateMapFlags(bpf.MapType(m.spec.Type))
 
 	path := bpf.MapPath(m.spec.Name)
 
