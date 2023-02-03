@@ -1796,7 +1796,7 @@
    * - operator.updateStrategy
      - cilium-operator update strategy
      - object
-     - ``{"rollingUpdate":{"maxSurge":1,"maxUnavailable":1},"type":"RollingUpdate"}``
+     - ``{"rollingUpdate":{"maxSurge":"25%","maxUnavailable":"50%"},"type":"RollingUpdate"}``
    * - pmtuDiscovery.enabled
      - Enable path MTU discovery to send ICMP fragmentation-needed replies to the client.
      - bool
