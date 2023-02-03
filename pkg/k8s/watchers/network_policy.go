@@ -78,7 +78,8 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
 	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
-		metrics.PolicyImportErrorsTotal.Inc()
+		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
 		}).Error("Error while parsing k8s kubernetes NetworkPolicy")
@@ -88,13 +89,15 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 
 	opts := policy.AddOptions{Replace: true, Source: metrics.LabelEventSourceK8s}
 	if _, err := k.policyManager.PolicyAdd(rules, &opts); err != nil {
-		metrics.PolicyImportErrorsTotal.Inc()
+		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(rules),
 		}).Error("Unable to add NetworkPolicy rules to policy repository")
 		return err
 	}
 
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	scopedLog.Info("NetworkPolicy successfully added")
 	return nil
 }
@@ -125,10 +128,12 @@ func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPo
 		logfields.Labels:               logfields.Repr(labels),
 	})
 	if _, err := k.policyManager.PolicyDelete(labels); err != nil {
+		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		scopedLog.WithError(err).Error("Error while deleting k8s NetworkPolicy")
 		return err
 	}
 
+	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	scopedLog.Info("NetworkPolicy successfully removed")
 	return nil
 }
