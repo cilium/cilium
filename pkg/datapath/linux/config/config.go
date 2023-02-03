@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -514,7 +515,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	if option.Config.EnableIPSec {
-		a := byteorder.NetIPv4ToHost32(node.GetIPv4())
+		nodeAddress := node.GetIPv4()
+		if nodeAddress == nil {
+			return errors.New("external IPv4 node address is required when IPSec is enabled, but none found")
+		}
+
+		a := byteorder.NetIPv4ToHost32(nodeAddress)
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 		if iface := option.Config.EncryptInterface; len(iface) != 0 {
 			link, err := netlink.LinkByName(iface[0])
