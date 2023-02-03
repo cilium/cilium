@@ -64,8 +64,8 @@ GO ?= go
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables
-GO_BUILD_FLAGS =
-GO_TEST_FLAGS =
+GO_BUILD_FLAGS = -gcflags="-d=inlstaticinit=0" # disable inline static init until https://go.dev/issue/58293 is resolved
+GO_TEST_FLAGS = -gcflags="-d=inlstaticinit=0"
 GO_CLEAN_FLAGS =
 GO_BUILD_LDFLAGS =
 # go build/test -tags values
