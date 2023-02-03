@@ -185,6 +185,7 @@ func initializeFlags() {
 
 	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
 	option.BindEnv(Vp, option.SockopsEnableName)
+	flags.MarkDeprecated(option.SockopsEnableName, "This option will be removed in v1.14")
 
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	option.BindEnv(Vp, option.ClusterIDName)
