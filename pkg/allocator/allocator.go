@@ -887,7 +887,7 @@ type AllocatorEvent struct {
 // identities. The contents are not directly accessible but will be merged into
 // the ForeachCache() function.
 type RemoteCache struct {
-	cache cache
+	cache *cache
 }
 
 // WatchRemoteKVStore starts watching an allocator base prefix the kvstore
@@ -897,14 +897,12 @@ type RemoteCache struct {
 // function. RemoteName should be unique per logical "remote".
 func (a *Allocator) WatchRemoteKVStore(remoteName string, remoteAlloc *Allocator) *RemoteCache {
 	rc := &RemoteCache{
-		cache: newCache(remoteAlloc),
+		cache: &remoteAlloc.mainCache,
 	}
 
 	a.remoteCachesMutex.Lock()
 	a.remoteCaches[remoteName] = rc
 	a.remoteCachesMutex.Unlock()
-
-	rc.cache.start()
 
 	return rc
 }
