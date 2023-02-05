@@ -475,7 +475,8 @@ func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err er
 	stats.SendMetrics()
 
 	fields := logrus.Fields{
-		logfields.Reason: ctx.Reason,
+		logfields.Reason:     ctx.Reason,
+		logfields.K8sPodName: e.GetK8sNamespaceAndPodName(),
 	}
 	for field, stat := range stats.GetMap() {
 		fields[field] = stat.Total()
