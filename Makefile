@@ -210,6 +210,7 @@ clean-container: ## Perform `make clean` for each component required in cilium-a
 
 clean: ## Perform overall cleanup for Cilium.
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
+	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./bpf/tests clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 
