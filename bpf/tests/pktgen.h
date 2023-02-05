@@ -147,15 +147,15 @@ struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 	struct ethhdr *layer;
 	int layer_idx;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ethhdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
-		return 0;
-
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
+	if (builder->cur_off + sizeof(struct ethhdr) >= MAX_PACKET_OFF)
+		return 0;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ethhdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -188,15 +188,15 @@ struct iphdr *pktgen__push_iphdr(struct pktgen *builder)
 	struct iphdr *layer;
 	int layer_idx;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct iphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct iphdr) > ctx_data_end(ctx))
-		return 0;
-
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+	if (builder->cur_off + sizeof(struct iphdr) >= MAX_PACKET_OFF)
+		return 0;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct iphdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct iphdr) > ctx_data_end(ctx))
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -241,15 +241,15 @@ struct tcphdr *pktgen__push_tcphdr(struct pktgen *builder)
 	struct tcphdr *layer;
 	int layer_idx;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct tcphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct tcphdr) > ctx_data_end(ctx))
-		return 0;
-
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct tcphdr))
+	if (builder->cur_off + sizeof(struct tcphdr) >= MAX_PACKET_OFF)
+		return 0;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct tcphdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct tcphdr) > ctx_data_end(ctx))
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -298,15 +298,15 @@ struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 	struct sctphdr *layer;
 	int layer_idx;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct sctphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct sctphdr) > ctx_data_end(ctx))
-		return 0;
-
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct sctphdr))
+	if (builder->cur_off + sizeof(struct sctphdr) >= MAX_PACKET_OFF)
+		return 0;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct sctphdr) - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + sizeof(struct sctphdr) > ctx_data_end(ctx))
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -331,15 +331,15 @@ void *pktgen__push_data_room(struct pktgen *builder, int len)
 	void *layer;
 	int layer_idx;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + len - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + len > ctx_data_end(ctx))
-		return 0;
-
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - len)
+	if (builder->cur_off + len >= MAX_PACKET_OFF)
+		return 0;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + len - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + len > ctx_data_end(ctx))
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -399,7 +399,7 @@ void pktgen__finish(const struct pktgen *builder)
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
+			if (layer_off + sizeof(struct ethhdr) >= MAX_PACKET_OFF)
 				return;
 
 			eth_layer = ctx_data(builder->ctx) + layer_off;
@@ -435,7 +435,7 @@ void pktgen__finish(const struct pktgen *builder)
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct iphdr))
+			if (layer_off + sizeof(struct iphdr) >= MAX_PACKET_OFF)
 				return;
 
 			ipv4_layer = ctx_data(builder->ctx) + layer_off;
@@ -473,7 +473,7 @@ void pktgen__finish(const struct pktgen *builder)
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
+			if (layer_off + sizeof(struct ipv6hdr) >= MAX_PACKET_OFF)
 				return;
 
 			ipv6_layer = ctx_data(builder->ctx) + builder->layer_offsets[i];
@@ -514,7 +514,7 @@ void pktgen__finish(const struct pktgen *builder)
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
-			if (layer_off >= MAX_PACKET_OFF - sizeof(struct tcphdr))
+			if (layer_off + sizeof(struct tcphdr) >= MAX_PACKET_OFF)
 				return;
 
 			tcp_layer = ctx_data(builder->ctx) + layer_off;
