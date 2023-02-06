@@ -61,12 +61,12 @@ func newGlobalServiceCache(clusterName, nodeName string) *globalServiceCache {
 }
 
 func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
-	c.mutex.Lock()
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: svc.String(),
 		logfields.ClusterName: svc.Cluster,
 	})
+
+	c.mutex.Lock()
 
 	// Validate that the global service is known
 	globalSvc, ok := c.byName[svc.NamespaceServiceName()]
