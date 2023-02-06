@@ -6,6 +6,8 @@ run:
 linters:
   disable-all: true
   enable:
+    - bodyclose
+    - gocheckcompilerdirectives
     - goerr113
     - gofmt
     - goimports
@@ -13,7 +15,10 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    - makezero
     - misspell
+    - musttag
+    - reassign
     - revive
     - staticcheck
     - typecheck
