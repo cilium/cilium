@@ -191,7 +191,7 @@ To obtain the URL to the frontend productpage service, run:
 Open that URL in your web browser and check that the application has
 been successfully deployed.  It may take several seconds before all
 services become accessible in the Istio service mesh, so you may have
-have to reload the page.
+to reload the page.
 
 Step 4: Canary and Deploy the Reviews Service V2
 ================================================
