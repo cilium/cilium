@@ -959,7 +959,7 @@ func (c *Client) ListAPIResources(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list api resources: %w", err)
 	}
-	results := make([]string, len(lists))
+	results := make([]string, 0, len(lists))
 	for _, list := range lists {
 		results = append(results, list.GroupVersion)
 	}
