@@ -580,6 +580,40 @@ func (m *VirtualHost) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetRequestMirrorPolicies() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, VirtualHostValidationError{
+						field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, VirtualHostValidationError{
+						field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return VirtualHostValidationError{
+					field:  fmt.Sprintf("RequestMirrorPolicies[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return VirtualHostMultiError(errors)
 	}
@@ -1491,6 +1525,13 @@ func (m *WeightedCluster) validate(all bool) error {
 
 	// no validation rules for RuntimeKeyPrefix
 
+	switch m.RandomValueSpecifier.(type) {
+
+	case *WeightedCluster_HeaderName:
+		// no validation rules for HeaderName
+
+	}
+
 	if len(errors) > 0 {
 		return WeightedClusterMultiError(errors)
 	}
@@ -1889,6 +1930,19 @@ func (m *RouteMatch) validate(all bool) error {
 			}
 		}
 
+	case *RouteMatch_PathSeparatedPrefix:
+
+		if !_RouteMatch_PathSeparatedPrefix_Pattern.MatchString(m.GetPathSeparatedPrefix()) {
+			err := RouteMatchValidationError{
+				field:  "PathSeparatedPrefix",
+				reason: "value does not match regex pattern \"^[^?#]+[^?#/]$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 	default:
 		err := RouteMatchValidationError{
 			field:  "PathSpecifier",
@@ -1976,6 +2030,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RouteMatchValidationError{}
+
+var _RouteMatch_PathSeparatedPrefix_Pattern = regexp.MustCompile("^[^?#]+[^?#/]$")
 
 // Validate checks the field values on CorsPolicy with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
@@ -9730,6 +9786,8 @@ func (m *RateLimit_Action_HeaderValueMatch) validate(all bool) error {
 	}
 
 	var errors []error
+
+	// no validation rules for DescriptorKey
 
 	if utf8.RuneCountInString(m.GetDescriptorValue()) < 1 {
 		err := RateLimit_Action_HeaderValueMatchValidationError{
