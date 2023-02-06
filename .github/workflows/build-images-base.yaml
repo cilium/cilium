@@ -37,7 +37,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@15c905b16b06416d2086efa066dd8e3a35cc7f98
+        uses: docker/setup-buildx-action@f03ac48505955848960e80bbb68046aa35c7b9e7
 
       - name: Set up QEMU
         id: qemu
