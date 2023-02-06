@@ -39,14 +39,13 @@ var (
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               *store.SharedStore
-	sharedOnly        bool
 )
 
 func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
 }
 
-func k8sServiceHandler(clusterName string) {
+func k8sServiceHandler(clusterName string, shared bool) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
@@ -62,7 +61,7 @@ func k8sServiceHandler(clusterName string) {
 			"shared":               event.Service.Shared,
 		}).Debug("Kubernetes service definition changed")
 
-		if sharedOnly && !event.Service.Shared {
+		if shared && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteLocalKey(context.TODO(), &svc)
 			return
@@ -100,7 +99,6 @@ type ServiceSyncConfiguration interface {
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], shared bool, cfg ServiceSyncConfiguration) {
 	log.Info("Starting to synchronize k8s services to kvstore")
-	sharedOnly = shared
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier(cfg)
 	if err != nil {
@@ -190,7 +188,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(cfg.LocalClusterName())
+		k8sServiceHandler(cfg.LocalClusterName(), shared)
 	}()
 }
 
