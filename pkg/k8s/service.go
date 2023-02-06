@@ -384,17 +384,17 @@ type Service struct {
 	TopologyAware bool
 }
 
-// DeepEqual returns true if both the receiver and 'o' are deeply equal.
+// DeepEqual returns true if s and other are deeply equal.
 func (s *Service) DeepEqual(other *Service) bool {
 	if s == nil {
 		return other == nil
 	}
 
-	if !ip.UnsortedIPListsAreEqual(s.FrontendIPs, other.FrontendIPs) {
+	if !s.deepEqual(other) {
 		return false
 	}
 
-	if s.Shared != other.Shared || s.IncludeExternal != other.IncludeExternal || s.ServiceAffinity != other.ServiceAffinity {
+	if !ip.UnsortedIPListsAreEqual(s.FrontendIPs, other.FrontendIPs) {
 		return false
 	}
 
@@ -438,7 +438,7 @@ func (s *Service) DeepEqual(other *Service) bool {
 		}
 	}
 
-	return s.deepEqual(other)
+	return true
 }
 
 // String returns the string representation of a service resource
