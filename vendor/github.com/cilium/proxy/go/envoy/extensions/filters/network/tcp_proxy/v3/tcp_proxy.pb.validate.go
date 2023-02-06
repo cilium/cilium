@@ -69,6 +69,35 @@ func (m *TcpProxy) validate(all bool) error {
 	}
 
 	if all {
+		switch v := interface{}(m.GetOnDemand()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "OnDemand",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "OnDemand",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOnDemand()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxyValidationError{
+				field:  "OnDemand",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
 		switch v := interface{}(m.GetMetadataMatch()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
@@ -767,6 +796,167 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TcpProxy_TunnelingConfigValidationError{}
+
+// Validate checks the field values on TcpProxy_OnDemand with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *TcpProxy_OnDemand) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TcpProxy_OnDemand with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TcpProxy_OnDemandMultiError, or nil if none found.
+func (m *TcpProxy_OnDemand) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TcpProxy_OnDemand) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetOdcdsConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxy_OnDemandValidationError{
+					field:  "OdcdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxy_OnDemandValidationError{
+					field:  "OdcdsConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetOdcdsConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxy_OnDemandValidationError{
+				field:  "OdcdsConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for ResourcesLocator
+
+	if all {
+		switch v := interface{}(m.GetTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxy_OnDemandValidationError{
+					field:  "Timeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxy_OnDemandValidationError{
+					field:  "Timeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxy_OnDemandValidationError{
+				field:  "Timeout",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return TcpProxy_OnDemandMultiError(errors)
+	}
+	return nil
+}
+
+// TcpProxy_OnDemandMultiError is an error wrapping multiple validation errors
+// returned by TcpProxy_OnDemand.ValidateAll() if the designated constraints
+// aren't met.
+type TcpProxy_OnDemandMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TcpProxy_OnDemandMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TcpProxy_OnDemandMultiError) AllErrors() []error { return m }
+
+// TcpProxy_OnDemandValidationError is the validation error returned by
+// TcpProxy_OnDemand.Validate if the designated constraints aren't met.
+type TcpProxy_OnDemandValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TcpProxy_OnDemandValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TcpProxy_OnDemandValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TcpProxy_OnDemandValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TcpProxy_OnDemandValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TcpProxy_OnDemandValidationError) ErrorName() string {
+	return "TcpProxy_OnDemandValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TcpProxy_OnDemandValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTcpProxy_OnDemand.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TcpProxy_OnDemandValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TcpProxy_OnDemandValidationError{}
 
 // Validate checks the field values on TcpProxy_WeightedCluster_ClusterWeight
 // with the rules defined in the proto definition for this message. If any
