@@ -610,7 +610,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		Observer:   mgr,
 	})
 	if err != nil {
-		log.WithError(err).Fatal("Unable to set up node store in etcd")
+		log.WithError(err).Fatal("Unable to set up node register store in etcd")
 	}
 
 	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
