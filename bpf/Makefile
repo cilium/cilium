@@ -5,8 +5,7 @@ include ../Makefile.defs
 
 .PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
 
-SUBDIRS = sockops custom
-
+SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
 BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})

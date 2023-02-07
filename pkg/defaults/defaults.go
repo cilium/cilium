@@ -116,9 +116,6 @@ const (
 	// DefaultCgroupRoot is the default path where cilium cgroup2 should be mounted
 	DefaultCgroupRoot = "/run/cilium/cgroupv2"
 
-	// SockopsEnable controsl whether sockmap should be used
-	SockopsEnable = false
-
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules.
 	DNSMaxIPsPerRestoredRule = 1000

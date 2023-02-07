@@ -313,6 +313,11 @@ Annotations:
   applications create new connections after the TTL specified by the upstream
   DNS server is expired.
 
+Removed Options
+~~~~~~~~~~~~~~~
+
+The ``sockops-enable`` option is removed
+
 Added Metrics
 ~~~~~~~~~~~~~
 

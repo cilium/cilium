@@ -13,7 +13,6 @@
 #include "node_config.h"
 #include "lib/common.h"
 #include "lib/maps.h"
-#include "sockops/bpf_sockops.h"
 #include "lib/nat.h"
 #include "lib/trace.h"
 #include "lib/policy_log.h"
@@ -35,7 +34,6 @@ struct endpoint_key _12;
 struct endpoint_info _13;
 struct metrics_key _14;
 struct metrics_value _15;
-struct sock_key _16;
 struct policy_key _17;
 struct policy_entry _18;
 struct ipv4_nat_entry _19;

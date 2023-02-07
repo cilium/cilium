@@ -205,7 +205,6 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            make -C tools/maptool/
             # Run with cgo disabled, LVH images don't ship with gcc.
             CGO_ENABLED=0 go test -c ./test/verifier
             docker run -t --privileged \
