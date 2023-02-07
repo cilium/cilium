@@ -21,13 +21,13 @@ jobs:
           git config --global user.email "github-actions@users.noreply.github.com"
 
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version: 1.17.13
 
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920
+        uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920 # v3.2.4
         with:
           path: $HOME/.clang
           key: llvm-10.0
@@ -38,7 +38,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends libtinfo5
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780
+        uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
           directory: $HOME/.clang
@@ -49,7 +49,7 @@ jobs:
           go get github.com/onsi/ginkgo/ginkgo@v1.12.1
 
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -66,7 +66,7 @@ jobs:
           git rebase --exec "make build -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check bpf code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: bpf-tree
         with:
           filters: |
@@ -86,7 +86,7 @@ jobs:
           git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
 
       - name: Check test code changes
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: test-tree
         with:
           filters: |
