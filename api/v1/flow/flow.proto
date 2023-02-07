@@ -427,6 +427,8 @@ message CiliumEventType {
 // FlowFilter represent an individual flow filter. All fields are optional. If
 // multiple fields are set, then all fields must match for the filter to match.
 message FlowFilter {
+    // uuid filters by a list of flow uuids.
+    repeated string uuid = 29;
     // source_ip filters by a list of source ips. Each of the source ips can be
     // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
     // "1.1.1.0/24").
