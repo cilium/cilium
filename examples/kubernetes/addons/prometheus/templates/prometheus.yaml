@@ -29,6 +29,7 @@ spec:
         - --config.file=/etc/prometheus/prometheus.yaml
         - --storage.tsdb.path=/prometheus/
         - --log.level=info
+        - --enable-feature=exemplar-storage
         image: "prom/prometheus:{{ .Values.image.prometheus.version }}"
         imagePullPolicy: IfNotPresent
         name: prometheus
