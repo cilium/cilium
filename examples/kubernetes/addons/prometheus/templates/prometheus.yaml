@@ -29,7 +29,7 @@ spec:
         - --config.file=/etc/prometheus/prometheus.yaml
         - --storage.tsdb.path=/prometheus/
         - --log.level=info
-        image: "docker.io/prom/prometheus:{{ .Values.image.prometheus.version }}"
+        image: "prom/prometheus:{{ .Values.image.prometheus.version }}"
         imagePullPolicy: IfNotPresent
         name: prometheus
         ports:
