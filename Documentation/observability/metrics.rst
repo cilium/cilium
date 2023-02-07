@@ -149,6 +149,8 @@ have it scrape all Hubble metrics from the endpoints automatically:
             regex: (.+)(?::\d+);(\d+)
             replacement: $1:$2
 
+.. _hubble_open_metrics:
+
 OpenMetrics
 -----------
 
@@ -161,7 +163,7 @@ Using OpenMetrics supports additional functionality such as Exemplars, which
 enables associating metrics with traces by embedding trace IDs into the
 exported metrics.
 
-Prometheus needs to be configured to take advantage of OpenMetrics. and will
+Prometheus needs to be configured to take advantage of OpenMetrics and will
 only use OpenMetrics format when the `exemplars storage feature is enabled
 <https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage>`_.
 
@@ -744,6 +746,12 @@ Labels
 
 Options
 """""""
+
+============== ============== =============================================================================================================
+Option Key     Option Value   Description
+============== ============== =============================================================================================================
+``exemplars``  ``true``       Include extracted trace IDs in HTTP metrics. Requires :ref:`OpenMetrics to be enabled<hubble_open_metrics>`.
+============== ============== =============================================================================================================
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
