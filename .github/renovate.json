@@ -2,15 +2,21 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base",
-    ":gitSignOff"
+    ":gitSignOff",
+    "helpers:pinGitHubActionDigests"
   ],
   "includePaths": [
+    ".github/workflows/**",
     "images/**",
     "examples/hubble/*"
   ],
   "ignorePaths": [
     "images/cilium-test/Dockerfile"
   ],
+  "ignoreDeps": [
+    "google/oss-fuzz"
+  ],
+  "pinDigests": true,
   "ignorePresets": [":prHourlyLimit2"],
   "separateMajorMinor": true,
   "separateMultipleMajor": true,
@@ -28,6 +34,24 @@
     "release-note/misc"
   ],
   "packageRules": [
+    {
+      "groupName": "all github action dependencies",
+      "groupSlug": "all-github-action",
+      "matchPaths": [
+        ".github/workflows/**"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on friday"
+      ]
+    },
     {
       "groupName": "base-images",
       "matchFiles": [
