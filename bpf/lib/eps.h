@@ -43,19 +43,6 @@ lookup_ip4_endpoint(const struct iphdr *ip4)
 	return __lookup_ip4_endpoint(ip4->daddr);
 }
 
-#ifdef SOCKMAP
-static __always_inline void *
-lookup_ip4_endpoint_policy_map(__u32 ip)
-{
-	struct endpoint_key key = {};
-
-	key.ip4 = ip;
-	key.family = ENDPOINT_KEY_IPV4;
-
-	return map_lookup_elem(&EP_POLICY_MAP, &key);
-}
-#endif
-
 /* IPCACHE_STATIC_PREFIX gets sizeof non-IP, non-prefix part of ipcache_key */
 #define IPCACHE_STATIC_PREFIX							\
 	(8 * (sizeof(struct ipcache_key) - sizeof(struct bpf_lpm_trie_key)	\

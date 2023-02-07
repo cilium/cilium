@@ -11,86 +11,6 @@
 #include "eps.h"
 #include "maps.h"
 
-#ifdef SOCKMAP
-static __always_inline int
-policy_sk_egress(__u32 identity, __u32 ip,  __u16 dport)
-{
-	void *map = lookup_ip4_endpoint_policy_map(ip);
-	int dir = CT_EGRESS;
-	__u8 proto = IPPROTO_TCP;
-	struct policy_entry *policy;
-	struct policy_key key = {
-		.sec_label = identity,
-		.dport = dport,
-		.protocol = proto,
-		.egress = !dir,
-		.pad = 0,
-	};
-
-	if (!map)
-		return CTX_ACT_OK;
-
-	/* Policy match precedence:
-	 * 1. id/proto/port  (L3/L4)
-	 * 2. ANY/proto/port (L4-only)
-	 * 3. id/proto/ANY   (L3-proto)
-	 * 4. ANY/proto/ANY  (Proto-only)
-	 * 5. id/ANY/ANY     (L3-only)
-	 * 6. ANY/ANY/ANY    (All)
-	 */
-	/* Start with L3/L4 lookup. */
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 1. id/proto/port */
-		goto policy_check_entry;
-	}
-
-	/* L4-only lookup. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 2. ANY/proto/port */
-		goto policy_check_entry;
-	}
-
-	/* Check L3-proto policy */
-	key.sec_label = identity;
-	key.dport = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 3. id/proto/ANY */
-		goto policy_check_entry;
-	}
-
-	/* Check Proto-only policy */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 4. ANY/proto/ANY */
-		goto policy_check_entry;
-	}
-
-	/* If L4 policy check misses, fall back to L3-only. */
-	key.sec_label = identity;
-	key.protocol = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 5. id/ANY/ANY */
-		goto policy_check_entry;
-	}
-
-	/* Final fallback if allow-all policy is in place. */
-	key.sec_label = 0;
-	policy = map_lookup_elem(map, &key);
-	if (likely(policy)) {					/* 6. ANY/ANY/ANY */
-		goto policy_check_entry;
-	}
-
-	return DROP_POLICY;
-
-policy_check_entry:
-	/* FIXME: Need byte counter */
-	__sync_fetch_and_add(&policy->packets, 1);
-	if (unlikely(policy->deny))
-		return DROP_POLICY_DENY;
-	return policy->proxy_port;
-}
-#else
 static __always_inline void
 account(struct __ctx_buff *ctx, struct policy_entry *policy)
 {
@@ -377,5 +297,4 @@ static __always_inline void policy_clear_mark(struct __ctx_buff *ctx)
 {
 	ctx_store_meta(ctx, CB_POLICY, 0);
 }
-#endif /* SOCKMAP */
 #endif

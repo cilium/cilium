@@ -6,7 +6,6 @@ set -eo pipefail
 
 DEV="cilium-probe"
 DIR=$(dirname $0)/../../bpf
-MAPTOOL=$(dirname $0)/../../tools/maptool/maptool
 # all known bpf programs (object files).
 # ALL_PROGS will be tested again source files to find non-tested bpf code
 ALL_TC_PROGS="bpf_lxc bpf_host bpf_network bpf_overlay"
@@ -109,19 +108,7 @@ function cg_prog_type_init {
 
 	mkdir -p ${TESTMOUNT}
 
-	# These show up in sockops progs; skip them quietly.
-	prog_types["int"]="SKIP"
-	prog_types["_version"]="SKIP"
-	prog_types["version"]="SKIP"
 	if $BPFTOOL help 2>&1 | grep -q feature; then
-		if check_macro SOCK_OPS; then
-			prog_types["sockops"]="sock_ops"
-			attach_types["sockops"]="sock_ops"
-		fi
-		if check_macro SK_MSG; then
-			prog_types["sk_msg"]="sock_ops"
-			attach_types["sk_msg"]="msg_verdict"
-		fi
 		if check_macro CGROUP_INET4_CONNECT; then
 			prog_types["from-sock4"]="sockaddr"
 			attach_types["from-sock4"]="connect4"
@@ -143,57 +130,18 @@ function cg_prog_type_init {
 			attach_types["rcv-sock6"]="recvmsg6"
 		fi
 	fi
-
-	# Hack: Get the eppolicymap and sockmap pinned
-	#
-	# Basically none of the loaders support arbitrarily creating a map
-	# of type 'hash_of_maps' right now, so we have a little tool in the
-	# repo that allows creation of this map type from the commandline.
-	#
-	# Only set it up if we determined kernel support above!
-	if [ "${#attach_types[@]}" -gt 1 ]; then
-		$MAPTOOL eppolicymap "test_cilium_ep_to_policy" 2>/dev/null
-		$MAPTOOL sockmap "test_sock_ops_map" 2>/dev/null
-	fi
 }
 
-function load_sockops_prog {
-	prog="$1"
-	pinpath="$2"
-
-	# cilium_signals is omitted from this list, because the sockops progs
-	# don't support BPF_MAP_TYPE_PERF_EVENT_ARRAY for now.
-	ALL_MAPS="cilium_ipcache cilium_ep_to_policy cilium_lxc sock_ops_map	\
-		cilium_metrics cilium_tunnel_map cilium_encrypt_state		\
-		cilium_lb6_reverse_nat cilium_lb6_services cilium_lb6_backends	\
-		cilium_lb4_reverse_nat cilium_lb4_services cilium_lb4_backends	\
-		cilium_events"
-
-	map_args=""
-	for map in $ALL_MAPS; do
-		map_args="$map_args map name test_$map pinned /sys/fs/bpf/tc/globals/test_$map"
-	done
-
-	echo "=> Loading ${p}.c:${section}..."
-	if $VERBOSE; then
-		$BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args 2>&1 || $FORCE
-	else
-		$BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args 2>/dev/null \
-		|| $BPFTOOL -m prog load "$prog.o" "$pinpath" $map_args
-	fi
-}
 
 function load_cg {
 	cg_prog_type_init
 
-	mkdir -p $TESTMOUNT/sockops
+	mkdir -p ${TESTMOUNT}
 	for p in ${CG_PROGS}; do
 		ELF_SECTIONS="$(readelf -S $DIR/${p}.o)"
 		for section in $(get_section ${p}.c); do
 			if [ "${prog_types[$section]}" == "" ]; then
 				echo "=> Skipping ${p}.c:$section"
-				continue
-			elif [ "${prog_types[$section]}" == "SKIP" ]; then
 				continue
 			elif ! echo $ELF_SECTIONS | grep -q $section; then
 				echo "=> Skipping ${p}.c:$section (not found in ELF)"
@@ -207,8 +155,6 @@ function load_cg {
 					type $prog_type \
 					attach_type $attach_type sec $section"
 				load_prog "$TC" "$args" "${p}.o:$section"
-			else
-				load_sockops_prog "$DIR/$p" "$TESTMOUNT/$p"
 			fi
 			rm -f $TESTMOUNT/$p
 		done

@@ -187,10 +187,6 @@ func initializeFlags() {
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(Vp, option.CGroupRoot)
 
-	flags.Bool(option.SockopsEnableName, defaults.SockopsEnable, "Enable sockops when kernel supported")
-	option.BindEnv(Vp, option.SockopsEnableName)
-	flags.MarkDeprecated(option.SockopsEnableName, "This option will be removed in v1.14")
-
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	option.BindEnv(Vp, option.ClusterIDName)
 
@@ -1374,7 +1370,6 @@ func initEnv() {
 	}
 
 	initClockSourceOption()
-	initSockmapOption()
 
 	if option.Config.EnableSRv6 {
 		if !option.Config.EnableIPv6 {
@@ -2054,19 +2049,6 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	restAPI.DaemonGetNodeIdsHandler = NewGetNodeIDsHandler(d.datapath.Node())
 
 	return restAPI
-}
-
-func initSockmapOption() {
-	if !option.Config.SockopsEnable {
-		return
-	}
-	if probes.HaveMapType(ebpf.SockHash) == nil &&
-		probes.HaveProgramType(ebpf.SockOps) == nil &&
-		probes.HaveProgramType(ebpf.SkMsg) == nil {
-		return
-	}
-	log.Warn("BPF Sock ops not supported by kernel. Disabling '--sockops-enable' feature.")
-	option.Config.SockopsEnable = false
 }
 
 func initClockSourceOption() {

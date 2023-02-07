@@ -106,11 +106,9 @@ a userspace proxy (Envoy) Cilium creates the following networking objects.
   will identify candidate sockets for accelerating. These include all local node connections
   (endpoint to endpoint) and any connection to a Cilium proxy.
   These identified connections will then have all messages handled by the socket
-  send/recv hook and will be accelerated using sockmap fast redirects. The fast
-  redirect ensures all policies implemented in Cilium are valid for the associated
+  send/recv hook. The fast redirect ensures all policies implemented in Cilium are valid for the associated
   socket/endpoint mapping and assuming they are sends the message directly to the
-  peer socket. This is allowed because the sockmap send/recv hooks ensures the message
-  will not need to be processed by any of the objects above.
+  peer socket.
 
 * **L7 Policy:** The L7 Policy object redirects proxy traffic to a Cilium userspace
   proxy instance. Cilium uses an Envoy instance as its userspace proxy. Envoy will

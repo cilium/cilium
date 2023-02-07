@@ -242,7 +242,6 @@ Makefile* @cilium/build
 /bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/encrypt.h @cilium/ipsec
-/bpf/sockops/Makefile* @cilium/build @cilium/loader
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli
@@ -461,7 +460,6 @@ jenkinsfiles @cilium/ci-structure
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
-/pkg/sockops/ @cilium/sig-datapath @cilium/loader
 /pkg/status/ @cilium/sig-agent
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure

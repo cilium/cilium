@@ -942,8 +942,6 @@ sleepAfterInit
 snat
 socketLB
 socketPath
-sockmap
-sockops
 sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext

@@ -352,7 +352,6 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	maps:auth\
 	maps:ctmap\
 	maps:encrypt\
-	maps:eppolicymap\
 	maps:eventsmap\
 	maps:fragmap\
 	maps:ipcache\
@@ -364,7 +363,6 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	maps:neighborsmap\
 	maps:policymap\
 	maps:signalmap\
-	maps:sockmap\
 	maps:srv6map\
 	maps:tunnel\
 	maps:vtep\

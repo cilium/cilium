@@ -209,7 +209,6 @@ jobs:
           cmd: |
             cd /host/
             make -C bpf/ clean V=0
-            make -C tools/maptool/
             go test -c ./test/verifier
             docker run -t --privileged \
               -v /sys/fs/bpf:/sys/fs/bpf \

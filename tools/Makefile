@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-SUBDIRS := alignchecker maptool mount
+SUBDIRS := alignchecker mount
 
 .PHONY: all $(SUBDIRS) clean install
 
