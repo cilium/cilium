@@ -264,6 +264,7 @@ EventTypeFilter is a filter describing a particular event type
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| uuid | [string](#string) |  | uuid is a universally unique identifier for this flow. |
 | verdict | [Verdict](#flow-Verdict) |  |  |
 | drop_reason | [uint32](#uint32) |  | **Deprecated.** only applicable to Verdict = DROPPED. deprecated in favor of drop_reason_desc. |
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
