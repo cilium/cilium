@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -58,13 +58,13 @@ jobs:
           echo ::set-output name=sha::${SHA}
 
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
       - name: Create minikube cluster with multiple nodes
-        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8
+        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8 # v0.0.11
         with:
           minikube-version: ${{ env.minikube_version }}
           network-plugin: cni
@@ -78,7 +78,7 @@ jobs:
           minikube tunnel &
 
       - name: Install Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
         with:
           go-version: 1.19.4
 
@@ -145,7 +145,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
