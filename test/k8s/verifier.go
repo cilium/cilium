@@ -154,8 +154,6 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn419Kernel, "K8sDatapathVerifier", fun
 	})
 
 	It("Runs the kernel verifier against Cilium's BPF datapath", func() {
-		res := kubectl.ExecPodCmd(helpers.DefaultNamespace, podName, "make -C tools/maptool/")
-		res.ExpectSuccess("Expected compilation of maptool to succeed")
 
 		for _, bpfProgram := range bpfPrograms {
 			file, err := os.Open(getDatapathConfigFile(bpfProgram.name))

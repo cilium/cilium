@@ -64,17 +64,6 @@ struct {
 } THROTTLE_MAP __section_maps_btf;
 #endif /* ENABLE_BANDWIDTH_MANAGER */
 
-/* Map to link endpoint id to per endpoint cilium_policy map */
-#ifdef SOCKMAP
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
-	__type(key, struct endpoint_key);
-	__type(value, int);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, ENDPOINTS_MAP_SIZE);
-} EP_POLICY_MAP __section_maps_btf;
-#endif
-
 #ifdef POLICY_MAP
 /* Per-endpoint policy enforcement map */
 struct {

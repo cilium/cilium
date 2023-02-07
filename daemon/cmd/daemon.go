@@ -65,11 +65,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -90,7 +88,6 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
-	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -270,10 +267,6 @@ func (d *Daemon) init() error {
 		log.WithError(err).WithField(logfields.Path, option.Config.StateDir).Fatal("Could not change to runtime directory")
 	}
 
-	// Remove any old sockops and re-enable with _new_ programs if flag is set
-	sockops.SockmapDisable()
-	sockops.SkmsgDisable()
-
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
@@ -285,16 +278,6 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
-		if option.Config.SockopsEnable {
-			eppolicymap.CreateEPPolicyMap()
-			if err := sockops.SockmapEnable(); err != nil {
-				return fmt.Errorf("failed to enable Sockmap: %w", err)
-			} else if err := sockops.SkmsgEnable(); err != nil {
-				return fmt.Errorf("failed to enable Sockmsg: %w", err)
-			} else {
-				sockmap.SockmapCreate()
-			}
-		}
 	}
 
 	return nil

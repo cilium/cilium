@@ -2136,10 +2136,6 @@
      - Enable socket LB
      - bool
      - ``false``
-   * - sockops
-     - Configure BPF socket operations configuration
-     - object
-     - ``{"enabled":false}``
    * - startupProbe.failureThreshold
      - failure threshold of startup probe. 105 x 2s translates to the old behaviour of the readiness probe (120s delay + 30 x 3s)
      - int

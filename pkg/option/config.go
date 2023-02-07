@@ -652,9 +652,6 @@ const (
 	// of MaxControllerInterval.
 	MaxCtrlIntervalName = "max-controller-interval"
 
-	// SockopsEnableName is the name of the option to enable sockops
-	SockopsEnableName = "sockops-enable"
-
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
 
@@ -1556,9 +1553,6 @@ type DaemonConfig struct {
 	// EnvoyLogPath specifies where to store the Envoy proxy logs when Envoy
 	// runs in the same container as Cilium.
 	EnvoyLogPath string
-
-	// EnableSockOps specifies whether to enable sockops (socket lookup).
-	SockopsEnable bool
 
 	ProcFs string
 
@@ -3020,7 +3014,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.SidecarIstioProxyImage = vp.GetString(SidecarIstioProxyImage)
 	c.UseSingleClusterRoute = vp.GetBool(SingleClusterRouteName)
 	c.SocketPath = vp.GetString(SocketPath)
-	c.SockopsEnable = vp.GetBool(SockopsEnableName)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
 	c.WriteCNIConfigurationWhenReady = vp.GetString(WriteCNIConfigurationWhenReady)
