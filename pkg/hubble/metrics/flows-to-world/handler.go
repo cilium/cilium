@@ -118,6 +118,8 @@ func (h *flowsToWorldHandler) ProcessFlow(_ context.Context, flow *flowpb.Flow) 
 			port = strconv.Itoa(int(tcp.GetDestinationPort()))
 		} else if udp := l4.GetUDP(); udp != nil {
 			port = strconv.Itoa(int(udp.GetDestinationPort()))
+		} else if sctp := l4.GetSCTP(); sctp != nil {
+			port = strconv.Itoa(int(sctp.GetDestinationPort()))
 		}
 		labels = append(labels, port)
 	}
