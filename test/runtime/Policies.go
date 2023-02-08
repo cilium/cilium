@@ -524,21 +524,21 @@ var _ = Describe("RuntimePolicies", func() {
 		// * the count for requests forwarded, and responses forwarded / received to be the same
 		// as from the prior test since the requests were denied, and thus no new requests
 		// were forwarded, and no new responses forwarded nor received.
-		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
+		checkProxyStatistics(app3EndpointID, 2, 4, 2, 4, 4)
 
 		connectivityTest(httpRequestsPublic, helpers.App3, helpers.Httpd2, true)
 
 		// Since policy allows connectivity on L3 from app3 to httpd2, and such
 		// packets are not forwarded to the proxy, we expect no changes in proxy
 		// stats.
-		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
+		checkProxyStatistics(app3EndpointID, 2, 4, 2, 4, 4)
 
 		connectivityTest(httpRequestsPrivate, helpers.App3, helpers.Httpd2, true)
 
 		// Since policy allows connectivity on L3 from app3 to httpd2, and such
 		// packets are not forwarded to the proxy, we expect no changes in proxy
 		// stats.
-		checkProxyStatistics(app3EndpointID, 2, 4, 2, 2, 2)
+		checkProxyStatistics(app3EndpointID, 2, 4, 2, 4, 4)
 	})
 
 	Context("CIDR L3 Policy", func() {
