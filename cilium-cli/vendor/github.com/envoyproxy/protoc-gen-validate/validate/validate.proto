@@ -524,7 +524,6 @@ message StringRules {
     optional uint64 max_len = 3;
 
     // LenBytes specifies that this field must be the specified number of bytes
-    // at a minimum
     optional uint64 len_bytes = 20;
 
     // MinBytes specifies that this field must be the specified number of bytes

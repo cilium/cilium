@@ -1160,6 +1160,8 @@ func (m *Http1ProtocolOptions) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for SendFullyQualifiedUrl
+
 	if len(errors) > 0 {
 		return Http1ProtocolOptionsMultiError(errors)
 	}

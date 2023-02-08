@@ -933,6 +933,35 @@ func (m *HttpConnectionManager) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetTypedHeaderValidationConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "TypedHeaderValidationConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HttpConnectionManagerValidationError{
+					field:  "TypedHeaderValidationConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTypedHeaderValidationConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HttpConnectionManagerValidationError{
+				field:  "TypedHeaderValidationConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch m.RouteSpecifier.(type) {
 
 	case *HttpConnectionManager_Rds:
@@ -2988,6 +3017,40 @@ func (m *HttpConnectionManager_InternalAddressConfig) validate(all bool) error {
 	var errors []error
 
 	// no validation rules for UnixSockets
+
+	for idx, item := range m.GetCidrRanges() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpConnectionManager_InternalAddressConfigValidationError{
+						field:  fmt.Sprintf("CidrRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpConnectionManager_InternalAddressConfigValidationError{
+						field:  fmt.Sprintf("CidrRanges[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpConnectionManager_InternalAddressConfigValidationError{
+					field:  fmt.Sprintf("CidrRanges[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
 
 	if len(errors) > 0 {
 		return HttpConnectionManager_InternalAddressConfigMultiError(errors)
