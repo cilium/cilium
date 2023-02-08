@@ -202,10 +202,6 @@ GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
 GO_VET = $(GO) vet
 GO_LIST = $(GO) list
 
-ifeq ($(BASE_IMAGE),)
-    BASE_IMAGE=scratch
-endif
-
 HELM_TOOLBOX_VERSION ?= "v1.0.1"
 HELM_TOOLBOX_SHA ?= "a1483fc036b15c290326ba7ed36b8f0b714e185913b72a6074c04225d74e034c"
 HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
