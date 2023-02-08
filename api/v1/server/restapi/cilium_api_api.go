@@ -75,6 +75,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		ServiceDeleteServiceIDHandler: service.DeleteServiceIDHandlerFunc(func(params service.DeleteServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.DeleteServiceID has not yet been implemented")
 		}),
+		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
+		}),
 		DaemonGetClusterNodesHandler: daemon.GetClusterNodesHandlerFunc(func(params daemon.GetClusterNodesParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetClusterNodes has not yet been implemented")
 		}),
@@ -254,6 +257,8 @@ type CiliumAPIAPI struct {
 	RecorderDeleteRecorderIDHandler recorder.DeleteRecorderIDHandler
 	// ServiceDeleteServiceIDHandler sets the operation handler for the delete service ID operation
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
+	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
+	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
 	DaemonGetClusterNodesHandler daemon.GetClusterNodesHandler
 	// DaemonGetConfigHandler sets the operation handler for the get config operation
@@ -437,6 +442,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.ServiceDeleteServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.DeleteServiceIDHandler")
+	}
+	if o.DaemonGetCgroupDumpMetadataHandler == nil {
+		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
 	}
 	if o.DaemonGetClusterNodesHandler == nil {
 		unregistered = append(unregistered, "daemon.GetClusterNodesHandler")
@@ -683,6 +691,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
 	o.handlers["DELETE"]["/service/{id}"] = service.NewDeleteServiceID(o.context, o.ServiceDeleteServiceIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/cgroup-dump-metadata"] = daemon.NewGetCgroupDumpMetadata(o.context, o.DaemonGetCgroupDumpMetadataHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
