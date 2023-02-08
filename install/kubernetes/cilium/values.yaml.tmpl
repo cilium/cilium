@@ -1318,6 +1318,11 @@ hubble:
       # --- The port to use when the service type is set to NodePort.
       nodePort: 31235
 
+    # -- Defines base url prefix for all hubble-ui http requests.
+    # It needs to be changed in case if ingress for hubble-ui is configured under some sub-path.
+    # Trailing `/` is required for custom path, ex. `/service-map/`
+    baseUrl: "/"
+
     # -- hubble-ui ingress configuration.
     ingress:
       enabled: false
