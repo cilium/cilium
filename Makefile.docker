@@ -88,7 +88,7 @@ ifeq ($(5),debug)
 endif
 	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
 		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
-		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		$(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE),) \
 		--build-arg NOSTRIP=$${NOSTRIP} \
 		--build-arg NOOPT=${NOOPT} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
