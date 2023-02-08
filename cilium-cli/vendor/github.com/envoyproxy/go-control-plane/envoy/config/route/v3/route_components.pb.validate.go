@@ -1194,6 +1194,8 @@ func (m *Route) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for StatPrefix
+
 	switch m.Action.(type) {
 
 	case *Route_Route:
@@ -1531,7 +1533,17 @@ func (m *WeightedCluster) validate(all bool) error {
 	switch m.RandomValueSpecifier.(type) {
 
 	case *WeightedCluster_HeaderName:
-		// no validation rules for HeaderName
+
+		if !_WeightedCluster_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
+			err := WeightedClusterValidationError{
+				field:  "HeaderName",
+				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 	}
 
@@ -1612,6 +1624,152 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = WeightedClusterValidationError{}
+
+var _WeightedCluster_HeaderName_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
+
+// Validate checks the field values on ClusterSpecifierPlugin with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ClusterSpecifierPlugin) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ClusterSpecifierPlugin with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ClusterSpecifierPluginMultiError, or nil if none found.
+func (m *ClusterSpecifierPlugin) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ClusterSpecifierPlugin) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetExtension() == nil {
+		err := ClusterSpecifierPluginValidationError{
+			field:  "Extension",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetExtension()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ClusterSpecifierPluginValidationError{
+					field:  "Extension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ClusterSpecifierPluginValidationError{
+					field:  "Extension",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetExtension()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ClusterSpecifierPluginValidationError{
+				field:  "Extension",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for IsOptional
+
+	if len(errors) > 0 {
+		return ClusterSpecifierPluginMultiError(errors)
+	}
+
+	return nil
+}
+
+// ClusterSpecifierPluginMultiError is an error wrapping multiple validation
+// errors returned by ClusterSpecifierPlugin.ValidateAll() if the designated
+// constraints aren't met.
+type ClusterSpecifierPluginMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ClusterSpecifierPluginMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ClusterSpecifierPluginMultiError) AllErrors() []error { return m }
+
+// ClusterSpecifierPluginValidationError is the validation error returned by
+// ClusterSpecifierPlugin.Validate if the designated constraints aren't met.
+type ClusterSpecifierPluginValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ClusterSpecifierPluginValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ClusterSpecifierPluginValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ClusterSpecifierPluginValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ClusterSpecifierPluginValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ClusterSpecifierPluginValidationError) ErrorName() string {
+	return "ClusterSpecifierPluginValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ClusterSpecifierPluginValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sClusterSpecifierPlugin.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ClusterSpecifierPluginValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ClusterSpecifierPluginValidationError{}
 
 // Validate checks the field values on RouteMatch with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
@@ -1934,6 +2092,36 @@ func (m *RouteMatch) validate(all bool) error {
 			}
 		}
 
+	case *RouteMatch_PathSeparatedPrefix:
+
+		if !_RouteMatch_PathSeparatedPrefix_Pattern.MatchString(m.GetPathSeparatedPrefix()) {
+			err := RouteMatchValidationError{
+				field:  "PathSeparatedPrefix",
+				reason: "value does not match regex pattern \"^[^?#]+[^?#/]$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	case *RouteMatch_PathTemplate:
+
+		if m.GetPathTemplate() != "" {
+
+			if l := utf8.RuneCountInString(m.GetPathTemplate()); l < 1 || l > 256 {
+				err := RouteMatchValidationError{
+					field:  "PathTemplate",
+					reason: "value length must be between 1 and 256 runes, inclusive",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+
 	default:
 		err := RouteMatchValidationError{
 			field:  "PathSpecifier",
@@ -2022,6 +2210,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RouteMatchValidationError{}
+
+var _RouteMatch_PathSeparatedPrefix_Pattern = regexp.MustCompile("^[^?#]+[^?#/]$")
 
 // Validate checks the field values on CorsPolicy with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
@@ -2359,6 +2549,21 @@ func (m *RouteAction) validate(all bool) error {
 		}
 	}
 
+	if m.GetPathTemplateRewrite() != "" {
+
+		if l := utf8.RuneCountInString(m.GetPathTemplateRewrite()); l < 1 || l > 256 {
+			err := RouteActionValidationError{
+				field:  "PathTemplateRewrite",
+				reason: "value length must be between 1 and 256 runes, inclusive",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	// no validation rules for AppendXForwardedHost
 
 	if all {
@@ -2413,6 +2618,35 @@ func (m *RouteAction) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return RouteActionValidationError{
 				field:  "IdleTimeout",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetEarlyDataPolicy()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RouteActionValidationError{
+					field:  "EarlyDataPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RouteActionValidationError{
+					field:  "EarlyDataPolicy",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEarlyDataPolicy()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RouteActionValidationError{
+				field:  "EarlyDataPolicy",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -2930,6 +3164,37 @@ func (m *RouteAction) validate(all bool) error {
 
 	case *RouteAction_ClusterSpecifierPlugin:
 		// no validation rules for ClusterSpecifierPlugin
+
+	case *RouteAction_InlineClusterSpecifierPlugin:
+
+		if all {
+			switch v := interface{}(m.GetInlineClusterSpecifierPlugin()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RouteActionValidationError{
+						field:  "InlineClusterSpecifierPlugin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RouteActionValidationError{
+						field:  "InlineClusterSpecifierPlugin",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetInlineClusterSpecifierPlugin()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RouteActionValidationError{
+					field:  "InlineClusterSpecifierPlugin",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
 
 	default:
 		err := RouteActionValidationError{
@@ -6326,10 +6591,12 @@ func (m *RouteAction_RequestMirrorPolicy) validate(all bool) error {
 
 	var errors []error
 
-	if utf8.RuneCountInString(m.GetCluster()) < 1 {
+	// no validation rules for Cluster
+
+	if !_RouteAction_RequestMirrorPolicy_ClusterHeader_Pattern.MatchString(m.GetClusterHeader()) {
 		err := RouteAction_RequestMirrorPolicyValidationError{
-			field:  "Cluster",
-			reason: "value length must be at least 1 runes",
+			field:  "ClusterHeader",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
 		}
 		if !all {
 			return err
@@ -6475,6 +6742,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RouteAction_RequestMirrorPolicyValidationError{}
+
+var _RouteAction_RequestMirrorPolicy_ClusterHeader_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on RouteAction_HashPolicy with the rules
 // defined in the proto definition for this message. If any rules are
@@ -8991,6 +9260,37 @@ func (m *RateLimit_Action) validate(all bool) error {
 			}
 		}
 
+	case *RateLimit_Action_MaskedRemoteAddress_:
+
+		if all {
+			switch v := interface{}(m.GetMaskedRemoteAddress()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "MaskedRemoteAddress",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "MaskedRemoteAddress",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetMaskedRemoteAddress()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RateLimit_ActionValidationError{
+					field:  "MaskedRemoteAddress",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		err := RateLimit_ActionValidationError{
 			field:  "ActionSpecifier",
@@ -9678,6 +9978,141 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RateLimit_Action_RemoteAddressValidationError{}
+
+// Validate checks the field values on RateLimit_Action_MaskedRemoteAddress
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the first error encountered is returned, or nil if
+// there are no violations.
+func (m *RateLimit_Action_MaskedRemoteAddress) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RateLimit_Action_MaskedRemoteAddress
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// RateLimit_Action_MaskedRemoteAddressMultiError, or nil if none found.
+func (m *RateLimit_Action_MaskedRemoteAddress) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RateLimit_Action_MaskedRemoteAddress) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if wrapper := m.GetV4PrefixMaskLen(); wrapper != nil {
+
+		if wrapper.GetValue() > 32 {
+			err := RateLimit_Action_MaskedRemoteAddressValidationError{
+				field:  "V4PrefixMaskLen",
+				reason: "value must be less than or equal to 32",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if wrapper := m.GetV6PrefixMaskLen(); wrapper != nil {
+
+		if wrapper.GetValue() > 128 {
+			err := RateLimit_Action_MaskedRemoteAddressValidationError{
+				field:  "V6PrefixMaskLen",
+				reason: "value must be less than or equal to 128",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return RateLimit_Action_MaskedRemoteAddressMultiError(errors)
+	}
+
+	return nil
+}
+
+// RateLimit_Action_MaskedRemoteAddressMultiError is an error wrapping multiple
+// validation errors returned by
+// RateLimit_Action_MaskedRemoteAddress.ValidateAll() if the designated
+// constraints aren't met.
+type RateLimit_Action_MaskedRemoteAddressMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RateLimit_Action_MaskedRemoteAddressMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RateLimit_Action_MaskedRemoteAddressMultiError) AllErrors() []error { return m }
+
+// RateLimit_Action_MaskedRemoteAddressValidationError is the validation error
+// returned by RateLimit_Action_MaskedRemoteAddress.Validate if the designated
+// constraints aren't met.
+type RateLimit_Action_MaskedRemoteAddressValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) ErrorName() string {
+	return "RateLimit_Action_MaskedRemoteAddressValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RateLimit_Action_MaskedRemoteAddressValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRateLimit_Action_MaskedRemoteAddress.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RateLimit_Action_MaskedRemoteAddressValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RateLimit_Action_MaskedRemoteAddressValidationError{}
 
 // Validate checks the field values on RateLimit_Action_GenericKey with the
 // rules defined in the proto definition for this message. If any rules are
