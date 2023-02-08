@@ -1399,6 +1399,21 @@ func (m *CertificateValidationContext) validate(all bool) error {
 
 	// no validation rules for OnlyVerifyLeafCertCrl
 
+	if wrapper := m.GetMaxVerifyDepth(); wrapper != nil {
+
+		if wrapper.GetValue() > 100 {
+			err := CertificateValidationContextValidationError{
+				field:  "MaxVerifyDepth",
+				reason: "value must be less than or equal to 100",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return CertificateValidationContextMultiError(errors)
 	}

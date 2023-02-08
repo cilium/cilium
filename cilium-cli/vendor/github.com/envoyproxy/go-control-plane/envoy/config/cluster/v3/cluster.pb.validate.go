@@ -3434,6 +3434,8 @@ func (m *Cluster_OriginalDstLbConfig) validate(all bool) error {
 
 	// no validation rules for UseHttpHeader
 
+	// no validation rules for HttpHeaderName
+
 	if len(errors) > 0 {
 		return Cluster_OriginalDstLbConfigMultiError(errors)
 	}

@@ -35,6 +35,240 @@ var (
 	_ = sort.Sort
 )
 
+// Validate checks the field values on ResourceLocator with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *ResourceLocator) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResourceLocator with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ResourceLocatorMultiError, or nil if none found.
+func (m *ResourceLocator) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResourceLocator) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Name
+
+	// no validation rules for DynamicParameters
+
+	if len(errors) > 0 {
+		return ResourceLocatorMultiError(errors)
+	}
+
+	return nil
+}
+
+// ResourceLocatorMultiError is an error wrapping multiple validation errors
+// returned by ResourceLocator.ValidateAll() if the designated constraints
+// aren't met.
+type ResourceLocatorMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResourceLocatorMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResourceLocatorMultiError) AllErrors() []error { return m }
+
+// ResourceLocatorValidationError is the validation error returned by
+// ResourceLocator.Validate if the designated constraints aren't met.
+type ResourceLocatorValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ResourceLocatorValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ResourceLocatorValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ResourceLocatorValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ResourceLocatorValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ResourceLocatorValidationError) ErrorName() string { return "ResourceLocatorValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ResourceLocatorValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sResourceLocator.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ResourceLocatorValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ResourceLocatorValidationError{}
+
+// Validate checks the field values on ResourceName with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ResourceName) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResourceName with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ResourceNameMultiError, or
+// nil if none found.
+func (m *ResourceName) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResourceName) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Name
+
+	if all {
+		switch v := interface{}(m.GetDynamicParameterConstraints()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResourceNameValidationError{
+					field:  "DynamicParameterConstraints",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResourceNameValidationError{
+					field:  "DynamicParameterConstraints",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDynamicParameterConstraints()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ResourceNameValidationError{
+				field:  "DynamicParameterConstraints",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ResourceNameMultiError(errors)
+	}
+
+	return nil
+}
+
+// ResourceNameMultiError is an error wrapping multiple validation errors
+// returned by ResourceName.ValidateAll() if the designated constraints aren't met.
+type ResourceNameMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResourceNameMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResourceNameMultiError) AllErrors() []error { return m }
+
+// ResourceNameValidationError is the validation error returned by
+// ResourceName.Validate if the designated constraints aren't met.
+type ResourceNameValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ResourceNameValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ResourceNameValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ResourceNameValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ResourceNameValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ResourceNameValidationError) ErrorName() string { return "ResourceNameValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ResourceNameValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sResourceName.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ResourceNameValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ResourceNameValidationError{}
+
 // Validate checks the field values on DiscoveryRequest with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -86,6 +320,40 @@ func (m *DiscoveryRequest) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	for idx, item := range m.GetResourceLocators() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocators[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocators[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DiscoveryRequestValidationError{
+					field:  fmt.Sprintf("ResourceLocators[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	// no validation rules for TypeUrl
@@ -425,6 +693,74 @@ func (m *DeltaDiscoveryRequest) validate(all bool) error {
 
 	// no validation rules for TypeUrl
 
+	for idx, item := range m.GetResourceLocatorsSubscribe() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DeltaDiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocatorsSubscribe[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DeltaDiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocatorsSubscribe[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DeltaDiscoveryRequestValidationError{
+					field:  fmt.Sprintf("ResourceLocatorsSubscribe[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetResourceLocatorsUnsubscribe() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DeltaDiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocatorsUnsubscribe[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DeltaDiscoveryRequestValidationError{
+						field:  fmt.Sprintf("ResourceLocatorsUnsubscribe[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DeltaDiscoveryRequestValidationError{
+					field:  fmt.Sprintf("ResourceLocatorsUnsubscribe[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	// no validation rules for InitialResourceVersions
 
 	// no validation rules for ResponseNonce
@@ -598,6 +934,40 @@ func (m *DeltaDiscoveryResponse) validate(all bool) error {
 
 	// no validation rules for TypeUrl
 
+	for idx, item := range m.GetRemovedResourceNames() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DeltaDiscoveryResponseValidationError{
+						field:  fmt.Sprintf("RemovedResourceNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DeltaDiscoveryResponseValidationError{
+						field:  fmt.Sprintf("RemovedResourceNames[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DeltaDiscoveryResponseValidationError{
+					field:  fmt.Sprintf("RemovedResourceNames[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	// no validation rules for Nonce
 
 	if all {
@@ -709,6 +1079,237 @@ var _ interface {
 	ErrorName() string
 } = DeltaDiscoveryResponseValidationError{}
 
+// Validate checks the field values on DynamicParameterConstraints with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *DynamicParameterConstraints) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on DynamicParameterConstraints with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// DynamicParameterConstraintsMultiError, or nil if none found.
+func (m *DynamicParameterConstraints) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicParameterConstraints) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch m.Type.(type) {
+
+	case *DynamicParameterConstraints_Constraint:
+
+		if all {
+			switch v := interface{}(m.GetConstraint()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "Constraint",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "Constraint",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConstraint()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraintsValidationError{
+					field:  "Constraint",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *DynamicParameterConstraints_OrConstraints:
+
+		if all {
+			switch v := interface{}(m.GetOrConstraints()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "OrConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "OrConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetOrConstraints()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraintsValidationError{
+					field:  "OrConstraints",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *DynamicParameterConstraints_AndConstraints:
+
+		if all {
+			switch v := interface{}(m.GetAndConstraints()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "AndConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "AndConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAndConstraints()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraintsValidationError{
+					field:  "AndConstraints",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *DynamicParameterConstraints_NotConstraints:
+
+		if all {
+			switch v := interface{}(m.GetNotConstraints()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "NotConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraintsValidationError{
+						field:  "NotConstraints",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetNotConstraints()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraintsValidationError{
+					field:  "NotConstraints",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return DynamicParameterConstraintsMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicParameterConstraintsMultiError is an error wrapping multiple
+// validation errors returned by DynamicParameterConstraints.ValidateAll() if
+// the designated constraints aren't met.
+type DynamicParameterConstraintsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicParameterConstraintsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicParameterConstraintsMultiError) AllErrors() []error { return m }
+
+// DynamicParameterConstraintsValidationError is the validation error returned
+// by DynamicParameterConstraints.Validate if the designated constraints
+// aren't met.
+type DynamicParameterConstraintsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicParameterConstraintsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicParameterConstraintsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicParameterConstraintsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicParameterConstraintsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicParameterConstraintsValidationError) ErrorName() string {
+	return "DynamicParameterConstraintsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicParameterConstraintsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicParameterConstraints.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicParameterConstraintsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicParameterConstraintsValidationError{}
+
 // Validate checks the field values on Resource with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -732,6 +1333,35 @@ func (m *Resource) validate(all bool) error {
 	var errors []error
 
 	// no validation rules for Name
+
+	if all {
+		switch v := interface{}(m.GetResourceName()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ResourceValidationError{
+					field:  "ResourceName",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ResourceValidationError{
+					field:  "ResourceName",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetResourceName()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ResourceValidationError{
+				field:  "ResourceName",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	// no validation rules for Version
 
@@ -898,6 +1528,417 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ResourceValidationError{}
+
+// Validate checks the field values on
+// DynamicParameterConstraints_SingleConstraint with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *DynamicParameterConstraints_SingleConstraint) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// DynamicParameterConstraints_SingleConstraint with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// DynamicParameterConstraints_SingleConstraintMultiError, or nil if none found.
+func (m *DynamicParameterConstraints_SingleConstraint) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicParameterConstraints_SingleConstraint) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Key
+
+	switch m.ConstraintType.(type) {
+
+	case *DynamicParameterConstraints_SingleConstraint_Value:
+		// no validation rules for Value
+
+	case *DynamicParameterConstraints_SingleConstraint_Exists_:
+
+		if all {
+			switch v := interface{}(m.GetExists()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraints_SingleConstraintValidationError{
+						field:  "Exists",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraints_SingleConstraintValidationError{
+						field:  "Exists",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetExists()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraints_SingleConstraintValidationError{
+					field:  "Exists",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		err := DynamicParameterConstraints_SingleConstraintValidationError{
+			field:  "ConstraintType",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+
+	}
+
+	if len(errors) > 0 {
+		return DynamicParameterConstraints_SingleConstraintMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicParameterConstraints_SingleConstraintMultiError is an error wrapping
+// multiple validation errors returned by
+// DynamicParameterConstraints_SingleConstraint.ValidateAll() if the
+// designated constraints aren't met.
+type DynamicParameterConstraints_SingleConstraintMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicParameterConstraints_SingleConstraintMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicParameterConstraints_SingleConstraintMultiError) AllErrors() []error { return m }
+
+// DynamicParameterConstraints_SingleConstraintValidationError is the
+// validation error returned by
+// DynamicParameterConstraints_SingleConstraint.Validate if the designated
+// constraints aren't met.
+type DynamicParameterConstraints_SingleConstraintValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicParameterConstraints_SingleConstraintValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicParameterConstraints_SingleConstraintValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicParameterConstraints_SingleConstraintValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicParameterConstraints_SingleConstraintValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicParameterConstraints_SingleConstraintValidationError) ErrorName() string {
+	return "DynamicParameterConstraints_SingleConstraintValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicParameterConstraints_SingleConstraintValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicParameterConstraints_SingleConstraint.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicParameterConstraints_SingleConstraintValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicParameterConstraints_SingleConstraintValidationError{}
+
+// Validate checks the field values on
+// DynamicParameterConstraints_ConstraintList with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *DynamicParameterConstraints_ConstraintList) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// DynamicParameterConstraints_ConstraintList with the rules defined in the
+// proto definition for this message. If any rules are violated, the result is
+// a list of violation errors wrapped in
+// DynamicParameterConstraints_ConstraintListMultiError, or nil if none found.
+func (m *DynamicParameterConstraints_ConstraintList) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicParameterConstraints_ConstraintList) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetConstraints() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, DynamicParameterConstraints_ConstraintListValidationError{
+						field:  fmt.Sprintf("Constraints[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, DynamicParameterConstraints_ConstraintListValidationError{
+						field:  fmt.Sprintf("Constraints[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return DynamicParameterConstraints_ConstraintListValidationError{
+					field:  fmt.Sprintf("Constraints[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return DynamicParameterConstraints_ConstraintListMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicParameterConstraints_ConstraintListMultiError is an error wrapping
+// multiple validation errors returned by
+// DynamicParameterConstraints_ConstraintList.ValidateAll() if the designated
+// constraints aren't met.
+type DynamicParameterConstraints_ConstraintListMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicParameterConstraints_ConstraintListMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicParameterConstraints_ConstraintListMultiError) AllErrors() []error { return m }
+
+// DynamicParameterConstraints_ConstraintListValidationError is the validation
+// error returned by DynamicParameterConstraints_ConstraintList.Validate if
+// the designated constraints aren't met.
+type DynamicParameterConstraints_ConstraintListValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicParameterConstraints_ConstraintListValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e DynamicParameterConstraints_ConstraintListValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e DynamicParameterConstraints_ConstraintListValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e DynamicParameterConstraints_ConstraintListValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicParameterConstraints_ConstraintListValidationError) ErrorName() string {
+	return "DynamicParameterConstraints_ConstraintListValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicParameterConstraints_ConstraintListValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicParameterConstraints_ConstraintList.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicParameterConstraints_ConstraintListValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicParameterConstraints_ConstraintListValidationError{}
+
+// Validate checks the field values on
+// DynamicParameterConstraints_SingleConstraint_Exists with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *DynamicParameterConstraints_SingleConstraint_Exists) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// DynamicParameterConstraints_SingleConstraint_Exists with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in
+// DynamicParameterConstraints_SingleConstraint_ExistsMultiError, or nil if
+// none found.
+func (m *DynamicParameterConstraints_SingleConstraint_Exists) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *DynamicParameterConstraints_SingleConstraint_Exists) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return DynamicParameterConstraints_SingleConstraint_ExistsMultiError(errors)
+	}
+
+	return nil
+}
+
+// DynamicParameterConstraints_SingleConstraint_ExistsMultiError is an error
+// wrapping multiple validation errors returned by
+// DynamicParameterConstraints_SingleConstraint_Exists.ValidateAll() if the
+// designated constraints aren't met.
+type DynamicParameterConstraints_SingleConstraint_ExistsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m DynamicParameterConstraints_SingleConstraint_ExistsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m DynamicParameterConstraints_SingleConstraint_ExistsMultiError) AllErrors() []error { return m }
+
+// DynamicParameterConstraints_SingleConstraint_ExistsValidationError is the
+// validation error returned by
+// DynamicParameterConstraints_SingleConstraint_Exists.Validate if the
+// designated constraints aren't met.
+type DynamicParameterConstraints_SingleConstraint_ExistsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) Field() string {
+	return e.field
+}
+
+// Reason function returns reason value.
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) Cause() error {
+	return e.cause
+}
+
+// Key function returns key value.
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) ErrorName() string {
+	return "DynamicParameterConstraints_SingleConstraint_ExistsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e DynamicParameterConstraints_SingleConstraint_ExistsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sDynamicParameterConstraints_SingleConstraint_Exists.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = DynamicParameterConstraints_SingleConstraint_ExistsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = DynamicParameterConstraints_SingleConstraint_ExistsValidationError{}
 
 // Validate checks the field values on Resource_CacheControl with the rules
 // defined in the proto definition for this message. If any rules are
