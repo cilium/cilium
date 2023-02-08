@@ -857,6 +857,10 @@
      - Resource requests and limits for the 'backend' container of the 'hubble-ui' deployment.
      - object
      - ``{}``
+   * - hubble.ui.baseUrl
+     - Defines base url prefix for all hubble-ui http requests. It needs to be changed in case if ingress for hubble-ui is configured under some sub-path. Trailing ``/`` is required for custom path, ex. ``/service-map/``
+     - string
+     - ``"/"``
    * - hubble.ui.enabled
      - Whether to enable the Hubble UI.
      - bool
