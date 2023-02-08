@@ -35,6 +35,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cgroup-dump-metadata": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve cgroup metadata for all pods",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/CgroupDumpMetadata"
+            }
+          },
+          "500": {
+            "description": "CgroupDumpMetadata get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/cluster/nodes": {
       "get": {
         "tags": [
@@ -1752,6 +1775,55 @@ func init() {
             "generic-veth",
             "portmap"
           ]
+        }
+      }
+    },
+    "CgroupContainerMetadata": {
+      "description": "cgroup container metadata",
+      "type": "object",
+      "properties": {
+        "cgroup-id": {
+          "type": "integer",
+          "format": "uint64"
+        },
+        "cgroup-path": {
+          "type": "string"
+        }
+      }
+    },
+    "CgroupDumpMetadata": {
+      "description": "cgroup full metadata",
+      "type": "object",
+      "properties": {
+        "pod-metadatas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupPodMetadata"
+          }
+        }
+      }
+    },
+    "CgroupPodMetadata": {
+      "description": "cgroup pod metadata",
+      "type": "object",
+      "properties": {
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupContainerMetadata"
+          }
+        },
+        "ips": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       }
     },
@@ -4522,6 +4594,29 @@ func init() {
   },
   "basePath": "/v1",
   "paths": {
+    "/cgroup-dump-metadata": {
+      "get": {
+        "tags": [
+          "daemon"
+        ],
+        "summary": "Retrieve cgroup metadata for all pods",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/CgroupDumpMetadata"
+            }
+          },
+          "500": {
+            "description": "CgroupDumpMetadata get failed",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Failure"
+          }
+        }
+      }
+    },
     "/cluster/nodes": {
       "get": {
         "tags": [
@@ -6421,6 +6516,55 @@ func init() {
             "generic-veth",
             "portmap"
           ]
+        }
+      }
+    },
+    "CgroupContainerMetadata": {
+      "description": "cgroup container metadata",
+      "type": "object",
+      "properties": {
+        "cgroup-id": {
+          "type": "integer",
+          "format": "uint64"
+        },
+        "cgroup-path": {
+          "type": "string"
+        }
+      }
+    },
+    "CgroupDumpMetadata": {
+      "description": "cgroup full metadata",
+      "type": "object",
+      "properties": {
+        "pod-metadatas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupPodMetadata"
+          }
+        }
+      }
+    },
+    "CgroupPodMetadata": {
+      "description": "cgroup pod metadata",
+      "type": "object",
+      "properties": {
+        "containers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CgroupContainerMetadata"
+          }
+        },
+        "ips": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       }
     },
