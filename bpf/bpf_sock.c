@@ -632,12 +632,15 @@ int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
+#ifdef ENABLE_SOCKET_LB_PEER
 __section("cgroup/getpeername4")
 int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
+#endif /* ENABLE_SOCKET_LB_PEER */
+
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
@@ -1223,12 +1226,15 @@ int cil_sock6_recvmsg(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
+#ifdef ENABLE_SOCKET_LB_PEER
 __section("cgroup/getpeername6")
 int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
+#endif /* ENABLE_SOCKET_LB_PEER */
+
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");
