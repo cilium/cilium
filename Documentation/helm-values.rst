@@ -917,6 +917,14 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - hubble.relay.gops.enabled
+     - Enable gops for hubble-relay
+     - bool
+     - ``true``
+   * - hubble.relay.gops.port
+     - Configure gops listen port for hubble-relay
+     - int
+     - ``9893``
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
