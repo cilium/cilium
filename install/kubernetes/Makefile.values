@@ -20,7 +20,7 @@ export CILIUM_NODEINIT_VERSION:=62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
 export CILIUM_OPERATOR_BASE_REPO:=quay.io/cilium/operator
 
 export ETCD_REPO:=quay.io/coreos/etcd
-export ETCD_VERSION:=v3.4.13@sha256:04833b601fa130512450afa45c4fe484fee1293634f34c7ddc231bd193c74017
+export ETCD_VERSION:=v3.4.23@sha256:a17abff8fa908eb6aaecd0367c0154b73a8a66e484100e91202319bc1d9a7cd3
 
 export HUBBLE_RELAY_REPO:=quay.io/cilium/hubble-relay
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
