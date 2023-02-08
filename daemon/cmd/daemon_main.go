@@ -2018,6 +2018,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 	// /debuginfo
 	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
 
+	// /cgroup-dump-metadata
+	restAPI.DaemonGetCgroupDumpMetadataHandler = NewGetCgroupDumpMetadataHandler(d)
+
 	// /map
 	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)
 	restAPI.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
