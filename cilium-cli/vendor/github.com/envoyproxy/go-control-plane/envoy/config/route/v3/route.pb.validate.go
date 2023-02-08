@@ -388,6 +388,10 @@ func (m *RouteConfiguration) validate(all bool) error {
 
 	}
 
+	// no validation rules for IgnorePortInHostMatching
+
+	// no validation rules for IgnorePathParametersInPathMatching
+
 	if len(errors) > 0 {
 		return RouteConfigurationMultiError(errors)
 	}
@@ -473,139 +477,6 @@ var _RouteConfiguration_InternalOnlyHeaders_Pattern = regexp.MustCompile("^[^\x0
 var _RouteConfiguration_ResponseHeadersToRemove_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 var _RouteConfiguration_RequestHeadersToRemove_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
-
-// Validate checks the field values on ClusterSpecifierPlugin with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the first error encountered is returned, or nil if there are no violations.
-func (m *ClusterSpecifierPlugin) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on ClusterSpecifierPlugin with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// ClusterSpecifierPluginMultiError, or nil if none found.
-func (m *ClusterSpecifierPlugin) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *ClusterSpecifierPlugin) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	if all {
-		switch v := interface{}(m.GetExtension()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ClusterSpecifierPluginValidationError{
-					field:  "Extension",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ClusterSpecifierPluginValidationError{
-					field:  "Extension",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetExtension()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ClusterSpecifierPluginValidationError{
-				field:  "Extension",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	// no validation rules for IsOptional
-
-	if len(errors) > 0 {
-		return ClusterSpecifierPluginMultiError(errors)
-	}
-
-	return nil
-}
-
-// ClusterSpecifierPluginMultiError is an error wrapping multiple validation
-// errors returned by ClusterSpecifierPlugin.ValidateAll() if the designated
-// constraints aren't met.
-type ClusterSpecifierPluginMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m ClusterSpecifierPluginMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m ClusterSpecifierPluginMultiError) AllErrors() []error { return m }
-
-// ClusterSpecifierPluginValidationError is the validation error returned by
-// ClusterSpecifierPlugin.Validate if the designated constraints aren't met.
-type ClusterSpecifierPluginValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e ClusterSpecifierPluginValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e ClusterSpecifierPluginValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e ClusterSpecifierPluginValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e ClusterSpecifierPluginValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e ClusterSpecifierPluginValidationError) ErrorName() string {
-	return "ClusterSpecifierPluginValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e ClusterSpecifierPluginValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sClusterSpecifierPlugin.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = ClusterSpecifierPluginValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = ClusterSpecifierPluginValidationError{}
 
 // Validate checks the field values on Vhds with the rules defined in the proto
 // definition for this message. If any rules are violated, the first error
