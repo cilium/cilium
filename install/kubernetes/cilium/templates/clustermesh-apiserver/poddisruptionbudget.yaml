@@ -11,7 +11,9 @@ metadata:
     app.kubernetes.io/name: clustermesh-apiserver
 spec:
   {{- with $component.maxUnavailable }}
+  {{- if ne . "" }}
   maxUnavailable: {{ . }}
+  {{- end }}
   {{- end }}
   {{- with $component.minAvailable }}
   minAvailable: {{ . }}

@@ -12,7 +12,9 @@ metadata:
     app.kubernetes.io/part-of: cilium
 spec:
   {{- with $component.maxUnavailable }}
+  {{- if ne . "" }}
   maxUnavailable: {{ . }}
+  {{- end }}
   {{- end }}
   {{- with $component.minAvailable }}
   minAvailable: {{ . }}
