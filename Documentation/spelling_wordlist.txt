@@ -1058,6 +1058,7 @@ virtIO
 virtio
 virtualbox
 virtualization
+virtualized
 vlan
 vlanBypass
 vmlinux
