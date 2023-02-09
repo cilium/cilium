@@ -8,6 +8,10 @@ operator:
     suffix: ""
 ipam:
   mode: kubernetes
+ipv6:
+  enabled: true
+ipv4:
+  enabled: true
 monitor-aggregation: none
 livenessProbe:
   failureThreshold: 9999
