@@ -168,7 +168,7 @@ enables associating metrics with traces by embedding trace IDs into the
 exported metrics.
 
 Prometheus needs to be configured to take advantage of OpenMetrics and will
-only use OpenMetrics format when the `exemplars storage feature is enabled
+only scrape exemplars when the `exemplars storage feature is enabled
 <https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage>`_.
 
 OpenMetrics imposes a few additional requirements on metrics names and labels,
