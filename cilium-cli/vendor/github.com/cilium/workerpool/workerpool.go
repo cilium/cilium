@@ -50,6 +50,12 @@ type WorkerPool struct {
 // New creates a new pool of workers where at most n workers process submitted
 // tasks concurrently. New panics if n ≤ 0.
 func New(n int) *WorkerPool {
+	return NewWithContext(context.Background(), n)
+}
+
+// NewWithContext creates a new pool of workers where at most n workers process submitted
+// tasks concurrently. New panics if n ≤ 0. The context is used as the parent context to the context of the task func passed to Submit.
+func NewWithContext(ctx context.Context, n int) *WorkerPool {
 	if n <= 0 {
 		panic(fmt.Sprintf("workerpool.New: n must be > 0, got %d", n))
 	}
@@ -57,7 +63,7 @@ func New(n int) *WorkerPool {
 		workers: make(chan struct{}, n),
 		tasks:   make(chan *task),
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	wp.cancel = cancel
 	go wp.run(ctx)
 	return wp
@@ -75,7 +81,8 @@ func (wp *WorkerPool) Len() int {
 
 // Submit submits f for processing by a worker. The given id is useful for
 // identifying the task once it is completed. The task f must return when the
-// context ctx is cancelled.
+// context ctx is cancelled. The context passed to task f is cancelled when
+// Close is called.
 //
 // Submit blocks until a routine start processing the task.
 //
