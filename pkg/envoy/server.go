@@ -428,7 +428,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 					SocketAddress: &envoy_config_core.SocketAddress{
 						Protocol:      envoy_config_core.SocketAddress_TCP,
 						Address:       listenerAddr,
-						Ipv4Compat:    true,
+						Ipv4Compat:    listenerAddr == listenerIPv6Address,
 						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 					},
 				},
@@ -541,7 +541,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 				SocketAddress: &envoy_config_core.SocketAddress{
 					Protocol:      envoy_config_core.SocketAddress_TCP,
 					Address:       listenerAddr,
-					Ipv4Compat:    true,
+					Ipv4Compat:    listenerAddr == listenerIPv6Address,
 					PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 				},
 			},
