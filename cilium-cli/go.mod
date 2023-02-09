@@ -16,7 +16,7 @@ require (
 	github.com/cilium/cilium v1.13.0-rc5
 	github.com/cilium/hubble v0.11.1
 	github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9
-	github.com/cilium/workerpool v1.1.3
+	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.3
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/google/gops v0.3.26
