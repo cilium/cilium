@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium-cli/clustermesh"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/status"
 )
 
 func newCmdClusterMesh() *cobra.Command {
@@ -152,6 +153,12 @@ func newCmdClusterMeshStatus() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
 
+			if params.Output == status.OutputJSON {
+				// Write status log messages to stderr to make sure they don't
+				// clutter JSON output.
+				params.Writer = os.Stderr
+			}
+
 			cm := clustermesh.NewK8sClusterMesh(k8sClient, params)
 			if _, err := cm.Status(context.Background()); err != nil {
 				fatalf("Unable to determine status:  %s", err)
@@ -163,6 +170,7 @@ func newCmdClusterMeshStatus() *cobra.Command {
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
 	cmd.Flags().BoolVar(&params.SkipServiceCheck, "skip-service-check", false, "Do not require service IP of remote cluster to be available")
+	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 
 	return cmd
 }

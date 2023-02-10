@@ -26,6 +26,11 @@ const (
 	Reset   = "\033[0m"
 )
 
+const (
+	OutputJSON    = "json"
+	OutputSummary = "summary"
+)
+
 // MapCount is a map to count number of occurrences of a string
 type MapCount map[string]int
 
@@ -35,10 +40,10 @@ type MapMapCount map[string]MapCount
 // PodStateCount counts the number of pods in the k8s cluster
 type PodsCount struct {
 	// All is the number of all pods in the k8s cluster
-	All int
+	All int `json:"all"`
 
 	// ByCilium is the number of all the pods in the k8s cluster
-	ByCilium int
+	ByCilium int `json:"by_cilium"`
 }
 
 // PodStateCount counts the number of pods in a particular state
@@ -77,29 +82,29 @@ type ErrorCountMapMap map[string]ErrorCountMap
 type Status struct {
 	// ImageCount is a map counting the number of images in use indexed by
 	// the image name
-	ImageCount MapMapCount
+	ImageCount MapMapCount `json:"image_count,omitempty"`
 
 	// PhaseCount is a map counting the number of pods in each phase
 	// (running, failing, scheduled, ...)
-	PhaseCount MapMapCount
+	PhaseCount MapMapCount `json:"phase_count,omitempty"`
 
 	// PodState counts the number of pods matching conditions such as
 	// desired, ready, available, and unavailable
-	PodState PodStateMap
+	PodState PodStateMap `json:"pod_state,omitempty"`
 
 	// PodsCount is the number of pods in the k8s cluster
 	// all pods, and pods managed by cilium
-	PodsCount PodsCount
+	PodsCount PodsCount `json:"pods_count,omitempty"`
 
-	CiliumStatus CiliumStatusMap
+	CiliumStatus CiliumStatusMap `json:"cilium_status,omitempty"`
 
 	// Errors is the aggregated errors and warnings of all pods of a
 	// particular deployment type
-	Errors ErrorCountMapMap
+	Errors ErrorCountMapMap `json:"errors,omitempty"`
 
 	// CollectionErrors is the errors that accumulated while collecting the
 	// status
-	CollectionErrors []error
+	CollectionErrors []error `json:"collection_errors,omitempty"`
 
 	mutex *sync.Mutex
 }

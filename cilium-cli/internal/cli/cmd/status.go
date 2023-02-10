@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -29,10 +31,21 @@ func newCmdStatus() *cobra.Command {
 			}
 
 			s, err := collector.Status(context.Background())
-			// Report the most recent status even if an error occurred.
-			fmt.Print(s.Format())
 			if err != nil {
+				// Report the most recent status even if an error occurred.
+				fmt.Fprint(os.Stderr, s.Format())
 				fatalf("Unable to determine status:  %s", err)
+			}
+			if params.Output == status.OutputJSON {
+				jsonStatus, err := json.MarshalIndent(s, "", " ")
+				if err != nil {
+					// Report the most recent status even if an error occurred.
+					fmt.Fprint(os.Stderr, s.Format())
+					fatalf("Unable to marshal status to JSON:  %s", err)
+				}
+				fmt.Println(string(jsonStatus))
+			} else {
+				fmt.Print(s.Format())
 			}
 			return err
 		},
@@ -43,6 +56,7 @@ func newCmdStatus() *cobra.Command {
 	cmd.Flags().IntVar(&params.WorkerCount,
 		"worker-count", status.DefaultWorkerCount,
 		"The number of workers to use")
+	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 
 	return cmd
 }
