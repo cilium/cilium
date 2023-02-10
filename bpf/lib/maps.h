@@ -7,6 +7,7 @@
 #include "common.h"
 #include "ipv6.h"
 #include "ids.h"
+#include "ip_address.h"
 
 #include "bpf/compiler.h"
 
@@ -170,15 +171,7 @@ struct ipcache_key {
 	__u16 pad1;
 	__u8 cluster_id;
 	__u8 family;
-	union {
-		struct {
-			__u32		ip4;
-			__u32		pad4;
-			__u32		pad5;
-			__u32		pad6;
-		};
-		union v6addr	ip6;
-	};
+        union ip_address address;
 } __packed;
 
 /* Global IP -> Identity map for applying egress label-based policy */
@@ -203,15 +196,7 @@ struct node_key {
 	__u16 pad1;
 	__u8 pad2;
 	__u8 family;
-	union {
-		struct {
-			__u32 ip4;
-			__u32 pad4;
-			__u32 pad5;
-			__u32 pad6;
-		};
-		union v6addr    ip6;
-	};
+	union ip_address address;
 };
 
 struct {
