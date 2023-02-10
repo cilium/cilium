@@ -556,6 +556,11 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 	// If given cep object isn't packed in any of the CES. find a new ces
 	// to pack this cep.
 	cb, cesName := func() (*cesTracker, string) {
+		// The identityLock and backendMutex locks always need to be acquired in the
+		// same order to avoid deadlocks. First identityLock and then backendMutex,
+		// because identityLock is a higher level lock of cesManagerIdentity which
+		// contains cesTrackers with backendMutex locks within it.
+		c.identityLock.RLock()
 		// get first available CES
 		if cess, exist := c.identityToCES[cep.IdentityID]; exist {
 			for _, ces := range cess {
@@ -565,9 +570,12 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 					continue
 				}
 				defer ces.backendMutex.RUnlock()
+				defer c.identityLock.RUnlock()
 				return ces, ces.ces.GetName()
 			}
 		}
+		c.identityLock.RUnlock()
+
 		// allocate a new cesTracker and return
 		ces := c.createCES("")
 		// Update the namespace to CES
