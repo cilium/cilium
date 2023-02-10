@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -468,6 +469,7 @@ type Parameters struct {
 	ConfigOverwrites     []string
 	Retries              int
 	HelmValuesSecretName string
+	Output               string
 }
 
 func (p Parameters) validateParams() error {
@@ -629,16 +631,16 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 }
 
 type accessInformation struct {
-	ServiceIPs           []string
-	ServicePort          int
-	ClusterID            string
-	ClusterName          string
-	CA                   []byte
-	ClientCert           []byte
-	ClientKey            []byte
-	ExternalWorkloadCert []byte
-	ExternalWorkloadKey  []byte
-	Tunnel               string
+	ServiceIPs           []string `json:"service_ips,omitempty"`
+	ServicePort          int      `json:"service_port,omitempty"`
+	ClusterID            string   `json:"cluster_id,omitempty"`
+	ClusterName          string   `json:"cluster_name,omitempty"`
+	CA                   []byte   `json:"ca,omitempty"`
+	ClientCert           []byte   `json:"client_cert,omitempty"`
+	ClientKey            []byte   `json:"client_key,omitempty"`
+	ExternalWorkloadCert []byte   `json:"external_workload_cert,omitempty"`
+	ExternalWorkloadKey  []byte   `json:"external_workload_key,omitempty"`
+	Tunnel               string   `json:"tunnel,omitempty"`
 }
 
 func (ai *accessInformation) etcdConfiguration() string {
@@ -1042,9 +1044,9 @@ func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
 }
 
 type Status struct {
-	AccessInformation *accessInformation
-	Service           *corev1.Service
-	Connectivity      *ConnectivityStatus
+	AccessInformation *accessInformation  `json:"access_information,omitempty"`
+	Service           *corev1.Service     `json:"service,omitempty"`
+	Connectivity      *ConnectivityStatus `json:"connectivity,omitempty"`
 }
 
 func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, getExternalWorkloadSecret bool) (*accessInformation, error) {
@@ -1104,23 +1106,23 @@ func (k *K8sClusterMesh) waitForDeployment(ctx context.Context) error {
 }
 
 type StatisticalStatus struct {
-	Min int64
-	Avg float64
-	Max int64
+	Min int64   `json:"min,omitempty"`
+	Avg float64 `json:"avg,omitempty"`
+	Max int64   `json:"max,omitempty"`
 }
 
 type ClusterStats struct {
-	Configured int
-	Connected  int
+	Configured int `json:"configured,omitempty"`
+	Connected  int `json:"connected,omitempty"`
 }
 
 type ConnectivityStatus struct {
-	GlobalServices StatisticalStatus
-	Connected      StatisticalStatus
-	Clusters       map[string]*ClusterStats
-	Total          int64
-	NotReady       int64
-	Errors         status.ErrorCountMapMap
+	GlobalServices StatisticalStatus        `json:"global_services,omitempty"`
+	Connected      StatisticalStatus        `json:"connected,omitempty"`
+	Clusters       map[string]*ClusterStats `json:"clusters,omitempty"`
+	Total          int64                    `json:"total,omitempty"`
+	NotReady       int64                    `json:"not_ready,omitempty"`
+	Errors         status.ErrorCountMapMap  `json:"errors,omitempty"`
 }
 
 func (c *ConnectivityStatus) addError(pod, cluster string, err error) {
@@ -1295,6 +1297,15 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 	}
 
 	s.Connectivity, err = k.statusConnectivity(ctx)
+
+	if k.params.Output == status.OutputJSON {
+		jsonStatus, err := json.MarshalIndent(s, "", " ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal status to JSON")
+		}
+		fmt.Println(string(jsonStatus))
+		return s, nil
+	}
 
 	if s.Connectivity != nil {
 		if s.Connectivity.NotReady > 0 {
