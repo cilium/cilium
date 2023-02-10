@@ -216,7 +216,7 @@ Requirements for IPsec
 The :ref:`encryption_ipsec` feature requires a lot of kernel configuration
 options, most of which to enable the actual encryption. Note that the
 specific options required depend on the algorithm. The list below
-corresponds to requirements for GMC-128-AES.
+corresponds to requirements for GCM-128-AES.
 
 ::
 
