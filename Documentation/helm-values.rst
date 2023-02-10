@@ -917,6 +917,14 @@
      - Additional hubble-relay environment variables.
      - list
      - ``[]``
+   * - hubble.relay.gops.enabled
+     - Enable gops for hubble-relay
+     - bool
+     - ``true``
+   * - hubble.relay.gops.port
+     - Configure gops listen port for hubble-relay
+     - int
+     - ``9893``
    * - hubble.relay.image
      - Hubble-relay container image.
      - object
@@ -1244,7 +1252,11 @@
    * - hubble.ui.service
      - hubble-ui service configuration.
      - object
-     - ``{"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+   * - hubble.ui.service.annotations
+     - Annotations to be added for the Hubble UI service
+     - object
+     - ``{}``
    * - hubble.ui.service.nodePort
      - - The port to use when the service type is set to NodePort.
      - int

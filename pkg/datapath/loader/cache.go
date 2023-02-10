@@ -235,7 +235,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 			Err:  err,
 		}
 	}
-
+	defer f.Close()
 	if err = o.ConfigWriter.WriteEndpointConfig(f, cfg); err != nil {
 		return &os.PathError{
 			Op:   "failed to write template header",
