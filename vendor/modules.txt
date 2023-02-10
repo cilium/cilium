@@ -725,7 +725,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.10.0
+# github.com/osrg/gobgp/v3 v3.11.0
 ## explicit; go 1.18
 github.com/osrg/gobgp/v3/api
 github.com/osrg/gobgp/v3/internal/pkg/config

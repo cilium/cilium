@@ -254,7 +254,7 @@ func (manager *TableManager) handleMacMobility(path *Path) []*Path {
 					break
 				}
 			}
-			return d.ESI, d.ETag, d.MacAddress, seq, p.info.source.Address
+			return d.ESI, d.ETag, d.MacAddress, seq, p.GetSource().Address
 		}
 		e1, et1, m1, s1, i1 := f(path)
 		e2, et2, m2, s2, i2 := f(path2)

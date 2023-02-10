@@ -1147,7 +1147,7 @@ type ZebraState struct {
 	MplsLabelRangeSize uint32 `mapstructure:"mpls-label-range-size" json:"mpls-label-range-size,omitempty"`
 	// original -> gobgp:software-name
 	// Configure zebra software name.
-	// frr4, cumulus, frr6, frr7, frr7.2 and frr7.3 can be used.
+	// frr4, cumulus, frr6, frr7, frr7.2, frr7.3, frr7.4, frr7.5, frr8, frr8.1 can be used.
 	SoftwareName string `mapstructure:"software-name" json:"software-name,omitempty"`
 }
 
@@ -1177,7 +1177,7 @@ type ZebraConfig struct {
 	MplsLabelRangeSize uint32 `mapstructure:"mpls-label-range-size" json:"mpls-label-range-size,omitempty"`
 	// original -> gobgp:software-name
 	// Configure zebra software name.
-	// frr4, cumulus, frr6, frr7, frr7.2 and frr7.3 can be used.
+	// frr4, cumulus, frr6, frr7, frr7.2, frr7.3, frr7.4, frr7.5, frr8, frr8.1 can be used.
 	SoftwareName string `mapstructure:"software-name" json:"software-name,omitempty"`
 }
 
@@ -3181,6 +3181,9 @@ type NeighborConfig struct {
 	NeighborInterface string `mapstructure:"neighbor-interface" json:"neighbor-interface,omitempty"`
 	// original -> gobgp:vrf
 	Vrf string `mapstructure:"vrf" json:"vrf,omitempty"`
+	// original -> gobgp:send-software-version
+	// gobgp:send-software-version's original type is boolean.
+	SendSoftwareVersion bool `mapstructure:"send-software-version" json:"send-software-version,omitempty"`
 }
 
 func (lhs *NeighborConfig) Equal(rhs *NeighborConfig) bool {
@@ -3224,6 +3227,9 @@ func (lhs *NeighborConfig) Equal(rhs *NeighborConfig) bool {
 		return false
 	}
 	if lhs.Vrf != rhs.Vrf {
+		return false
+	}
+	if lhs.SendSoftwareVersion != rhs.SendSoftwareVersion {
 		return false
 	}
 	return true
@@ -4129,7 +4135,6 @@ type AfiSafi struct {
 	// original -> gobgp:add-paths
 	// add-paths configuration options related to a particular AFI-SAFI.
 	AddPaths AddPaths `mapstructure:"add-paths" json:"add-paths,omitempty"`
-	// original -> bgp-mp:ipv4-mup
 }
 
 func (lhs *AfiSafi) Equal(rhs *AfiSafi) bool {
