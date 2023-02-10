@@ -44,6 +44,9 @@ type K8sStatusParameters struct {
 
 	// The number of workers to use.
 	WorkerCount int
+
+	// The output format
+	Output string
 }
 
 type K8sStatusCollector struct {
