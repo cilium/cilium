@@ -96,10 +96,11 @@ the configurations specified in the CiliumLocalRedirectPolicy.
 
 .. parsed-literal::
 
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
-    $ kubectl get po
-    NAME                             READY   STATUS    RESTARTS   AGE
-    pod/mediabot                     1/1     Running   0          14s
+   $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes-dns/dns-sw-app.yaml
+   $ kubectl wait pod/mediabot --for=condition=Ready
+   $ kubectl get pods
+   NAME                             READY   STATUS    RESTARTS   AGE
+   pod/mediabot                     1/1     Running   0          14s
 
 Create Cilium Local Redirect Policy Custom Resources
 =====================================================
