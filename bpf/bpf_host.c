@@ -8,6 +8,7 @@
 #include <ep_config.h>
 
 #define IS_BPF_HOST 1
+#define TEST_CHANGE 1
 
 #define EVENT_SOURCE HOST_EP_ID
 
