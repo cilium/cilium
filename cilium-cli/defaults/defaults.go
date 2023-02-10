@@ -10,6 +10,7 @@ const (
 	AgentServiceAccountName = "cilium"
 	AgentClusterRoleName    = "cilium"
 	AgentSecretsRoleName    = "cilium-secrets"
+	AgentConfigRoleName     = "cilium-config-agent"
 	AgentDaemonSetName      = "cilium"
 	AgentPodSelector        = "k8s-app=cilium"
 	AgentResourceQuota      = "cilium-resource-quota"
