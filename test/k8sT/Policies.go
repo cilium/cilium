@@ -1803,7 +1803,10 @@ var _ = SkipDescribeIf(func() bool {
 					By("Reconfiguring Cilium to enable BPF TProxy")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"bpf.tproxy": "true",
+							// bpf tproxy socket lookup fails on sockets
+							// that have SO_REUSEPORT on, so disable for
+							// now.
+							// "bpf.tproxy": "true",
 						})
 				}
 			})
