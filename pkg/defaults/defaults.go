@@ -344,6 +344,10 @@ const (
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false
 
+	// EnableBPFFIBCustomRules is the value for option.EnableBPFFIBCustomRules.
+	// It is disabled by default for backwards compatibility.
+	EnableBPFFIBCustomRules = false
+
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
 	// disabled by default to annotate kubernetes node and can be enabled using
 	// the provided option.

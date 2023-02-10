@@ -907,6 +907,8 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
 		if len(option.Config.GetDevices()) == 1 {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+		} else if option.Config.EnableBPFFIBCustomRules {
+			fmt.Fprintf(fw, "#define ENABLE_BPF_FIB_CUSTOM_RULES 1\n")
 		}
 	}
 

@@ -86,6 +86,7 @@ cilium-agent [flags]
       --enable-bbr                                              Enable BBR for the bandwidth manager
       --enable-bgp-control-plane                                Enable the BGP control plane.
       --enable-bpf-clock-probe                                  Enable BPF clock source probing for more efficient tick retrieval
+      --enable-bpf-custom-rules                                 Use custom fib rule lookup for BPF Host Routing multi-device deployments
       --enable-bpf-masquerade                                   Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                                       Enable BPF-based proxy redirection, if support available
       --enable-cilium-endpoint-slice                            If set to true, CiliumEndpointSlice feature is enabled and cilium agent watch for CiliumEndpointSlice instead of CiliumEndpoint to update the IPCache.

@@ -11,6 +11,15 @@
 #include "neigh.h"
 #include "l3.h"
 
+#ifdef ENABLE_BPF_FIB_CUSTOM_RULES
+/* For multi-device deployments we use custom FIB rule to perform a FIB 
+* lookup prior to the redirect
+*/
+#define REDIRECT_FIB_LOOKUP_FLAG 0
+#else
+#define REDIRECT_FIB_LOOKUP_FLAG BPF_FIB_LOOKUP_DIRECT
+#endif
+
 static __always_inline int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
@@ -59,7 +68,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 
 #ifndef ENABLE_SKIP_FIB
 	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
-			 BPF_FIB_LOOKUP_DIRECT);
+			 REDIRECT_FIB_LOOKUP_FLAG);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
 		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {

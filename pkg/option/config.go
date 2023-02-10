@@ -814,6 +814,9 @@ const (
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
 
+	// EnableBPFFIBCustomRules enables lookup custom fib rule when use BPF Host Routing
+	EnableBPFFIBCustomRules = "enable-bpf-custom-rules"
+
 	// ExcludeLocalAddress excludes certain addresses to be recognized as a
 	// local address
 	ExcludeLocalAddress = "exclude-local-address"
@@ -1862,6 +1865,9 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
+	// EnableBPFFIBCustomRules enables lookup custom fib rule when use BPF Host Routing
+	EnableBPFFIBCustomRules bool
+
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
@@ -2350,6 +2356,7 @@ var (
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
+		EnableBPFFIBCustomRules:      defaults.EnableBPFFIBCustomRules,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
 		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
@@ -2899,6 +2906,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
+	c.EnableBPFFIBCustomRules = vp.GetBool(EnableBPFFIBCustomRules)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
 	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)

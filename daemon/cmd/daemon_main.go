@@ -237,6 +237,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(Vp, option.EnableEndpointRoutes)
 
+	flags.Bool(option.EnableBPFFIBCustomRules, defaults.EnableBPFFIBCustomRules, "Use custom fib rule lookup for BPF Host Routing multi-device deployments")
+	option.BindEnv(Vp, option.EnableBPFFIBCustomRules)
+
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
 	option.BindEnv(Vp, option.EnableHealthChecking)
 
