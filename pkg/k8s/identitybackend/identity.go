@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -216,8 +217,9 @@ func (c *crdLock) Comparator() interface{} {
 	return nil
 }
 
-// get returns the first identity found for the given set of labels as we might
-// have duplicated entries identities for the same set of labels.
+// get returns the identity found for the given set of labels.
+// In the case of duplicate entries, return an identity entry
+// from a sorted list.
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *v2.CiliumIdentity {
 	if c.Store == nil {
 		return nil
@@ -227,6 +229,20 @@ func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *v2.Ci
 	if err != nil || len(identities) == 0 {
 		return nil
 	}
+
+	sort.Slice(identities, func(i, j int) bool {
+		left, ok := identities[i].(*v2.CiliumIdentity)
+		if !ok {
+			return false
+		}
+
+		right, ok := identities[j].(*v2.CiliumIdentity)
+		if !ok {
+			return false
+		}
+
+		return left.CreationTimestamp.Before(&right.CreationTimestamp)
+	})
 
 	for _, identityObject := range identities {
 		identity, ok := identityObject.(*v2.CiliumIdentity)

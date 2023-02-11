@@ -1,4 +1,4 @@
-package toml
+package characters
 
 import (
 	"unicode/utf8"
@@ -32,7 +32,7 @@ func (u utf8Err) Zero() bool {
 // 0x9 => tab, ok
 // 0xA - 0x1F => invalid
 // 0x7F => invalid
-func utf8TomlValidAlreadyEscaped(p []byte) (err utf8Err) {
+func Utf8TomlValidAlreadyEscaped(p []byte) (err utf8Err) {
 	// Fast path. Check for and skip 8 bytes of ASCII characters per iteration.
 	offset := 0
 	for len(p) >= 8 {
@@ -48,7 +48,7 @@ func utf8TomlValidAlreadyEscaped(p []byte) (err utf8Err) {
 		}
 
 		for i, b := range p[:8] {
-			if invalidAscii(b) {
+			if InvalidAscii(b) {
 				err.Index = offset + i
 				err.Size = 1
 				return
@@ -62,7 +62,7 @@ func utf8TomlValidAlreadyEscaped(p []byte) (err utf8Err) {
 	for i := 0; i < n; {
 		pi := p[i]
 		if pi < utf8.RuneSelf {
-			if invalidAscii(pi) {
+			if InvalidAscii(pi) {
 				err.Index = offset + i
 				err.Size = 1
 				return
@@ -106,11 +106,11 @@ func utf8TomlValidAlreadyEscaped(p []byte) (err utf8Err) {
 }
 
 // Return the size of the next rune if valid, 0 otherwise.
-func utf8ValidNext(p []byte) int {
+func Utf8ValidNext(p []byte) int {
 	c := p[0]
 
 	if c < utf8.RuneSelf {
-		if invalidAscii(c) {
+		if InvalidAscii(c) {
 			return 0
 		}
 		return 1
@@ -138,47 +138,6 @@ func utf8ValidNext(p []byte) int {
 	}
 
 	return size
-}
-
-var invalidAsciiTable = [256]bool{
-	0x00: true,
-	0x01: true,
-	0x02: true,
-	0x03: true,
-	0x04: true,
-	0x05: true,
-	0x06: true,
-	0x07: true,
-	0x08: true,
-	// 0x09 TAB
-	// 0x0A LF
-	0x0B: true,
-	0x0C: true,
-	// 0x0D CR
-	0x0E: true,
-	0x0F: true,
-	0x10: true,
-	0x11: true,
-	0x12: true,
-	0x13: true,
-	0x14: true,
-	0x15: true,
-	0x16: true,
-	0x17: true,
-	0x18: true,
-	0x19: true,
-	0x1A: true,
-	0x1B: true,
-	0x1C: true,
-	0x1D: true,
-	0x1E: true,
-	0x1F: true,
-	// 0x20 - 0x7E Printable ASCII characters
-	0x7F: true,
-}
-
-func invalidAscii(b byte) bool {
-	return invalidAsciiTable[b]
 }
 
 // acceptRange gives the range of valid values for the second byte in a UTF-8

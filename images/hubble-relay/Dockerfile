@@ -10,7 +10,7 @@
 # $ cosign verify --key cosign.pub $BASE_IMAGE
 # The key may be found at the following address:
 # https://raw.githubusercontent.com/GoogleContainerTools/distroless/main/cosign.pub
-ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:6b01107391648040c796967b49b7973188b7c9a6b1d49d06090db349248eba39
+ARG BASE_IMAGE=gcr.io/distroless/static-debian11:nonroot@sha256:42ddd0c37ff4ccb0b1e0d2839eb846b250f0fbbb7e4a88ebc1634439b7ee8f0e
 ARG GOLANG_IMAGE=docker.io/library/golang:1.19.5@sha256:bb9811fad43a7d6fd2173248d8331b2dcf5ac9af20976b1937ecd214c5b8c383
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
@@ -60,6 +60,5 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/hubble-relay /usr/bin
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 # use uid:gid for the nonroot user for compatibility with runAsNonRoot
 USER 65532:65532
-WORKDIR /home/nonroot
 ENTRYPOINT ["/usr/bin/hubble-relay"]
 CMD ["serve"]

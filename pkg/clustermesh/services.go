@@ -61,12 +61,12 @@ func newGlobalServiceCache(clusterName, nodeName string) *globalServiceCache {
 }
 
 func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
-	c.mutex.Lock()
-
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: svc.String(),
 		logfields.ClusterName: svc.Cluster,
 	})
+
+	c.mutex.Lock()
 
 	// Validate that the global service is known
 	globalSvc, ok := c.byName[svc.NamespaceServiceName()]
@@ -170,7 +170,7 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 	if svc, ok := key.(*serviceStore.ClusterService); ok {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
-		scopedLog.Debugf("Update event of remote service %#v", svc)
+		scopedLog.Debugf("Delete event of remote service %#v", svc)
 
 		mesh := r.remoteCluster.mesh
 		mesh.globalServices.onDelete(svc)
@@ -179,7 +179,7 @@ func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 			r.swg.Add()
 			merger.MergeExternalServiceDelete(svc, r.swg)
 		} else {
-			scopedLog.Debugf("Ignoring remote service update. Missing merger function")
+			scopedLog.Debugf("Ignoring remote service delete. Missing merger function")
 		}
 	} else {
 		log.Warningf("Received unexpected remote service delete object %+v", key)

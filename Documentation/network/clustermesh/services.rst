@@ -21,8 +21,21 @@ Kubernetes service with identical name and namespace in each cluster and adding
 the annotation ``service.cilium.io/global: "true"`` to declare it global.
 Cilium will automatically perform load-balancing to pods in both clusters.
 
-.. literalinclude:: ../../../examples/kubernetes/clustermesh/global-service-example/rebel-base-global-shared.yaml
-  :language: YAML
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: rebel-base
+    annotations:
+      service.cilium.io/global: "true"
+  spec:
+    type: ClusterIP
+    ports:
+    - port: 80
+    selector:
+      name: rebel-base
+
 
 Disabling Global Service Sharing
 ################################
@@ -57,14 +70,12 @@ Deploying a Simple Example Service
 
    .. parsed-literal::
 
-       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/rebel-base-global-shared.yaml
        kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster1.yaml
 
 2. In cluster 2, deploy:
 
    .. parsed-literal::
 
-       kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/rebel-base-global-shared.yaml
        kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/clustermesh/global-service-example/cluster2.yaml
 
 3. From either cluster, access the global service:
@@ -116,7 +127,7 @@ Global and Shared Services Reference
 
 The flow chart below summarizes the overall behavior considering a service present
 in two clusters (i.e., Cluster1 and Cluster2), and different combinations of the
-``io.cilium/global-service`` and ``io.cilium/shared-service`` annotation values.
+``service.cilium.io/global`` and ``service.cilium.io/shared`` annotation values.
 The terminating nodes represent the endpoints used in each combination by the two
 clusters for the service under examination.
 

@@ -1156,6 +1156,12 @@ hubble:
         # -- Metrics relabeling configs for the ServiceMonitor hubble-relay
         metricRelabelings: ~
 
+    gops:
+      # -- Enable gops for hubble-relay
+      enabled: true
+      # -- Configure gops listen port for hubble-relay
+      port: 9893
+
     pprof:
       # -- Enable pprof for hubble-relay
       enabled: false
