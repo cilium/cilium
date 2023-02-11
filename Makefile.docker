@@ -106,7 +106,7 @@ else
     ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
 	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
     else
-	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(4)
+	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4)
 	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
     endif
 endif
