@@ -121,6 +121,22 @@ source of a bug report.
 
 Keep the `AUTHORS <https://github.com/cilium/cilium/blob/master/AUTHORS>`__ file up to date.
 
+CNCF Resources
+~~~~~~~~~~~~~~
+
+Any Maintainer may suggest a request for `CNCF Resources <https://www.cncf.io/services-for-projects/>`__
+through the `CNCF Service Desk <https://cncfservicedesk.atlassian.net/servicedesk/customer/portal/1>`__.
+The Maintainers may also choose to delegate working with the CNCF to non-Maintainer community members.
+
+Code of Conduct
+~~~~~~~~~~~~~~~
+
+`Code of Conduct <https://github.com/cilium/cilium/blob/master/CODE_OF_CONDUCT.md>`__
+violations by community members will be discussed and resolved on the private
+committers Slack channel. If the reported Code of Conduct violator is a Maintainer, the 
+Maintainers will instead designate two Maintainers to work with the
+`CNCF CoC Committee <https://www.cncf.io/conduct/procedures/>`__.  
+
 Granting Commit Access
 ----------------------
 
