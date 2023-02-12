@@ -61,7 +61,6 @@ by the "janitor role" which is rotated between all committers.
  * [Timo Beckers] (Isovalent)
  * [Tobias Klauser] (Isovalent)
  * [Tom Hadlaw] (Isovalent)
- * [Tom Payne]
  * [Vlad Ungureanu] (Palantir)
  * [Weilong Cui] (Google)
  * [Yongkun Gui] (Google)
@@ -72,6 +71,7 @@ We would like to acknowledge previous committers and their huge contributions to
 
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
+ * [Tom Payne]
  * [Zang Li] (Google)
 
 
