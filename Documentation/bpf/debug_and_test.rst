@@ -693,7 +693,7 @@ Exceptions are triggered in the following scenarios:
 
 Both tracepoint classes can also be inspected with a BPF program itself
 attached to one or more tracepoints, collecting further information
-in a map or punting such events to a user space collector through the
+in a map or putting such events to a user space collector through the
 ``bpf_perf_event_output()`` helper, for example.
 
 Tracing pipe
