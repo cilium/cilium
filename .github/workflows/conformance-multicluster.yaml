@@ -322,6 +322,8 @@ jobs:
 
       - name: Wait for cluster mesh status to be ready
         run: |
+          cilium status --wait --context ${{ steps.contexts.outputs.context1 }}
+          cilium status --wait --context ${{ steps.contexts.outputs.context2 }}
           cilium clustermesh status --wait --context ${{ steps.contexts.outputs.context1 }}
           cilium clustermesh status --wait --context ${{ steps.contexts.outputs.context2 }}
 
