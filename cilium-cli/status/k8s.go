@@ -168,6 +168,16 @@ func (k *K8sStatusCollector) deploymentStatus(ctx context.Context, status *Statu
 		status.AddAggregatedWarning(name, name, fmt.Errorf("%d pods of Deployment %s are not available", unavailable, name))
 	}
 
+	// ObservedGeneration behind: DeploymentController has not yet noticed the latest change
+	if d.Generation != d.Status.ObservedGeneration {
+		status.AddAggregatedError(name, name, fmt.Errorf("deployment %s is updated but rollout has not started", name))
+	}
+
+	// Deployment change is not fully rolled out
+	if d.Status.UpdatedReplicas < d.Status.Replicas {
+		status.AddAggregatedError(name, name, fmt.Errorf("deployment %s is rolling out - %d out of %d pods updated", name, d.Status.UpdatedReplicas, d.Status.Replicas))
+	}
+
 	return false, nil
 }
 
@@ -231,6 +241,16 @@ func (k *K8sStatusCollector) daemonSetStatus(ctx context.Context, status *Status
 
 	if unavailable := int(daemonSet.Status.NumberUnavailable) - notReady; unavailable > 0 {
 		status.AddAggregatedWarning(name, name, fmt.Errorf("%d pods of DaemonSet %s are not available", unavailable, name))
+	}
+
+	// ObservedGeneration behind: DaemonSetController has not yet noticed the latest change
+	if daemonSet.Generation != daemonSet.Status.ObservedGeneration {
+		status.AddAggregatedError(name, name, fmt.Errorf("daemonset %s is updated but rollout has not started", name))
+	}
+
+	// DaemonSet change is not fully rolled out
+	if daemonSet.Status.UpdatedNumberScheduled < daemonSet.Status.DesiredNumberScheduled {
+		status.AddAggregatedError(name, name, fmt.Errorf("daemonset %s is rolling out - %d out of %d pods updated", name, daemonSet.Status.UpdatedNumberScheduled, daemonSet.Status.DesiredNumberScheduled))
 	}
 
 	return nil

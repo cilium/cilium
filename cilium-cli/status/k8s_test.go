@@ -73,19 +73,22 @@ func (c *k8sStatusMockClient) addPod(namespace, name, filter string, containers 
 	})
 }
 
-func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desired, ready, available, unavailable int32) {
+func (c *k8sStatusMockClient) setDaemonSet(namespace, name, filter string, desired, ready, available, unavailable, updated int32, generation, obvsGeneration int64) {
 	c.daemonSet = map[string]*appsv1.DaemonSet{}
 
 	c.daemonSet[namespace+"/"+name] = &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:       name,
+			Namespace:  namespace,
+			Generation: generation,
 		},
 		Status: appsv1.DaemonSetStatus{
 			DesiredNumberScheduled: desired,
 			NumberReady:            ready,
 			NumberAvailable:        available,
 			NumberUnavailable:      unavailable,
+			UpdatedNumberScheduled: updated,
+			ObservedGeneration:     obvsGeneration,
 		},
 	}
 
@@ -166,7 +169,7 @@ func (b *StatusSuite) TestStatus(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 
-	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0)
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 10, 10, 0, 10, 1, 1)
 	status, err := collector.Status(context.Background())
 	c.Assert(err, check.IsNil)
 	c.Assert(status, check.Not(check.IsNil))
@@ -179,7 +182,7 @@ func (b *StatusSuite) TestStatus(c *check.C) {
 	c.Assert(len(status.CiliumStatus), check.Equals, 10)
 
 	client.reset()
-	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5)
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 2, 2)
 	status, err = collector.Status(context.Background())
 	c.Assert(err, check.IsNil)
 	c.Assert(status, check.Not(check.IsNil))
@@ -192,7 +195,7 @@ func (b *StatusSuite) TestStatus(c *check.C) {
 	c.Assert(len(status.CiliumStatus), check.Equals, 5)
 
 	client.reset()
-	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5)
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 3, 3)
 	delete(client.status, "cilium-2")
 	status, err = collector.Status(context.Background())
 	c.Assert(err, check.IsNil)
@@ -205,6 +208,22 @@ func (b *StatusSuite) TestStatus(c *check.C) {
 	c.Assert(status.PhaseCount[defaults.AgentDaemonSetName][string(corev1.PodFailed)], check.Equals, 5)
 	c.Assert(len(status.CiliumStatus), check.Equals, 5)
 	c.Assert(status.CiliumStatus["cilium-2"], check.IsNil)
+
+	client.reset()
+	// observed generation behind
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 5, 5, 5, 5, 5, 3, 2)
+	status, err = collector.Status(context.Background())
+	c.Assert(err, check.IsNil)
+	c.Assert(status, check.Not(check.IsNil))
+	c.Assert(status.Errors["cilium"]["cilium"].Errors, check.HasLen, 1)
+	c.Assert(status.Errors["cilium"]["cilium"].Errors[0], check.ErrorMatches, ".*rollout has not started.*")
+
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 5, 5, 5, 5, 1, 3, 3)
+	status, err = collector.Status(context.Background())
+	c.Assert(err, check.IsNil)
+	c.Assert(status, check.Not(check.IsNil))
+	c.Assert(status.Errors["cilium"]["cilium"].Errors, check.HasLen, 1)
+	c.Assert(status.Errors["cilium"]["cilium"].Errors[0], check.ErrorMatches, ".*is rolling out.*")
 }
 
 func (b *StatusSuite) TestFormat(c *check.C) {
@@ -215,7 +234,7 @@ func (b *StatusSuite) TestFormat(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(collector, check.Not(check.IsNil))
 
-	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5)
+	client.setDaemonSet("kube-system", defaults.AgentDaemonSetName, defaults.AgentPodSelector, 10, 5, 5, 5, 10, 4, 4)
 	delete(client.status, "cilium-2")
 
 	client.addPod("kube-system", "cilium-operator-1", "k8s-app=cilium-operator", []corev1.Container{{Image: "cilium-operator:1.9"}}, corev1.PodStatus{Phase: corev1.PodRunning})
