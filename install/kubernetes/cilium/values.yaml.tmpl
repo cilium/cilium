@@ -595,6 +595,10 @@ ingressController:
   # This will automatically set enable-envoy-config as well.
   enabled: false
 
+  # -- Set cilium ingress controller to be the default ingress controller
+  # This will let cilium ingress controller route entries without ingress class set
+  default: false
+
   # -- Default ingress load balancer mode
   # Supported values: shared, dedicated
   # For granular control, use the following annotations on the ingress resource

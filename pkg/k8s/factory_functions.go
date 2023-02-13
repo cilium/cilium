@@ -61,6 +61,26 @@ func ObjToV1Ingress(obj interface{}) *slim_networkingv1.Ingress {
 	return nil
 }
 
+func ObjToV1IngressClass(obj interface{}) *slim_networkingv1.IngressClass {
+	ic, ok := obj.(*slim_networkingv1.IngressClass)
+	if ok {
+		return ic
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ic, ok := deletedObj.Obj.(*slim_networkingv1.IngressClass)
+		if ok {
+			return ic
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v1 IngressClass")
+	return nil
+}
+
 func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 	svc, ok := obj.(*slim_corev1.Service)
 	if ok {
