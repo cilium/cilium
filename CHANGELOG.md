@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.11.14
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to 1.22.7 (Backport PR #23627, Upstream PR #23502, @sayboras)
+
+**Bugfixes:**
+* Added Agent init check that removes all CiliumEndpoints referencing local Node that are not managed. This fixes issues where sometimes CiliumEndpoints referencing still running Pods can become unmanaged during Cilium restart. (Backport PR #23097, Upstream PR #20350, @tommyp1ckles)
+* proxy: Fix deadlock in error path of CreateOrUpdateRedirect (Backport PR #23462, Upstream PR #23377, @gandro)
+
+**CI Changes:**
+* .github: set do not use provenance from docker buildx (Backport PR #23462, Upstream PR #23431, @aanm)
+* [v1.11] test/k8sT: remove l7_demos test (#23348, @tklauser)
+* daemon/cmd: improve stale cilium endpoint error handling. (Backport PR #23097, Upstream PR #22600, @tommyp1ckles)
+* test: print log messages that need to be investigated (Backport PR #23462, Upstream PR #23338, @aanm)
+* tests: add exception for etcd error (Backport PR #23462, Upstream PR #23334, @aanm)
+
+**Misc Changes:**
+* .github/workflows: add version number in GH action (#23622, @aanm)
+* .github/workflows: fix external contribution detection (Backport PR #23462, Upstream PR #23406, @aanm)
+* .github/workflows: fix typo in organization parameter (Backport PR #23462, Upstream PR #23424, @aanm)
+* .github/workflows: PR labeler fix GH workflow if expression (Backport PR #23627, Upstream PR #23482, @aanm)
+* .github/workflows: set right secret name (Backport PR #23462, Upstream PR #23437, @aanm)
+* bugtool: Dump envoy metrics for troubleshooting (Backport PR #23627, Upstream PR #22797, @sayboras)
+* build(deps): bump actions/cache from 3.2.3 to 3.2.4 (#23455, @dependabot[bot])
+* build(deps): bump actions/github-script from 6.3.3 to 6.4.0 (#23416, @dependabot[bot])
+* build(deps): bump actions/github-script from 6.3.3 to 6.4.0 (#23510, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.3.0 to 4.0.0 (#23491, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.2.1 to 2.4.0 (#23456, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.4.0 to 2.4.1 (#23594, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.39 to 2.2.1 (#23415, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.2.1 to 2.2.2 (#23611, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.2.2 to 2.2.3 (#23650, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.1 to 1.7.0 (#23389, @dependabot[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.4 (v1.11) (#23684, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 4a45212 (v1.11) (#23568, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to b33325a (v1.11) (#23474, @renovate[bot])
+* cilium: Fix missing error log dump from compilation (Backport PR #23462, Upstream PR #23339, @borkmann)
+* daemon: Do not fail CI runs for already deleted CEP (Backport PR #23097, Upstream PR #22474, @jrajahalme)
+* docs: Disable exclusive lock when chaining with aws-cni (Backport PR #23462, Upstream PR #23159, @jaygridley)
+* fqdn/dnsproxy: move init LRU cache call out of StartDNSProxy. (Backport PR #23627, Upstream PR #23429, @tommyp1ckles)
+* images/runtime: bump iptables package to 1.8.8 (Backport PR #23409, Upstream PR #23163, @jibi)
+* Introduce node IDs in the datapath and the agent, so datapath can later use them to identify remote nodes (Backport PR #23627, Upstream PR #23202, @pchaigno)
+* iptables: add support for iptables >= 1.8.7 (Backport PR #23409, Upstream PR #21096, @jibi)
+
+**Other Changes:**
+* [v1.11] renovate: Replace update-hubble-version.sh with Renovate Bot (#23531, @gandro)
+* install: Update image digests for v1.11.13 (#23401, @qmonnet)
+* Pick up etcd v3.4.23 (#23630, @michi-covalent)
+
 ## v1.11.13
 
 Summary of Changes
