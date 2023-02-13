@@ -976,7 +976,7 @@ reList:
 				}
 
 				localCache.MarkInUse(key.Key)
-				scopedLog.Debugf("Emitting list result as %v event for %s=%v", t, key.Key, key.Value)
+				scopedLog.Debugf("Emitting list result as %s event for %s=%s", t, key.Key, key.Value)
 
 				queueStart := spanstat.Start()
 				w.Events <- KeyValueEvent{
@@ -1077,7 +1077,7 @@ reList:
 						localCache.MarkInUse(ev.Kv.Key)
 					}
 
-					scopedLog.Debugf("Emitting %v event for %s=%v", event.Typ, event.Key, event.Value)
+					scopedLog.Debugf("Emitting %s event for %s=%s", event.Typ, event.Key, event.Value)
 
 					queueStart := spanstat.Start()
 					w.Events <- event
