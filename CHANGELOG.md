@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.10.20
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to 1.22.7 (Backport PR #23639, Upstream PR #23502, @sayboras)
+
+**Bugfixes:**
+* Fix a data race in dnsproxy which could lead to DNS requests drops. (Backport PR #23422, Upstream PR #22619, @aspsk)
+
+**Misc Changes:**
+* .github/workflows: add version number in GH action (#23621, @aanm)
+* .github/workflows: fix external contribution detection (Backport PR #23422, Upstream PR #23406, @aanm)
+* backporting: leave `backport/author` PRs alone (Backport PR #23422, Upstream PR #22654, @bimmlerd)
+* build(deps): bump actions/cache from 3.2.3 to 3.2.4 (#23452, @dependabot[bot])
+* build(deps): bump actions/github-script from 6.3.3 to 6.4.0 (#23413, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.3.0 to 4.0.0 (#23490, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.2.1 to 2.4.0 (#23451, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.4.0 to 2.4.1 (#23592, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.39 to 2.2.1 (#23412, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.2.1 to 2.2.2 (#23609, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.1 to 1.7.0 (#23387, @dependabot[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 4a45212 (v1.10) (#23566, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to b872b03 (v1.10) (#23476, @renovate[bot])
+* ci: increase Jenkinsfile timeout for 1.10 branch (#23544, @nbusseneau)
+* docs: Improve wording for deny policies limitation (Backport PR #23422, Upstream PR #23095, @joestringer)
+* docs: update committer security requirements (Backport PR #23422, Upstream PR #23134, @xmulligan)
+* IPsec: Refactor `ipSecReplaceState{In,Out}` functions (Backport PR #23422, Upstream PR #23158, @pchaigno)
+* Update Cilium install guide about EKS aws-node DaemonSet potential connectivity problem on uninstall (Backport PR #23422, Upstream PR #22620, @NikAleksandrov)
+
+**Other Changes:**
+* install: Update image digests for v1.10.19 (#23400, @qmonnet)
+
 ## v1.10.19
 
 Summary of Changes
