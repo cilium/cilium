@@ -2,11 +2,11 @@
 
 **SIG: SIG-NAME**
 
-**Begin Design Discussion: ** YYYY-MM-DD
+**Begin Design Discussion:** YYYY-MM-DD
 
-**End Design Discussion: ** YYYY-MM-DD
+**End Design Discussion:** YYYY-MM-DD
 
-**Cilium Release: ** X.XX
+**Cilium Release:** X.XX
 
 **Authors:** alice <alice@example.com>, bob jones <bob@example.com>
 
