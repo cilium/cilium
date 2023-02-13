@@ -349,11 +349,10 @@ bool lb6_svc_is_l7loadbalancer(const struct lb6_service *svc __maybe_unused)
 #endif
 }
 
-static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					   int l4_off,
-					   enum ct_dir dir __maybe_unused,
-					   __be16 *port,
-					   __maybe_unused struct iphdr *ip4)
+static __always_inline int
+lb4_extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr, int l4_off,
+		    enum ct_dir dir __maybe_unused, __be16 *port,
+		    __maybe_unused struct iphdr *ip4)
 {
 	int ret;
 
@@ -364,7 +363,7 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 	case IPPROTO_SCTP:
 #endif  /* ENABLE_SCTP */
 #ifdef ENABLE_IPV4_FRAGMENTS
-		if (ip4) {
+		{
 			struct ipv4_frag_l4ports ports = { };
 
 			ret = ipv4_handle_fragmentation(ctx, ip4, l4_off,
@@ -381,7 +380,6 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 			return ret;
 		break;
 
-	case IPPROTO_ICMPV6:
 	case IPPROTO_ICMP:
 		/* No need to perform a service lookup for ICMP packets */
 		return DROP_NO_SERVICE;
@@ -1185,7 +1183,7 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 	if (ipv4_has_l4_header(ip4))
 		csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
-	return extract_l4_port(ctx, ip4->protocol, l4_off, CT_EGRESS, &key->dport, ip4);
+	return lb4_extract_l4_port(ctx, ip4->protocol, l4_off, CT_EGRESS, &key->dport, ip4);
 }
 
 static __always_inline int
