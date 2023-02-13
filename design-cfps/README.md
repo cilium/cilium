@@ -6,7 +6,7 @@ Cilium Github organization.
 The purpose of a CFP is to allow community members to gain feedback
 on their designs from the Committers before the community member commits to
 executing on the design. By going through the design process, developers gain a
-have a high level of confidence that their designs are viable and will be
+high level of confidence that their designs are viable and will be
 accepted.
 
 NOTE: This process is not mandatory. Anyone can execute on their own design
