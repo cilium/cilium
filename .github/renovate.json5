@@ -14,6 +14,9 @@
     "images/cilium-test/Dockerfile"
   ],
   "ignoreDeps": [
+    // 'google/oss-fuzz' is ignored from the updates because it's currently
+    // unversioned and it would be receiving an update every time the upstream
+    // repository would receive a new commit.
     "google/oss-fuzz"
   ],
   "pinDigests": true,
