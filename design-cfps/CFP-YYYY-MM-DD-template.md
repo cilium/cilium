@@ -49,7 +49,7 @@ _List crucial impacts and key questions. They likely require discussion and are 
 
 _Describe crucial impacts and key questions that likely require discussion and debate._
 
-### Key question: … 2
+### Key Question: ... 2
 
 _Describe a key question_
 
