@@ -1483,7 +1483,7 @@ skip_policy_enforcement:
 
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update6_dsr(get_ct_map6(tuple), tuple, dsr);
+			ct_update_dsr(get_ct_map6(tuple), tuple, dsr);
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =
@@ -1820,7 +1820,7 @@ skip_policy_enforcement:
 
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update4_dsr(get_ct_map4(tuple), tuple, dsr);
+			ct_update_dsr(get_ct_map4(tuple), tuple, dsr);
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =

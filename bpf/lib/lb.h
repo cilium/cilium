@@ -935,7 +935,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		/* See lb4_local comment */
 		if (state->rev_nat_index == 0) {
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update6_rev_nat_index(map, tuple, state);
+			ct_update_rev_nat_index(map, tuple, state);
 		}
 		break;
 	default:
@@ -956,9 +956,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		ct_update6_backend_id(map, tuple, state);
+		ct_update_backend_id(map, tuple, state);
 		state->rev_nat_index = svc->rev_nat_index;
-		ct_update6_rev_nat_index(map, tuple, state);
+		ct_update_rev_nat_index(map, tuple, state);
 	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
@@ -980,7 +980,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (!backend)
 			goto drop_no_service;
 		state->backend_id = backend_id;
-		ct_update6_backend_id(map, tuple, state);
+		ct_update_backend_id(map, tuple, state);
 	}
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
@@ -1637,7 +1637,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 */
 		if (unlikely(state->rev_nat_index == 0)) {
 			state->rev_nat_index = svc->rev_nat_index;
-			ct_update4_rev_nat_index(map, tuple, state);
+			ct_update_rev_nat_index(map, tuple, state);
 		}
 		break;
 	default:
@@ -1664,9 +1664,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 
 		state->backend_id = backend_id;
-		ct_update4_backend_id(map, tuple, state);
+		ct_update_backend_id(map, tuple, state);
 		state->rev_nat_index = svc->rev_nat_index;
-		ct_update4_rev_nat_index(map, tuple, state);
+		ct_update_rev_nat_index(map, tuple, state);
 	}
 	/* If the lookup fails it means the user deleted the backend out from
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
@@ -1688,7 +1688,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (!backend)
 			goto drop_no_service;
 		state->backend_id = backend_id;
-		ct_update4_backend_id(map, tuple, state);
+		ct_update_backend_id(map, tuple, state);
 	}
 update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
