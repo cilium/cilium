@@ -1305,6 +1305,10 @@
      - Configure image pull secrets for pulling container images
      - string
      - ``nil``
+   * - ingressController.default
+     - Set cilium ingress controller to be the default ingress controller This will let cilium ingress controller route entries without ingress class set
+     - bool
+     - ``false``
    * - ingressController.enabled
      - Enable cilium ingress controller This will automatically set enable-envoy-config as well.
      - bool
