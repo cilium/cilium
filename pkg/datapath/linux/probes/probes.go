@@ -502,6 +502,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 		{ebpf.SchedCLS, asm.FnRedirectNeigh},
+		{ebpf.SchedCLS, asm.FnRedirectPeer},
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
@@ -544,6 +545,10 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 		"HAVE_LARGE_INSN_LIMIT":            probes.Misc.HaveLargeInsnLimit,
 		"HAVE_SET_RETVAL":                  probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 		"HAVE_FIB_NEIGH":                   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
+		// Check if kernel has d1c362e1dd68 ("bpf: Always return target ifindex
+		// in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
+		// as the new redirect helpers.
+		"HAVE_FIB_IFINDEX": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectPeer}],
 	}
 
 	return writeFeatureHeader(writer, features, true)

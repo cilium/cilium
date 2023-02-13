@@ -39,6 +39,14 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 	return 0;
 }
 
+/* fib_redirect() is common helper code which performs fib lookup, populates
+ * the corresponding hardware addresses and pushes the packet to a target
+ * device for the next hop. Calling fib_redirect_v{4,6} is preferred unless
+ * due to NAT46x64 struct bpf_fib_lookup_padded needs to be prepared at the
+ * callsite. oif must be 0 if otherwise not passed in from the BPF CT. The
+ * needs_l2_check must be true if the packet could transition between L2->L3
+ * or L3->L2 device.
+ */
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params, __s8 *fib_err, int *oif)
@@ -60,11 +68,19 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 					     sizeof(nh_params.ipv6_nh));
 			nh = &nh_params;
 			no_neigh = true;
+			/* For kernels without d1c362e1dd68 ("bpf: Always
+			 * return target ifindex in bpf_fib_lookup") we
+			 * fall back to use the caller-provided oif when
+			 * necessary.
+			 */
+			if (!is_defined(HAVE_FIB_IFINDEX) && *oif > 0)
+				goto skip_oif;
 		} else {
 			return DROP_NO_FIB;
 		}
 	}
 	*oif = fib_params->l.ifindex;
+skip_oif:
 #else
 	*oif = DIRECT_ROUTING_DEV_IFINDEX;
 	nh_params.nh_family = fib_params->l.family;
@@ -79,6 +95,10 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			goto out_send;
 	}
 	if (no_neigh) {
+		/* If we are able to resolve neighbors on demand, always
+		 * prefer that over the BPF neighbor map since the latter
+		 * might be less accurate in some asymmetric corner cases.
+		 */
 		if (neigh_resolver_available()) {
 			if (nh)
 				return redirect_neigh(*oif, &nh_params,
@@ -86,8 +106,12 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			else
 				return redirect_neigh(*oif, NULL, 0, 0);
 		} else {
-			union macaddr *dmac, smac =
-				NATIVE_DEV_MAC_BY_IFINDEX(fib_params->l.ifindex);
+			union macaddr *dmac, smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
+
+			/* The neigh_record_ip{4,6} locations are mainly from
+			 * inbound client traffic on the load-balancer where we
+			 * know that replies need to go back to them.
+			 */
 			dmac = nh_params.nh_family == AF_INET ?
 			       neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
 			       neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);

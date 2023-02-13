@@ -446,7 +446,7 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
 	__u16 port __maybe_unused;
-	int ret, oif, ohead = 0;
+	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr;
@@ -496,7 +496,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
 int tail_nat_ipv46(struct __ctx_buff *ctx)
 {
-	int ret, oif, l3_off = ETH_HLEN;
+	int ret, oif = 0, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
@@ -528,7 +528,7 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV64_RFC8215)
 int tail_nat_ipv64(struct __ctx_buff *ctx)
 {
-	int ret, oif, l3_off = ETH_HLEN;
+	int ret, oif = 0, l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
@@ -612,7 +612,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
-	int ret, oif;
+	int ret, oif = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
@@ -912,7 +912,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__u32 monitor = 0;
-	int ifindex;
+	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -1433,7 +1433,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret, oif;
+	int ret, oif = 0;
 	__u32 addr;
 	__u16 port;
 	__be16 ohead = 0;
@@ -1547,7 +1547,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
-	int ret, oif;
+	int ret, oif = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
@@ -1868,7 +1868,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_err)
 {
 	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
-	int ifindex, ret, ret2, l3_off = ETH_HLEN, l4_off;
+	int ifindex = 0, ret, ret2, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
