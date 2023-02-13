@@ -60,11 +60,19 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 					     sizeof(nh_params.ipv6_nh));
 			nh = &nh_params;
 			no_neigh = true;
+			/* For kernels without d1c362e1dd68 ("bpf: Always
+			 * return target ifindex in bpf_fib_lookup") we
+			 * fall back to use the caller-provided oif when
+			 * necessary.
+			 */
+			if (!is_defined(HAVE_FIB_IFINDEX) && *oif > 0)
+				goto skip_oif;
 		} else {
 			return DROP_NO_FIB;
 		}
 	}
 	*oif = fib_params->l.ifindex;
+skip_oif:
 #else
 	*oif = DIRECT_ROUTING_DEV_IFINDEX;
 	nh_params.nh_family = fib_params->l.family;
@@ -86,8 +94,8 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			else
 				return redirect_neigh(*oif, NULL, 0, 0);
 		} else {
-			union macaddr *dmac, smac =
-				NATIVE_DEV_MAC_BY_IFINDEX(fib_params->l.ifindex);
+			union macaddr *dmac, smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
+
 			dmac = nh_params.nh_family == AF_INET ?
 			       neigh_lookup_ip4(&fib_params->l.ipv4_dst) :
 			       neigh_lookup_ip6((void *)&fib_params->l.ipv6_dst);
