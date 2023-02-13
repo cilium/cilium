@@ -70,6 +70,9 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
+# Updates E2E Test
+old-charts/
+
 # generated test files
 test/k8s/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
