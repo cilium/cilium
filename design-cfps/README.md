@@ -1,4 +1,4 @@
-This repo contains CFP design proposals for features impacting repos across the
+This directory contains CFP design proposals for features impacting repos across the
 Cilium Github organization.
 
 # Purpose of CFPs
