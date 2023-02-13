@@ -16,21 +16,21 @@ _Provide a high-level summary. Keep it short._
 
 ## **Motivation**
 
-_Provide the motivation for the feature. Also provide any context required to understand the motivation. The motivation should justify any potential impact_
+_Provide the motivation for the feature. Also provide any context required to understand the motivation. The motivation should justify any potential impact._
 
 ## **Goals**
 
-* _List goals that this CFP achieves_
+* _List goals that this CFP achieves._
 
 ## **Non-Goals**
 
-* _List aspects which are specifically out of context for this CFP_
+* _List aspects which are specifically out of context for this CFP._
 
 ## **Proposal**
 
 ### Overview
 
-_Provide a high-level overview of the design aspect of the proposal_
+_Provide a high-level overview of the design aspects of the proposal._
 
 ### Section 1
 
