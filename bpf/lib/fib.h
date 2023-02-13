@@ -44,9 +44,11 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params, __s8 *fib_err, int *oif)
 {
 	struct bpf_redir_neigh nh_params;
-	bool no_neigh = false;
+	struct bpf_redir_neigh *nh = NULL;
+	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
 	int ret;
 
+#ifndef ENABLE_SKIP_FIB
 	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
 			 BPF_FIB_LOOKUP_DIRECT);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
@@ -56,13 +58,17 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			__bpf_memcpy_builtin(&nh_params.ipv6_nh,
 					     &fib_params->l.ipv6_dst,
 					     sizeof(nh_params.ipv6_nh));
+			nh = &nh_params;
 			no_neigh = true;
 		} else {
 			return DROP_NO_FIB;
 		}
 	}
-
 	*oif = fib_params->l.ifindex;
+#else
+	*oif = DIRECT_ROUTING_DEV_IFINDEX;
+	nh_params.nh_family = fib_params->l.family;
+#endif /* ENABLE_SKIP_FIB */
 	if (needs_l2_check) {
 		bool l2_hdr_required = true;
 
@@ -74,8 +80,11 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	}
 	if (no_neigh) {
 		if (neigh_resolver_available()) {
-			return redirect_neigh(*oif, &nh_params,
-					      sizeof(nh_params), 0);
+			if (nh)
+				return redirect_neigh(*oif, &nh_params,
+						      sizeof(nh_params), 0);
+			else
+				return redirect_neigh(*oif, NULL, 0, 0);
 		} else {
 			union macaddr *dmac, smac =
 				NATIVE_DEV_MAC_BY_IFINDEX(fib_params->l.ifindex);
