@@ -3,7 +3,7 @@ Cilium Github organization.
 
 # Purpose of CFPs
 
-The purpose of a CFP is to allow community members to gain feedback
+The purpose of a Cilium Feature Proposal (CFP) is to allow community members to gain feedback
 on their designs from the Committers before the community member commits to
 executing on the design. By going through the design process, developers gain a
 high level of confidence that their designs are viable and will be
