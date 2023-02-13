@@ -1244,7 +1244,11 @@
    * - hubble.ui.service
      - hubble-ui service configuration.
      - object
-     - ``{"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+   * - hubble.ui.service.annotations
+     - Annotations to be added for the Hubble UI service
+     - object
+     - ``{}``
    * - hubble.ui.service.nodePort
      - - The port to use when the service type is set to NodePort.
      - int

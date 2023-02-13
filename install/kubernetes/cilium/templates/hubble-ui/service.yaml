@@ -4,6 +4,10 @@ apiVersion: v1
 metadata:
   name: hubble-ui
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.hubble.ui.service.annotations }}
+  annotations:
+    {{- toYaml .Values.hubble.ui.service.annotations | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: hubble-ui
     app.kubernetes.io/name: hubble-ui
