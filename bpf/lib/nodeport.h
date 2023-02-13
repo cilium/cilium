@@ -2100,11 +2100,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					__u32 src_identity,
 					__s8 *ext_err)
 {
-	bool backend_local, l4_ports, has_l4_header;
+	bool backend_local, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret,  l3_off = ETH_HLEN, l4_off;
+	bool is_svc_proto = true;
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
@@ -2120,8 +2121,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_NO_SERVICE)
+		if (ret == DROP_NO_SERVICE) {
+			is_svc_proto = false;
 			goto skip_service_lookup;
+		}
 		if (ret == DROP_UNKNOWN_L4) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
@@ -2218,15 +2221,14 @@ skip_service_lookup:
 		/* For NAT64 we might see an IPv4 reply from the backend to
 		 * the LB entering this path. Thus, transform back to IPv6.
 		 */
-		l4_ports = !lb4_populate_ports(ctx, &tuple, l4_off);
-		if (l4_ports && snat_v6_has_v4_match(&tuple)) {
+		if (is_svc_proto && snat_v6_has_v4_match(&tuple)) {
 			ret = lb4_to_lb6(ctx, ip4, l3_off);
 			if (ret)
 				return ret;
 			ctx_store_meta(ctx, CB_NAT_46X64, 0);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS);
 #ifdef ENABLE_NAT_46X64_GATEWAY
-		} else if (l4_ports &&
+		} else if (is_svc_proto &&
 			   snat_v6_has_v4_match_rfc8215(&tuple)) {
 			ret = snat_remap_rfc8215(ctx, ip4, l3_off);
 			if (ret)
