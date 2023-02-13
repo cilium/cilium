@@ -8,7 +8,7 @@
 
 **Cilium Release: ** X.XX
 
-**Authors:** alice <alice@example.com> ,  bob jones <bob@example.com>
+**Authors:** alice <alice@example.com>, bob jones <bob@example.com>
 
 ## Summary
 
