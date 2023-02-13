@@ -24,7 +24,6 @@ import (
 	k8sconstv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/synced"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -234,22 +233,13 @@ func createCRD(crdVersionedName string, crdMetaName string) func(clientset apiex
 
 // createUpdateCRD ensures the CRD object is installed into the K8s cluster. It
 // will create or update the CRD and its validation schema as necessary. This
-// function only accepts v1 CRD objects, and defers to its v1beta1 variant if
-// the cluster only supports v1beta1 CRDs. This allows us to convert all our
-// CRDs into v1 form and only perform conversions on-demand, simplifying the
-// code.
+// function only accepts v1 CRD objects.
 func createUpdateCRD(
 	clientset apiextensionsclient.Interface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	poller poller,
 ) error {
 	scopedLog := log.WithField("name", crd.Name)
-
-	if !k8sversion.Capabilities().APIExtensionsV1CRD {
-		log.Infof("K8s apiserver does not support v1 CRDs, falling back to v1beta1")
-
-		return createUpdateV1beta1CRD(scopedLog, clientset.ApiextensionsV1beta1(), crd, poller)
-	}
 
 	v1CRDClient := clientset.ApiextensionsV1()
 	clusterCRD, err := v1CRDClient.CustomResourceDefinitions().Get(

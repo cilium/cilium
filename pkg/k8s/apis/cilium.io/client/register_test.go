@@ -184,50 +184,30 @@ func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoValidation(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Spec.Versions[0].Schema = nil
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
-
-	v1beta1CRD := s.getV1beta1TestCRD()
-	v1beta1CRD.Spec.Validation = nil
-	c.Assert(needsUpdateV1beta1(v1beta1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoLabels(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels = nil
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
-
-	v1beta1CRD := s.getV1beta1TestCRD()
-	v1beta1CRD.Labels = nil
-	c.Assert(needsUpdateV1beta1(v1beta1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels = map[string]string{"test": "test"}
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
-
-	v1beta1CRD := s.getV1beta1TestCRD()
-	v1beta1CRD.Labels = map[string]string{"test": "test"}
-	c.Assert(needsUpdateV1beta1(v1beta1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "0.9"
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
-
-	v1beta1CRD := s.getV1beta1TestCRD()
-	v1beta1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "0.9"
-	c.Assert(needsUpdateV1beta1(v1beta1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
 	c.Assert(needsUpdateV1(v1CRD), Equals, true)
-
-	v1beta1CRD := s.getV1beta1TestCRD()
-	v1beta1CRD.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
-	c.Assert(needsUpdateV1beta1(v1beta1CRD), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
