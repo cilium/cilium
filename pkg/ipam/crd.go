@@ -560,6 +560,17 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 	return nil, nil, fmt.Errorf("No more IPs available")
 }
 
+// totalPoolSize returns the total size of the allocation pool
+func (n *nodeStore) totalPoolSize(family Family) int {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	if num, ok := n.allocationPoolSize[family]; ok {
+		return num
+	}
+	return 0
+}
+
 // crdAllocator implements the CRD-backed IP allocator
 type crdAllocator struct {
 	// store is the node store backing the custom resource
@@ -818,15 +829,6 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*Allocatio
 	return result, nil
 }
 
-// totalPoolSize returns the total size of the allocation pool
-// a.mutex must be held
-func (a *crdAllocator) totalPoolSize() int {
-	if num, ok := a.store.allocationPoolSize[a.family]; ok {
-		return num
-	}
-	return 0
-}
-
 // Dump provides a status report and lists all allocated IP addresses
 func (a *crdAllocator) Dump() (map[string]string, string) {
 	a.mutex.RLock()
@@ -837,7 +839,7 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 		allocs[ip] = ""
 	}
 
-	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.totalPoolSize())
+	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
 	return allocs, status
 }
 
