@@ -339,6 +339,35 @@ to enable NFS.
    affected. A workaround for now is to pass ``ibt=off`` to the kernel
    command line.
 
+.. note::
+
+   VirtualBox for Ubuntu desktop might have network issues after
+   suspending and resuming the host OS (typically by closing and
+   re-opening the laptop lid). If the ``cilium status`` keeps showing
+   unreachable from nodes but reachable from endpoints, you could
+   hit this. Run the following code on each VM to rebuild routing
+   and neighbor entries:
+
+   .. code-block:: shell-session
+
+      # assume we deployed the cluster with "NWORKERS=1" and "NETNEXT=1"
+
+      # fetch ipv6 addresses
+      $ ipv6_k8s1=$(vagrant ssh k8s1+ -c 'ip -6 --br a sh enp0s9 scope global' | awk '{print $3}')
+      $ ipv6_k8s2=$(vagrant ssh k8s2+ -c 'ip -6 --br a sh enp0s9 scope global' | awk '{print $3}')
+
+      # fetch mac addresses
+      $ mac_k8s1=$(vagrant ssh k8s1+ -c 'ip --br l sh enp0s9' | awk '{print $3}')
+      $ mac_k8s2=$(vagrant ssh k8s2+ -c 'ip --br l sh enp0s9' | awk '{print $3}')
+
+      # add route
+      $ vagrant ssh k8s1+ -c 'ip -6 r a fd00::/16 dev enp0s9'
+      $ vagrant ssh k8s2+ -c 'ip -6 r a fd00::/16 dev enp0s9'
+
+      # add neighbor
+      $ vagrant ssh k8s1+ -c "ip n r $ipv6_k8s2 dev enp0s9 lladdr $mac_k8s2 nud reachable"
+      $ vagrant ssh k8s2+ -c "ip n r $ipv6_k8s1 dev enp0s9 lladdr $mac_k8s1 nud reachable"
+
 If for some reason, running of the provisioning script fails, you should bring the VM down before trying again:
 
 .. code-block:: shell-session
