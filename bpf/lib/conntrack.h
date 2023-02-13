@@ -755,45 +755,6 @@ out:
 	return ret;
 }
 
-static __always_inline void
-ct_update6_backend_id(const void *map, const struct ipv6_ct_tuple *tuple,
-		      const struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->backend_id = state->backend_id;
-}
-
-static __always_inline void
-ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
-			 const struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->rev_nat_index = state->rev_nat_index;
-}
-
-static __always_inline void
-ct_update6_dsr(const void *map, const struct ipv6_ct_tuple *tuple,
-	       const bool dsr)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->dsr = dsr;
-}
-
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -863,45 +824,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		}
 	}
 	return 0;
-}
-
-static __always_inline void ct_update4_backend_id(const void *map,
-						  const struct ipv4_ct_tuple *tuple,
-						  const struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->backend_id = state->backend_id;
-}
-
-static __always_inline void
-ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
-			 const struct ct_state *state)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->rev_nat_index = state->rev_nat_index;
-}
-
-static __always_inline void
-ct_update4_dsr(const void *map, const struct ipv4_ct_tuple *tuple,
-	       const bool dsr)
-{
-	struct ct_entry *entry;
-
-	entry = map_lookup_elem(map, tuple);
-	if (!entry)
-		return;
-
-	entry->dsr = dsr;
 }
 
 static __always_inline int ct_create4(const void *map_main,
@@ -1049,6 +971,43 @@ ct_has_nodeport_egress_entry6(const void *map,
 		return entry->node_port;
 
 	return 0;
+}
+
+static __always_inline void
+ct_update_backend_id(const void *map, const void *tuple, const struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->backend_id = state->backend_id;
+}
+
+static __always_inline void
+ct_update_rev_nat_index(const void *map, const void *tuple,
+			const struct ct_state *state)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->rev_nat_index = state->rev_nat_index;
+}
+
+static __always_inline void
+ct_update_dsr(const void *map, const void *tuple, const bool dsr)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->dsr = dsr;
 }
 
 static __always_inline void
