@@ -1515,17 +1515,8 @@ skip_policy_enforcement:
 		if (ret == CT_REOPENED && ct_state->dsr)
 			ct_update_dsr(get_ct_map6(tuple), tuple, false);
 # endif /* ENABLE_DSR */
-		{
-			bool node_port =
-				ct_has_nodeport_egress_entry6(get_ct_map6(tuple),
-							      tuple, NULL, false);
-
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map6(tuple), tuple,
-						   node_port);
-		}
+		if (ret == CT_REOPENED && ct_state->node_port)
+			ct_update_nodeport(get_ct_map6(tuple), tuple, false);
 	}
 #endif /* ENABLE_NODEPORT */
 
@@ -1842,17 +1833,11 @@ skip_policy_enforcement:
 		if (ret == CT_REOPENED && ct_state->dsr)
 			ct_update_dsr(get_ct_map4(tuple), tuple, false);
 # endif /* ENABLE_DSR */
-		{
-			bool node_port =
-				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-							      tuple, NULL, false);
-
-			ct_state_new.node_port = node_port;
-			if (ret == CT_REOPENED &&
-			    ct_state->node_port != node_port)
-				ct_update_nodeport(get_ct_map4(tuple), tuple,
-						   node_port);
-		}
+		/* Transition SVC revDNAT for old connections from bpf_lxc
+		 * to bpf_host / bpf_overlay:
+		 */
+		if (ret == CT_REOPENED && ct_state->node_port)
+			ct_update_nodeport(get_ct_map4(tuple), tuple, false);
 	}
 #endif /* ENABLE_NODEPORT */
 
