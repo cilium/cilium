@@ -494,3 +494,87 @@ type ServiceBackendPort struct {
 	// +optional
 	Number int32 `json:"number,omitempty" protobuf:"bytes,2,opt,name=number"`
 }
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// IngressClass represents the class of the Ingress, referenced by the Ingress
+// Spec. The `ingressclass.kubernetes.io/is-default-class` annotation can be
+// used to indicate that an IngressClass should be considered default. When a
+// single IngressClass resource has this annotation set to true, new Ingress
+// resources without a class specified will be assigned this default class.
+type IngressClass struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Spec is the desired state of the IngressClass.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec IngressClassSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
+// IngressClassSpec provides information about the class of an Ingress.
+type IngressClassSpec struct {
+	// Controller refers to the name of the controller that should handle this
+	// class. This allows for different "flavors" that are controlled by the
+	// same controller. For example, you may have different Parameters for the
+	// same implementing controller. This should be specified as a
+	// domain-prefixed path no more than 250 characters in length, e.g.
+	// "acme.io/ingress-controller". This field is immutable.
+	Controller string `json:"controller,omitempty" protobuf:"bytes,1,opt,name=controller"`
+
+	// Parameters is a link to a custom resource containing additional
+	// configuration for the controller. This is optional if the controller does
+	// not require extra parameters.
+	// +optional
+	Parameters *IngressClassParametersReference `json:"parameters,omitempty" protobuf:"bytes,2,opt,name=parameters"`
+}
+
+const (
+	// IngressClassParametersReferenceScopeNamespace indicates that the
+	// referenced Parameters resource is namespace-scoped.
+	IngressClassParametersReferenceScopeNamespace = "Namespace"
+	// IngressClassParametersReferenceScopeCluster indicates that the
+	// referenced Parameters resource is cluster-scoped.
+	IngressClassParametersReferenceScopeCluster = "Cluster"
+)
+
+// IngressClassParametersReference identifies an API object. This can be used
+// to specify a cluster or namespace-scoped resource.
+type IngressClassParametersReference struct {
+	// APIGroup is the group for the resource being referenced. If APIGroup is
+	// not specified, the specified Kind must be in the core API group. For any
+	// other third-party types, APIGroup is required.
+	// +optional
+	APIGroup *string `json:"apiGroup,omitempty" protobuf:"bytes,1,opt,name=aPIGroup"`
+	// Kind is the type of resource being referenced.
+	Kind string `json:"kind" protobuf:"bytes,2,opt,name=kind"`
+	// Name is the name of resource being referenced.
+	Name string `json:"name" protobuf:"bytes,3,opt,name=name"`
+	// Scope represents if this refers to a cluster or namespace scoped resource.
+	// This may be set to "Cluster" (default) or "Namespace".
+	// +optional
+	Scope *string `json:"scope" protobuf:"bytes,4,opt,name=scope"`
+	// Namespace is the namespace of the resource being referenced. This field is
+	// required when scope is set to "Namespace" and must be unset when scope is set to
+	// "Cluster".
+	// +optional
+	Namespace *string `json:"namespace,omitempty" protobuf:"bytes,5,opt,name=namespace"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// IngressClassList is a collection of IngressClasses.
+type IngressClassList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Items is the list of IngressClasses.
+	Items []IngressClass `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
