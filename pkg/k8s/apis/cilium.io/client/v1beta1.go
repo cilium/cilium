@@ -24,7 +24,6 @@ import (
 func createUpdateV1beta1CRD(
 	scopedLog *logrus.Entry,
 	client v1beta1client.CustomResourceDefinitionsGetter,
-	crdName string,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	poller poller,
 ) error {
@@ -57,7 +56,7 @@ func createUpdateV1beta1CRD(
 	if err := updateV1beta1CRD(scopedLog, v1beta1CRD, clusterCRD, client, poller); err != nil {
 		return err
 	}
-	if err := waitForV1beta1CRD(scopedLog, crdName, clusterCRD, client, poller); err != nil {
+	if err := waitForV1beta1CRD(scopedLog, clusterCRD, client, poller); err != nil {
 		return err
 	}
 
@@ -166,7 +165,6 @@ func updateV1beta1CRD(
 
 func waitForV1beta1CRD(
 	scopedLog *logrus.Entry,
-	crdName string,
 	crd *apiextensionsv1beta1.CustomResourceDefinition,
 	client v1beta1client.CustomResourceDefinitionsGetter,
 	poller poller,
