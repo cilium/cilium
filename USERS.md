@@ -469,6 +469,11 @@ Users (Alphabetically)
       D: Cilium is part of Gloo Application Networking platform, with a “batteries included but swappable” manner
       U: CNI, Network Policies
       Q: @linsun
+      
+    * N: S&P Global
+      D: S&P Global uses Cilium as their multi-cloud CNI
+      U: CNI
+      L: https://www.youtube.com/watch?v=6CZ_SSTqb4g
 
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
