@@ -1856,8 +1856,9 @@ __snat_v6_has_v4_complete(struct ipv6_ct_tuple *tuple6,
 {
 	build_v4_in_v6(&tuple6->daddr, tuple4->daddr);
 	tuple6->nexthdr = tuple4->nexthdr;
-	tuple6->sport = tuple4->sport;
-	tuple6->dport = tuple4->dport;
+	/* tuple4 has ports in swapped order: */
+	tuple6->sport = tuple4->dport;
+	tuple6->dport = tuple4->sport;
 	tuple6->flags = NAT_DIR_INGRESS;
 	return snat_v6_lookup(tuple6);
 }

@@ -1211,27 +1211,6 @@ bool lb4_src_range_ok(const struct lb4_service *svc __maybe_unused,
 #endif /* ENABLE_SRC_RANGE_CHECK */
 }
 
-static __always_inline int
-lb4_populate_ports(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off)
-{
-	if (tuple->nexthdr == IPPROTO_TCP ||
-#ifdef ENABLE_SCTP
-	    tuple->nexthdr == IPPROTO_SCTP ||
-#endif  /* ENABLE_SCTP */
-	    tuple->nexthdr == IPPROTO_UDP) {
-		struct {
-			__be16 sport;
-			__be16 dport;
-		} l4hdr;
-		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
-			return -EFAULT;
-		tuple->sport = l4hdr.sport;
-		tuple->dport = l4hdr.dport;
-		return 0;
-	}
-	return -ENOTSUP;
-}
-
 static __always_inline bool
 lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 {
