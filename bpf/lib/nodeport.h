@@ -1880,6 +1880,7 @@ drop_err:
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					__u32 src_identity)
 {
+	bool backend_local, l4_ports, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1888,7 +1889,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	bool backend_local, l4_ports;
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
@@ -1896,13 +1896,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
-
-	ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
+	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -1911,6 +1907,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		else
 			return ret;
 	}
+
+	lb4_fill_key(&key, &tuple);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb4_lookup_service(&key, false, false);
 	if (svc) {
@@ -1941,7 +1941,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, ipv4_has_l4_header(ip4),
+					ip4->saddr, has_l4_header,
 					skip_l3_xlate);
 		}
 		if (IS_ERR(ret))

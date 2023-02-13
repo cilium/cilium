@@ -1208,19 +1208,18 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 		int l4_off;
 
 		has_l4_header = ipv4_has_l4_header(ip4);
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
+		ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
 		}
+
+		lb4_fill_key(&key, &tuple);
+		if (has_l4_header)
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
