@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.12.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy version to 1.22.7 (Backport PR #23632, Upstream PR #23502, @sayboras)
+
+**Bugfixes:**
+* Avoid deprecation warnings for CiliumEgressNATPolicy when the resource isn't used. (#23226, @pchaigno)
+* clustermesh: make global and shared service annotations behavior uniform (Backport PR #23515, Upstream PR #23298, @giorio94)
+* egressgw: ensure stale IP routes/rules are deleted (Backport PR #23465, Upstream PR #23286, @jibi)
+* etcd kvstore: rate limit watch retries on list errors (Backport PR #23515, Upstream PR #23467, @giorio94)
+* Fix masquerading bug that caused kube-proxy to pick the wrong IPv4 address in case of tunneling with endpoint routes. (Backport PR #23465, Upstream PR #23241, @pchaigno)
+* proxy: Fix deadlock in error path of CreateOrUpdateRedirect (Backport PR #23465, Upstream PR #23377, @gandro)
+
+**CI Changes:**
+* .github: set do not use provenance from docker buildx (Backport PR #23465, Upstream PR #23431, @aanm)
+* certloader flake fixes (Backport PR #23465, Upstream PR #22995, @kaworu)
+* test: print log messages that need to be investigated (Backport PR #23465, Upstream PR #23338, @aanm)
+* tests: add exception for etcd error (Backport PR #23465, Upstream PR #23334, @aanm)
+
+**Misc Changes:**
+* .github/workflows: add version number in GH action (#23623, @aanm)
+* .github/workflows: fix external contribution detection (Backport PR #23465, Upstream PR #23406, @aanm)
+* .github/workflows: fix typo in organization parameter (Backport PR #23465, Upstream PR #23424, @aanm)
+* .github/workflows: PR labeler fix GH workflow if expression (Backport PR #23515, Upstream PR #23482, @aanm)
+* .github/workflows: set right secret name (Backport PR #23465, Upstream PR #23437, @aanm)
+* build(deps): bump actions/cache from 3.2.3 to 3.2.4 (#23457, @dependabot[bot])
+* build(deps): bump actions/github-script from 6.3.3 to 6.4.0 (#23418, @dependabot[bot])
+* build(deps): bump actions/github-script from 6.3.3 to 6.4.0 (#23512, @dependabot[bot])
+* build(deps): bump docker/build-push-action from 3.3.0 to 4.0.0 (#23492, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.2.1 to 2.4.0 (#23458, @dependabot[bot])
+* build(deps): bump docker/setup-buildx-action from 2.4.0 to 2.4.1 (#23595, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.1.39 to 2.2.1 (#23417, @dependabot[bot])
+* build(deps): bump github/codeql-action from 2.2.1 to 2.2.2 (#23612, @dependabot[bot])
+* build(deps): bump KyleMayes/install-llvm-action from 1.6.1 to 1.7.0 (#23391, @dependabot[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.4 (v1.12) (#23683, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to b33325a (v1.12) (#23472, @renovate[bot])
+* cilium: Fix missing error log dump from compilation (Backport PR #23465, Upstream PR #23339, @borkmann)
+* docs: Disable exclusive lock when chaining with aws-cni (Backport PR #23465, Upstream PR #23159, @jaygridley)
+* fqdn/dnsproxy: move init LRU cache call out of StartDNSProxy. (Backport PR #23515, Upstream PR #23429, @tommyp1ckles)
+* images/runtime: bump iptables package to 1.8.8 (Backport PR #23384, Upstream PR #23163, @jibi)
+* iptables: add support for iptables >= 1.8.7 (Backport PR #23384, Upstream PR #21096, @jibi)
+* Pick up etcd v3.5.7 (Backport PR #23515, Upstream PR #23463, @michi-covalent)
+* support reset backoff period (Backport PR #23515, Upstream PR #21937, @wu0407)
+
+**Other Changes:**
+* [v1.12] renovate: Replace update-hubble-version.sh with Renovate Bot (#23530, @gandro)
+* gha: Replace deprecated set-output commands (#23363, @sayboras)
+* install: Update image digests for v1.12.6 (#23402, @qmonnet)
+
 ## v1.12.6
 
 Summary of Changes
