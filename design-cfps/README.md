@@ -22,7 +22,8 @@ accept.
 To create a CFP, it is recommended to use the `CFP-YYYY-MM-DD-template.md`
 file as an outline. The structure of this template is meant to provide a starting
 point for people. Feel free to edit and modify your outline to best fit your
-needs when creating a proposal.
+needs when creating a proposal. The title should be `CFP-YYYY-MM-DD-subject.md` 
+where the date is the day the discussion opened.
 
 Many design docs also begin their life as a Google doc or other shareable
 file for easy commenting and editing when still in the early stages of discussion.
