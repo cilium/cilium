@@ -9,7 +9,7 @@ executing on the design. By going through the design process, developers gain a
 have a high level of confidence that their designs are viable and will be
 accepted.
 
-NOTE: This is process is not mandatory. Anyone can execute on their own design
+NOTE: This process is not mandatory. Anyone can execute on their own design
 without going through this process and submit code to the respective repos.
 However, depending on the complexity of the design and how experienced the
 developer is within the community, they could greatly benefit from going through
