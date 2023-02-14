@@ -905,7 +905,13 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
 #endif
-	int ret, ret2, l3_off = ETH_HLEN, l4_off;
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET6,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
+	int ret, l4_off;
 	struct csum_offset csum_off = {};
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -935,10 +941,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
 			    &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
-		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
-				   &tuple, REV_NAT_F_TUPLE_SADDR);
-		if (IS_ERR(ret2))
-			return ret2;
+		ret = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
+				  &tuple, REV_NAT_F_TUPLE_SADDR);
+		if (IS_ERR(ret))
+			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 		ctx_snat_done_set(ctx);
@@ -961,8 +967,24 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 #ifdef ENABLE_NAT_46X64_GATEWAY
 skip_rev_dnat:
 #endif
-		return fib_redirect_v6(ctx, l3_off, ip6, true, ext_err,
-				       ctx_get_ifindex(ctx), &ifindex);
+		if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
+			struct iphdr *ip4;
+
+			ret = lb6_to_lb4(ctx, ip6);
+			if (ret < 0)
+				return ret;
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+			fib_params.l.ipv4_src = ip4->saddr;
+			fib_params.l.ipv4_dst = ip4->daddr;
+			fib_params.l.family = AF_INET;
+		} else {
+			ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+				       (union v6addr *)&ip6->saddr);
+			ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+				       (union v6addr *)&ip6->daddr);
+		}
+		return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
 	}
 out:
 	if (bpf_skip_recirculation(ctx))
@@ -976,8 +998,6 @@ out:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
 	int ret = 0;
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
@@ -1002,21 +1022,6 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-		ret = DROP_INVALID;
-		goto drop;
-	}
-
-	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
-		int ret2;
-
-		ret2 = lb6_to_lb4(ctx, ip6);
-		if (ret2) {
-			ret = ret2;
-			goto drop;
-		}
-	}
-
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
 	if (ret == CTX_ACT_REDIRECT)
@@ -1868,7 +1873,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_err)
 {
 	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
-	int ifindex = 0, ret, ret2, l3_off = ETH_HLEN, l4_off;
+	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
 	struct csum_offset csum_off = {};
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -1909,14 +1914,13 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			    has_l4_header, CT_INGRESS, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
-		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
-				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
-		if (IS_ERR(ret2))
-			return ret2;
+		ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
+				  &ct_state, &tuple,
+				  REV_NAT_F_TUPLE_SADDR, has_l4_header);
+		if (IS_ERR(ret))
+			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
-
 		ctx_snat_done_set(ctx);
 		ifindex = ct_state.ifindex;
 #if defined(TUNNEL_MODE)
