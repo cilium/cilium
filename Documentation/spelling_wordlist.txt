@@ -23,6 +23,7 @@ Cavium
 Cheng
 Chewbacca
 Chun
+Clientset
 Cloudflare
 Codespaces
 ConnectX
@@ -126,6 +127,7 @@ SRv
 Sharma
 Shirokov
 Shortnames
+Shutdowner
 Socionext
 Solarflare
 Spectre
@@ -269,6 +271,7 @@ cleanBpfState
 cleanCiliumState
 cleanState
 cli
+clientsets
 clockProbe
 cls
 clusterDomain
@@ -376,6 +379,7 @@ eBPF
 eXpress
 ebpf
 ec
+effectful
 egressGateway
 egressMasqueradeInterfaces
 egressing
@@ -475,6 +479,7 @@ golang
 golangci
 golangci-lint
 gops
+goroutines
 grafana
 graphviz
 grep
@@ -544,6 +549,7 @@ installIptablesRules
 installNoConntrackIptablesRules
 installRoutes
 instanceTagsFilter
+instantiation
 integrations
 internet
 intervalSeconds
@@ -692,6 +698,7 @@ minTtl
 minikube
 misconfigures
 mlx
+modularity
 monitorAggregation
 monitorFlags
 monitorInterval
@@ -876,6 +883,7 @@ routable
 rst
 rsync
 runPath
+runnable
 runtime
 runtimes
 sEventHandover
@@ -1021,6 +1029,7 @@ ui
 uid
 uint
 unencrypted
+unexported
 unicast
 uninline
 uninstall
