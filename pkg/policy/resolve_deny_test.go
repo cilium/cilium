@@ -156,7 +156,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						DerivedFromRules: labels.LabelArrayList{nil},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
 				Egress: L4PolicyMap{},
@@ -239,7 +239,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						DerivedFromRules: labels.LabelArrayList{nil},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 					},
 				},
 				Egress: L4PolicyMap{},
@@ -321,7 +321,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {ruleLabel}},
 					},
 				},
 				Egress: L4PolicyMap{},
@@ -358,8 +358,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	repo := bootstrapRepo(GenerateL3IngressDenyRules, 1000, c)
 
-	ruleLabel := labels.ParseLabelArray("rule-world-allow-port-80")
-	ruleLabelDenyAnyEgress := labels.LabelArray{
+	ruleLabel := labels.ParseLabelArray("rule-deny-port-80-world-and-test")
+	ruleLabelAllowAnyEgress := labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 	}
 
@@ -440,7 +440,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
 	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true, AuthTypeNone)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelDenyAnyEgress}, false, false, AuthTypeNone)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, AuthTypeNone)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -459,7 +459,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 							cachedSelectorTest:  &PerSelectorPolicy{IsDeny: true},
 						},
-						DerivedFromRules: labels.LabelArrayList{ruleLabel},
+						RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+							cachedSelectorWorld: {ruleLabel},
+							cachedSelectorTest:  {ruleLabel},
+						},
 					},
 				},
 				Egress: L4PolicyMap{},

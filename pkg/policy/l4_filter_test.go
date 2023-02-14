@@ -294,8 +294,8 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -412,8 +412,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	buffer := new(bytes.Buffer)
@@ -498,8 +498,8 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}
@@ -801,8 +801,11 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -893,8 +896,11 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -1002,8 +1008,11 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -1134,9 +1143,12 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener:         "shared-cec/test",
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Listener: "shared-cec/test",
+		Ingress:  false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -1213,9 +1225,12 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener:         "default/test-cec/test",
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Listener: "default/test-cec/test",
+		Ingress:  false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -1293,9 +1308,12 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				isRedirect:      true,
 			},
 		},
-		Listener:         "shared-cec/test",
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Listener: "shared-cec/test",
+		Ingress:  false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	c.Assert(res, checker.DeepEquals, expected)
@@ -1353,8 +1371,11 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 			cachedSelectorA:        nil,
 			wildcardCachedSelector: nil,
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -1417,8 +1438,11 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 			wildcardCachedSelector: nil,
 			cachedSelectorA:        nil,
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -1499,8 +1523,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -1575,8 +1602,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			wildcardCachedSelector: {nil},
+			cachedSelectorA:        {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -1602,7 +1632,6 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 // Should resolve to just allowing all on L3, but restricting on L7 for both
 // wildcard and the specified endpoint.
 func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
-
 	// Case 8A: selects specific endpoint with L7 restrictions rule first, then
 	// rule which selects all endpoints and restricts on the same resource on L7.
 	// PerSelectorPolicies contains entries for both endpoints selected in each rule
@@ -1669,8 +1698,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -1755,8 +1787,11 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -1782,7 +1817,6 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 // select an endpoint which restricts on different L7 protocol.
 // Should fail as cannot have conflicting parsers on same port.
 func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(c *C) {
-
 	// Case 9A: Kafka first, then HTTP.
 	conflictingL7Rule := &rule{
 		Rule: api.Rule{
@@ -1897,7 +1931,6 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 // Case 10: restrict same path / method on L7 in both rules,
 // but select different endpoints in each rule.
 func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(c *C) {
-
 	selectDifferentEndpointsRestrictL7 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -1960,8 +1993,11 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -1989,7 +2025,6 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 
 // Case 11: allow all on L7 in both rules, but select different endpoints in each rule.
 func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c *C) {
-
 	selectDifferentEndpointsAllowAllL7 := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -2032,8 +2067,11 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 			cachedSelectorA: nil,
 			cachedSelectorC: nil,
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorA: {nil},
+			cachedSelectorC: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -2113,8 +2151,8 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 			},
 			cachedSelectorHost: nil, // no proxy redirect
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}
@@ -2143,7 +2181,6 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
-
 	allowWorldRule := &rule{
 		Rule: api.Rule{
 			EndpointSelector: endpointSelectorA,
@@ -2170,8 +2207,8 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}}
 
 	state := traceState{}

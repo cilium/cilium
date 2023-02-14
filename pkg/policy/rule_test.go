@@ -70,13 +70,13 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Ingress["8080/TCP"] = &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	expected.Egress["3000/TCP"] = &L4Filter{
@@ -85,7 +85,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -93,7 +93,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["3000/SCTP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -101,7 +101,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	ingressState := traceState{}
@@ -197,8 +197,8 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
@@ -206,7 +206,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
@@ -214,7 +214,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["3000/SCTP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
@@ -222,7 +222,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	ingressState = traceState{}
@@ -310,7 +310,10 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector: {nil},
+			cachedBazSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -369,7 +372,10 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		L7Parser: ParserTypeNone, PerSelectorPolicies: mergedES, Ingress: false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector: {nil},
+			cachedBazSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -456,8 +462,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector:      {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -530,7 +539,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector:      {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -624,7 +636,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector:      {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -707,8 +722,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			wildcardCachedSelector: {nil},
+			cachedFooSelector:      {nil},
+		},
 	}}
 
 	state := traceState{}
@@ -789,8 +807,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: false,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector:      {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -875,7 +896,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "kafka", PerSelectorPolicies: l7map, Ingress: false,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedFooSelector:      {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}}
 
 	state = traceState{}
@@ -1086,7 +1110,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Egress["8/ICMP"] = &L4Filter{
 		Port:     8,
@@ -1097,7 +1121,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	ingressState := traceState{}
@@ -1153,7 +1177,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 	expected.Ingress["8/ICMP"] = &L4Filter{
 		Port:     8,
@@ -1164,7 +1188,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	ingressState = traceState{}
@@ -1208,7 +1232,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},
-		DerivedFromRules: labels.LabelArrayList{nil},
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
 	ingressState = traceState{}
@@ -1429,8 +1453,8 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 			if len(exp) > 0 {
 				for cidr, rule := range exp {
 					matches := false
-					for _, derived := range filter.DerivedFromRules {
-						if derived.Equals(rule[0]) {
+					for _, origin := range filter.RuleOrigin {
+						if origin.Equals(rule) {
 							matches = true
 							break
 						}
@@ -1556,7 +1580,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 			out, found := finalPolicy.Ingress[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, NotNil, Commentf(test.description))
-			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
+			c.Assert(len(out.RuleOrigin), checker.Equals, 1, Commentf(test.description))
+			c.Assert(out.RuleOrigin[out.wildcard], checker.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
 		}
 
 		c.Assert(len(finalPolicy.Egress), Equals, len(test.expectedEgressLabels), Commentf(test.description))
@@ -1564,7 +1589,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 			out, found := finalPolicy.Egress[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, Not(IsNil), Commentf(test.description))
-			c.Assert(out.DerivedFromRules, checker.DeepEquals, test.expectedEgressLabels[portProto], Commentf(test.description))
+			c.Assert(len(out.RuleOrigin), checker.Equals, 1, Commentf(test.description))
+			c.Assert(out.RuleOrigin[out.wildcard], checker.DeepEquals, test.expectedEgressLabels[portProto], Commentf(test.description))
 		}
 		finalPolicy.Detach(testSelectorCache)
 	}
@@ -2144,8 +2170,11 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorC:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	}
 
 	buffer := new(bytes.Buffer)
@@ -2180,8 +2209,8 @@ func (ds *PolicyTestSuite) TestL4WildcardMerge(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress:    true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{cachedSelectorC: {nil}},
 	}
 
 	filterL7, ok := l4IngressPolicy["7000/TCP"]
@@ -2466,8 +2495,11 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorC:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	})
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
@@ -2530,8 +2562,11 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 				isRedirect: true,
 			},
 		},
-		Ingress:          true,
-		DerivedFromRules: labels.LabelArrayList{nil},
+		Ingress: true,
+		RuleOrigin: map[CachedSelector]labels.LabelArrayList{
+			cachedSelectorC:        {nil},
+			wildcardCachedSelector: {nil},
+		},
 	})
 
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
