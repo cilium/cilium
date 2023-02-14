@@ -65,6 +65,7 @@ const (
 	hubbleUIDeploymentFileName               = "hubble-ui-deployment-<ts>.yaml"
 	kubernetesEndpointsFileName              = "k8s-endpoints-<ts>.yaml"
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
+	kubernetesEventsTableFileName            = "k8s-events-<ts>.html"
 	kubernetesLeasesFileName                 = "k8s-leases-<ts>.yaml"
 	kubernetesNamespacesFileName             = "k8s-namespaces-<ts>.yaml"
 	kubernetesNetworkPoliciesFileName        = "k8s-networkpolicies-<ts>.yaml"
