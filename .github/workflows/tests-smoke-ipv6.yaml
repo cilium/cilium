@@ -132,7 +132,9 @@ jobs:
             --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
             --set ingressController.enabled=true
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
+          kubectl rollout -n kube-system status deploy/coredns --timeout=5m
+
           # To make sure that cilium CRD is available (default timeout is 5m)
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
 
