@@ -160,6 +160,8 @@ func (a StringSet) Merge(b StringSet) StringSet {
 	return a
 }
 
+// PerSelectorPolicy contains policy rules for a CachedSelector, i.e. for a
+// selection of numerical identities.
 type PerSelectorPolicy struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
@@ -416,8 +418,10 @@ type L4Filter struct {
 	Listener string `json:"listener,omitempty"`
 	// Ingress is true if filter applies at ingress; false if it applies at egress.
 	Ingress bool `json:"-"`
-	// The rule labels of this Filter
-	DerivedFromRules labels.LabelArrayList `json:"-"`
+	// RuleOrigin tracks which policy rules (identified by labels) are the origin for this L3/L4
+	// (i.e. selector and port) filter. This information is used when distilling a policy to an
+	// EndpointPolicy, to track which policy rules were involved for a specific verdict.
+	RuleOrigin map[CachedSelector]labels.LabelArrayList `json:"-"`
 
 	// This reference is circular, but it is cleaned up at Detach()
 	policy atomic.Pointer[L4Policy]
@@ -527,7 +531,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
@@ -712,7 +716,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		Protocol:            protocol,
 		U8Proto:             u8p,
 		PerSelectorPolicies: make(L7DataMap),
-		DerivedFromRules:    labels.LabelArrayList{ruleLabels},
+		RuleOrigin:          make(map[CachedSelector]labels.LabelArrayList), // Filled in below.
 		Ingress:             ingress,
 	}
 
@@ -797,6 +801,11 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	if l4.L7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
 		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, forceRedirect)
 	}
+
+	for cs := range l4.PerSelectorPolicies {
+		l4.RuleOrigin[cs] = labels.LabelArrayList{ruleLabels}
+	}
+
 	return l4, nil
 }
 
@@ -822,7 +831,9 @@ func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 	// All rules have been added to the L4Filter at this point.
 	// Sort the rules label array list for more efficient equality comparison.
-	l4.DerivedFromRules.Sort()
+	for _, labels := range l4.RuleOrigin {
+		labels.Sort()
+	}
 
 	// Compute Envoy policies when a policy is ready to be used
 	if ctx != nil {
@@ -960,16 +971,17 @@ func addL4Filter(policyCtx PolicyContext,
 		filterToMerge.detach(selectorCache)
 		return err
 	}
-	var exists bool
-	for _, existingRuleLabels := range existingFilter.DerivedFromRules {
-		if existingRuleLabels.DeepEqual(&ruleLabels) {
-			exists = true
-			break
+
+	// To keep the rule origin tracking correct, merge the rule label arrays for each CachedSelector
+	// we know about. New CachedSelectors are added.
+	for cs, newLabels := range filterToMerge.RuleOrigin {
+		if existingLabels, ok := existingFilter.RuleOrigin[cs]; ok {
+			existingFilter.RuleOrigin[cs] = existingLabels.Merge(newLabels...)
+		} else {
+			existingFilter.RuleOrigin[cs] = newLabels
 		}
 	}
-	if !exists {
-		existingFilter.DerivedFromRules = append(existingFilter.DerivedFromRules, ruleLabels)
-	}
+
 	resMap[key] = existingFilter
 	return nil
 }
@@ -1146,7 +1158,7 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 	direction trafficdirection.TrafficDirection, redirect, isDeny bool, authType AuthType) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
-	derivedFrom := l4Filter.DerivedFromRules
+	derivedFrom := l4Filter.RuleOrigin[cs]
 
 	// Must take a copy of 'users' as GetNamedPort() will lock the Endpoint below and
 	// the Endpoint lock may not be taken while 'l4.mutex' is held.
@@ -1228,17 +1240,25 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 	ingress := []*models.PolicyRule{}
 	for _, v := range l4.Ingress {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			derivedFrom.Merge(rules...)
+		}
 		ingress = append(ingress, &models.PolicyRule{
 			Rule:             v.Marshal(),
-			DerivedFromRules: v.DerivedFromRules.GetModel(),
+			DerivedFromRules: derivedFrom.GetModel(),
 		})
 	}
 
 	egress := []*models.PolicyRule{}
 	for _, v := range l4.Egress {
+		derivedFrom := labels.LabelArrayList{}
+		for _, rules := range v.RuleOrigin {
+			derivedFrom.Merge(rules...)
+		}
 		egress = append(egress, &models.PolicyRule{
 			Rule:             v.Marshal(),
-			DerivedFromRules: v.DerivedFromRules.GetModel(),
+			DerivedFromRules: derivedFrom.GetModel(),
 		})
 	}
 
