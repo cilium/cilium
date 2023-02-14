@@ -20,7 +20,7 @@ on:
   #   will disappear from the PR checks: please provide a direct link to the
   #   successful workflow run (can be found from Actions tab) in a comment.
   #
-  # pull_request: {}
+  pull_request: {}
   ###
 
 # By specifying the access of one of the scopes, all of those that are not
@@ -67,6 +67,49 @@ env:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
+  prepare:
+    name: Prepare workflow
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-datapath' ||
+        github.event.comment.body == '/test'
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.vars.outputs.base }}
+      head: ${{ steps.vars.outputs.head }}
+      owner: ${{ steps.vars.outputs.owner }}
+    steps:
+      - name: Retrieve pull request's base and head
+        id: vars
+        run: |
+          PR_URL=${{ github.event.issue.pull_request.url || github.event.pull_request.url }}
+          if [ -n "$PR_URL" ]; then
+            curl \
+              -H "Accept: application/vnd.github.v3+json" \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$PR_URL" > pr.json
+            echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
+            echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
+            echo "owner=$(jq -r '.number' pr.json)" >> $GITHUB_OUTPUT
+          else
+            echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "head=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "owner=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.head }}
+          context: ${{ github.workflow }}
+          description: ${{ github.workflow }} in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
   check_changes:
     name: Deduce required tests from code changes
     if: |
@@ -77,6 +120,8 @@ jobs:
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    needs:
+      - prepare
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -87,27 +132,22 @@ jobs:
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
-      - name: Retrieve pull request's base and head
-        if: ${{ github.event.issue.pull_request }}
-        id: pr
-        run: |
-          curl ${{ github.event.issue.pull_request.url }} > pr.json
-          echo "base=$(jq -r '.base.sha' pr.json)" >> $GITHUB_OUTPUT
-          echo "head=$(jq -r '.head.sha' pr.json)" >> $GITHUB_OUTPUT
       - name: Check code changes
         if: ${{ github.event.issue.pull_request }}
         uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: tested-tree
         with:
-          base: ${{ steps.pr.outputs.base }}
-          ref: ${{ steps.pr.outputs.head }}
+          base: ${{ needs.prepare.outputs.base }}
+          ref: ${{ needs.prepare.outputs.head }}
           filters: |
             src:
               - '!(test|Documentation)/**'
 
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
-    needs: check_changes
+    needs:
+      - prepare
+      - check_changes
     name: Setup & Test
     if: |
       (github.event_name == 'issue_comment' && (
@@ -199,17 +239,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-            PR_API_JSON=$(curl \
-              -H "Accept: application/vnd.github.v3+json" \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-            SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          echo "sha=${{ needs.prepare.outputs.head }}" >> $GITHUB_OUTPUT
 
           CILIUM_INSTALL_DEFAULTS="--wait \
             --chart-directory=./install/kubernetes/cilium \
@@ -247,16 +277,6 @@ jobs:
 
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
-
-      - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Cilium Datapath Conformance test in progress...
-          state: pending
-          target_url: ${{ env.check_url }}
 
       - name: Checkout pull request for Helm chart
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
@@ -344,35 +364,52 @@ jobs:
           path: cilium-sysdump-*.zip
           retention-days: 5
 
-      - name: Set commit status to success
-        if: ${{ success() }}
+  finish:
+    name: Set commit status
+    needs:
+      # All jobs which are part of this workflow should be listed here.
+      # Any failures in transitive dependencies will not be used for the commit
+      # status if they are not listed here.
+      - prepare
+      - check_changes
+      - setup-and-test
+    if: |
+      always() &&
+      ((github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-datapath' ||
+        (github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine workflow status from job results
+        id: status
+        run: |
+          error=${{ contains(needs.*.result, 'cancelled') }}
+          failure=${{ contains(needs.*.result, 'failure') }}
+          if [ "$error" == "true" ] ; then
+            STATE="error"
+          elif [ "$failure" == "true" ] ; then
+            STATE="failure"
+          else
+            STATE="success"
+          fi
+          echo "state=${STATE}" >> $GITHUB_OUTPUT
+      - name: Set commit status
         uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.prepare.outputs.head }}
           context: ${{ github.workflow }}
-          description: Datapath tests successful
-          state: success
+          description: Workflow ${{ github.workflow }} has state ${{ steps.status.outputs.state }}
+          state: ${{ steps.status.outputs.state }}
           target_url: ${{ env.check_url }}
-
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Datapath tests failed
-          state: failure
-          target_url: ${{ env.check_url }}
-
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Datapath tests cancelled
-          state: error
-          target_url: ${{ env.check_url }}
+      - name: Mark this job as failed if previous jobs were not successful
+        if: ${{ steps.status.outputs.state != 'success' }}
+        run: |
+          # This is needed to properly indicate failed workflows as failed if
+          # they were triggered via pull_request trigger. GitHub ignores the
+          # commit status in pull request and instead only shows the status
+          # of the last job.
+          exit 1
