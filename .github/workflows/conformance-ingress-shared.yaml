@@ -126,7 +126,8 @@ jobs:
             --set ingressController.loadbalancerMode=shared \
             --set extraConfig.bpf-lb-acceleration=native # This is to make sure we have the coverage for XDP.
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
+          kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
 
           # To make sure that cilium envoy CRs are available
           kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
