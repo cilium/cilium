@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -54,8 +53,8 @@ type Configuration struct {
 	// are synchronized with the kvstore. This parameter is optional.
 	SynchronizationInterval time.Duration
 
-	// SharedKeyDeleteDelay is the delay before an shared key delete is
-	// handled. This parameter is optional
+	// SharedKeyDeleteDelay is the delay before a shared key delete is
+	// handled. This parameter is optional, and defaults to 0 if unset.
 	SharedKeyDeleteDelay time.Duration
 
 	// KeyCreator is called to allocate a Key instance when a new shared
@@ -85,10 +84,6 @@ func (c *Configuration) validate() error {
 
 	if c.SynchronizationInterval == 0 {
 		c.SynchronizationInterval = option.Config.KVstorePeriodicSync
-	}
-
-	if c.SharedKeyDeleteDelay == 0 {
-		c.SharedKeyDeleteDelay = defaults.NodeDeleteDelay
 	}
 
 	if c.Backend == nil {

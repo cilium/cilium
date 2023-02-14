@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -209,6 +210,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
 					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
 					SynchronizationInterval: time.Minute,
+					SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
 					Backend:                 backend,
 					Observer:                rc.mesh.conf.NodeObserver(),
 				})
