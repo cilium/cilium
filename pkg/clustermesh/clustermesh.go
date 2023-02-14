@@ -66,14 +66,6 @@ type Configuration struct {
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
 	IPCache *ipcache.IPCache
-
-	// ServicesSharedKeyDeleteDelay is the delay before a shared service delete
-	// event is handled. This parameter is optional.
-	ServicesSharedKeyDeleteDelay *time.Duration
-
-	// NodesSharedKeyDeleteDelay is the delay before a shared node delete event
-	// is handled. This parameter is optional.
-	NodesSharedKeyDeleteDelay *time.Duration
 }
 
 func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
