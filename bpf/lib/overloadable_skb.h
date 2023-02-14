@@ -85,7 +85,7 @@ redirect_self(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused bool
 neigh_resolver_available(void)
 {
-	return true;
+	return is_defined(HAVE_FIB_NEIGH);
 }
 
 static __always_inline __maybe_unused void

@@ -502,6 +502,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 		{ebpf.CGroupSockAddr, asm.FnGetCurrentCgroupId},
 		{ebpf.CGroupSock, asm.FnSetRetval},
 		{ebpf.SchedCLS, asm.FnRedirectPeer},
+		{ebpf.SchedCLS, asm.FnRedirectNeigh},
 
 		// skb related probes
 		{ebpf.SchedCLS, asm.FnSkbChangeTail},
@@ -547,6 +548,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 		// in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
 		// as the new redirect helpers.
 		"HAVE_FIB_IFINDEX": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectPeer}],
+		"HAVE_FIB_NEIGH":   probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
 	}
 
 	return writeFeatureHeader(writer, features, true)
