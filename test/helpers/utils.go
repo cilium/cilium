@@ -578,7 +578,7 @@ func DoesNotRunOnEKS() bool {
 // kube-proxy replacement. Note that kube-proxy may still be running
 // alongside Cilium.
 func RunsWithKubeProxyReplacement() bool {
-	return RunsOnGKE() || RunsOn419OrLaterKernel()
+	return RunsOnGKE() || RunsOn54OrLaterKernel()
 }
 
 // DoesNotRunWithKubeProxyReplacement is the complement function of
