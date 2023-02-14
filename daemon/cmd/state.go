@@ -400,10 +400,11 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// Also wait for all cluster mesh to be synchronized with the
 				// datapath before proceeding.
 				if d.clustermesh != nil {
-					err := d.clustermesh.ClustersSynced(context.Background())
+					err := d.clustermesh.ClustersSynced(d.ctx)
 					if err != nil {
 						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
 					}
+					log.Debug("all clusters have been correctly synchronized locally")
 				}
 				// Start controller which removes any leftover Kubernetes
 				// services that may have been deleted while Cilium was not
