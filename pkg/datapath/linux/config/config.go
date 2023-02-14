@@ -441,14 +441,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
-
-		macByIfIndexMacro, isL3DevMacro, err := devMacros()
-		if err != nil {
-			return err
-		}
-		cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
-		cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
 	}
+
+	macByIfIndexMacro, isL3DevMacro, err := devMacros()
+	if err != nil {
+		return err
+	}
+	cDefinesMap["NATIVE_DEV_MAC_BY_IFINDEX(IFINDEX)"] = macByIfIndexMacro
+	cDefinesMap["IS_L3_DEV(ifindex)"] = isL3DevMacro
+
 	const (
 		selectionRandom = iota + 1
 		selectionMaglev

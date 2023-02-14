@@ -11,10 +11,6 @@
 #include "neigh.h"
 #include "l3.h"
 
-#ifndef IS_L3_DEV
-# define IS_L3_DEV(ifindex)	false
-#endif
-
 static __always_inline int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 		 __u32 ifindex __maybe_unused,
