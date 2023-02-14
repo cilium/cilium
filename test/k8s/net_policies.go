@@ -24,12 +24,12 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	// We only need to run on 4.9 with kube-proxy and net-next with KPR
+	// We only need to run on 4.19 with kube-proxy and net-next with KPR
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOnGKE() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
