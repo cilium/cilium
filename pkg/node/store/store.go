@@ -135,9 +135,10 @@ func (nr *NodeRegistrar) JoinCluster(name string) (*nodeTypes.Node, error) {
 	registerObserver := NewRegisterObserver(n.GetKeyName(), make(chan *nodeTypes.RegisterNode, 10))
 	// Join the shared store for node registrations
 	registerStore, err := store.JoinSharedStore(store.Configuration{
-		Prefix:     NodeRegisterStorePrefix,
-		KeyCreator: RegisterKeyCreator,
-		Observer:   registerObserver,
+		Prefix:               NodeRegisterStorePrefix,
+		KeyCreator:           RegisterKeyCreator,
+		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+		Observer:             registerObserver,
 	})
 	if err != nil {
 		return nil, err
@@ -176,9 +177,10 @@ func (nr *NodeRegistrar) RegisterNode(n *nodeTypes.Node, manager NodeManager) er
 
 	// Join the shared store holding node information of entire cluster
 	nodeStore, err := store.JoinSharedStore(store.Configuration{
-		Prefix:     NodeStorePrefix,
-		KeyCreator: KeyCreator,
-		Observer:   NewNodeObserver(manager),
+		Prefix:               NodeStorePrefix,
+		KeyCreator:           KeyCreator,
+		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+		Observer:             NewNodeObserver(manager),
 	})
 	if err != nil {
 		return err
