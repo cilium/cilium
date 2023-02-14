@@ -200,7 +200,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 					// has been fixed, we need to disable IPv6 masq
 					"enableIPv6Masquerade": "false",
 				})
-				testExternalTrafficPolicyLocal(kubectl, ni)
+				testExternalTrafficPolicyLocal(kubectl, ni, true)
 				deploymentManager.DeleteAll()
 				deploymentManager.DeleteCilium()
 			})
@@ -209,12 +209,12 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 					"hostFirewall.enabled": "true",
 				})
-				testExternalTrafficPolicyLocal(kubectl, ni)
+				testExternalTrafficPolicyLocal(kubectl, ni, false)
 			})
 
 			It("with externalTrafficPolicy=Local", func() {
 				DeployCiliumAndDNS(kubectl, ciliumFilename)
-				testExternalTrafficPolicyLocal(kubectl, ni)
+				testExternalTrafficPolicyLocal(kubectl, ni, false)
 			})
 
 			It("", func() {
