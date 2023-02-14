@@ -301,6 +301,9 @@ func (c *Collector) Run() error {
 				if err := c.WriteYAML(kubernetesEventsFileName, v); err != nil {
 					return fmt.Errorf("failed to collect Kubernetes events: %w", err)
 				}
+				if err := c.WriteBytes(kubernetesEventsTableFileName, makeEventTable(v.Items)); err != nil {
+					return fmt.Errorf("failed to write event tble: %w", err)
+				}
 				return nil
 			},
 		},
