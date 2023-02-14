@@ -2474,7 +2474,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			opts["k8sServicePort"] = "6443"
 		}
 
-		if RunsOn419OrLaterKernel() {
+		if RunsOn54OrLaterKernel() {
 			opts["bpf.masquerade"] = "true"
 			opts["enableIPv6Masquerade"] = "false"
 		}
@@ -2484,19 +2484,17 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if RunsOn419OrLaterKernel() {
+	if RunsOn54OrLaterKernel() {
 		// To enable SA for both cases when KPR is enabled and disabled
 		addIfNotOverwritten(options, "sessionAffinity", "true")
 	}
 
 	// Disable unsupported features that will just generated unnecessary
 	// warnings otherwise.
-	if DoesNotRunOn419OrLaterKernel() {
+	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "kubeProxyReplacement", "disabled")
 		addIfNotOverwritten(options, "bpf.masquerade", "false")
 		addIfNotOverwritten(options, "sessionAffinity", "false")
-	}
-	if DoesNotRunOnNetNextKernel() {
 		addIfNotOverwritten(options, "bandwidthManager.enabled", "false")
 	}
 
