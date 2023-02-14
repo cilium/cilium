@@ -94,14 +94,13 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	})
 	defer ipc.Shutdown()
 	cm, err := NewClusterMesh(Configuration{
-		Name:                         "test2",
-		ConfigDirectory:              dir,
-		NodeKeyCreator:               testNodeCreator,
-		nodeObserver:                 &testObserver{},
-		ServiceMerger:                &s.svcCache,
-		RemoteIdentityWatcher:        mgr,
-		IPCache:                      ipc,
-		ServicesSharedKeyDeleteDelay: func() *time.Duration { a := time.Duration(0); return &a }(),
+		Name:                  "test2",
+		ConfigDirectory:       dir,
+		NodeKeyCreator:        testNodeCreator,
+		nodeObserver:          &testObserver{},
+		ServiceMerger:         &s.svcCache,
+		RemoteIdentityWatcher: mgr,
+		IPCache:               ipc,
 	})
 	c.Assert(err, IsNil)
 	c.Assert(cm, Not(IsNil))

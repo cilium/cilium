@@ -111,7 +111,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 		store, err := store.JoinSharedStore(store.Configuration{
 			Prefix:                  serviceStore.ServiceStorePrefix,
 			SynchronizationInterval: 5 * time.Minute,
-			SharedKeyDeleteDelay:    func() *time.Duration { a := time.Duration(0); return &a }(),
+			SharedKeyDeleteDelay:    0,
 			KeyCreator: func() store.Key {
 				return &serviceStore.ClusterService{}
 			},
