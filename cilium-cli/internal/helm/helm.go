@@ -84,7 +84,11 @@ func filterManifests(manifest string) map[string]string {
 		// well as macOS/linux
 		manifestPath := strings.Join(manifestPathSplit, "/")
 
-		manifestsToRender[manifestPath] = manifest
+		if existing, ok := manifestsToRender[manifestPath]; ok {
+			manifestsToRender[manifestPath] = existing + "\n---\n" + manifest
+		} else {
+			manifestsToRender[manifestPath] = manifest
+		}
 	}
 	return manifestsToRender
 }
