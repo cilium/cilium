@@ -14,6 +14,9 @@
 #ifndef IS_L3_DEV
 # define IS_L3_DEV(ifindex)	false
 #endif
+#ifndef NATIVE_DEV_MAC_BY_IFINDEX
+# define NATIVE_DEV_MAC_BY_IFINDEX(ifindex) { .addr = { } }
+#endif
 
 static __always_inline int
 maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
