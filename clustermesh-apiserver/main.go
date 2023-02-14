@@ -605,9 +605,10 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 	}
 
 	_, err = store.JoinSharedStore(store.Configuration{
-		Prefix:     nodeStore.NodeRegisterStorePrefix,
-		KeyCreator: nodeStore.RegisterKeyCreator,
-		Observer:   mgr,
+		Prefix:               nodeStore.NodeRegisterStorePrefix,
+		KeyCreator:           nodeStore.RegisterKeyCreator,
+		SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+		Observer:             mgr,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Unable to set up node register store in etcd")
