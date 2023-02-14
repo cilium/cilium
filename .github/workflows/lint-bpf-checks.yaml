@@ -67,9 +67,19 @@ jobs:
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
+  set_clang_dir:
+    name: Set clang directory
+    runs-on: ubuntu-latest
+    outputs:
+      clang_dir: ${{ steps.set_dir.outputs.clang_dir }}
+    steps:
+    - name: Set directory
+      id: set_dir
+      run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
   # Runs only if code under bpf/ is changed.
   build_all:
-    needs: check_changes
+    needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
     name: build datapath
     runs-on: ubuntu-22.04
@@ -82,7 +92,7 @@ jobs:
         id: cache-llvm
         uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920 # v3.2.4
         with:
-          path: $HOME/.clang
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
       - name: Install LLVM and Clang prerequisites
         run: |
@@ -92,7 +102,7 @@ jobs:
         uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
