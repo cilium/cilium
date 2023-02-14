@@ -460,10 +460,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (ret == NAT_46X64_RECIRC) {
 				ctx_store_meta(ctx, CB_SRC_LABEL, secctx);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-				return send_drop_notify_error(ctx, secctx,
-							      DROP_MISSED_TAIL_CALL,
-							      CTX_ACT_DROP,
-							      METRIC_INGRESS);
+				return DROP_MISSED_TAIL_CALL;
 			}
 
 			/* nodeport_lb4() returns with TC_ACT_REDIRECT for
