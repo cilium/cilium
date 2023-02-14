@@ -10,7 +10,12 @@
     "images/**",
     "examples/hubble/*"
   ],
+  // This ignorePaths configuration option overrides the config:base preset and
+  // should not be removed.
+  // If removed, we would fall back on the config:base preset, which ignores any
+  // paths that match 'examples/*' (which we explicitly do not want to ignore).
   "ignorePaths": [
+    // This file is deprecated and no longer present in master
     "images/cilium-test/Dockerfile"
   ],
   "ignoreDeps": [
@@ -148,8 +153,13 @@
       "fileMatch": [
         "images/cilium/download-hubble\\.sh"
       ],
+      // These regexes manage version and digest strings in shell scripts,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version=\"(?<currentValue>.*)\"",
+        // The digestVersion in this regex is required for Renovate to be able
+        // to match the digest to the pinned version. It will not work without it.
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
       ]
     }
