@@ -269,7 +269,7 @@ func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 		return e == o
 	}
 
-	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort
+	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort && e.AuthType == o.AuthType
 }
 
 // String returns a string representation of the MapStateEntry
