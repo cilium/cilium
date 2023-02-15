@@ -880,7 +880,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		 */
 		if (IS_ERR(ret))
 			goto drop_no_service;
-		goto update_state;
+		break;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
@@ -890,52 +890,54 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
 		}
+
+		/* See lb4_local comment */
+		if (state->rev_nat_index != svc->rev_nat_index) {
+#ifdef ENABLE_SESSION_AFFINITY
+			if (lb6_svc_is_affinity(svc))
+				backend_id = lb6_affinity_backend_id_by_addr(svc,
+									     &client_id);
+#endif
+			if (!backend_id) {
+				backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+				if (!backend_id)
+					goto drop_no_service;
+			}
+
+			state->backend_id = backend_id;
+			ct_update_backend_id(map, tuple, state);
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_rev_nat_index(map, tuple, state);
+		}
+		/* If the lookup fails it means the user deleted the backend out from
+		 * underneath us. To resolve this fall back to hash. If this is a TCP
+		 * session we are likely to get a TCP RST.
+		 */
+		backend = lb6_lookup_backend(ctx, state->backend_id);
+		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			/* Drain existing connections, but redirect new ones to only
+			 * active backends.
+			 */
+			if (backend && !state->syn)
+				break;
+
+			key->backend_slot = 0;
+			svc = lb6_lookup_service(key, false, true);
+			if (!svc)
+				goto drop_no_service;
+			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			backend = lb6_lookup_backend(ctx, backend_id);
+			if (!backend)
+				goto drop_no_service;
+			state->backend_id = backend_id;
+			ct_update_backend_id(map, tuple, state);
+		}
+
 		break;
 	default:
 		goto drop_no_service;
 	}
 
-	/* See lb4_local comment */
-	if (state->rev_nat_index != svc->rev_nat_index) {
-#ifdef ENABLE_SESSION_AFFINITY
-		if (lb6_svc_is_affinity(svc))
-			backend_id = lb6_affinity_backend_id_by_addr(svc,
-								     &client_id);
-#endif
-		if (!backend_id) {
-			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
-			if (!backend_id)
-				goto drop_no_service;
-		}
-
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-		state->rev_nat_index = svc->rev_nat_index;
-		ct_update_rev_nat_index(map, tuple, state);
-	}
-	/* If the lookup fails it means the user deleted the backend out from
-	 * underneath us. To resolve this fall back to hash. If this is a TCP
-	 * session we are likely to get a TCP RST.
-	 */
-	backend = lb6_lookup_backend(ctx, state->backend_id);
-	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
-		/* Drain existing connections, but redirect new ones to only
-		 * active backends.
-		 */
-		if (backend && !state->syn)
-			goto update_state;
-		key->backend_slot = 0;
-		svc = lb6_lookup_service(key, false, true);
-		if (!svc)
-			goto drop_no_service;
-		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
-		backend = lb6_lookup_backend(ctx, backend_id);
-		if (!backend)
-			goto drop_no_service;
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-	}
-update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
@@ -1572,7 +1574,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		 */
 		if (IS_ERR(ret))
 			goto drop_no_service;
-		goto update_state;
+		break;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
@@ -1587,58 +1589,60 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
 		}
+
+		/* If the CT_SERVICE entry is from a non-related connection (e.g.
+		 * endpoint has been removed, but its CT entries were not (it is
+		 * totally possible due to the bug in DumpReliablyWithCallback)),
+		 * then a wrong (=from unrelated service) backend can be selected.
+		 * To avoid this, check that reverse NAT indices match. If not,
+		 * select a new backend.
+		 */
+		if (state->rev_nat_index != svc->rev_nat_index) {
+#ifdef ENABLE_SESSION_AFFINITY
+			if (lb4_svc_is_affinity(svc))
+				backend_id = lb4_affinity_backend_id_by_addr(svc,
+									     &client_id);
+#endif
+			if (!backend_id) {
+				backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+				if (!backend_id)
+					goto drop_no_service;
+			}
+
+			state->backend_id = backend_id;
+			ct_update_backend_id(map, tuple, state);
+			state->rev_nat_index = svc->rev_nat_index;
+			ct_update_rev_nat_index(map, tuple, state);
+		}
+		/* If the lookup fails it means the user deleted the backend out from
+		 * underneath us. To resolve this fall back to hash. If this is a TCP
+		 * session we are likely to get a TCP RST.
+		 */
+		backend = lb4_lookup_backend(ctx, state->backend_id);
+		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
+			/* Drain existing connections, but redirect new ones to only
+			 * active backends.
+			 */
+			if (backend && !state->syn)
+				break;
+
+			key->backend_slot = 0;
+			svc = lb4_lookup_service(key, false, true);
+			if (!svc)
+				goto drop_no_service;
+			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			backend = lb4_lookup_backend(ctx, backend_id);
+			if (!backend)
+				goto drop_no_service;
+			state->backend_id = backend_id;
+			ct_update_backend_id(map, tuple, state);
+		}
+
 		break;
 	default:
 		goto drop_no_service;
 	}
 
-	/* If the CT_SERVICE entry is from a non-related connection (e.g.
-	 * endpoint has been removed, but its CT entries were not (it is
-	 * totally possible due to the bug in DumpReliablyWithCallback)),
-	 * then a wrong (=from unrelated service) backend can be selected.
-	 * To avoid this, check that reverse NAT indices match. If not,
-	 * select a new backend.
-	 */
-	if (state->rev_nat_index != svc->rev_nat_index) {
-#ifdef ENABLE_SESSION_AFFINITY
-		if (lb4_svc_is_affinity(svc))
-			backend_id = lb4_affinity_backend_id_by_addr(svc,
-								     &client_id);
-#endif
-		if (!backend_id) {
-			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
-			if (!backend_id)
-				goto drop_no_service;
-		}
-
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-		state->rev_nat_index = svc->rev_nat_index;
-		ct_update_rev_nat_index(map, tuple, state);
-	}
-	/* If the lookup fails it means the user deleted the backend out from
-	 * underneath us. To resolve this fall back to hash. If this is a TCP
-	 * session we are likely to get a TCP RST.
-	 */
-	backend = lb4_lookup_backend(ctx, state->backend_id);
-	if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
-		/* Drain existing connections, but redirect new ones to only
-		 * active backends.
-		 */
-		if (backend && !state->syn)
-			goto update_state;
-		key->backend_slot = 0;
-		svc = lb4_lookup_service(key, false, true);
-		if (!svc)
-			goto drop_no_service;
-		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
-		backend = lb4_lookup_backend(ctx, backend_id);
-		if (!backend)
-			goto drop_no_service;
-		state->backend_id = backend_id;
-		ct_update_backend_id(map, tuple, state);
-	}
-update_state:
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
