@@ -91,7 +91,7 @@ nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP6} dev eth0 lladdr ${WO
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
@@ -118,7 +118,7 @@ cilium_install \
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
@@ -130,7 +130,7 @@ cilium_install \
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Add another IPv6->IPv6 service and reuse backend
@@ -148,12 +148,12 @@ ip -6 r a "${LB_ALT}/128" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_ALT}]:80"
+    curl -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Check if restore for both is proper and that this also works
@@ -169,12 +169,12 @@ cilium_install \
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_VIP}:80"
+    curl -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_ALT}]:80"
+    curl -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
 done
 
 ${CILIUM_EXEC} cilium service delete 1
@@ -212,7 +212,7 @@ nsenter -t $CONTROL_PLANE_PID -n ip neigh add ${WORKER_IP4} dev eth0 lladdr ${WO
 
 # Issue 10 requests to LB
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: XDP/Maglev/SNAT
@@ -239,7 +239,7 @@ cilium_install \
 
 # Check that curl still works after restore
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Install Cilium as standalone L4LB: tc/Random/SNAT
@@ -251,7 +251,7 @@ cilium_install \
 
 # Check that curl also works for random selection
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Add another IPv4->IPv4 service and reuse backend
@@ -269,12 +269,12 @@ ip r a "${LB_ALT}/32" via "$LB_NODE_IP"
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_ALT}:80"
+    curl -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
 done
 
 # Check if restore for both is proper and that this also works
@@ -290,12 +290,12 @@ cilium_install \
 
 # Issue 10 requests to LB1
 for i in $(seq 1 10); do
-    curl -o /dev/null "[${LB_VIP}]:80"
+    curl -o /dev/null "[${LB_VIP}]:80" || (echo "Failed $i"; exit -1)
 done
 
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
-    curl -o /dev/null "${LB_ALT}:80"
+    curl -o /dev/null "${LB_ALT}:80" || (echo "Failed $i"; exit -1)
 done
 
 ${CILIUM_EXEC} cilium service delete 1
