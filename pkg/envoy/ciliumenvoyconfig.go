@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
@@ -148,6 +149,9 @@ func ParseResources(namePrefix string, anySlice []cilium_v2.XDSResource, validat
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
 							fc.Filters[i] = &envoy_config_listener.Filter{
 								Name: "cilium.network",
+								ConfigType: &envoy_config_listener.Filter_TypedConfig{
+									TypedConfig: toAny(&cilium.NetworkFilter{}),
+								},
 							}
 						}
 						foundCiliumL7Filter := false
