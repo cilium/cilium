@@ -48,6 +48,8 @@ type ClientService interface {
 
 	GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writer, opts ...ClientOption) (*GetMapNameEventsOK, error)
 
+	GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error)
+
 	PatchConfig(params *PatchConfigParams, opts ...ClientOption) (*PatchConfigOK, error)
 
 	SetTransport(transport runtime.ClientTransport)
@@ -323,6 +325,48 @@ func (a *Client) GetMapNameEvents(params *GetMapNameEventsParams, writer io.Writ
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for GetMapNameEvents: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+	GetNodeIds lists information about known node i ds
+
+	Retrieves a list of node IDs allocated by the agent and their
+
+associated node IP addresses.
+*/
+func (a *Client) GetNodeIds(params *GetNodeIdsParams, opts ...ClientOption) (*GetNodeIdsOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetNodeIdsParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "GetNodeIds",
+		Method:             "GET",
+		PathPattern:        "/node/ids",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetNodeIdsReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*GetNodeIdsOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetNodeIds: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

@@ -689,6 +689,40 @@ func (m *AlternateProtocolsCacheOptions) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetPrepopulatedEntries() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AlternateProtocolsCacheOptionsValidationError{
+						field:  fmt.Sprintf("PrepopulatedEntries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AlternateProtocolsCacheOptionsValidationError{
+						field:  fmt.Sprintf("PrepopulatedEntries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AlternateProtocolsCacheOptionsValidationError{
+					field:  fmt.Sprintf("PrepopulatedEntries[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return AlternateProtocolsCacheOptionsMultiError(errors)
 	}
@@ -2219,6 +2253,151 @@ var _SchemeHeaderTransformation_SchemeToOverwrite_InLookup = map[string]struct{}
 	"http":  {},
 	"https": {},
 }
+
+// Validate checks the field values on
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError, or
+// nil if none found.
+func (m *AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetHostname() != "" {
+
+		if !_AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry_Hostname_Pattern.MatchString(m.GetHostname()) {
+			err := AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError{
+				field:  "Hostname",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if val := m.GetPort(); val <= 0 || val >= 65535 {
+		err := AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError{
+			field:  "Port",
+			reason: "value must be inside range (0, 65535)",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError(errors)
+	}
+	return nil
+}
+
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError is an
+// error wrapping multiple validation errors returned by
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry.ValidateAll()
+// if the designated constraints aren't met.
+type AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryMultiError) AllErrors() []error {
+	return m
+}
+
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError
+// is the validation error returned by
+// AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry.Validate if the
+// designated constraints aren't met.
+type AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) Field() string {
+	return e.field
+}
+
+// Reason function returns reason value.
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) Reason() string {
+	return e.reason
+}
+
+// Cause function returns cause value.
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) Cause() error {
+	return e.cause
+}
+
+// Key function returns key value.
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) Key() bool {
+	return e.key
+}
+
+// ErrorName returns error name.
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) ErrorName() string {
+	return "AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntryValidationError{}
+
+var _AlternateProtocolsCacheOptions_AlternateProtocolsCacheEntry_Hostname_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 // Validate checks the field values on Http1ProtocolOptions_HeaderKeyFormat
 // with the rules defined in the proto definition for this message. If any

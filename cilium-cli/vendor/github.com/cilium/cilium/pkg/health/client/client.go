@@ -294,14 +294,14 @@ func GetEndpointSecondaryAddresses(node *models.NodeStatus) []*models.PathStatus
 }
 
 // GetAllEndpointAddresses returns a list of all addresses (primary and any
-// and any secondary) for the health endpoint within a given node.
+// secondary) for the health endpoint within a given node.
 // If node.HealthEndpoint is nil, returns nil.
 func GetAllEndpointAddresses(node *models.NodeStatus) []*models.PathStatus {
 	if node.HealthEndpoint == nil {
 		return nil
 	}
 
-	return node.HealthEndpoint.SecondaryAddresses
+	return append([]*models.PathStatus{node.HealthEndpoint.PrimaryAddress}, node.HealthEndpoint.SecondaryAddresses...)
 }
 
 func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, verbose, localhost bool) {
