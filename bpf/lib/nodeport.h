@@ -482,7 +482,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, true, &ext_err,
 			      ctx_get_ifindex(ctx), &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -516,7 +516,7 @@ int tail_nat_ipv46(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v6(ctx, l3_off, ip6, false, &ext_err,
 			      ctx_get_ifindex(ctx), &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -548,7 +548,7 @@ int tail_nat_ipv64(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v4(ctx, l3_off, ip4, false, &ext_err,
 			      ctx_get_ifindex(ctx), &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -688,7 +688,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 			       (union v6addr *)&ip6->daddr);
 	}
 	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -1033,7 +1033,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 		goto drop;
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
-	if (ret == CTX_ACT_REDIRECT)
+	if (fib_ok(ret))
 		return ret;
 	ctx_move_xfer(ctx);
 	return ret;
@@ -1481,7 +1481,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	}
 	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err,
 			      ctx_get_ifindex(ctx), &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -1630,7 +1630,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	fib_params.l.ipv4_dst = ip4->daddr;
 
 	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
-	if (likely(ret == CTX_ACT_REDIRECT)) {
+	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
 	}
@@ -1994,7 +1994,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
-	if (ret == CTX_ACT_REDIRECT)
+	if (fib_ok(ret))
 		return ret;
 	ctx_move_xfer(ctx);
 	return ret;

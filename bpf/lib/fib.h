@@ -35,6 +35,11 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 	return 0;
 }
 
+static __always_inline bool fib_ok(int ret)
+{
+	return likely(ret == CTX_ACT_TX || ret == CTX_ACT_REDIRECT);
+}
+
 /* fib_redirect() is common helper code which performs fib lookup, populates
  * the corresponding hardware addresses and pushes the packet to a target
  * device for the next hop. Calling fib_redirect_v{4,6} is preferred unless

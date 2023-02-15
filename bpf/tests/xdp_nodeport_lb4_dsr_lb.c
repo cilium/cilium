@@ -207,7 +207,7 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	status_code = data;
 
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(fib_ok(*status_code));
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
