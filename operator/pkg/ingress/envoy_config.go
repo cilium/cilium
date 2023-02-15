@@ -15,6 +15,8 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
 	envoy_config_upstream "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
@@ -343,6 +345,9 @@ func getListenerResource(ingress *slim_networkingv1.Ingress, secretNamespace str
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			{
 				Name: "envoy.filters.listener.tls_inspector",
+				ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+				},
 			},
 		},
 		SocketOptions: getSocketOptions(ingress),
@@ -378,7 +383,12 @@ func getConnectionManager(ingress *slim_networkingv1.Ingress, name string, route
 			},
 		},
 		HttpFilters: []*envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter{
-			{Name: "envoy.filters.http.router"},
+			{
+				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_extensions_filters_network_http_connection_manager_v3.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
+			},
 		},
 		UpgradeConfigs: upgradeConfigs,
 	}
@@ -627,8 +637,8 @@ func getRedirectRouteConfigurationResource(ingress *slim_networkingv1.Ingress) (
 // Currently, only TPC keep-alive related options are specified.
 //
 // Related references:
-//  - https://man7.org/linux/man-pages/man7/tcp.7.html
-//  - https://github.com/envoyproxy/envoy/issues/3634
+//   - https://man7.org/linux/man-pages/man7/tcp.7.html
+//   - https://github.com/envoyproxy/envoy/issues/3634
 func getSocketOptions(ingress *slim_networkingv1.Ingress) []*envoy_config_core_v3.SocketOption {
 	tcpKeepAliveEnabled := annotations.GetAnnotationTCPKeepAliveEnabled(ingress)
 	if tcpKeepAliveEnabled == 0 {

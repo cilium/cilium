@@ -22,6 +22,8 @@ import (
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
+	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -280,6 +282,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 			getCiliumHttpFilter(),
 			{
 				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
 			},
 		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
@@ -347,6 +352,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	chain := &envoy_config_listener.FilterChain{
 		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
+				TypedConfig: toAny(&cilium.NetworkFilter{}),
+			},
 		}, {
 			Name: "envoy.filters.network.http_connection_manager",
 			ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -361,6 +369,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		}
 		chain.TransportSocket = &envoy_config_core.TransportSocket{
 			Name: "cilium.tls_wrapper",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: toAny(&cilium.DownstreamTlsWrapperContext{}),
+			},
 		}
 	}
 
@@ -472,6 +483,9 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 			StatPrefix: metricsListenerName,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
+				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&envoy_extensions_filters_http_router_v3.Router{}),
+				},
 			}},
 			StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -742,6 +756,9 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		// Use tls_inspector only with HTTP, insert as the first filter
 		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
 			Name: "envoy.filters.listener.tls_inspector",
+			ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+			},
 		}}, listenerConf.ListenerFilters...)
 
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
@@ -1162,6 +1179,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket: &envoy_config_core.TransportSocket{
 						Name: "cilium.tls_wrapper",
+						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+						},
 					},
 				},
 				{
@@ -1181,6 +1201,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 					TypedExtensionProtocolOptions: useDownstreamProtocolAutoSNI,
 					TransportSocket: &envoy_config_core.TransportSocket{
 						Name: "cilium.tls_wrapper",
+						ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+							TypedConfig: toAny(&cilium.UpstreamTlsWrapperContext{}),
+						},
 					},
 				},
 				{
@@ -1248,16 +1271,6 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
 							}}}},
-						}},
-					},
-				},
-				{
-					Name: "deprecation",
-					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
-						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
-							// This is to avoid empty type URL issue for cilium.tls_wrapper
-							// TODO: Remove this once we have a type URL for upstream and downstream cilium.tls_wrapper
-							"envoy.reloadable_features.no_extension_lookup_by_name": {Kind: &structpb.Value_BoolValue{BoolValue: false}},
 						}},
 					},
 				},
