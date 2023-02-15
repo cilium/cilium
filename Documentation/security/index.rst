@@ -4,10 +4,10 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _security_tutorial_root:
+.. _security_root:
 
-Network Policy Security Tutorials
----------------------------------
+Securing Networks with Cilium
+-----------------------------
 
 .. toctree::
    :maxdepth: 2
