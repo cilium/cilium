@@ -94,24 +94,6 @@ static __always_inline bool identity_from_ipcache_ok(void)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
-derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
-{
-	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
-		/* Read initial 4 bytes of header and then extract flowlabel */
-		__u32 *tmp = (__u32 *) ip6;
-		*identity = bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
-
-		/* A remote node will map any HOST_ID source to be presented as
-		 * REMOTE_NODE_ID, therefore any attempt to signal HOST_ID as
-		 * source from a remote node can be dropped.
-		 */
-		if (*identity == HOST_ID)
-			return DROP_INVALID_IDENTITY;
-	}
-	return 0;
-}
-
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline __u32
 ipcache_lookup_srcid6(struct __ctx_buff *ctx)
@@ -143,19 +125,9 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *src;
-	int ret;
 
 	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip6, !from_host))
 		return DROP_INVALID;
-
-	if (!from_host) {
-		union v6addr node_ip = {};
-
-		BPF_V6(node_ip, ROUTER_IP);
-		ret = derive_src_id(&node_ip, ip6, &src_id);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
