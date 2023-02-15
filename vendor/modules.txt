@@ -201,7 +201,7 @@ github.com/cilium/ipam/service/ipallocator
 # github.com/cilium/lumberjack/v2 v2.2.2
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20230205220247-5b9c892d59cd
+# github.com/cilium/proxy v0.0.0-20230215154421-edb6834301da
 ## explicit; go 1.13
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
@@ -226,7 +226,9 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3
