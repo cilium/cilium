@@ -221,14 +221,10 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 # ifdef ENABLE_IPV4
 #  ifndef ENABLE_MASQUERADE
 static __always_inline int
-whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
-				    struct trace_ctx *trace, __s8 *ext_err)
+whitelist_snated_egress_connections(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
+				    enum ct_status ct_ret, __s8 *ext_err)
 {
-	struct ct_state ct_state_new = {}, ct_state = {};
-	struct ipv4_ct_tuple tuple = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
-	int ret, l4_off;
+	struct ct_state ct_state_new = {};
 
 	/* If kube-proxy is in use (no BPF-based masquerading), packets from
 	 * pods may be SNATed. The response packet will therefore have a host
@@ -240,39 +236,22 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 	 * We know the packet is a SNATed packet if the srcid from ipcache is
 	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
 	 */
-	if (ipcache_srcid == HOST_ID) {
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-				 CT_EGRESS, &ct_state, &trace->monitor);
-		if (ret < 0)
+	if (ct_ret == CT_NEW) {
+		int ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4,
+				     tuple, ctx, CT_EGRESS, &ct_state_new,
+				     false, false, ext_err);
+		if (unlikely(ret < 0))
 			return ret;
-
-		trace->reason = (enum trace_reason)ret;
-
-		if (ret == CT_NEW) {
-			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4,
-					 &tuple, ctx, CT_EGRESS, &ct_state_new,
-					 false, false, ext_err);
-			if (IS_ERR(ret))
-				return ret;
-		}
 	}
 
 	return CTX_ACT_OK;
 }
-#   endif
+#  endif
 
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
-			__u32 ipcache_srcid __maybe_unused,
-			struct iphdr *ip4, struct trace_ctx *trace,
-			__s8 *ext_err)
+			__u32 ipcache_srcid, struct iphdr *ip4,
+			struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -284,15 +263,14 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	__u16 node_id = 0;
 	__u16 proxy_port = 0;
 
-	if (src_sec_identity != HOST_ID) {
-#  ifndef ENABLE_MASQUERADE
-		return whitelist_snated_egress_connections(ctx, ipcache_srcid,
-							   trace, ext_err);
-#  else
-		/* Only enforce host policies for packets from host IPs. */
+	/* Further action is needed in two cases:
+	 * 1. Packets from host IPs: need to enforce host policies.
+	 * 2. SNATed packets from pods: need to create a CT entry to skip
+	 *    applying host policies to reply packets.
+	 */
+	if (src_sec_identity != HOST_ID &&
+	    (is_defined(ENABLE_MASQUERADE) || ipcache_srcid != HOST_ID))
 		return CTX_ACT_OK;
-#  endif
-	}
 
 	/* Lookup connection in conntrack map. */
 	tuple.nexthdr = ip4->protocol;
@@ -305,6 +283,13 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		return ret;
 
 	trace->reason = (enum trace_reason)ret;
+
+#  ifndef ENABLE_MASQUERADE
+	if (src_sec_identity != HOST_ID)
+		/* Checked above: ipcache_srcid == HOST_ID. */
+		return whitelist_snated_egress_connections(ctx, &tuple, (enum ct_status)ret,
+							   ext_err);
+#  endif
 
 	/* Retrieve destination identity. */
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
