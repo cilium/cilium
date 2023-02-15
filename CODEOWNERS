@@ -338,6 +338,7 @@ Makefile* @cilium/build
 /Documentation/yaml.config @cilium/docs-structure
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
+/examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes/ @cilium/sig-k8s
 /examples/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /examples/minikube/ @cilium/sig-k8s
