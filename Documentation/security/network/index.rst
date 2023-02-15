@@ -6,8 +6,8 @@
 
 .. _concepts_security:
 
-Network Security
-----------------
+Overview of Network Security
+----------------------------
 
 .. toctree::
    :maxdepth: 2

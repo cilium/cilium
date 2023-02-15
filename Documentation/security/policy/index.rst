@@ -8,10 +8,10 @@
 .. _Network Policies:
 .. _Network Policy:
 
-Network Policy
---------------
+Overview of Network Policy
+--------------------------
 
-This chapter documents the policy language used to configure network policies
+This page documents the policy language used to configure network policies
 in Cilium. Security policies can be specified and imported via the following
 mechanisms:
 
