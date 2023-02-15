@@ -136,7 +136,7 @@
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
-     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/coreos/etcd","tag":"v3.4.23@sha256:a17abff8fa908eb6aaecd0367c0154b73a8a66e484100e91202319bc1d9a7cd3"}``
+     - ``{"override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/coreos/etcd","tag":"v3.4.13@sha256:04833b601fa130512450afa45c4fe484fee1293634f34c7ddc231bd193c74017"}``
    * - clustermesh.apiserver.image
      - Clustermesh API server image.
      - object
