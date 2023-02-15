@@ -17,6 +17,9 @@ const (
 	// Node is a host machine in the cluster, running cilium
 	Node = "node"
 
+	// NodeID is the node-scoped ID of the node as allocated by the agent
+	NodeID = "nodeID"
+
 	// NodeName is a human readable name for the node
 	NodeName = "nodeName"
 

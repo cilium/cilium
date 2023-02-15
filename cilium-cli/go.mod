@@ -4,18 +4,18 @@ go 1.20
 
 // Replace directives from github.com/cilium/cilium. Keep in sync when updating Cilium!
 replace (
-	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
+	github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-	sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.6.2
+	sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
 )
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20230127134207-b66f8b685c0c
-	github.com/cilium/cilium v1.13.0-rc5
+	github.com/cilium/charts v0.0.0-20230215145630-dd1215c3ecfa
+	github.com/cilium/cilium v1.13.0
 	github.com/cilium/hubble v0.11.1
-	github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9
+	github.com/cilium/proxy v0.0.0-20230205220247-5b9c892d59cd
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.3
 	github.com/go-openapi/strfmt v0.21.3

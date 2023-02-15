@@ -1143,6 +1143,37 @@ func (m *ListenerFilter) validate(all bool) error {
 			}
 		}
 
+	case *ListenerFilter_ConfigDiscovery:
+
+		if all {
+			switch v := interface{}(m.GetConfigDiscovery()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ListenerFilterValidationError{
+						field:  "ConfigDiscovery",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetConfigDiscovery()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ListenerFilterValidationError{
+					field:  "ConfigDiscovery",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	if len(errors) > 0 {

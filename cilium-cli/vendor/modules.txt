@@ -61,10 +61,10 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20230127134207-b66f8b685c0c
+# github.com/cilium/charts v0.0.0-20230215145630-dd1215c3ecfa
 ## explicit; go 1.17
 github.com/cilium/charts
-# github.com/cilium/cilium v1.13.0-rc5
+# github.com/cilium/cilium v1.13.0
 ## explicit; go 1.19
 github.com/cilium/cilium/api/v1/client
 github.com/cilium/cilium/api/v1/client/daemon
@@ -141,7 +141,7 @@ github.com/cilium/cilium/pkg/versioncheck
 # github.com/cilium/hubble v0.11.1
 ## explicit; go 1.19
 github.com/cilium/hubble/pkg/printer
-# github.com/cilium/proxy v0.0.0-20221007150350-ea56f41688f9
+# github.com/cilium/proxy v0.0.0-20230205220247-5b9c892d59cd
 ## explicit; go 1.13
 github.com/cilium/proxy/go/envoy/annotations
 github.com/cilium/proxy/go/envoy/config/accesslog/v3
@@ -1862,7 +1862,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
+# github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-# sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.6.2
+# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
