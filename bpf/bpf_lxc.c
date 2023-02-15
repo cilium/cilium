@@ -521,9 +521,6 @@ pass_to_stack:
 		return ret;
 #endif
 
-	if (ipv6_store_flowlabel(ctx, ETH_HLEN, SECLABEL_NB) < 0)
-		return DROP_WRITE_ERROR;
-
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
