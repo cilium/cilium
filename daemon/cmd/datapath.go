@@ -124,10 +124,26 @@ func clearCiliumVeths() error {
 	for _, v := range leftVeths {
 		peerIndex := v.Attrs().ParentIndex
 		parentVeth, found := leftVeths[peerIndex]
-		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") {
+
+		// In addition to name matching, double check whether the parent of the
+		// parent is the interface itself, to avoid removing the interface in
+		// case we hit an index clash, and the actual parent of the interface is
+		// in a different network namespace. Notably, this can happen in the
+		// context of Kind nodes, as eth0 is a veth interface itself; if an
+		// lxcxxxxxx interface ends up having the same ifindex of the eth0 parent
+		// (which is actually located in the root network namespace), we would
+		// otherwise end up deleting the eth0 interface, with the obvious
+		// ill-fated consequences.
+		if found && peerIndex != 0 && strings.HasPrefix(parentVeth.Attrs().Name, "lxc") &&
+			parentVeth.Attrs().ParentIndex == v.Attrs().Index {
+			scopedlog := log.WithFields(logrus.Fields{
+				logfields.Device: v.Attrs().Name,
+			})
+
+			scopedlog.Debug("Deleting stale veth device")
 			err := netlink.LinkDel(v)
 			if err != nil {
-				log.WithError(err).Warningf("Unable to delete stale veth device %s", v.Attrs().Name)
+				scopedlog.WithError(err).Warning("Unable to delete stale veth device")
 			}
 		}
 	}
