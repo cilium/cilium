@@ -360,6 +360,17 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 // account for the new kube-apiserver label that will be attached to them. This
 // is a known issue, see GH-17962 below.
 func (ipc *IPCache) injectLabels(ctx context.Context, prefix netip.Prefix, lbls labels.Labels) (*identity.Identity, bool, error) {
+	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) &&
+		(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+			lbls.Has(labels.LabelHost[labels.IDNameHost])) {
+		// If the prefix is associated with both world and (remote-node or
+		// host), then the latter (remote-node or host) take precedence to
+		// avoid allocating a CIDR identity for an entity within the cluster.
+		n := lbls.Remove(labels.LabelWorld)
+		n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
+		lbls = n
+	}
+
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
 		//
