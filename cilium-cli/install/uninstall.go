@@ -48,12 +48,23 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.autodetect(ctx)
 
+	k.Log("🔥 Deleting agent DaemonSet...")
+	k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{})
+	// We need to wait for daemonset to be deleted before proceeding with further cleanups
+	// as pods' daemonsets might still need to contact API Server, for example to remove node annotations.
+	if k.params.Wait {
+		k.Log("⌛ Waiting for agent DaemonSet to be uninstalled...")
+		err := k.waitForPodsToBeDeleted(ctx)
+		if err != nil {
+			k.Log("❌ Error while waiting for deletion of agent DaemonSet: %v", err)
+		} else {
+			k.Log("🔥 Agent DaemonSet deleted successfully...")
+		}
+	}
+	k.Log("🔥 Deleting operator Deployment...")
+	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting %s namespace...", defaults.IngressSecretsNamespace)
 	k.client.DeleteNamespace(ctx, defaults.IngressSecretsNamespace, metav1.DeleteOptions{})
-
-	k.Log("🔥 Deleting Service accounts...")
-	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{})
-	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.OperatorServiceAccountName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting ConfigMap...")
 	k.client.DeleteConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting Roles...")
@@ -64,12 +75,11 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 	k.client.DeleteClusterRoleBinding(ctx, defaults.AgentClusterRoleName, metav1.DeleteOptions{})
 	k.client.DeleteClusterRole(ctx, defaults.OperatorClusterRoleName, metav1.DeleteOptions{})
 	k.client.DeleteClusterRoleBinding(ctx, defaults.OperatorClusterRoleName, metav1.DeleteOptions{})
-	k.Log("🔥 Deleting agent DaemonSet...")
-	k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, metav1.DeleteOptions{})
-	k.Log("🔥 Deleting operator Deployment...")
-	k.client.DeleteDeployment(ctx, k.params.Namespace, defaults.OperatorDeploymentName, metav1.DeleteOptions{})
 	k.Log("🔥 Deleting IngressClass...")
 	k.client.DeleteIngressClass(ctx, defaults.IngressClassName, metav1.DeleteOptions{})
+	k.Log("🔥 Deleting Service accounts...")
+	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.AgentServiceAccountName, metav1.DeleteOptions{})
+	k.client.DeleteServiceAccount(ctx, k.params.Namespace, defaults.OperatorServiceAccountName, metav1.DeleteOptions{})
 
 	clustermesh.NewK8sClusterMesh(k.client, clustermesh.Parameters{
 		Namespace: k.params.Namespace,
@@ -97,25 +107,29 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.NodeInitDaemonSetName, metav1.DeleteOptions{})
 	}
 
-	if k.params.Wait {
-		k.Log("⌛ Waiting for Cilium to be uninstalled...")
-
-	retry:
-		pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
-		if err != nil {
-			return err
-		}
-
-		if len(pods.Items) > 0 {
-			time.Sleep(defaults.WaitRetryInterval)
-			goto retry
-		}
-	}
-
 	k.Log("🔥 Deleting secret with the helm values configuration...")
 	k.client.DeleteSecret(ctx, k.params.Namespace, k.params.HelmValuesSecretName, metav1.DeleteOptions{})
 
 	k.Log("✅ Cilium was successfully uninstalled.")
 
 	return nil
+}
+
+func (k *K8sUninstaller) waitForPodsToBeDeleted(ctx context.Context) error {
+	for {
+		pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
+		if err != nil {
+			return err
+		}
+
+		if len(pods.Items) > 0 {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("timeout waiting for pod deletion")
+			case <-time.After(defaults.WaitRetryInterval):
+			}
+		} else {
+			return nil
+		}
+	}
 }
