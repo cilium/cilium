@@ -43,6 +43,15 @@ path prefix) between resources.
 This is a step-by-step guide on how to enable the Ingress Controller in
 an existing K8s cluster with Cilium installed.
 
+Prerequisites
+#############
+
+* Cilium must be configured with ``kubeProxyReplacement`` as partial
+  or strict. Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
+  for more details.
+* Cilium must be configured with the L7 proxy enabled using the ``--enable-l7-proxy`` flag (enabled by default).
+* The minimum supported Kubernetes version for Ingress is 1.19.
+
 .. include:: installation.rst
 
 Supported Ingress Annotations
