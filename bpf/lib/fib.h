@@ -42,6 +42,11 @@ maybe_add_l2_hdr(struct __ctx_buff *ctx __maybe_unused,
 	return 0;
 }
 
+static __always_inline bool fib_ok(int ret)
+{
+	return likely(ret == CTX_ACT_TX || ret == CTX_ACT_REDIRECT);
+}
+
 static __always_inline int
 fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	     struct bpf_fib_lookup_padded *fib_params, __s8 *fib_err, int *oif)

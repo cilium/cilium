@@ -503,7 +503,7 @@ ct_recreate6:
 
 		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, ext_err,
 				      ctx->ingress_ifindex, &oif);
-		if (likely(ret == CTX_ACT_REDIRECT))
+		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
 					  *dst_id, 0, oif,
 					  trace.reason, trace.monitor);
@@ -1061,7 +1061,7 @@ skip_vtep:
 
 		ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, false, ext_err,
 				      ctx->ingress_ifindex, &oif);
-		if (likely(ret == CTX_ACT_REDIRECT))
+		if (fib_ok(ret))
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
 					  *dst_id, 0, oif,
 					  trace.reason, trace.monitor);
