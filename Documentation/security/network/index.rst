@@ -5,7 +5,6 @@
     https://docs.cilium.io
 
 .. _concepts_security:
-.. _security_root:
 
 Network Security
 ----------------
