@@ -373,6 +373,17 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	}
 
 	lbls := info.ToLabels()
+	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) &&
+		(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+			lbls.Has(labels.LabelHost[labels.IDNameHost])) {
+		// If the prefix is associated with both world and (remote-node or
+		// host), then the latter (remote-node or host) take precedence to
+		// avoid allocating a CIDR identity for an entity within the cluster.
+		n := lbls.Remove(labels.LabelWorld)
+		n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
+		lbls = n
+	}
+
 	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		// Associate any new labels with the host identity.
 		//
