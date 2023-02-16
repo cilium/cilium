@@ -18,4 +18,14 @@ static __always_inline bool ctx_no_room(const void *needed, const void *limit)
 	return unlikely(needed > limit);
 }
 
+static __always_inline bool ctx_is_skb(void)
+{
+	return __ctx_is == __ctx_skb;
+}
+
+static __always_inline bool ctx_is_xdp(void)
+{
+	return __ctx_is == __ctx_xdp;
+}
+
 #endif /* __BPF_CTX_COMMON_H_ */
