@@ -601,6 +601,41 @@ Patch version
 
 #. Submit all your changes into a new PR.
 
+Making changes to the Helm chart
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Helm chart is located in the ``install/kubernetes`` directory. The
+``values.yaml.tmpl`` file contains the values for the Helm chart which are being used into the ``values.yaml`` file.
+
+To prepare your changes you need to run the make scripts for the chart:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes
+
+This does all needed steps in one command. Your change to the Helm chart is now ready to be submitted!
+
+You can also run them one by one using the individual targets below.
+
+When updating or adding a value they can be synced to the ``values.yaml`` file by running the following command:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes cilium/values.yaml
+
+Before submitting the changes the ``README.md`` file needs to be updated, this can be done using the ``docs`` target:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes docs
+
+At last you might want to check the chart using the ``lint`` target:
+
+.. code-block:: shell-session
+
+   $ make -C install/kubernetes lint
+
+
 Optional: Docker and IPv6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

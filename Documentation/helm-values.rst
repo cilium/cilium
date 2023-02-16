@@ -220,7 +220,7 @@
    * - clustermesh.apiserver.etcd.image
      - Clustermesh API server etcd image.
      - object
-     - ``{"digest":"sha256:7238b08a6bad494e84ed1c632a62d39bdeed1f929950a05c1a32b6d4490a0047","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.7","useDigest":true}``
+     - ``{"digest":"sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3","override":null,"pullPolicy":"Always","repository":"quay.io/coreos/etcd","tag":"v3.5.4","useDigest":true}``
    * - clustermesh.apiserver.etcd.init.resources
      - Specifies the resources for etcd init container in the apiserver
      - object
@@ -1252,7 +1252,11 @@
    * - hubble.ui.service
      - hubble-ui service configuration.
      - object
-     - ``{"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+   * - hubble.ui.service.annotations
+     - Annotations to be added for the Hubble UI service
+     - object
+     - ``{}``
    * - hubble.ui.service.nodePort
      - - The port to use when the service type is set to NodePort.
      - int

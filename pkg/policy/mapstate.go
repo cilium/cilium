@@ -263,13 +263,13 @@ func (e *MapStateEntry) IsRedirectEntry() bool {
 }
 
 // DatapathEqual returns true of two entries are equal in the datapath's PoV,
-// i.e., both Deny and ProxyPort are the same for both entries.
+// i.e., IsDeny, ProxyPort and AuthType are the same for both entries.
 func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 	if e == nil || o == nil {
 		return e == o
 	}
 
-	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort
+	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort && e.AuthType == o.AuthType
 }
 
 // String returns a string representation of the MapStateEntry

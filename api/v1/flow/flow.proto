@@ -12,8 +12,11 @@ option go_package = "github.com/cilium/cilium/api/v1/flow";
 
 message Flow {
     google.protobuf.Timestamp time = 1;
-    Verdict verdict = 2;
 
+    // uuid is a universally unique identifier for this flow.
+    string uuid = 34;
+
+    Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
     uint32 drop_reason = 3 [deprecated=true];
@@ -424,6 +427,8 @@ message CiliumEventType {
 // FlowFilter represent an individual flow filter. All fields are optional. If
 // multiple fields are set, then all fields must match for the filter to match.
 message FlowFilter {
+    // uuid filters by a list of flow uuids.
+    repeated string uuid = 29;
     // source_ip filters by a list of source ips. Each of the source ips can be
     // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
     // "1.1.1.0/24").

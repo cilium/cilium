@@ -5586,7 +5586,7 @@
       "aliasColors": {
         "max": "#f2c96d",
         "policy errors": "#bf1b00",
-        "policy import errors": "#bf1b00"
+        "policy change errors": "#bf1b00"
       },
       "bars": false,
       "dashLength": 10,
@@ -5646,7 +5646,7 @@
           "lines": false
         },
         {
-          "alias": "policy import errors",
+          "alias": "policy change errors",
           "yaxis": 2
         }
       ],
@@ -5676,10 +5676,10 @@
           "refId": "C"
         },
         {
-          "expr": "sum(cilium_policy_import_errors_total{k8s_app=\"cilium\", pod=~\"$pod\"}) by (pod)",
+          "expr": "sum(cilium_policy_change_total{k8s_app=\"cilium\", pod=~\"$pod\"}, outcome=\"fail\") by (pod)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "policy import errors",
+          "legendFormat": "policy change errors",
           "refId": "D"
         }
       ],

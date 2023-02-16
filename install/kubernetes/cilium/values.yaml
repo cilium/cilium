@@ -1332,6 +1332,8 @@ hubble:
 
     # -- hubble-ui service configuration.
     service:
+      # -- Annotations to be added for the Hubble UI service
+      annotations: {}
       # --- The type of service used for Hubble UI access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
@@ -2280,8 +2282,8 @@ clustermesh:
       image:
         override: ~
         repository: "quay.io/coreos/etcd"
-        tag: "v3.5.7"
-        digest: "sha256:7238b08a6bad494e84ed1c632a62d39bdeed1f929950a05c1a32b6d4490a0047"
+        tag: "v3.5.4"
+        digest: "sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
         useDigest: true
         pullPolicy: "Always"
 

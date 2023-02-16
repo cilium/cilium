@@ -316,11 +316,15 @@ Added Metrics
 ~~~~~~~~~~~~~
 
 * ``cilium_operator_ces_sync_total``
+* ``cilium_policy_change_total``
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
 
 * ``cilium_operator_ces_sync_errors_total`` is deprecated. Please use ``cilium_operator_ces_sync_total`` instead.
+* ``cilium_policy_import_errors_total`` is deprecated. Please use
+  ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
+  based on outcome ("success" or "failure").
 
 Helm Options
 ~~~~~~~~~~~~

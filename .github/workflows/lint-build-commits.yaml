@@ -25,11 +25,15 @@ jobs:
         with:
           go-version: 1.19.5
 
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
         with:
-          path: $HOME/.clang
+          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
 
       - name: Install LLVM and Clang prerequisites
@@ -41,7 +45,7 @@ jobs:
         uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
       - name: Install ginkgo
@@ -49,7 +53,7 @@ jobs:
           go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
 
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
