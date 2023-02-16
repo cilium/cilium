@@ -8,7 +8,10 @@
 
 static inline void reset_queue_mapping(struct __ctx_buff *ctx __maybe_unused)
 {
-#if defined(RESET_QUEUES) && __ctx_is == __ctx_skb
+#ifdef RESET_QUEUES
+	if (!ctx_is_skb())
+		return;
+
 	/* Workaround for GH-18311 where veth driver might have recorded
 	 * veth's RX queue mapping instead of leaving it at 0. This can
 	 * cause issues on the phys device where all traffic would only
