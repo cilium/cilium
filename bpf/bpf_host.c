@@ -240,13 +240,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-#ifndef ENABLE_HOST_ROUTING
-	/* See the equivalent v4 path for comments */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* !ENABLE_HOST_ROUTING */
-
 skip_host_firewall:
+/*
+ * Perform SRv6 Decap if incoming skb is a known SID.
+ * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
+ * the remaining path potentially erroneous.
+ *
+ * Perform this before the ENABLE_HOST_ROUTING check as the decap is not dependent
+ * on this feature being enabled or not.
+ */
 #ifdef ENABLE_SRV6
 	if (!from_host) {
 		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
@@ -258,6 +260,12 @@ skip_host_firewall:
 		}
 	}
 #endif /* ENABLE_SRV6 */
+
+#ifndef ENABLE_HOST_ROUTING
+	/* See the equivalent v4 path for comments */
+	if (!from_host)
+		return CTX_ACT_OK;
+#endif /* !ENABLE_HOST_ROUTING */
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
