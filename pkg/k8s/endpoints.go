@@ -143,10 +143,15 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr.IP)]
+			addrCluster, err := cmtypes.ParseAddrCluster(addr.IP)
+			if err != nil {
+				continue
+			}
+
+			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[cmtypes.MustParseAddrCluster(addr.IP)] = backend
+				endpoints.Backends[addrCluster] = backend
 			}
 
 			if addr.NodeName != nil {
@@ -187,6 +192,12 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
+	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
+	if ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv4 &&
+		ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv6 {
+		return ParseEndpointSliceID(ep), endpoints
+	}
+
 	for _, sub := range ep.Endpoints {
 		skipEndpoint := false
 		// ready indicates that this endpoint is prepared to receive traffic,
@@ -211,10 +222,15 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr)]
+			addrCluster, err := cmtypes.ParseAddrCluster(addr)
+			if err != nil {
+				continue
+			}
+
+			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[cmtypes.MustParseAddrCluster(addr)] = backend
+				endpoints.Backends[addrCluster] = backend
 				if nodeName, ok := sub.Topology["kubernetes.io/hostname"]; ok {
 					backend.NodeName = nodeName
 				}
@@ -271,6 +287,12 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
+	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
+	if ep.AddressType != slim_discovery_v1.AddressTypeIPv4 &&
+		ep.AddressType != slim_discovery_v1.AddressTypeIPv6 {
+		return ParseEndpointSliceID(ep), endpoints
+	}
+
 	for _, sub := range ep.Endpoints {
 		skipEndpoint := false
 		// ready indicates that this endpoint is prepared to receive traffic,
@@ -295,10 +317,15 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 			continue
 		}
 		for _, addr := range sub.Addresses {
-			backend, ok := endpoints.Backends[cmtypes.MustParseAddrCluster(addr)]
+			addrCluster, err := cmtypes.ParseAddrCluster(addr)
+			if err != nil {
+				continue
+			}
+
+			backend, ok := endpoints.Backends[addrCluster]
 			if !ok {
 				backend = &Backend{Ports: serviceStore.PortConfiguration{}}
-				endpoints.Backends[cmtypes.MustParseAddrCluster(addr)] = backend
+				endpoints.Backends[addrCluster] = backend
 				if sub.NodeName != nil {
 					backend.NodeName = *sub.NodeName
 				} else {
