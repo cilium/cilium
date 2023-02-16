@@ -563,7 +563,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 		switch l4.GetL7Parser() {
 		case policy.ParserTypeDNS:
-			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, p.defaultEndpointInfoRegistry)
+			redir.implementation, err = createDNSRedirect(redir, p.defaultEndpointInfoRegistry)
 		default:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)
 		}
