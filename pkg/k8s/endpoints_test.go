@@ -585,6 +585,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -747,6 +748,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -812,6 +814,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -870,6 +873,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -924,6 +928,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -987,6 +992,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1041,6 +1047,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1194,6 +1201,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1356,6 +1364,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1420,6 +1429,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1483,6 +1493,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1541,6 +1552,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1595,6 +1607,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1658,6 +1671,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
@@ -1712,6 +1726,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1(c *check.C) {
 			setupArgs: func() args {
 				return args{
 					eps: &slim_discovery_v1.EndpointSlice{
+						AddressType: slim_discovery_v1.AddressTypeIPv4,
 						ObjectMeta: slim_metav1.ObjectMeta{
 							Name:      "foo",
 							Namespace: "bar",
