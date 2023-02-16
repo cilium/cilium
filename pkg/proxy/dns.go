@@ -23,7 +23,6 @@ var (
 type dnsRedirect struct {
 	redirect             *Redirect
 	endpointInfoRegistry logger.EndpointInfoRegistry
-	conf                 dnsConfiguration
 	currentRules         policy.L7DataMap
 	proxyRuleUpdater     proxyRuleUpdater
 }
@@ -37,8 +36,6 @@ type proxyRuleUpdater interface {
 	// endpointID and destPort.
 	UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error
 }
-
-type dnsConfiguration struct{}
 
 // setRules replaces old l7 rules of a redirect with new ones.
 // TODO: Get rid of the duplication between 'currentRules' and 'r.rules'
@@ -78,17 +75,15 @@ func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, rev
 
 // creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func createDNSRedirect(r *Redirect, conf dnsConfiguration, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
+func createDNSRedirect(r *Redirect, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
 	dr := &dnsRedirect{
 		redirect:             r,
-		conf:                 conf,
 		endpointInfoRegistry: endpointInfoRegistry,
 		proxyRuleUpdater:     DefaultDNSProxy,
 	}
 
 	log.WithFields(logrus.Fields{
 		"dnsRedirect": dr,
-		"conf":        conf,
 	}).Debug("Creating DNS Proxy redirect")
 
 	return dr, dr.setRules(nil, r.rules)
