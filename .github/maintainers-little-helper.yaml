@@ -52,7 +52,6 @@ flake-tracker:
     jenkins-url: https://jenkins.cilium.io
     regex-trigger: (^/test)
     stable-jobs:
-    - cilium-master-gke
     - cilium-master-k8s-1.16-kernel-4.19
     - cilium-master-k8s-1.17-kernel-4.19
     - cilium-master-k8s-1.18-kernel-4.19
@@ -193,9 +192,6 @@ flake-tracker:
       Cilium-PR-K8s-1.26-kernel-net-next:
         correlate-with-stable-jobs:
         - cilium-master-k8s-1.26-kernel-net-next
-      Cilium-PR-K8s-GKE:
-        correlate-with-stable-jobs:
-        - cilium-master-gke
       Cilium-PR-K8s-Upstream:
         correlate-with-stable-jobs:
         - cilium-master-k8s-upstream
