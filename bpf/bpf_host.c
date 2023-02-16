@@ -135,22 +135,26 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	return src_id;
 }
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct ct_buffer6);
+	__uint(max_entries, 1);
+} CT_TAIL_CALL_BUFFER6 __section_maps_btf;
+
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
+handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
+	    const bool from_host __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
-	};
-	struct remote_endpoint_info *info = NULL;
+	struct ct_buffer6 __maybe_unused ct_buffer = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	union v6addr *dst;
-	__u32 __maybe_unused remote_id = WORLD_ID;
-	int ret, l3_off = ETH_HLEN, hdrlen;
-	struct endpoint_info *ep;
+	int ret, hdrlen;
 	__u8 nexthdr;
+#ifdef ENABLE_HOST_FIREWALL
+	bool need_hostfw = false;
+#endif /* ENABLE_HOST_FIREWALL */
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -181,25 +185,92 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			if (ret < 0 || ret == TC_ACT_REDIRECT)
 				return ret;
 		}
-		/* Verifier workaround: modified ctx access. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
 	}
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, ip6, &trace, ext_err);
-		if (IS_ERR(ret))
-			return ret;
+		if (ipv6_host_policy_egress_lookup(ctx, secctx, ip6, &ct_buffer)) {
+			if (unlikely(ct_buffer.ret < 0))
+				return ct_buffer.ret;
+			need_hostfw = true;
+		}
 	} else if (!ctx_skip_host_fw(ctx)) {
-		ret = ipv6_host_policy_ingress(ctx, &remote_id, &trace, ext_err);
+		/* Verifier workaround: R5 invalid mem access 'scalar'. */
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		if (ipv6_host_policy_ingress_lookup(ctx, ip6, &ct_buffer)) {
+			if (unlikely(ct_buffer.ret < 0))
+				return ct_buffer.ret;
+			need_hostfw = true;
+		}
+	}
+	if (need_hostfw) {
+		__u32 zero = 0;
+
+		if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
+			return DROP_INVALID_TC_BUFFER;
+	}
+#endif /* ENABLE_HOST_FIREWALL */
+
+skip_host_firewall:
+#ifdef ENABLE_HOST_FIREWALL
+	ctx_store_meta(ctx, CB_FROM_HOST,
+		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0));
+#endif /* ENABLE_HOST_FIREWALL */
+
+	return CTX_ACT_OK;
+}
+
+static __always_inline int
+handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
+		 __s8 *ext_err __maybe_unused)
+{
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
+	__u32 __maybe_unused from_host_raw;
+	struct ct_buffer6 __maybe_unused *ct_buffer;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	union v6addr *dst;
+	int l3_off = ETH_HLEN;
+	struct remote_endpoint_info *info = NULL;
+	struct endpoint_info *ep;
+	int ret;
+
+#ifdef ENABLE_HOST_FIREWALL
+	from_host_raw = ctx_load_meta(ctx, CB_FROM_HOST);
+	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+#endif /* ENABLE_HOST_FIREWALL */
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
+		__u32 zero = 0;
+		__u32 remote_id = WORLD_ID;
+
+		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+		if (!ct_buffer)
+			return DROP_INVALID_TC_BUFFER;
+		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
+			/* The map value is zeroed so the map update didn't happen somehow. */
+			return DROP_INVALID_TC_BUFFER;
+
+		if (from_host)
+			ret = __ipv6_host_policy_egress(ctx, ip6, ct_buffer, &trace, ext_err);
+		else
+			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id, &trace,
+							 ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-skip_host_firewall:
 /*
  * Perform SRv6 Decap if incoming skb is a known SID.
  * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
@@ -316,6 +387,34 @@ skip_host_firewall:
 }
 
 static __always_inline int
+tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
+{
+	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	int ret;
+	__s8 ext_err = 0;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+
+	ret = handle_ipv6_cont(ctx, proxy_identity, from_host, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
+	return ret;
+}
+
+declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV6_CONT_FROM_HOST)
+int tail_handle_ipv6_cont_from_host(struct __ctx_buff *ctx)
+{
+	return tail_handle_ipv6_cont(ctx, true);
+}
+
+declare_tailcall_if(is_defined(ENABLE_HOST_FIREWALL), CILIUM_CALL_IPV6_CONT_FROM_NETDEV)
+int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
+{
+	return tail_handle_ipv6_cont(ctx, false);
+}
+
+static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -325,9 +424,25 @@ tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = handle_ipv6(ctx, proxy_identity, from_host, &ext_err);
+
+	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
+	if (ret == CTX_ACT_OK) {
+		ctx_store_meta(ctx, CB_SRC_LABEL, proxy_identity);
+		if (from_host)
+			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+					   CILIUM_CALL_IPV6_CONT_FROM_HOST,
+					   tail_handle_ipv6_cont_from_host);
+		else
+			invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
+					   CILIUM_CALL_IPV6_CONT_FROM_NETDEV,
+					   tail_handle_ipv6_cont_from_netdev);
+	}
+
+	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
+
 	return ret;
 }
 
