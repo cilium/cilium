@@ -130,7 +130,8 @@ jobs:
             --set tunnel=disabled \
             --set autoDirectNodeRoutes=true \
             --set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
-            --set ingressController.enabled=true
+            --set ingressController.enabled=true \
+            --set bpf.monitorAggregation=none
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=5m
           kubectl rollout -n kube-system status deploy/coredns --timeout=5m
