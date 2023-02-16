@@ -32,6 +32,21 @@ struct {
 } IPV4_FRAG_DATAGRAMS_MAP __section_maps_btf;
 #endif
 
+static __always_inline int
+ipv4_csum_update_by_value(struct __ctx_buff *ctx, int l3_off, __u64 old_val,
+			  __u64 new_val, __u32 len)
+{
+	return l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
+			       old_val, new_val, len);
+}
+
+static __always_inline int
+ipv4_csum_update_by_diff(struct __ctx_buff *ctx, int l3_off, __u64 diff)
+{
+	return l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
+			       0, diff, 0);
+}
+
 static __always_inline int ipv4_load_daddr(struct __ctx_buff *ctx, int off,
 					   __u32 *dst)
 {
@@ -48,7 +63,7 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 
 	new_ttl = ttl - 1;
 	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
-	l3_csum_replace(ctx, off + offsetof(struct iphdr, check), ttl, new_ttl, 2);
+	ipv4_csum_update_by_value(ctx, off, ttl, new_ttl, 2);
 	ctx_store_bytes(ctx, off + offsetof(struct iphdr, ttl), &new_ttl, sizeof(new_ttl), 0);
 
 	return 0;
