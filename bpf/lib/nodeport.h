@@ -1436,6 +1436,9 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 			return 0;
 	}
 
+	if (ipv4_hdrlen(ip4) + sizeof(opt) > sizeof(struct iphdr) + MAX_IPOPTLEN)
+		return DROP_CT_INVALID_HDR;
+
 	if (dsr_is_too_big(ctx, tot_len)) {
 		*ohead = sizeof(opt);
 		return DROP_FRAG_NEEDED;
