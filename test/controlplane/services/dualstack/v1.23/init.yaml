@@ -86,22 +86,22 @@ items:
     images:
     - names:
       - docker.io/library/import-2022-09-02@sha256:f27fe306ea3c0e3ef176dda243bcbcc2bd8fa0f9d19f87285b0fb47e96d85f93
-      - k8s.gcr.io/kube-proxy:v1.23.10
+      - registry.k8s.io/kube-proxy:v1.23.10
       sizeBytes: 114214764
     - names:
-      - k8s.gcr.io/etcd:3.5.1-0
+      - registry.k8s.io/etcd:3.5.1-0
       sizeBytes: 98888614
     - names:
       - docker.io/library/import-2022-09-02@sha256:1475e1063b4a6e72ad5429344f40b184db5f400e1ceec1c98cae4ebae6183969
-      - k8s.gcr.io/kube-apiserver:v1.23.10
+      - registry.k8s.io/kube-apiserver:v1.23.10
       sizeBytes: 79616477
     - names:
       - docker.io/library/import-2022-09-02@sha256:55a29e82414b1bfee75b1ad51d83aac0b1cb2dbc9f277005723fa1dc2e9c7974
-      - k8s.gcr.io/kube-controller-manager:v1.23.10
+      - registry.k8s.io/kube-controller-manager:v1.23.10
       sizeBytes: 68167791
     - names:
       - docker.io/library/import-2022-09-02@sha256:b01e3e44037758b7250cb5b7a9e3795099bdcbc22de134029a58f924c2f5a8bf
-      - k8s.gcr.io/kube-scheduler:v1.23.10
+      - registry.k8s.io/kube-scheduler:v1.23.10
       sizeBytes: 54831215
     - names:
       - docker.io/kindest/kindnetd:v20220726-ed811e41
@@ -110,7 +110,7 @@ items:
       - docker.io/kindest/local-path-provisioner:v0.0.22-kind.0
       sizeBytes: 17375346
     - names:
-      - k8s.gcr.io/coredns/coredns:v1.8.6
+      - registry.k8s.io/coredns/coredns:v1.8.6
       sizeBytes: 13585107
     - names:
       - docker.io/kindest/local-path-helper:v20220607-9a4d8d2a
@@ -215,18 +215,18 @@ items:
       sizeBytes: 459801943
     - names:
       - docker.io/library/import-2022-09-02@sha256:f27fe306ea3c0e3ef176dda243bcbcc2bd8fa0f9d19f87285b0fb47e96d85f93
-      - k8s.gcr.io/kube-proxy:v1.23.10
+      - registry.k8s.io/kube-proxy:v1.23.10
       sizeBytes: 114214764
     - names:
-      - k8s.gcr.io/etcd:3.5.1-0
+      - registry.k8s.io/etcd:3.5.1-0
       sizeBytes: 98888614
     - names:
       - docker.io/library/import-2022-09-02@sha256:1475e1063b4a6e72ad5429344f40b184db5f400e1ceec1c98cae4ebae6183969
-      - k8s.gcr.io/kube-apiserver:v1.23.10
+      - registry.k8s.io/kube-apiserver:v1.23.10
       sizeBytes: 79616477
     - names:
       - docker.io/library/import-2022-09-02@sha256:55a29e82414b1bfee75b1ad51d83aac0b1cb2dbc9f277005723fa1dc2e9c7974
-      - k8s.gcr.io/kube-controller-manager:v1.23.10
+      - registry.k8s.io/kube-controller-manager:v1.23.10
       sizeBytes: 68167791
     - names:
       - docker.io/library/import-2022-09-12@sha256:6f761bfdb87a8a1822ef74a627df64d51118b88e66f7ac20ef860b7af9a4e32e
@@ -234,7 +234,7 @@ items:
       sizeBytes: 62955304
     - names:
       - docker.io/library/import-2022-09-02@sha256:b01e3e44037758b7250cb5b7a9e3795099bdcbc22de134029a58f924c2f5a8bf
-      - k8s.gcr.io/kube-scheduler:v1.23.10
+      - registry.k8s.io/kube-scheduler:v1.23.10
       sizeBytes: 54831215
     - names:
       - docker.io/kindest/kindnetd:v20220726-ed811e41
@@ -243,7 +243,7 @@ items:
       - docker.io/kindest/local-path-provisioner:v0.0.22-kind.0
       sizeBytes: 17375346
     - names:
-      - k8s.gcr.io/coredns/coredns:v1.8.6
+      - registry.k8s.io/coredns/coredns:v1.8.6
       sizeBytes: 13585107
     - names:
       - docker.io/kindest/local-path-helper:v20220607-9a4d8d2a
@@ -348,18 +348,18 @@ items:
       sizeBytes: 459801943
     - names:
       - docker.io/library/import-2022-09-02@sha256:f27fe306ea3c0e3ef176dda243bcbcc2bd8fa0f9d19f87285b0fb47e96d85f93
-      - k8s.gcr.io/kube-proxy:v1.23.10
+      - registry.k8s.io/kube-proxy:v1.23.10
       sizeBytes: 114214764
     - names:
-      - k8s.gcr.io/etcd:3.5.1-0
+      - registry.k8s.io/etcd:3.5.1-0
       sizeBytes: 98888614
     - names:
       - docker.io/library/import-2022-09-02@sha256:1475e1063b4a6e72ad5429344f40b184db5f400e1ceec1c98cae4ebae6183969
-      - k8s.gcr.io/kube-apiserver:v1.23.10
+      - registry.k8s.io/kube-apiserver:v1.23.10
       sizeBytes: 79616477
     - names:
       - docker.io/library/import-2022-09-02@sha256:55a29e82414b1bfee75b1ad51d83aac0b1cb2dbc9f277005723fa1dc2e9c7974
-      - k8s.gcr.io/kube-controller-manager:v1.23.10
+      - registry.k8s.io/kube-controller-manager:v1.23.10
       sizeBytes: 68167791
     - names:
       - docker.io/library/import-2022-09-12@sha256:6f761bfdb87a8a1822ef74a627df64d51118b88e66f7ac20ef860b7af9a4e32e
@@ -367,7 +367,7 @@ items:
       sizeBytes: 62955304
     - names:
       - docker.io/library/import-2022-09-02@sha256:b01e3e44037758b7250cb5b7a9e3795099bdcbc22de134029a58f924c2f5a8bf
-      - k8s.gcr.io/kube-scheduler:v1.23.10
+      - registry.k8s.io/kube-scheduler:v1.23.10
       sizeBytes: 54831215
     - names:
       - docker.io/kindest/kindnetd:v20220726-ed811e41
@@ -376,7 +376,7 @@ items:
       - docker.io/kindest/local-path-provisioner:v0.0.22-kind.0
       sizeBytes: 17375346
     - names:
-      - k8s.gcr.io/coredns/coredns:v1.8.6
+      - registry.k8s.io/coredns/coredns:v1.8.6
       sizeBytes: 13585107
     - names:
       - docker.io/kindest/local-path-helper:v20220607-9a4d8d2a
