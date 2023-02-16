@@ -49,6 +49,8 @@ jobs:
         with:
           version: v1.48.0
           skip-cache: true
+          args: --enable forcetypeassert
+
 
   precheck:
     runs-on: ubuntu-latest
