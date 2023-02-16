@@ -462,7 +462,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"encryption.ipsec.interface": privateIface,
 				"devices":                    devices,
 				"hostFirewall.enabled":       "false",
-				"kubeProxyReplacement":       "disabled",
+				"kubeProxyReplacement":       "strict",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})

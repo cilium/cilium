@@ -86,10 +86,6 @@ func initKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.EnableIPSec {
-			return fmt.Errorf("IPSec cannot be used with BPF NodePort")
-		}
-
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
 			option.Config.NodePortMode != option.NodePortModeHybrid {

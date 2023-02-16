@@ -194,6 +194,33 @@ jobs:
             encryption-node: 'false'
             endpoint-routes: 'true'
 
+          - name: '9'
+            kernel: '4.19-main'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'false'
+
+          - name: '10'
+            kernel: '5.4-main'
+            kube-proxy: 'iptables'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
+          - name: '11'
+            kernel: '5.10-main'
+            kube-proxy: 'none'
+            kpr: 'strict'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'false'
+
     timeout-minutes: 60
     steps:
       - name: Set up job variables
