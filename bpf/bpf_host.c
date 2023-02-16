@@ -712,8 +712,7 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0) {
 		ret = DROP_CSUM_L3;
 		goto drop_err;
 	}
@@ -730,8 +729,7 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0) {
 		ret = DROP_CSUM_L3;
 		goto drop_err;
 	}
