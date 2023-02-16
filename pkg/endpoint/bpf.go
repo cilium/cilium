@@ -601,6 +601,17 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	defer datapathRegenCtxt.completionCancel()
 
 	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
+	// The following DNS rules code was previously inside the critical section
+	// above (runPreCompilationSteps()), but this caused a deadlock with the
+	// ipcache. It's not necessary to run this code within the  critical
+	// section as the only use for the DNS rules is for restoring them upon the
+	// Agent restart.
+	rules := e.owner.GetDNSRules(uint16(e.ID))
+	if err := e.lockAlive(); err != nil {
+		return 0, compilationExecuted, err
+	}
+	e.OnDNSPolicyUpdateLocked(rules)
+	e.unlock()
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
