@@ -388,7 +388,7 @@ func initializeFlags() {
 	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
 	option.BindEnv(Vp, option.HTTPRetryTimeout)
 
-	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(Vp, option.ProxyConnectTimeout)
 
 	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
