@@ -1,0 +1,36 @@
+ - Services -------------------------------------------------------------------------
+| ID |                   Name |      Type |                   Frontend | Backend IDs |
+|----+------------------------+-----------+----------------------------+-------------
+|  0 | default/echo-dualstack | ClusterIP |       10.96.207.99:69/NONE |        0, 2 |
+|  1 | default/echo-dualstack | ClusterIP |       10.96.207.99:80/NONE |        1, 3 |
+|  2 | default/echo-dualstack | ClusterIP | [fd00:10:96::b050]:69/NONE |        5, 7 |
+|  3 | default/echo-dualstack | ClusterIP | [fd00:10:96::b050]:80/NONE |        6, 8 |
+|  4 |     default/kubernetes | ClusterIP |         10.96.0.1:443/NONE |           4 |
+|  5 | default/echo-dualstack |  NodePort |         0.0.0.0:30181/NONE |        1, 3 |
+|  6 | default/echo-dualstack |  NodePort |         0.0.0.0:32757/NONE |        0, 2 |
+|  7 | default/echo-dualstack |  NodePort |        10.0.0.2:30181/NONE |        1, 3 |
+|  8 | default/echo-dualstack |  NodePort |        10.0.0.2:32757/NONE |        0, 2 |
+|  9 | default/echo-dualstack |  NodePort |        10.0.0.3:30181/NONE |        1, 3 |
+| 10 | default/echo-dualstack |  NodePort |        10.0.0.3:32757/NONE |        0, 2 |
+| 11 | default/echo-dualstack |  NodePort |            [::]:30181/NONE |        6, 8 |
+| 12 | default/echo-dualstack |  NodePort |            [::]:32757/NONE |        5, 7 |
+| 13 | default/echo-dualstack |  NodePort |       [f00d::1]:30181/NONE |        6, 8 |
+| 14 | default/echo-dualstack |  NodePort |       [f00d::1]:32757/NONE |        5, 7 |
+| 15 | default/echo-dualstack |  NodePort |       [f00d::2]:30181/NONE |        6, 8 |
+| 16 | default/echo-dualstack |  NodePort |       [f00d::2]:32757/NONE |        5, 7 |
+ ------------------------------------------------------------------------------------
+
+ - Backends ---------------------------------------------------
+| ID |                     L3n4Addr |  State | Linked Services |
+|----+------------------------------+--------+-----------------
+|  0 |           10.244.1.54:69/UDP | active |     0, 6, 8, 10 |
+|  1 |           10.244.1.54:80/TCP | active |      1, 5, 7, 9 |
+|  2 |            10.244.2.9:69/UDP | active |     0, 6, 8, 10 |
+|  3 |            10.244.2.9:80/TCP | active |      1, 5, 7, 9 |
+|  4 |          172.18.0.3:6443/TCP | active |               4 |
+|  5 | [fd00:10:244:1::247e]:69/UDP | active |   2, 12, 14, 16 |
+|  6 | [fd00:10:244:1::247e]:80/TCP | active |   3, 11, 13, 15 |
+|  7 | [fd00:10:244:2::a314]:69/UDP | active |   2, 12, 14, 16 |
+|  8 | [fd00:10:244:2::a314]:80/TCP | active |   3, 11, 13, 15 |
+ --------------------------------------------------------------
+

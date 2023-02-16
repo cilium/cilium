@@ -2,9 +2,9 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
     - role: control-plane
-      image: kindest/node:v1.23.10@sha256:0d4d9019a27c5f0edb4709cc026e87d52c352f795f519a930155793760d196aa
+      image: kindest/node:v1.26.0@sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352
     - role: worker
-      image: kindest/node:v1.23.10@sha256:0d4d9019a27c5f0edb4709cc026e87d52c352f795f519a930155793760d196aa
+      image: kindest/node:v1.26.0@sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352
       kubeadmConfigPatches:
       - |
         kind: JoinConfiguration
