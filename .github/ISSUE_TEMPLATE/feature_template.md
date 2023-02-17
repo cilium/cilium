@@ -23,3 +23,5 @@ Include any specific requirements you need
 Please complete this section if you have ideas / suggestions on how to implement the feature. We strongly recommend discussing your approach with Cilium committers before spending lots of time implementing a change. 
 
 For longer proposals, you are welcome to link to an external doc (e.g. a Google doc). We have a [Cilium Feature Proposal template](https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit) to help you structure your proposal - if you would like to use it, please make a copy and ensure it's publicly visible, and then add the link here.
+
+Once the CFP is close to being finalized, please add it as a PR to the [design-cfps](https://github.com/cilium/design-cfps) repo for final approval.
