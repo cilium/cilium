@@ -145,6 +145,7 @@ type svcManager interface {
 	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
 	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
 	RemoveL7LBService(serviceName, resourceName loadbalancer.ServiceName) error
+	DeleteBackendsByIP(string) error
 }
 
 type redirectPolicyManager interface {

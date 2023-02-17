@@ -906,6 +906,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		}
 
 		k.ipcache.DeleteOnMetadataMatch(podIP, source.Kubernetes, pod.Namespace, pod.Name)
+		k.svcManager.DeleteBackendsByIP(podIP)
 	}
 
 	if len(errs) != 0 {
