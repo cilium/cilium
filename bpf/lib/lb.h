@@ -423,10 +423,10 @@ lb_l4_xlate(struct __ctx_buff *ctx, __u8 nexthdr __maybe_unused, int l4_off,
 
 #ifdef ENABLE_IPV6
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
 					 struct lb6_reverse_nat *nat)
 {
+	struct csum_offset csum_off = {};
 	union v6addr old_saddr;
 	union v6addr tmp;
 	__u8 *new_saddr;
@@ -435,8 +435,10 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT, nat->address.p4, nat->port);
 
+	csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -458,8 +460,8 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -468,15 +470,12 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 /** Perform IPv6 reverse NAT based on reverse NAT index
  * @arg ctx		packet
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       struct csum_offset *csum_off, __u16 index,
-				       struct ipv6_ct_tuple *tuple, int flags)
+				       __u16 index, struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
@@ -485,7 +484,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat);
+	return __lb6_rev_nat(ctx, l4_off, tuple, flags, nat);
 }
 
 static __always_inline void
@@ -1033,18 +1032,21 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 #ifdef ENABLE_IPV4
 static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
 					 const struct ct_state *ct_state, bool has_l4_header)
 {
+	struct csum_offset csum_off = {};
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
 	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
+		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1094,8 +1096,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off->offset &&
-	    csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (csum_off.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
 	return 0;
@@ -1106,13 +1108,10 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
  * @arg ctx		packet
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
- * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
-				       struct csum_offset *csum_off,
 				       struct ct_state *ct_state,
 				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
@@ -1123,7 +1122,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 	if (nat == NULL)
 		return 0;
 
-	return __lb4_rev_nat(ctx, l3_off, l4_off, csum_off, tuple, flags, nat,
+	return __lb4_rev_nat(ctx, l3_off, l4_off, tuple, flags, nat,
 			     ct_state, has_l4_header);
 }
 
