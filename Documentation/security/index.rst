@@ -24,3 +24,4 @@ Securing Networks with Cilium
    aws
    policy-creation
    host-firewall
+   restrict-pod-access
