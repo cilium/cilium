@@ -401,6 +401,8 @@ Deprecated Options
 Helm Options
 ~~~~~~~~~~~~
 
+* The attribute ``operator.extraEnv`` type is changed from map to array. Please convert
+  the values from map to array before upgrading.
 * ``bandwidthManager`` has been deprecated in favor of ``bandwidthManager.enabled``,
   and will be removed in 1.13.
 * ``bpf.hostRouting`` has been deprecated in favor of ``bpf.hostLegacyRouting``, and
