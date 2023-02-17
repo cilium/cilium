@@ -267,7 +267,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 		return false
 	}
 
-	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
+	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) {
 		if !gwc.localNodeConfiguredAsGateway {
 			return
 		}
@@ -298,7 +298,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addIPRulesAndRoutesForConfig)
+		policyConfig.forEachEndpointAndCIDR(manager.epDataStore, addIPRulesAndRoutesForConfig)
 	}
 
 	return
@@ -316,7 +316,7 @@ func (manager *Manager) removeUnusedIpRulesAndRoutes() {
 	// Delete all IP rules that don't have a matching egress gateway rule
 nextIpRule:
 	for _, ipRule := range ipRules {
-		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
+		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
 			return manager.installRoutes &&
 				gwc.localNodeConfiguredAsGateway &&
 				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
@@ -368,7 +368,7 @@ func (manager *Manager) addMissingEgressRules() {
 			egressPolicies[*key] = *val
 		})
 
-	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
+	addEgressRule := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) {
 		policyKey := egressmap.NewEgressPolicyKey4(endpointIP, dstCIDR.IP, dstCIDR.Mask)
 		policyVal, policyPresent := egressPolicies[policyKey]
 
@@ -391,7 +391,7 @@ func (manager *Manager) addMissingEgressRules() {
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addEgressRule)
+		policyConfig.forEachEndpointAndCIDR(manager.epDataStore, addEgressRule)
 	}
 }
 
@@ -406,7 +406,7 @@ func (manager *Manager) removeUnusedEgressRules() {
 
 nextPolicyKey:
 	for policyKey, policyVal := range egressPolicies {
-		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
+		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gwc.gatewayIP)
 		}
 
