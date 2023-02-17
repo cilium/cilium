@@ -9,7 +9,7 @@ default_workers=1
 default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
-default_ipfamily="ipv4"
+default_ipfamily="dual"
 
 PROG=${0}
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"

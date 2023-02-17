@@ -836,7 +836,7 @@ drop_err:
 static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__u32 src_identity)
 {
-	int ret, l3_off = ETH_HLEN, l4_off, hdrlen;
+	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -852,17 +852,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip6->nexthdr;
-	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
-	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
-
-	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
-
-	l4_off = l3_off + hdrlen;
-
-	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
+	ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -872,6 +862,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		}
 		return ret;
 	}
+
+	lb6_fill_key(&key, &tuple);
+	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb6_lookup_service(&key, false, false);
 	if (svc) {
@@ -933,8 +926,8 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
 		struct ct_state ct_state = {};
 
-		ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-				 CT_EGRESS, &ct_state, &monitor);
+		ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
+				    CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 redo:
@@ -1022,8 +1015,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple))
 		return CTX_ACT_OK;
 
-	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &trace->monitor);
+	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			    &ct_state, &trace->monitor);
 
 	if (ret == CT_REPLY && ct_state.node_port && ct_state.rev_nat_index) {
 		struct csum_offset csum_off = {};
@@ -1076,8 +1069,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __u32 *ifind
 
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
-			 &monitor);
+	ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			    &ct_state, &monitor);
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off, ct_state.rev_nat_index,
@@ -1424,7 +1417,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
 
-		if (l4_load_tcp_flags(ctx, ETH_HLEN + sizeof(*ip4), &tcp_flags) < 0)
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + ipv4_hdrlen(ip4), &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		/* Setting the option is required only for the first packet
@@ -1435,6 +1428,9 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			return 0;
 	}
+
+	if (ipv4_hdrlen(ip4) + sizeof(opt) > sizeof(struct iphdr) + MAX_IPOPTLEN)
+		return DROP_CT_INVALID_HDR;
 
 	if (dsr_is_too_big(ctx, tot_len)) {
 		*ohead = sizeof(opt);
@@ -1475,7 +1471,7 @@ handle_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4, bool *dsr)
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
-	if (ip4->ihl == 0x7) {
+	if (ip4->ihl >= 0x7) {
 		struct dsr_opt_v4 opt;
 
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(struct iphdr),
@@ -1887,6 +1883,7 @@ drop_err:
 static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					__u32 src_identity)
 {
+	bool backend_local, l4_ports, has_l4_header;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1895,7 +1892,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	bool backend_local, l4_ports;
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
@@ -1903,13 +1899,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	tuple.nexthdr = ip4->protocol;
-	tuple.daddr = ip4->daddr;
-	tuple.saddr = ip4->saddr;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
-	l4_off = l3_off + ipv4_hdrlen(ip4);
-
-	ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
+	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
 		if (ret == DROP_NO_SERVICE)
 			goto skip_service_lookup;
@@ -1919,6 +1911,10 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		}
 		return ret;
 	}
+
+	lb4_fill_key(&key, &tuple);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb4_lookup_service(&key, false, false);
 	if (svc) {
@@ -1949,7 +1945,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, ipv4_has_l4_header(ip4),
+					ip4->saddr, has_l4_header,
 					skip_l3_xlate);
 		}
 		if (IS_ERR(ret))
@@ -2010,8 +2006,8 @@ skip_service_lookup:
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
 
-		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-				 CT_EGRESS, &ct_state, &monitor);
+		ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+				    has_l4_header, CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 redo:
@@ -2071,10 +2067,13 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
+	bool has_l4_header;
 	struct iphdr *ip4;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 	if (ret < 0) {
@@ -2087,9 +2086,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple))
 		return CTX_ACT_OK;
 
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
-			 &ct_state, &trace->monitor);
-
+	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+			    has_l4_header, CT_INGRESS, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY && ct_state.node_port && ct_state.rev_nat_index) {
 		struct csum_offset csum_off = {};
 
@@ -2098,7 +2096,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off, &ct_state,
 				  &tuple, REV_NAT_F_TUPLE_SADDR,
-				  ipv4_has_l4_header(ip4));
+				  has_l4_header);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2133,6 +2131,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 	bool l2_hdr_required = true;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_id __maybe_unused = 0;
+	bool has_l4_header;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -2145,6 +2144,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_id))
 		goto encap_redirect;
 #endif /* ENABLE_EGRESS_GATEWAY */
+
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 	if (ret < 0) {
@@ -2159,14 +2160,14 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __u32 *ifind
 
 	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS, &ct_state,
-			 &monitor);
+	ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+			    has_l4_header, CT_INGRESS, &ct_state, &monitor);
 
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR, ipv4_has_l4_header(ip4));
+				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret2))
 			return ret2;
 

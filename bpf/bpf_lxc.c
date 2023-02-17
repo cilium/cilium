@@ -521,9 +521,6 @@ pass_to_stack:
 		return ret;
 #endif
 
-	if (ipv6_store_flowlabel(ctx, ETH_HLEN, SECLABEL_NB) < 0)
-		return DROP_WRITE_ERROR;
-
 #ifndef TUNNEL_MODE
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
@@ -620,25 +617,18 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 		struct lb6_service *svc;
 		struct lb6_key key = {};
 		__u16 proxy_port = 0;
-		int l4_off, hdrlen;
+		int l4_off;
 
-		tuple.nexthdr = ip6->nexthdr;
-		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
-
-		hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
-		l4_off = ETH_HLEN + hdrlen;
-
-		ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off);
+		ret = lb6_extract_tuple(ctx, ip6, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
 		}
+
+		lb6_fill_key(&key, &tuple);
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		/*
 		 * Check if the destination address is among the address that should
@@ -1173,19 +1163,18 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 		int l4_off;
 
 		has_l4_header = ipv4_has_l4_header(ip4);
-		tuple.nexthdr = ip4->protocol;
-		tuple.daddr = ip4->daddr;
-		tuple.saddr = ip4->saddr;
 
-		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
-		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off);
+		ret = lb4_extract_tuple(ctx, ip4, &l4_off, &tuple);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
 		}
+
+		lb4_fill_key(&key, &tuple);
+		if (has_l4_header)
+			csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 		if (svc) {
@@ -1441,7 +1430,7 @@ skip_policy_enforcement:
 
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update6_dsr(get_ct_map6(tuple), tuple, dsr);
+			ct_update_dsr(get_ct_map6(tuple), tuple, dsr);
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =
@@ -1778,7 +1767,7 @@ skip_policy_enforcement:
 
 		ct_state_new.dsr = dsr;
 		if (ret == CT_REOPENED && ct_state->dsr != dsr)
-			ct_update4_dsr(get_ct_map4(tuple), tuple, dsr);
+			ct_update_dsr(get_ct_map4(tuple), tuple, dsr);
 # endif /* ENABLE_DSR */
 		if (!dsr) {
 			bool node_port =

@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
       - name: Check code changes
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -63,16 +63,26 @@ jobs:
     name: coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
       - uses: docker://cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
+  set_clang_dir:
+    name: Set clang directory
+    runs-on: ubuntu-latest
+    outputs:
+      clang_dir: ${{ steps.set_dir.outputs.clang_dir }}
+    steps:
+    - name: Set directory
+      id: set_dir
+      run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
   # Runs only if code under bpf/ is changed.
   build_all:
-    needs: check_changes
+    needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
     name: build datapath
     runs-on: ubuntu-22.04
@@ -83,9 +93,9 @@ jobs:
           go-version: 1.19.5
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920 # v3.2.4
+        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
         with:
-          path: $HOME/.clang
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
       - name: Install LLVM and Clang prerequisites
         run: |
@@ -95,10 +105,10 @@ jobs:
         uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -109,7 +119,7 @@ jobs:
           make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
 
   bpf_tests:
-    needs: check_changes
+    needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' }}
     name: BPF unit/integration Tests
     runs-on: ubuntu-22.04
@@ -120,9 +130,9 @@ jobs:
           go-version: 1.19.5
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@627f0f41f6904a5b1efbaed9f96d9eb58e92e920 # v3.2.4
+        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
         with:
-          path: $HOME/.clang
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
       - name: Install LLVM and Clang prerequisites
         run: |
@@ -132,10 +142,10 @@ jobs:
         uses: KyleMayes/install-llvm-action@ef175530927af66c61e4e8da4fea4e15de63f780 # v1.7.0
         with:
           version: "10.0"
-          directory: $HOME/.clang
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
           fetch-depth: 0

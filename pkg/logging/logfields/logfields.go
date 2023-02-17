@@ -60,6 +60,9 @@ const (
 	// Ingress is the identifier of an ingress object
 	Ingress = "ingress"
 
+	// IngressClass is the identifier of an ingress class object
+	IngressClass = "ingressClass"
+
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
 

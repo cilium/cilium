@@ -119,12 +119,6 @@ func (d *Daemon) startCNIConfWriter(opts *option.DaemonConfig, cleaner *daemonCl
 		return
 	}
 
-	// We used to disable CNI generation with this environment variable
-	// It's no longer documented, but we need to still support it.
-	if os.Getenv("CILIUM_CUSTOM_CNI_CONF") == "true" {
-		return
-	}
-
 	d.controllers.UpdateController(cniControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {

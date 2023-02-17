@@ -42,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-01-26 | ``quay.io/cilium/cilium:v1.12.6``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.6>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-02-15 | ``quay.io/cilium/cilium:v1.13.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.0>`__  |                                                                                |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-01-26 | ``quay.io/cilium/cilium:v1.11.13`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.13>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.12.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.7>`__  | `General Announcement <https://isovalent.com/blog/post/cilium-release-112>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
-| `v1.10 <https://github.com/cilium/cilium/tree/v1.10>`__ | 2023-01-25 | ``quay.io/cilium/cilium:v1.10.19`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.10.19>`__ | `General Announcement <https://cilium.io/blog/2021/05/20/cilium-110>`__        |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.11.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.14>`__ | `General Announcement <https://isovalent.com/blog/post/2021-12-release-111>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+--------------------------------------------------------------------------------+
 
 Software Bill of Materials

@@ -14,6 +14,7 @@ import (
 	cilium "github.com/cilium/proxy/go/cilium/api"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -137,9 +138,10 @@ type Repository struct {
 	// PolicyCache tracks the selector policies created from this repo
 	policyCache *PolicyCache
 
-	certManager CertificateManager
+	certManager   certificatemanager.CertificateManager
+	secretManager certificatemanager.SecretManager
 
-	getEnvoyHTTPRules func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -147,7 +149,7 @@ func (p *Repository) GetSelectorCache() *SelectorCache {
 	return p.selectorCache
 }
 
-func (p *Repository) SetEnvoyRulesFunc(f func(CertificateManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
+func (p *Repository) SetEnvoyRulesFunc(f func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)) {
 	p.getEnvoyHTTPRules = f
 }
 
@@ -155,7 +157,7 @@ func (p *Repository) GetEnvoyHTTPRules(l7Rules *api.L7Rules, ns string) (*cilium
 	if p.getEnvoyHTTPRules == nil {
 		return nil, true
 	}
-	return p.getEnvoyHTTPRules(p.certManager, l7Rules, ns)
+	return p.getEnvoyHTTPRules(p.secretManager, l7Rules, ns)
 }
 
 // GetPolicyCache() returns the policy cache used by the Repository
@@ -164,7 +166,12 @@ func (p *Repository) GetPolicyCache() *PolicyCache {
 }
 
 // NewPolicyRepository creates a new policy repository.
-func NewPolicyRepository(idAllocator cache.IdentityAllocator, idCache cache.IdentityCache, certManager CertificateManager) *Repository {
+func NewPolicyRepository(
+	idAllocator cache.IdentityAllocator,
+	idCache cache.IdentityCache,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+) *Repository {
 	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
 	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
 	repoChangeQueue.Run()

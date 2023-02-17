@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -50,6 +51,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received := <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
+	assert.NotEqual(t, received.UUID, uuid.UUID{})
 
 	numLostEvents := uint64(7)
 	consumer.NotifyPerfEventLost(numLostEvents, cpu)
@@ -64,6 +66,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
+	assert.NotEqual(t, received.UUID, uuid.UUID{})
 
 	typ := api.MessageTypeAccessLog
 	message := &accesslog.LogRecord{Timestamp: time.RFC3339}
@@ -78,6 +81,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
+	assert.NotEqual(t, received.UUID, uuid.UUID{})
 
 	// The first notification will get through, the other two will be dropped
 	consumer.NotifyAgentEvent(1, nil)
@@ -92,6 +96,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
+	assert.NotEqual(t, received.UUID, uuid.UUID{})
 
 	// Now that the channel has one slot again, send another message
 	// (which will be dropped) to get a lost event notifications
@@ -107,6 +112,7 @@ func TestHubbleConsumer(t *testing.T) {
 	received = <-observer.GetEventsChannel()
 	assert.Equal(t, expected.NodeName, received.NodeName)
 	assert.Equal(t, expected.Payload, received.Payload)
+	assert.NotEqual(t, received.UUID, uuid.UUID{})
 
 	// Verify that the events channel is empty now.
 	select {
