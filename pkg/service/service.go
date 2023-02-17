@@ -973,7 +973,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends), svc.useMaglev()); err != nil {
+	if err := s.lbmap.DeleteService(svc.frontend, svc.activeBackendsCount, svc.useMaglev()); err != nil {
 		return err
 	}
 
