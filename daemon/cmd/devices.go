@@ -11,15 +11,17 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 )
 
 var (
@@ -343,6 +345,13 @@ func findK8SNodeIPLink() (netlink.Link, error) {
 				if err != nil {
 					return nil, err
 				}
+
+				// When IPv6 is enabled and the node has an IPv6 address, the 'cilium_host'
+				// interface is assigned the same IP of the node itself. Let's skip it here.
+				if link.Attrs().Name == defaults.HostDevice {
+					continue
+				}
+
 				return link, nil
 			}
 		}
