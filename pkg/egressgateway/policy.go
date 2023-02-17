@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/ip"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -176,6 +177,33 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	gwc.localNodeConfiguredAsGateway = true
 
 	return nil
+}
+
+// destinationMinusExcludedCIDRs will return, for a given policy, a list of all
+// destination CIDRs to which the excluded CIDRs have been subtracted.
+func (config *PolicyConfig) destinationMinusExcludedCIDRs() []*net.IPNet {
+	if len(config.excludedCIDRs) == 0 {
+		return config.dstCIDRs
+	}
+
+	cidrs := []*net.IPNet{}
+
+	for _, dstCIDR := range config.dstCIDRs {
+		dstCIDRMinusExcludedCIDRs := []*net.IPNet{dstCIDR}
+		for _, excludedCIDR := range config.excludedCIDRs {
+			newDstCIDRMinuxExcludedCIDRs := []*net.IPNet{}
+			for _, cidr := range dstCIDRMinusExcludedCIDRs {
+				r, _, l := ip.PartitionCIDR(*cidr, *excludedCIDR)
+				newDstCIDRMinuxExcludedCIDRs = append(newDstCIDRMinuxExcludedCIDRs, append(r, l...)...)
+			}
+
+			dstCIDRMinusExcludedCIDRs = newDstCIDRMinuxExcludedCIDRs
+		}
+
+		cidrs = append(cidrs, dstCIDRMinusExcludedCIDRs...)
+	}
+
+	return cidrs
 }
 
 func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
