@@ -206,8 +206,13 @@ func (config *PolicyConfig) destinationMinusExcludedCIDRs() []*net.IPNet {
 	return cidrs
 }
 
-func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, *gatewayConfig)) {
+// forEachEndpointAndCIDR iterates through each combination of endpoints and
+// destination/excluded CIDRs of the receiver policy, and for each of them it
+// calls the f callback function passing the given endpoint and CIDR, together
+// with a boolean value indicating if the CIDR belongs to the excluded ones and
+// the gatewayConfig of the receiver policy
+func (config *PolicyConfig) forEachEndpointAndCIDR(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, bool, *gatewayConfig)) {
 
 	for _, endpoint := range epDataStore {
 		if !config.selectsEndpoint(endpoint) {
@@ -215,15 +220,29 @@ func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpoi
 		}
 
 		for _, endpointIP := range endpoint.ips {
+			isExcludedCIDR := false
 			for _, dstCIDR := range config.dstCIDRs {
-				f(endpointIP, dstCIDR, &config.gatewayConfig)
+				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
+			}
+
+			isExcludedCIDR = true
+			for _, excludedCIDR := range config.excludedCIDRs {
+				f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig)
 			}
 		}
 	}
 }
 
-func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
+// forEachEndpointAndDestination iterates through each combination of endpoints
+// and computed destination (i.e. the effective destination CIDR space, defined
+// as the diff between the destination and the excluded CIDRs) of the receiver
+// policy, and for each of them it calls the f callback function, passing the
+// given endpoint and CIDR, together with the gatewayConfig of the receiver
+// policy
+func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, *gatewayConfig)) {
+
+	cidrs := config.destinationMinusExcludedCIDRs()
 
 	for _, endpoint := range epDataStore {
 		if !config.selectsEndpoint(endpoint) {
@@ -231,8 +250,67 @@ func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata
 		}
 
 		for _, endpointIP := range endpoint.ips {
+			for _, cidr := range cidrs {
+				f(endpointIP, cidr, &config.gatewayConfig)
+			}
+		}
+	}
+}
+
+// matches invokes the given f callback for each combination of endpoints and
+// destination/excluded CIDRs of the receiver policy, passing to the callback
+// the given endpoint and CIDR, together with a boolean value indicating if the
+// CIDR belongs to the excluded ones and the gatewayConfig of the receiver
+// policy, and returns true whenever the f callback matches one of the
+// endpoint and CIDR tuples (i.e. when the callback returns true)
+func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, bool, *gatewayConfig) bool) bool {
+
+	for _, endpoint := range epDataStore {
+		if !config.selectsEndpoint(endpoint) {
+			continue
+		}
+
+		for _, endpointIP := range endpoint.ips {
+			isExcludedCIDR := false
 			for _, dstCIDR := range config.dstCIDRs {
-				if f(endpointIP, dstCIDR, &config.gatewayConfig) {
+				if f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig) {
+					return true
+				}
+			}
+
+			isExcludedCIDR = true
+			for _, excludedCIDR := range config.excludedCIDRs {
+				if f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// matchesMinusExcludedCIDRs invokes the given f callback for each combination
+// of endpoints and computed destination (i.e. the effective destination CIDR
+// space, defined as the diff between the destination and the excluded CIDRs) of
+// the receiver policy, passing to the callback the given endpoint, CIDR and
+// gatewayConfig of the receiver policy, and returns true whenever the f
+// callback matches one of the endpoint and CIDR tuples (i.e. when the callback
+// returns true)
+func (config *PolicyConfig) matchesMinusExcludedCIDRs(epDataStore map[endpointID]*endpointMetadata,
+	f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
+
+	cidrs := config.destinationMinusExcludedCIDRs()
+
+	for _, endpoint := range epDataStore {
+		if !config.selectsEndpoint(endpoint) {
+			continue
+		}
+
+		for _, endpointIP := range endpoint.ips {
+			for _, cidr := range cidrs {
+				if f(endpointIP, cidr, &config.gatewayConfig) {
 					return true
 				}
 			}
