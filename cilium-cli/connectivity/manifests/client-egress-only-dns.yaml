@@ -10,7 +10,9 @@ spec:
   - toPorts:
     - ports:
       - port: "53"
-        protocol: ANY
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
       rules:
         dns:
         - matchPattern: "*"
@@ -26,5 +28,10 @@ spec:
     - ports:
       - port: "53"
         protocol: UDP
+      - port: "53"
+        protocol: TCP
+      rules:
+        dns:
+        - matchPattern: "*"
     toEntities:
     - world

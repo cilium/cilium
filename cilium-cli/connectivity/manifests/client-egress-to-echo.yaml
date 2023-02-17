@@ -18,7 +18,9 @@ spec:
   - toPorts:
     - ports:
       - port: "53"
-        protocol: ANY
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
     toEndpoints:
     - matchExpressions:
       - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
@@ -31,5 +33,7 @@ spec:
     - ports:
       - port: "53"
         protocol: UDP
+      - port: "53"
+        protocol: TCP
     toEntities:
     - world
