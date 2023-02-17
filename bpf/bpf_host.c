@@ -304,7 +304,7 @@ skip_host_firewall:
 	}
 
 #ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
+	if (info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_meta(ctx, key, info->node_id);
@@ -601,7 +601,7 @@ skip_vtep:
 	}
 
 #ifdef ENABLE_IPSEC
-	if (info && info->key && info->tunnel_endpoint) {
+	if (info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_meta(ctx, key, info->node_id);
