@@ -188,7 +188,7 @@ type Header struct {
 	// The sequence number of a Message.
 	Sequence uint32
 
-	// The process ID of the sending process.
+	// The port ID of the sending process.
 	PID uint32
 }
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -138,11 +138,11 @@ var (
 	ZeroNonce       [chacha20poly1305.NonceSize]byte
 )
 
-func mixKey(dst *[blake2s.Size]byte, c *[blake2s.Size]byte, data []byte) {
+func mixKey(dst, c *[blake2s.Size]byte, data []byte) {
 	KDF1(dst, c[:], data)
 }
 
-func mixHash(dst *[blake2s.Size]byte, h *[blake2s.Size]byte, data []byte) {
+func mixHash(dst, h *[blake2s.Size]byte, data []byte) {
 	hash, _ := blake2s.New256(nil)
 	hash.Write(h[:])
 	hash.Write(data)
@@ -175,8 +175,6 @@ func init() {
 }
 
 func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, error) {
-	var errZeroECDHResult = errors.New("ECDH returned all zeros")
-
 	device.staticIdentity.RLock()
 	defer device.staticIdentity.RUnlock()
 
@@ -204,9 +202,9 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	handshake.mixHash(msg.Ephemeral[:])
 
 	// encrypt static key
-	ss := handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
-	if isZero(ss[:]) {
-		return nil, errZeroECDHResult
+	ss, err := handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
+	if err != nil {
+		return nil, err
 	}
 	var key [chacha20poly1305.KeySize]byte
 	KDF2(
@@ -221,7 +219,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 
 	// encrypt timestamp
 	if isZero(handshake.precomputedStaticStatic[:]) {
-		return nil, errZeroECDHResult
+		return nil, errInvalidPublicKey
 	}
 	KDF2(
 		&handshake.chainKey,
@@ -264,11 +262,10 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 	mixKey(&chainKey, &InitialChainKey, msg.Ephemeral[:])
 
 	// decrypt static key
-	var err error
 	var peerPK NoisePublicKey
 	var key [chacha20poly1305.KeySize]byte
-	ss := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
-	if isZero(ss[:]) {
+	ss, err := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
+	if err != nil {
 		return nil
 	}
 	KDF2(&chainKey, &key, chainKey[:], ss[:])
@@ -282,7 +279,7 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 	// lookup peer
 
 	peer := device.LookupPeer(peerPK)
-	if peer == nil {
+	if peer == nil || !peer.isRunning.Load() {
 		return nil
 	}
 
@@ -384,12 +381,16 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 	handshake.mixHash(msg.Ephemeral[:])
 	handshake.mixKey(msg.Ephemeral[:])
 
-	func() {
-		ss := handshake.localEphemeral.sharedSecret(handshake.remoteEphemeral)
-		handshake.mixKey(ss[:])
-		ss = handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
-		handshake.mixKey(ss[:])
-	}()
+	ss, err := handshake.localEphemeral.sharedSecret(handshake.remoteEphemeral)
+	if err != nil {
+		return nil, err
+	}
+	handshake.mixKey(ss[:])
+	ss, err = handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
+	if err != nil {
+		return nil, err
+	}
+	handshake.mixKey(ss[:])
 
 	// add preshared key
 
@@ -406,11 +407,9 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 
 	handshake.mixHash(tau[:])
 
-	func() {
-		aead, _ := chacha20poly1305.New(key[:])
-		aead.Seal(msg.Empty[:0], ZeroNonce[:], nil, handshake.hash[:])
-		handshake.mixHash(msg.Empty[:])
-	}()
+	aead, _ := chacha20poly1305.New(key[:])
+	aead.Seal(msg.Empty[:0], ZeroNonce[:], nil, handshake.hash[:])
+	handshake.mixHash(msg.Empty[:])
 
 	handshake.state = handshakeResponseCreated
 
@@ -436,7 +435,6 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 	)
 
 	ok := func() bool {
-
 		// lock handshake state
 
 		handshake.mutex.RLock()
@@ -456,17 +454,19 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 		mixHash(&hash, &handshake.hash, msg.Ephemeral[:])
 		mixKey(&chainKey, &handshake.chainKey, msg.Ephemeral[:])
 
-		func() {
-			ss := handshake.localEphemeral.sharedSecret(msg.Ephemeral)
-			mixKey(&chainKey, &chainKey, ss[:])
-			setZero(ss[:])
-		}()
+		ss, err := handshake.localEphemeral.sharedSecret(msg.Ephemeral)
+		if err != nil {
+			return false
+		}
+		mixKey(&chainKey, &chainKey, ss[:])
+		setZero(ss[:])
 
-		func() {
-			ss := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
-			mixKey(&chainKey, &chainKey, ss[:])
-			setZero(ss[:])
-		}()
+		ss, err = device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
+		if err != nil {
+			return false
+		}
+		mixKey(&chainKey, &chainKey, ss[:])
+		setZero(ss[:])
 
 		// add preshared key (psk)
 
@@ -484,7 +484,7 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 		// authenticate transcript
 
 		aead, _ := chacha20poly1305.New(key[:])
-		_, err := aead.Open(nil, ZeroNonce[:], msg.Empty[:], hash[:])
+		_, err = aead.Open(nil, ZeroNonce[:], msg.Empty[:], hash[:])
 		if err != nil {
 			return false
 		}
@@ -582,12 +582,12 @@ func (peer *Peer) BeginSymmetricSession() error {
 	defer keypairs.Unlock()
 
 	previous := keypairs.previous
-	next := keypairs.loadNext()
+	next := keypairs.next.Load()
 	current := keypairs.current
 
 	if isInitiator {
 		if next != nil {
-			keypairs.storeNext(nil)
+			keypairs.next.Store(nil)
 			keypairs.previous = next
 			device.DeleteKeypair(current)
 		} else {
@@ -596,7 +596,7 @@ func (peer *Peer) BeginSymmetricSession() error {
 		device.DeleteKeypair(previous)
 		keypairs.current = keypair
 	} else {
-		keypairs.storeNext(keypair)
+		keypairs.next.Store(keypair)
 		device.DeleteKeypair(next)
 		keypairs.previous = nil
 		device.DeleteKeypair(previous)
@@ -608,18 +608,18 @@ func (peer *Peer) BeginSymmetricSession() error {
 func (peer *Peer) ReceivedWithKeypair(receivedKeypair *Keypair) bool {
 	keypairs := &peer.keypairs
 
-	if keypairs.loadNext() != receivedKeypair {
+	if keypairs.next.Load() != receivedKeypair {
 		return false
 	}
 	keypairs.Lock()
 	defer keypairs.Unlock()
-	if keypairs.loadNext() != receivedKeypair {
+	if keypairs.next.Load() != receivedKeypair {
 		return false
 	}
 	old := keypairs.previous
 	keypairs.previous = keypairs.current
 	peer.device.DeleteKeypair(old)
-	keypairs.current = keypairs.loadNext()
-	keypairs.storeNext(nil)
+	keypairs.current = keypairs.next.Load()
+	keypairs.next.Store(nil)
 	return true
 }
