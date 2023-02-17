@@ -12,7 +12,8 @@ ipv6:
   enabled: true
 ipv4:
   enabled: true
-monitor-aggregation: none
+bpf:
+  monitorAggregation: none
 livenessProbe:
   failureThreshold: 9999
 readinessProbe:
