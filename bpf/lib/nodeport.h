@@ -2445,6 +2445,29 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
+
+ #if defined(ENABLE_HIGH_SCALE_IPCACHE) &&				\
+     defined(IS_BPF_OVERLAY) &&						\
+     DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+			/* For HS IPCache, we also need to revDNAT the OuterSrcIP: */
+			{
+				struct bpf_tunnel_key key;
+
+				if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)
+					return DROP_NO_TUNNEL_KEY;
+
+				if (!revalidate_data(ctx, &data, &data_end, &ip4))
+					return DROP_INVALID;
+
+				/* kernel returns addresses in flipped locations: */
+				key.remote_ipv4 = key.local_ipv4;
+				key.local_ipv4 = bpf_ntohl(ip4->saddr);
+
+				if (ctx_set_tunnel_key(ctx, &key, sizeof(key),
+						       BPF_F_ZERO_CSUM_TX) < 0)
+					return DROP_WRITE_ERROR;
+			}
+ #endif
 #endif
 		}
 	}
