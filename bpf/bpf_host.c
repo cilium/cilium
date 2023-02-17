@@ -280,9 +280,10 @@ skip_host_firewall:
 	if (!from_host)
 		return CTX_ACT_OK;
 
-#ifdef TUNNEL_MODE
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
+
+#ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      secctx, info->sec_label,
@@ -291,7 +292,6 @@ skip_host_firewall:
 		struct tunnel_key key = {};
 
 		/* IPv6 lookup key: daddr/96 */
-		dst = (union v6addr *) &ip6->daddr;
 		key.ip6.p1 = dst->p1;
 		key.ip6.p2 = dst->p2;
 		key.ip6.p3 = dst->p3;
@@ -304,8 +304,6 @@ skip_host_firewall:
 	}
 #endif
 
-	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
@@ -559,8 +557,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 skip_vtep:
 #endif
 
-#ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
+
+#ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
 						      secctx, info->sec_label,
@@ -579,7 +578,6 @@ skip_vtep:
 	}
 #endif
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info == NULL || info->sec_label == WORLD_ID) {
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
