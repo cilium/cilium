@@ -19,9 +19,11 @@ spec:
   # This change prevents failing the connectivity
   # test for such environments.
   - toPorts:
-      - ports:
-          - port: "53"
-            protocol: UDP
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
     toEntities:
       - world
   ingress:
