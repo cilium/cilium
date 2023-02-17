@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package ipc
@@ -51,7 +51,6 @@ func (l *UAPIListener) Addr() net.Addr {
 }
 
 func UAPIListen(name string, file *os.File) (net.Listener, error) {
-
 	// wrap file in listener
 
 	listener, err := net.FileListener(file)

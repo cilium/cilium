@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
@@ -107,7 +107,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 		}
 	}
 
-	fd, err := unix.Socket(unix.AF_SYSTEM, unix.SOCK_DGRAM, 2)
+	fd, err := socketCloexec(unix.AF_SYSTEM, unix.SOCK_DGRAM, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	if err == nil && name == "utun" {
 		fname := os.Getenv("WG_TUN_NAME_FILE")
 		if fname != "" {
-			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0400)
+			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0o400)
 		}
 	}
 
@@ -173,7 +173,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
-	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
+	tun.routeSocket, err = socketCloexec(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
 	if err != nil {
 		tun.tunFile.Close()
 		return nil, err
@@ -213,7 +213,7 @@ func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
 
-func (tun *NativeTun) Events() chan Event {
+func (tun *NativeTun) Events() <-chan Event {
 	return tun.events
 }
 
@@ -232,7 +232,6 @@ func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
 }
 
 func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-
 	// reserve space for header
 
 	buff = buff[offset-4:]
@@ -277,12 +276,11 @@ func (tun *NativeTun) Close() error {
 }
 
 func (tun *NativeTun) setMTU(n int) error {
-	fd, err := unix.Socket(
+	fd, err := socketCloexec(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -301,12 +299,11 @@ func (tun *NativeTun) setMTU(n int) error {
 }
 
 func (tun *NativeTun) MTU() (int, error) {
-	fd, err := unix.Socket(
+	fd, err := socketCloexec(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
 		0,
 	)
-
 	if err != nil {
 		return 0, err
 	}
@@ -319,4 +316,16 @@ func (tun *NativeTun) MTU() (int, error) {
 	}
 
 	return int(ifr.MTU), nil
+}
+
+func socketCloexec(family, sotype, proto int) (fd int, err error) {
+	// See go/src/net/sys_cloexec.go for background.
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
+
+	fd, err = unix.Socket(family, sotype, proto)
+	if err == nil {
+		unix.CloseOnExec(fd)
+	}
+	return
 }

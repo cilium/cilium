@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package conn
@@ -8,6 +8,7 @@ package conn
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 	"syscall"
@@ -65,37 +66,37 @@ type LinuxSocketBind struct {
 func NewLinuxSocketBind() Bind { return &LinuxSocketBind{sock4: -1, sock6: -1} }
 func NewDefaultBind() Bind     { return NewLinuxSocketBind() }
 
-var _ Endpoint = (*LinuxSocketEndpoint)(nil)
-var _ Bind = (*LinuxSocketBind)(nil)
+var (
+	_ Endpoint = (*LinuxSocketEndpoint)(nil)
+	_ Bind     = (*LinuxSocketBind)(nil)
+)
 
 func (*LinuxSocketBind) ParseEndpoint(s string) (Endpoint, error) {
 	var end LinuxSocketEndpoint
-	addr, err := parseEndpoint(s)
+	e, err := netip.ParseAddrPort(s)
 	if err != nil {
 		return nil, err
 	}
 
-	ipv4 := addr.IP.To4()
-	if ipv4 != nil {
+	if e.Addr().Is4() {
 		dst := end.dst4()
 		end.isV6 = false
-		dst.Port = addr.Port
-		copy(dst.Addr[:], ipv4)
+		dst.Port = int(e.Port())
+		dst.Addr = e.Addr().As4()
 		end.ClearSrc()
 		return &end, nil
 	}
 
-	ipv6 := addr.IP.To16()
-	if ipv6 != nil {
-		zone, err := zoneToUint32(addr.Zone)
+	if e.Addr().Is6() {
+		zone, err := zoneToUint32(e.Addr().Zone())
 		if err != nil {
 			return nil, err
 		}
 		dst := end.dst6()
 		end.isV6 = true
-		dst.Port = addr.Port
+		dst.Port = int(e.Port())
 		dst.ZoneId = zone
-		copy(dst.Addr[:], ipv6[:])
+		dst.Addr = e.Addr().As16()
 		end.ClearSrc()
 		return &end, nil
 	}
@@ -172,7 +173,6 @@ func (bind *LinuxSocketBind) SetMark(value uint32) error {
 			unix.SO_MARK,
 			int(value),
 		)
-
 		if err != nil {
 			return err
 		}
@@ -185,7 +185,6 @@ func (bind *LinuxSocketBind) SetMark(value uint32) error {
 			unix.SO_MARK,
 			int(value),
 		)
-
 		if err != nil {
 			return err
 		}
@@ -266,29 +265,19 @@ func (bind *LinuxSocketBind) Send(buff []byte, end Endpoint) error {
 	}
 }
 
-func (end *LinuxSocketEndpoint) SrcIP() net.IP {
+func (end *LinuxSocketEndpoint) SrcIP() netip.Addr {
 	if !end.isV6 {
-		return net.IPv4(
-			end.src4().Src[0],
-			end.src4().Src[1],
-			end.src4().Src[2],
-			end.src4().Src[3],
-		)
+		return netip.AddrFrom4(end.src4().Src)
 	} else {
-		return end.src6().src[:]
+		return netip.AddrFrom16(end.src6().src)
 	}
 }
 
-func (end *LinuxSocketEndpoint) DstIP() net.IP {
+func (end *LinuxSocketEndpoint) DstIP() netip.Addr {
 	if !end.isV6 {
-		return net.IPv4(
-			end.dst4().Addr[0],
-			end.dst4().Addr[1],
-			end.dst4().Addr[2],
-			end.dst4().Addr[3],
-		)
+		return netip.AddrFrom4(end.dst4().Addr)
 	} else {
-		return end.dst6().Addr[:]
+		return netip.AddrFrom16(end.dst6().Addr)
 	}
 }
 
@@ -305,14 +294,13 @@ func (end *LinuxSocketEndpoint) SrcToString() string {
 }
 
 func (end *LinuxSocketEndpoint) DstToString() string {
-	var udpAddr net.UDPAddr
-	udpAddr.IP = end.DstIP()
+	var port int
 	if !end.isV6 {
-		udpAddr.Port = end.dst4().Port
+		port = end.dst4().Port
 	} else {
-		udpAddr.Port = end.dst6().Port
+		port = end.dst6().Port
 	}
-	return udpAddr.String()
+	return netip.AddrPortFrom(end.DstIP(), uint16(port)).String()
 }
 
 func (end *LinuxSocketEndpoint) ClearDst() {
@@ -339,15 +327,13 @@ func zoneToUint32(zone string) (uint32, error) {
 }
 
 func create4(port uint16) (int, uint16, error) {
-
 	// create socket
 
 	fd, err := unix.Socket(
 		unix.AF_INET,
-		unix.SOCK_DGRAM,
+		unix.SOCK_DGRAM|unix.SOCK_CLOEXEC,
 		0,
 	)
-
 	if err != nil {
 		return -1, 0, err
 	}
@@ -383,15 +369,13 @@ func create4(port uint16) (int, uint16, error) {
 }
 
 func create6(port uint16) (int, uint16, error) {
-
 	// create socket
 
 	fd, err := unix.Socket(
 		unix.AF_INET6,
-		unix.SOCK_DGRAM,
+		unix.SOCK_DGRAM|unix.SOCK_CLOEXEC,
 		0,
 	)
-
 	if err != nil {
 		return -1, 0, err
 	}
@@ -422,7 +406,6 @@ func create6(port uint16) (int, uint16, error) {
 		}
 
 		return unix.Bind(fd, &addr)
-
 	}(); err != nil {
 		unix.Close(fd)
 		return -1, 0, err
@@ -437,7 +420,6 @@ func create6(port uint16) (int, uint16, error) {
 }
 
 func send4(sock int, end *LinuxSocketEndpoint, buff []byte) error {
-
 	// construct message header
 
 	cmsg := struct {
@@ -477,7 +459,6 @@ func send4(sock int, end *LinuxSocketEndpoint, buff []byte) error {
 }
 
 func send6(sock int, end *LinuxSocketEndpoint, buff []byte) error {
-
 	// construct message header
 
 	cmsg := struct {
@@ -521,7 +502,6 @@ func send6(sock int, end *LinuxSocketEndpoint, buff []byte) error {
 }
 
 func receive4(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
-
 	// construct message header
 
 	var cmsg struct {
@@ -530,7 +510,6 @@ func receive4(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
 	}
 
 	size, _, _, newDst, err := unix.Recvmsg(sock, buff, (*[unsafe.Sizeof(cmsg)]byte)(unsafe.Pointer(&cmsg))[:], 0)
-
 	if err != nil {
 		return 0, err
 	}
@@ -553,7 +532,6 @@ func receive4(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
 }
 
 func receive6(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
-
 	// construct message header
 
 	var cmsg struct {
@@ -562,7 +540,6 @@ func receive6(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
 	}
 
 	size, _, _, newDst, err := unix.Recvmsg(sock, buff, (*[unsafe.Sizeof(cmsg)]byte)(unsafe.Pointer(&cmsg))[:], 0)
-
 	if err != nil {
 		return 0, err
 	}

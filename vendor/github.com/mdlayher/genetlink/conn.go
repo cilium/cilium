@@ -43,8 +43,7 @@ func NewConn(c *netlink.Conn) *Conn {
 	return &Conn{c: c}
 }
 
-// Close closes the connection. Close will unblock any concurrent calls to
-// Receive which are waiting on a response from the kernel.
+// Close closes the connection and unblocks any pending read operations.
 func (c *Conn) Close() error {
 	return c.c.Close()
 }
@@ -52,7 +51,7 @@ func (c *Conn) Close() error {
 // GetFamily retrieves a generic netlink family with the specified name.
 //
 // If the family does not exist, the error value can be checked using
-// netlink.IsNotExist.
+// `errors.Is(err, os.ErrNotExist)`.
 func (c *Conn) GetFamily(name string) (Family, error) {
 	return c.getFamily(name)
 }
@@ -102,11 +101,6 @@ func (c *Conn) SetWriteBuffer(bytes int) error {
 // SyscallConn returns a raw network connection. This implements the
 // syscall.Conn interface.
 //
-// On Go 1.12+, all methods of the returned syscall.RawConn are supported and
-// the Conn is integrated with the runtime network poller. On versions of Go
-// prior to Go 1.12, only the Control method of the returned syscall.RawConn
-// is implemented.
-//
 // SyscallConn is intended for advanced use cases, such as getting and setting
 // arbitrary socket options using the netlink socket's file descriptor.
 //
@@ -118,25 +112,16 @@ func (c *Conn) SyscallConn() (syscall.RawConn, error) {
 }
 
 // SetDeadline sets the read and write deadlines associated with the connection.
-//
-// Deadline functionality is only supported on Go 1.12+. Calling this function
-// on older versions of Go will result in an error.
 func (c *Conn) SetDeadline(t time.Time) error {
 	return c.c.SetDeadline(t)
 }
 
 // SetReadDeadline sets the read deadline associated with the connection.
-//
-// Deadline functionality is only supported on Go 1.12+. Calling this function
-// on older versions of Go will result in an error.
 func (c *Conn) SetReadDeadline(t time.Time) error {
 	return c.c.SetReadDeadline(t)
 }
 
 // SetWriteDeadline sets the write deadline associated with the connection.
-//
-// Deadline functionality is only supported on Go 1.12+. Calling this function
-// on older versions of Go will result in an error.
 func (c *Conn) SetWriteDeadline(t time.Time) error {
 	return c.c.SetWriteDeadline(t)
 }

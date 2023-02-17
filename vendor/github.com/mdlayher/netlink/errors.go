@@ -26,15 +26,10 @@ func notSupported(op string) error {
 }
 
 // IsNotExist determines if an error is produced as the result of querying some
-// file, object, resource, etc. which does not exist.  Users of this package
-// should always use netlink.IsNotExist, rather than os.IsNotExist, when
-// checking for specific netlink-related errors.
+// file, object, resource, etc. which does not exist.
 //
-// Errors types created by this package, such as OpError, can be used with
-// IsNotExist, but this function also defers to the behavior of os.IsNotExist
-// for unrecognized error types.
-//
-// Deprecated: make use of errors.Unwrap and errors.Is in Go 1.13+.
+// Deprecated: use errors.Unwrap and/or `errors.Is(err, os.Permission)` in Go
+// 1.13+.
 func IsNotExist(err error) bool {
 	switch err := err.(type) {
 	case *OpError:

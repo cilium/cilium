@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
@@ -114,10 +114,10 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	var err error
 
 	if ifIndex != -1 {
-		tunfile, err = os.OpenFile(fmt.Sprintf("/dev/tun%d", ifIndex), unix.O_RDWR, 0)
+		tunfile, err = os.OpenFile(fmt.Sprintf("/dev/tun%d", ifIndex), unix.O_RDWR|unix.O_CLOEXEC, 0)
 	} else {
 		for ifIndex = 0; ifIndex < 256; ifIndex++ {
-			tunfile, err = os.OpenFile(fmt.Sprintf("/dev/tun%d", ifIndex), unix.O_RDWR, 0)
+			tunfile, err = os.OpenFile(fmt.Sprintf("/dev/tun%d", ifIndex), unix.O_RDWR|unix.O_CLOEXEC, 0)
 			if err == nil || !errors.Is(err, syscall.EBUSY) {
 				break
 			}
@@ -133,7 +133,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	if err == nil && name == "tun" {
 		fname := os.Getenv("WG_TUN_NAME_FILE")
 		if fname != "" {
-			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0400)
+			os.WriteFile(fname, []byte(tun.(*NativeTun).name+"\n"), 0o400)
 		}
 	}
 
@@ -165,7 +165,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
-	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
+	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW|unix.SOCK_CLOEXEC, unix.AF_UNSPEC)
 	if err != nil {
 		tun.tunFile.Close()
 		return nil, err
@@ -200,7 +200,7 @@ func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
 
-func (tun *NativeTun) Events() chan Event {
+func (tun *NativeTun) Events() <-chan Event {
 	return tun.events
 }
 
@@ -219,7 +219,6 @@ func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
 }
 
 func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-
 	// reserve space for header
 
 	buff = buff[offset-4:]
@@ -271,10 +270,9 @@ func (tun *NativeTun) setMTU(n int) error {
 
 	fd, err := unix.Socket(
 		unix.AF_INET,
-		unix.SOCK_DGRAM,
+		unix.SOCK_DGRAM|unix.SOCK_CLOEXEC,
 		0,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -306,10 +304,9 @@ func (tun *NativeTun) MTU() (int, error) {
 
 	fd, err := unix.Socket(
 		unix.AF_INET,
-		unix.SOCK_DGRAM,
+		unix.SOCK_DGRAM|unix.SOCK_CLOEXEC,
 		0,
 	)
-
 	if err != nil {
 		return 0, err
 	}

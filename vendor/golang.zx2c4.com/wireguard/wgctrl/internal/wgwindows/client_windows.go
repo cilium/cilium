@@ -7,9 +7,9 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wgwindows/internal/ioctl"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wgwindows/internal/setupapi"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -17,16 +17,16 @@ var _ wginternal.Client = &Client{}
 
 // A Client provides access to WireGuardNT ioctl information.
 type Client struct {
-	cachedAdapters map[string]string
-	lastLenGuess   uint32
+	cachedInterfaces map[string]*uint16
+	lastLenGuess     uint32
 }
 
 var (
 	deviceClassNetGUID     = windows.GUID{0x4d36e972, 0xe325, 0x11ce, [8]byte{0xbf, 0xc1, 0x08, 0x00, 0x2b, 0xe1, 0x03, 0x18}}
 	deviceInterfaceNetGUID = windows.GUID{0xcac88484, 0x7515, 0x4c03, [8]byte{0x82, 0xe6, 0x71, 0xa8, 0x7a, 0xba, 0xc3, 0x61}}
-	devpkeyWgName          = setupapi.DEVPROPKEY{
-		FmtID: setupapi.DEVPROPGUID{0x65726957, 0x7547, 0x7261, [8]byte{0x64, 0x4e, 0x61, 0x6d, 0x65, 0x4b, 0x65, 0x79}},
-		PID:   setupapi.DEVPROPID_FIRST_USABLE + 1,
+	devpkeyWgName          = windows.DEVPROPKEY{
+		FmtID: windows.DEVPROPGUID{0x65726957, 0x7547, 0x7261, [8]byte{0x64, 0x4e, 0x61, 0x6d, 0x65, 0x4b, 0x65, 0x79}},
+		PID:   windows.DEVPROPID_FIRST_USABLE + 1,
 	}
 )
 
@@ -38,22 +38,22 @@ func init() {
 	}
 }
 
-func (c *Client) refreshInstanceIdCache() error {
-	cachedAdapters := make(map[string]string, 5)
-	devInfo, err := setupapi.SetupDiGetClassDevsEx(&deviceClassNetGUID, enumerator, 0, setupapi.DIGCF_PRESENT, 0, "")
+func (c *Client) refreshInterfaceCache() error {
+	cachedInterfaces := make(map[string]*uint16, 5)
+	devInfo, err := windows.SetupDiGetClassDevsEx(&deviceClassNetGUID, enumerator, 0, windows.DIGCF_PRESENT, 0, "")
 	if err != nil {
 		return err
 	}
-	defer setupapi.SetupDiDestroyDeviceInfoList(devInfo)
+	defer windows.SetupDiDestroyDeviceInfoList(devInfo)
 	for i := 0; ; i++ {
-		devInfoData, err := setupapi.SetupDiEnumDeviceInfo(devInfo, i)
+		devInfoData, err := windows.SetupDiEnumDeviceInfo(devInfo, i)
 		if err != nil {
 			if err == windows.ERROR_NO_MORE_ITEMS {
 				break
 			}
 			continue
 		}
-		prop, err := setupapi.SetupDiGetDeviceProperty(devInfo, devInfoData, &devpkeyWgName)
+		prop, err := windows.SetupDiGetDeviceProperty(devInfo, devInfoData, &devpkeyWgName)
 		if err != nil {
 			continue
 		}
@@ -62,51 +62,59 @@ func (c *Client) refreshInstanceIdCache() error {
 			continue
 		}
 		var status, problemCode uint32
-		ret := setupapi.CM_Get_DevNode_Status(&status, &problemCode, devInfoData.DevInst, 0)
-		if ret != setupapi.CR_SUCCESS || (status&setupapi.DN_DRIVER_LOADED|setupapi.DN_STARTED) != setupapi.DN_DRIVER_LOADED|setupapi.DN_STARTED {
+		ret := windows.CM_Get_DevNode_Status(&status, &problemCode, devInfoData.DevInst, 0)
+		if ret != nil || status&(windows.DN_DRIVER_LOADED|windows.DN_STARTED) != windows.DN_DRIVER_LOADED|windows.DN_STARTED {
 			continue
 		}
-		instanceId, err := setupapi.SetupDiGetDeviceInstanceId(devInfo, devInfoData)
+		instanceId, err := windows.SetupDiGetDeviceInstanceId(devInfo, devInfoData)
 		if err != nil {
 			continue
 		}
-		cachedAdapters[adapterName] = instanceId
+		interfaces, err := windows.CM_Get_Device_Interface_List(instanceId, &deviceInterfaceNetGUID, windows.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
+		if err != nil {
+			continue
+		}
+		interface16, err := windows.UTF16PtrFromString(interfaces[0])
+		if err != nil {
+			continue
+		}
+		cachedInterfaces[adapterName] = interface16
 	}
-	c.cachedAdapters = cachedAdapters
+	c.cachedInterfaces = cachedInterfaces
 	return nil
 }
 
-func (c *Client) interfaceHandle(name string) (windows.Handle, error) {
-	instanceId, ok := c.cachedAdapters[name]
-	if !ok {
-		err := c.refreshInstanceIdCache()
-		if err != nil {
-			return 0, err
-		}
-		instanceId, ok = c.cachedAdapters[name]
+func (c *Client) interfaceHandle(name string) (handle windows.Handle, err error) {
+	hasRefreshed := false
+	for !hasRefreshed {
+		fileName, ok := c.cachedInterfaces[name]
 		if !ok {
-			return 0, os.ErrNotExist
+			err := c.refreshInterfaceCache()
+			if err != nil {
+				return 0, err
+			}
+			hasRefreshed = true
+			fileName, ok = c.cachedInterfaces[name]
+			if !ok {
+				return 0, os.ErrNotExist
+			}
+		}
+		handle, err = windows.CreateFile(fileName, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, 0, 0)
+		if err == nil {
+			break
 		}
 	}
-	interfaces, err := setupapi.CM_Get_Device_Interface_List(instanceId, &deviceInterfaceNetGUID, setupapi.CM_GET_DEVICE_INTERFACE_LIST_PRESENT)
-	if err != nil {
-		return 0, err
-	}
-	interface16, err := windows.UTF16PtrFromString(interfaces[0])
-	if err != nil {
-		return 0, err
-	}
-	return windows.CreateFile(interface16, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, 0, 0)
+	return
 }
 
 // Devices implements wginternal.Client.
 func (c *Client) Devices() ([]*wgtypes.Device, error) {
-	err := c.refreshInstanceIdCache()
+	err := c.refreshInterfaceCache()
 	if err != nil {
 		return nil, err
 	}
-	ds := make([]*wgtypes.Device, 0, len(c.cachedAdapters))
-	for name := range c.cachedAdapters {
+	ds := make([]*wgtypes.Device, 0, len(c.cachedInterfaces))
+	for name := range c.cachedInterfaces {
 		d, err := c.Device(name)
 		if err != nil {
 			return nil, err
