@@ -34,8 +34,8 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
 	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
 
-	log.Debugf("policy: Authentication type %s required for identity %d->%d, %s %s->%s",
-		authType.String(), dn.SrcLabel, dn.DstLabel, ci.Proto, srcAddr, dstAddr)
+	log.Debugf("policy: Authentication type %s required for identity %d->%d, %s %s->%s, ingress: %t",
+		authType.String(), dn.SrcLabel, dn.DstLabel, ci.Proto, srcAddr, dstAddr, ingress)
 
 	proto, err := u8proto.ParseProtocol(ci.Proto)
 	if err != nil {
