@@ -371,6 +371,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/alignchecker/ @cilium/sig-datapath @cilium/loader
 /pkg/allocator/ @cilium/kvstore
 /pkg/api/ @cilium/api
+/pkg/auth/ @cilium/sig-servicemesh
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/bandwidth/ @cilium/sig-datapath
