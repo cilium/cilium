@@ -266,10 +266,10 @@ function bpf_load_cgroups()
 	NAME=$9
 
 	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile $IN $OUT obj "$OPTS"
+	bpf_compile "$IN" "$OUT" obj "$OPTS"
 
 	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
-	rm -f $TMP_FILE
+	rm -f "$TMP_FILE"
 
 	cilium bpf migrate-maps -s "$OUT"
 
@@ -283,11 +283,24 @@ function bpf_load_cgroups()
 	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
 	set -e
 
-	if ! bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
+	if bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
 		rm -f "$TMP_FILE"
-		cilium bpf migrate-maps -e "$OUT" -r 1
-		return 1
+		return 0
 	fi
+
+	# Program might've been attached in multi-mode by a newer version of Cilium or
+	# by another tool. This means 'bpftool cgroup attach' won't succeed unless
+	# any/all attached programs are removed.
+	bpf_clear_cgroups "$CGRP" "$WHERE" "$NAME"
+
+	if bpftool cgroup attach "$CGRP" "$WHERE" pinned "$TMP_FILE"; then
+		rm -f "$TMP_FILE"
+		return 0
+	fi
+
+	rm -f "$TMP_FILE"
+	cilium bpf migrate-maps -e "$OUT" -r 1
+	return 1
 }
 
 function bpf_clear_cgroups()
