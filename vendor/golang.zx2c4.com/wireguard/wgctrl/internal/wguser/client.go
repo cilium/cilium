@@ -40,7 +40,7 @@ func (c *Client) Devices() ([]*wgtypes.Device, error) {
 		return nil, err
 	}
 
-	var wgds []*wgtypes.Device
+	wgds := make([]*wgtypes.Device, 0, len(devices))
 	for _, d := range devices {
 		wgd, err := c.getDevice(d)
 		if err != nil {

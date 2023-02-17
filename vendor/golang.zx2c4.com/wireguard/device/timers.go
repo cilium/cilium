@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  *
  * This is based heavily on timers.c from the kernel implementation.
  */
@@ -8,11 +8,13 @@
 package device
 
 import (
-	"math/rand"
 	"sync"
-	"sync/atomic"
 	"time"
+	_ "unsafe"
 )
+
+//go:linkname fastrandn runtime.fastrandn
+func fastrandn(n uint32) uint32
 
 // A Timer manages time-based aspects of the WireGuard protocol.
 // Timer roughly copies the interface of the Linux kernel's struct timer_list.
@@ -71,11 +73,11 @@ func (timer *Timer) IsPending() bool {
 }
 
 func (peer *Peer) timersActive() bool {
-	return peer.isRunning.Get() && peer.device != nil && peer.device.isUp()
+	return peer.isRunning.Load() && peer.device != nil && peer.device.isUp()
 }
 
 func expiredRetransmitHandshake(peer *Peer) {
-	if atomic.LoadUint32(&peer.timers.handshakeAttempts) > MaxTimerHandshakes {
+	if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {
 		peer.device.log.Verbosef("%s - Handshake did not complete after %d attempts, giving up", peer, MaxTimerHandshakes+2)
 
 		if peer.timersActive() {
@@ -94,8 +96,8 @@ func expiredRetransmitHandshake(peer *Peer) {
 			peer.timers.zeroKeyMaterial.Mod(RejectAfterTime * 3)
 		}
 	} else {
-		atomic.AddUint32(&peer.timers.handshakeAttempts, 1)
-		peer.device.log.Verbosef("%s - Handshake did not complete after %d seconds, retrying (try %d)", peer, int(RekeyTimeout.Seconds()), atomic.LoadUint32(&peer.timers.handshakeAttempts)+1)
+		peer.timers.handshakeAttempts.Add(1)
+		peer.device.log.Verbosef("%s - Handshake did not complete after %d seconds, retrying (try %d)", peer, int(RekeyTimeout.Seconds()), peer.timers.handshakeAttempts.Load()+1)
 
 		/* We clear the endpoint address src address, in case this is the cause of trouble. */
 		peer.Lock()
@@ -110,8 +112,8 @@ func expiredRetransmitHandshake(peer *Peer) {
 
 func expiredSendKeepalive(peer *Peer) {
 	peer.SendKeepalive()
-	if peer.timers.needAnotherKeepalive.Get() {
-		peer.timers.needAnotherKeepalive.Set(false)
+	if peer.timers.needAnotherKeepalive.Load() {
+		peer.timers.needAnotherKeepalive.Store(false)
 		if peer.timersActive() {
 			peer.timers.sendKeepalive.Mod(KeepaliveTimeout)
 		}
@@ -127,7 +129,6 @@ func expiredNewHandshake(peer *Peer) {
 	}
 	peer.Unlock()
 	peer.SendHandshakeInitiation(false)
-
 }
 
 func expiredZeroKeyMaterial(peer *Peer) {
@@ -136,7 +137,7 @@ func expiredZeroKeyMaterial(peer *Peer) {
 }
 
 func expiredPersistentKeepalive(peer *Peer) {
-	if atomic.LoadUint32(&peer.persistentKeepaliveInterval) > 0 {
+	if peer.persistentKeepaliveInterval.Load() > 0 {
 		peer.SendKeepalive()
 	}
 }
@@ -144,7 +145,7 @@ func expiredPersistentKeepalive(peer *Peer) {
 /* Should be called after an authenticated data packet is sent. */
 func (peer *Peer) timersDataSent() {
 	if peer.timersActive() && !peer.timers.newHandshake.IsPending() {
-		peer.timers.newHandshake.Mod(KeepaliveTimeout + RekeyTimeout + time.Millisecond*time.Duration(rand.Int31n(RekeyTimeoutJitterMaxMs)))
+		peer.timers.newHandshake.Mod(KeepaliveTimeout + RekeyTimeout + time.Millisecond*time.Duration(fastrandn(RekeyTimeoutJitterMaxMs)))
 	}
 }
 
@@ -154,7 +155,7 @@ func (peer *Peer) timersDataReceived() {
 		if !peer.timers.sendKeepalive.IsPending() {
 			peer.timers.sendKeepalive.Mod(KeepaliveTimeout)
 		} else {
-			peer.timers.needAnotherKeepalive.Set(true)
+			peer.timers.needAnotherKeepalive.Store(true)
 		}
 	}
 }
@@ -176,7 +177,7 @@ func (peer *Peer) timersAnyAuthenticatedPacketReceived() {
 /* Should be called after a handshake initiation message is sent. */
 func (peer *Peer) timersHandshakeInitiated() {
 	if peer.timersActive() {
-		peer.timers.retransmitHandshake.Mod(RekeyTimeout + time.Millisecond*time.Duration(rand.Int31n(RekeyTimeoutJitterMaxMs)))
+		peer.timers.retransmitHandshake.Mod(RekeyTimeout + time.Millisecond*time.Duration(fastrandn(RekeyTimeoutJitterMaxMs)))
 	}
 }
 
@@ -185,9 +186,9 @@ func (peer *Peer) timersHandshakeComplete() {
 	if peer.timersActive() {
 		peer.timers.retransmitHandshake.Del()
 	}
-	atomic.StoreUint32(&peer.timers.handshakeAttempts, 0)
-	peer.timers.sentLastMinuteHandshake.Set(false)
-	atomic.StoreInt64(&peer.stats.lastHandshakeNano, time.Now().UnixNano())
+	peer.timers.handshakeAttempts.Store(0)
+	peer.timers.sentLastMinuteHandshake.Store(false)
+	peer.lastHandshakeNano.Store(time.Now().UnixNano())
 }
 
 /* Should be called after an ephemeral key is created, which is before sending a handshake response or after receiving a handshake response. */
@@ -199,7 +200,7 @@ func (peer *Peer) timersSessionDerived() {
 
 /* Should be called before a packet with authentication -- keepalive, data, or handshake -- is sent, or after one is received. */
 func (peer *Peer) timersAnyAuthenticatedPacketTraversal() {
-	keepalive := atomic.LoadUint32(&peer.persistentKeepaliveInterval)
+	keepalive := peer.persistentKeepaliveInterval.Load()
 	if keepalive > 0 && peer.timersActive() {
 		peer.timers.persistentKeepalive.Mod(time.Duration(keepalive) * time.Second)
 	}
@@ -214,9 +215,9 @@ func (peer *Peer) timersInit() {
 }
 
 func (peer *Peer) timersStart() {
-	atomic.StoreUint32(&peer.timers.handshakeAttempts, 0)
-	peer.timers.sentLastMinuteHandshake.Set(false)
-	peer.timers.needAnotherKeepalive.Set(false)
+	peer.timers.handshakeAttempts.Store(0)
+	peer.timers.sentLastMinuteHandshake.Store(false)
+	peer.timers.needAnotherKeepalive.Store(false)
 }
 
 func (peer *Peer) timersStop() {

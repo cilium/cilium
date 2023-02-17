@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -16,8 +16,8 @@ import (
 // They do not require a trailing newline in the format.
 // If nil, that level of logging will be silent.
 type Logger struct {
-	Verbosef func(format string, args ...interface{})
-	Errorf   func(format string, args ...interface{})
+	Verbosef func(format string, args ...any)
+	Errorf   func(format string, args ...any)
 }
 
 // Log levels for use with NewLogger.
@@ -28,14 +28,14 @@ const (
 )
 
 // Function for use in Logger for discarding logged lines.
-func DiscardLogf(format string, args ...interface{}) {}
+func DiscardLogf(format string, args ...any) {}
 
 // NewLogger constructs a Logger that writes to stdout.
 // It logs at the specified log level and above.
 // It decorates log lines with the log level, date, time, and prepend.
 func NewLogger(level int, prepend string) *Logger {
 	logger := &Logger{DiscardLogf, DiscardLogf}
-	logf := func(prefix string) func(string, ...interface{}) {
+	logf := func(prefix string) func(string, ...any) {
 		return log.New(os.Stdout, prefix+": "+prepend, log.Ldate|log.Ltime).Printf
 	}
 	if level >= LogLevelVerbose {

@@ -12,7 +12,6 @@ import (
 	"github.com/mdlayher/netlink"
 	"github.com/mdlayher/netlink/nlenc"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -20,27 +19,27 @@ import (
 // the device specified by name using the non-nil fields in cfg.
 func configAttrs(name string, cfg wgtypes.Config) ([]byte, error) {
 	ae := netlink.NewAttributeEncoder()
-	ae.String(wgh.DeviceAIfname, name)
+	ae.String(unix.WGDEVICE_A_IFNAME, name)
 
 	if cfg.PrivateKey != nil {
-		ae.Bytes(wgh.DeviceAPrivateKey, (*cfg.PrivateKey)[:])
+		ae.Bytes(unix.WGDEVICE_A_PRIVATE_KEY, (*cfg.PrivateKey)[:])
 	}
 
 	if cfg.ListenPort != nil {
-		ae.Uint16(wgh.DeviceAListenPort, uint16(*cfg.ListenPort))
+		ae.Uint16(unix.WGDEVICE_A_LISTEN_PORT, uint16(*cfg.ListenPort))
 	}
 
 	if cfg.FirewallMark != nil {
-		ae.Uint32(wgh.DeviceAFwmark, uint32(*cfg.FirewallMark))
+		ae.Uint32(unix.WGDEVICE_A_FWMARK, uint32(*cfg.FirewallMark))
 	}
 
 	if cfg.ReplacePeers {
-		ae.Uint32(wgh.DeviceAFlags, wgh.DeviceFReplacePeers)
+		ae.Uint32(unix.WGDEVICE_A_FLAGS, unix.WGDEVICE_F_REPLACE_PEERS)
 	}
 
 	// Only apply peer attributes if necessary.
 	if len(cfg.Peers) > 0 {
-		ae.Nested(wgh.DeviceAPeers, func(nae *netlink.AttributeEncoder) error {
+		ae.Nested(unix.WGDEVICE_A_PEERS, func(nae *netlink.AttributeEncoder) error {
 			// Netlink arrays use type as an array index.
 			for i, p := range cfg.Peers {
 				nae.Nested(uint16(i), encodePeer(p))
@@ -173,38 +172,38 @@ func buildBatches(cfg wgtypes.Config) []wgtypes.Config {
 // encodePeer returns a function to encode PeerConfig nested attributes.
 func encodePeer(p wgtypes.PeerConfig) func(ae *netlink.AttributeEncoder) error {
 	return func(ae *netlink.AttributeEncoder) error {
-		ae.Bytes(wgh.PeerAPublicKey, p.PublicKey[:])
+		ae.Bytes(unix.WGPEER_A_PUBLIC_KEY, p.PublicKey[:])
 
 		// Flags are stored in a single attribute.
 		var flags uint32
 		if p.Remove {
-			flags |= wgh.PeerFRemoveMe
+			flags |= unix.WGPEER_F_REMOVE_ME
 		}
 		if p.ReplaceAllowedIPs {
-			flags |= wgh.PeerFReplaceAllowedips
+			flags |= unix.WGPEER_F_REPLACE_ALLOWEDIPS
 		}
 		if p.UpdateOnly {
-			flags |= wgh.PeerFUpdateOnly
+			flags |= unix.WGPEER_F_UPDATE_ONLY
 		}
 		if flags != 0 {
-			ae.Uint32(wgh.PeerAFlags, flags)
+			ae.Uint32(unix.WGPEER_A_FLAGS, flags)
 		}
 
 		if p.PresharedKey != nil {
-			ae.Bytes(wgh.PeerAPresharedKey, (*p.PresharedKey)[:])
+			ae.Bytes(unix.WGPEER_A_PRESHARED_KEY, (*p.PresharedKey)[:])
 		}
 
 		if p.Endpoint != nil {
-			ae.Do(wgh.PeerAEndpoint, encodeSockaddr(*p.Endpoint))
+			ae.Do(unix.WGPEER_A_ENDPOINT, encodeSockaddr(*p.Endpoint))
 		}
 
 		if p.PersistentKeepaliveInterval != nil {
-			ae.Uint16(wgh.PeerAPersistentKeepaliveInterval, uint16(p.PersistentKeepaliveInterval.Seconds()))
+			ae.Uint16(unix.WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL, uint16(p.PersistentKeepaliveInterval.Seconds()))
 		}
 
 		// Only apply allowed IPs if necessary.
 		if len(p.AllowedIPs) > 0 {
-			ae.Nested(wgh.PeerAAllowedips, encodeAllowedIPs(p.AllowedIPs))
+			ae.Nested(unix.WGPEER_A_ALLOWEDIPS, encodeAllowedIPs(p.AllowedIPs))
 		}
 
 		return nil
@@ -264,11 +263,11 @@ func encodeAllowedIPs(ipns []net.IPNet) func(ae *netlink.AttributeEncoder) error
 
 			// Netlink arrays use type as an array index.
 			ae.Nested(uint16(i), func(nae *netlink.AttributeEncoder) error {
-				nae.Uint16(wgh.AllowedipAFamily, family)
-				nae.Bytes(wgh.AllowedipAIpaddr, ipn.IP)
+				nae.Uint16(unix.WGALLOWEDIP_A_FAMILY, family)
+				nae.Bytes(unix.WGALLOWEDIP_A_IPADDR, ipn.IP)
 
 				ones, _ := ipn.Mask.Size()
-				nae.Uint8(wgh.AllowedipACidrMask, uint8(ones))
+				nae.Uint8(unix.WGALLOWEDIP_A_CIDR_MASK, uint8(ones))
 				return nil
 			})
 		}
