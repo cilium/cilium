@@ -59,6 +59,7 @@ type PolicyConfig struct {
 
 	endpointSelectors []api.EndpointSelector
 	dstCIDRs          []*net.IPNet
+	excludedCIDRs     []*net.IPNet
 
 	policyGwConfig *policyGatewayConfig
 
@@ -218,6 +219,7 @@ func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
 	var dstCidrList []*net.IPNet
+	var excludedCIDRs []*net.IPNet
 
 	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -247,6 +249,15 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 			return nil, err
 		}
 		dstCidrList = append(dstCidrList, cidr)
+	}
+
+	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
+		_, cidr, err := net.ParseCIDR(string(cidrString))
+		if err != nil {
+			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressGatewayPolicyName: name}).Warn("Error parsing cidr.")
+			return nil, err
+		}
+		excludedCIDRs = append(excludedCIDRs, cidr)
 	}
 
 	for _, egressRule := range cegp.Spec.Selectors {
@@ -289,6 +300,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	return &PolicyConfig{
 		endpointSelectors:  endpointSelectorList,
 		dstCIDRs:           dstCidrList,
+		excludedCIDRs:      excludedCIDRs,
 		matchedEndpointIDs: make(map[endpointID]struct{}),
 		policyGwConfig:     policyGwc,
 		id: types.NamespacedName{
