@@ -93,6 +93,7 @@ get started and experiment with Cilium.
    security/index
    security/network/index
    security/policy/index
+   security/restrict-pod-access
 
 .. toctree::
    :maxdepth: 2
