@@ -18,9 +18,21 @@ spec:
     matchLabels:
       io.cilium/app: operator
       name: cilium-operator
+  # ensure operator update on single node k8s clusters, by using rolling update with maxUnavailable=100% in case
+  # of one replica and no user configured Recreate strategy.
+  # otherwise an update might get stuck due to the default maxUnavailable=50% in combination with the
+  # podAntiAffinity which prevents deployments of multiple operator replicas on the same node.
+  {{- if and (eq (.Values.operator.replicas | toString) "1") (eq .Values.operator.updateStrategy.type "RollingUpdate") }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.operator.updateStrategy.rollingUpdate.maxSurge }}
+      maxUnavailable: 100%
+    type: RollingUpdate
+  {{- else }}
   {{- with .Values.operator.updateStrategy }}
   strategy:
     {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
   {{- end }}
   template:
     metadata:
