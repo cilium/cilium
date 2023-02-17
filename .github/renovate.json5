@@ -8,7 +8,12 @@
   "includePaths": [
     ".github/workflows/**",
     "images/**",
-    "examples/hubble/*"
+    "examples/hubble/*",
+    "go.mod",
+    "go.sum"
+  ],
+  postUpdateOptions: [
+    "gomodTidy"
   ],
   // This ignorePaths configuration option overrides the config:base preset and
   // should not be removed.
@@ -37,6 +42,9 @@
     "v1.11",
     "v1.10"
   ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
   "labels": [
     "kind/enhancement",
     "release-note/misc"
@@ -58,6 +66,66 @@
       ],
       "schedule": [
         "on friday"
+      ]
+    },
+    {
+      "groupName": "all go dependencies master",
+      "groupSlug": "all-go-deps-master",
+      "matchFiles": [
+        "go.mod",
+        "go.sum"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on friday"
+      ],
+      matchBaseBranches: [
+        "master"
+      ]
+    },
+    {
+      // Do not allow any updates into stable branches.
+      "enabled": false,
+      "groupName": "all go dependencies stable",
+      "groupSlug": "all-go-deps-stable",
+      "matchFiles": [
+        "go.mod",
+        "go.sum"
+      ],
+      matchBaseBranches: [
+        "v1.13",
+        "v1.12",
+        "v1.11",
+        "v1.10"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
+        // All of these packages are maintained on a Cilium fork. Thus, we don't
+        // want to update them automatically.
+        "go.universe.tf/metallb",
+        "github.com/cilium/metallb",
+        "github.com/miekg/dns",
+        "github.com/cilium/dns",
+        "sigs.k8s.io/controller-tools",
+        "github.com/cilium/controller-tools",
+        // We update this dependency manually together with envoy proxy updates
+        "github.com/cilium/proxy",
+        // need to update the gops binary in the runtime image in lockstep
+        "github.com/google/gops"
+      ],
+      "matchPackagePatterns": [
+        // k8s dependencies will be updated manually along with tests
+        "k8s.io/*",
+        "sigs.k8s.io/*"
       ]
     },
     {
