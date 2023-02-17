@@ -866,3 +866,41 @@ func (m *ManagerTestSuite) TestRestoreServiceWithTerminatingBackends(c *C) {
 	}
 	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
 }
+
+// Tests whether delete service handles terminating backends.
+func (m *ManagerTestSuite) TestDeleteServiceWithTerminatingBackends(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := append(backends1, backends4...)
+	backends[0].Terminating = true
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name:                      "svc1",
+		Namespace:                 "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 3)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcNamespace, Equals, "ns1")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 3)
+	for bID := range m.lbmap.BackendByID {
+		c.Assert(m.lbmap.AffinityMatch[uint16(id1)][bID], Equals, struct{}{})
+	}
+	c.Assert(m.lbmap.DummyMaglevTable[uint16(id1)], Equals, len(backends1))
+
+	// Delete service.
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+}
