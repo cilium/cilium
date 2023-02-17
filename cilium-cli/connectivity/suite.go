@@ -190,14 +190,26 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		tests.PodToPod(),
 		tests.ClientToClient(),
 		tests.PodToService(),
-		tests.PodToRemoteNodePort(),
-		tests.PodToLocalNodePort(),
 		tests.PodToHostPort(),
 		tests.PodToWorld(),
 		tests.PodToHost(),
 		tests.PodToExternalWorkload(),
 		tests.PodToCIDR(),
 	)
+
+	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
+	// enabled, since global nodeport services are not supported in that case.
+	var reqs []check.FeatureRequirement
+	if ct.Params().MultiCluster != "" {
+		reqs = append(reqs, check.RequireFeatureEnabled(check.FeatureKPRNodePort))
+	}
+
+	ct.NewTest("no-policies-extra").
+		WithFeatureRequirements(reqs...).
+		WithScenarios(
+			tests.PodToRemoteNodePort(),
+			tests.PodToLocalNodePort(),
+		)
 
 	// Test with an allow-all-except-world (and unmanaged) policy.
 	ct.NewTest("allow-all-except-world").WithPolicy(allowAllExceptWorldPolicyYAML).
