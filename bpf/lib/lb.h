@@ -851,7 +851,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		return DROP_NO_SERVICE;
 
 	/* See lb4_local comments re svc endpoint lookup process */
-	ret = ct_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
+	ret = ct_lb_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1542,7 +1542,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (unlikely(svc->count == 0))
 		return DROP_NO_SERVICE;
 
-	ret = ct_lookup4(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
+	ret = ct_lb_lookup4(map, tuple, ctx, l4_off, has_l4_header, CT_SERVICE,
+			    state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
