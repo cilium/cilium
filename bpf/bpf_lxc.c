@@ -510,10 +510,7 @@ ct_recreate6:
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state->rev_nat_index) {
-			struct csum_offset csum_off = {};
-
-			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
+			ret = lb6_rev_nat(ctx, l4_off,
 					  ct_state->rev_nat_index, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
@@ -968,10 +965,7 @@ ct_recreate4:
 #endif /* ENABLE_NODEPORT */
 
 		if (ct_state->rev_nat_index) {
-			struct csum_offset csum_off = {};
-
-			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
+			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					  ct_state, tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
@@ -1451,7 +1445,6 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 		/* Reverse NAT applies to return traffic only. */
 		if (unlikely(ct_state->rev_nat_index)) {
-			struct csum_offset csum_off = {};
 			int ret2, l4_off;
 
 			hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
@@ -1460,9 +1453,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 			l4_off = ETH_HLEN + hdrlen;
 
-			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-			ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
+			ret2 = lb6_rev_nat(ctx, l4_off,
 					   ct_state->rev_nat_index, tuple, 0);
 			if (IS_ERR(ret2))
 				return ret2;
@@ -1765,17 +1756,14 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 
 		/* Reverse NAT applies to return traffic only. */
 		if (unlikely(ct_state->rev_nat_index && !ct_state->loopback)) {
-			struct csum_offset csum_off = {};
 			bool has_l4_header = false;
 			int ret2, l4_off;
 
 			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 			has_l4_header = ipv4_has_l4_header(ip4);
-			if (has_l4_header)
-				csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
-			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off, &csum_off,
+			ret2 = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					   ct_state, tuple,
 					   REV_NAT_F_TUPLE_SADDR, has_l4_header);
 			if (IS_ERR(ret2))
