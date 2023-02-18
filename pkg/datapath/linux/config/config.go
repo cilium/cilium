@@ -186,6 +186,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["PER_CLUSTER_CT_TCP6"] = "cilium_per_cluster_ct_tcp6"
 	cDefinesMap["PER_CLUSTER_CT_ANY4"] = "cilium_per_cluster_ct_any4"
 	cDefinesMap["PER_CLUSTER_CT_ANY6"] = "cilium_per_cluster_ct_any6"
+	cDefinesMap["PER_CLUSTER_SNAT_MAPPING_IPV4"] = "cilium_per_cluster_snat_v4_external"
+	cDefinesMap["PER_CLUSTER_SNAT_MAPPING_IPV6"] = "cilium_per_cluster_snat_v6_external"
 
 	if option.Config.PreAllocateMaps {
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
