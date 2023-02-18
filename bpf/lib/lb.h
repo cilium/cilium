@@ -904,16 +904,18 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			state->backend_id = backend_id;
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
+		} else {
+			backend_id = state->backend_id;
 		}
+
 		/* If the lookup fails it means the user deleted the backend out from
 		 * underneath us. To resolve this fall back to hash. If this is a TCP
 		 * session we are likely to get a TCP RST.
 		 */
-		backend = lb6_lookup_backend(ctx, state->backend_id);
+		backend = lb6_lookup_backend(ctx, backend_id);
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
@@ -929,7 +931,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (!backend)
 				goto drop_no_service;
-			state->backend_id = backend_id;
+
 			ct_update_backend_id(map, tuple, backend_id);
 		}
 
@@ -945,8 +947,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	state->rev_nat_index = svc->rev_nat_index;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
-		lb6_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
@@ -977,7 +978,6 @@ static __always_inline void lb6_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index);
 }
 
@@ -995,10 +995,6 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
 	ctx_store_meta(ctx, CB_CT_STATE, 0);
 
 	/* No loopback support for IPv6, see lb6_local() above. */
-
-	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* Must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
-	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
@@ -1609,16 +1605,18 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			state->backend_id = backend_id;
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
+		} else {
+			backend_id = state->backend_id;
 		}
+
 		/* If the lookup fails it means the user deleted the backend out from
 		 * underneath us. To resolve this fall back to hash. If this is a TCP
 		 * session we are likely to get a TCP RST.
 		 */
-		backend = lb4_lookup_backend(ctx, state->backend_id);
+		backend = lb4_lookup_backend(ctx, backend_id);
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
@@ -1634,7 +1632,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (!backend)
 				goto drop_no_service;
-			state->backend_id = backend_id;
+
 			ct_update_backend_id(map, tuple, backend_id);
 		}
 
@@ -1651,8 +1649,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	state->addr = new_daddr = backend->address;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
-		lb4_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
@@ -1700,7 +1697,6 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
 					       __u16 proxy_port)
 {
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, (__u32)proxy_port << 16);
-	ctx_store_meta(ctx, CB_BACKEND_ID, state->backend_id);
 	ctx_store_meta(ctx, CB_CT_STATE, (__u32)state->rev_nat_index << 16 |
 		       state->loopback);
 }
@@ -1726,10 +1722,6 @@ lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
 
 	/* Clear to not leak state to later stages of the datapath. */
 	ctx_store_meta(ctx, CB_CT_STATE, 0);
-
-	state->backend_id = ctx_load_meta(ctx, CB_BACKEND_ID);
-	/* must clear to avoid policy bypass as CB_BACKEND_ID aliases CB_POLICY. */
-	ctx_store_meta(ctx, CB_BACKEND_ID, 0);
 
 	*proxy_port = ctx_load_meta(ctx, CB_PROXY_MAGIC) >> 16;
 	ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);

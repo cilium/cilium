@@ -703,7 +703,6 @@ enum {
 #define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
-#define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
 #define CB_SRV6_SID_3		CB_POLICY	/* Alias, non-overlapping */
 #define CB_ENCAP_DSTID		CB_POLICY	/* XDP */
 	CB_NAT,
