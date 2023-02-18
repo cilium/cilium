@@ -905,16 +905,18 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			state->backend_id = backend_id;
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
+		} else {
+			backend_id = state->backend_id;
 		}
+
 		/* If the lookup fails it means the user deleted the backend out from
 		 * underneath us. To resolve this fall back to hash. If this is a TCP
 		 * session we are likely to get a TCP RST.
 		 */
-		backend = lb6_lookup_backend(ctx, state->backend_id);
+		backend = lb6_lookup_backend(ctx, backend_id);
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
@@ -929,7 +931,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (!backend)
 				goto drop_no_service;
-			state->backend_id = backend_id;
+
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
@@ -947,8 +949,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	tuple->flags = flags;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
-		lb6_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb6_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
@@ -1592,16 +1593,18 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 					goto drop_no_service;
 			}
 
-			state->backend_id = backend_id;
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
+		} else {
+			backend_id = state->backend_id;
 		}
+
 		/* If the lookup fails it means the user deleted the backend out from
 		 * underneath us. To resolve this fall back to hash. If this is a TCP
 		 * session we are likely to get a TCP RST.
 		 */
-		backend = lb4_lookup_backend(ctx, state->backend_id);
+		backend = lb4_lookup_backend(ctx, backend_id);
 		if (unlikely(!backend || backend->flags != BE_STATE_ACTIVE)) {
 			/* Drain existing connections, but redirect new ones to only
 			 * active backends.
@@ -1616,7 +1619,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (!backend)
 				goto drop_no_service;
-			state->backend_id = backend_id;
+
 			ct_update_backend_id(map, tuple, backend_id);
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_rev_nat_index(map, tuple, state);
@@ -1639,8 +1642,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	state->addr = backend->address;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
-		lb4_update_affinity_by_addr(svc, &client_id,
-					    state->backend_id);
+		lb4_update_affinity_by_addr(svc, &client_id, backend_id);
 #endif
 #ifndef DISABLE_LOOPBACK_LB
 	/* Special loopback case: The origin endpoint has transmitted to a
