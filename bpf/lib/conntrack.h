@@ -1044,7 +1044,7 @@ ct_has_nodeport_egress_entry6(const void *map,
 }
 
 static __always_inline void
-ct_update_backend_id(const void *map, const void *tuple, const struct ct_state *state)
+ct_update_backend_id(const void *map, const void *tuple, __u32 backend_id)
 {
 	struct ct_entry *entry;
 
@@ -1052,7 +1052,7 @@ ct_update_backend_id(const void *map, const void *tuple, const struct ct_state *
 	if (!entry)
 		return;
 
-	entry->backend_id = state->backend_id;
+	entry->backend_id = backend_id;
 }
 
 static __always_inline void
