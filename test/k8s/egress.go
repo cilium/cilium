@@ -484,6 +484,23 @@ var _ = SkipDescribeIf(func() bool {
 		},
 	)
 
+	doContext("tunnel disabled with endpointRoutes disabled, XDP and DSR with Geneve dispatch",
+		map[string]string{
+			"egressGateway.enabled":     "true",
+			"bpf.masquerade":            "true",
+			"tunnel":                    "disabled",
+			"autoDirectNodeRoutes":      "false",
+			"endpointRoutes.enabled":    "false",
+			"enableCiliumEndpointSlice": "false",
+			"l7Proxy":                   "false",
+			"loadBalancer.acceleration": "testing-only",
+			"loadBalancer.mode":         "dsr",
+			"loadBalancer.algorithm":    "maglev",
+			"maglev.tableSize":          "251",
+			"loadBalancer.dsrDispatch":  "geneve",
+		},
+	)
+
 	doContext("tunnel vxlan with endpointRoutes enabled and XDP",
 		map[string]string{
 			"egressGateway.enabled":     "true",

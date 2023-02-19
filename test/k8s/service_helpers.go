@@ -679,6 +679,45 @@ func testNodePortExternal(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testS
 	}
 }
 
+func testNodePortExternalIPv4Only(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, testSecondaryNodePortIP, checkTCP, checkUDP bool) {
+	type svc struct {
+		name   string
+		nodeIP string
+	}
+
+	var (
+		data            v1.Service
+		nodePortService = "test-nodeport"
+	)
+
+	services := []svc{{nodePortService, ni.K8s1IP}}
+
+	if testSecondaryNodePortIP {
+		services = append(services, svc{name: nodePortService, nodeIP: ni.SecondaryK8s1IPv4})
+	}
+
+	for _, svc := range services {
+		err := kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", svc.name)).Unmarshal(&data)
+		ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
+
+		httpURL := getHTTPLink(svc.nodeIP, data.Spec.Ports[0].NodePort)
+		tftpURL := getTFTPLink(svc.nodeIP, data.Spec.Ports[1].NodePort)
+
+		// Test from external connectivity
+		// Note:
+		//   In case of SNAT checkSourceIP is false here since the HTTP request
+		//   won't have the client IP but the service IP (given the request comes
+		//   from the Cilium node to the backend, not from the client directly).
+		//   Same in case of Hybrid mode for UDP.
+		testCurlFromOutside(kubectl, ni, httpURL, 10, checkTCP)
+		testCurlFromOutside(kubectl, ni, tftpURL, 10, checkUDP)
+
+		// Clear CT tables on all Cilium nodes
+		kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
+			"cilium bpf ct flush global", "Unable to flush CT maps")
+	}
+}
+
 // fromOutside=true tests session affinity implementation from lb.h, while
 // fromOutside=false tests from  bpf_sock.c.
 func testSessionAffinity(kubectl *helpers.Kubectl, ni *helpers.NodesInfo, fromOutside, vxlan bool) {
