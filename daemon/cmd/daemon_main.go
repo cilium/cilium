@@ -1737,7 +1737,7 @@ func runDaemon() {
 	}
 
 	if !option.Config.DryMode {
-		if k8s.IsEnabled() {
+		if k8s.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
 			go func() {
 				if restoreComplete != nil {
 					<-restoreComplete
