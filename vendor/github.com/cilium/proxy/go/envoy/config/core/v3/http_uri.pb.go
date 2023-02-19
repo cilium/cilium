@@ -42,7 +42,7 @@ type HttpUri struct {
 	//
 	//	uri: https://www.googleapis.com/oauth2/v1/certs
 	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
-	// Specify how `uri` is to be fetched. Today, this requires an explicit
+	// Specify how “uri“ is to be fetched. Today, this requires an explicit
 	// cluster, but in the future we may support dynamic cluster creation or
 	// inline DNS resolution. See `issue
 	// <https://github.com/envoyproxy/envoy/issues/1606>`_.
