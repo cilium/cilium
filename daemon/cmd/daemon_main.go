@@ -1767,7 +1767,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			<-restoreComplete
 		}
 
-		if params.Clientset.IsEnabled() {
+		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
 			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 			// This will clear out any CiliumEndpoints that may be stale.
 			// Likely causes for this are Pods having their init container restarted or the node being restarted.
