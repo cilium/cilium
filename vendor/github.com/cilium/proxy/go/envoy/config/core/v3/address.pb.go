@@ -220,8 +220,8 @@ type SocketAddress struct {
 	// within an upstream :ref:`BindConfig <envoy_v3_api_msg_config.core.v3.BindConfig>`, the address
 	// controls the source address of outbound connections. For :ref:`clusters
 	// <envoy_v3_api_msg_config.cluster.v3.Cluster>`, the cluster type determines whether the
-	// address must be an IP (*STATIC* or *EDS* clusters) or a hostname resolved by DNS
-	// (*STRICT_DNS* or *LOGICAL_DNS* clusters). Address resolution can be customized
+	// address must be an IP (“STATIC“ or “EDS“ clusters) or a hostname resolved by DNS
+	// (“STRICT_DNS“ or “LOGICAL_DNS“ clusters). Address resolution can be customized
 	// via :ref:`resolver_name <envoy_v3_api_field_config.core.v3.SocketAddress.resolver_name>`.
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are assignable to PortSpecifier:
@@ -233,7 +233,7 @@ type SocketAddress struct {
 	// this is empty, a context dependent default applies. If the address is a concrete
 	// IP address, no resolution will occur. If address is a hostname this
 	// should be set for resolution other than DNS. Specifying a custom resolver with
-	// *STRICT_DNS* or *LOGICAL_DNS* will generate an error at runtime.
+	// “STRICT_DNS“ or “LOGICAL_DNS“ will generate an error at runtime.
 	ResolverName string `protobuf:"bytes,5,opt,name=resolver_name,json=resolverName,proto3" json:"resolver_name,omitempty"`
 	// When binding to an IPv6 address above, this enables `IPv4 compatibility
 	// <https://tools.ietf.org/html/rfc3493#page-11>`_. Binding to “::“ will
@@ -420,11 +420,11 @@ type BindConfig struct {
 
 	// The address to bind to when creating a socket.
 	SourceAddress *SocketAddress `protobuf:"bytes,1,opt,name=source_address,json=sourceAddress,proto3" json:"source_address,omitempty"`
-	// Whether to set the *IP_FREEBIND* option when creating the socket. When this
+	// Whether to set the “IP_FREEBIND“ option when creating the socket. When this
 	// flag is set to true, allows the :ref:`source_address
 	// <envoy_v3_api_field_config.cluster.v3.UpstreamBindConfig.source_address>` to be an IP address
 	// that is not configured on the system running Envoy. When this flag is set
-	// to false, the option *IP_FREEBIND* is disabled on the socket. When this
+	// to false, the option “IP_FREEBIND“ is disabled on the socket. When this
 	// flag is not set (default), the socket is not modified, i.e. the option is
 	// neither enabled nor disabled.
 	Freebind *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=freebind,proto3" json:"freebind,omitempty"`
