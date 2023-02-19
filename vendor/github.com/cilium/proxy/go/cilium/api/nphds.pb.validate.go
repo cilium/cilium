@@ -77,10 +77,10 @@ func (m *NetworkPolicyHosts) validate(all bool) error {
 			_NetworkPolicyHosts_HostAddresses_Unique[item] = struct{}{}
 		}
 
-		if len(item) < 1 {
+		if utf8.RuneCountInString(item) < 1 {
 			err := NetworkPolicyHostsValidationError{
 				field:  fmt.Sprintf("HostAddresses[%v]", idx),
-				reason: "value length must be at least 1 bytes",
+				reason: "value length must be at least 1 runes",
 			}
 			if !all {
 				return err

@@ -21,7 +21,7 @@ require (
 	github.com/cilium/ebpf v0.10.0
 	github.com/cilium/ipam v0.0.0-20211026130907-54a76012817c
 	github.com/cilium/lumberjack/v2 v2.2.2
-	github.com/cilium/proxy v0.0.0-20230215154421-edb6834301da
+	github.com/cilium/proxy v0.0.0-20230219184343-04413917ff99
 	github.com/cilium/workerpool v1.1.3
 	github.com/containernetworking/cni v1.1.1
 	github.com/containernetworking/plugins v1.1.1

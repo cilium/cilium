@@ -42,7 +42,7 @@ type FilterConfig struct {
 	DnsCacheConfig *v3.DnsCacheConfig `protobuf:"bytes,1,opt,name=dns_cache_config,json=dnsCacheConfig,proto3" json:"dns_cache_config,omitempty"`
 	// When this flag is set, the filter will add the resolved upstream address in the filter
 	// state. The state should be saved with key
-	// `envoy.stream.upstream_address` (See
+	// “envoy.stream.upstream_address“ (See
 	// :repo:`upstream_address.h<source/common/stream_info/upstream_address.h>`).
 	SaveUpstreamAddress bool `protobuf:"varint,2,opt,name=save_upstream_address,json=saveUpstreamAddress,proto3" json:"save_upstream_address,omitempty"`
 }
