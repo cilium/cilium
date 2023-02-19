@@ -994,10 +994,16 @@ func (k *K8sWatcher) K8sEventReceived(apiResourceName, scope, action string, val
 func (k *K8sWatcher) GetIndexer(name string) cache.Indexer {
 	switch name {
 	case "ciliumendpointslice":
+		if k.ciliumEndpointSliceIndexer == nil {
+			panic("tried to get endpoint slice indexer but it is nil")
+		}
 		k.ciliumEndpointSliceIndexerMU.RLock()
 		defer k.ciliumEndpointSliceIndexerMU.RUnlock()
 		return k.ciliumEndpointSliceIndexer
 	case "ciliumendpoint":
+		if k.ciliumEndpointIndexer == nil {
+			panic("tried to get endpoint indexer but it is nil")
+		}
 		k.ciliumEndpointIndexerMU.RLock()
 		defer k.ciliumEndpointIndexerMU.RUnlock()
 		return k.ciliumEndpointIndexer
