@@ -258,10 +258,10 @@ type RateLimit struct {
 	//	The filter supports a range of 0 - 10 inclusively for stage numbers.
 	Stage uint32 `protobuf:"varint,2,opt,name=stage,proto3" json:"stage,omitempty"`
 	// The type of requests the filter should apply to. The supported
-	// types are *internal*, *external* or *both*. A request is considered internal if
+	// types are “internal“, “external“ or “both“. A request is considered internal if
 	// :ref:`x-envoy-internal<config_http_conn_man_headers_x-envoy-internal>` is set to true. If
 	// :ref:`x-envoy-internal<config_http_conn_man_headers_x-envoy-internal>` is not set or false, a
-	// request is considered external. The filter defaults to *both*, and it will apply to all request
+	// request is considered external. The filter defaults to “both“, and it will apply to all request
 	// types.
 	RequestType string `protobuf:"bytes,3,opt,name=request_type,json=requestType,proto3" json:"request_type,omitempty"`
 	// The timeout in milliseconds for the rate limit service RPC. If not
@@ -271,8 +271,8 @@ type RateLimit struct {
 	// not respond back. When it is set to true, Envoy will not allow traffic in case of
 	// communication failure between rate limiting service and the proxy.
 	FailureModeDeny bool `protobuf:"varint,5,opt,name=failure_mode_deny,json=failureModeDeny,proto3" json:"failure_mode_deny,omitempty"`
-	// Specifies whether a `RESOURCE_EXHAUSTED` gRPC code must be returned instead
-	// of the default `UNAVAILABLE` gRPC code for a rate limited gRPC call. The
+	// Specifies whether a “RESOURCE_EXHAUSTED“ gRPC code must be returned instead
+	// of the default “UNAVAILABLE“ gRPC code for a rate limited gRPC call. The
 	// HTTP code will be 200 for a gRPC response.
 	RateLimitedAsResourceExhausted bool `protobuf:"varint,6,opt,name=rate_limited_as_resource_exhausted,json=rateLimitedAsResourceExhausted,proto3" json:"rate_limited_as_resource_exhausted,omitempty"`
 	// Configuration for an external rate limit service provider. If not
@@ -285,7 +285,7 @@ type RateLimit struct {
 	//     client in the current time-window followed by the description of the
 	//     quota policy. The values are returned by the rate limiting service in
 	//     :ref:`current_limit<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.current_limit>`
-	//     field. Example: `10, 10;w=1;name="per-ip", 1000;w=3600`.
+	//     field. Example: “10, 10;w=1;name="per-ip", 1000;w=3600“.
 	//   - “X-RateLimit-Remaining“ - indicates the remaining requests in the
 	//     current time-window. The values are returned by the rate limiting service
 	//     in :ref:`limit_remaining<envoy_v3_api_field_service.ratelimit.v3.RateLimitResponse.DescriptorStatus.limit_remaining>`
@@ -926,7 +926,7 @@ func (*RateLimitConfig_Action_DestinationCluster) Descriptor() ([]byte, []int) {
 }
 
 // The following descriptor entry is appended when a header contains a key that matches the
-// *header_name*:
+// “header_name“:
 //
 // .. code-block:: cpp
 //
@@ -1201,7 +1201,7 @@ type RateLimitConfig_Action_MetaData struct {
 	// Metadata struct that defines the key and path to retrieve the string value. A match will
 	// only happen if the value in the metadata is of type string.
 	MetadataKey *v34.MetadataKey `protobuf:"bytes,2,opt,name=metadata_key,json=metadataKey,proto3" json:"metadata_key,omitempty"`
-	// An optional value to use if *metadata_key* is empty. If not set and
+	// An optional value to use if “metadata_key“ is empty. If not set and
 	// no value is present under the metadata_key then no descriptor is generated.
 	DefaultValue string `protobuf:"bytes,3,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// Source of metadata
