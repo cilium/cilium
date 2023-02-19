@@ -59,10 +59,10 @@ func (m *WebSocketClient) validate(all bool) error {
 
 	// no validation rules for AccessLogPath
 
-	if len(m.GetHost()) < 2 {
+	if utf8.RuneCountInString(m.GetHost()) < 2 {
 		err := WebSocketClientValidationError{
 			field:  "Host",
-			reason: "value length must be at least 2 bytes",
+			reason: "value length must be at least 2 runes",
 		}
 		if !all {
 			return err
