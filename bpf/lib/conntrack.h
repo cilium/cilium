@@ -17,7 +17,7 @@
 #include "l4.h"
 #include "signal.h"
 
-enum {
+enum ct_action {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
 	ACTION_CLOSE,
@@ -200,7 +200,7 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 /* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
 static __always_inline enum ct_status
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
-	    int action, enum ct_dir dir, struct ct_state *ct_state,
+	    enum ct_action action, enum ct_dir dir, struct ct_state *ct_state,
 	    bool is_tcp, union tcp_flags seen_flags, __u32 *monitor)
 {
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
@@ -279,6 +279,8 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 				break;
 			__ct_update_timeout(entry, bpf_sec_to_mono(CT_CLOSE_TIMEOUT),
 					    dir, seen_flags, CT_REPORT_FLAGS);
+			break;
+		default:
 			break;
 		}
 
@@ -370,7 +372,7 @@ ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 
 static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, int action, enum ct_dir dir, enum ct_scope scope,
+	     int l4_off, enum ct_action action, enum ct_dir dir, enum ct_scope scope,
 	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -424,8 +426,9 @@ out:
 /* An IPv6 version of ct_lazy_lookup4. */
 static __always_inline int
 ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
-		struct __ctx_buff *ctx, int l4_off, int action, enum ct_dir dir,
-		enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
+		struct __ctx_buff *ctx, int l4_off, enum ct_action action,
+		enum ct_dir dir, enum ct_scope scope, struct ct_state *ct_state,
+		__u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -454,7 +457,7 @@ static __always_inline int ct_lookup6(const void *map,
 				      enum ct_dir dir, struct ct_state *ct_state,
 				      __u32 *monitor)
 {
-	int action = ACTION_UNSPEC;
+	enum ct_action action = ACTION_UNSPEC;
 
 	/* The tuple is created in reverse order initially to find a
 	 * potential reverse flow. This is required because the RELATED
@@ -719,7 +722,7 @@ ct_is_reply4(const void *map, struct __ctx_buff *ctx, int off,
 
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, bool has_l4_header, int action, enum ct_dir dir,
+	     int l4_off, bool has_l4_header, enum ct_action action, enum ct_dir dir,
 	     enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -778,10 +781,11 @@ out:
  * @arg ctx		packet
  * @arg l4_off		offset to L4 header
  * @arg has_l4_header	packet has L4 header
+ * @arg action		ACTION_CREATE or ACTION_UNSPEC for __ct_lookup
  * @arg dir		lookup direction
+ * @arg scope		CT scope
  * @arg ct_state	returned CT entry
  * @arg monitor		monitor feedback for trace aggregation
- * @arg action          ACTION_CREATE or ACTION_UNSPEC for __ct_lookup
  *
  * This differs from ct_lookup4(), as here we expect that the CT tuple has its
  * L4 ports populated.
@@ -794,7 +798,7 @@ out:
 static __always_inline int
 ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
-		int action, enum ct_dir dir, enum ct_scope scope,
+		enum ct_action action, enum ct_dir dir, enum ct_scope scope,
 		struct ct_state *ct_state, __u32 *monitor)
 {
 	/* The tuple is created in reverse order initially to find a
