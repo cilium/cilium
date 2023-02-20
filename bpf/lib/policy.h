@@ -275,6 +275,7 @@ policy_check_entry:
  * @arg is_untracked_fragment	True if packet is a TCP/UDP datagram fragment
  *				AND IPv4 fragment tracking is disabled
  * @arg match_type		Pointer to store layers used for policy match
+ * @arg ext_err		Pointer to store extended error information if this packet isn't allowed
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
