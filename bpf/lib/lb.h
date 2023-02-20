@@ -883,7 +883,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		break;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
-	case CT_RELATED:
 	case CT_REPLY:
 		/* See lb4_local comment */
 		if (state->rev_nat_index == 0) {
@@ -1573,7 +1572,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		break;
 	case CT_REOPENED:
 	case CT_ESTABLISHED:
-	case CT_RELATED:
 	case CT_REPLY:
 		/* For backward-compatibility we need to update reverse NAT
 		 * index in the CT_SERVICE entry for old connections, as later
