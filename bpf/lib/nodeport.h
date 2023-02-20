@@ -907,6 +907,8 @@ skip_service_lookup:
 		ret = ct_lb_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				    CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
+		case CT_REPLY:
+			ipv6_ct_tuple_reverse(&tuple);
 		case CT_NEW:
 redo:
 			ct_state_new.src_sec_id = WORLD_ID;
@@ -919,7 +921,6 @@ redo:
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
-		case CT_REPLY:
 			if (unlikely(ct_state.rev_nat_index !=
 				     svc->rev_nat_index))
 				goto redo;
@@ -2039,6 +2040,13 @@ skip_service_lookup:
 		ret = ct_lb_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
 				    has_l4_header, CT_EGRESS, &ct_state, &monitor);
 		switch (ret) {
+		case CT_REPLY:
+			/* SVC request should never be considered a reply, so this
+			 * must be a stale CT entry.
+			 *
+			 * Tuple needs to be manually flipped for ct_create4():
+			 */
+			ipv4_ct_tuple_reverse(&tuple);
 		case CT_NEW:
 redo:
 			ct_state_new.src_sec_id = WORLD_ID;
@@ -2051,7 +2059,6 @@ redo:
 			break;
 		case CT_REOPENED:
 		case CT_ESTABLISHED:
-		case CT_REPLY:
 			/* Recreate CT entries, as the existing one is stale and
 			 * belongs to a flow which target a different svc.
 			 */
