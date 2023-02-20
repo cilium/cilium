@@ -111,7 +111,7 @@ func (k *K8sInstaller) generateIngressClass() *networkingv1.IngressClass {
 
 	switch {
 	case versioncheck.MustCompile(">=1.12.0")(k.chartVersion):
-		ingressFileName = "templates/cilium-operator-deployment.yaml"
+		ingressFileName = "templates/cilium-ingress-class.yaml"
 	}
 
 	ingressClassFile, exists := k.manifests[ingressFileName]
