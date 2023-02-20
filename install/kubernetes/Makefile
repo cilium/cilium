@@ -66,6 +66,7 @@ lint:
 		|| (echo -e "$$crd not found in $(CHART_FILE).\nPlease update the chart to include $$crd."; exit 1); \
 	done
 	$(QUIET)$(HELM) lint --with-subcharts --values ./cilium/values.yaml ./cilium
+	go run ../../tools/chart-checker --chart-path ./cilium
 
 docs:
 	$(QUIET)$(HELM_DOCS)

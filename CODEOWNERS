@@ -514,6 +514,7 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
 /tools/ @cilium/contributing
+/tools/chart-checker @cilium/helm
 /USERS.md @cilium/tophat
 Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
