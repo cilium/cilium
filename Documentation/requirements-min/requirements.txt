@@ -12,7 +12,7 @@ myst-parser==0.18.0
 sphinx-tabs==3.4.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-openapi==0.8.0
-sphinxcontrib-spelling==7.7.0
+sphinxcontrib-spelling==8.0.0
 sphinxcontrib-websupport==1.2.4
 
 # Linters
