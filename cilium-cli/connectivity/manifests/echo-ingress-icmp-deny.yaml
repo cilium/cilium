@@ -13,4 +13,7 @@ spec:
         other: client
     icmps:
     - fields:
-      - type: 8
+      - family: IPv4
+        type: 8
+      - family: IPv6
+        type: 128
