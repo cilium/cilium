@@ -141,7 +141,11 @@ jobs:
           kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
-          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo 'Waiting for available loadbalancer...'
+          lb=$(kubectl -n kube-system get svc cilium-ingress -o jsonpath='{.spec.clusterIP}')
+          kubectl -n default wait ingress basic-ingress --for=jsonpath='{.status.loadBalancer.ingress[0].ip}'="$lb" --timeout=${{ env.timeout }}
+          
+          echo 'Calling ingress...'
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
 
