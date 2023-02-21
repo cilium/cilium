@@ -117,6 +117,7 @@ Key-Value Store
   The currently supported key-value stores are:
 
     * `etcd <https://github.com/etcd-io/etcd>`_
+    * `consul <https://github.com/hashicorp/consul>`_
 
   .. note::
 
