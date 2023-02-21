@@ -106,6 +106,8 @@ FROM release as debug
 ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
+ARG DEBUG_CONTINUE
+ENV DEBUG_CONTINUE=${DEBUG_CONTINUE}
 COPY --from=builder /go/bin/dlv /usr/bin/dlv
 RUN mv /usr/bin/cilium-agent /usr/bin/cilium-agent-bin
 COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-agent
