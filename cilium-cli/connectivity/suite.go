@@ -251,7 +251,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == ct.Params().ExternalOtherIP || a.Destination().Address() == ct.Params().ExternalIP {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP ||
+				a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDefaultDenyIngressDrop
@@ -380,7 +381,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(),
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == ct.Params().ExternalOtherIP {
+			if a.Destination().Address(check.IPFamilyV4) == ct.Params().ExternalOtherIP {
 				// Expect packets for 1.0.0.1 to be dropped.
 				return check.ResultDropCurlTimeout, check.ResultNone
 			}
@@ -500,10 +501,10 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == ct.Params().ExternalOtherIP {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
-			if a.Destination().Address() == ct.Params().ExternalIP {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
 				return check.ResultOK, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop
@@ -517,10 +518,10 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToCIDR(), // Denies all traffic to 1.0.0.1, but allow 1.1.1.1
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == ct.Params().ExternalOtherIP {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalOtherIP)) == ct.Params().ExternalOtherIP {
 				return check.ResultPolicyDenyEgressDrop, check.ResultNone
 			}
-			if a.Destination().Address() == ct.Params().ExternalIP {
+			if a.Destination().Address(check.GetIPFamily(ct.Params().ExternalIP)) == ct.Params().ExternalIP {
 				return check.ResultDefaultDenyEgressDrop, check.ResultNone
 			}
 			return check.ResultDrop, check.ResultDrop
@@ -619,7 +620,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
 				// Outbound HTTP to set domain-name defaults to one.one.one.one is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget ||
+				(a.Destination().Port() == 80 && a.Destination().Address(check.GetIPFamily(ct.Params().ExternalTarget)) == ct.Params().ExternalTarget ||
 					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultOK
@@ -647,7 +648,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
 				// Outbound HTTP to domain-name, default one.one.one.one, is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget ||
+				(a.Destination().Port() == 80 && a.Destination().Address(check.GetIPFamily(ct.Params().ExternalTarget)) == ct.Params().ExternalTarget ||
 					a.Destination().Port() == 8080) { // named port http-8080 is traffic to echo Pod.
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultOK
@@ -682,7 +683,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToWorld2(), // resolves cilium.io
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address() == "cilium.io" {
+			if a.Destination().Address(check.IPFamilyNone) == "cilium.io" {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
@@ -696,12 +697,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
 
-			if a.Destination().Port() == 80 && a.Destination().Address() == ct.Params().ExternalTarget {
+			extTarget := ct.Params().ExternalTarget
+			if a.Destination().Port() == 80 && a.Destination().Address(check.GetIPFamily(extTarget)) == extTarget {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
 						Method: "GET",
-						URL:    fmt.Sprintf("http://%s/", ct.Params().ExternalTarget),
+						URL:    fmt.Sprintf("http://%s/", extTarget),
 					}
 					return egress, check.ResultNone
 				}

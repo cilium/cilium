@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
@@ -47,8 +49,8 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(svc))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyNone).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyNone))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
@@ -81,17 +83,24 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 		pod := pod // copy to avoid memory aliasing when using reference
 
 		for _, svc := range t.Context().EchoServices() {
-			for _, node := range t.Context().CiliumPods() {
+			for _, node := range t.Context().Nodes() {
 				node := node // copy to avoid memory aliasing when using reference
-
-				// Use Cilium Pods as a substitute for nodes accepting workloads.
-				if pod.Pod.Status.HostIP != node.Pod.Status.HostIP {
-					// If src and dst pod are running on different nodes,
-					// call the Cilium Pod's host IP on the service's NodePort.
-					curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, &node)
-
-					i++
+				remote := true
+				for _, addr := range node.Status.Addresses {
+					if pod.Pod.Status.HostIP == addr.Address {
+						remote = false
+						break
+					}
 				}
+				if !remote {
+					continue
+				}
+
+				// If src and dst pod are running on different nodes,
+				// call the Cilium Pod's host IP on the service's NodePort.
+				curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node)
+
+				i++
 			}
 		}
 	}
@@ -118,16 +127,17 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 		pod := pod // copy to avoid memory aliasing when using reference
 
 		for _, svc := range t.Context().EchoServices() {
-			for _, node := range t.Context().CiliumPods() {
+			for _, node := range t.Context().Nodes() {
 				node := node // copy to avoid memory aliasing when using reference
 
-				// Use Cilium Pods as a substitute for nodes accepting workloads.
-				if pod.Pod.Status.HostIP == node.Pod.Status.HostIP {
-					// If src and dst pod are running on the same node,
-					// call the Cilium Pod's host IP on the service's NodePort.
-					curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, &node)
+				for _, addr := range node.Status.Addresses {
+					if pod.Pod.Status.HostIP == addr.Address {
+						// If src and dst pod are running on the same node,
+						// call the Cilium Pod's host IP on the service's NodePort.
+						curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node)
 
-					i++
+						i++
+					}
 				}
 			}
 		}
@@ -135,26 +145,35 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 }
 
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
-	name string, pod *check.Pod, svc check.Service, node *check.Pod) {
+	name string, pod *check.Pod, svc check.Service, node *corev1.Node) {
 
 	// Get the NodePort allocated to the Service.
 	np := uint32(svc.Service.Spec.Ports[0].NodePort)
 
-	// Manually construct an HTTP endpoint to override the destination IP
-	// and port of the request.
-	ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), node.Pod.Status.HostIP, np, svc.Path()))
+	t.ForEachIPFamily(func(ipFam check.IPFamily) {
 
-	// Create the Action with the original svc as this will influence what the
-	// flow matcher looks for in the flow logs.
-	t.NewAction(s, name, pod, svc).Run(func(a *check.Action) {
-		a.ExecInPod(ctx, t.Context().CurlCommand(ep))
+		for _, addr := range node.Status.Addresses {
+			if check.GetIPFamily(addr.Address) != ipFam {
+				continue
+			}
 
-		a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
-			// The fact that curl is hitting the NodePort instead of the
-			// backend Pod's port is specified here. This will cause the matcher
-			// to accept both the NodePort and the ClusterIP (container) port.
-			AltDstPort: np,
-		}))
+			// Manually construct an HTTP endpoint to override the destination IP
+			// and port of the request.
+			ep := check.HTTPEndpoint(name, fmt.Sprintf("%s://%s:%d%s", svc.Scheme(), addr.Address, np, svc.Path()))
+
+			// Create the Action with the original svc as this will influence what the
+			// flow matcher looks for in the flow logs.
+			t.NewAction(s, name, pod, svc, check.IPFamilyNone).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, t.Context().CurlCommand(ep, check.IPFamilyNone))
+
+				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
+					// The fact that curl is hitting the NodePort instead of the
+					// backend Pod's port is specified here. This will cause the matcher
+					// to accept both the NodePort and the ClusterIP (container) port.
+					AltDstPort: np,
+				}))
+			})
+		}
 	})
 }
 
@@ -175,10 +194,10 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	i := 0
 
 	for _, svc := range t.Context().EchoServices() {
-		for _, node := range t.Context().CiliumPods() {
+		for _, node := range t.Context().Nodes() {
 			node := node // copy to avoid memory aliasing when using reference
 
-			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, &node)
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node)
 			i++
 		}
 	}
