@@ -95,6 +95,9 @@ var (
 	//go:embed manifests/client-egress-l7-http-named-port.yaml
 	clientEgressL7HTTPNamedPortPolicyYAML string
 
+	//go:embed manifests/client-egress-l7-tls.yaml
+	clientEgressL7TLSPolicyYAML string
+
 	//go:embed manifests/echo-ingress-l7-http.yaml
 	echoIngressL7HTTPPolicyYAML string
 
@@ -127,6 +130,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		"clientEgressL7HTTPPolicyYAML":          clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML": clientEgressL7HTTPNamedPortPolicyYAML,
 		"clientEgressToFQDNsCiliumIOPolicyYAML": clientEgressToFQDNsCiliumIOPolicyYAML,
+		"clientEgressL7TLSPolicyYAML":           clientEgressL7TLSPolicyYAML,
 	} {
 		val, err := utils.RenderTemplate(temp, ct.Params())
 		if err != nil {
@@ -662,6 +666,35 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
 			}
 			return check.ResultDefaultDenyEgressDrop, check.ResultNone
+		})
+
+	// Test L7 HTTPS interception using an egress policy on the clients.
+	// Fail to load site due to missing headers.
+	ct.NewTest("client-egress-l7-tls-deny-without-headers").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithCABundleSecret().
+		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
+		WithPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
+		WithScenarios(
+			tests.PodToWorldWithTLSIntercept(),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultDropCurlHTTPError, check.ResultNone
+		})
+
+	// Test L7 HTTPS interception using an egress policy on the clients.
+	ct.NewTest("client-egress-l7-tls-headers").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithCABundleSecret().
+		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
+		WithPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
+		WithScenarios(
+			tests.PodToWorldWithTLSIntercept("-H", "X-Very-Secret-Token: 42"),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			return check.ResultOK, check.ResultNone
 		})
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
