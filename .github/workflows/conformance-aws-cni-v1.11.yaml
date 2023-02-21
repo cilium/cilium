@@ -64,6 +64,7 @@ env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
   region: us-east-2
   k8s_version: 1.23
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.12.12
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.122.0

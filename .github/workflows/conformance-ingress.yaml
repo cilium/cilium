@@ -21,6 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.12.12
   minikube_version: 1.28.0
   timeout: 5m
