@@ -39,7 +39,7 @@ cilium-agent [flags]
       --bpf-lb-acceleration string                              BPF load balancing acceleration via XDP ("native", "disabled") (default "disabled")
       --bpf-lb-algorithm string                                 BPF load balancing algorithm ("random", "maglev") (default "random")
       --bpf-lb-dev-ip-addr-inherit string                       Device name which IP addr is inherited by devices running LB BPF program (--devices)
-      --bpf-lb-dsr-dispatch string                              BPF load balancing DSR dispatch method ("opt", "ipip") (default "opt")
+      --bpf-lb-dsr-dispatch string                              BPF load balancing DSR dispatch method ("opt", "ipip", "geneve") (default "opt")
       --bpf-lb-dsr-l4-xlate string                              BPF load balancing DSR L4 DNAT method for IPIP ("frontend", "backend") (default "frontend")
       --bpf-lb-external-clusterip                               Enable external access to ClusterIP services (default false)
       --bpf-lb-maglev-hash-seed string                          Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")

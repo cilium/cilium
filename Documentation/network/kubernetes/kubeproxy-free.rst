@@ -477,7 +477,7 @@ made aware of the service IP/port which they need to reply with. Therefore, Cili
 encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
 extension header at the cost of advertising a lower MTU. For TCP services, Cilium
 only encodes the service IP/port for the SYN packet, but not subsequent ones. The
-latter also allows to operate Cilium in a hybrid mode as detailed in the next subsection
+latter also allows to operate Cilium in a hybrid mode as detailed in the later subsection
 where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
 reduction.
 
@@ -486,8 +486,9 @@ due to the Cilium-specific IP options that could be dropped by an underlying net
 In case of connectivity issues to services where backends are located on
 a remote node from the node that is processing the given NodePort request,
 first check whether the NodePort request actually arrived on the node
-containing the backend. If this was not the case, then switching back to the default
-SNAT mode would be advised as a workaround.
+containing the backend. If this was not the case, then consider either switching to
+DSR with Geneve which will be described in the later sections, or switching back to
+the default SNAT mode would be advised as a workaround.
 
 Also, in some public cloud provider environments, which implement a source /
 destination IP address checking (e.g. AWS), the checking has to be disabled in
@@ -503,6 +504,56 @@ enabled would look as follows:
         --set tunnel=disabled \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+.. _DSR mode with Geneve:
+
+Direct Server Return (DSR) with Geneve
+**************************************
+By default, Cilium with DSR mode encodes the service IP/port in a Cilium-specific
+IPv4 option or IPv6 Destination Option extension so that the backends are aware of
+the service IP/port, which they need to reply with.
+
+However, some data center routers pass packets with unknown IP options to software
+processing called "Layer 2 slow path". Those routers drop the packets if the amount
+of packets with IP options exceeds a given threshold, which may significantly affect
+network performance.
+
+Cilium offers another dispatch mode, DSR with Geneve, to avoid this problem.
+In DSR with Geneve, Cilium encapsulates packets to the Loadbalancer with the Geneve
+header that includes the service IP/port in the Geneve option and redirects them
+to the backends.
+
+Note, IPv6 support for DSR with Geneve is currently limited. It works only with TC,
+not with XDP.
+
+The Helm example configuration in a kube-proxy-free environment with DSR and
+Geneve dispatch enabled would look as follows:
+
+.. parsed-literal::
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=disabled \\
+        --set kubeProxyReplacement=strict \\
+        --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=geneve \\
+        --set k8sServiceHost=${API_SERVER_IP} \\
+        --set k8sServicePort=${API_SERVER_PORT}
+
+DSR with Geneve is compatible with the Geneve encapsulation mode (:ref:`arch_overlay`).
+It works with either the direct routing mode or the Geneve tunneling mode. Unfortunately,
+it doesn't work with the vxlan encapsulation mode.
+
+The example configuration in DSR with Geneve dispatch and tunneling mode is as follows.
+
+.. parsed-literal::
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=geneve \\
+        --set kubeProxyReplacement=strict \\
+        --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=geneve \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
