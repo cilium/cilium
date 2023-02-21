@@ -117,8 +117,6 @@
         "github.com/cilium/controller-tools",
         // We update this dependency manually together with envoy proxy updates
         "github.com/cilium/proxy",
-        // need to update the gops binary in the runtime image in lockstep
-        "github.com/google/gops"
       ],
       "matchPackagePatterns": [
         // k8s dependencies will be updated manually along with tests
@@ -205,7 +203,8 @@
   "regexManagers": [
     {
       "fileMatch": [
-        "images/cilium/download-hubble\\.sh"
+        "images/cilium/download-hubble\\.sh",
+        "images/runtime/build-gops.sh"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
