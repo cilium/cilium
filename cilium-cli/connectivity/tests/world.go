@@ -99,3 +99,57 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 		i++
 	}
 }
+
+// PodToWorldWithTLSIntercept sends an HTTPS request to one.one.one.one (default value of ExternalTarget) from from random client
+func PodToWorldWithTLSIntercept(curlOpts ...string) check.Scenario {
+	s := &podToWorldWithTLSIntercept{
+		curlOpts: []string{"--cacert", "/tmp/test-ca.crt"}, // skip TLS verification as it will be our internal cert
+	}
+
+	s.curlOpts = append(s.curlOpts, curlOpts...)
+
+	return s
+}
+
+// podToWorldWithTLSIntercept implements a Scenario.
+type podToWorldWithTLSIntercept struct {
+	curlOpts []string
+}
+
+func (s *podToWorldWithTLSIntercept) Name() string {
+	return "pod-to-world-with-tls-intercept"
+}
+
+func (s *podToWorldWithTLSIntercept) Run(ctx context.Context, t *check.Test) {
+	extTarget := t.Context().Params().ExternalTarget
+
+	https := check.HTTPEndpoint(extTarget+"-https", "https://"+extTarget)
+
+	fp := check.FlowParameters{
+		DNSRequired: true,
+		RSTAllowed:  true,
+	}
+
+	var i int
+	ct := t.Context()
+
+	var caBundle []byte
+	// join all the CA certs into a single file
+	for _, caFile := range t.CertificateCAs() {
+		caBundle = append(caBundle, caFile...)
+		caBundle = append(caBundle, '\n')
+	}
+
+	for _, client := range ct.ClientPods() {
+		client := client // copy to avoid memory aliasing when using reference
+
+		// With https, over port 443.
+		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
+			a.WriteDataToPod(ctx, "/tmp/test-ca.crt", caBundle)
+			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny, s.curlOpts...))
+			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
+		})
+
+		i++
+	}
+}

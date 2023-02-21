@@ -51,6 +51,8 @@ const (
 	FeatureIPv6 Feature = "ipv6"
 
 	FeatureFlavor Feature = "flavor"
+
+	FeatureSecretBackendK8s Feature = "secret-backend-k8s"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -249,6 +251,30 @@ func (ct *ConnectivityTest) extractFeaturesFromNodes(ctx context.Context, client
 	return nil
 }
 
+func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, client *k8s.Client, result FeatureSet) error {
+	cr, err := client.GetClusterRole(ctx, defaults.AgentClusterRoleName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	hasSecretAccess := false
+
+L:
+	for _, rule := range cr.Rules {
+		for _, resource := range rule.Resources {
+			if resource == "secrets" {
+				hasSecretAccess = true
+				break L
+			}
+		}
+	}
+
+	result[FeatureSecretBackendK8s] = FeatureStatus{
+		Enabled: hasSecretAccess,
+	}
+	return nil
+}
+
 func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
 	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
 		defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
@@ -380,6 +406,10 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
+		if err != nil {
+			return err
+		}
+		err = ct.extractFeaturesFromClusterRole(ctx, ciliumPod.K8sClient, features)
 		if err != nil {
 			return err
 		}

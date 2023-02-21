@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -197,6 +198,30 @@ func (a *Action) Run(f func(*Action)) {
 // fail marks the Action as failed.
 func (a *Action) fail() {
 	a.failed = true
+}
+
+// WriteDataToPod writes data to a file in the source pod
+// It does this by using a shell command, writing huge files should be avoided
+func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byte) {
+	if err := ctx.Err(); err != nil {
+		a.Fatal("Skipping writing data to pod:", ctx.Err())
+	}
+
+	// Encode data to base64 to be decoded in the shell
+	encodedData := base64.StdEncoding.EncodeToString(data)
+
+	if a.src == nil {
+		a.Fatalf("No source Pod to add file to: %s", filePath)
+	}
+	pod := a.src
+
+	output, err := pod.K8sClient.ExecInPod(ctx,
+		pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
+		[]string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s", encodedData, filePath)})
+
+	if err != nil {
+		a.Fatalf("Writing data to pod failed: %s: %s", err, output.String())
+	}
 }
 
 func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
