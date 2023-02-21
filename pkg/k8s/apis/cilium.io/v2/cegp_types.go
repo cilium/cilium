@@ -67,8 +67,8 @@ type EgressGateway struct {
 	// lexical ordering over the node names will be used.
 	// This field follows standard label selector semantics.
 	//
-	// +kubebuilder:validation:Required
-	NodeSelector *slimv1.LabelSelector `json:"nodeSelector"`
+	// +kubebuilder:validation:Optional
+	NodeSelector *slimv1.LabelSelector `json:"nodeSelector,omitempty"`
 
 	// Interface is the network interface to which the egress IP address
 	// that the traffic is SNATed with is assigned.
