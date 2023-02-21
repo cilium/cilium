@@ -130,6 +130,9 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}
 	case ipamOption.IPAMClusterPoolV2:
 		log.Info("Initializing ClusterPool v2 IPAM")
+		if !clientset.IsEnabled() {
+			log.Fatal("ClusterPool v2 IPAM is not compatible with lb-only datamode")
+		}
 
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg, clientset)
@@ -139,6 +142,10 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}
 	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		log.Info("Initializing CRD-based IPAM")
+		if !clientset.IsEnabled() {
+			log.Fatal("CRD-based IPAM is not compatible with lb-only datamode")
+		}
+
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, clientset, k8sEventReg, mtuConfig)
 		}
