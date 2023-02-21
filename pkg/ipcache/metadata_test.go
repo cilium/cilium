@@ -159,7 +159,6 @@ func TestOverrideIdentity(t *testing.T) {
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
 	})
-	ipc.k8sSyncedChecker = &mockK8sSyncedChecker{}
 	ctx := context.Background()
 
 	// Create CIDR identity from labels
@@ -245,7 +244,6 @@ func setupTest(t *testing.T) (cleanup func()) {
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
 	})
-	IPIdentityCache.k8sSyncedChecker = &mockK8sSyncedChecker{}
 
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
@@ -255,10 +253,6 @@ func setupTest(t *testing.T) (cleanup func()) {
 		IPIdentityCache.Shutdown()
 	}
 }
-
-type mockK8sSyncedChecker struct{}
-
-func (m *mockK8sSyncedChecker) K8sCacheIsSynced() bool { return true }
 
 type mockUpdater struct{}
 
