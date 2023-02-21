@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/option"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -231,7 +232,8 @@ func (ct *ConnectivityTest) extractFeaturesFromNodes(ctx context.Context, client
 
 	nodes := []string{}
 	for _, node := range nodeList.Items {
-		if val, ok := node.ObjectMeta.Labels["cilium.io/no-schedule"]; ok && val == "true" {
+		node := node
+		if !canNodeRunCilium(&node) {
 			nodes = append(nodes, node.ObjectMeta.Name)
 		}
 	}
@@ -392,4 +394,9 @@ func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
 
 func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
 	ct.features[feature] = FeatureStatus{Enabled: false}
+}
+
+func canNodeRunCilium(node *corev1.Node) bool {
+	val, ok := node.ObjectMeta.Labels["cilium.io/no-schedule"]
+	return !ok || val == "false"
 }

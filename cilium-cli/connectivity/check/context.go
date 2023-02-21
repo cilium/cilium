@@ -18,6 +18,7 @@ import (
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -58,6 +59,7 @@ type ConnectivityTest struct {
 
 	lastFlowTimestamps map[string]time.Time
 
+	nodes              map[string]*corev1.Node
 	nodesWithoutCilium []string
 
 	manifests      map[string]string
@@ -177,6 +179,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		echoServices:        make(map[string]Service),
 		externalWorkloads:   make(map[string]ExternalWorkload),
 		hostNetNSPodsByNode: make(map[string]Pod),
+		nodes:               make(map[string]*corev1.Node),
 		tests:               []*Test{},
 		testNames:           make(map[string]struct{}),
 		lastFlowTimestamps:  make(map[string]time.Time),
@@ -235,6 +238,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 	if err := ct.detectFeatures(ctx); err != nil {
+		return err
+	}
+	if err := ct.getNodes(ctx); err != nil {
 		return err
 	}
 
@@ -506,6 +512,22 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 	return nil
 }
 
+func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
+	nodeList, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to list K8s Nodes: %w", err)
+	}
+
+	for _, node := range nodeList.Items {
+		node := node
+		if canNodeRunCilium(&node) {
+			ct.nodes[node.ObjectMeta.Name] = node.DeepCopy()
+		}
+	}
+
+	return nil
+}
+
 // DetectMinimumCiliumVersion returns the smallest Cilium version running in
 // the cluster(s)
 func (ct *ConnectivityTest) DetectMinimumCiliumVersion(ctx context.Context) (*semver.Version, error) {
@@ -598,6 +620,10 @@ func (ct *ConnectivityTest) Params() Parameters {
 
 func (ct *ConnectivityTest) CiliumPods() map[string]Pod {
 	return ct.ciliumPods
+}
+
+func (ct *ConnectivityTest) Nodes() map[string]*corev1.Node {
+	return ct.nodes
 }
 
 func (ct *ConnectivityTest) ClientPods() map[string]Pod {
