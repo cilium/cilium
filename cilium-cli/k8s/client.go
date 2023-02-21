@@ -165,6 +165,10 @@ func (c *Client) DeleteServiceAccount(ctx context.Context, namespace, name strin
 	return c.Clientset.CoreV1().ServiceAccounts(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) GetClusterRole(ctx context.Context, name string, opts metav1.GetOptions) (*rbacv1.ClusterRole, error) {
+	return c.Clientset.RbacV1().ClusterRoles().Get(ctx, name, opts)
+}
+
 func (c *Client) CreateClusterRole(ctx context.Context, role *rbacv1.ClusterRole, opts metav1.CreateOptions) (*rbacv1.ClusterRole, error) {
 	return c.Clientset.RbacV1().ClusterRoles().Create(ctx, role, opts)
 }
@@ -381,6 +385,23 @@ func (c *Client) CiliumLogs(ctx context.Context, namespace, pod string, since ti
 
 func (c *Client) ListServices(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.ServiceList, error) {
 	return c.Clientset.CoreV1().Services(namespace).List(ctx, options)
+}
+
+func (c *Client) WriteFileToPod(ctx context.Context, namespace, pod, container, path string, content []byte, mode int32) error {
+	result, err := c.execInPod(ctx, ExecParameters{
+		Namespace: namespace,
+		Pod:       pod,
+		Container: container,
+	})
+	if err != nil {
+		return fmt.Errorf("error executing cat in pod: %s", err)
+	}
+
+	if errString := result.Stderr.String(); errString != "" {
+		return fmt.Errorf("error writing file to pod: %s", errString)
+	}
+
+	return nil
 }
 
 func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
