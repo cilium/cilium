@@ -27,13 +27,13 @@ func (s *dummy) Name() string {
 }
 
 func (s *dummy) Run(ctx context.Context, t *check.Test) {
-	t.NewAction(s, "action-1", nil, nil).Run(func(a *check.Action) {
+	t.NewAction(s, "action-1", nil, nil, check.IPFamilyNone).Run(func(a *check.Action) {
 		a.Log("logging")
 		a.Debug("debugging")
 		a.Info("informing")
 	})
 
-	t.NewAction(s, "action-2", nil, nil).Run(func(a *check.Action) {
+	t.NewAction(s, "action-2", nil, nil, check.IPFamilyNone).Run(func(a *check.Action) {
 		a.Log("logging")
 		a.Fatal("killing :(")
 		a.Fail("failing (this should not be printed)")

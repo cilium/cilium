@@ -571,7 +571,7 @@ func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
 	}
 }
 
-func (ct *ConnectivityTest) CurlCommand(peer TestPeer, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam IPFamily, opts ...string) []string {
 	cmd := []string{"curl",
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
 		"--silent", "--fail", "--show-error",
@@ -588,13 +588,17 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, opts ...string) []string 
 	cmd = append(cmd, opts...)
 	cmd = append(cmd, fmt.Sprintf("%s://%s%s",
 		peer.Scheme(),
-		net.JoinHostPort(peer.Address(), fmt.Sprint(peer.Port())),
+		net.JoinHostPort(peer.Address(ipFam), fmt.Sprint(peer.Port())),
 		peer.Path()))
 	return cmd
 }
 
-func (ct *ConnectivityTest) PingCommand(peer TestPeer) []string {
+func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam IPFamily) []string {
 	cmd := []string{"ping", "-c", "1"}
+
+	if ipFam == IPFamilyV6 {
+		cmd = append(cmd, "-6")
+	}
 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
 		cmd = append(cmd, "-W", strconv.FormatFloat(connectTimeout, 'f', -1, 64))
@@ -603,7 +607,7 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer) []string {
 		cmd = append(cmd, "-w", strconv.FormatFloat(requestTimeout, 'f', -1, 64))
 	}
 
-	cmd = append(cmd, peer.Address())
+	cmd = append(cmd, peer.Address(ipFam))
 	return cmd
 }
 
