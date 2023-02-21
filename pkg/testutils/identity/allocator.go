@@ -121,7 +121,7 @@ func (f *MockIdentityAllocator) Release(_ context.Context, id *identity.Identity
 }
 
 // ReleaseSlice wraps Release for slices.
-func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, _ cache.IdentityAllocatorOwner, identities []*identity.Identity) error {
+func (f *MockIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
 	for _, id := range identities {
 		if _, err := f.Release(ctx, id, false); err != nil {
 			return err

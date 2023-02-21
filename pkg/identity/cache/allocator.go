@@ -91,7 +91,7 @@ type IdentityAllocator interface {
 	Release(context.Context, *identity.Identity, bool) (released bool, err error)
 
 	// ReleaseSlice is the slice variant of Release().
-	ReleaseSlice(context.Context, IdentityAllocatorOwner, []*identity.Identity) error
+	ReleaseSlice(context.Context, []*identity.Identity) error
 
 	// LookupIdentityByID returns the identity that corresponds to the given
 	// labels.
@@ -421,7 +421,7 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 // function that may be useful for cleaning up multiple identities in paths
 // where several identities may be allocated and another error means that they
 // should all be released.
-func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, owner IdentityAllocatorOwner, identities []*identity.Identity) error {
+func (m *CachingIdentityAllocator) ReleaseSlice(ctx context.Context, identities []*identity.Identity) error {
 	var err error
 	for _, id := range identities {
 		if id == nil {

@@ -63,7 +63,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 		id, isNew, err := ipc.resolveIdentity(allocateCtx, prefix, info, oldNID)
 		if err != nil {
-			ipc.IdentityAllocator.ReleaseSlice(context.Background(), nil, usedIdentities)
+			ipc.IdentityAllocator.ReleaseSlice(context.Background(), usedIdentities)
 			ipc.Unlock()
 			ipc.metadata.RUnlock()
 			return nil, err
