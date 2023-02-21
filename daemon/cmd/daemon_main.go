@@ -1692,7 +1692,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Clientset,
 				params.SharedResources,
 				params.CertManager,
-				params.SecretManager)
+				params.SecretManager,
+				params.LocalNodeStore)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
