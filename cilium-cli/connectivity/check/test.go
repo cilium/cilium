@@ -6,6 +6,7 @@ package check
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
 	"io"
 	"sync"
@@ -16,6 +17,17 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cloudflare/cfssl/cli/genkey"
+	"github.com/cloudflare/cfssl/config"
+	"github.com/cloudflare/cfssl/csr"
+	"github.com/cloudflare/cfssl/helpers"
+	"github.com/cloudflare/cfssl/initca"
+	"github.com/cloudflare/cfssl/signer"
+	"github.com/cloudflare/cfssl/signer/local"
 )
 
 const (
@@ -28,6 +40,11 @@ const (
 	// indicate they could be from anywhere.
 	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
 	anySourceLabelPrefix = "any."
+)
+
+var (
+	//go:embed assets/cacert.pem
+	caBundle []byte
 )
 
 type Test struct {
@@ -56,6 +73,12 @@ type Test struct {
 
 	// Policies active during this test.
 	cnps map[string]*ciliumv2.CiliumNetworkPolicy
+
+	// Secrets that have to be present during the test.
+	secrets map[string]*corev1.Secret
+
+	// CA certificates of the certificates that have to be present during the test.
+	certificateCAs map[string][]byte
 
 	expectFunc ExpectationsFunc
 
@@ -107,8 +130,14 @@ func (t *Test) Context() *ConnectivityTest {
 	return t.ctx
 }
 
-// setup sets up the environment for the Test to execute in, like applying CNPs.
+// setup sets up the environment for the Test to execute in, like applying secrets and CNPs.
 func (t *Test) setup(ctx context.Context) error {
+
+	// Apply Secrets to the cluster.
+	if err := t.applySecrets(ctx); err != nil {
+		t.ciliumLogs(ctx)
+		return fmt.Errorf("applying Secrets: %w", err)
+	}
 
 	// Apply CNPs to the cluster.
 	if err := t.applyPolicies(ctx); err != nil {
@@ -297,6 +326,100 @@ func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
 	return t
 }
 
+// WithSecret takes a Secret and adds it to the cluster during the test
+func (t *Test) WithSecret(secret *corev1.Secret) *Test {
+
+	// Change namespace of the secret to the test namespace
+	secret.SetNamespace(t.ctx.params.TestNamespace)
+
+	if err := t.addSecrets(secret); err != nil {
+		t.Fatalf("Adding secret: %s", err)
+	}
+	return t
+}
+
+// WithCABundleSecret makes the secret `cabundle` with a CA bundle and adds it to the cluster
+func (t *Test) WithCABundleSecret() *Test {
+	if len(caBundle) == 0 {
+		t.Fatalf("CA bundle is empty")
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cabundle",
+			Namespace: t.ctx.params.TestNamespace,
+		},
+		Data: map[string][]byte{
+			"ca.crt": caBundle,
+		},
+	}
+
+	if err := t.addSecrets(secret); err != nil {
+		t.Fatalf("Adding CA bundle secret: %s", err)
+	}
+	return t
+}
+
+// WithCertificate makes a secret with a certificate and adds it to the cluster
+func (t *Test) WithCertificate(name, hostname string) *Test {
+	caCert, _, caKey, err := initca.New(&csr.CertificateRequest{
+		KeyRequest: csr.NewKeyRequest(),
+		CN:         "Cilium Test CA",
+	})
+	if err != nil {
+		t.Fatalf("Unable to create CA: %s", err)
+	}
+
+	g := &csr.Generator{Validator: genkey.Validator}
+	csrBytes, keyBytes, err := g.ProcessRequest(&csr.CertificateRequest{
+		CN:    hostname,
+		Hosts: []string{hostname},
+	})
+	if err != nil {
+		t.Fatalf("Unable to create CSR: %s", err)
+	}
+	parsedCa, err := helpers.ParseCertificatePEM(caCert)
+	if err != nil {
+		t.Fatalf("Unable to parse CA: %s", err)
+	}
+	caPriv, err := helpers.ParsePrivateKeyPEM(caKey)
+	if err != nil {
+		t.Fatalf("Unable to parse CA key: %s", err)
+	}
+
+	signConf := &config.Signing{
+		Default: &config.SigningProfile{
+			Expiry: 365 * 24 * time.Hour,
+			Usage:  []string{"key encipherment", "server auth", "digital signature"},
+		},
+	}
+
+	s, err := local.NewSigner(caPriv, parsedCa, signer.DefaultSigAlgo(caPriv), signConf)
+	if err != nil {
+		t.Fatalf("Unable to create signer: %s", err)
+	}
+	certBytes, err := s.Sign(signer.SignRequest{Request: string(csrBytes)})
+	if err != nil {
+		t.Fatalf("Unable to sign certificate: %s", err)
+	}
+
+	if t.certificateCAs == nil {
+		t.certificateCAs = make(map[string][]byte)
+	}
+	t.certificateCAs[name] = caCert
+
+	return t.WithSecret(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			corev1.TLSCertKey:       certBytes,
+			corev1.TLSPrivateKeyKey: keyBytes,
+		},
+	})
+}
+
 // NewAction creates a new Action. s must be the Scenario the Action is created
 // for, name should be a visually-distinguishable name, src is the execution
 // Pod of the action, and dst is the network target the Action will connect to.
@@ -369,4 +492,9 @@ func (t *Test) ForEachIPFamily(do func(IPFamily)) {
 			}
 		}
 	}
+}
+
+// CertificateCAs returns the CAs used to sign the certificates within the test.
+func (t *Test) CertificateCAs() map[string][]byte {
+	return t.certificateCAs
 }
