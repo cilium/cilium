@@ -132,8 +132,6 @@ spec:
                           "value". The requirements are ANDed.
                         type: object
                     type: object
-                required:
-                - nodeSelector
                 type: object
               selectors:
                 description: Egress represents a list of rules by which egress traffic
