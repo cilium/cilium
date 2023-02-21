@@ -125,7 +125,7 @@ nodeSelector:
   kubernetes.io/os: linux
 
 # -- Node tolerations for agent scheduling to nodes with taints
-# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+# ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 tolerations:
 - operator: Exists
   # - key: "key"
@@ -180,7 +180,7 @@ podAnnotations: {}
 podLabels: {}
 
 # -- Agent resource limits & requests
-# ref: https://kubernetes.io/docs/user-guide/compute-resources/
+# ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 resources: {}
   # limits:
   #   cpu: 4000m
@@ -382,7 +382,7 @@ bpf:
   policyMapMax: 16384
 
   # -- (float64) Configure auto-sizing for all BPF maps based on available memory.
-  # ref: https://docs.cilium.io/en/stable/concepts/ebpf/maps/#ebpf-maps
+  # ref: https://docs.cilium.io/en/stable/network/ebpf/maps/
   # @default -- `0.0025`
   mapDynamicSizeRatio: ~
 
@@ -805,7 +805,7 @@ certgen:
   # -- Labels to be added to hubble-certgen pods
   podLabels: {}
   # -- Node tolerations for pod assignment on nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations: []
 
 hubble:
@@ -823,7 +823,7 @@ hubble:
   # eventBufferCapacity: "4095"
 
   # -- Hubble metrics configuration.
-  # See https://docs.cilium.io/en/stable/operations/metrics/#hubble-metrics
+  # See https://docs.cilium.io/en/stable/observability/metrics/#hubble-metrics
   # for more comprehensive documentation about Hubble metrics.
   metrics:
     # -- Configures the list of metrics to collect. If empty or null, metrics
@@ -852,7 +852,7 @@ hubble:
     serviceMonitor:
       # -- Create ServiceMonitor resources for Prometheus Operator.
       # This requires the prometheus CRDs to be available.
-      # ref: https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      # ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
       # -- Labels to add to ServiceMonitor hubble
       labels: {}
@@ -932,7 +932,7 @@ hubble:
       # installation time.
       #
       # Defaults to midnight of the first day of every fourth month. For syntax, see
-      # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+      # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
       schedule: "0 0 1 */4 *"
 
       # [Example]
@@ -1002,13 +1002,12 @@ hubble:
       #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
     nodeSelector:
       kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-    #
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
     tolerations: []
 
     # -- Additional hubble-relay environment variables.
@@ -1107,7 +1106,7 @@ hubble:
       port: 9966
       serviceMonitor:
         # -- Enable service monitors.
-        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+        # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
         enabled: false
         # -- Labels to add to ServiceMonitor hubble-relay
         labels: {}
@@ -1245,13 +1244,12 @@ hubble:
       #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
     nodeSelector:
       kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
-    #
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
     tolerations: []
 
     # -- The priority class to use for hubble-ui
@@ -1316,7 +1314,7 @@ installNoConntrackIptablesRules: false
 
 ipam:
   # -- Configure IP Address Management mode.
-  # ref: https://docs.cilium.io/en/stable/concepts/networking/ipam/
+  # ref: https://docs.cilium.io/en/stable/network/concepts/ipam/
   mode: "cluster-pool"
   operator:
     # -- Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList.
@@ -1397,7 +1395,7 @@ readinessProbe:
 
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
 # Valid options are "disabled", "partial", "strict".
-# ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+# ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
 #kubeProxyReplacement: "disabled"
 
 # -- healthz server bind address for the kube-proxy replacement.
@@ -1567,7 +1565,7 @@ nodePort:
 
 # -- The agent can be put into one of the three policy enforcement modes:
 # default, always and never.
-# ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
+# ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
 policyEnforcementMode: "default"
 
 pprof:
@@ -1584,7 +1582,7 @@ prometheus:
   port: 9962
   serviceMonitor:
     # -- Enable service monitors.
-    # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+    # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
     enabled: false
     # -- Labels to add to ServiceMonitor cilium-agent
     labels: {}
@@ -1606,7 +1604,7 @@ prometheus:
   # -- Metrics that should be enabled or disabled from the default metric
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
   # metric_bar).
-  # ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
+  # ref: https://docs.cilium.io/en/stable/observability/metrics/
   metrics: ~
 
 # -- Configure Istio proxy options.
@@ -1716,7 +1714,7 @@ etcd:
   extraArgs: []
 
   # -- Node tolerations for cilium-etcd-operator scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
   - operator: Exists
     # - key: "key"
@@ -1731,7 +1729,7 @@ etcd:
     #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-etcd-operator pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
   nodeSelector:
     kubernetes.io/os: linux
 
@@ -1753,7 +1751,7 @@ etcd:
     maxUnavailable: 1
 
   # -- cilium-etcd-operator resource limits & requests
-  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
     # limits:
     #   cpu: 4000m
@@ -1846,13 +1844,12 @@ operator:
     #   whenUnsatisfiable: DoNotSchedule
 
   # -- Node labels for cilium-operator pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
   nodeSelector:
     kubernetes.io/os: linux
 
   # -- Node tolerations for cilium-operator scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
   - operator: Exists
     # - key: "key"
@@ -1899,7 +1896,7 @@ operator:
     maxUnavailable: 1
 
   # -- cilium-operator resource limits & requests
-  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
     # limits:
     #   cpu: 1000m
@@ -1942,7 +1939,7 @@ operator:
     port: 9963
     serviceMonitor:
       # -- Enable service monitors.
-      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
       enabled: false
       # -- Labels to add to ServiceMonitor cilium-operator
       labels: {}
@@ -1998,13 +1995,12 @@ nodeinit:
   affinity: {}
 
   # -- Node labels for nodeinit pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
   nodeSelector:
     kubernetes.io/os: linux
 
   # -- Node tolerations for nodeinit scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
   - operator: Exists
     # - key: "key"
@@ -2019,7 +2015,7 @@ nodeinit:
   podLabels: {}
 
   # -- nodeinit resource limits & requests
-  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources:
     requests:
       cpu: 100m
@@ -2082,13 +2078,12 @@ preflight:
             k8s-app: cilium
 
   # -- Node labels for preflight pod assignment
-  # ref: https://kubernetes.io/docs/user-guide/node-selection/
-  #
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
   nodeSelector:
     kubernetes.io/os: linux
 
   # -- Node tolerations for preflight scheduling to nodes with taints
-  # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+  # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
   tolerations:
   - key: node.kubernetes.io/not-ready
     effect: NoSchedule
@@ -2124,7 +2119,7 @@ preflight:
     maxUnavailable: 1
 
   # -- preflight resource limits & requests
-  # ref: https://kubernetes.io/docs/user-guide/compute-resources/
+  # ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
     # limits:
     #   cpu: 4000m
@@ -2297,12 +2292,12 @@ clustermesh:
       #   whenUnsatisfiable: DoNotSchedule
 
     # -- Node labels for pod assignment
-    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
     nodeSelector:
       kubernetes.io/os: linux
 
     # -- Node tolerations for pod assignment on nodes with taints
-    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
     tolerations: []
 
     # -- clustermesh-apiserver update strategy
@@ -2344,7 +2339,7 @@ clustermesh:
         #
         # Defaults to none. Commented syntax gives midnight of the first day of every
         # fourth month. For syntax, see
-        # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+        # https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax
         # schedule: "0 0 1 */4 *"
 
         # [Example]

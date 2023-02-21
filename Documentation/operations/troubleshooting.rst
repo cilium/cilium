@@ -933,7 +933,7 @@ If you believe to have found an issue in Cilium, please report a
 ensure that developers have the best chance to reproduce the issue.
 
 .. _Slack channel: https://cilium.herokuapp.com
-.. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+.. _NodeSelector: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 .. _RBAC: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 .. _CNI: https://github.com/containernetworking/cni
 .. _Volumes: https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/
