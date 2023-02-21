@@ -1039,7 +1039,7 @@ func (d *Daemon) startStatusCollector() {
 	d.statusResponse.CniChaining = d.getCNIChainingStatus()
 	d.statusResponse.IdentityRange = d.getIdentityRange()
 
-	d.statusCollector = status.NewCollector(probes, status.Config{})
+	d.statusCollector = status.NewCollector(probes, status.Config{StackdumpPath: "/run/cilium/state/agent.stack.gz"})
 
 	// Set up a signal handler function which prints out logs related to daemon status.
 	cleaner.cleanupFuncs.Add(func() {
