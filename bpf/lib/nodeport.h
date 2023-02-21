@@ -72,15 +72,6 @@ bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
 #endif
 }
 
-static __always_inline __u64 ctx_adjust_hroom_dsr_flags(void)
-{
-#ifdef HAVE_CSUM_LEVEL
-	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-#else
-	return 0;
-#endif
-}
-
 static __always_inline bool dsr_fail_needs_reply(int code __maybe_unused)
 {
 #ifdef ENABLE_DSR_ICMP_ERRORS
@@ -181,7 +172,7 @@ static __always_inline int dsr_set_ipip6(struct __ctx_buff *ctx,
 	rss_gen_src6(&saddr, (union v6addr *)&ip6->saddr, l4_hint);
 
 	if (ctx_adjust_hroom(ctx, sizeof(*ip6), BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()))
+			     ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct ipv6hdr, payload_len),
 			    &tp_new.payload_len, 4, 0) < 0)
@@ -240,7 +231,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	opt.port = svc_port;
 
 	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()))
+			     ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6), &opt,
 			    sizeof(opt), 0) < 0)
@@ -435,7 +426,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
 			     BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()) < 0)
+			     ctx_adjust_hroom_flags()) < 0)
 		goto drop_err;
 
 	if (eth_store_daddr(ctx, smac.addr, 0) < 0)
@@ -1338,7 +1329,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 	}
 
 	if (ctx_adjust_hroom(ctx, sizeof(*ip4), BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()))
+			     ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 	sum = csum_diff(&tp_old, 16, &tp_new, 16, 0);
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, tot_len),
@@ -1401,7 +1392,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
 
 	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()))
+			     ctx_adjust_hroom_flags()))
 		return DROP_INVALID;
 
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4),
@@ -1581,7 +1572,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (ctx_adjust_hroom(ctx, sizeof(ip) + sizeof(icmp),
 			     BPF_ADJ_ROOM_NET,
-			     ctx_adjust_hroom_dsr_flags()) < 0)
+			     ctx_adjust_hroom_flags()) < 0)
 		goto drop_err;
 
 	if (eth_store_daddr(ctx, smac.addr, 0) < 0)

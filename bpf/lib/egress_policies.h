@@ -216,15 +216,6 @@ is_srv6_packet(const struct ipv6hdr *ip6)
 }
 
 # ifndef SKIP_SRV6_HANDLING
-static __always_inline __u64 ctx_adjust_hroom_flags(void)
-{
-#ifdef HAVE_CSUM_LEVEL
-	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
-#else
-	return 0;
-#endif
-}
-
 static __always_inline int
 srv6_encapsulation(struct __ctx_buff *ctx, int growth, __u16 new_payload_len,
 		   __u8 nexthdr, union v6addr *saddr, struct in6_addr *sid)
