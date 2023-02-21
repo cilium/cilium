@@ -128,7 +128,7 @@ and all metrics were being gathered.
 * Each deployment had 1 replica (125 pods in total).
 
 * To measure **only** the resources consumed by Cilium, all deployments used
-  the same base image ``k8s.gcr.io/pause:3.2``. This image does not have any
+  the same base image ``registry.k8s.io/pause:3.2``. This image does not have any
   CPU or memory overhead.
 
 * We provision a small number of pods in a small cluster to understand the CPU

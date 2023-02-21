@@ -79,7 +79,7 @@ jobs:
           minikube image load ${{ env.ECHO_SERVER_IMAGE }}
           minikube tunnel &
         env:
-          ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
+          ECHO_SERVER_IMAGE: registry.k8s.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
 
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
