@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG BASE_IMAGE=scratch
+ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:f55691636922518ca40802f59d57f36ee4741c0d@sha256:4c21a3e21e9e07f0301191b3ae6921c8208a3910ce1b73be6ad445e544590e3a
+ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:b11a6777dec1d4096dacd3fd1b94090c62133192@sha256:b2a3bf605efb9b89d6684fabb76d841bc9d7a85555ba5bdf7945409334df1779
 ARG GOLANG_IMAGE=docker.io/library/golang:1.20.1@sha256:2edf6aab2d57644f3fe7407132a0d1770846867465a39c2083770cf62734b05d
 ARG ALPINE_IMAGE=docker.io/library/alpine:3.17.2@sha256:69665d02cb32192e52e07644d76bc6f25abeb5410edc1c7a81a10ba3f0efb90a
 
@@ -69,3 +71,33 @@ COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
 WORKDIR /
 ENV GOPS_CONFIG_DIR=/
 CMD ["/usr/bin/cilium-${OPERATOR_VARIANT}"]
+
+# Intermediate stage because expansion is not working in COPY --from
+FROM --platform=${BUILDPLATFORM} ${CILIUM_BUILDER_IMAGE} as debug-builder
+
+#
+# Cilium debug image.
+#
+# Typical image bulids will stop above at the 'release' target, but
+# developers follow this Dockerfile to the end. Starting from a release
+# image, install delve debugger and wrap the cilium-operator binary calls
+# with a script that automatically provisions the debugger on a
+# dedicated port.
+FROM --platform=${BUILDPLATFORM} ${CILIUM_RUNTIME_IMAGE} as debug
+# TARGETOS is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETOS
+# TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
+ARG TARGETARCH
+ARG OPERATOR_VARIANT
+LABEL maintainer="maintainer@cilium.io"
+COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/LICENSE.all /LICENSE.all
+WORKDIR /
+ENV GOPS_CONFIG_DIR=/
+CMD ["/usr/bin/cilium-${OPERATOR_VARIANT}"]
+
+COPY --from=debug-builder /go/bin/dlv /usr/bin/dlv
+RUN mv /usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}-bin
+ENV DEBUG_PORT=2346
+COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-${OPERATOR_VARIANT}
