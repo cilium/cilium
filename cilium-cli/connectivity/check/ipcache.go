@@ -21,9 +21,24 @@ import (
 //	}
 type ipCache map[string][]string
 
-// findPodID checks the ipCache for the presence of the given Pod's IP address.
+// findPodID checks the ipCache for the presence of the given Pod's IP addresses.
 func (ic ipCache) findPodID(p Pod) (int, error) {
-	podIP := p.Pod.Status.PodIP
+	var epID int
+	for _, ip := range p.Pod.Status.PodIPs {
+		id, err := ic._findPodID(ip.IP)
+		if err != nil {
+			return 0, err
+		}
+		if epID == 0 {
+			epID = id
+		} else if epID != id {
+			return 0, fmt.Errorf("pod ID mismatch %d vs %d", epID, id)
+		}
+	}
+	return epID, nil
+}
+
+func (ic ipCache) _findPodID(podIP string) (int, error) {
 	ip, err := netip.ParseAddr(podIP)
 	if err != nil {
 		return 0, fmt.Errorf("PodIP %s is not a valid IPv4 or IPv6: %w", podIP, err)
