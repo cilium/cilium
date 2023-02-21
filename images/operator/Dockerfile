@@ -89,6 +89,7 @@ ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 ARG OPERATOR_VARIANT
+ARG DEBUG_CONTINUE
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=gops /out/${TARGETOS}/${TARGETARCH}/bin/gops /bin/gops
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}
@@ -100,4 +101,5 @@ CMD ["/usr/bin/cilium-${OPERATOR_VARIANT}"]
 COPY --from=debug-builder /go/bin/dlv /usr/bin/dlv
 RUN mv /usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}-bin
 ENV DEBUG_PORT=2346
+ENV DEBUG_CONTINUE=${DEBUG_CONTINUE}
 COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-${OPERATOR_VARIANT}
