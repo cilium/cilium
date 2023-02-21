@@ -92,6 +92,10 @@ var (
 	backends4 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080),
 	}
+	backends5 = []lb.Backend{
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080),
+		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.6"), 8080),
+	}
 )
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
@@ -1382,4 +1386,33 @@ func (m *ManagerTestSuite) TestSyncServices(c *C) {
 	_, _, found = m.svc.GetServiceNameByAddr(frontend3.L3n4Addr)
 	c.Assert(found, Equals, true)
 
+}
+
+// Tests whether delete service handles non-active backends.
+func (m *ManagerTestSuite) TestDeleteServiceWithTerminatingBackends(c *C) {
+	backends := backends5
+	backends[0].State = lb.BackendStateTerminating
+	p := &lb.SVC{
+		Frontend:  frontend1,
+		Backends:  backends,
+		Name:      "svc1",
+		Namespace: "ns1",
+	}
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName, Equals, "svc1")
+
+	// Delete service.
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
 }
