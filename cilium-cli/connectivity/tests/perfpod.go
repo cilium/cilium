@@ -52,7 +52,7 @@ func (s *netPerfPodtoPod) Run(ctx context.Context, t *check.Test) {
 			} else {
 				scenarioName = "pod-net"
 			}
-			action := t.NewAction(s, "netperf", &c, server)
+			action := t.NewAction(s, "netperf", &c, server, check.IPFamilyV4)
 			action.CollectFlows = false
 			action.Run(func(a *check.Action) {
 				if crr {

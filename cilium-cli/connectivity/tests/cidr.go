@@ -35,8 +35,8 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 		for _, src := range ct.ClientPods() {
 			src := src // copy to avoid memory aliasing when using reference
 
-			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep))
+			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, check.IPFamilyNone).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyNone))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,
