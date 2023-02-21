@@ -6,6 +6,9 @@ operator:
   image:
     override: "localhost:5000/cilium/operator-generic:local"
     suffix: ""
+  nodeSelector:
+    kubernetes.io/os: linux
+    kubernetes.io/hostname: kind-worker
 ipam:
   mode: kubernetes
 ipv6:
