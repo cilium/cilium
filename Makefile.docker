@@ -49,7 +49,7 @@ GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -prin
 	@echo "/hack" > $@
 	@echo ".git" >> $@
 	@echo "/Makefile.docker" >> $@
-	echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
+	@echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
 		-e '# Remove lines with white space, comments and files that must be passed to docker, "$$" due to make. #' \
 			-e '/^[[:space:]]*$$/d' -e '/^#/d' -e '/GIT_VERSION/d' \
 		-e '# Apply pattern in all directories if it contains no "/", keep "!" up front. #' \
