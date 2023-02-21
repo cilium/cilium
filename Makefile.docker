@@ -140,6 +140,7 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/cl
 # to build also 'docker-operator-image', where the stem would be empty otherwise.
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
 $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image-debug,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),debug))
 
 #
 # docker-*-all targets are mainly used from the CI
