@@ -10,7 +10,7 @@ move-to-projects-for-labels-xored:
       column: "Backport pending to v1.13"
     backport-done/1.13:
       project: "https://github.com/cilium/cilium/projects/213"
-      column: "Backport done to v1.10"
+      column: "Backport done to v1.13"
   v1.12:
     needs-backport/1.12:
       project: "https://github.com/cilium/cilium/projects/224"
@@ -27,7 +27,7 @@ move-to-projects-for-labels-xored:
       column: "Needs backport from master"
     backport-pending/1.11:
       project: "https://github.com/cilium/cilium/projects/223"
-      column: "Backport pending to v1.10"
+      column: "Backport pending to v1.11"
     backport-done/1.11:
       project: "https://github.com/cilium/cilium/projects/223"
       column: "Backport done to v1.11"
