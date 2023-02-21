@@ -179,6 +179,7 @@ func NewPolicyRepository(
 		RuleReactionQueue:     ruleReactionQueue,
 		selectorCache:         selectorCache,
 		certManager:           certManager,
+		secretManager:         secretManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
