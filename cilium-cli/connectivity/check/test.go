@@ -300,8 +300,8 @@ func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
 // NewAction creates a new Action. s must be the Scenario the Action is created
 // for, name should be a visually-distinguishable name, src is the execution
 // Pod of the action, and dst is the network target the Action will connect to.
-func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer) *Action {
-	a := newAction(t, name, s, src, dst)
+func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer, ipFam IPFamily) *Action {
+	a := newAction(t, name, s, src, dst, ipFam)
 
 	// Obtain the expected result for this particular action by calling
 	// the registered expectation function.
@@ -341,5 +341,23 @@ func (t *Test) collectSysdump() {
 
 	if err = collector.Run(); err != nil {
 		t.Failf("Failed to collect sysdump: %v", err)
+	}
+}
+
+func (t *Test) ForEachIPFamily(do func(IPFamily)) {
+	ipFams := []IPFamily{IPFamilyV4, IPFamilyV6}
+
+	for _, ipFam := range ipFams {
+		switch ipFam {
+		case IPFamilyV4:
+			if f, ok := t.ctx.features[FeatureIPv4]; ok && f.Enabled {
+				do(ipFam)
+			}
+
+		case IPFamilyV6:
+			if f, ok := t.ctx.features[FeatureIPv6]; ok && f.Enabled {
+				do(ipFam)
+			}
+		}
 	}
 }

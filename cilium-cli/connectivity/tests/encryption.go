@@ -79,14 +79,17 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	// the host netns.
 	clientHost := ct.HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 
-	testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP)
+	t.ForEachIPFamily(func(ipFam check.IPFamily) {
+		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP, ipFam)
+	})
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
-	client, server, clientHost *check.Pod, reqType requestType) {
-	iface := getInterNodeIface(ctx, t, clientHost, (*server).Pod.Status.PodIP)
-	t.Debugf("Detected %s iface for communication among client and server nodes",
-		iface)
+	client, server, clientHost *check.Pod, reqType requestType, ipFam check.IPFamily) {
+
+	dstAddr := server.Address(ipFam)
+	iface := getInterNodeIface(ctx, t, clientHost, dstAddr)
+	t.Debugf("Detected %s iface for communication among client and server nodes", iface)
 
 	bgStdout := &safeBuffer{}
 	bgStderr := &safeBuffer{}
@@ -100,6 +103,9 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			protoFilter = "tcp"
 		case requestICMPEcho:
 			protoFilter = "icmp"
+			if ipFam == check.IPFamilyV6 {
+				protoFilter = "icmp6"
+			}
 		}
 		// Run tcpdump with -w instead of directly printing captured pkts. This
 		// is to avoid a race after sending ^C (triggered by bgCancel()) which
@@ -111,7 +117,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			// Unfortunately, we cannot use "host %s and host %s" filter here,
 			// as IPsec recirculates replies to the iface netdev, which would
 			// make tcpdump to capture the pkts (false positive).
-			fmt.Sprintf("src host %s and dst host %s and %s", client.Pod.Status.PodIP, server.Pod.Status.PodIP, protoFilter),
+			fmt.Sprintf("src host %s and dst host %s and %s", client.Address(ipFam), dstAddr, protoFilter),
 			// Only one pkt is enough, as we don't expect any unencrypted pkt
 			// to be captured
 			"-c", "1"}
@@ -146,13 +152,13 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	switch reqType {
 	case requestHTTP:
 		// Curl the server from the client to generate some traffic
-		t.NewAction(s, "curl", client, server).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, t.Context().CurlCommand(server))
+		t.NewAction(s, "curl", client, server, ipFam).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam))
 		})
 	case requestICMPEcho:
 		// Ping the server from the client to generate some traffic
-		t.NewAction(s, "ping", client, server).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, t.Context().PingCommand(server))
+		t.NewAction(s, "ping", client, server, ipFam).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam))
 		})
 	default:
 		t.Fatalf("Invalid request type: %d", reqType)
@@ -236,11 +242,13 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	// serverHost is a pod running in a remote node's host netns.
 	serverHost := t.Context().HostNetNSPodsByNode()[server.Pod.Spec.NodeName]
 
-	// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
-	// does not have a HTTP server running)
-	testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho)
-	// Test host-to-remote-host
-	testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, requestICMPEcho)
-	// Test host-to-remote-pod
-	testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, requestHTTP)
+	t.ForEachIPFamily(func(ipFam check.IPFamily) {
+		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
+		// does not have a HTTP server running)
+		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho, ipFam)
+		// Test host-to-remote-host
+		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, requestICMPEcho, ipFam)
+		// Test host-to-remote-pod
+		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, requestHTTP, ipFam)
+	})
 }
