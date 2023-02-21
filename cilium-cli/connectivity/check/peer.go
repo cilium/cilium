@@ -4,6 +4,7 @@
 package check
 
 import (
+	"net"
 	"net/url"
 	"strconv"
 
@@ -29,7 +30,7 @@ type TestPeer interface {
 
 	// Address must return the network address of the peer. This can be a
 	// DNS name or an IP address.
-	Address() string
+	Address(IPFamily) string
 
 	// Port must return the destination port number used by the test traffic to the peer.
 	Port() uint32
@@ -79,8 +80,17 @@ func (p Pod) Path() string {
 }
 
 // Address returns the network address of the Pod.
-func (p Pod) Address() string {
-	return p.Pod.Status.PodIP
+func (p Pod) Address(family IPFamily) string {
+	for _, addr := range p.Pod.Status.PodIPs {
+		ip := net.ParseIP(addr.IP)
+		if (family == IPFamilyV4 || family == IPFamilyNone) && ip.To4() != nil {
+			return addr.IP
+		}
+		if family == IPFamilyV6 && ip.To4() == nil && ip.To16() != nil {
+			return addr.IP
+		}
+	}
+	return ""
 }
 
 // HasLabel checks if given label exists and value matches.
@@ -127,7 +137,7 @@ func (s Service) Path() string {
 }
 
 // Address returns the network address of the Service.
-func (s Service) Address() string {
+func (s Service) Address(IPFamily) string {
 	return s.Service.Name
 }
 
@@ -174,7 +184,7 @@ func (e ExternalWorkload) Path() string {
 }
 
 // Address returns the network address of the ExternalWorkload.
-func (e ExternalWorkload) Address() string {
+func (e ExternalWorkload) Address(IPFamily) string {
 	return e.workload.Status.IP
 }
 
@@ -232,7 +242,7 @@ func (ie icmpEndpoint) Scheme() string {
 func (ie icmpEndpoint) Path() string {
 	return ""
 }
-func (ie icmpEndpoint) Address() string {
+func (ie icmpEndpoint) Address(IPFamily) string {
 	return ie.host
 }
 
@@ -298,7 +308,7 @@ func (he httpEndpoint) Path() string {
 	return he.url.Path
 }
 
-func (he httpEndpoint) Address() string {
+func (he httpEndpoint) Address(IPFamily) string {
 	return he.url.Hostname()
 }
 
