@@ -162,6 +162,17 @@
         // to match the digest to the pinned version. It will not work without it.
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?) digestVersion=(?<currentValue>.*)\\s+.+_sha256.*=\"(?<currentDigest>.*)\""
       ]
+    },
+    {
+      "fileMatch": [
+        "^\\.github/workflows/[^/]+\\.yaml$"
+      ],
+      // This regex manages version strings in GitHub actions workflow files,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_version: (?<currentValue>.*)",
+      ]
     }
   ]
 }
