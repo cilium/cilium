@@ -130,7 +130,7 @@ values should typically adjust slower than ``rate-limit``:
 Metrics
 =======
 
-All API calls subject to rate limiting will expose :ref:`metrics_api_rate_limiting`. Example::
+All API calls subject to rate limiting will expose rate limiting metrics. Example::
 
     cilium_api_limiter_adjustment_factor                  api_call="endpoint-create"                               0.695787
     cilium_api_limiter_processed_requests_total           api_call="endpoint-create" outcome="success"             7.000000

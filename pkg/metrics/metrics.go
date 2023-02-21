@@ -153,7 +153,7 @@ var (
 	// LabelDatapathArea marks which area the metrics are related to (eg, which BPF map)
 	LabelDatapathArea = metric.LabelDescription{
 		Name:        "area",
-		Description: "Marks which area the metrics are related to (eg, which BPF map)",
+		Description: "Marks which area the metrics are related to (for example, which BPF map)",
 	}
 
 	// LabelDatapathName marks a unique identifier for this metric.
