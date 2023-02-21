@@ -27,11 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-type CertificateManager interface {
-	GetTLSContext(ctx context.Context, tls *api.TLSContext, defaultNs string) (ca, public, private string, err error)
-	GetSecretString(ctx context.Context, secret *api.Secret, defaultNs string) (string, error)
-}
-
 // PolicyContext is an interface policy resolution functions use to access the Repository.
 // This way testing code can run without mocking a full Repository.
 type PolicyContext interface {
