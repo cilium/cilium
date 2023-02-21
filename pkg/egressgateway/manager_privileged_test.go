@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -95,14 +96,6 @@ type parsedEgressRule struct {
 	gatewayIP net.IP
 }
 
-type k8sCacheSyncedCheckerMock struct {
-	synced bool
-}
-
-func (k *k8sCacheSyncedCheckerMock) K8sCacheIsSynced() bool {
-	return k.synced
-}
-
 // Hook up gocheck into the "go test" runner.
 type EgressGatewayTestSuite struct{}
 
@@ -134,13 +127,13 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	defer cleanupPolicies()
 
-	k8sCacheSyncedChecker := &k8sCacheSyncedCheckerMock{}
+	cacheStatus := make(k8s.CacheStatus)
 
-	egressGatewayManager := NewEgressGatewayManager(k8sCacheSyncedChecker, identityAllocator, option.Config.InstallEgressGatewayRoutes)
+	egressGatewayManager := NewEgressGatewayManager(cacheStatus, identityAllocator, option.Config.InstallEgressGatewayRoutes)
 	c.Assert(egressGatewayManager, NotNil)
 	assertIPRules(c, []ipRule{})
 
-	k8sCacheSyncedChecker.synced = true
+	close(cacheStatus)
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	egressGatewayManager.OnUpdateNode(node1)

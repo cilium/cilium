@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -30,10 +31,6 @@ var (
 	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
 	zeroIPv4 = net.ParseIP("0.0.0.0")
 )
-
-type k8sCacheSyncedChecker interface {
-	K8sCacheIsSynced() bool
-}
 
 type eventType int
 
@@ -54,9 +51,9 @@ const (
 type Manager struct {
 	lock.Mutex
 
-	// k8sCacheSyncedChecker is used to check if the agent has synced its
+	// cacheStatus is used to check if the agent has synced its
 	// cache with the k8s API server
-	k8sCacheSyncedChecker k8sCacheSyncedChecker
+	cacheStatus k8s.CacheStatus
 
 	// nodeDataStore stores node name to node mapping
 	nodeDataStore map[string]nodeTypes.Node
@@ -84,9 +81,9 @@ type Manager struct {
 }
 
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
-func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
+func NewEgressGatewayManager(cacheStatus k8s.CacheStatus, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
 	manager := &Manager{
-		k8sCacheSyncedChecker:   k8sCacheSyncedChecker,
+		cacheStatus:             cacheStatus,
 		nodeDataStore:           make(map[string]nodeTypes.Node),
 		policyConfigs:           make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP: make(map[string][]*PolicyConfig),
@@ -121,7 +118,7 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 func (manager *Manager) runReconciliationAfterK8sSync() {
 	go func() {
 		for {
-			if manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+			if manager.cacheStatus.Synchronized() {
 				break
 			}
 
@@ -555,7 +552,7 @@ nextPolicyKey:
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
 func (manager *Manager) reconcile(e eventType) {
-	if !manager.k8sCacheSyncedChecker.K8sCacheIsSynced() {
+	if !manager.cacheStatus.Synchronized() {
 		return
 	}
 

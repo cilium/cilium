@@ -1647,6 +1647,7 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
+	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1661,6 +1662,7 @@ type daemonParams struct {
 	BGPController   *bgpv1.Controller
 	Shutdowner      hive.Shutdowner
 	SharedResources k8s.SharedResources
+	CacheStatus     k8s.CacheStatus
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
@@ -1698,7 +1700,9 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.CertManager,
 				params.SecretManager,
 				params.LocalNodeStore,
-				params.AuthManager)
+				params.AuthManager,
+				params.CacheStatus,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -1749,7 +1753,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-d.k8sCachesSynced
+		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
