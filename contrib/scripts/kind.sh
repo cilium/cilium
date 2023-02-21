@@ -75,7 +75,8 @@ if [[ -n "${image}" ]]; then
 fi
 
 node_config() {
-    local port="234$1$2"
+    local agentDebugPort="234$1$2"
+    local operatorDebugPort="235$1$2"
     local max="$3"
 
     echo "  extraMounts:"
@@ -84,7 +85,11 @@ node_config() {
     if [[ "${max}" -lt 10 ]]; then
         echo "  extraPortMappings:"
         echo "  - containerPort: 2345"
-        echo "    hostPort: $port"
+        echo "    hostPort: $agentDebugPort"
+        echo "    listenAddress: \"127.0.0.1\""
+        echo "    protocol: TCP"
+        echo "  - containerPort: 2346"
+        echo "    hostPort: $operatorDebugPort"
         echo "    listenAddress: \"127.0.0.1\""
         echo "    protocol: TCP"
     fi
