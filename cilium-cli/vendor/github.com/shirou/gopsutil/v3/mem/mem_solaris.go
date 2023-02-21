@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"github.com/tklauser/go-sysconf"
 )
 
 // VirtualMemory for Solaris is a minimal implementation which only returns
@@ -34,6 +35,13 @@ func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
 			return nil, err
 		}
 		result.Total = cap
+		freemem, err := globalZoneFreeMemory(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result.Available = freemem
+		result.Free = freemem
+		result.Used = result.Total - result.Free
 	} else {
 		cap, err := nonGlobalZoneMemoryCapacity()
 		if err != nil {
@@ -83,6 +91,25 @@ func globalZoneMemoryCapacity() (uint64, error) {
 	}
 
 	return totalMB * 1024 * 1024, nil
+}
+
+func globalZoneFreeMemory(ctx context.Context) (uint64, error) {
+	output, err := invoke.CommandWithContext(ctx, "pagesize")
+	if err != nil {
+		return 0, err
+	}
+
+	pagesize, err := strconv.ParseUint(strings.TrimSpace(string(output)), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	free, err := sysconf.Sysconf(sysconf.SC_AVPHYS_PAGES)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(free) * pagesize, nil
 }
 
 var kstatMatch = regexp.MustCompile(`(\S+)\s+(\S*)`)
