@@ -104,12 +104,30 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 }
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+	policyGwc := config.policyGwConfig
+
+	if policyGwc.nodeSelector.IsWildcard() {
+		gwc := gatewayConfig{
+			egressIP:  net.IPNet{IP: policyGwc.egressIP, Mask: net.CIDRMask(32, 32)},
+			gatewayIP: policyGwc.egressIP,
+		}
+
+		config.gatewayConfig = gwc
+
+		logger := log.WithFields(logrus.Fields{
+			logfields.CiliumEgressGatewayPolicyName: config.id,
+			logfields.EgressIP:                      policyGwc.egressIP,
+		})
+
+		logger.Debug("creating gateway configuration without nodeSelector")
+
+		return
+	}
+
 	gwc := gatewayConfig{
 		egressIP:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
 		gatewayIP: GatewayNotFoundIPv4,
 	}
-
-	policyGwc := config.policyGwConfig
 
 	for _, node := range manager.nodes {
 		if !policyGwc.selectsNodeAsGateway(node) {

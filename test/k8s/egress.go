@@ -402,6 +402,55 @@ var _ = SkipDescribeIf(func() bool {
 					})
 				})
 			})
+
+			Context("egress gw policy without nodeSelector", func() {
+				var policyYAML string
+
+				BeforeAll(func() {
+					policyYAML = applyEgressPolicy("egress-gateway-policy-without-nodeselector.yaml")
+
+					// Wait for 6 entries:
+					// - 3 policies, each with:
+					//   - 2 matching endpoints
+					//   - 1 destination CIDR
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 6)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 6)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+				})
+				AfterAll(func() {
+					kubectl.Delete(policyYAML)
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+				})
+
+				AfterFailed(func() {
+					kubectl.CiliumReport("cilium bpf egress list", "cilium bpf nat list")
+				})
+
+				It("both egress gw and basic connectivity work", func() {
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway: false,
+					})
+					testEgressGateway(&egressGatewayTestOpts{
+						fromGateway: true,
+					})
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: false,
+						ciliumOpts:  ciliumOpts,
+					})
+					testConnectivity(&egressGatewayConnectivityTestOpts{
+						fromGateway: true,
+						ciliumOpts:  ciliumOpts,
+					})
+				})
+			})
 		})
 	}
 
