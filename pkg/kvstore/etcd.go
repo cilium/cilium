@@ -1002,7 +1002,7 @@ reList:
 		scopedLog.WithField(fieldRev, nextRev).Debug("Starting to watch a prefix")
 
 		e.limiter.Wait(ctx)
-		etcdWatch := e.client.Watch(ctx, w.Prefix,
+		etcdWatch := e.client.Watch(client.WithRequireLeader(ctx), w.Prefix,
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
