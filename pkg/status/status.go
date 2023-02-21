@@ -4,8 +4,12 @@
 package status
 
 import (
+	"compress/gzip"
 	"context"
 	"fmt"
+	"os"
+	"runtime/pprof"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -66,6 +70,10 @@ type Collector struct {
 	stop           chan struct{}
 	staleProbes    map[string]struct{}
 	probeStartTime map[string]time.Time
+
+	// lastStackdumpTime is the last time we dumped stack; only do it
+	// every 5 minutes so we don't waste resources.
+	lastStackdumpTime atomic.Int64
 }
 
 // Config is the collector configuration
@@ -73,6 +81,7 @@ type Config struct {
 	WarningThreshold time.Duration
 	FailureThreshold time.Duration
 	Interval         time.Duration
+	StackdumpPath    string
 }
 
 // NewCollector creates a collector and starts the given probes.
@@ -246,8 +255,47 @@ func (c *Collector) updateProbeStatus(p *Probe, data interface{}, stale bool, er
 			logfields.StartTime: startTime,
 			logfields.Probe:     p.Name,
 		}).Warn("Timeout while waiting probe")
+
+		// We just had a probe time out. This is commonly caused by a deadlock.
+		// So, capture a stack dump to aid in debugging.
+		go c.maybeDumpStack()
 	}
 
 	// Notify the probe about status update
 	p.OnStatusUpdate(Status{Err: err, Data: data, StaleWarning: stale})
+}
+
+// maybeDumpStack dumps the goroutine stack to a file on disk (usually in /run/cilium/state)
+// if one hasn't been written in the past 5 minutes.
+// This is triggered if a collector is stale, which can be caused by deadlocks.
+func (c *Collector) maybeDumpStack() {
+	if c.config.StackdumpPath == "" {
+		return
+	}
+
+	now := time.Now().Unix()
+	before := c.lastStackdumpTime.Load()
+	if now-before < 5*60 {
+		return
+	}
+	swapped := c.lastStackdumpTime.CompareAndSwap(before, now)
+	if !swapped {
+		return
+	}
+
+	profile := pprof.Lookup("goroutine")
+	if profile == nil {
+		return
+	}
+
+	out, err := os.Create(c.config.StackdumpPath)
+	if err != nil {
+		log.WithError(err).WithField("path", c.config.StackdumpPath).Warn("Failed to write stack dump")
+	}
+	defer out.Close()
+	gzout := gzip.NewWriter(out)
+	defer gzout.Close()
+
+	profile.WriteTo(gzout, 2) // 2: print same stack format as panic
+	log.Infof("Wrote stack dump to %s", c.config.StackdumpPath)
 }
