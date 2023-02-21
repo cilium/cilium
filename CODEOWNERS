@@ -165,6 +165,8 @@
 # - @cilium/sig-agent:
 #   Provide Cilium (agent) general Go review. Internal architecture, core data
 #   structures and daemon startup.
+# - @cilium/sig-bgp:
+#   Review changes to our BGP integration.
 # - @cilium/sig-clustermesh:
 #   Ensure the reliability of state sharing between clusters to ensure that
 #   each cluster maintains a separate fault domain.
@@ -189,7 +191,7 @@
 # - @cilium/sig-lb:
 #   Maintain the layers necessary to coordinate all load balancing
 #   configurations within the agent control plane, including Services,
-#   ClusterIP, NodePorts, Maglev, BGP export, local redirect policies, and
+#   ClusterIP, NodePorts, Maglev, local redirect policies, and
 #   NAT46/NAT64.
 # - @cilium/sig-policy:
 #   Ensure consistency of semantics for all network policy representations.
@@ -310,6 +312,7 @@ Makefile* @cilium/build
 /Documentation/images/bpf* @cilium/sig-datapath @cilium/docs-structure
 /Documentation/images/hubble_getflows.png @cilium/sig-hubble @cilium/docs-structure
 /Documentation/Makefile @cilium/docs-structure
+/Documentation/network/bgp* @cilium/sig-bgp @cilium/docs-structure
 /Documentation/network/clustermesh/ @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/network/concepts/ipam/ @cilium/sig-ipam @cilium/docs-structure
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
@@ -366,6 +369,7 @@ jenkinsfiles @cilium/ci-structure
 /operator/pkg/ingress @cilium/sig-servicemesh
 /operator/pkg/lbipam @cilium/sig-lb
 /operator/pkg/model @cilium/sig-servicemesh
+/operator/watchers/bgp.go @cilium/sig-bgp
 /pkg/ @cilium/tophat
 /pkg/annotation @cilium/sig-k8s
 /pkg/alibabacloud/ @cilium/alibabacloud
@@ -376,8 +380,8 @@ jenkinsfiles @cilium/ci-structure
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/bandwidth/ @cilium/sig-datapath
-/pkg/bgp/ @cilium/sig-k8s @cilium/sig-lb
-/pkg/bgpv1/ @cilium/sig-k8s @cilium/sig-lb
+/pkg/bgp/ @cilium/sig-bgp
+/pkg/bgpv1/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/sig-datapath
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
@@ -506,6 +510,8 @@ jenkinsfiles @cilium/ci-structure
 /test/l4lb @cilium/sig-lb @cilium/ci-structure
 /test/nat46x64 @cilium/sig-lb @cilium/ci-structure
 /test/bigtcp @cilium/sig-datapath @cilium/ci-structure
+# BGP tests
+/test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
 /test/k8s/cli.go @cilium/cli @cilium/ci-structure
 /test/k8s/health.go @cilium/health @cilium/ci-structure
