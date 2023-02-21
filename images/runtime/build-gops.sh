@@ -8,6 +8,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# renovate: datasource=github-releases depName=google/gops
 gops_version="v0.3.26"
 
 mkdir -p /go/src/github.com/google
