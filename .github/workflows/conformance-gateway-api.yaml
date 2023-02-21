@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.12.12
+  cilium_cli_version: v0.12.13
   minikube_version: 1.28.0
   gateway_api_version: v0.5.1
   timeout: 5m
