@@ -1082,6 +1082,15 @@ static __always_inline int redirect_ep(struct __ctx_buff *ctx __maybe_unused,
 	}
 }
 
+static __always_inline __u64 ctx_adjust_hroom_flags(void)
+{
+#ifdef HAVE_CSUM_LEVEL
+	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
+#else
+	return 0;
+#endif
+}
+
 struct lpm_v4_key {
 	struct bpf_lpm_trie_key lpm;
 	__u8 addr[4];
