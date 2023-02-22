@@ -101,7 +101,7 @@ Fields
 
    Setting unique configuration details of a particular
    instantiated virtual router on a particular Cilium node is explained
-   in `Virtual Router Attributes <#Virtual%20Router%20Attributes>`__
+   in `Virtual Router Attributes`_
 
 Creating a BGP Topology
 -----------------------
@@ -140,8 +140,7 @@ apply to a node.
       generate a unique 32 bit BGP router ID, as it defines no unique
       IPv4 addresses for the node. The administrator must define these
       IDs manually or an error applying the policy will occur.
-   -  This is explained further in `Virtual Router
-      Attributes <#Virtual%20Router%20Attributes>`__
+   -  This is explained further in `Virtual Router Attributes`_
 
 Defining Topology
 ~~~~~~~~~~~~~~~~~
