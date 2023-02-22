@@ -4,7 +4,6 @@
 ARG CILIUM_BUILDER_IMAGE=quay.io/cilium/cilium-builder:5141c18382e52cd104eb01f690b65b090072dac7@sha256:f5bb06c651e8d0b0af984dc1255f3275dd8df3086034f9d42a6e36c55c2d56da
 ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:f0c4a2c2ce4af34136027dbe184053f429b8a556@sha256:479d828e08389c4e27403ec88115a2dddbb9f934b2c393b891813d6e3ba81253
 
-
 # cilium-envoy from github.com/cilium/proxy
 #
 FROM quay.io/cilium/cilium-envoy:505865fff55aa3e7e3e490044c428651e0fe339c@sha256:10a5e0fe552d3312753796e98a07366826ae4863bb3f5e704e597b2a21ceceec as cilium-envoy
@@ -108,6 +107,6 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG DEBUG_CONTINUE
 ENV DEBUG_CONTINUE=${DEBUG_CONTINUE}
+COPY --from=builder /tmp/install/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-agent /usr/bin/cilium-agent-bin
 COPY --from=builder /go/bin/dlv /usr/bin/dlv
-RUN mv /usr/bin/cilium-agent /usr/bin/cilium-agent-bin
-COPY images/scripts/debug-wrapper.sh /usr/bin/cilium-agent
+COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-agent
