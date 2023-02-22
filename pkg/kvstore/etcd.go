@@ -52,6 +52,9 @@ const (
 	EtcdRateLimitOption = "etcd.qps"
 
 	minRequiredVersionStr = ">=3.1.0"
+
+	etcdSessionRenewNamePrefix     = "kvstore-etcd-session-renew"
+	etcdLockSessionRenewNamePrefix = "kvstore-etcd-lock-session-renew"
 )
 
 var (
@@ -788,7 +791,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 	go ec.statusChecker()
 
-	ec.controllers.UpdateController("kvstore-etcd-session-renew",
+	ec.controllers.UpdateController(makeSessionName(etcdSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
@@ -799,7 +802,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		},
 	)
 
-	ec.controllers.UpdateController("kvstore-etcd-lock-session-renew",
+	ec.controllers.UpdateController(makeSessionName(etcdLockSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
@@ -811,6 +814,15 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	)
 
 	return ec, nil
+}
+
+// makeSessionName builds up a session/locksession controller name
+// clusterName is expected to be empty for main kvstore connection
+func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
+	if opts != nil && opts.ClusterName != "" {
+		return fmt.Sprintf("%s-%s", sessionPrefix, opts.ClusterName)
+	}
+	return sessionPrefix
 }
 
 func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, timeout time.Duration) (semver.Version, error) {

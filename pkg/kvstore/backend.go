@@ -34,6 +34,9 @@ type ExtraOptions struct {
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
+
+	// ClusterName is the name of each etcd cluster
+	ClusterName string
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the
