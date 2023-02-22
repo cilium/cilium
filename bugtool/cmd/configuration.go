@@ -267,6 +267,7 @@ func catCommands() []string {
 		"/var/log/docker.log",
 		"/var/log/daemon.log",
 		"/var/log/messages",
+		"/var/run/cilium/cilium-cni.log",
 	}
 	// Only print the files that do exist to reduce number of errors in
 	// archive
