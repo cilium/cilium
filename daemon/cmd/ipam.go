@@ -211,8 +211,8 @@ func coalesceCIDRs(rCIDRs []string) (result []string) {
 }
 
 func (d *Daemon) allocateDatapathIPs(family types.NodeAddressingFamily) (routerIP net.IP, err error) {
-	// Blacklist allocation of the external IP
-	d.ipam.BlacklistIP(family.PrimaryExternal(), "node-ip")
+	// Avoid allocating external IP
+	d.ipam.ExcludeIP(family.PrimaryExternal(), "node-ip")
 
 	// (Re-)allocate the router IP. If not possible, allocate a fresh IP.
 	// In that case, removal and re-creation of the cilium_host is
