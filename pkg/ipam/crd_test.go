@@ -65,7 +65,6 @@ func (t *testConfigurationCRD) IPv6Enabled() bool                        { retur
 func (t *testConfigurationCRD) HealthCheckingEnabled() bool              { return true }
 func (t *testConfigurationCRD) UnreachableRoutesEnabled() bool           { return false }
 func (t *testConfigurationCRD) IPAMMode() string                         { return ipamOption.IPAMCRD }
-func (t *testConfigurationCRD) BlacklistConflictingRoutesEnabled() bool  { return false }
 func (t *testConfigurationCRD) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfigurationCRD) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
 func (t *testConfigurationCRD) IPv4NativeRoutingCIDR() *cidr.CIDR        { return nil }
