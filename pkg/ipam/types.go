@@ -74,13 +74,6 @@ type Allocator interface {
 	RestoreFinished()
 }
 
-// IPBlacklist is a structure used to store information related to blacklisted
-// IPs and IPNetworks.
-type IPBlacklist struct {
-	// A hashmap containing IP and the corresponding owners.
-	ips map[string]string
-}
-
 // IPAM is the configuration used for a particular IPAM type.
 type IPAM struct {
 	nodeAddressing types.NodeAddressing
@@ -100,7 +93,8 @@ type IPAM struct {
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
 
-	blacklist IPBlacklist
+	// excludedIPS contains excluded IPs and their respective owners.
+	excludedIPs map[string]string
 }
 
 // DebugStatus implements debug.StatusObject to provide debug status collection
