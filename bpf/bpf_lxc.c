@@ -185,6 +185,8 @@ select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	if (dir == CT_EGRESS)
 		cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	else if (dir == CT_INGRESS)
+		cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_INGRESS);
 #endif
 	return get_cluster_ct_map4(tuple, cluster_id);
 }
@@ -1910,6 +1912,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 
