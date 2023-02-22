@@ -72,8 +72,8 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (re
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	if ipam.isIPExcluded(ip) {
-		err = fmt.Errorf("IP %s is excluded, owned by %s", ip.String(), owner)
+	if ownedBy, ok := ipam.excludedIPs[ip.String()]; ok {
+		err = fmt.Errorf("IP %s is excluded, owned by %s", ip, ownedBy)
 		return
 	}
 
