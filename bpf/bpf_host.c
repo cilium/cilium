@@ -265,12 +265,24 @@ skip_host_firewall:
 	/* Lookup IPv6 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
+		bool l2_hdr_required __maybe_unused = true;
+
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
+#ifdef ENABLE_HOST_ROUTING
+		/* add L2 header for L2-less interface, such as cilium_wg0 */
+		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (l2_hdr_required && ETH_HLEN == 0) {
+			/* l2 header is added */
+			l3_off += __ETH_HLEN;
+		}
+#endif
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
@@ -538,13 +550,31 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
+		bool l2_hdr_required __maybe_unused = true;
+		int l3_off __maybe_unused = ETH_HLEN;
+
 		/* Let through packets to the node-ip so they are processed by
 		 * the local ip stack.
 		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
+#ifdef ENABLE_HOST_ROUTING
+		/* add L2 header for L2-less interface, such as cilium_wg0 */
+		ret = maybe_add_l2_hdr(ctx, ep->ifindex, &l2_hdr_required);
+		if (ret != 0)
+			return ret;
+		if (l2_hdr_required && ETH_HLEN == 0) {
+			/* l2 header is added */
+			l3_off += __ETH_HLEN;
+			if (!____revalidate_data_pull(ctx, &data, &data_end,
+						      (void **)&ip4, sizeof(*ip4),
+						      false, l3_off))
+				return DROP_INVALID;
+		}
+#endif
+
+		return ipv4_local_delivery(ctx, l3_off, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host, false);
 	}
 
