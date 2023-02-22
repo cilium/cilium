@@ -4,9 +4,12 @@
 package auth
 
 import (
+	"fmt"
+	"net"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -14,17 +17,27 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type AuthManager struct {
+type authManager struct {
 	endpointManager endpointmanager.EndpointsLookup
+	authHandlers    map[policy.AuthType]authHandler
 }
 
-func NewAuthManager(epMgr endpointmanager.EndpointsLookup) *AuthManager {
-	return &AuthManager{
-		endpointManager: epMgr,
+func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHandler) (*authManager, error) {
+	ahs := map[policy.AuthType]authHandler{}
+	for _, ah := range authHandlers {
+		if _, ok := ahs[ah.authType()]; ok {
+			return nil, fmt.Errorf("multiple handlers for auth type: %s", ah.authType())
+		}
+		ahs[ah.authType()] = ah
 	}
+
+	return &authManager{
+		endpointManager: epMgr,
+		authHandlers:    ahs,
+	}, nil
 }
 
-func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
+func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
 	// Requested authentication type is in DropNotify.ExtError field
 	authType := policy.AuthType(dn.ExtError)
 
@@ -34,8 +47,40 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
 	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
 
-	log.Debugf("policy: Authentication type %s required for identity %d->%d, %s %s->%s, ingress: %t",
+	log.Debugf("auth: Policy is requiring authentication type %s for identity %d->%d, %s %s->%s, ingress: %t",
 		authType.String(), dn.SrcLabel, dn.DstLabel, ci.Proto, srcAddr, dstAddr, ingress)
+
+	// Authenticate according to the requested auth type
+	h, ok := a.authHandlers[authType]
+	if !ok {
+		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown requested auth type")
+		return
+	}
+
+	connSrcEp := a.endpointManager.LookupIP(ci.SrcIP)
+	if connSrcEp == nil {
+		// Maybe endpoint was deleted?
+		log.WithField(logfields.IPAddr, ci.SrcIP).Debug("auth: Cannot find connection source Endpoint")
+		return
+	}
+	connDstEp := a.endpointManager.LookupIP(ci.DstIP)
+	if connDstEp == nil {
+		// Maybe endpoint was deleted?
+		log.WithField(logfields.IPAddr, ci.DstIP).Debug("auth: Cannot find connection destination Endpoint")
+		return
+	}
+
+	if err := h.auth(&authRequest{
+		authType:    authType,
+		srcIdentity: dn.SrcLabel,
+		dstIdentity: dn.DstLabel,
+		srcNodeIP:   net.ParseIP(connSrcEp.GetPod().Status.HostIP),
+		dstNodeIP:   net.ParseIP(connDstEp.GetPod().Status.HostIP),
+	}); err != nil {
+
+		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown error during auth in auth handler")
+		return
+	}
 
 	proto, err := u8proto.ParseProtocol(ci.Proto)
 	if err != nil {
@@ -43,24 +88,14 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 		return
 	}
 
-	ep := a.endpointManager.LookupCiliumID(dn.Source)
-	if ep == nil {
+	involvedEp := a.endpointManager.LookupCiliumID(dn.Source)
+	if involvedEp == nil {
 		// Maybe endpoint was deleted?
 		log.WithField(logfields.EndpointID, dn.Source).Debug("auth: Cannot find Endpoint")
 		return
 	}
-
-	// Authenticate according to the requested auth type
-	switch authType {
-	case policy.AuthTypeNull:
-		// Authentication trivially done
-	default:
-		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown requested auth type")
-		return
-	}
-
 	/* Update CT flags as authorized. */
-	err = ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, ingress,
+	if err = ctmap.Update(involvedEp.ConntrackName(), srcAddr, dstAddr, proto, ingress,
 		func(entry *ctmap.CtEntry) error {
 			before := entry.Flags
 			if entry.Flags&ctmap.AuthRequired != 0 {
@@ -69,8 +104,20 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 					before&ctmap.AuthRequired, entry.Flags&ctmap.AuthRequired)
 			}
 			return nil
-		})
-	if err != nil {
+		}); err != nil {
 		log.WithError(err).Warning("auth: Conntrack map update failed")
 	}
+}
+
+type authHandler interface {
+	auth(*authRequest) error
+	authType() policy.AuthType
+}
+
+type authRequest struct {
+	authType    policy.AuthType
+	srcIdentity identity.NumericIdentity
+	dstIdentity identity.NumericIdentity
+	srcNodeIP   net.IP
+	dstNodeIP   net.IP
 }
