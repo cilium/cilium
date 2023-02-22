@@ -32,7 +32,7 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 	 */
 	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
 	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
-	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
+	set_encrypt_dip(ctx, tunnel_endpoint);
 	return CTX_ACT_OK;
 }
 
