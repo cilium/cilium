@@ -133,10 +133,6 @@
 #   Provide background on how the Cilium Endpoint package fits into the overall
 #   agent architecture, relationship with generation of policy / datapath
 #   constructs, serialization and restore from disk.
-# - @cilium/health:
-#   Review any contributions that impact cluster-wide health probing via
-#   periodic in-agent probes; bootstrapping of the simulated health 'endpoint'
-#   that provides an IP and HTTP endpoint for network health probing.
 # - @cilium/ipcache:
 #   Provide background on how the userspace IPCache structure fits into the
 #   overall agent architecture, ordering constraints with respect to network
@@ -234,7 +230,7 @@
 /api/v1/Makefile @cilium/sig-hubble-api
 /api/v1/Makefile.protoc @cilium/sig-hubble-api
 /api/v1/flow/ @cilium/sig-hubble-api
-/api/v1/health/ @cilium/api @cilium/health
+/api/v1/health/ @cilium/api @cilium/sig-agent
 /api/v1/observer/ @cilium/sig-hubble-api
 /api/v1/operator/ @cilium/api @cilium/operator
 /api/v1/peer/ @cilium/sig-hubble-api
@@ -252,8 +248,8 @@ Makefile* @cilium/build
 /cilium/ @cilium/cli
 /cilium/cmd/encrypt* @cilium/ipsec @cilium/cli
 /cilium/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
-/cilium-health/ @cilium/health
-/cilium-health/cmd/ @cilium/health @cilium/cli
+/cilium-health/ @cilium/sig-agent
+/cilium-health/cmd/ @cilium/sig-agent @cilium/cli
 /clustermesh-apiserver @cilium/sig-clustermesh
 /contrib/ @cilium/contributing
 /contrib/packaging/ @cilium/build
@@ -262,7 +258,7 @@ Makefile* @cilium/build
 /daemon/ @cilium/sig-agent
 /daemon/cmd/datapath.go @cilium/sig-datapath
 /daemon/cmd/endpoint* @cilium/endpoint
-/daemon/cmd/health* @cilium/health
+/daemon/cmd/health* @cilium/sig-agent
 /daemon/cmd/hubble.go @cilium/sig-hubble
 /daemon/cmd/ipcache* @cilium/ipcache
 /daemon/cmd/kube_proxy* @cilium/sig-datapath
@@ -416,7 +412,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/flowdebug/ @cilium/proxy
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
-/pkg/health/ @cilium/health
+/pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-agent
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
@@ -514,7 +510,7 @@ jenkinsfiles @cilium/ci-structure
 /test/k8s/bgp.go @cilium/sig-bgp @cilium/ci-structure
 # Misc. tests
 /test/k8s/cli.go @cilium/cli @cilium/ci-structure
-/test/k8s/health.go @cilium/health @cilium/ci-structure
+/test/k8s/health.go @cilium/sig-agent @cilium/ci-structure
 /test/k8s/updates.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/kvstore.go @cilium/kvstore @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
