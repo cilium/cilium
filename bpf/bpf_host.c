@@ -686,13 +686,12 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = 0;
 #ifdef IP_POOLS
-	__u32 tunnel_endpoint = 0;
+	__be32 tunnel_endpoint = ctx_get_encrypt_dip(ctx);
 	void *data, *data_end;
 	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
 	struct iphdr *iphdr;
 	__be32 sum;
 
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
 	ctx->mark = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
@@ -748,9 +747,8 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 		.reason = TRACE_REASON_ENCRYPTED,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 tunnel_endpoint = 0;
+	__be32 tunnel_endpoint = ctx_get_encrypt_dip(ctx);
 
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
 	ctx->mark = 0;
 
 	bpf_clear_meta(ctx);
