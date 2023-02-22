@@ -164,10 +164,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
-				extraOpts := kvstore.ExtraOptions{NoLockQuorumCheck: true}
-				if rc.mesh.conf.NodeManager != nil {
-					extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
-				}
+				extraOpts := rc.makeExtraOpts()
 
 				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
 					map[string]string{
@@ -275,6 +272,17 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 			},
 		},
 	)
+}
+
+func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
+	extraOpts := kvstore.ExtraOptions{
+		NoLockQuorumCheck: true,
+		ClusterName:       rc.name,
+	}
+	if rc.mesh.conf.NodeManager != nil {
+		extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
+	}
+	return extraOpts
 }
 
 func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
