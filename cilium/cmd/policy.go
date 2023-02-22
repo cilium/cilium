@@ -125,6 +125,11 @@ func loadPolicyFile(path string) (api.Rules, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer func() {
+			if closer, ok := r.(io.ReadCloser); ok {
+				closer.Close()
+			}
+		}()
 	}
 	content, err = safeio.ReadAllLimit(r, safeio.MB)
 	if err != nil {
