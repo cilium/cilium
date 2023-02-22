@@ -351,6 +351,7 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: true, Shared: true}
+	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
 	cache := newGlobalServiceCache("cluster", "node")
 	merger := fakeServiceMerger{}
 
@@ -363,6 +364,13 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 		},
 		swg: lock.NewStoppableWaitGroup(),
 	}
+
+	// Observe a new service update (for a non-shared service), and assert it is not added to the cache
+	merger.init()
+	observer.OnUpdate(&svc2)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 0)
+	c.Assert(cache.byName, HasLen, 0)
 
 	// Observe a new service update (for a shared service), and assert it is correctly added to the cache
 	merger.init()
@@ -384,6 +392,16 @@ func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	observer.OnDelete(&svc1)
 
 	c.Assert(merger.updated[svc1.String()], Equals, 0)
+	c.Assert(merger.deleted[svc1.String()], Equals, 1)
+	c.Assert(cache.byName, HasLen, 0)
+
+	// Observe two service updates in sequence (first shared, then non-shared),
+	// and assert that at the end it is not present in the cache (equivalent to update, then delete).
+	merger.init()
+	observer.OnUpdate(&svc1)
+	observer.OnUpdate(&svc2)
+
+	c.Assert(merger.updated[svc1.String()], Equals, 1)
 	c.Assert(merger.deleted[svc1.String()], Equals, 1)
 	c.Assert(cache.byName, HasLen, 0)
 }
