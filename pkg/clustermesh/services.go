@@ -60,6 +60,19 @@ func newGlobalServiceCache(clusterName, nodeName string) *globalServiceCache {
 	return gsc
 }
 
+// has returns whether a given service is present in the cache.
+func (c *globalServiceCache) has(svc *serviceStore.ClusterService) bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if globalSvc, ok := c.byName[svc.NamespaceServiceName()]; ok {
+		_, ok = globalSvc.clusterServices[svc.Cluster]
+		return ok
+	}
+
+	return false
+}
+
 func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: svc.String(),
@@ -84,7 +97,7 @@ func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
 }
 
 // must be called with c.mutex held
-func (c *globalServiceCache) delete(globalService *globalService, clusterName, serviceName string) {
+func (c *globalServiceCache) delete(globalService *globalService, clusterName, serviceName string) bool {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.ServiceName: serviceName,
 		logfields.ClusterName: clusterName,
@@ -92,7 +105,7 @@ func (c *globalServiceCache) delete(globalService *globalService, clusterName, s
 
 	if _, ok := globalService.clusterServices[clusterName]; !ok {
 		scopedLog.Debug("Ignoring delete request for unknown cluster")
-		return
+		return false
 	}
 
 	scopedLog.Debugf("Deleted service definition of remote cluster")
@@ -105,19 +118,23 @@ func (c *globalServiceCache) delete(globalService *globalService, clusterName, s
 		delete(c.byName, serviceName)
 		c.metricTotalGlobalServices.WithLabelValues(c.clusterName, c.nodeName).Set(float64(len(c.byName)))
 	}
+
+	return true
 }
 
-func (c *globalServiceCache) onDelete(svc *serviceStore.ClusterService) {
+func (c *globalServiceCache) onDelete(svc *serviceStore.ClusterService) bool {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 	scopedLog.Debug("Delete event for service")
 
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if globalService, ok := c.byName[svc.NamespaceServiceName()]; ok {
-		c.delete(globalService, svc.Cluster, svc.NamespaceServiceName())
+		return c.delete(globalService, svc.Cluster, svc.NamespaceServiceName())
 	} else {
 		scopedLog.Debugf("Ignoring delete request for unknown global service")
+		return false
 	}
-	c.mutex.Unlock()
 }
 
 func (c *globalServiceCache) onClusterDelete(clusterName string) {
@@ -153,6 +170,18 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		scopedLog.Debugf("Update event of remote service %#v", svc)
 
 		mesh := r.remoteCluster.mesh
+
+		// Short-circuit the handling of non-shared services
+		if !(svc.IncludeExternal && svc.Shared) {
+			if mesh.globalServices.has(svc) {
+				scopedLog.Debug("Previously shared service is no longer shared: triggering deletion event")
+				r.OnDelete(key)
+			} else {
+				scopedLog.Debug("Ignoring remote service update: service is not shared")
+			}
+			return
+		}
+
 		mesh.globalServices.onUpdate(svc)
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
@@ -172,7 +201,11 @@ func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
 		scopedLog.Debugf("Delete event of remote service %#v", svc)
 
 		mesh := r.remoteCluster.mesh
-		mesh.globalServices.onDelete(svc)
+		// Short-circuit the deletion logic if the service was not present (i.e., not shared)
+		if !mesh.globalServices.onDelete(svc) {
+			scopedLog.Debugf("Ignoring remote service delete. Service was not shared")
+			return
+		}
 
 		if merger := mesh.conf.ServiceMerger; merger != nil {
 			merger.MergeExternalServiceDelete(svc, r.swg)
