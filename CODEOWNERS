@@ -463,6 +463,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
 /pkg/sockops/ @cilium/sig-datapath @cilium/loader
+/pkg/status/ @cilium/sig-agent
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/sig-datapath
