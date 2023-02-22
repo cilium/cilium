@@ -77,18 +77,23 @@ func (s *IPAMSuite) TestExcludeIP(c *C) {
 	ipv4 := fakeIPv4AllocCIDRIP(fakeAddressing)
 	ipv4 = ipv4.Next()
 
-	ipam.ExcludeIP(ipv4.AsSlice(), "test")
-	err := ipam.AllocateIP(ipv4.AsSlice(), "test")
+	ipam.ExcludeIP(ipv4.AsSlice(), "test-foo")
+	err := ipam.AllocateIP(ipv4.AsSlice(), "test-bar")
 	c.Assert(err, Not(IsNil))
-	ipam.ReleaseIP(ipv4.AsSlice())
+	c.Assert(err, ErrorMatches, ".* owned by test-foo")
+	err = ipam.ReleaseIP(ipv4.AsSlice())
+	c.Assert(err, IsNil)
 
 	ipv6 := fakeIPv6AllocCIDRIP(fakeAddressing)
 	ipv6 = ipv6.Next()
 
-	ipam.ExcludeIP(ipv6.AsSlice(), "test")
-	err = ipam.AllocateIP(ipv6.AsSlice(), "test")
+	ipam.ExcludeIP(ipv6.AsSlice(), "test-foo")
+	err = ipam.AllocateIP(ipv6.AsSlice(), "test-bar")
 	c.Assert(err, Not(IsNil))
+	c.Assert(err, ErrorMatches, ".* owned by test-foo")
 	ipam.ReleaseIP(ipv6.AsSlice())
+	err = ipam.ReleaseIP(ipv4.AsSlice())
+	c.Assert(err, IsNil)
 }
 
 func (s *IPAMSuite) TestDeriveFamily(c *C) {
