@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: hubble-cli
-        image: quay.io/cilium/hubble:v0.11.1
+        image: quay.io/cilium/hubble:v0.11.2@sha256:05b33d459d3d1c02972ad187ae30e48573f8dce47082b584c23be3a7629d77ce
         imagePullPolicy: IfNotPresent
         command:
           - tail
