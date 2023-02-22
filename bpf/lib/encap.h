@@ -13,7 +13,7 @@
 #ifdef HAVE_ENCAP
 #ifdef ENABLE_IPSEC
 static __always_inline int
-encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 				__u8 key, __u32 seclabel)
 {
 	/* Traffic from local host in tunnel mode will be passed to
@@ -37,7 +37,7 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 }
 
 static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+encap_and_redirect_ipsec(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			 __u8 key, __u32 seclabel)
 {
 	/* IPSec is performed by the stack on any packets with the
@@ -114,7 +114,7 @@ encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 }
 
 static __always_inline int
-__encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+__encap_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
 		    enum trace_reason ct_reason, __u32 monitor, __u32 *ifindex)
 {
@@ -128,7 +128,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
 
-	node_id = bpf_htonl(tunnel_endpoint);
+	node_id = bpf_ntohl(tunnel_endpoint);
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
@@ -141,7 +141,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 }
 
 static __always_inline int
-__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+__encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 				 __u32 seclabel, __u32 dstid, __u32 vni,
 				 const struct trace_ctx *trace)
 {
@@ -181,7 +181,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * On error returns CTX_ACT_DROP or DROP_WRITE_ERROR.
  */
 static __always_inline int
-encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			       __u8 key __maybe_unused, __u32 seclabel,
 			       __u32 dstid, const struct trace_ctx *trace)
 {
@@ -197,7 +197,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * that requires a valid tunnel_endpoint.
  */
 static __always_inline int
-__encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+__encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
 			 __u32 dstid, const struct trace_ctx *trace)
 {
@@ -242,7 +242,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  * and finally on successful redirect returns CTX_ACT_REDIRECT.
  */
 static __always_inline int
-encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 		       __u8 encrypt_key, struct tunnel_key *key, __u32 seclabel,
 		       __u32 dstid, const struct trace_ctx *trace)
 {
