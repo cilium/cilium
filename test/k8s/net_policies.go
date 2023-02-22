@@ -1468,7 +1468,7 @@ var _ = SkipDescribeIf(func() bool {
 // two cases for that feature:
 //   - kube-apiserver running within the cluster (Vagrant VMs)
 //   - kube-apiserver running outside of the cluster (GKE)
-var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
+var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 	"K8sPolicyTestExtended", func() {
 		var (
 			kubectl *helpers.Kubectl
