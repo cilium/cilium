@@ -24,7 +24,7 @@ type dropMonitor struct {
 	lostEvents  uint64
 }
 
-func AddAuthManager(auth AuthManager) *dropMonitor {
+func New(auth AuthManager) *dropMonitor {
 	return &dropMonitor{authManager: auth}
 }
 

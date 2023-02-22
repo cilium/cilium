@@ -4,6 +4,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/auth/monitor"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -19,19 +21,42 @@ var Cell = cell.Module(
 	"auth-manager",
 	"Authenticates requests as demanded by policy",
 
+	// The manager is the main entry point which gets registered to the agent monitor and receives auth requests.
 	cell.Provide(newManager),
+	cell.ProvidePrivate(
+		// Null auth handler provides support for auth type "null" - which always succeeds.
+		newNullAuthHandler,
+	),
 )
 
 type authManagerParams struct {
 	cell.In
 
 	EndpointManager endpointmanager.EndpointManager
+	AuthHandlers    []authHandler `group:"authHandlers"`
 }
 
 type Manager interface {
 	consumer.MonitorConsumer
 }
 
-func newManager(params authManagerParams) Manager {
-	return monitor.AddAuthManager(NewAuthManager(params.EndpointManager))
+func newManager(params authManagerParams) (Manager, error) {
+	manager, err := newAuthManager(params.EndpointManager, params.AuthHandlers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth manager: %w", err)
+	}
+
+	return monitor.New(manager), nil
+}
+
+type authHandlerResult struct {
+	cell.Out
+
+	AuthHandler authHandler `group:"authHandlers"`
+}
+
+func newNullAuthHandler() authHandlerResult {
+	return authHandlerResult{
+		AuthHandler: &nullAuthHandler{},
+	}
 }
