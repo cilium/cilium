@@ -26,6 +26,13 @@ If using Helm charts instead, the relevant values are the following:
    bgpControlPlane:
      enabled: true
 
+.. note::
+
+   The BGP Control Plane feature is mutually exclusive with the MetalLB-based :ref:`bgp`
+   feature. To use the Control Plane, the older BGP feature has to be disabled.
+   In other words, this feature does _not_ switch the BGP implementation
+   from MetalLB to GoBGP.
+
 When set to ``true`` the ``BGP Control Plane`` ``Controllers`` will be
 instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
