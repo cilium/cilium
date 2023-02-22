@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
 	"github.com/cilium/cilium/pkg/node"
@@ -462,10 +461,6 @@ func finishKubeProxyReplacementInit() error {
 		// All cases below still need to be implemented ...
 		case option.Config.EnableEndpointRoutes:
 			msg = fmt.Sprintf("BPF host routing is currently not supported with %s.", option.EnableEndpointRoutes)
-		case !mac.HaveMACAddrs(option.Config.GetDevices()):
-			msg = "BPF host routing is currently not supported with devices without L2 addr."
-		case option.Config.EnableWireguard:
-			msg = fmt.Sprintf("BPF host routing is currently not compatible with Wireguard (--%s).", option.EnableWireguard)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
