@@ -857,7 +857,8 @@ struct ct_entry {
 	      dsr:1,
 	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:6;
+	      from_tunnel:1, /* Connection is over tunnel */
+	      reserved:5;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
@@ -1045,7 +1046,8 @@ struct ct_state {
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
 	      auth_required:1,
-	      reserved:9;
+	      from_tunnel:1,	/* Connection is from tunnel */
+	      reserved:8;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
