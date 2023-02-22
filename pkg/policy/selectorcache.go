@@ -147,7 +147,7 @@ type identitySelector interface {
 	// fetchIdentityMappings returns all of the identities currently
 	// reference-counted by this selector. It is used during cleanup of the
 	// selector.
-	fetchIdentityMappings(cache.IdentityAllocator) []identity.NumericIdentity
+	fetchIdentityMappings() []identity.NumericIdentity
 
 	// This may be called while the NameManager lock is held. wg.Wait()
 	// returns after user notifications have been completed, which may require
@@ -533,7 +533,7 @@ func (f *fqdnSelector) transferIdentityReferencesToSelector(currentlyAllocatedId
 // holds references for. This should be used during cleanup of the selector
 // to ensure that all remaining references to local identities are released,
 // in order to prevent leaking of identities.
-func (f *fqdnSelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
+func (f *fqdnSelector) fetchIdentityMappings() []identity.NumericIdentity {
 	ids := make([]identity.NumericIdentity, 0, len(f.cachedSelections))
 	for id := range f.cachedSelections {
 		ids = append(ids, id)
@@ -637,7 +637,7 @@ func (l *labelIdentitySelector) matches(identity scIdentity) bool {
 	return l.matchesNamespace(identity.namespace) && l.selector.Matches(identity.lbls)
 }
 
-func (l *labelIdentitySelector) fetchIdentityMappings(idAllocator cache.IdentityAllocator) []identity.NumericIdentity {
+func (l *labelIdentitySelector) fetchIdentityMappings() []identity.NumericIdentity {
 	// labelIdentitySelectors don't retain identity references, so no-op.
 	return nil
 }
@@ -928,7 +928,7 @@ func (sc *SelectorCache) removeSelectorLocked(selector CachedSelector, user Cach
 	if exists {
 		if sel.removeUser(user, sc.localIdentityNotifier) {
 			delete(sc.selectors, key)
-			identitiesToRelease = sel.fetchIdentityMappings(sc.idAllocator)
+			identitiesToRelease = sel.fetchIdentityMappings()
 		}
 	}
 	return identitiesToRelease
