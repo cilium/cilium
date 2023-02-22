@@ -208,7 +208,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			if (dir == CT_SERVICE) {
 				ct_state->backend_id = entry->backend_id;
 				ct_state->syn = syn;
-			}
+			} else if (dir == CT_INGRESS || dir == CT_EGRESS)
+				ct_state->from_tunnel = entry->from_tunnel;
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -924,6 +925,9 @@ static __always_inline int ct_create4(const void *map_main,
 
 	if (dir == CT_SERVICE)
 		entry.backend_id = ct_state->backend_id;
+	else if (dir == CT_INGRESS || dir == CT_EGRESS)
+		entry.from_tunnel = ct_state->from_tunnel;
+
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
