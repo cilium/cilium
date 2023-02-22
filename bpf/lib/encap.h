@@ -30,8 +30,8 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 	 * use cb[4] here so it doesn't need to be reset by
 	 * bpf_host.
 	 */
-	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
-	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
+	set_encrypt_key_meta(ctx, key);
+	set_identity_meta(ctx, seclabel);
 	set_encrypt_dip(ctx, tunnel_endpoint);
 	return CTX_ACT_OK;
 }
