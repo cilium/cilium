@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -14,17 +15,32 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-type AuthManager struct {
+type authManager struct {
 	endpointManager endpointmanager.EndpointsLookup
+	authHandlers    map[policy.AuthType]authHandler
 }
 
-func NewAuthManager(epMgr endpointmanager.EndpointsLookup) *AuthManager {
-	return &AuthManager{
-		endpointManager: epMgr,
+type authHandler interface {
+	authenticate() error
+	authType() policy.AuthType
+}
+
+func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHandler) (*authManager, error) {
+	ahs := map[policy.AuthType]authHandler{}
+	for _, ah := range authHandlers {
+		if _, ok := ahs[ah.authType()]; ok {
+			return nil, fmt.Errorf("multiple handlers for auth type: %s", ah.authType())
+		}
+		ahs[ah.authType()] = ah
 	}
+
+	return &authManager{
+		endpointManager: epMgr,
+		authHandlers:    ahs,
+	}, nil
 }
 
-func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
+func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
 	// Requested authentication type is in DropNotify.ExtError field
 	authType := policy.AuthType(dn.ExtError)
 
@@ -34,7 +50,7 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
 	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
 
-	log.Debugf("policy: Authentication type %s required for identity %d->%d, %s %s->%s, ingress: %t",
+	log.Debugf("auth: Policy is requiring authentication type %s for identity %d->%d, %s %s->%s, ingress: %t",
 		authType.String(), dn.SrcLabel, dn.DstLabel, ci.Proto, srcAddr, dstAddr, ingress)
 
 	proto, err := u8proto.ParseProtocol(ci.Proto)
@@ -51,16 +67,19 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	}
 
 	// Authenticate according to the requested auth type
-	switch authType {
-	case policy.AuthTypeNull:
-		// Authentication trivially done
-	default:
+	h, ok := a.authHandlers[authType]
+	if !ok {
 		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown requested auth type")
 		return
 	}
 
+	if err := h.authenticate(); err != nil {
+		log.WithError(err).WithField(logfields.AuthType, authType.String()).Warning("auth: Failed to authenticate")
+		return
+	}
+
 	/* Update CT flags as authorized. */
-	err = ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, ingress,
+	if err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, ingress,
 		func(entry *ctmap.CtEntry) error {
 			before := entry.Flags
 			if entry.Flags&ctmap.AuthRequired != 0 {
@@ -69,8 +88,7 @@ func (a *AuthManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 					before&ctmap.AuthRequired, entry.Flags&ctmap.AuthRequired)
 			}
 			return nil
-		})
-	if err != nil {
+		}); err != nil {
 		log.WithError(err).Warning("auth: Conntrack map update failed")
 	}
 }
