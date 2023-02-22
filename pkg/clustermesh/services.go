@@ -113,7 +113,7 @@ func (c *globalServiceCache) onDelete(svc *serviceStore.ClusterService) {
 
 	c.mutex.Lock()
 	if globalService, ok := c.byName[svc.NamespaceServiceName()]; ok {
-		c.delete(globalService, svc.NamespaceServiceName(), svc.Cluster)
+		c.delete(globalService, svc.Cluster, svc.NamespaceServiceName())
 	} else {
 		scopedLog.Debugf("Ignoring delete request for unknown global service")
 	}
@@ -126,7 +126,7 @@ func (c *globalServiceCache) onClusterDelete(clusterName string) {
 
 	c.mutex.Lock()
 	for serviceName, globalService := range c.byName {
-		c.delete(globalService, serviceName, clusterName)
+		c.delete(globalService, clusterName, serviceName)
 	}
 	c.mutex.Unlock()
 }
