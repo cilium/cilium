@@ -320,12 +320,12 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	}
 
 	// encryption
-	mode = "Disabled"
+	mode = "disabled"
 	if enc := st.Encryption; enc != nil {
-		mode = enc.Mode
+		mode = strings.ToLower(enc.Mode)
 	}
 	result[FeatureEncryptionPod] = FeatureStatus{
-		Enabled: mode != "Disabled",
+		Enabled: mode != "disabled",
 		Mode:    mode,
 	}
 
