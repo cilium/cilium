@@ -19,6 +19,13 @@ Currently a single flag in the ``Cilium Agent`` exists to turn on the
 
    --enable-bgp-control-plane=true
 
+If using Helm charts instead, the relevant values are the following:
+
+.. code-block:: yaml
+
+   bgpControlPlane:
+     enabled: true
+
 When set to ``true`` the ``BGP Control Plane`` ``Controllers`` will be
 instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
