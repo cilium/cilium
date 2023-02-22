@@ -275,6 +275,7 @@ policy_check_entry:
  * @arg is_untracked_fragment	True if packet is a TCP/UDP datagram fragment
  *				AND IPv4 fragment tracking is disabled
  * @arg match_type		Pointer to store layers used for policy match
+ * @arg ext_err		Pointer to store extended error information if this packet isn't allowed
  *
  * Returns:
  *   - Positive integer indicating the proxy_port to handle this traffic
@@ -284,13 +285,13 @@ policy_check_entry:
 static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 			  __u16 dport, __u8 proto, bool is_untracked_fragment,
-			  __u8 *match_type, __u8 *audited, __u16 *proxy_port)
+			  __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
 	ret = __policy_can_access(&POLICY_MAP, ctx, dst_id, src_id, dport,
 				  proto, CT_INGRESS, is_untracked_fragment,
-				  match_type, NULL, proxy_port);
+				  match_type, ext_err, proxy_port);
 	if (ret >= CTX_ACT_OK)
 		return ret;
 

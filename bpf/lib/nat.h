@@ -423,8 +423,7 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
 			    &state->to_saddr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 	if (tuple->nexthdr == IPPROTO_ICMP)
 		sum = sum_l4;
@@ -489,8 +488,7 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
 			    &state->to_daddr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 	if (tuple->nexthdr == IPPROTO_ICMP)
 		sum = sum_l4;

@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
 
 import (
 	"fmt"
-	"sync/atomic"
 
 	"golang.zx2c4.com/wireguard/tun"
 )
@@ -33,7 +32,7 @@ func (device *Device) RoutineTUNEventReader() {
 				tooLarge = fmt.Sprintf(" (too large, capped at %v)", MaxContentSize)
 				mtu = MaxContentSize
 			}
-			old := atomic.SwapInt32(&device.tun.mtu, int32(mtu))
+			old := device.tun.mtu.Swap(int32(mtu))
 			if int(old) != mtu {
 				device.log.Verbosef("MTU updated: %v%s", mtu, tooLarge)
 			}

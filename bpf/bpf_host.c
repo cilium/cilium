@@ -707,31 +707,20 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 	 */
 	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
 			sizeof(tunnel_endpoint), 0);
+	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
+			sizeof(tunnel_source), sum);
+
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
 	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
-			sizeof(tunnel_source), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
 	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0) {
 		ret = DROP_CSUM_L3;
 		goto drop_err;
 	}

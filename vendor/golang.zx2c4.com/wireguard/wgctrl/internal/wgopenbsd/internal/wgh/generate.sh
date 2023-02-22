@@ -19,7 +19,15 @@ GOARCH=amd64 go tool cgo -godefs defs.go >> /tmp/wgamd64.go
 echo -e "//+build openbsd,386\n" > /tmp/wg386.go
 GOARCH=386 go tool cgo -godefs defs.go >> /tmp/wg386.go
 
+echo -e "//+build openbsd,arm64\n" > /tmp/wgarm64.go
+GOARCH=arm64 go tool cgo -godefs defs.go >> /tmp/wgarm64.go
+
+echo -e "//+build openbsd,arm\n" > /tmp/wgarm.go
+GOARCH=arm go tool cgo -godefs defs.go >> /tmp/wgarm.go
+
 gofix /tmp/wgamd64.go defs_openbsd_amd64.go
 gofix /tmp/wg386.go defs_openbsd_386.go
+gofix /tmp/wgarm64.go defs_openbsd_arm64.go
+gofix /tmp/wgarm.go defs_openbsd_arm.go
 
 rm -rf _obj/ /tmp/wg*.go

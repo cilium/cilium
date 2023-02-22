@@ -12,7 +12,6 @@ import (
 	"github.com/mdlayher/genetlink"
 	"github.com/mdlayher/netlink"
 	"golang.org/x/sys/unix"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -60,20 +59,20 @@ func parseDeviceLoop(m genetlink.Message) (*wgtypes.Device, error) {
 	d := wgtypes.Device{Type: wgtypes.LinuxKernel}
 	for ad.Next() {
 		switch ad.Type() {
-		case wgh.DeviceAIfindex:
+		case unix.WGDEVICE_A_IFINDEX:
 			// Ignored; interface index isn't exposed at all in the userspace
 			// configuration protocol, and name is more friendly anyway.
-		case wgh.DeviceAIfname:
+		case unix.WGDEVICE_A_IFNAME:
 			d.Name = ad.String()
-		case wgh.DeviceAPrivateKey:
+		case unix.WGDEVICE_A_PRIVATE_KEY:
 			ad.Do(parseKey(&d.PrivateKey))
-		case wgh.DeviceAPublicKey:
+		case unix.WGDEVICE_A_PUBLIC_KEY:
 			ad.Do(parseKey(&d.PublicKey))
-		case wgh.DeviceAListenPort:
+		case unix.WGDEVICE_A_LISTEN_PORT:
 			d.ListenPort = int(ad.Uint16())
-		case wgh.DeviceAFwmark:
+		case unix.WGDEVICE_A_FWMARK:
 			d.FirewallMark = int(ad.Uint32())
-		case wgh.DeviceAPeers:
+		case unix.WGDEVICE_A_PEERS:
 			// Netlink array of peers.
 			//
 			// Errors while parsing are propagated up to top-level ad.Err check.
@@ -105,24 +104,24 @@ func parsePeer(ad *netlink.AttributeDecoder) wgtypes.Peer {
 	var p wgtypes.Peer
 	for ad.Next() {
 		switch ad.Type() {
-		case wgh.PeerAPublicKey:
+		case unix.WGPEER_A_PUBLIC_KEY:
 			ad.Do(parseKey(&p.PublicKey))
-		case wgh.PeerAPresharedKey:
+		case unix.WGPEER_A_PRESHARED_KEY:
 			ad.Do(parseKey(&p.PresharedKey))
-		case wgh.PeerAEndpoint:
+		case unix.WGPEER_A_ENDPOINT:
 			p.Endpoint = &net.UDPAddr{}
 			ad.Do(parseSockaddr(p.Endpoint))
-		case wgh.PeerAPersistentKeepaliveInterval:
+		case unix.WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL:
 			p.PersistentKeepaliveInterval = time.Duration(ad.Uint16()) * time.Second
-		case wgh.PeerALastHandshakeTime:
+		case unix.WGPEER_A_LAST_HANDSHAKE_TIME:
 			ad.Do(parseTimespec(&p.LastHandshakeTime))
-		case wgh.PeerARxBytes:
+		case unix.WGPEER_A_RX_BYTES:
 			p.ReceiveBytes = int64(ad.Uint64())
-		case wgh.PeerATxBytes:
+		case unix.WGPEER_A_TX_BYTES:
 			p.TransmitBytes = int64(ad.Uint64())
-		case wgh.PeerAAllowedips:
+		case unix.WGPEER_A_ALLOWEDIPS:
 			ad.Nested(parseAllowedIPs(&p.AllowedIPs))
-		case wgh.PeerAProtocolVersion:
+		case unix.WGPEER_A_PROTOCOL_VERSION:
 			p.ProtocolVersion = int(ad.Uint32())
 		}
 	}
@@ -147,11 +146,11 @@ func parseAllowedIPs(ipns *[]net.IPNet) func(ad *netlink.AttributeDecoder) error
 
 				for nad.Next() {
 					switch nad.Type() {
-					case wgh.AllowedipAIpaddr:
+					case unix.WGALLOWEDIP_A_IPADDR:
 						nad.Do(parseAddr(&ipn.IP))
-					case wgh.AllowedipACidrMask:
+					case unix.WGALLOWEDIP_A_CIDR_MASK:
 						mask = int(nad.Uint8())
-					case wgh.AllowedipAFamily:
+					case unix.WGALLOWEDIP_A_FAMILY:
 						family = int(nad.Uint16())
 					}
 				}

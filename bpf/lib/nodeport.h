@@ -1399,8 +1399,7 @@ static __always_inline int dsr_set_ipip4(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
 			    &tp_new.saddr, 8, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 	return 0;
 }
@@ -1457,8 +1456,7 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4),
 			    &opt, sizeof(opt), 0) < 0)
 		return DROP_INVALID;
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 
 	return 0;

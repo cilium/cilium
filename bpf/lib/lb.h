@@ -1093,7 +1093,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		return DROP_WRITE_ERROR;
 
 	sum = csum_diff(&old_sip, 4, &new_sip, 4, sum);
-	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
 	if (csum_off->offset &&
@@ -1388,8 +1388,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 		sum = csum_diff(old_saddr, 4, new_saddr, 4, sum);
 	}
 #endif /* DISABLE_LOOPBACK_LB */
-	if (l3_csum_replace(ctx, l3_off + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
+	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 	if (csum_off->offset) {
 		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum,

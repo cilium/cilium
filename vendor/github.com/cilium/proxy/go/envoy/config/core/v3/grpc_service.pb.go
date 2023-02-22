@@ -154,7 +154,7 @@ type GrpcService_EnvoyGrpc struct {
 	// in the :ref:`Cluster <envoy_v3_api_msg_config.cluster.v3.Cluster>` :ref:`transport_socket
 	// <envoy_v3_api_field_config.cluster.v3.Cluster.transport_socket>`.
 	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	// The `:authority` header in the grpc request. If this field is not set, the authority header value will be `cluster_name`.
+	// The “:authority“ header in the grpc request. If this field is not set, the authority header value will be “cluster_name“.
 	// Note that this authority does not override the SNI. The SNI is provided by the transport socket of the cluster.
 	Authority string `protobuf:"bytes,2,opt,name=authority,proto3" json:"authority,omitempty"`
 }

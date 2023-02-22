@@ -86,7 +86,7 @@ const _ = proto.ProtoPackageIsVersion4
 //	Host: foo.com
 //	X-Route-Selector: vip=172.10.10.20
 //
-// would result in the routing table defined by the `route-config1`
+// would result in the routing table defined by the “route-config1“
 // RouteConfiguration being assigned to the HTTP request/stream.
 //
 // [#next-free-field: 6]

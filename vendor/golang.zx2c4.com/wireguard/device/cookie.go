@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -83,7 +83,7 @@ func (st *CookieChecker) CheckMAC1(msg []byte) bool {
 	return hmac.Equal(mac1[:], msg[smac1:smac2])
 }
 
-func (st *CookieChecker) CheckMAC2(msg []byte, src []byte) bool {
+func (st *CookieChecker) CheckMAC2(msg, src []byte) bool {
 	st.RLock()
 	defer st.RUnlock()
 
@@ -119,7 +119,6 @@ func (st *CookieChecker) CreateReply(
 	recv uint32,
 	src []byte,
 ) (*MessageCookieReply, error) {
-
 	st.RLock()
 
 	// refresh cookie secret
@@ -204,7 +203,6 @@ func (st *CookieGenerator) ConsumeReply(msg *MessageCookieReply) bool {
 
 	xchapoly, _ := chacha20poly1305.NewX(st.mac2.encryptionKey[:])
 	_, err := xchapoly.Open(cookie[:0], msg.Nonce[:], msg.Cookie[:], st.mac2.lastMAC1[:])
-
 	if err != nil {
 		return false
 	}
@@ -215,7 +213,6 @@ func (st *CookieGenerator) ConsumeReply(msg *MessageCookieReply) bool {
 }
 
 func (st *CookieGenerator) AddMacs(msg []byte) {
-
 	size := len(msg)
 
 	smac2 := size - blake2s.Size128

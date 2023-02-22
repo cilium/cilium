@@ -202,9 +202,9 @@ function write_k8s_install() {
     k8s_dir="${1}"
     filename="${2}"
     filename_2nd_half="${3}"
-    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.16.0.0/12,FD02::/80"}
-    k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"16"}
-    k8s_node_cidr_v6_mask_size=${k8s_node_cidr_v6_mask_size:-"96"}
+    k8s_cluster_cidr=${k8s_cluster_cidr:-"10.11.0.0/20,FD04::/96"}
+    k8s_node_cidr_mask_size=${k8s_node_cidr_mask_size:-"24"}
+    k8s_node_cidr_v6_mask_size=${k8s_node_cidr_v6_mask_size:-"112"}
     k8s_service_cluster_ip_range=${k8s_service_cluster_ip_range:-"172.20.0.0/24,FD03::/112"}
     k8s_cluster_api_server_ip=${k8s_cluster_api_server_ip:-"172.20.0.1"}
     k8s_cluster_api_server_ipv6=${k8s_cluster_api_server_ipv6:-"FD03::1"}
@@ -329,8 +329,8 @@ function write_cilium_cfg() {
         cilium_options_with_kvstore="${cilium_options} ${cilium_kvstore_options}"
         cilium_options+=" --identity-allocation-mode=crd --enable-k8s-event-handover=false"
         cilium_operator_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
-        cilium_operator_options+=" --cluster-pool-ipv4-cidr=10.${master_ipv4_suffix}.0.0/16"
-        cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd04::/104"
+        cilium_operator_options+=" --cluster-pool-ipv4-cidr=10.${master_ipv4_suffix}.0.0/20"
+        cilium_operator_options+=" --cluster-pool-ipv6-cidr=fd04::/96"
         cilium_operator_options_with_kvstore="${cilium_operator_options} ${cilium_kvstore_options}"
         cilium_operator_options+=" --identity-allocation-mode=crd"
     else

@@ -1,11 +1,3 @@
-Prerequisites
-#############
-
-* Cilium must be configured with ``kubeProxyReplacement`` as partial
-  or strict. Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
-  for more details.
-* The minimum supported Kubernetes version for Ingress is 1.19.
-
 Installation
 ############
 

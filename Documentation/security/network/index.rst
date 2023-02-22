@@ -5,10 +5,9 @@
     https://docs.cilium.io
 
 .. _concepts_security:
-.. _security_root:
 
-Network Security
-----------------
+Overview of Network Security
+----------------------------
 
 .. toctree::
    :maxdepth: 2

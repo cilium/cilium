@@ -21,7 +21,7 @@ function get_state() {
 }
 
 : Start a kind cluster with the EndpointSliceTerminatingCondition gate
-kind create cluster --config "${dir}/manifests/kind-config-1.25.yaml" --name graceful-term
+kind create cluster --config "${dir}/manifests/kind-config-1.26.yaml" --name graceful-term
 
 : Wait for service account to be created
 until kubectl get serviceaccount/default; do

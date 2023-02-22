@@ -1068,7 +1068,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 			Namespace: "bar",
 			Labels:    map[string]string{"foo": "bar"},
 			Annotations: map[string]string{
-				annotationTopologyAwareHints: "auto",
+				v1.AnnotationTopologyAwareHints: "auto",
 			},
 		},
 		Spec: slim_corev1.ServiceSpec{
@@ -1107,7 +1107,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	k8sNode := &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "node1",
-			Labels: map[string]string{LabelTopologyZone: "test-zone-2"},
+			Labels: map[string]string{v1.LabelTopologyZone: "test-zone-2"},
 		},
 	}
 
@@ -1152,7 +1152,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 
 	// Set the node's zone to test-zone-1 to select the first endpoint
 	k8sNode.ObjectMeta.Labels = map[string]string{
-		LabelTopologyZone: "test-zone-1",
+		v1.LabelTopologyZone: "test-zone-1",
 	}
 	svcCache.OnUpdateNode(k8sNode, k8sNode, swg)
 	c.Assert(testutils.WaitUntil(func() bool {

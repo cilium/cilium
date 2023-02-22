@@ -262,10 +262,6 @@ func configureIface(ipam *models.IPAMResponse, ifName string, state *CmdState) (
 		}
 	}
 
-	if err := netlink.LinkSetUp(l); err != nil {
-		return "", fmt.Errorf("failed to set %q UP: %v", ifName, err)
-	}
-
 	if l.Attrs() != nil {
 		return l.Attrs().HardwareAddr.String(), nil
 	}

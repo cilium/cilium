@@ -45,12 +45,13 @@ func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
 }
 
-func k8sServiceHandler(clusterName string, shared bool) {
+func k8sServiceHandler(clusterName string, shared bool, clusterID uint32) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
 		svc.Cluster = clusterName
+		svc.ClusterID = clusterID
 
 		log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
@@ -89,6 +90,9 @@ func k8sServiceHandler(clusterName string, shared bool) {
 type ServiceSyncConfiguration interface {
 	// LocalClusterName must return the local cluster name
 	LocalClusterName() string
+
+	// LocalClusterID must return the local cluster id
+	LocalClusterID() uint32
 
 	utils.ServiceConfiguration
 }
@@ -188,7 +192,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, clients
 
 		<-readyChan
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(cfg.LocalClusterName(), shared)
+		k8sServiceHandler(cfg.LocalClusterName(), shared, cfg.LocalClusterID())
 	}()
 }
 

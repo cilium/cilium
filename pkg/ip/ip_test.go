@@ -622,7 +622,7 @@ func (s *IPTestSuite) TestCreateSpanningCIDR(c *C) {
 func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	targetCIDR := createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR := createIPNet("10.255.255.255", 32, ipv4BitLen)
-	left, exclude, right := partitionCIDR(*targetCIDR, *excludeCIDR)
+	left, exclude, right := PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 	// Nothing should be in right list.
@@ -656,7 +656,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 
 	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR = createIPNet("10.0.0.0", 32, ipv4BitLen)
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	// Exclude should just contain exclude CIDR
 	s.testIPNetsEqual([]*net.IPNet{excludeCIDR}, exclude, c)
 	// Nothing should be in left list.
@@ -691,7 +691,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	// exclude is not in target CIDR and is to left.
 	targetCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
 	excludeCIDR = createIPNet("9.0.0.255", 32, ipv4BitLen)
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(left), Equals, 0)
 	c.Assert(len(exclude), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, right, c)
@@ -699,7 +699,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	// exclude is not in target CIDR and is to right.
 	targetCIDR = createIPNet("10.255.255.254", 32, ipv4BitLen)
 	excludeCIDR = createIPNet("10.255.255.255", 32, ipv4BitLen)
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(right), Equals, 0)
 	c.Assert(len(exclude), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, left, c)
@@ -707,7 +707,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	// exclude CIDR larger than target CIDR
 	targetCIDR = createIPNet("10.96.0.0", 12, ipv4BitLen)
 	excludeCIDR = createIPNet("10.0.0.0", 8, ipv4BitLen)
-	left, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	left, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 	c.Assert(len(left), Equals, 0)
 	c.Assert(len(right), Equals, 0)
 	s.testIPNetsEqual([]*net.IPNet{targetCIDR}, exclude, c)
@@ -715,7 +715,7 @@ func (s *IPTestSuite) TestPartitionCIDR(c *C) {
 	targetCIDR = createIPNet("fd44:7089:ff32:712b:ff00::", 64, ipv6BitLen)
 	excludeCIDR = createIPNet("fd44:7089:ff32:712b::", 66, ipv6BitLen)
 
-	_, exclude, right = partitionCIDR(*targetCIDR, *excludeCIDR)
+	_, exclude, right = PartitionCIDR(*targetCIDR, *excludeCIDR)
 
 	expectedCIDRs := []*net.IPNet{createIPNet("fd44:7089:ff32:712b:8000::", 65, ipv6BitLen),
 		createIPNet("fd44:7089:ff32:712b:4000::", 66, ipv6BitLen)}
