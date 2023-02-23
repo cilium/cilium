@@ -126,8 +126,13 @@ func init() {
 		}),
 
 		gops.Cell(defaults.GopsPortApiserver),
+
 		k8sClient.Cell,
 		apiserverK8s.ResourcesCell,
+
+		cell.Provide(func() *option.DaemonConfig {
+			return option.Config
+		}),
 
 		kvstore.Cell(kvstore.EtcdBackendName),
 		cell.Provide(func() *kvstore.ExtraOptions { return nil }),
@@ -136,7 +141,6 @@ func init() {
 		healthAPIServerCell,
 		cmmetrics.Cell,
 		usersManagementCell,
-
 		cell.Invoke(registerHooks),
 	)
 	rootHive.RegisterFlags(rootCmd.Flags())
@@ -149,6 +153,7 @@ type parameters struct {
 
 	Clientset      k8sClient.Clientset
 	Services       resource.Resource[*slim_corev1.Service]
+	Endpoints      resource.Resource[*k8s.Endpoints]
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 }
 
@@ -165,7 +170,7 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.Clientset, params.Services)
+			startServer(ctx, params.Clientset, params.Services, params.Endpoints)
 			return nil
 		},
 	})
@@ -222,7 +227,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal Endpoints")
 			} else {
-				operatorWatchers.K8sSvcCache.UpdateEndpoints(&endpoints, nil)
+				operatorWatchers.K8sSvcCache.UpdateEndpoints(k8s.ParseEndpoints(&endpoints), nil)
 			}
 		default:
 			log.Warningf("Unknown line in mockfile %s: %s", path, line)
@@ -578,7 +583,7 @@ func synchronizeCiliumEndpoints(clientset k8sClient.Clientset) {
 	go ciliumEndpointsInformer.Run(wait.NeverStop)
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service]) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, services resource.Resource[*slim_corev1.Service], endpoints resource.Resource[*k8s.Endpoints]) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   cfg.clusterID,
@@ -631,11 +636,11 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, servi
 		synchronizeCiliumEndpoints(clientset)
 		operatorWatchers.StartSynchronizingServices(context.Background(), &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
 			ServiceSyncConfiguration: cfg,
-
-			Clientset:  clientset,
-			Services:   services,
-			Backend:    backend,
-			SharedOnly: !cfg.enableExternalWorkloads,
+			Clientset:                clientset,
+			Services:                 services,
+			Endpoints:                endpoints,
+			Backend:                  backend,
+			SharedOnly:               !cfg.enableExternalWorkloads,
 		})
 	}
 

@@ -32,6 +32,9 @@ import (
 // protocols. The name of the backend ports must match the names of the
 // frontend ports of the corresponding service.
 //
+// The Endpoints object is parsed from either an EndpointSlice (preferred) or Endpoint
+// Kubernetes objects depending on the Kubernetes version.
+//
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=true

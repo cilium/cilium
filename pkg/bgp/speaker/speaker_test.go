@@ -36,7 +36,7 @@ var (
 func TestSpeakerOnUpdateService(t *testing.T) {
 	// gen our test structures
 	service, _, metallbService, serviceID := mock.GenTestServicePairs()
-	endpoints, _, metallbendpoints := mock.GenTestEndpointsPairs()
+	endpoints, metallbendpoints := mock.GenTestEndpointsPairs()
 
 	// our test will block on this ctx, our mock will cancel it and thus
 	// unblock our test. If the event never gets to our mock, a timeout
@@ -210,7 +210,7 @@ func TestSpeakerOnDeleteService(t *testing.T) {
 func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 	// gen our test structures
 	service, _, metallbService, serviceID := mock.GenTestServicePairs()
-	_, slimendpoints, metallbendpoints := mock.GenTestEndpointsPairs()
+	endpoints, metallbendpoints := mock.GenTestEndpointsPairs()
 
 	// our test will block on this ctx, our mock will cancel it and thus
 	// unblock our test. If the event never gets to our mock, a timeout
@@ -256,7 +256,7 @@ func TestSpeakerOnUpdateEndpoints(t *testing.T) {
 
 	go spkr.run(ctx)
 
-	err := spkr.OnUpdateEndpoints(&slimendpoints)
+	err := spkr.OnUpdateEndpoints(&endpoints)
 	if err != nil {
 		t.Fatal(err)
 	}
