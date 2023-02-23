@@ -940,7 +940,7 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 			},
 		}, fakeDatapath.NewNodeAddressing())
 
-	_, endpoints := ParseEndpoints(&slim_corev1.Endpoints{
+	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
