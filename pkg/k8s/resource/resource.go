@@ -95,11 +95,18 @@ type Resource[T k8sRuntime.Object] interface {
 //	}
 //
 // See also pkg/k8s/resource/example/main.go for a runnable example.
-func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher) Resource[T] {
+func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
 		queues: make(map[uint64]*keyQueue),
 		needed: make(chan struct{}, 1),
 		lw:     lw,
+	}
+	r.opts.sourceObj = func() k8sRuntime.Object {
+		var obj T
+		return obj
+	}
+	for _, o := range opts {
+		o(&r.opts)
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.storeResolver, r.storePromise = promise.New[Store[T]]()
@@ -107,11 +114,47 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher) Resourc
 	return r
 }
 
+type options struct {
+	transform cache.TransformFunc      // if non-nil, the object is transformed with this function before storing
+	sourceObj func() k8sRuntime.Object // prototype for the object before it is transformed
+}
+
+type ResourceOption func(o *options)
+
+// WithTransform sets the function to transform the object before storing it.
+func WithTransform[From, To k8sRuntime.Object](transform func(From) (To, error)) ResourceOption {
+	return WithLazyTransform(
+		func() k8sRuntime.Object {
+			var obj From
+			return obj
+		},
+		func(fromRaw any) (any, error) {
+			if from, ok := fromRaw.(From); ok {
+				to, err := transform(from)
+				return to, err
+			} else {
+				var obj From
+				return nil, fmt.Errorf("resource.WithTransform: expected %T, got %T", obj, fromRaw)
+			}
+		})
+}
+
+// WithLazyTransform sets the function to transform the object before storing it.
+// Unlike "WithTransform", this defers the resolving of the source object type until the resource
+// is needed. Use this in situations where the source object depends on api-server capabilities.
+func WithLazyTransform(sourceObj func() k8sRuntime.Object, transform cache.TransformFunc) ResourceOption {
+	return func(o *options) {
+		o.sourceObj = sourceObj
+		o.transform = transform
+	}
+}
+
 type resource[T k8sRuntime.Object] struct {
 	mu     lock.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	opts   options
 
 	needed chan struct{}
 
@@ -194,7 +237,6 @@ func (r *resource[T]) startWhenNeeded() {
 	}
 
 	// Construct the informer and run it.
-	var objType T
 	handlerFuncs :=
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj)) },
@@ -202,7 +244,7 @@ func (r *resource[T]) startWhenNeeded() {
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
-	store, informer := cache.NewInformer(r.lw, objType, 0, handlerFuncs)
+	store, informer := cache.NewTransformingInformer(r.lw, r.opts.sourceObj(), 0, handlerFuncs, r.opts.transform)
 	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)
