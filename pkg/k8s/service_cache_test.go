@@ -117,7 +117,7 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
-	k8sEndpoints := &slim_corev1.Endpoints{
+	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
@@ -134,20 +134,20 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 				},
 			},
 		},
-	}
+	})
 
 	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+		svcCache.UpdateEndpoints(endpoints, swgEps)
 	}
 	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.DeleteEndpoints(k8sEndpoints, swgEps)
+		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
 	testServiceCache(c, updateEndpoints, deleteEndpoints)
 }
 
 func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
-	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
+	endpoints := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-afbh9",
@@ -170,13 +170,13 @@ func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
 				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
-	}
+	})
 
 	updateEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swgEps)
+		svcCache.UpdateEndpoints(endpoints, swgEps)
 	}
 	deleteEndpoints := func(svcCache *ServiceCache, swgEps *lock.StoppableWaitGroup) {
-		svcCache.DeleteEndpointSlices(k8sEndpointSlice, swgEps)
+		svcCache.DeleteEndpoints(endpoints.EndpointSliceID, swgEps)
 	}
 
 	testServiceCache(c, updateEndpoints, deleteEndpoints)
@@ -377,7 +377,7 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	swgSvcs := lock.NewStoppableWaitGroup()
 	svcID := svcCache.UpdateService(k8sSvc, swgSvcs)
 
-	k8sEndpoints := &slim_corev1.Endpoints{
+	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "bar",
@@ -394,10 +394,10 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 				},
 			},
 		},
-	}
+	})
 
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpoints(k8sEndpoints, swgEps)
+	svcCache.UpdateEndpoints(endpoints, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported
@@ -779,7 +779,7 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 
 	svcID := ServiceID{Name: "foo", Namespace: "bar"}
 
-	svcCache.UpdateEndpoints(&slim_corev1.Endpoints{
+	endpoints := ParseEndpoints(&slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Namespace: svcID.Namespace,
 			Name:      svcID.Name,
@@ -796,7 +796,9 @@ func (s *K8sSuite) TestClusterServiceMerging(c *check.C) {
 				},
 			},
 		},
-	}, swgEps)
+	})
+
+	svcCache.UpdateEndpoints(endpoints, swgEps)
 
 	svcCache.MergeClusterServiceUpdate(&serviceStore.ClusterService{
 		Cluster:   option.Config.ClusterName,
@@ -888,7 +890,7 @@ func (s *K8sSuite) TestNonSharedService(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
-	k8sEndpointSlice1 := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice1 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-yyyyy",
@@ -911,9 +913,9 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
-	}
+	})
 
-	k8sEndpointSlice2 := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice2 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -936,9 +938,9 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
-	}
+	})
 
-	k8sEndpointSlice3 := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice3 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -961,7 +963,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
-	}
+	})
 
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
@@ -994,9 +996,9 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	}
 
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice2, swgEps)
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice3, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice2, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice3, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice1
@@ -1057,7 +1059,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the k8sEndpointSlice2 will result in a service update event
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice2, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1070,7 +1072,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	c.Assert(ready, check.Equals, true)
 	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
 
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1084,7 +1086,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	c.Assert(endpoints.String(), check.Equals, "")
 
 	// Reinserting the endpoints should re-match with the still existing service
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1109,7 +1111,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 
 	// Deleting the endpoints will not emit an event as the notification
 	// was sent out when the service was deleted.
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-svcCache.Events:
@@ -1131,7 +1133,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
-	k8sEndpointSlice1 := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice1 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-yyyyy",
@@ -1154,9 +1156,9 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
-	}
+	})
 
-	k8sEndpointSlice2 := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice2 := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-xxxxx",
@@ -1179,7 +1181,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 				Port:     func() *int32 { a := int32(8081); return &a }(),
 			},
 		},
-	}
+	})
 
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
@@ -1212,8 +1214,8 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 	}
 
 	swgEps := lock.NewStoppableWaitGroup()
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice2, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice2, swgEps)
 
 	// The service should be ready as both service and endpoints have been
 	// imported for k8sEndpointSlice1
@@ -1274,7 +1276,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Deleting the k8sEndpointSlice2 will result in a service update event
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice2, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice2.EndpointSliceID, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1287,7 +1289,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 	c.Assert(ready, check.Equals, true)
 	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
 
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1301,7 +1303,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 	c.Assert(endpoints.String(), check.Equals, "")
 
 	// Reinserting the endpoints should re-match with the still existing service
-	svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpoints(k8sEndpointSlice1, swgEps)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		defer event.SWG.Done()
@@ -1326,7 +1328,7 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSliceSameAddress(c *check.C) {
 
 	// Deleting the endpoints will not emit an event as the notification
 	// was sent out when the service was deleted.
-	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.DeleteEndpoints(k8sEndpointSlice1.EndpointSliceID, swgEps)
 	time.Sleep(100 * time.Millisecond)
 	select {
 	case <-svcCache.Events:
@@ -1364,7 +1366,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 		},
 	}
 	veryTrue := true
-	k8sEndpointSlice := &slim_discovery_v1.EndpointSlice{
+	k8sEndpointSlice := ParseEndpointSliceV1(&slim_discovery_v1.EndpointSlice{
 		AddressType: slim_discovery_v1.AddressTypeIPv4,
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-ep-filtering",
@@ -1389,7 +1391,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 				Conditions: slim_discovery_v1.EndpointConditions{Ready: &veryTrue},
 			},
 		},
-	}
+	})
 	k8sNode := &slim_corev1.Node{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:   "node1",
@@ -1411,7 +1413,7 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	// Now update service and endpointslice. This should result in the service
 	// update with 2.2.2.2 endpoint due to the zone filtering.
 	svcID0 := svcCache.UpdateService(k8sSvc, swg)
-	svcID1, eps := svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swg)
+	svcID1, eps := svcCache.UpdateEndpoints(k8sEndpointSlice, swg)
 	c.Assert(svcID0, check.Equals, svcID1)
 	c.Assert(len(eps.Backends), check.Equals, 1)
 	c.Assert(testutils.WaitUntil(func() bool {
@@ -1475,9 +1477,11 @@ func (s *K8sSuite) TestServiceEndpointFiltering(c *check.C) {
 	}, 2*time.Second), check.IsNil)
 
 	// Remove the zone hints. This should select all endpoints
-	k8sEndpointSlice.Endpoints[0].Hints = nil
-	k8sEndpointSlice.Endpoints[1].Hints = nil
-	svcID1, _ = svcCache.UpdateEndpointSlicesV1(k8sEndpointSlice, swg)
+	k8sEndpointSlice = k8sEndpointSlice.DeepCopy()
+	for _, be := range k8sEndpointSlice.Backends {
+		be.HintsForZones = nil
+	}
+	svcID1, _ = svcCache.UpdateEndpoints(k8sEndpointSlice, swg)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
 		c.Assert(event.Action, check.Equals, UpdateService)

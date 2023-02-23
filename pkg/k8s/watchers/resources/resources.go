@@ -8,17 +8,13 @@ package resources
 const (
 	// K8sAPIGroupServiceV1Core is the identifier for K8s resources of type core/v1/Service.
 	K8sAPIGroupServiceV1Core = "core/v1::Service"
-	// K8sAPIGroupEndpointV1Core is the identifier for K8s resources of type core/v1/Endpoint.
-	K8sAPIGroupEndpointV1Core = "core/v1::Endpoint"
 	// K8sAPIGroupPodV1Core is the identifier for K8s resources of type core/v1/Pod.
 	K8sAPIGroupPodV1Core = "core/v1::Pods"
 	// K8sAPIGroupSecretV1Cores is the identifier for K8s resources of type core/v1/Secret.
 	K8sAPIGroupSecretV1Core = "core/v1::Secrets"
-	// K8sAPIGroupEndpointSliceV1Beta1Discovery is the identifier for K8s resources of type discovery/v1beta1/EndpointSlice.
-	K8sAPIGroupEndpointSliceV1Beta1Discovery = "discovery/v1beta1::EndpointSlice"
-	// K8sAPIGroupEndpointSliceV1Beta1Discovery is the identifier for K8s resources of type discovery/v1/EndpointSlice.
-	// todo(tom): double check the uses of these two.
-	K8sAPIGroupEndpointSliceV1Discovery = "discovery/v1::EndpointSlice"
+	// K8sAPIGroupEndpointSliceOrEndpoint is the combined identifier for K8s EndpointSlice and
+	// Endpoint resources.
+	K8sAPIGroupEndpointSliceOrEndpoint = "EndpointSliceOrEndpoint"
 
 	// MetricCNP is the scope label for CiliumNetworkPolicy event metrics.
 	MetricCNP = "CiliumNetworkPolicy"

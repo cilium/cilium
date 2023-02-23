@@ -20,6 +20,7 @@ var (
 
 		cell.Provide(
 			k8s.ServiceResource,
+			k8s.EndpointsResource,
 		),
 	)
 )

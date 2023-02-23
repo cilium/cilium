@@ -6,7 +6,6 @@ package watchers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/netip"
 	"net/url"
@@ -39,8 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -163,9 +160,7 @@ type bgpSpeakerManager interface {
 	OnUpdateService(svc *slim_corev1.Service) error
 	OnDeleteService(svc *slim_corev1.Service) error
 
-	OnUpdateEndpoints(eps *slim_corev1.Endpoints) error
-	OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error
-	OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error
+	OnUpdateEndpoints(eps *k8s.Endpoints) error
 }
 type EgressGatewayManager interface {
 	OnAddEgressPolicy(config egressgateway.PolicyConfig)
@@ -444,6 +439,9 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		// We need to know the node labels to populate the host
 		// endpoint labels.
 		k8sAPIGroupNodeV1Core,
+		// To perform the service translation and have the BPF LB datapath
+		// with the right service -> backend (k8s endpoints) translation.
+		resources.K8sAPIGroupEndpointSliceOrEndpoint,
 	}
 
 	if k.cfg.K8sNetworkPolicyEnabled() {
@@ -460,14 +458,6 @@ func (k *K8sWatcher) resourceGroups() (beforeNodeInitGroups, afterNodeInitGroups
 		k8sGroups = append(k8sGroups, resources.K8sAPIGroupSecretV1Core)
 	}
 
-	// To perform the service translation and have the BPF LB datapath
-	// with the right service -> backend (k8s endpoints) translation.
-	if k8s.SupportsEndpointSlice() {
-		k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointSliceV1Beta1Discovery)
-	} else if k8s.SupportsEndpointSliceV1() {
-		k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointSliceV1Discovery)
-	}
-	k8sGroups = append(k8sGroups, resources.K8sAPIGroupEndpointV1Core)
 	ciliumResources := synced.AgentCRDResourceNames()
 	ciliumGroups := make([]string, 0, len(ciliumResources))
 	for _, r := range ciliumResources {
@@ -538,11 +528,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 	}
 	asyncControllers := &sync.WaitGroup{}
 
-	serviceOptModifier, err := utils.GetServiceListOptionsModifier(k.cfg)
-	if err != nil {
-		return fmt.Errorf("error creating service list option modifier: %w", err)
-	}
-
 	// CNP, CCNP, and CCG resources are handled together.
 	var cnpOnce sync.Once
 	for _, r := range resourceNames {
@@ -564,12 +549,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.networkPoliciesInit(k.clientset.Slim(), swgKNP)
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
-		case resources.K8sAPIGroupEndpointSliceV1Beta1Discovery:
-			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
-		case resources.K8sAPIGroupEndpointSliceV1Discovery:
-			// no-op; handled in resources.K8sAPIGroupEndpointV1Core.
-		case resources.K8sAPIGroupEndpointV1Core:
-			k.initEndpointsOrSlices(k.clientset.Slim(), serviceOptModifier)
+		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
+			k.endpointsInit()
 		case resources.K8sAPIGroupSecretV1Core:
 			swgSecret := lock.NewStoppableWaitGroup()
 			// only watch secrets in specific namespaces

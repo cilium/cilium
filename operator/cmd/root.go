@@ -485,6 +485,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 				Clientset:  legacy.clientset,
 				Services:   legacy.resources.Services,
+				Endpoints:  legacy.resources.Endpoints,
 				SharedOnly: true,
 			})
 			// If K8s is enabled we can do the service translation automagically by

@@ -1563,9 +1563,7 @@ func (d *Daemon) initKVStore() {
 		// that service IP.
 		d.k8sWatcher.WaitForCacheSync(
 			resources.K8sAPIGroupServiceV1Core,
-			resources.K8sAPIGroupEndpointV1Core,
-			resources.K8sAPIGroupEndpointSliceV1Discovery,
-			resources.K8sAPIGroupEndpointSliceV1Beta1Discovery,
+			resources.K8sAPIGroupEndpointSliceOrEndpoint,
 		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{

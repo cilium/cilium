@@ -21,8 +21,6 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discover_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -117,7 +115,7 @@ func (s *MetalLBSpeaker) OnUpdateService(svc *slim_corev1.Service) error {
 	eps := new(metallbspr.Endpoints)
 	epsFromSvc := s.endpointsGetter.GetEndpointsOfService(svcID)
 	if epsFromSvc != nil {
-		eps = convertInternalEndpoints(epsFromSvc)
+		eps = convertEndpoints(epsFromSvc)
 	}
 
 	s.Lock()
@@ -176,13 +174,14 @@ func (s *MetalLBSpeaker) OnDeleteService(svc *slim_corev1.Service) error {
 
 // OnUpdateEndpoints notifies the Speaker of an update to the backends of a
 // service.
-func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
+func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *k8s.Endpoints) error {
 	if s.shutDown() {
 		return ErrShutDown
 	}
 	var (
-		svcID = k8s.ParseEndpointsID(eps).ServiceID
-		l     = log.WithFields(logrus.Fields{
+		epSliceID = eps.EndpointSliceID
+		svcID     = epSliceID.ServiceID
+		l         = log.WithFields(logrus.Fields{
 			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
 			"service-id": svcID,
 		})
@@ -204,79 +203,6 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 			id:   svcID,
 			svc:  convertService(svc),
 			eps:  convertEndpoints(eps),
-		})
-	}
-	return nil
-}
-
-// OnUpdateEndpointSliceV1 notifies the Speaker of an update to the backends of
-// a service as endpoint slices.
-func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointSlice) error {
-	if s.shutDown() {
-		return ErrShutDown
-	}
-	var (
-		endpoints = k8s.ParseEndpointSliceV1(eps)
-		sliceID   = endpoints.EndpointSliceID
-		l         = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1",
-			"slice-id":  sliceID,
-		})
-		meta = fence.Meta{}
-	)
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := meta.FromObjectMeta(&eps.ObjectMeta); err != nil {
-		l.WithError(err).Error("failed to parse event metadata")
-	}
-
-	if svc, ok := s.services[sliceID.ServiceID]; ok {
-		l.Debug("adding event to queue")
-		s.queue.Add(epEvent{
-			Meta: meta,
-			op:   Update,
-			id:   sliceID.ServiceID,
-			svc:  convertService(svc),
-			eps:  convertEndpointSliceV1(eps),
-		})
-	}
-	return nil
-}
-
-// OnUpdateEndpointSliceV1Beta1 is the same as OnUpdateEndpointSliceV1() but for
-// the v1beta1 variant.
-func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1.EndpointSlice) error {
-	if s.shutDown() {
-		return ErrShutDown
-	}
-	var (
-		endpoints = k8s.ParseEndpointSliceV1Beta1(eps)
-		sliceID   = endpoints.EndpointSliceID
-		l         = log.WithFields(logrus.Fields{
-			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
-			"slice-id":  sliceID,
-		})
-		meta = fence.Meta{}
-	)
-
-	s.Lock()
-	defer s.Unlock()
-
-	if err := meta.FromObjectMeta(&eps.ObjectMeta); err != nil {
-		l.WithError(err).Error("failed to parse event metadata")
-		return err
-	}
-
-	if svc, ok := s.services[sliceID.ServiceID]; ok {
-		l.Debug("adding event to queue")
-		s.queue.Add(epEvent{
-			Meta: meta,
-			op:   Update,
-			id:   sliceID.ServiceID,
-			svc:  convertService(svc),
-			eps:  convertEndpointSliceV1Beta1(eps),
 		})
 	}
 	return nil
@@ -387,7 +313,7 @@ func convertService(in *slim_corev1.Service) *metallbspr.Service {
 	}
 }
 
-func convertInternalEndpoints(in *k8s.Endpoints) *metallbspr.Endpoints {
+func convertEndpoints(in *k8s.Endpoints) *metallbspr.Endpoints {
 	if in == nil {
 		return nil
 	}
@@ -398,22 +324,6 @@ func convertInternalEndpoints(in *k8s.Endpoints) *metallbspr.Endpoints {
 			NodeName: &be.NodeName,
 		}
 		out.Ready = append(out.Ready, ep)
-	}
-	return out
-}
-
-func convertEndpoints(in *slim_corev1.Endpoints) *metallbspr.Endpoints {
-	if in == nil {
-		return nil
-	}
-	out := new(metallbspr.Endpoints)
-	for _, sub := range in.Subsets {
-		for _, ep := range sub.Addresses {
-			out.Ready = append(out.Ready, metallbspr.Endpoint{
-				IP:       ep.IP,
-				NodeName: ep.NodeName,
-			})
-		}
 		// MetalLB uses the NotReadyAddresses field to know which endpoints are
 		// unhealthy in order to prevent BGP announcements until the endpoints
 		// are ready. However, Cilium has no need for this field because
@@ -425,60 +335,6 @@ func convertEndpoints(in *slim_corev1.Endpoints) *metallbspr.Endpoints {
 		// equivalent.
 	}
 	return out
-}
-
-func convertEndpointSliceV1(in *slim_discover_v1.EndpointSlice) *metallbspr.Endpoints {
-	if in == nil {
-		return nil
-	}
-	out := new(metallbspr.Endpoints)
-	for _, ep := range in.Endpoints {
-		if isConditionReadyForSliceV1(ep.Conditions) {
-			for _, addr := range ep.Addresses {
-				out.Ready = append(out.Ready, metallbspr.Endpoint{
-					IP:       addr,
-					NodeName: ep.NodeName,
-				})
-			}
-		}
-		// See above comment in convertEndpoints() for why we only append
-		// "ready" endpoints.
-	}
-	return out
-}
-
-func isConditionReadyForSliceV1(conditions slim_discover_v1.EndpointConditions) bool {
-	if conditions.Ready == nil {
-		return true
-	}
-	return *conditions.Ready
-}
-
-func convertEndpointSliceV1Beta1(in *slim_discover_v1beta1.EndpointSlice) *metallbspr.Endpoints {
-	if in == nil {
-		return nil
-	}
-	out := new(metallbspr.Endpoints)
-	for _, ep := range in.Endpoints {
-		if isConditionReadyForSliceV1Beta1(ep.Conditions) {
-			for _, addr := range ep.Addresses {
-				out.Ready = append(out.Ready, metallbspr.Endpoint{
-					IP:       addr,
-					NodeName: ep.NodeName,
-				})
-			}
-		}
-		// See above comment in convertEndpoints() for why we only append
-		// "ready" endpoints.
-	}
-	return out
-}
-
-func isConditionReadyForSliceV1Beta1(conditions slim_discover_v1beta1.EndpointConditions) bool {
-	if conditions.Ready == nil {
-		return true
-	}
-	return *conditions.Ready
 }
 
 // nodeLabels copies the provided labels and returns

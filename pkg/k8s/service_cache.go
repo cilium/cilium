@@ -15,8 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/ip"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
-	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -271,7 +269,11 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	}
 }
 
-func (s *ServiceCache) updateEndpoints(newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+// UpdateEndpoints parses a Kubernetes endpoints and adds or updates it in the
+// ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
+// be parsed and a bool to indicate whether the endpoints was changed in the
+// cache or not.
+func (s *ServiceCache) UpdateEndpoints(newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -306,26 +308,9 @@ func (s *ServiceCache) updateEndpoints(newEndpoints *Endpoints, swg *lock.Stoppa
 	return esID.ServiceID, endpoints
 }
 
-// UpdateEndpoints parses a Kubernetes endpoints and adds or updates it in the
-// ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
-// be parsed and a bool to indicate whether the endpoints was changed in the
-// cache or not.
-func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	newEndpoints := ParseEndpoints(k8sEndpoints)
-	return s.updateEndpoints(newEndpoints, swg)
-}
-
-func (s *ServiceCache) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	newEndpoints := ParseEndpointSliceV1(epSlice)
-	return s.updateEndpoints(newEndpoints, swg)
-}
-
-func (s *ServiceCache) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
-	return s.updateEndpoints(newEndpoints, swg)
-}
-
-func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
+// DeleteEndpoints parses a Kubernetes endpoints and removes it from the
+// ServiceCache
+func (s *ServiceCache) DeleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -350,18 +335,6 @@ func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 	}
 
 	return svcID.ServiceID
-}
-
-// DeleteEndpoints parses a Kubernetes endpoints and removes it from the
-// ServiceCache
-func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
-	epSliceID := ParseEndpointsID(k8sEndpoints)
-	return s.deleteEndpoints(epSliceID, swg)
-}
-
-func (s *ServiceCache) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
-	svcID := ParseEndpointSliceID(epSlice)
-	return s.deleteEndpoints(svcID, swg)
 }
 
 // FrontendList is the list of all k8s service frontends
