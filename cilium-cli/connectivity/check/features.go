@@ -49,6 +49,8 @@ const (
 
 	FeatureIPv4 Feature = "ipv4"
 	FeatureIPv6 Feature = "ipv6"
+
+	FeatureFlavor Feature = "flavor"
 )
 
 // FeatureStatus describes the status of a feature. Some features are either
@@ -332,6 +334,15 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	return nil
 }
 
+func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, result FeatureSet) {
+	flavor := ct.client.AutodetectFlavor(ctx)
+
+	result[FeatureFlavor] = FeatureStatus{
+		Enabled: flavor.Kind.String() != "invalid",
+		Mode:    strings.ToLower(flavor.Kind.String()),
+	}
+}
+
 func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) {
 	for key, found := range other {
 		expected, ok := ct.features[key]
@@ -372,6 +383,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		ct.extractFeaturesFromK8sCluster(ctx, features)
 		err = features.deriveFeatures()
 		if err != nil {
 			return err
