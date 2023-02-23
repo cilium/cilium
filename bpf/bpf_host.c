@@ -774,6 +774,9 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	int ret;
 
 #if defined(ENABLE_L7_LB)
+#if __ctx_is == __ctx_xdp
+    return CTX_ACT_OK;
+#endif
 	if (from_host) {
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
@@ -1102,6 +1105,9 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 
 #if defined(ENABLE_L7_LB)
+#if __ctx_is == __ctx_xdp
+    return CTX_ACT_OK;
+#endif
 	{
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
