@@ -505,13 +505,8 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 __section("cgroup/post_bind4")
 int cil_sock4_post_bind(struct bpf_sock *ctx)
 {
-	int err;
-
-	err = __sock4_post_bind(ctx, ctx);
-	if (err < 0) {
-		try_set_retval(err);
+	if (__sock4_post_bind(ctx, ctx) < 0)
 		return SYS_REJECT;
-	}
 
 	return SYS_PROCEED;
 }
@@ -869,13 +864,8 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 __section("cgroup/post_bind6")
 int cil_sock6_post_bind(struct bpf_sock *ctx)
 {
-	int err;
-
-	err = __sock6_post_bind(ctx);
-	if (err < 0) {
-		try_set_retval(err);
+	if (__sock6_post_bind(ctx) < 0)
 		return SYS_REJECT;
-	}
 
 	return SYS_PROCEED;
 }
