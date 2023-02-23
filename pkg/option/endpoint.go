@@ -5,16 +5,17 @@ package option
 
 var (
 	endpointMutableOptionLibrary = OptionLibrary{
-		ConntrackAccounting: &specConntrackAccounting,
-		ConntrackLocal:      &specConntrackLocal,
-		Debug:               &specDebug,
-		DebugLB:             &specDebugLB,
-		DebugPolicy:         &specDebugPolicy,
-		DropNotify:          &specDropNotify,
-		TraceNotify:         &specTraceNotify,
-		PolicyVerdictNotify: &specPolicyVerdictNotify,
-		PolicyAuditMode:     &specPolicyAuditMode,
-		MonitorAggregation:  &specMonitorAggregation,
+		ConntrackAccounting:  &specConntrackAccounting,
+		ConntrackLocal:       &specConntrackLocal,
+		Debug:                &specDebug,
+		DebugLB:              &specDebugLB,
+		DebugPolicy:          &specDebugPolicy,
+		DropNotify:           &specDropNotify,
+		TraceNotify:          &specTraceNotify,
+		PolicyVerdictNotify:  &specPolicyVerdictNotify,
+		PolicyAuditMode:      &specPolicyAuditMode,
+		MonitorAggregation:   &specMonitorAggregation,
+		SourceIPVerification: &specSourceIPVerification,
 	}
 )
 
