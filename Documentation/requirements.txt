@@ -30,7 +30,7 @@ imagesize==1.4.1
 Jinja2==3.0.3
 jsonschema==4.14.0
 livereload==2.6.3
-markdown-it-py==2.1.0
+markdown-it-py==2.2.0
 MarkupSafe==2.1.1
 mdit-py-plugins==0.3.0
 mdurl==0.1.2
