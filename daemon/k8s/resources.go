@@ -30,6 +30,8 @@ var (
 
 		cell.Provide(
 			k8s.ServiceResource,
+			k8s.EndpointsResource,
+
 			func(lc hive.Lifecycle, cs client.Clientset) (LocalNodeResource, error) {
 				return k8s.NodeResource(
 					lc, cs,
@@ -79,6 +81,7 @@ type Resources struct {
 	cell.In
 
 	Services                         resource.Resource[*slim_corev1.Service]
+	Endpoints                        resource.Resource[*k8s.Endpoints]
 	LocalNode                        LocalNodeResource
 	LocalCiliumNode                  LocalCiliumNodeResource
 	LocalPods                        LocalPodResource
