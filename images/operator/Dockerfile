@@ -87,9 +87,9 @@ ARG TARGETOS
 # TARGETARCH is an automatic platform ARG enabled by Docker BuildKit.
 ARG TARGETARCH
 ARG OPERATOR_VARIANT
-ARG DEBUG_CONTINUE
+ARG DEBUG_HOLD
 ENV DEBUG_PORT=2346
-ENV DEBUG_CONTINUE=${DEBUG_CONTINUE}
+ENV DEBUG_HOLD=${DEBUG_HOLD}
 COPY --from=builder /out/${TARGETOS}/${TARGETARCH}/usr/bin/cilium-${OPERATOR_VARIANT} /usr/bin/cilium-${OPERATOR_VARIANT}-bin
 COPY --from=debug-tools /go/bin/dlv /usr/bin/dlv
 COPY --from=debug-tools /out/${TARGETOS}/${TARGETARCH}/bin/debug-wrapper /usr/bin/cilium-${OPERATOR_VARIANT}
