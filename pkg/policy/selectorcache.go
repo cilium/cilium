@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -314,7 +313,7 @@ var (
 
 type selectorManager struct {
 	key              string
-	selections       unsafe.Pointer // *[]identity.NumericIdentity
+	selections       atomic.Pointer[[]identity.NumericIdentity]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
@@ -337,7 +336,7 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
 func (s *selectorManager) GetSelections() []identity.NumericIdentity {
-	return *(*[]identity.NumericIdentity)(atomic.LoadPointer(&s.selections))
+	return *s.selections.Load()
 }
 
 // Selects return 'true' if the CachedSelector selects the given
@@ -423,9 +422,9 @@ func (s *selectorManager) updateSelections() {
 
 func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) {
 	if len(*selections) > 0 {
-		atomic.StorePointer(&s.selections, unsafe.Pointer(selections))
+		s.selections.Store(selections)
 	} else {
-		atomic.StorePointer(&s.selections, unsafe.Pointer(&emptySelection))
+		s.selections.Store(&emptySelection)
 	}
 }
 

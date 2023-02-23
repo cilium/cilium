@@ -15,8 +15,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -280,13 +280,13 @@ type Endpoint struct {
 	// This must only be accessed with atomic.LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
-	logger unsafe.Pointer
+	logger atomic.Pointer[logrus.Entry]
 
 	// policyLogger is a logrus object with fields set to report an endpoints information.
 	// This must only be accessed with atomic LoadPointer/StorePointer.
 	// 'mutex' must be Lock()ed to synchronize stores. No lock needs to be held
 	// when loading this pointer.
-	policyLogger unsafe.Pointer
+	policyLogger atomic.Pointer[logrus.Entry]
 
 	// controllers is the list of async controllers syncing the endpoint to
 	// other resources
