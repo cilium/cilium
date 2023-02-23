@@ -136,10 +136,6 @@ external software and protocols:
   Provide background on how the Cilium Endpoint package fits into the overall
   agent architecture, relationship with generation of policy / datapath
   constructs, serialization and restore from disk.
-- `@cilium/health <https://github.com/orgs/cilium/teams/health>`__:
-  Review any contributions that impact cluster-wide health probing via
-  periodic in-agent probes; bootstrapping of the simulated health 'endpoint'
-  that provides an IP and HTTP endpoint for network health probing.
 - `@cilium/ipcache <https://github.com/orgs/cilium/teams/ipcache>`__:
   Provide background on how the userspace IPCache structure fits into the
   overall agent architecture, ordering constraints with respect to network
@@ -168,6 +164,8 @@ external software and protocols:
 - `@cilium/sig-agent <https://github.com/orgs/cilium/teams/sig-agent>`__:
   Provide Cilium (agent) general Go review. Internal architecture, core data
   structures and daemon startup.
+- `@cilium/sig-bgp <https://github.com/orgs/cilium/teams/sig-bgp>`__:
+  Review changes to our BGP integration.
 - `@cilium/sig-clustermesh <https://github.com/orgs/cilium/teams/sig-clustermesh>`__:
   Ensure the reliability of state sharing between clusters to ensure that
   each cluster maintains a separate fault domain.
@@ -192,7 +190,7 @@ external software and protocols:
 - `@cilium/sig-lb <https://github.com/orgs/cilium/teams/sig-lb>`__:
   Maintain the layers necessary to coordinate all load balancing
   configurations within the agent control plane, including Services,
-  ClusterIP, NodePorts, Maglev, BGP export, local redirect policies, and
+  ClusterIP, NodePorts, Maglev, local redirect policies, and
   NAT46/NAT64.
 - `@cilium/sig-policy <https://github.com/orgs/cilium/teams/sig-policy>`__:
   Ensure consistency of semantics for all network policy representations.
