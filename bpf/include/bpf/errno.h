@@ -30,15 +30,6 @@
 #ifndef EADDRINUSE
 # define EADDRINUSE	98
 #endif
-#ifndef ECONNRESET
-# define ECONNRESET	104
-#endif
-#ifndef ENOTCONN
-# define ENOTCONN	107
-#endif
-#ifndef EHOSTUNREACH
-# define EHOSTUNREACH	113
-#endif
 #ifndef ENOTSUPP
 # define ENOTSUPP	524
 #endif

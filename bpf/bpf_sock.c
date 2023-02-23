@@ -203,7 +203,7 @@ sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
 	return NULL;
 wildcard_lookup:
 	key->address = 0;
-	return lb4_lookup_service(key, true, false);
+	return lb4_lookup_service(key, true, true);
 }
 #endif /* ENABLE_NODEPORT */
 
@@ -316,13 +316,11 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * service entries via wildcarded lookup for NodePort and
 	 * HostPort services.
 	 */
-	svc = lb4_lookup_service(&key, true, false);
+	svc = lb4_lookup_service(&key, true, true);
 	if (!svc)
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return -ENXIO;
-	if (svc->count == 0)
-		return -EHOSTUNREACH;
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
 				bpf_ntohs(dst_port));
@@ -396,7 +394,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		backend_slot = __lb4_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
-			return -EHOSTUNREACH;
+			return -ENOENT;
 		}
 
 		backend_id = backend_slot->backend_id;
@@ -405,7 +403,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (!backend) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-		return -EHOSTUNREACH;
+		return -ENOENT;
 	}
 
 	if (lb4_svc_is_localredirect(svc) &&
@@ -454,17 +452,10 @@ __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 __section("cgroup/connect4")
 int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
-	int err;
-
 	if (sock_is_health_check(ctx))
 		return __sock4_health_fwd(ctx);
 
-	err = __sock4_xlate_fwd(ctx, ctx, false);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
-		try_set_retval(err);
-		return SYS_REJECT;
-	}
-
+	__sock4_xlate_fwd(ctx, ctx, false);
 	return SYS_PROCEED;
 }
 
@@ -482,7 +473,7 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	    !ctx_in_hostns(ctx_full, NULL))
 		return 0;
 
-	svc = lb4_lookup_service(&key, true, false);
+	svc = lb4_lookup_service(&key, true, true);
 	if (!svc)
 		/* Perform a wildcard lookup for the case where the caller
 		 * tries to bind to loopback or an address with host identity
@@ -583,11 +574,11 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 			.dport		= val->port,
 		};
 
-		svc = lb4_lookup_service(&svc_key, true, false);
+		svc = lb4_lookup_service(&svc_key, true, true);
 		if (!svc)
 			svc = sock4_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx_full, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index || svc->count == 0) {
+		if (!svc || svc->rev_nat_index != val->rev_nat_index) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
@@ -606,14 +597,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 __section("cgroup/sendmsg4")
 int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
-	int err;
-
-	err = __sock4_xlate_fwd(ctx, ctx, true);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
-		try_set_retval(err);
-		return SYS_REJECT;
-	}
-
+	__sock4_xlate_fwd(ctx, ctx, true);
 	return SYS_PROCEED;
 }
 
@@ -756,7 +740,7 @@ sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
 	return NULL;
 wildcard_lookup:
 	memset(&key->address, 0, sizeof(key->address));
-	return lb6_lookup_service(key, true, false);
+	return lb6_lookup_service(key, true, true);
 }
 #endif /* ENABLE_NODEPORT */
 
@@ -851,7 +835,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 
 	ctx_get_v6_src_address(ctx, &key.address);
 
-	svc = lb6_lookup_service(&key, true, false);
+	svc = lb6_lookup_service(&key, true, true);
 	if (!svc) {
 		svc = sock6_wildcard_lookup(&key, false, false, true);
 		if (!svc)
@@ -984,13 +968,11 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	ctx_get_v6_address(ctx, &key.address);
 	memcpy(&orig_key, &key, sizeof(key));
 
-	svc = lb6_lookup_service(&key, true, false);
+	svc = lb6_lookup_service(&key, true, true);
 	if (!svc)
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
-	if (svc->count == 0)
-		return -EHOSTUNREACH;
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
 				bpf_ntohs(dst_port));
@@ -1033,7 +1015,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		backend_slot = __lb6_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
-			return -EHOSTUNREACH;
+			return -ENOENT;
 		}
 
 		backend_id = backend_slot->backend_id;
@@ -1042,7 +1024,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (!backend) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND);
-		return -EHOSTUNREACH;
+		return -ENOENT;
 	}
 
 	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
@@ -1099,17 +1081,10 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 __section("cgroup/connect6")
 int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
-	int err;
-
 	if (sock_is_health_check(ctx))
 		return __sock6_health_fwd(ctx);
 
-	err = __sock6_xlate_fwd(ctx, false);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
-		try_set_retval(err);
-		return SYS_REJECT;
-	}
-
+	__sock6_xlate_fwd(ctx, false);
 	return SYS_PROCEED;
 }
 
@@ -1165,11 +1140,11 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 			.dport		= val->port,
 		};
 
-		svc = lb6_lookup_service(&svc_key, true, false);
+		svc = lb6_lookup_service(&svc_key, true, true);
 		if (!svc)
 			svc = sock6_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index || svc->count == 0) {
+		if (!svc || svc->rev_nat_index != val->rev_nat_index) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
@@ -1189,14 +1164,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 __section("cgroup/sendmsg6")
 int cil_sock6_sendmsg(struct bpf_sock_addr *ctx)
 {
-	int err;
-
-	err = __sock6_xlate_fwd(ctx, true);
-	if (err == -EHOSTUNREACH || err == -ENOMEM) {
-		try_set_retval(err);
-		return SYS_REJECT;
-	}
-
+	__sock6_xlate_fwd(ctx, true);
 	return SYS_PROCEED;
 }
 
