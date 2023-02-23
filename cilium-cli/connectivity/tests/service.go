@@ -157,6 +157,13 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 				continue
 			}
 
+			// On GKE ExternalIP is not reachable from inside a cluster
+			if addr.Type == corev1.NodeExternalIP {
+				if f, ok := t.Context().Feature(check.FeatureFlavor); ok && f.Enabled && f.Mode == "gke" {
+					continue
+				}
+			}
+
 			// TODO(brb):
 			// Disable outside to nodeport via IPv6 when IPsec is enabled until
 			// https://github.com/cilium/cilium/issues/23461 has been resolved.
