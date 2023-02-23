@@ -23,15 +23,15 @@ func main() {
 		debugPort = "2345"
 	}
 
-	debugContinue, ok := os.LookupEnv("DEBUG_CONTINUE")
-	if !ok || debugContinue == "" {
-		debugContinue = "false"
+	debugContinue := true
+	if debugHold, ok := os.LookupEnv("DEBUG_HOLD"); ok && debugHold == "true" {
+		debugContinue = false
 	}
 
 	args := []string{
 		fmt.Sprintf("--listen=:%s", debugPort),
 		"--headless=true",
-		fmt.Sprintf("--continue=%s", debugContinue),
+		fmt.Sprintf("--continue=%t", debugContinue),
 		"--log=true",
 		"--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc",
 		"--accept-multiclient",
