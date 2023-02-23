@@ -29,6 +29,14 @@ jobs:
   ingress-conformance-test:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: Without XDP
+          bpf-lb-acceleration: disabled
+        - name: With XDP
+          bpf-lb-acceleration: native
     steps:
       - name: Checkout master branch to access local actions
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
@@ -121,7 +129,8 @@ jobs:
             --set operator.image.useDigest=false \
             --set securityContext.privileged=true \
             --set ingressController.enabled=true \
-            --set ingressController.loadbalancerMode=dedicated
+            --set ingressController.loadbalancerMode=dedicated \
+            --set extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
           kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
@@ -130,17 +139,26 @@ jobs:
           kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
           kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
 
-      # Run the quick sanity check
-      - name: Run Sanity check
+      - name: Create sample workload
         timeout-minutes: 5
         run: |
           kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
           kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
           kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
 
+      - name: Run Sanity check (external)
+        timeout-minutes: 5
+        run: |
           lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
+
+      - name: Run Sanity check (internal to NodePort)
+        timeout-minutes: 5
+        run: |
+          kubectl get service -A
+          node_port=$(kubectl get svc cilium-ingress-basic-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          minikube ssh "curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1"
 
       - name: Run Ingress conformance test
         timeout-minutes: 30
