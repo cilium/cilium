@@ -67,6 +67,10 @@ type Manager struct {
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
+	// policyConfigsBySourceIP stores slices of policy configs indexed by
+	// the policies' source/endpoint IPs
+	policyConfigsBySourceIP map[string][]*PolicyConfig
+
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
 
@@ -82,12 +86,13 @@ type Manager struct {
 // NewEgressGatewayManager returns a new Egress Gateway Manager.
 func NewEgressGatewayManager(k8sCacheSyncedChecker k8sCacheSyncedChecker, identityAlocator identityCache.IdentityAllocator, installRoutes bool) *Manager {
 	manager := &Manager{
-		k8sCacheSyncedChecker: k8sCacheSyncedChecker,
-		nodeDataStore:         make(map[string]nodeTypes.Node),
-		policyConfigs:         make(map[policyID]*PolicyConfig),
-		epDataStore:           make(map[endpointID]*endpointMetadata),
-		identityAllocator:     identityAlocator,
-		installRoutes:         installRoutes,
+		k8sCacheSyncedChecker:   k8sCacheSyncedChecker,
+		nodeDataStore:           make(map[string]nodeTypes.Node),
+		policyConfigs:           make(map[policyID]*PolicyConfig),
+		policyConfigsBySourceIP: make(map[string][]*PolicyConfig),
+		epDataStore:             make(map[endpointID]*endpointMetadata),
+		identityAllocator:       identityAlocator,
+		installRoutes:           installRoutes,
 	}
 
 	manager.runReconciliationAfterK8sSync()
@@ -254,6 +259,21 @@ func (manager *Manager) onChangeNodeLocked(e eventType) {
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
 		policy.updateMatchedEndpointIDs(manager.epDataStore)
+	}
+}
+
+func (manager *Manager) updatePoliciesBySourceIP() {
+	manager.policyConfigsBySourceIP = make(map[string][]*PolicyConfig)
+
+	for _, policy := range manager.policyConfigs {
+		for epID := range policy.matchedEndpointIDs {
+			if ep, ok := manager.epDataStore[epID]; ok {
+				for _, epIP := range ep.ips {
+					ip := epIP.String()
+					manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
+				}
+			}
+		}
 	}
 }
 
@@ -461,6 +481,9 @@ func (manager *Manager) reconcile(e eventType) {
 	switch e {
 	case eventUpdateEndpoint, eventDeleteEndpoint:
 		manager.updatePoliciesMatchedEndpointIDs()
+		manager.updatePoliciesBySourceIP()
+	case eventAddPolicy, eventDeletePolicy:
+		manager.updatePoliciesBySourceIP()
 	}
 
 	manager.regenerateGatewayConfigs()
