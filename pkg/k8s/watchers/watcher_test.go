@@ -172,10 +172,10 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 			c.Assert(ok, Equals, true)
 			switch policyRepositoryCalls {
 			case 0:
-				_, parsedEPs := k8s.ParseEndpoints(ep1stApply)
+				parsedEPs := k8s.ParseEndpoints(ep1stApply)
 				c.Assert(rt.Endpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
 			case 1:
-				_, parsedEPs := k8s.ParseEndpoints(ep2ndApply)
+				parsedEPs := k8s.ParseEndpoints(ep2ndApply)
 				c.Assert(rt.Endpoint.Backends, checker.DeepEquals, parsedEPs.Backends)
 			default:
 				c.Assert(policyRepositoryCalls, Not(Equals), 0, Commentf("policy repository was called more times than expected!"))

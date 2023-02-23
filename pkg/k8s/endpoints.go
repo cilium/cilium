@@ -18,6 +18,8 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -31,9 +33,15 @@ import (
 // frontend ports of the corresponding service.
 //
 // +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true
 type Endpoints struct {
+	types.UnserializableObject
+	slim_metav1.ObjectMeta
+
+	EndpointSliceID
+
 	// Backends is a map containing all backend IPs and ports. The key to
 	// the map is the backend IP in string form. The value defines the list
 	// of ports for that backend IP, plus an additional optional node name.
@@ -129,17 +137,21 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 	return prefixes
 }
 
-// ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
-func ParseEndpointsID(svc *slim_corev1.Endpoints) ServiceID {
-	return ServiceID{
-		Name:      svc.ObjectMeta.Name,
-		Namespace: svc.ObjectMeta.Namespace,
+// ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
+func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
+	return EndpointSliceID{
+		ServiceID: ServiceID{
+			Name:      ep.ObjectMeta.Name,
+			Namespace: ep.ObjectMeta.Namespace,
+		},
+		EndpointSliceName: ep.ObjectMeta.Name,
 	}
 }
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
+func ParseEndpoints(ep *slim_corev1.Endpoints) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
 
 	for _, sub := range ep.Subsets {
 		for _, addr := range sub.Addresses {
@@ -165,7 +177,8 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 		}
 	}
 
-	return ParseEndpointsID(ep), endpoints
+	endpoints.EndpointSliceID = ParseEndpointsID(ep)
+	return endpoints
 }
 
 type endpointSlice interface {
@@ -189,13 +202,15 @@ func ParseEndpointSliceID(es endpointSlice) EndpointSliceID {
 // ParseEndpointSliceV1Beta1 parses a Kubernetes EndpointsSlice v1beta1 resource
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
 	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
 	if ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv4 &&
 		ep.AddressType != slim_discovery_v1beta1.AddressTypeIPv6 {
-		return ParseEndpointSliceID(ep), endpoints
+		return endpoints
 	}
 
 	for _, sub := range ep.Endpoints {
@@ -250,8 +265,7 @@ func ParseEndpointSliceV1Beta1(ep *slim_discovery_v1beta1.EndpointSlice) (Endpoi
 			}
 		}
 	}
-
-	return ParseEndpointSliceID(ep), endpoints
+	return endpoints
 }
 
 // parseEndpointPortV1Beta1 returns the port name and the port parsed as a
@@ -284,13 +298,15 @@ func parseEndpointPortV1Beta1(port slim_discovery_v1beta1.EndpointPort) (string,
 // ParseEndpointSliceV1 parses a Kubernetes EndpointSlice resource.
 // It reads ready and terminating state of endpoints in the EndpointSlice to
 // return an EndpointSlice ID and a filtered list of Endpoints for service load-balancing.
-func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID, *Endpoints) {
+func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) *Endpoints {
 	endpoints := newEndpoints()
+	endpoints.ObjectMeta = ep.ObjectMeta
+	endpoints.EndpointSliceID = ParseEndpointSliceID(ep)
 
 	// Validate AddressType before parsing. Currently, we only support IPv4 and IPv6.
 	if ep.AddressType != slim_discovery_v1.AddressTypeIPv4 &&
 		ep.AddressType != slim_discovery_v1.AddressTypeIPv6 {
-		return ParseEndpointSliceID(ep), endpoints
+		return endpoints
 	}
 
 	log.Debugf("Processing %d endpoints for EndpointSlice %s", len(ep.Endpoints), ep.Name)
@@ -372,7 +388,7 @@ func ParseEndpointSliceV1(ep *slim_discovery_v1.EndpointSlice) (EndpointSliceID,
 	}
 
 	log.Debugf("EndpointSlice %s has %d backends", ep.Name, len(endpoints.Backends))
-	return ParseEndpointSliceID(ep), endpoints
+	return endpoints
 }
 
 // parseEndpointPortV1 returns the port name and the port parsed as a L4Addr from

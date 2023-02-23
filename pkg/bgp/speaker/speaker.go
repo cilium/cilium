@@ -181,7 +181,7 @@ func (s *MetalLBSpeaker) OnUpdateEndpoints(eps *slim_corev1.Endpoints) error {
 		return ErrShutDown
 	}
 	var (
-		svcID = k8s.ParseEndpointsID(eps)
+		svcID = k8s.ParseEndpointsID(eps).ServiceID
 		l     = log.WithFields(logrus.Fields{
 			"component":  "MetalLBSpeaker.OnUpdateEndpoints",
 			"service-id": svcID,
@@ -216,8 +216,9 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1(eps *slim_discover_v1.EndpointS
 		return ErrShutDown
 	}
 	var (
-		sliceID, _ = k8s.ParseEndpointSliceV1(eps)
-		l          = log.WithFields(logrus.Fields{
+		endpoints = k8s.ParseEndpointSliceV1(eps)
+		sliceID   = endpoints.EndpointSliceID
+		l         = log.WithFields(logrus.Fields{
 			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1",
 			"slice-id":  sliceID,
 		})
@@ -251,8 +252,9 @@ func (s *MetalLBSpeaker) OnUpdateEndpointSliceV1Beta1(eps *slim_discover_v1beta1
 		return ErrShutDown
 	}
 	var (
-		sliceID, _ = k8s.ParseEndpointSliceV1Beta1(eps)
-		l          = log.WithFields(logrus.Fields{
+		endpoints = k8s.ParseEndpointSliceV1Beta1(eps)
+		sliceID   = endpoints.EndpointSliceID
+		l         = log.WithFields(logrus.Fields{
 			"component": "MetalLBSpeaker.OnUpdateEndpointSliceV1Beta",
 			"slice-id":  sliceID,
 		})

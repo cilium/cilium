@@ -271,9 +271,11 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	}
 }
 
-func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCache) updateEndpoints(newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	esID := newEndpoints.EndpointSliceID
 
 	eps, ok := s.endpoints[esID.ServiceID]
 	if ok {
@@ -309,24 +311,18 @@ func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpo
 // be parsed and a bool to indicate whether the endpoints was changed in the
 // cache or not.
 func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	svcID, newEndpoints := ParseEndpoints(k8sEndpoints)
-	epSliceID := EndpointSliceID{
-		ServiceID:         svcID,
-		EndpointSliceName: k8sEndpoints.GetName(),
-	}
-	return s.updateEndpoints(epSliceID, newEndpoints, swg)
+	newEndpoints := ParseEndpoints(k8sEndpoints)
+	return s.updateEndpoints(newEndpoints, swg)
 }
 
 func (s *ServiceCache) UpdateEndpointSlicesV1(epSlice *slim_discovery_v1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	svcID, newEndpoints := ParseEndpointSliceV1(epSlice)
-
-	return s.updateEndpoints(svcID, newEndpoints, swg)
+	newEndpoints := ParseEndpointSliceV1(epSlice)
+	return s.updateEndpoints(newEndpoints, swg)
 }
 
 func (s *ServiceCache) UpdateEndpointSlicesV1Beta1(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
-	svcID, newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
-
-	return s.updateEndpoints(svcID, newEndpoints, swg)
+	newEndpoints := ParseEndpointSliceV1Beta1(epSlice)
+	return s.updateEndpoints(newEndpoints, swg)
 }
 
 func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
@@ -359,17 +355,12 @@ func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.Stoppabl
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
 func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
-	svcID := ParseEndpointsID(k8sEndpoints)
-	epSliceID := EndpointSliceID{
-		ServiceID:         svcID,
-		EndpointSliceName: k8sEndpoints.GetName(),
-	}
+	epSliceID := ParseEndpointsID(k8sEndpoints)
 	return s.deleteEndpoints(epSliceID, swg)
 }
 
 func (s *ServiceCache) DeleteEndpointSlices(epSlice endpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointSliceID(epSlice)
-
 	return s.deleteEndpoints(svcID, swg)
 }
 
