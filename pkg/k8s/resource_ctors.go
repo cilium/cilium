@@ -4,7 +4,13 @@
 package k8s
 
 import (
+	"fmt"
+	"sync"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/hive"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -12,6 +18,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
+	slim_discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -128,4 +136,87 @@ func CiliumCIDRGroupResource(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumCIDRGroup](lc, lw), nil
+}
+
+func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*Endpoints], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	optsModifier, err := utils.GetServiceListOptionsModifier(option.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	lw := &endpointsListerWatcher{cs: cs, optsModifier: optsModifier}
+	return resource.New[*Endpoints](
+		lc,
+		lw,
+		resource.WithLazyTransform(lw.getSourceObj, transformEndpoint),
+	), nil
+}
+
+// endpointsListerWatcher implements List and Watch for endpoints/endpointslices. It
+// performs the capability check on first call to List/Watch. This allows constructing
+// the resource before the client has been started and capabilities have been probed.
+type endpointsListerWatcher struct {
+	cs           client.Clientset
+	optsModifier func(*metav1.ListOptions)
+	sourceObj    k8sRuntime.Object
+
+	once                sync.Once
+	cachedListerWatcher cache.ListerWatcher
+}
+
+func (lw *endpointsListerWatcher) getSourceObj() k8sRuntime.Object {
+	lw.getListerWatcher() // force the construction
+	return lw.sourceObj
+}
+
+func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
+	lw.once.Do(func() {
+		if SupportsEndpointSlice() {
+			if SupportsEndpointSliceV1() {
+				log.Info("Using discoveryv1.EndpointSlice")
+				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
+					lw.cs.Slim().DiscoveryV1().EndpointSlices(""),
+				)
+				lw.sourceObj = &slim_discoveryv1.EndpointSlice{}
+			} else {
+				log.Info("Using discoveryv1beta1.EndpointSlice")
+				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1beta1.EndpointSliceList](
+					lw.cs.Slim().DiscoveryV1beta1().EndpointSlices(""),
+				)
+				lw.sourceObj = &slim_discoveryv1beta1.EndpointSlice{}
+			}
+		} else {
+			log.Info("Using v1.Endpoints")
+			lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_corev1.EndpointsList](
+				lw.cs.Slim().CoreV1().Endpoints(""),
+			)
+			lw.sourceObj = &slim_corev1.Endpoints{}
+		}
+		lw.cachedListerWatcher = utils.ListerWatcherWithModifier(lw.cachedListerWatcher, lw.optsModifier)
+	})
+	return lw.cachedListerWatcher
+}
+
+func (lw *endpointsListerWatcher) List(opts metav1.ListOptions) (k8sRuntime.Object, error) {
+	return lw.getListerWatcher().List(opts)
+}
+
+func (lw *endpointsListerWatcher) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+	return lw.getListerWatcher().Watch(opts)
+}
+
+func transformEndpoint(obj any) (any, error) {
+	switch obj := obj.(type) {
+	case *slim_corev1.Endpoints:
+		return ParseEndpoints(obj), nil
+	case *slim_discoveryv1.EndpointSlice:
+		return ParseEndpointSliceV1(obj), nil
+	case *slim_discoveryv1beta1.EndpointSlice:
+		return ParseEndpointSliceV1Beta1(obj), nil
+	default:
+		return nil, fmt.Errorf("%T not a known endpoint or endpoint slice object", obj)
+	}
 }
