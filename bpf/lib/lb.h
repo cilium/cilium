@@ -606,7 +606,7 @@ lb6_to_lb4_service(const struct lb6_service *svc __maybe_unused)
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key,
-	   const bool scope_switch, const bool check_svc_backends)
+				       const bool scope_switch)
 {
 	struct lb6_service *svc;
 
@@ -616,11 +616,10 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
-			return (svc->count || !check_svc_backends ||
-				lb6_svc_is_l7loadbalancer(svc)) ? svc : NULL;
+			return (svc->count || lb6_svc_is_l7loadbalancer(svc)) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
-		if (svc && (svc->count || !check_svc_backends || lb6_svc_is_l7loadbalancer(svc)))
+		if (svc && (svc->count || lb6_svc_is_l7loadbalancer(svc)))
 			return svc;
 	}
 
@@ -894,8 +893,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
 
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
@@ -972,7 +969,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (backend && !state->syn)
 			goto update_state;
 		key->backend_slot = 0;
-		svc = lb6_lookup_service(key, false, true);
+		svc = lb6_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
 		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
@@ -1049,7 +1046,7 @@ static __always_inline void lb6_ctx_restore_state(struct __ctx_buff *ctx,
  */
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
-	   const bool scope_switch __maybe_unused, const bool check_svc_backends __maybe_unused)
+				       const bool scope_switch __maybe_unused)
 {
 	return NULL;
 }
@@ -1279,7 +1276,7 @@ lb4_to_lb6_service(const struct lb4_service *svc __maybe_unused)
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key,
-				  const bool scope_switch, const bool check_svc_backends)
+				       const bool scope_switch)
 {
 	struct lb4_service *svc;
 
@@ -1289,11 +1286,11 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_two_scopes(svc))
 			/* Packets for L7 LB are redirected even when there are no backends. */
-			return (svc->count || !check_svc_backends || lb4_to_lb6_service(svc) ||
+			return (svc->count || lb4_to_lb6_service(svc) ||
 				lb4_svc_is_l7loadbalancer(svc)) ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
-		if (svc && (svc->count || !check_svc_backends || lb4_svc_is_l7loadbalancer(svc)))
+		if (svc && (svc->count || lb4_svc_is_l7loadbalancer(svc)))
 			return svc;
 	}
 
@@ -1591,9 +1588,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		.client_ip = saddr,
 	};
 #endif
-	if (unlikely(svc->count == 0))
-		return DROP_NO_SERVICE;
-
 	ret = ct_lookup4(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
 	switch (ret) {
 	case CT_NEW:
@@ -1680,7 +1674,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (backend && !state->syn)
 			goto update_state;
 		key->backend_slot = 0;
-		svc = lb4_lookup_service(key, false, true);
+		svc = lb4_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
 		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
