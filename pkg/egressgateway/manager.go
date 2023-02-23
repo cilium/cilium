@@ -346,10 +346,13 @@ nextIpRule:
 				return false
 			}
 
-			return ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
+			// no need to check also ipRule.Src.IP.Equal(endpointIP) as we are iterating
+			// over the slice of policies returned by the
+			// policyConfigsBySourceIP[ipRule.Src.IP.String()] map
+			return ipRule.Dst.String() == dstCIDR.String()
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
+		for _, policyConfig := range manager.policyConfigsBySourceIP[ipRule.Src.IP.String()] {
 			if policyConfig.matchesMinusExcludedCIDRs(manager.epDataStore, matchFunc) {
 				continue nextIpRule
 			}
@@ -447,7 +450,7 @@ nextPolicyKey:
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)
 		}
 
-		for _, policyConfig := range manager.policyConfigs {
+		for _, policyConfig := range manager.policyConfigsBySourceIP[policyKey.SourceIP.String()] {
 			if policyConfig.matches(manager.epDataStore, matchPolicy) {
 				continue nextPolicyKey
 			}
