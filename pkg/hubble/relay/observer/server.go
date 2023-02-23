@@ -304,7 +304,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		resp.SeenFlows += status.SeenFlows
 		// use the oldest uptime as a reference for the uptime as cumulating
 		// values would make little sense
-		if resp.UptimeNs == 0 || resp.UptimeNs > status.UptimeNs {
+		if resp.UptimeNs < status.UptimeNs {
 			resp.UptimeNs = status.UptimeNs
 		}
 	}
