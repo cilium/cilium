@@ -34,7 +34,7 @@ type datapath interface {
 	TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error)
 }
 
-// monitor is an interface not notify the monitor about changes to the ipcache
+// monitorNotify is an interface to notify the monitor about ipcache changes.
 type monitorNotify interface {
 	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
