@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"sync/atomic"
-	"unsafe"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
@@ -421,7 +420,7 @@ type L4Filter struct {
 	DerivedFromRules labels.LabelArrayList `json:"-"`
 
 	// This reference is circular, but it is cleaned up at Detach()
-	policy unsafe.Pointer // *L4Policy
+	policy atomic.Pointer[L4Policy]
 }
 
 // SelectsAllEndpoints returns whether the L4Filter selects all
@@ -590,7 +589,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 	//
 	// `l4.policy` is nil when the filter is detached so
 	// that we could not push updates on an unstable policy.
-	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
+	l4Policy := l4.policy.Load()
 	if l4Policy != nil {
 		direction := trafficdirection.Egress
 		if l4.Ingress {
@@ -834,7 +833,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 		}
 	}
 
-	atomic.StorePointer(&l4.policy, unsafe.Pointer(l4Policy))
+	l4.policy.Store(l4Policy)
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
