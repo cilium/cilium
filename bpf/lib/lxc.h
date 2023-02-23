@@ -18,7 +18,7 @@
 
 #define TEMPLATE_LXC_ID 0xffff
 
-#ifndef DISABLE_SIP_VERIFICATION
+#ifdef ENABLE_SIP_VERIFICATION
 static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
@@ -43,7 +43,7 @@ int is_valid_lxc_src_ipv4(const struct iphdr *ip4 __maybe_unused)
 	return 0;
 #endif
 }
-#else
+#else /* ENABLE_SIP_VERIFICATION */
 static __always_inline
 int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
 {
@@ -55,6 +55,6 @@ int is_valid_lxc_src_ipv4(struct iphdr *ip4 __maybe_unused)
 {
 	return 1;
 }
-#endif
+#endif /* ENABLE_SIP_VERIFICATION */
 
 #endif /* __LIB_LXC_H_ */
