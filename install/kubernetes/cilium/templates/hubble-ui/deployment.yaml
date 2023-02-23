@@ -13,6 +13,10 @@ spec:
   selector:
     matchLabels:
       k8s-app: hubble-ui
+  {{- with .Values.hubble.ui.updateStrategy }}
+  strategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
   template:
     metadata:
       annotations:
