@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -440,18 +441,29 @@ func (n *NodesPodCIDRManager) Delete(node *v2.CiliumNode) {
 func (n *NodesPodCIDRManager) Resync(context.Context, time.Time) {
 	n.Mutex.Lock()
 	if !n.canAllocatePodCIDRs {
-		n.canAllocatePodCIDRs = true
 		// Iterate over all nodes that we have kept stored up until Resync
 		// is called as now we are allowed to allocate podCIDRs for nodes
 		// without any podCIDR.
-		for _, cn := range n.nodesToAllocate {
+		for _, cn := range GetSortNodes(n.nodesToAllocate) {
 			n.update(cn)
 		}
 		n.nodesToAllocate = nil
+		n.canAllocatePodCIDRs = true
 	}
 	n.Mutex.Unlock()
 
 	n.k8sReSync.Trigger()
+}
+
+func GetSortNodes(cn map[string]*v2.CiliumNode) []*v2.CiliumNode {
+	var nodeList []*v2.CiliumNode
+	for _, v := range cn {
+		nodeList = append(nodeList, v)
+	}
+	sort.Slice(nodeList, func(i, j int) bool {
+		return len(nodeList[i].Spec.IPAM.PodCIDRs) > len(nodeList[j].Spec.IPAM.PodCIDRs)
+	})
+	return nodeList
 }
 
 // AllocateNode allocates the podCIDRs for the given node. Returns a DeepCopied
