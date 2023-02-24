@@ -338,11 +338,7 @@ skip_host_firewall:
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_meta(ctx, key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, info->tunnel_endpoint);
-#else
 		set_identity_meta(ctx, secctx);
-#endif
 	}
 #endif
 	return CTX_ACT_OK;
@@ -639,11 +635,7 @@ skip_vtep:
 		__u8 key = get_min_encrypt_key(info->key);
 
 		set_encrypt_key_meta(ctx, key);
-#ifdef IP_POOLS
-		set_encrypt_dip(ctx, info->tunnel_endpoint);
-#else
 		set_identity_meta(ctx, secctx);
-#endif
 	}
 #endif
 	return CTX_ACT_OK;
@@ -711,73 +703,9 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 #ifdef ENABLE_IPSEC
 #ifndef TUNNEL_MODE
 static __always_inline int
-do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
+do_netdev_encrypt(struct __ctx_buff *ctx __maybe_unused,
+		  __u32 src_id __maybe_unused)
 {
-	int ret = 0;
-#ifdef IP_POOLS
-	__u32 tunnel_endpoint = 0;
-	void *data, *data_end;
-	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
-	struct iphdr *iphdr;
-	__be32 sum;
-
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
-	ctx->mark = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	/* When IP_POOLS is enabled ip addresses are not
-	 * assigned on a per node basis so lacking node
-	 * affinity we can not use IP address to assign the
-	 * destination IP. Instead rewrite it here from cb[].
-	 */
-	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
-			sizeof(tunnel_endpoint), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
-			sizeof(tunnel_source), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-drop_err:
-#endif /* IP_POOLS */
-	return ret;
-}
-
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
-					     __u32 src_id)
-{
-	int ret;
-
-	ret = do_netdev_encrypt_pools(ctx);
-	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
-
 	return CTX_ACT_OK;
 }
 
