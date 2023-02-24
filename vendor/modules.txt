@@ -437,7 +437,7 @@ github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.22.3
 ## explicit; go 1.18
 github.com/go-openapi/swag
-# github.com/go-openapi/validate v0.22.0
+# github.com/go-openapi/validate v0.22.1
 ## explicit; go 1.14
 github.com/go-openapi/validate
 # github.com/gobuffalo/flect v0.2.3

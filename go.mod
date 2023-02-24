@@ -40,7 +40,7 @@ require (
 	github.com/go-openapi/spec v0.20.8
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/go-openapi/swag v0.22.3
-	github.com/go-openapi/validate v0.22.0
+	github.com/go-openapi/validate v0.22.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 	github.com/golang/protobuf v1.5.2
