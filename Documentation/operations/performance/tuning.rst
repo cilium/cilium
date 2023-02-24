@@ -360,6 +360,6 @@ queues can potentially vary in setup between different drivers.
 
 We generally also recommend to check various documentation and performance tuning
 guides from NIC vendors on this matter such as from
-`Mellanox <https://community.mellanox.com/s/article/performance-tuning-for-mellanox-adapters>`_,
+`Mellanox <https://enterprise-support.nvidia.com/s/article/performance-tuning-for-mellanox-adapters>`_,
 `Intel <https://www.intel.com/content/www/us/en/support/articles/000005811/network-and-i-o/ethernet-products.html>`_
 or others for more information.
