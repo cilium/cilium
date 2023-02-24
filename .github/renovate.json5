@@ -193,6 +193,12 @@
         "v1.12",
         "v1.11"
       ]
+    },
+    {
+      "matchDepNames": [
+        "golang.zx2c4.com/wireguard",
+      ],
+      "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
     }
   ],
   "kubernetes": {
