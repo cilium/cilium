@@ -1061,7 +1061,7 @@ func (ct *ConnectivityTest) waitForPodDNS(ctx context.Context, srcPod, dstPod Po
 		// See https://coredns.io/plugins/local/ for more info.
 		target := "localhost"
 		stdout, err := srcPod.K8sClient.ExecInPod(ctx, srcPod.Pod.Namespace, srcPod.Pod.Name,
-			"", []string{"nslookup", target, dstPod.Address(IPFamilyV4)})
+			"", []string{"nslookup", target, dstPod.Address(IPFamilyAny)})
 
 		if err == nil {
 			return nil
