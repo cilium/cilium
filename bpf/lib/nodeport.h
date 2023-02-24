@@ -902,6 +902,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_err)
 {
+	enum trace_reason __maybe_unused reason = TRACE_REASON_CT_REPLY;
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
 #endif
@@ -917,7 +918,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	__u32 monitor = 0;
+	__u32 monitor = TRACE_PAYLOAD_LEN;
+	__u32 tunnel_endpoint __maybe_unused = 0;
+	__u32 dst_id __maybe_unused = 0;
 	int ifindex = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -956,11 +959,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 
 			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 			if (info != NULL && info->tunnel_endpoint != 0) {
-				return __encap_with_nodeid(ctx, info->tunnel_endpoint,
-							   SECLABEL, info->sec_label,
-							   NOT_VTEP_DST,
-							   TRACE_REASON_CT_REPLY,
-							   monitor, &ifindex);
+				tunnel_endpoint = info->tunnel_endpoint;
+				dst_id = info->sec_label;
+				goto encap_redirect;
 			}
 		}
 #endif
@@ -993,6 +994,14 @@ out:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	return DROP_MISSED_TAIL_CALL;
+#ifdef TUNNEL_MODE
+encap_redirect:
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+				  NOT_VTEP_DST, reason, monitor, &ifindex);
+	if (ret == CTX_ACT_REDIRECT)
+		ctx_redirect(ctx, ifindex, 0);
+	return ret;
+#endif
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
@@ -1945,11 +1954,13 @@ out:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	return DROP_MISSED_TAIL_CALL;
-
-#if (defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE))
+#if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
 encap_redirect:
-	return __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
-				   NOT_VTEP_DST, reason, monitor, &ifindex);
+	ret = __encap_with_nodeid(ctx, tunnel_endpoint, SECLABEL, dst_id,
+				  NOT_VTEP_DST, reason, monitor, &ifindex);
+	if (ret == CTX_ACT_REDIRECT)
+		ctx_redirect(ctx, ifindex, 0);
+	return ret;
 #endif
 }
 
