@@ -36,18 +36,6 @@ get_epid(const struct __sk_buff *ctx)
 	return ctx->mark >> 16;
 }
 
-static __always_inline __maybe_unused void
-set_encrypt_dip(struct __sk_buff *ctx, __be32 ip_endpoint)
-{
-	ctx->cb[CB_ENCRYPT_DST] = ip_endpoint;
-}
-
-static __always_inline __maybe_unused __be32
-ctx_get_encrypt_dip(struct __sk_buff *ctx)
-{
-	return ctx->cb[CB_ENCRYPT_DST];
-}
-
 /**
  * set_identity_mark - pushes 24 bit identity into ctx mark value.
  */
