@@ -45,7 +45,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u32 seclabel)
 	 * to send ctx onto tunnel for encap.
 	 */
 	set_encrypt_key_mark(ctx, key);
-	set_identity_mark(ctx, seclabel);
+	set_identity_meta(ctx, seclabel);
 	return CTX_ACT_OK;
 }
 #endif /* ENABLE_IPSEC */

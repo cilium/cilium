@@ -548,7 +548,7 @@ pass_to_stack:
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
 #  ifdef ENABLE_IDENTITY_MARK
-		set_identity_mark(ctx, SECLABEL);
+		set_identity_meta(ctx, SECLABEL);
 #  endif /* ENABLE_IDENTITY_MARK */
 	} else
 # endif /* ENABLE_IPSEC */
@@ -1121,7 +1121,7 @@ pass_to_stack:
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
 #  ifdef ENABLE_IDENTITY_MARK
-		set_identity_mark(ctx, SECLABEL);
+		set_identity_meta(ctx, SECLABEL);
 #  endif
 	} else
 # endif /* ENABLE_IPSEC */
