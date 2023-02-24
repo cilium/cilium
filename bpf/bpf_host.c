@@ -141,8 +141,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 
 	if (from_host)
 		src_id = srcid_from_ipcache;
-	else if (src_id == WORLD_ID &&
-		 identity_from_ipcache_ok())
+	else if (identity_from_ipcache_ok())
 		src_id = srcid_from_ipcache;
 	return src_id;
 }
