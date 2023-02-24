@@ -683,7 +683,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 			tests.PodToWorld2(), // resolves cilium.io
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().Address(check.IPFamilyNone) == "cilium.io" {
+			if a.Destination().Address(check.IPFamilyAny) == "cilium.io" {
 				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
 					egress = check.ResultDNSOK
 					egress.HTTP = check.HTTP{
