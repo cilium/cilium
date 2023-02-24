@@ -8,7 +8,9 @@ cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --config monitor-aggregation=none \
-  --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
+  --ipv4-native-routing-cidr="${CLUSTER_CIDR}" \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s
 
 # Enable Relay
 cilium hubble enable
