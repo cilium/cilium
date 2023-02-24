@@ -321,7 +321,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock4_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return -ENXIO;
-	if (svc->count == 0)
+	if (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_FWD, dst_ip,
@@ -594,7 +594,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		if (!svc)
 			svc = sock4_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx_full, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index || svc->count == 0) {
+		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
+		    (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))) {
 			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
@@ -998,7 +999,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		svc = sock6_wildcard_lookup_full(&key, in_hostns);
 	if (!svc)
 		return sock6_xlate_v4_in_v6(ctx, udp_only);
-	if (svc->count == 0)
+	if (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))
 		return -EHOSTUNREACH;
 
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_FWD, &key.address,
@@ -1183,7 +1184,8 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		if (!svc)
 			svc = sock6_wildcard_lookup_full(&svc_key,
 						ctx_in_hostns(ctx, NULL));
-		if (!svc || svc->rev_nat_index != val->rev_nat_index || svc->count == 0) {
+		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
+		    (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))) {
 			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
