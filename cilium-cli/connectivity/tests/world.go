@@ -42,20 +42,20 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With http, over port 80.
-		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, check.IPFamilyNone).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(http, check.IPFamilyNone))
+		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, check.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(http, check.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyNone).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyNone))
+		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443, index.html.
-		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, check.IPFamilyNone).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, check.IPFamilyNone))
+		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, check.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, check.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
@@ -91,8 +91,8 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, check.IPFamilyNone).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyNone))
+		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
