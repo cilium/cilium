@@ -8,6 +8,11 @@ CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CNI_CONF_DIR=${CNI_CONF_DIR:-${HOST_PREFIX}/etc/cni/net.d}
 CILIUM_CUSTOM_CNI_CONF=${CILIUM_CUSTOM_CNI_CONF:-false}
 
+if [[ "$(cat /tmp/cilium/config-map/cni-uninstall 2>/dev/null || true)" != "true" ]]; then
+    echo "cni-uninstall disabled, not removing CNI configuration"
+    exit
+fi
+
 # Do not interact with the host's CNI directory when the user specified they
 # are managing CNI configs externally.
 if [ "${CILIUM_CUSTOM_CNI_CONF}" != "true" ]; then
