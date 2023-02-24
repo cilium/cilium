@@ -13,7 +13,7 @@ jobs:
   build_commits:
     name: Check if build works for every commit
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Configure git
         run: |
