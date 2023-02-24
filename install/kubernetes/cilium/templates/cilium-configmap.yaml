@@ -641,6 +641,9 @@ data:
 {{- else if .Values.cni.readCniConf }}
   read-cni-conf: {{ .Values.cni.readCniConf }}
 {{- end }}
+{{- if .Values.cni.uninstall }}
+  cni-uninstall: {{ .Values.cni.uninstall | quote }}
+{{- end }}
 {{- if .Values.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
 {{- end }}
