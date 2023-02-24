@@ -59,7 +59,7 @@ jobs:
       - name: Run pre-requisites for validation
         run: |
           make -C Documentation copy-api # necessary for check-build.sh
-      - uses: docker://cilium/docs-builder:2023-02-04@sha256:67c383332f63708fc40f3d12b0ffff8ec94a9a83d1b819dbe23b226ef076e6f2
+      - uses: docker://cilium/docs-builder:2023-02-24@sha256:2f5689df73c3e6090c5c83bcd546a35c44e40b1d770dae9044c0b4c2966b45fd
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
