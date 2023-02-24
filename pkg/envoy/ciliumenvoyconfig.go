@@ -365,7 +365,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			if err != nil || port == 0 {
 				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)
 			}
-			listener.Address = getListenerAddress(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
+			listener.Address, listener.AdditionalAddresses = getLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			if resources.portAllocations == nil {
 				resources.portAllocations = make(map[string]uint16)
 			}
