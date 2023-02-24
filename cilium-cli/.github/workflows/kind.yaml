@@ -60,7 +60,9 @@ jobs:
             --version=${{ env.cilium_version }} \
             --wait=false \
             --config monitor-aggregation=none \
-            --helm-set cni.chainingMode=portmap
+            --helm-set cni.chainingMode=portmap \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set tls.secretsBackend=k8s
 
       - name: Enable Relay
         run: |
@@ -85,7 +87,10 @@ jobs:
 
       - name: Install Cilium with IPsec Encryption
         run: |
-          cilium install --version=${{ env.cilium_version}} --encryption=ipsec --kube-proxy-replacement=disabled
+          cilium install \
+          --version=${{ env.cilium_version}} \
+          --encryption=ipsec \
+          --kube-proxy-replacement=disabled
 
       - name: Enable Relay
         run: |
