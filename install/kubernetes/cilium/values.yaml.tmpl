@@ -371,6 +371,12 @@ cni:
   # -- Install the CNI configuration and binary files into the filesystem.
   install: true
 
+  # -- Remove the CNI configuration and binary files on agent shutdown. Enable this
+  # if you're removing Cilium from the cluster. Disable this to prevent the CNI
+  # configuration file from being removed during agent upgrade, which can cause
+  # nodes to go unmanageable.
+  uninstall: true
+
   # -- Configure chaining on top of other CNI plugins. Possible values:
   #  - none
   #  - aws-cni
