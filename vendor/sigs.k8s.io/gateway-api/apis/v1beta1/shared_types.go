@@ -29,6 +29,9 @@ import (
 // be registered in the cluster for this reference to be valid.
 type ParentReference struct {
 	// Group is the group of the referent.
+	// When unspecified, "gateway.networking.k8s.io" is inferred.
+	// To set the core API group (such as for a "Service" kind referent),
+	// Group must be explicitly set to "" (empty string).
 	//
 	// Support: Core
 	//
@@ -40,14 +43,20 @@ type ParentReference struct {
 	//
 	// Support: Core (Gateway)
 	//
-	// Support: Custom (Other Resources)
+	// Support: Implementation-specific (Other Resources)
 	//
 	// +kubebuilder:default=Gateway
 	// +optional
 	Kind *Kind `json:"kind,omitempty"`
 
-	// Namespace is the namespace of the referent. When unspecified (or empty
-	// string), this refers to the local namespace of the Route.
+	// Namespace is the namespace of the referent. When unspecified, this refers
+	// to the local namespace of the Route.
+	//
+	// Note that there are specific rules for ParentRefs which cross namespace
+	// boundaries. Cross-namespace references are only valid if they are explicitly
+	// allowed by something in the namespace they are referring to. For example:
+	// Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+	// generic way to enable any other kind of cross-namespace reference.
 	//
 	// Support: Core
 	//
@@ -137,6 +146,12 @@ type CommonRouteSpec struct {
 	// case, the list of routes attached to those resources should also be
 	// merged.
 	//
+	// Note that for ParentRefs that cross namespace boundaries, there are specific
+	// rules. Cross-namespace references are only valid if they are explicitly
+	// allowed by something in the namespace they are referring to. For example,
+	// Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+	// generic way to enable any other kind of cross-namespace reference.
+	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=32
 	ParentRefs []ParentReference `json:"parentRefs,omitempty"`
@@ -198,6 +213,11 @@ const (
 	//
 	// * "NotAllowedByListeners"
 	// * "NoMatchingListenerHostname"
+	// * "UnsupportedValue"
+	//
+	// Possible reasons for this condition to be Unknown are:
+	//
+	// * "Pending"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
@@ -217,9 +237,19 @@ const (
 	// compatible Listeners whose Hostname matches the route
 	RouteReasonNoMatchingListenerHostname RouteConditionReason = "NoMatchingListenerHostname"
 
+	// This reason is used with the "Accepted" condition when there are
+	// no matching Parents. In the case of Gateways, this can occur when
+	// a Route ParentRef specifies a Port and/or SectionName that does not
+	// match any Listeners in the Gateway.
+	RouteReasonNoMatchingParent RouteConditionReason = "NoMatchingParent"
+
 	// This reason is used with the "Accepted" condition when a value for an Enum
 	// is not recognized.
 	RouteReasonUnsupportedValue RouteConditionReason = "UnsupportedValue"
+
+	// This reason is used with the "Accepted" when a controller has not yet
+	// reconciled the route.
+	RouteReasonPending RouteConditionReason = "Pending"
 
 	// This condition indicates whether the controller was able to resolve all
 	// the object references for the Route.
@@ -333,9 +363,9 @@ type RouteStatus struct {
 // Hostname is the fully qualified domain name of a network host. This matches
 // the RFC 1123 definition of a hostname with 2 notable exceptions:
 //
-// 1. IPs are not allowed.
-// 2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard
-//    label must appear by itself as the first label.
+//  1. IPs are not allowed.
+//  2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard
+//     label must appear by itself as the first label.
 //
 // Hostname can be "precise" which is a domain name without the terminating
 // dot of a network host (e.g. "foo.example.com") or "wildcard", which is a
@@ -372,7 +402,7 @@ type PreciseHostname string
 // Valid values include:
 //
 // * "" - empty string implies core Kubernetes API group
-// * "networking.k8s.io"
+// * "gateway.networking.k8s.io"
 // * "foo.example.com"
 //
 // Invalid values include:
@@ -506,8 +536,8 @@ type AnnotationValue string
 // The `NamedAddress` value has been deprecated in favor of implementation
 // specific domain-prefixed strings.
 //
-// All other values, including domain-prefixed values have Custom support, which
-// are used in implementation-specific behaviors. Support for additional
+// All other values, including domain-prefixed values have Implementation-specific support,
+// which are used in implementation-specific behaviors. Support for additional
 // predefined CamelCase identifiers may be added in future releases.
 //
 // +kubebuilder:validation:MinLength=1
@@ -543,6 +573,6 @@ const (
 	// The `NamedAddress` type has been deprecated in favor of implementation
 	// specific domain-prefixed strings.
 	//
-	// Support: Implementation-Specific
+	// Support: Implementation-specific
 	NamedAddressType AddressType = "NamedAddress"
 )

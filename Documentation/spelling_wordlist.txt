@@ -253,6 +253,7 @@ certgen
 certmanager
 certsVolume
 cgroup
+cgroups
 chainingMode
 changelog
 cheatsheet
@@ -878,6 +879,7 @@ runPath
 runtime
 runtimes
 sEventHandover
+sNetworkPolicy
 sNode
 sNodes
 sService
@@ -1058,6 +1060,7 @@ virtIO
 virtio
 virtualbox
 virtualization
+virtualized
 vlan
 vlanBypass
 vmlinux

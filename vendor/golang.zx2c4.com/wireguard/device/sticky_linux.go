@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  *
  * This implements userspace semantics of "sticky sockets", modeled after
  * WireGuard's kernelspace implementation. This is more or less a straight port
@@ -204,7 +204,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 }
 
 func createNetlinkRouteSocket() (int, error) {
-	sock, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW, unix.NETLINK_ROUTE)
+	sock, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW|unix.SOCK_CLOEXEC, unix.NETLINK_ROUTE)
 	if err != nil {
 		return -1, err
 	}

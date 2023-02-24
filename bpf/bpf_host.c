@@ -94,24 +94,6 @@ static __always_inline bool identity_from_ipcache_ok(void)
 #endif
 
 #ifdef ENABLE_IPV6
-static __always_inline __u32
-derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
-{
-	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
-		/* Read initial 4 bytes of header and then extract flowlabel */
-		__u32 *tmp = (__u32 *) ip6;
-		*identity = bpf_ntohl(*tmp & IPV6_FLOWLABEL_MASK);
-
-		/* A remote node will map any HOST_ID source to be presented as
-		 * REMOTE_NODE_ID, therefore any attempt to signal HOST_ID as
-		 * source from a remote node can be dropped.
-		 */
-		if (*identity == HOST_ID)
-			return DROP_INVALID_IDENTITY;
-	}
-	return 0;
-}
-
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline __u32
 ipcache_lookup_srcid6(struct __ctx_buff *ctx)
@@ -143,19 +125,9 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *src;
-	int ret;
 
 	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip6, !from_host))
 		return DROP_INVALID;
-
-	if (!from_host) {
-		union v6addr node_ip = {};
-
-		BPF_V6(node_ip, ROUTER_IP);
-		ret = derive_src_id(&node_ip, ip6, &src_id);
-		if (IS_ERR(ret))
-			return ret;
-	}
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
@@ -239,13 +211,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-#ifndef ENABLE_HOST_ROUTING
-	/* See the equivalent v4 path for comments */
-	if (!from_host)
-		return CTX_ACT_OK;
-#endif /* !ENABLE_HOST_ROUTING */
-
 skip_host_firewall:
+/*
+ * Perform SRv6 Decap if incoming skb is a known SID.
+ * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
+ * the remaining path potentially erroneous.
+ *
+ * Perform this before the ENABLE_HOST_ROUTING check as the decap is not dependent
+ * on this feature being enabled or not.
+ */
 #ifdef ENABLE_SRV6
 	if (!from_host) {
 		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
@@ -257,6 +231,12 @@ skip_host_firewall:
 		}
 	}
 #endif /* ENABLE_SRV6 */
+
+#ifndef ENABLE_HOST_ROUTING
+	/* See the equivalent v4 path for comments */
+	if (!from_host)
+		return CTX_ACT_OK;
+#endif /* !ENABLE_HOST_ROUTING */
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
@@ -727,31 +707,20 @@ do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 	 */
 	sum = csum_diff(&iphdr->daddr, sizeof(__u32), &tunnel_endpoint,
 			sizeof(tunnel_endpoint), 0);
+	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
+			sizeof(tunnel_source), sum);
+
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
 	    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
-		ret = DROP_CSUM_L3;
-		goto drop_err;
-	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &iphdr)) {
-		ret = DROP_INVALID;
-		goto drop_err;
-	}
-
-	sum = csum_diff(&iphdr->saddr, sizeof(__u32), &tunnel_source,
-			sizeof(tunnel_source), 0);
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
 	    &tunnel_source, sizeof(tunnel_source), 0) < 0) {
 		ret = DROP_WRITE_ERROR;
 		goto drop_err;
 	}
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-	    0, sum, 0) < 0) {
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0) {
 		ret = DROP_CSUM_L3;
 		goto drop_err;
 	}

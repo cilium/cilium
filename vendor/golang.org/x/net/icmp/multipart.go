@@ -33,7 +33,7 @@ func multipartMessageBodyDataLen(proto int, withOrigDgram bool, b []byte, exts [
 }
 
 // multipartMessageOrigDatagramLen takes b as an original datagram,
-// and returns a required length for a padded orignal datagram in wire
+// and returns a required length for a padded original datagram in wire
 // format.
 func multipartMessageOrigDatagramLen(proto int, b []byte) int {
 	roundup := func(b []byte, align int) int {

@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -14,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -144,6 +144,22 @@ func validateGateway(ctx context.Context, c client.Client, hr *gatewayv1beta1.HT
 				httpRouteAcceptedCondition(hr, false, "HTTPRoute is not allowed"),
 			})
 			continue
+		}
+
+		if parent.Port != nil {
+			found := false
+			for _, listener := range gw.Spec.Listeners {
+				if listener.Port == *parent.Port {
+					found = true
+					break
+				}
+			}
+			if !found {
+				mergeHTTPRouteStatusConditions(hr, parent, []metav1.Condition{
+					httpNoMatchingListenerPortCondition(hr, fmt.Sprintf("No matching listener with port %d", *parent.Port)),
+				})
+				continue
+			}
 		}
 
 		if len(computeHosts(gw, hr)) == 0 {

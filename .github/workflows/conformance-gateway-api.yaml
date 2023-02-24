@@ -21,9 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.12
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.12.13
   minikube_version: 1.28.0
-  gateway_api_version: v0.5.1
+  gateway_api_version: v0.6.0
   timeout: 5m
 
 jobs:
@@ -32,7 +33,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -58,7 +59,7 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -93,9 +94,9 @@ jobs:
       - name: Install Gateway API CRDs
         run: |
           # Install Gateway CRDs
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_gatewayclasses.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_gateways.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/standard/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gatewayclasses.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gateways.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_referencegrants.yaml
 
           # To make sure that Gateway API CRs are available
@@ -124,7 +125,8 @@ jobs:
             --set securityContext.privileged=true \
             --set gatewayAPI.enabled=true
 
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
+          kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
 
           # To make sure that cilium envoy CRs are available
           kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
@@ -133,7 +135,12 @@ jobs:
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
-          GATEWAY_API_CONFORMANCE_TESTS=1 go test -v ./operator/pkg/gateway-api --gateway-class cilium --debug -test.run "TestConformance"
+          GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            -p 4 \
+            -v ./operator/pkg/gateway-api \
+            --gateway-class cilium \
+            --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump \
+            -test.run "TestConformance"
 
       - name: Post-test information gathering
         if: ${{ !success() }}

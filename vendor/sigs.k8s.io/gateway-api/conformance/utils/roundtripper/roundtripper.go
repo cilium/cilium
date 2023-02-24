@@ -25,7 +25,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"regexp"
-	"time"
+
+	"sigs.k8s.io/gateway-api/conformance/utils/config"
 )
 
 // RoundTripper is an interface used to make requests within conformance tests.
@@ -36,11 +37,12 @@ type RoundTripper interface {
 
 // Request is the primary input for making a request.
 type Request struct {
-	URL      url.URL
-	Host     string
-	Protocol string
-	Method   string
-	Headers  map[string][]string
+	URL              url.URL
+	Host             string
+	Protocol         string
+	Method           string
+	Headers          map[string][]string
+	UnfollowRedirect bool
 }
 
 // CapturedRequest contains request metadata captured from an echoserver
@@ -56,18 +58,28 @@ type CapturedRequest struct {
 	Pod       string `json:"pod"`
 }
 
+// RedirectRequest contains a follow up request metadata captured from a redirect
+// response.
+type RedirectRequest struct {
+	Scheme   string
+	Hostname string
+	Port     string
+}
+
 // CapturedResponse contains response metadata.
 type CapturedResponse struct {
-	StatusCode    int
-	ContentLength int64
-	Protocol      string
-	Headers       map[string][]string
+	StatusCode      int
+	ContentLength   int64
+	Protocol        string
+	Headers         map[string][]string
+	RedirectRequest *RedirectRequest
 }
 
 // DefaultRoundTripper is the default implementation of a RoundTripper. It will
 // be used if a custom implementation is not specified.
 type DefaultRoundTripper struct {
-	Debug bool
+	Debug         bool
+	TimeoutConfig config.TimeoutConfig
 }
 
 // CaptureRoundTrip makes a request with the provided parameters and returns the
@@ -78,11 +90,17 @@ func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedReques
 	cReq := &CapturedRequest{}
 	client := http.DefaultClient
 
+	if request.UnfollowRedirect {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+
 	method := "GET"
 	if request.Method != "" {
 		method = request.Method
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), d.TimeoutConfig.RequestTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, request.URL.String(), nil)
 	if err != nil {
@@ -142,7 +160,35 @@ func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedReques
 		Headers:       resp.Header,
 	}
 
+	if IsRedirect(resp.StatusCode) {
+		redirectURL, err := resp.Location()
+		if err != nil {
+			return nil, nil, err
+		}
+		cRes.RedirectRequest = &RedirectRequest{
+			Scheme:   redirectURL.Scheme,
+			Hostname: redirectURL.Hostname(),
+			Port:     redirectURL.Port(),
+		}
+	}
+
 	return cReq, cRes, nil
+}
+
+// IsRedirect returns true if a given status code is a redirect code.
+func IsRedirect(statusCode int) bool {
+	switch statusCode {
+	case http.StatusMultipleChoices,
+		http.StatusMovedPermanently,
+		http.StatusFound,
+		http.StatusSeeOther,
+		http.StatusNotModified,
+		http.StatusUseProxy,
+		http.StatusTemporaryRedirect,
+		http.StatusPermanentRedirect:
+		return true
+	}
+	return false
 }
 
 var startLineRegex = regexp.MustCompile(`(?m)^`)

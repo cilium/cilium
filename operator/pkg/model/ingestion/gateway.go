@@ -71,38 +71,56 @@ func GatewayAPI(input Input) []model.HTTPListener {
 					}
 				}
 
-				var requestHeaderFilter *model.HTTPRequestHeaderFilter
+				var requestHeaderFilter *model.HTTPHeaderFilter
+				var responseHeaderFilter *model.HTTPHeaderFilter
+				var requestRedirectFilter *model.HTTPRequestRedirectFilter
 				if len(rule.Filters) > 0 {
 					for _, f := range rule.Filters {
 						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier {
-							requestHeaderFilter = &model.HTTPRequestHeaderFilter{
+							requestHeaderFilter = &model.HTTPHeaderFilter{
 								HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
 								HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
 								HeadersToRemove: f.RequestHeaderModifier.Remove,
 							}
+						}
+
+						if f.Type == gatewayv1beta1.HTTPRouteFilterResponseHeaderModifier {
+							responseHeaderFilter = &model.HTTPHeaderFilter{
+								HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+								HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+								HeadersToRemove: f.ResponseHeaderModifier.Remove,
+							}
+						}
+
+						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestRedirect {
+							requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
 						}
 					}
 				}
 
 				if len(rule.Matches) == 0 {
 					routes = append(routes, model.HTTPRoute{
-						Hostnames:           computedHost,
-						Backends:            bes,
-						DirectResponse:      dr,
-						RequestHeaderFilter: requestHeaderFilter,
+						Hostnames:              computedHost,
+						Backends:               bes,
+						DirectResponse:         dr,
+						RequestHeaderFilter:    requestHeaderFilter,
+						ResponseHeaderModifier: responseHeaderFilter,
+						RequestRedirect:        requestRedirectFilter,
 					})
 				}
 
 				for _, match := range rule.Matches {
 					routes = append(routes, model.HTTPRoute{
-						Hostnames:           computedHost,
-						PathMatch:           toPathMatch(match),
-						HeadersMatch:        toHeaderMatch(match),
-						QueryParamsMatch:    toQueryMatch(match),
-						Method:              (*string)(match.Method),
-						Backends:            bes,
-						DirectResponse:      dr,
-						RequestHeaderFilter: requestHeaderFilter,
+						Hostnames:              computedHost,
+						PathMatch:              toPathMatch(match),
+						HeadersMatch:           toHeaderMatch(match),
+						QueryParamsMatch:       toQueryMatch(match),
+						Method:                 (*string)(match.Method),
+						Backends:               bes,
+						DirectResponse:         dr,
+						RequestHeaderFilter:    requestHeaderFilter,
+						ResponseHeaderModifier: responseHeaderFilter,
+						RequestRedirect:        requestRedirectFilter,
 					})
 				}
 			}
@@ -128,6 +146,30 @@ func GatewayAPI(input Input) []model.HTTPListener {
 	}
 
 	return res
+}
+
+func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
+	if redirect == nil {
+		return nil
+	}
+	var pathModifier *model.StringMatch
+	if redirect.Path != nil {
+		pathModifier = &model.StringMatch{}
+
+		switch redirect.Path.Type {
+		case gatewayv1beta1.FullPathHTTPPathModifier:
+			pathModifier.Exact = *redirect.Path.ReplaceFullPath
+		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
+			pathModifier.Prefix = *redirect.Path.ReplacePrefixMatch
+		}
+	}
+	return &model.HTTPRequestRedirectFilter{
+		Scheme:     redirect.Scheme,
+		Hostname:   (*string)(redirect.Hostname),
+		Path:       pathModifier,
+		Port:       (*int32)(redirect.Port),
+		StatusCode: redirect.StatusCode,
+	}
 }
 
 func filterRoute(gw gatewayv1beta1.Gateway, listener gatewayv1beta1.Listener, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {

@@ -33,6 +33,8 @@ The documentation is divided into the following sections:
 * :ref:`dev_guide` : Gives background to those looking to develop and contribute
   modifications to the Cilium code or documentation.
 
+* :ref:`security_root` : Provides a one-page resource of best practices for securing Cilium.
+
 A `hands-on tutorial <https://cilium.io/enterprise/#trainings>`_
 in a live environment is also available for users looking for a way to quickly
 get started and experiment with Cilium.
@@ -88,9 +90,10 @@ get started and experiment with Cilium.
    :maxdepth: 2
    :caption: Security
 
+   security/index
    security/network/index
    security/policy/index
-   security/tutorial-toc
+   security/restrict-pod-access
 
 .. toctree::
    :maxdepth: 2

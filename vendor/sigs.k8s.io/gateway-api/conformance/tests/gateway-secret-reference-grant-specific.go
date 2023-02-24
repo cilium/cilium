@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -33,29 +33,29 @@ func init() {
 
 var GatewaySecretReferenceGrantSpecific = suite.ConformanceTest{
 	ShortName:   "GatewaySecretReferenceGrantSpecific",
-	Description: "A Gateway in the gateway-conformance-infra namespace should become ready if the Gateway has a certificateRef for a Secret in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to the specific Secret exists",
+	Description: "A Gateway in the gateway-conformance-infra namespace should become programmed if the Gateway has a certificateRef for a Secret in the gateway-conformance-web-backend namespace and a ReferenceGrant granting permission to the specific Secret exists",
 	Features:    []suite.SupportedFeature{suite.SupportReferenceGrant},
 	Manifests:   []string{"tests/gateway-secret-reference-grant-specific.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		gwNN := types.NamespacedName{Name: "gateway-secret-reference-grant", Namespace: "gateway-conformance-infra"}
 
-		t.Run("Gateway listener should have a true ResolvedRefs condition and a true Ready condition", func(t *testing.T) {
-			listeners := []v1alpha2.ListenerStatus{{
-				Name: v1alpha2.SectionName("https"),
-				SupportedKinds: []v1alpha2.RouteGroupKind{{
-					Group: (*v1alpha2.Group)(&v1alpha2.GroupVersion.Group),
-					Kind:  v1alpha2.Kind("HTTPRoute"),
+		t.Run("Gateway listener should have a true ResolvedRefs condition and a true Programmed condition", func(t *testing.T) {
+			listeners := []v1beta1.ListenerStatus{{
+				Name: v1beta1.SectionName("https"),
+				SupportedKinds: []v1beta1.RouteGroupKind{{
+					Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
+					Kind:  v1beta1.Kind("HTTPRoute"),
 				}},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(v1alpha2.ListenerConditionReady),
+						Type:   string(v1beta1.ListenerConditionProgrammed),
 						Status: metav1.ConditionTrue,
-						Reason: string(v1alpha2.ListenerReasonReady),
+						Reason: string(v1beta1.ListenerReasonProgrammed),
 					},
 				},
 			}}
 
-			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, gwNN, listeners, 60)
+			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 		})
 	},
 }

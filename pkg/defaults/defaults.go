@@ -345,7 +345,7 @@ const (
 	EnableEndpointRoutes = false
 
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
-	// enabled by default to annotate kubernetes node and can be disabled using
+	// disabled by default to annotate kubernetes node and can be enabled using
 	// the provided option.
 	AnnotateK8sNode = false
 
@@ -530,6 +530,9 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy = true
 )
 
 var (

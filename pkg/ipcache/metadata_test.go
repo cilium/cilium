@@ -134,7 +134,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
-	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.LabelKubeAPIServer)
+	assert.NotContains(t, IPIdentityCache.metadata.m[worldPrefix].ToLabels(), labels.IDNameKubeAPIServer)
 	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 }
 

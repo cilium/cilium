@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -156,7 +157,8 @@ type Daemon struct {
 	datapath datapath.Datapath
 
 	// nodeDiscovery defines the node discovery logic of the agent
-	nodeDiscovery *nodediscovery.NodeDiscovery
+	nodeDiscovery  *nodediscovery.NodeDiscovery
+	nodeLocalStore node.LocalNodeStore
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
@@ -407,6 +409,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	wgAgent *wg.Agent,
 	clientset k8sClient.Clientset,
 	sharedResources k8s.SharedResources,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+	nodeLocalStore node.LocalNodeStore,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -547,6 +552,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		datapath:          dp,
 		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
+		nodeLocalStore:    nodeLocalStore,
 		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
@@ -603,7 +609,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr); err != nil {
+	if err := d.initPolicy(epMgr, certManager, secretManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
@@ -1182,17 +1188,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			logfields.V6CiliumHostIP: node.GetIPv6Router(),
 		}).Info("Annotating k8s node")
 
-		err := k8s.AnnotateNode(
+		_, err := k8s.AnnotateNode(
 			clientset,
 			nodeTypes.GetName(),
-			encryptKeyID,
-			node.GetIPv4AllocRange(), node.GetIPv6AllocRange(),
-			node.GetEndpointHealthIPv4(), node.GetEndpointHealthIPv6(),
-			node.GetIngressIPv4(), node.GetIngressIPv6(),
-			node.GetInternalIPv4Router(), node.GetIPv6Router())
+			d.nodeLocalStore.Get().Node,
+			encryptKeyID)
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
+
 		bootstrapStats.k8sInit.End(true)
 	} else if !option.Config.AnnotateK8sNode {
 		log.Debug("Annotate k8s node is disabled.")

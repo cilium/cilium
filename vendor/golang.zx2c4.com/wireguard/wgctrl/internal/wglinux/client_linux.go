@@ -14,7 +14,6 @@ import (
 	"github.com/mdlayher/netlink/nlenc"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/internal/wginternal"
-	"golang.zx2c4.com/wireguard/wgctrl/internal/wglinux/internal/wgh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -36,12 +35,20 @@ func New() (*Client, bool, error) {
 		return nil, false, err
 	}
 
+	// Best effort version of netlink.Config.Strict due to CentOS 7.
+	for _, o := range []netlink.ConnOption{
+		netlink.ExtendedAcknowledge,
+		netlink.GetStrictCheck,
+	} {
+		_ = c.SetOption(o, true)
+	}
+
 	return initClient(c)
 }
 
 // initClient is the internal Client constructor used in some tests.
 func initClient(c *genetlink.Conn) (*Client, bool, error) {
-	f, err := c.GetFamily(wgh.GenlName)
+	f, err := c.GetFamily(unix.WG_GENL_NAME)
 	if err != nil {
 		_ = c.Close()
 
@@ -102,14 +109,14 @@ func (c *Client) Device(name string) (*wgtypes.Device, error) {
 	// Fetching a device by interface index is possible as well, but we only
 	// support fetching by name as it seems to be more convenient in general.
 	b, err := netlink.MarshalAttributes([]netlink.Attribute{{
-		Type: wgh.DeviceAIfname,
+		Type: unix.WGDEVICE_A_IFNAME,
 		Data: nlenc.Bytes(name),
 	}})
 	if err != nil {
 		return nil, err
 	}
 
-	msgs, err := c.execute(wgh.CmdGetDevice, netlink.Request|netlink.Dump, b)
+	msgs, err := c.execute(unix.WG_CMD_GET_DEVICE, netlink.Request|netlink.Dump, b)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +136,7 @@ func (c *Client) ConfigureDevice(name string, cfg wgtypes.Config) error {
 		// Request acknowledgement of our request from netlink, even though the
 		// output messages are unused.  The netlink package checks and trims the
 		// status code value.
-		if _, err := c.execute(wgh.CmdSetDevice, netlink.Request|netlink.Acknowledge, attrs); err != nil {
+		if _, err := c.execute(unix.WG_CMD_SET_DEVICE, netlink.Request|netlink.Acknowledge, attrs); err != nil {
 			return err
 		}
 	}
@@ -143,7 +150,7 @@ func (c *Client) execute(command uint8, flags netlink.HeaderFlags, attrb []byte)
 	msg := genetlink.Message{
 		Header: genetlink.Header{
 			Command: command,
-			Version: wgh.GenlVersion,
+			Version: unix.WG_GENL_VERSION,
 		},
 		Data: attrb,
 	}

@@ -1174,8 +1174,6 @@ for instructions.
 Deny Policies
 =============
 
-.. include:: ../../beta.rst
-
 Deny policies, available and enabled by default since Cilium 1.9, allows to
 explicitly restrict certain traffic to and from a Pod.
 
@@ -1241,43 +1239,13 @@ Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
-Limitations and known issues
-----------------------------
+Previous limitations and known issues
+-------------------------------------
 
-Deny policies for peers outside the cluster may be ineffectual due to
-:gh-issue:`15198`.
-
-One example of this would be a deny policy with ``toEntities`` "world" for
-which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
-considered external to the cluster.
-
-.. code-block:: yaml
-
-  apiVersion: "cilium.io/v2"
-  kind: CiliumNetworkPolicy
-  metadata:
-    name: "deny-egress-to-world"
-  spec:
-    endpointSelector:
-      matchLabels:
-        k8s-app.guestbook: web
-    egressDeny:
-    - toEntities:
-      - "world"
-    egress:
-      - toEndpoints:
-        - matchLabels:
-            "k8s:io.kubernetes.pod.namespace": kube-system
-            "k8s:k8s-app": kube-dns
-        toPorts:
-          - ports:
-             - port: "53"
-               protocol: ANY
-            rules:
-              dns:
-                - matchPattern: "*"
-      - toFQDNs:
-          - matchName: "www.google.com"
+For Cilium versions prior to 1.14 deny-policies for peers outside the cluster
+sometimes did not work because of :gh-issue:`15198`.  Make sure that you are
+using version 1.14 or later if you are relying on deny policies to manage
+external traffic to your cluster.
 
 .. _HostPolicies:
 

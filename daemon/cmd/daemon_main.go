@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -387,7 +388,7 @@ func initializeFlags() {
 	flags.Uint(option.HTTPRetryTimeout, 0, "Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)")
 	option.BindEnv(Vp, option.HTTPRetryTimeout)
 
-	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
+	flags.Uint(option.ProxyConnectTimeout, 2, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(Vp, option.ProxyConnectTimeout)
 
 	flags.Uint(option.ProxyGID, 1337, "Group ID for proxy control plane sockets.")
@@ -783,9 +784,6 @@ func initializeFlags() {
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
 
-	flags.String(option.CertsDirectory, defaults.CertsDirectory, "Root directory to find certificates specified in L7 TLS policy enforcement")
-	option.BindEnv(Vp, option.CertsDirectory)
-
 	flags.Int(option.CTMapEntriesGlobalAnyName, option.CTMapEntriesGlobalAnyDefault, "Maximum number of entries in non-TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalAnyName, "CILIUM_GLOBAL_CT_MAX_ANY")
 
@@ -1091,6 +1089,10 @@ func initializeFlags() {
 
 	flags.Duration(option.IPAMCiliumNodeUpdateRate, 15*time.Second, "Maximum rate at which the CiliumNode custom resource is updated")
 	option.BindEnv(Vp, option.IPAMCiliumNodeUpdateRate)
+
+	flags.Bool(option.EnableK8sNetworkPolicy, defaults.EnableK8sNetworkPolicy, "Enable support for K8s NetworkPolicy")
+	flags.MarkHidden(option.EnableK8sNetworkPolicy)
+	option.BindEnv(Vp, option.EnableK8sNetworkPolicy)
 
 	if err := Vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
@@ -1658,6 +1660,8 @@ type daemonParams struct {
 	SharedResources k8s.SharedResources
 	NodeManager     nodeManager.NodeManager
 	EndpointManager endpointmanager.EndpointManager
+	CertManager     certificatemanager.CertificateManager
+	SecretManager   certificatemanager.SecretManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1686,7 +1690,10 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.Datapath,
 				params.WGAgent,
 				params.Clientset,
-				params.SharedResources)
+				params.SharedResources,
+				params.CertManager,
+				params.SecretManager,
+				params.LocalNodeStore)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -2024,6 +2031,9 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 
 	// /debuginfo
 	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
+
+	// /cgroup-dump-metadata
+	restAPI.DaemonGetCgroupDumpMetadataHandler = NewGetCgroupDumpMetadataHandler(d)
 
 	// /map
 	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)

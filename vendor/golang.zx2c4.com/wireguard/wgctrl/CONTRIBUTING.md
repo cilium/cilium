@@ -1,5 +1,4 @@
-Contributing
-============
+# Contributing
 
 The `wgctrl` project makes use of the [GitHub Flow](https://guides.github.com/introduction/flow/)
 for contributions.

@@ -1,0 +1,36 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: invalid-reference-grant
+  namespace: gateway-conformance-app-backend
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: gateway-conformance-infra
+  to:
+    - group: ""
+      kind: Service
+      name: app-backend-v1
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: invalid-reference-grant
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: "/v2"
+    backendRefs:
+    - name: app-backend-v2
+      namespace: gateway-conformance-app-backend
+      port: 8080
+  - backendRefs:
+    - name: app-backend-v1
+      namespace: gateway-conformance-app-backend
+      port: 8080

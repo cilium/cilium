@@ -595,6 +595,10 @@ ingressController:
   # This will automatically set enable-envoy-config as well.
   enabled: false
 
+  # -- Set cilium ingress controller to be the default ingress controller
+  # This will let cilium ingress controller route entries without ingress class set
+  default: false
+
   # -- Default ingress load balancer mode
   # Supported values: shared, dedicated
   # For granular control, use the following annotations on the ingress resource
@@ -726,6 +730,10 @@ endpointRoutes:
   # -- Enable use of per endpoint routes instead of routing via
   # the cilium_host interface.
   enabled: false
+
+k8sNetworkPolicy:
+  # -- Enable support for K8s NetworkPolicy
+  enabled: true
 
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
@@ -1329,6 +1337,8 @@ hubble:
 
     # -- hubble-ui service configuration.
     service:
+      # -- Annotations to be added for the Hubble UI service
+      annotations: {}
       # --- The type of service used for Hubble UI access, either ClusterIP or NodePort.
       type: ClusterIP
       # --- The port to use when the service type is set to NodePort.
@@ -1892,8 +1902,8 @@ operator:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
+      maxSurge: 25%
+      maxUnavailable: 50%
 
   # -- Affinity for cilium-operator
   affinity:

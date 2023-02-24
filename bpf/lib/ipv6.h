@@ -8,13 +8,6 @@
 
 #include "dbg.h"
 
-#define IPV6_FLOWINFO_MASK              bpf_htonl(0x0FFFFFFF)
-#define IPV6_FLOWLABEL_MASK             bpf_htonl(0x000FFFFF)
-#define IPV6_FLOWLABEL_STATELESS_FLAG   bpf_htonl(0x00080000)
-
-#define IPV6_TCLASS_MASK (IPV6_FLOWINFO_MASK & ~IPV6_FLOWLABEL_MASK)
-#define IPV6_TCLASS_SHIFT       20
-
 /* Number of extension headers that can be skipped */
 #define IPV6_MAX_HEADERS 4
 
@@ -131,18 +124,6 @@ static __always_inline void ipv6_addr_clear_suffix(union v6addr *addr,
 	addr->p4 &= GET_PREFIX(prefix);
 }
 
-static __always_inline int ipv6_match_prefix_64(const union v6addr *addr,
-						const union v6addr *prefix)
-{
-	int tmp;
-
-	tmp = addr->p1 - prefix->p1;
-	if (!tmp)
-		tmp = addr->p2 - prefix->p2;
-
-	return !tmp;
-}
-
 static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
 {
 	__u8 hl;
@@ -216,24 +197,6 @@ static __always_inline int ipv6_store_paylen(struct __ctx_buff *ctx, int off,
 {
 	return ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, payload_len),
 			       len, sizeof(*len), 0);
-}
-
-static __always_inline int ipv6_store_flowlabel(struct __ctx_buff *ctx, int off,
-						__be32 label)
-{
-	__be32 old;
-
-	/* use traffic class from packet */
-	if (ctx_load_bytes(ctx, off, &old, 4) < 0)
-		return DROP_INVALID;
-
-	old &= IPV6_TCLASS_MASK;
-	old = bpf_htonl(0x60000000) | label | old;
-
-	if (ctx_store_bytes(ctx, off, &old, 4, BPF_F_RECOMPUTE_CSUM) < 0)
-		return DROP_WRITE_ERROR;
-
-	return 0;
 }
 
 static __always_inline __be32 ipv6_pseudohdr_checksum(struct ipv6hdr *hdr,

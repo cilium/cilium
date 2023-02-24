@@ -201,9 +201,12 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+  enable-envoy-config: "true"
+{{- end }}
+
 {{- if .Values.ingressController.enabled }}
   enable-ingress-controller: "true"
-  enable-envoy-config: "true"
   enforce-ingress-https: {{ .Values.ingressController.enforceHttps | quote }}
   enable-ingress-secrets-sync: {{ .Values.ingressController.secretsNamespace.sync | quote }}
   ingress-secrets-namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
@@ -214,7 +217,6 @@ data:
 
 {{- if .Values.gatewayAPI.enabled }}
   enable-gateway-api: "true"
-  enable-envoy-config: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
 {{- end }}
@@ -222,7 +224,6 @@ data:
 {{- if hasKey .Values "loadBalancer" }}
 {{- if eq .Values.loadBalancer.l7.backend "envoy" }}
   loadbalancer-l7: "envoy"
-  enable-envoy-config: "true"
   loadbalancer-l7-ports: {{ .Values.loadBalancer.l7.ports | join " " | quote }}
   loadbalancer-l7-algorithm: {{ .Values.loadBalancer.l7.algorithm | quote }}
 {{- end }}
@@ -699,6 +700,9 @@ data:
 {{- end }}
 {{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
+{{- end }}
+{{- if and .Values.k8sNetworkPolicy .Values.k8sNetworkPolicy.enabled }}
+  enable-k8s-networkpolicy: {{ .Values.k8sNetworkPolicy.enabled | quote }}
 {{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}

@@ -42,6 +42,14 @@ func (h *icmpHandler) Status() string {
 	return h.context.Status()
 }
 
+func (h *icmpHandler) Context() *api.ContextOptions {
+	return h.context
+}
+
+func (h *icmpHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.icmp.MetricVec}
+}
+
 func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	l4 := flow.GetL4()
 	if l4 == nil {

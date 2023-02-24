@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
  */
 
 package ipc
@@ -9,8 +9,7 @@ import (
 	"net"
 
 	"golang.org/x/sys/windows"
-
-	"golang.zx2c4.com/wireguard/ipc/winpipe"
+	"golang.zx2c4.com/wireguard/ipc/namedpipe"
 )
 
 // TODO: replace these with actual standard windows error numbers from the win package
@@ -61,10 +60,9 @@ func init() {
 }
 
 func UAPIListen(name string) (net.Listener, error) {
-	config := winpipe.ListenConfig{
+	listener, err := (&namedpipe.ListenConfig{
 		SecurityDescriptor: UAPISecurityDescriptor,
-	}
-	listener, err := winpipe.Listen(`\\.\pipe\ProtectedPrefix\Administrators\WireGuard\`+name, &config)
+	}).Listen(`\\.\pipe\ProtectedPrefix\Administrators\WireGuard\` + name)
 	if err != nil {
 		return nil, err
 	}

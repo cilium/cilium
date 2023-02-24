@@ -93,10 +93,6 @@ const (
 	// BPFRoot is the Path to BPF filesystem
 	BPFRoot = "bpf-root"
 
-	// CertsDirectory is the root directory used to find out certificates used
-	// in L7 HTTPs policy enforcement.
-	CertsDirectory = "certificates-directory"
-
 	// CGroupRoot is the path to Cgroup2 filesystem
 	CGroupRoot = "cgroup-root"
 
@@ -1134,6 +1130,9 @@ const (
 	// IPAMCiliumnodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate = "ipam-cilium-node-update-rate"
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy = "enable-k8s-networkpolicy"
 )
 
 // Default string arguments
@@ -2067,10 +2066,6 @@ type DaemonConfig struct {
 	// control plane, e.g. when using the managed etcd feature
 	EnableWellKnownIdentities bool
 
-	// CertsDirectory is the root directory to be used by cilium to find
-	// certificates locally.
-	CertDirectory string
-
 	// EnableRemoteNodeIdentity enables use of the remote-node identity
 	EnableRemoteNodeIdentity bool
 
@@ -2319,6 +2314,9 @@ type DaemonConfig struct {
 	// IPAMCiliumNodeUpdateRate is the maximum rate at which the CiliumNode custom
 	// resource is updated.
 	IPAMCiliumNodeUpdateRate time.Duration
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy bool
 }
 
 var (
@@ -2365,9 +2363,10 @@ var (
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
 
-		ExternalClusterIP:     defaults.ExternalClusterIP,
-		EnableVTEP:            defaults.EnableVTEP,
-		EnableBGPControlPlane: defaults.EnableBGPControlPlane,
+		ExternalClusterIP:      defaults.ExternalClusterIP,
+		EnableVTEP:             defaults.EnableVTEP,
+		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
+		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
 	}
 )
 
@@ -2605,6 +2604,11 @@ func (c *DaemonConfig) AgentNotReadyNodeTaintValue() string {
 	} else {
 		return defaults.AgentNotReadyNodeTaint
 	}
+}
+
+// K8sNetworkPolicyEnabled returns true if cilium agent needs to support K8s NetworkPolicy, false otherwise.
+func (c *DaemonConfig) K8sNetworkPolicyEnabled() bool {
+	return c.EnableK8sNetworkPolicy
 }
 
 // K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
@@ -2853,7 +2857,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableL2NeighDiscovery = vp.GetBool(EnableL2NeighDiscovery)
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
-	c.CertDirectory = vp.GetString(CertsDirectory)
 	c.CGroupRoot = vp.GetString(CGroupRoot)
 	c.ClusterID = vp.GetUint32(ClusterIDName)
 	c.ClusterName = vp.GetString(ClusterName)
@@ -3373,6 +3376,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		}
 	}
 	c.EnvoySecretNamespaces = nsList
+
+	// To support K8s NetworkPolicy
+	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
 }
 
 func (c *DaemonConfig) additionalMetrics() []string {

@@ -59,7 +59,7 @@ endif
 
 CONSUL_IMAGE=consul:1.7.2
 
-GO ?= go
+export GO ?= go
 
 # go build/test/clean flags
 # these are declared here so they are treated explicitly

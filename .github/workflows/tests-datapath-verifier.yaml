@@ -84,7 +84,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -105,6 +105,23 @@ jobs:
             src:
               - 'bpf/**'
               - 'test/verifier/**'
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: check_changes
+    steps:
+    - name: Set commit status to success
+      uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+      with:
+        authToken: ${{ secrets.GITHUB_TOKEN }}
+        sha: ${{ steps.vars.outputs.sha }}
+        context: ${{ github.workflow }}
+        description: Datapath BPF Complexity tests skipped
+        state: success
+        target_url: ${{ env.check_url }}
 
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
@@ -155,7 +172,7 @@ jobs:
           target_url: ${{ env.check_url }}
 
       - name: Checkout pull request
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false

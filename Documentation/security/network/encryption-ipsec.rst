@@ -38,7 +38,7 @@ value is an IPSec configuration in the following format::
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
     In our example, we use ``kube-system``.
 
-In the example below, GMC-128-AES is used. However, any of the algorithms
+In the example below, GCM-128-AES is used. However, any of the algorithms
 supported by Linux may be used. To generate the secret, you may use the
 following command:
 

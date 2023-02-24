@@ -24,12 +24,12 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	// We only need to run on 4.9 with kube-proxy and net-next with KPR
+	// We only need to run on 4.19 with kube-proxy and net-next with KPR
 	// and the third node. Other CI jobs are not expected to increase
 	// code coverage.
 	//
 	// For GKE coverage, see the K8sPolicyTestExtended Describe block below.
-	return helpers.RunsOnGKE() || helpers.RunsOn419Kernel() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
+	return helpers.RunsOnGKE() || helpers.RunsOn54Kernel() || helpers.RunsOnAKS()
 }, "K8sAgentPolicyTest", func() {
 
 	var (
@@ -1469,7 +1469,7 @@ var _ = SkipDescribeIf(func() bool {
 // two cases for that feature:
 //   - kube-apiserver running within the cluster (Vagrant VMs)
 //   - kube-apiserver running outside of the cluster (GKE)
-var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrLaterKernel,
+var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 	"K8sPolicyTestExtended", func() {
 		var (
 			kubectl *helpers.Kubectl

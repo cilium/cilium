@@ -104,12 +104,16 @@ Rollout both the agent pods and the operator pods to make the changes effective:
 Compatibility with cloud environments
 -------------------------------------
 
+EKS's ENI mode
+~~~~~~~~~~~~~~
+
 Based on the specific configuration of the cloud provider and network interfaces
-it is possible that traffic leaves a node from the wrong interface.
+it is possible that traffic leaves a node from the wrong interface. This happens in 
+particular on EKS in ENI mode.
 
 To work around this issue, Cilium can be instructed to install the necessary IP
 rules and routes to route traffic through the appropriate network-facing
-interface as follow:
+interface as follows:
 
 .. tabs::
     .. group-tab:: Helm
@@ -204,6 +208,20 @@ One or more IPv4 destination CIDRs can be specified with ``destinationCIDRs``:
     Any IP belonging to these ranges which is also an internal cluster IP (e.g.
     pods, nodes, Kubernetes API server) will be excluded from the egress gateway
     SNAT logic.
+
+It's possible to specify exceptions to the ``destinationCIDRs`` list with
+``excludedCIDRs``:
+
+.. code-block:: yaml
+
+    destinationCIDRs:
+    - "a.b.0.0/16"
+    excludedCIDRs:
+    - "a.b.c.0/24"
+
+In this case traffic destined to the ``a.b.0.0/16`` CIDR, except for the
+``a.b.c.0/24`` destination, will go through egress gateway and leave the cluster
+with the designated egress IP.
 
 Selecting and configuring the gateway node
 ------------------------------------------

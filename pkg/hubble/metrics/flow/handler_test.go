@@ -128,4 +128,5 @@ func TestFlowHandler(t *testing.T) {
 		assert.Equal(t, "verdict", *metric.Label[5].Name)
 		assert.Equal(t, "DROPPED", *metric.Label[5].Value)
 	})
+
 }

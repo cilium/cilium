@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -92,14 +92,14 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.tag }}
 
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
-        uses: actions/cache@6998d139ddd3e68c71e9e398d8e40b71a2f39812 # v3.2.5
+        uses: actions/cache@69d9d449aced6a2ede0bc19182fadc3a0a42d2b0 # v3.2.6
         id: cache
         with:
           path: /tmp/.cache/${{ matrix.name }}
@@ -175,7 +175,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:c1b4d66c0e1b08e95a1834df676cd1ccd2ec7b74@sha256:63d850f1cd7e7b8e82c86bba844199ae7a405616e5449834135438984569a93c
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:b11a6777dec1d4096dacd3fd1b94090c62133192@sha256:b2a3bf605efb9b89d6684fabb76d841bc9d7a85555ba5bdf7945409334df1779
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -293,7 +293,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:c1b4d66c0e1b08e95a1834df676cd1ccd2ec7b74@sha256:63d850f1cd7e7b8e82c86bba844199ae7a405616e5449834135438984569a93c
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:b11a6777dec1d4096dacd3fd1b94090c62133192@sha256:b2a3bf605efb9b89d6684fabb76d841bc9d7a85555ba5bdf7945409334df1779
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}

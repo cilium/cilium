@@ -42,6 +42,14 @@ func (h *portDistributionHandler) Status() string {
 	return h.context.Status()
 }
 
+func (h *portDistributionHandler) Context() *api.ContextOptions {
+	return h.context
+}
+
+func (h *portDistributionHandler) ListMetricVec() []*prometheus.MetricVec {
+	return []*prometheus.MetricVec{h.portDistribution.MetricVec}
+}
+
 func (h *portDistributionHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
 	// if we are not certain if a flow is a reply (i.e. flow.GetIsReply() == nil)
 	// we do not want to consider its destination port for the metric
