@@ -90,14 +90,14 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 
 			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, check.EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, check.IPFamilyNone).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyNone))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, check.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyAny))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 					// Because the HostPort request is NATed, we might only
 					// observe flows after DNAT has been applied (e.g. by
 					// HostReachableServices),
-					AltDstIP:   echo.Address(check.IPFamilyNone),
+					AltDstIP:   echo.Address(check.IPFamilyAny),
 					AltDstPort: echo.Port(),
 				}))
 			})
