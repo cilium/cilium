@@ -11,6 +11,8 @@ CONTEXT2=$(kubectl config view | grep "${CLUSTER_NAME_2}" | head -1 | awk '{prin
 cilium install \
   --version "${CILIUM_VERSION}" \
   --context "${CONTEXT1}" \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --cluster-name "${CLUSTER_NAME_1}" \
   --cluster-id 1 \
   --config monitor-aggregation=none \
@@ -20,6 +22,8 @@ cilium install \
 cilium install \
   --version "${CILIUM_VERSION}" \
   --context "${CONTEXT2}" \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --cluster-name "${CLUSTER_NAME_2}" \
   --cluster-id 2 \
   --config monitor-aggregation=none \

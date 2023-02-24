@@ -10,6 +10,8 @@ cilium install \
   --wait=false \
   --config monitor-aggregation=none \
   --datapath-mode=tunnel \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --ipam cluster-pool
 
 # Enable Relay

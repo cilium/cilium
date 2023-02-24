@@ -8,6 +8,8 @@ cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --wait=false \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --config monitor-aggregation=none
 
 # Enable Relay
