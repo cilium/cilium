@@ -49,8 +49,8 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyNone).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyNone))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyAny))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
@@ -179,8 +179,8 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 			// Create the Action with the original svc as this will influence what the
 			// flow matcher looks for in the flow logs.
-			t.NewAction(s, name, pod, svc, check.IPFamilyNone).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, t.Context().CurlCommand(ep, check.IPFamilyNone))
+			t.NewAction(s, name, pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, t.Context().CurlCommand(ep, check.IPFamilyAny))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					// The fact that curl is hitting the NodePort instead of the
