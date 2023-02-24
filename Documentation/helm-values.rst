@@ -425,6 +425,10 @@
      - Configure the log file for CNI logging with retention policy of 7 days. Disable CNI file logging by setting this field to empty explicitly.
      - string
      - ``"/var/run/cilium/cilium-cni.log"``
+   * - cni.uninstall
+     - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
+     - bool
+     - ``true``
    * - conntrackGCInterval
      - Configure how frequently garbage collection should occur for the datapath connection tracking table.
      - string
