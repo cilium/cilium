@@ -6,6 +6,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/version"
@@ -415,12 +417,10 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 	}
 }
 
-type getHealthz struct {
-	daemon *Daemon
-}
-
-func NewGetHealthzHandler(d *Daemon) GetHealthzHandler {
-	return &getHealthz{daemon: d}
+func getHealthzHandler(d *Daemon, params GetHealthzParams) middleware.Responder {
+	brief := params.Brief != nil && *params.Brief
+	sr := d.getStatus(brief)
+	return NewGetHealthzOK().WithPayload(&sr)
 }
 
 func (d *Daemon) getNodeStatus() *models.ClusterStatus {
@@ -433,26 +433,20 @@ func (d *Daemon) getNodeStatus() *models.ClusterStatus {
 	return &clusterStatus
 }
 
-func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
-	brief := params.Brief != nil && *params.Brief
-	sr := h.daemon.getStatus(brief)
-
-	return NewGetHealthzOK().WithPayload(&sr)
-}
-
 type getNodes struct {
-	d *Daemon
 	// mutex to protect the clients map against concurrent access
 	lock.RWMutex
 	// clients maps a client ID to a clusterNodesClient
 	clients map[int64]*clusterNodesClient
 }
 
-func NewGetClusterNodesHandler(d *Daemon) GetClusterNodesHandler {
-	return &getNodes{
-		d:       d,
+func NewGetClusterNodesHandler(dp promise.Promise[*Daemon]) *apiHandler[GetClusterNodesParams] {
+	h := &apiHandler[GetClusterNodesParams]{dp: dp}
+	gn := &getNodes{
 		clients: map[int64]*clusterNodesClient{},
 	}
+	h.handler = gn.Handle
+	return h
 }
 
 // clientGCTimeout is the time for which the clients are kept. After timeout
@@ -521,23 +515,58 @@ func (c *clusterNodesClient) NodeConfigurationChanged(config datapath.LocalNodeC
 	return nil
 }
 
-func (h *getNodes) cleanupClients() {
+func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
+	// no-op
+	return false
+}
+
+func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
+	// no-op
+	return
+}
+
+func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
+	// no-op
+	return
+}
+
+func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
+	// no-op
+	return 0
+}
+
+func (c *clusterNodesClient) GetNodeIP(_ uint16) string {
+	// no-op
+	return ""
+}
+
+func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
+	// no-op
+	return nil
+}
+
+func (c *clusterNodesClient) RestoreNodeIDs() {
+	// no-op
+	return
+}
+
+func (h *getNodes) cleanupClients(d *Daemon) {
 	past := time.Now().Add(-clientGCTimeout)
 	for k, v := range h.clients {
 		if v.lastSync.Before(past) {
-			h.d.nodeDiscovery.Manager.Unsubscribe(v)
+			d.nodeDiscovery.Manager.Unsubscribe(v)
 			delete(h.clients, k)
 		}
 	}
 }
 
-func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
+func (h *getNodes) Handle(d *Daemon, params GetClusterNodesParams) middleware.Responder {
 	var cns *models.ClusterNodeStatus
 	// If ClientID is not set then we send all nodes, otherwise we will store
 	// the client ID in the list of clients and we subscribe this new client
 	// to the list of clients.
 	if params.ClientID == nil {
-		ns := h.d.getNodeStatus()
+		ns := d.getNodeStatus()
 		cns = &models.ClusterNodeStatus{
 			Self:       ns.Self,
 			NodesAdded: ns.Nodes,
@@ -559,7 +588,7 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 		// clientID 0.
 		_, exists := h.clients[clientID]
 		if exists || clientID == 0 {
-			ns := h.d.getNodeStatus()
+			ns := d.getNodeStatus()
 			cns = &models.ClusterNodeStatus{
 				ClientID:   0,
 				Self:       ns.Self,
@@ -574,10 +603,10 @@ func (h *getNodes) Handle(params GetClusterNodesParams) middleware.Responder {
 				Self:     nodeTypes.GetAbsoluteNodeName(),
 			},
 		}
-		h.d.nodeDiscovery.Manager.Subscribe(c)
+		d.nodeDiscovery.Manager.Subscribe(c)
 
 		// Clean up other clients before adding a new one
-		h.cleanupClients()
+		h.cleanupClients(d)
 		h.clients[clientID] = c
 	}
 	c.Lock()
