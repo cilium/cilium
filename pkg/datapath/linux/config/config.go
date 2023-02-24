@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -527,14 +526,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if err == nil {
 				cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 			}
-		}
-		// If we are using EKS or AKS IPAM modes, we should use IP_POOLS
-		// datapath as the pod subnets will be auto-discovered later at
-		// runtime.
-		if option.Config.IPAM == ipamOption.IPAMENI ||
-			option.Config.IPAM == ipamOption.IPAMAzure ||
-			option.Config.IsPodSubnetsDefined() {
-			cDefinesMap["IP_POOLS"] = "1"
 		}
 	}
 
