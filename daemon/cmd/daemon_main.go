@@ -23,10 +23,8 @@ import (
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
-	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
-	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1593,6 +1591,7 @@ var daemonCell = cell.Module(
 
 	cell.Provide(newDaemonPromise),
 	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
+	cell.Provide(ciliumAPIHandlers),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
@@ -1655,17 +1654,11 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 			}
 			daemon = d
 
+			if !option.Config.DryMode {
+				startDaemon(daemon, restoredEndpoints, cleaner, params)
+			}
 			daemonResolver.Resolve(daemon)
 
-			// Start running the daemon in the background (blocks on API server's Serve()) to allow rest
-			// of the start hooks to run.
-			if !option.Config.DryMode {
-				wg.Add(1)
-				go func() {
-					runDaemon(daemon, restoredEndpoints, cleaner, params)
-					wg.Done()
-				}()
-			}
 			return nil
 		},
 		OnStop: func(hive.HookContext) error {
@@ -1678,8 +1671,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 	return daemonPromise
 }
 
-// runDaemon runs the old unmodular part of the cilium-agent.
-func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
+// startDaemon starts the old unmodular part of the cilium-agent.
+func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
 	log.Info("Initializing daemon")
 
 	// This validation needs to be done outside of the agent until
@@ -1822,27 +1815,9 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
-	// Process queued deletion requests
-	bootstrapStats.deleteQueue.Start()
-	unlockDeleteDir := d.processQueuedDeletes()
-	bootstrapStats.deleteQueue.End(true)
-
 	// Assign the BGP Control to the struct field so non-modularized components can interact with the BGP Controller
 	// like they are used to.
 	d.bgpControlPlaneController = params.BGPController
-
-	// Start up the local api socket
-	bootstrapStats.initAPI.Start()
-	srv := server.NewServer(d.instantiateAPI(params.SwaggerSpec))
-	srv.EnabledListeners = []string{"unix"}
-	srv.SocketPath = option.Config.SocketPath
-	srv.ReadTimeout = apiTimeout
-	srv.WriteTimeout = apiTimeout
-	cleaner.cleanupFuncs.Add(func() { srv.Shutdown() })
-
-	srv.ConfigureAPI()
-	unlockDeleteDir() // can't unlock this until the api socket is written
-	bootstrapStats.initAPI.End(true)
 
 	err := d.SendNotification(monitorAPI.StartMessage(time.Now()))
 	if err != nil {
@@ -1880,156 +1855,6 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	if err != nil {
 		log.WithError(err).Error("Unable to store Viper's configuration")
 	}
-
-	err = srv.Serve()
-	if err != nil {
-		log.WithError(err).Error("Error returned from non-returning Serve() call")
-		params.Shutdowner.Shutdown(hive.ShutdownWithError(err))
-	}
-}
-
-func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI {
-	log.Info("Initializing Cilium API")
-	restAPI := restapi.NewCiliumAPIAPI(swaggerSpec.Document)
-
-	restAPI.Logger = log.Infof
-
-	// /healthz/
-	restAPI.DaemonGetHealthzHandler = NewGetHealthzHandler(d)
-
-	// /cluster/nodes
-	restAPI.DaemonGetClusterNodesHandler = NewGetClusterNodesHandler(d)
-
-	// /config/
-	restAPI.DaemonGetConfigHandler = NewGetConfigHandler(d)
-	restAPI.DaemonPatchConfigHandler = NewPatchConfigHandler(d)
-
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /endpoint/
-		restAPI.EndpointGetEndpointHandler = NewGetEndpointHandler(d)
-
-		// /endpoint/{id}
-		restAPI.EndpointGetEndpointIDHandler = NewGetEndpointIDHandler(d)
-		restAPI.EndpointPutEndpointIDHandler = NewPutEndpointIDHandler(d)
-		restAPI.EndpointPatchEndpointIDHandler = NewPatchEndpointIDHandler(d)
-		restAPI.EndpointDeleteEndpointIDHandler = NewDeleteEndpointIDHandler(d)
-
-		// /endpoint/{id}config/
-		restAPI.EndpointGetEndpointIDConfigHandler = NewGetEndpointIDConfigHandler(d)
-		restAPI.EndpointPatchEndpointIDConfigHandler = NewPatchEndpointIDConfigHandler(d)
-
-		// /endpoint/{id}/labels/
-		restAPI.EndpointGetEndpointIDLabelsHandler = NewGetEndpointIDLabelsHandler(d)
-		restAPI.EndpointPatchEndpointIDLabelsHandler = NewPatchEndpointIDLabelsHandler(d)
-
-		// /endpoint/{id}/log/
-		restAPI.EndpointGetEndpointIDLogHandler = NewGetEndpointIDLogHandler(d)
-
-		// /endpoint/{id}/healthz
-		restAPI.EndpointGetEndpointIDHealthzHandler = NewGetEndpointIDHealthzHandler(d)
-
-		// /identity/
-		restAPI.PolicyGetIdentityHandler = newGetIdentityHandler(d)
-		restAPI.PolicyGetIdentityIDHandler = newGetIdentityIDHandler(d.identityAllocator)
-
-		// /identity/endpoints
-		restAPI.PolicyGetIdentityEndpointsHandler = newGetIdentityEndpointsIDHandler(d)
-
-		// /policy/
-		restAPI.PolicyGetPolicyHandler = newGetPolicyHandler(d.policy)
-		restAPI.PolicyPutPolicyHandler = newPutPolicyHandler(d)
-		restAPI.PolicyDeletePolicyHandler = newDeletePolicyHandler(d)
-		restAPI.PolicyGetPolicySelectorsHandler = newGetPolicyCacheHandler(d)
-
-		// /lrp/
-		restAPI.ServiceGetLrpHandler = NewGetLrpHandler(d.redirectPolicyManager)
-	}
-
-	// /service/{id}/
-	restAPI.ServiceGetServiceIDHandler = NewGetServiceIDHandler(d.svc)
-	restAPI.ServiceDeleteServiceIDHandler = NewDeleteServiceIDHandler(d.svc)
-	restAPI.ServicePutServiceIDHandler = NewPutServiceIDHandler(d.svc)
-
-	// /service/
-	restAPI.ServiceGetServiceHandler = NewGetServiceHandler(d.svc)
-
-	// /recorder/{id}/
-	restAPI.RecorderGetRecorderIDHandler = NewGetRecorderIDHandler(d.rec)
-	restAPI.RecorderDeleteRecorderIDHandler = NewDeleteRecorderIDHandler(d.rec)
-	restAPI.RecorderPutRecorderIDHandler = NewPutRecorderIDHandler(d.rec)
-
-	// /recorder/
-	restAPI.RecorderGetRecorderHandler = NewGetRecorderHandler(d.rec)
-
-	// /recorder/masks
-	restAPI.RecorderGetRecorderMasksHandler = NewGetRecorderMasksHandler(d.rec)
-
-	// /prefilter/
-	restAPI.PrefilterGetPrefilterHandler = NewGetPrefilterHandler(d)
-	restAPI.PrefilterDeletePrefilterHandler = NewDeletePrefilterHandler(d)
-	restAPI.PrefilterPatchPrefilterHandler = NewPatchPrefilterHandler(d)
-
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /ipam/{ip}/
-		restAPI.IpamPostIpamHandler = NewPostIPAMHandler(d)
-		restAPI.IpamPostIpamIPHandler = NewPostIPAMIPHandler(d)
-		restAPI.IpamDeleteIpamIPHandler = NewDeleteIPAMIPHandler(d)
-	}
-
-	// /debuginfo
-	restAPI.DaemonGetDebuginfoHandler = NewGetDebugInfoHandler(d)
-
-	// /cgroup-dump-metadata
-	restAPI.DaemonGetCgroupDumpMetadataHandler = NewGetCgroupDumpMetadataHandler(d)
-
-	// /map
-	restAPI.DaemonGetMapHandler = NewGetMapHandler(d)
-	restAPI.DaemonGetMapNameHandler = NewGetMapNameHandler(d)
-	restAPI.DaemonGetMapNameEventsHandler = NewGetMapNameEventsHandler(d, mapGetterImpl{})
-
-	// metrics
-	restAPI.MetricsGetMetricsHandler = NewGetMetricsHandler(d)
-
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /fqdn/cache
-		restAPI.PolicyGetFqdnCacheHandler = NewGetFqdnCacheHandler(d)
-		restAPI.PolicyDeleteFqdnCacheHandler = NewDeleteFqdnCacheHandler(d)
-		restAPI.PolicyGetFqdnCacheIDHandler = NewGetFqdnCacheIDHandler(d)
-		restAPI.PolicyGetFqdnNamesHandler = NewGetFqdnNamesHandler(d)
-	}
-
-	// /ip/
-	restAPI.PolicyGetIPHandler = NewGetIPHandler(d)
-
-	// /node/ids
-	restAPI.DaemonGetNodeIdsHandler = NewGetNodeIDsHandler(d.datapath.NodeIDs())
-
-	// /bgp/peers
-	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
-
-	// /statedb/dump
-	restAPI.StatedbGetStatedbDumpHandler = &getStateDBDump{d.db}
-
-	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
-	hint := "Consider enabling this API in " + server.AdminEnableFlag
-	for _, requiredAPI := range []string{
-		"GetConfig",        // CNI: Used to detect detect IPAM mode
-		"GetHealthz",       // Kubelet: daemon health checks
-		"PutEndpointID",    // CNI: Provision the network for a new Pod
-		"DeleteEndpointID", // CNI: Clean up networking for a deleted Pod
-		"PostIPAM",         // CNI: Reserve IPs for new Pods
-		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
-	} {
-		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
-			log.WithFields(logrus.Fields{
-				logfields.Hint:   hint,
-				logfields.Params: requiredAPI,
-			}).Warning(msg)
-		}
-	}
-	api.DisableAPIs(swaggerSpec.DeniedAPIs, restAPI.AddMiddlewareFor)
-
-	return restAPI
 }
 
 func initClockSourceOption() {

@@ -28,17 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-type postIPAM struct {
-	daemon *Daemon
-}
-
-// NewPostIPAMHandler creates a new postIPAM from the daemon.
-func NewPostIPAMHandler(d *Daemon) ipamapi.PostIpamHandler {
-	return &postIPAM{daemon: d}
-}
-
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
+func postIPAMHandler(d *Daemon, params ipamapi.PostIpamParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
 	owner := swag.StringValue(params.Owner)
 	pool := ipam.Pool(swag.StringValue(params.Pool))
@@ -46,7 +37,7 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	if swag.BoolValue(params.Expiration) {
 		expirationTimeout = defaults.IPAMExpiration
 	}
-	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNextWithExpiration(family, owner, pool, expirationTimeout)
+	ipv4Result, ipv6Result, err := d.ipam.AllocateNextWithExpiration(family, owner, pool, expirationTimeout)
 	if err != nil {
 		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
@@ -85,43 +76,23 @@ func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	return ipamapi.NewPostIpamCreated().WithPayload(resp)
 }
 
-type postIPAMIP struct {
-	daemon *Daemon
-}
-
-// NewPostIPAMIPHandler creates a new postIPAM from the daemon.
-func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIpamIPHandler {
-	return &postIPAMIP{
-		daemon: d,
-	}
-}
-
 // Handle incoming requests address allocation requests for the daemon.
-func (h *postIPAMIP) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
+func postIPAMIPHandler(d *Daemon, params ipamapi.PostIpamIPParams) middleware.Responder {
 	owner := swag.StringValue(params.Owner)
 	pool := ipam.Pool(swag.StringValue(params.Pool))
-	if err := h.daemon.ipam.AllocateIPString(params.IP, owner, pool); err != nil {
+	if err := d.ipam.AllocateIPString(params.IP, owner, pool); err != nil {
 		return api.Error(ipamapi.PostIpamIPFailureCode, err)
 	}
 
 	return ipamapi.NewPostIpamIPOK()
 }
 
-type deleteIPAMIP struct {
-	daemon *Daemon
-}
-
-// NewDeleteIPAMIPHandler handle incoming requests to delete addresses.
-func NewDeleteIPAMIPHandler(d *Daemon) ipamapi.DeleteIpamIPHandler {
-	return &deleteIPAMIP{daemon: d}
-}
-
-func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Responder {
+func deleteIPAMIPHandler(d *Daemon, params ipamapi.DeleteIpamIPParams) middleware.Responder {
 	// Release of an IP that is in use is not allowed
-	if ep := h.daemon.endpointManager.LookupIPv4(params.IP); ep != nil {
+	if ep := d.endpointManager.LookupIPv4(params.IP); ep != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
 	}
-	if ep := h.daemon.endpointManager.LookupIPv6(params.IP); ep != nil {
+	if ep := d.endpointManager.LookupIPv6(params.IP); ep != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, fmt.Errorf("IP is in use by endpoint %d", ep.ID))
 	}
 
@@ -131,7 +102,7 @@ func (h *deleteIPAMIP) Handle(params ipamapi.DeleteIpamIPParams) middleware.Resp
 	}
 
 	pool := ipam.Pool(swag.StringValue(params.Pool))
-	if err := h.daemon.ipam.ReleaseIP(ip, pool); err != nil {
+	if err := d.ipam.ReleaseIP(ip, pool); err != nil {
 		return api.Error(ipamapi.DeleteIpamIPFailureCode, err)
 	}
 

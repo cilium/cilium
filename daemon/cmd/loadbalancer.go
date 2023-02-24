@@ -25,15 +25,7 @@ func warnIdTypeDeprecation() {
 	})
 }
 
-type putServiceID struct {
-	svc *service.Service
-}
-
-func NewPutServiceIDHandler(svc *service.Service) PutServiceIDHandler {
-	return &putServiceID{svc: svc}
-}
-
-func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
+func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation()
 
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /service/{id} request")
@@ -50,7 +42,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 			}
 			backends = append(backends, b)
 		}
-		if err := h.svc.UpdateBackendsState(backends); err != nil {
+		if err := d.svc.UpdateBackendsState(backends); err != nil {
 			return api.Error(PutServiceIDUpdateBackendFailureCode, err)
 		}
 		return NewPutServiceIDOK()
@@ -124,7 +116,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		IntTrafficPolicy:    svcIntTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
 	}
-	created, id, err := h.svc.UpsertService(p)
+	created, id, err := d.svc.UpsertService(p)
 	if err == nil && id != frontend.ID {
 		return api.Error(PutServiceIDInvalidFrontendCode,
 			fmt.Errorf("the service provided is already registered with ID %d, please use that ID instead of %d",
@@ -138,20 +130,12 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 	}
 }
 
-type deleteServiceID struct {
-	svc *service.Service
-}
-
-func NewDeleteServiceIDHandler(svc *service.Service) DeleteServiceIDHandler {
-	return &deleteServiceID{svc: svc}
-}
-
-func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Responder {
+func deleteServiceIDHandler(d *Daemon, params DeleteServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation()
 
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /service/{id} request")
 
-	found, err := h.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
+	found, err := d.svc.DeleteServiceByID(loadbalancer.ServiceID(params.ID))
 	switch {
 	case err != nil:
 		log.WithError(err).WithField(logfields.ServiceID, params.ID).
@@ -164,36 +148,20 @@ func (h *deleteServiceID) Handle(params DeleteServiceIDParams) middleware.Respon
 	}
 }
 
-type getServiceID struct {
-	svc *service.Service
-}
-
-func NewGetServiceIDHandler(svc *service.Service) GetServiceIDHandler {
-	return &getServiceID{svc: svc}
-}
-
-func (h *getServiceID) Handle(params GetServiceIDParams) middleware.Responder {
+func getServiceIDHandler(d *Daemon, params GetServiceIDParams) middleware.Responder {
 	warnIdTypeDeprecation()
 
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service/{id} request")
 
-	if svc, ok := h.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
+	if svc, ok := d.svc.GetDeepCopyServiceByID(loadbalancer.ServiceID(params.ID)); ok {
 		return NewGetServiceIDOK().WithPayload(svc.GetModel())
 	}
 	return NewGetServiceIDNotFound()
 }
 
-type getService struct {
-	svc *service.Service
-}
-
-func NewGetServiceHandler(svc *service.Service) GetServiceHandler {
-	return &getService{svc: svc}
-}
-
-func (h *getService) Handle(params GetServiceParams) middleware.Responder {
+func getServiceHandler(d *Daemon, params GetServiceParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /service request")
-	list := getServiceList(h.svc)
+	list := getServiceList(d.svc)
 	return NewGetServiceOK().WithPayload(list)
 }
 

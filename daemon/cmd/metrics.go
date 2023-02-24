@@ -15,16 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
-type getMetrics struct {
-	daemon *Daemon
-}
-
-// NewGetMetricsHandler returns the metrics handler
-func NewGetMetricsHandler(d *Daemon) restapi.GetMetricsHandler {
-	return &getMetrics{daemon: d}
-}
-
-func (h *getMetrics) Handle(params restapi.GetMetricsParams) middleware.Responder {
+func getMetricsHandler(_ *Daemon, params restapi.GetMetricsParams) middleware.Responder {
 	metrics, err := metrics.DumpMetrics()
 	if err != nil {
 		return api.Error(

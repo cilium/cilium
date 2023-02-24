@@ -17,18 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 )
 
-type getDebugInfo struct {
-	daemon *Daemon
-}
-
-// NewGetDebugInfoHandler returns the debug info endpoint handler for the agent
-func NewGetDebugInfoHandler(d *Daemon) restapi.GetDebuginfoHandler {
-	return &getDebugInfo{daemon: d}
-}
-
-func (h *getDebugInfo) Handle(params restapi.GetDebuginfoParams) middleware.Responder {
+func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middleware.Responder {
 	dr := models.DebugInfo{}
-	d := h.daemon
 
 	dr.CiliumVersion = version.Version
 	if kver, err := version.GetKernelVersion(); err != nil {
