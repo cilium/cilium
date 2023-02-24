@@ -631,9 +631,6 @@ pass_to_stack:
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
-#  ifdef IP_POOLS
-		set_encrypt_dip(ctx, tunnel_endpoint);
-#  endif /* IP_POOLS */
 #  ifdef ENABLE_IDENTITY_MARK
 		set_identity_mark(ctx, SECLABEL);
 #  endif /* ENABLE_IDENTITY_MARK */
@@ -1133,9 +1130,6 @@ pass_to_stack:
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key);
-#  ifdef IP_POOLS
-		set_encrypt_dip(ctx, tunnel_endpoint);
-#  endif /* IP_POOLS */
 #  ifdef ENABLE_IDENTITY_MARK
 		set_identity_mark(ctx, SECLABEL);
 #  endif
