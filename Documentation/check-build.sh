@@ -28,7 +28,7 @@ rm -f -- "${warnings}"
 has_spelling_errors() {
     # If spelling errors were found, Sphinx wrote them to files under
     # ${spelldir}. Let's check whether the directory is empty.
-    test -n "$(ls "${spelldir}")"
+    test -n "$(ls "${spelldir}" 2>/dev/null)"
 }
 
 # Filter out some undesirable warnings:
