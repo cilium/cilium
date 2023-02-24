@@ -307,9 +307,9 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`Architecture and Concepts`: https://docs.cilium.io/en/stable/overview/component-overview/
 .. _`Installing Cilium`: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
 .. _`Frequently Asked Questions`: https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=is%3Aissue+label%3Akind%2Fquestion+
-.. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
-.. _Prerequisites: http://docs.cilium.io/en/stable/operations/system_requirements
-.. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
+.. _Contributing: https://docs.cilium.io/en/stable/contributing/development/
+.. _Prerequisites: https://docs.cilium.io/en/stable/operations/system_requirements/
+.. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
 
@@ -323,7 +323,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 
 .. |rtd| image:: https://readthedocs.org/projects/docs/badge/?version=latest
     :alt: Read the Docs
-    :target: http://docs.cilium.io/
+    :target: https://docs.cilium.io/
 
 .. |apache| image:: https://img.shields.io/badge/license-Apache-blue.svg
     :alt: Apache licensed
