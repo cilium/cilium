@@ -8,16 +8,17 @@ import "net"
 type IPFamily int
 
 const (
-	// IPFamilyNone is used for non-IP based endpoints (e.g., HTTP URL)
-	IPFamilyNone IPFamily = iota
+	// IPFamilyAny is used for non-IP based endpoints (e.g., HTTP URL),
+	// and when any IP family could be used.
+	IPFamilyAny IPFamily = iota
 	IPFamilyV4
 	IPFamilyV6
 )
 
 func (f IPFamily) String() string {
 	switch f {
-	case IPFamilyNone:
-		return "none"
+	case IPFamilyAny:
+		return "any"
 	case IPFamilyV4:
 		return "ipv4"
 	case IPFamilyV6:
@@ -37,5 +38,5 @@ func GetIPFamily(addr string) IPFamily {
 		return IPFamilyV6
 	}
 
-	return IPFamilyNone
+	return IPFamilyAny
 }
