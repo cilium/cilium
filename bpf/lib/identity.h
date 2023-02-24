@@ -113,7 +113,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
 	} else if (magic == MARK_MAGIC_ENCRYPT) {
-		*identity = get_identity(ctx);
+		*identity = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
 #if defined(ENABLE_L7_LB)
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		*identity = get_epid(ctx); /* endpoint identity, not security identity! */
