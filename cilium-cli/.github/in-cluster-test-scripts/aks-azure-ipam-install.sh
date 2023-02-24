@@ -14,4 +14,6 @@ cilium install \
   --azure-client-id "${AZURE_CLIENT_ID}" \
   --azure-client-secret "${AZURE_CLIENT_SECRET}" \
   --wait=false \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --config monitor-aggregation=none
