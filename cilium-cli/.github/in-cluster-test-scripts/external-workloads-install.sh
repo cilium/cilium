@@ -10,6 +10,8 @@ cilium install \
   --config monitor-aggregation=none \
   --config tunnel=vxlan \
   --kube-proxy-replacement=strict \
+  --helm-set loadBalancer.l7.backend=envoy \
+  --helm-set tls.secretsBackend=k8s \
   --ipv4-native-routing-cidr="${CLUSTER_CIDR}"
 
 # Enable Relay
