@@ -44,7 +44,7 @@ type params struct {
 }
 
 type server struct {
-	operatorApi.Server
+	*operatorApi.Server
 
 	logger     logrus.FieldLogger
 	shutdowner hive.Shutdowner
@@ -91,7 +91,7 @@ func (s *server) Start(ctx hive.HookContext) error {
 	srv := operatorApi.NewServer(api)
 	srv.EnabledListeners = []string{"http"}
 	srv.ConfigureAPI()
-	s.Server = *srv
+	s.Server = srv
 
 	mux := http.NewServeMux()
 
