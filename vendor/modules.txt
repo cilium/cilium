@@ -520,9 +520,11 @@ github.com/google/gopacket/layers
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
-# github.com/google/renameio v1.0.1
-## explicit; go 1.13
+# github.com/google/renameio v0.1.0
+## explicit
 github.com/google/renameio
+# github.com/google/renameio/v2 v2.0.0
+## explicit; go 1.13
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
@@ -544,6 +546,8 @@ github.com/hashicorp/go-hclog
 # github.com/hashicorp/go-immutable-radix v1.3.1
 ## explicit
 github.com/hashicorp/go-immutable-radix
+# github.com/hashicorp/go-immutable-radix/v2 v2.0.0
+## explicit; go 1.18
 # github.com/hashicorp/go-rootcerts v1.0.2
 ## explicit; go 1.12
 github.com/hashicorp/go-rootcerts
@@ -705,7 +709,9 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.26.0
+# github.com/onsi/ginkgo/v2 v2.8.3
+## explicit; go 1.18
+# github.com/onsi/gomega v1.27.0
 ## explicit; go 1.18
 github.com/onsi/gomega
 github.com/onsi/gomega/format
@@ -982,12 +988,12 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20221106115401-f9659909a136
+# golang.org/x/exp v0.0.0-20221215174704-0915cd710c24
 ## explicit; go 1.18
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
 golang.org/x/exp/slices
-# golang.org/x/mod v0.7.0
+# golang.org/x/mod v0.8.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
@@ -1058,7 +1064,7 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.5.0
+# golang.org/x/tools v0.6.0
 ## explicit; go 1.18
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/cover
@@ -1075,6 +1081,8 @@ golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
+golang.org/x/tools/internal/diff
+golang.org/x/tools/internal/diff/lcs
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
@@ -1087,6 +1095,8 @@ golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
+golang.org/x/tools/internal/robustio
+golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 # golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224

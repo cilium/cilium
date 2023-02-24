@@ -47,12 +47,14 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/gopacket v1.1.19
 	github.com/google/gops v0.3.26
-	github.com/google/renameio v1.0.1
+	github.com/google/renameio v0.1.0
+	github.com/google/renameio/v2 v2.0.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/consul/api v1.18.0
 	github.com/hashicorp/go-immutable-radix v1.3.1
+	github.com/hashicorp/go-immutable-radix/v2 v2.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/kevinburke/ssh_config v1.2.0
@@ -61,7 +63,8 @@ require (
 	github.com/miekg/dns v1.1.43
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.26.0
+	github.com/onsi/ginkgo/v2 v2.8.3
+	github.com/onsi/gomega v1.27.0
 	github.com/osrg/gobgp/v3 v3.10.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
@@ -91,13 +94,13 @@ require (
 	go.uber.org/multierr v1.9.0
 	go.universe.tf/metallb v0.11.0
 	golang.org/x/crypto v0.5.0
-	golang.org/x/exp v0.0.0-20221106115401-f9659909a136
+	golang.org/x/exp v0.0.0-20221215174704-0915cd710c24
 	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.5.0
 	golang.org/x/term v0.5.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.5.0
+	golang.org/x/tools v0.6.0
 	golang.zx2c4.com/wireguard v0.0.0-20230216153314-c7b76d3d9ecd
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230215201556-9c5414ab4bde
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef
@@ -230,7 +233,7 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/mod v0.7.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
