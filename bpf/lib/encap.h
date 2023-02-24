@@ -16,8 +16,8 @@
 #define NOT_VTEP_DST 0
 #ifdef ENABLE_IPSEC
 static __always_inline int
-encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				__u8 key, __u32 seclabel)
+encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u8 key,
+			        __u32 seclabel)
 {
 	/* Traffic from local host in tunnel mode will be passed to
 	 * cilium_host. In non-IPSec case traffic with non-local dst
@@ -35,13 +35,11 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 */
 	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
 	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
-	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 
 static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-			 __u8 key, __u32 seclabel)
+encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u32 seclabel)
 {
 	/* IPSec is performed by the stack on any packets with the
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
@@ -52,7 +50,6 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 */
 	set_encrypt_key_mark(ctx, key);
 	set_identity_mark(ctx, seclabel);
-	ctx_store_meta(ctx, CB_ENCRYPT_DST, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
 #endif /* ENABLE_IPSEC */
@@ -178,7 +175,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 {
 #ifdef ENABLE_IPSEC
 	if (key)
-		return encap_and_redirect_nomark_ipsec(ctx, tunnel_endpoint, key, seclabel);
+		return encap_and_redirect_nomark_ipsec(ctx, key, seclabel);
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, NOT_VTEP_DST,
 						trace);
@@ -205,8 +202,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
 		if (encrypt_key)
-			return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
-							encrypt_key, seclabel);
+			return encap_and_redirect_ipsec(ctx, encrypt_key, seclabel);
 #endif
 #if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
 		/* For IPSec and the host firewall, traffic from a pod to a remote node
@@ -232,8 +228,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
-		return encap_and_redirect_ipsec(ctx, tunnel->ip4,
-						min_encrypt_key,
+		return encap_and_redirect_ipsec(ctx, min_encrypt_key,
 						seclabel);
 	}
 #endif
@@ -255,8 +250,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	if (tunnel->key) {
 		__u8 key = get_min_encrypt_key(tunnel->key);
 
-		return encap_and_redirect_nomark_ipsec(ctx, tunnel->ip4,
-						       key, seclabel);
+		return encap_and_redirect_nomark_ipsec(ctx, key, seclabel);
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel,
