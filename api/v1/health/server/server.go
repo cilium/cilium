@@ -21,13 +21,61 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-openapi/loads"
 	"github.com/go-openapi/swag"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/netutil"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/health/server/restapi"
+	"github.com/cilium/cilium/api/v1/health/server/restapi/connectivity"
+
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 )
+
+// Cell implements the cilium health API REST API server when provided
+// the required request handlers.
+var Cell = cell.Module(
+	"cilium-health-api-server",
+	"cilium health API server",
+
+	cell.Provide(newForCell),
+)
+
+type serverParams struct {
+	cell.In
+
+	Lifecycle  hive.Lifecycle
+	Shutdowner hive.Shutdowner
+	Logger     logrus.FieldLogger
+
+	GetHealthzHandler                 restapi.GetHealthzHandler
+	ConnectivityGetStatusHandler      connectivity.GetStatusHandler
+	ConnectivityPutStatusProbeHandler connectivity.PutStatusProbeHandler
+}
+
+func newForCell(p serverParams) (*Server, error) {
+	swaggerSpec, err := loads.Analyzed(SwaggerJSON, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to swagger spec: %w", err)
+	}
+	api := restapi.NewCiliumHealthAPIAPI(swaggerSpec)
+
+	// Construct the API from the provided handlers
+
+	api.GetHealthzHandler = p.GetHealthzHandler
+	api.ConnectivityGetStatusHandler = p.ConnectivityGetStatusHandler
+	api.ConnectivityPutStatusProbeHandler = p.ConnectivityPutStatusProbeHandler
+
+	s := NewServer(api)
+	s.shutdowner = p.Shutdowner
+	s.logger = p.Logger
+	p.Lifecycle.Append(s)
+
+	return s, nil
+}
 
 const (
 	schemeHTTP  = "http"
@@ -103,11 +151,17 @@ type Server struct {
 	shuttingDown int32
 	interrupted  bool
 	interrupt    chan os.Signal
+
+	wg         sync.WaitGroup
+	shutdowner hive.Shutdowner
+	logger     logrus.FieldLogger
 }
 
 // Logf logs message either via defined user logger or via system one if no user logger is defined.
 func (s *Server) Logf(f string, args ...interface{}) {
-	if s.api != nil && s.api.Logger != nil {
+	if s.logger != nil {
+		s.logger.Infof(f, args...)
+	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 	} else {
 		log.Printf(f, args...)
@@ -117,7 +171,9 @@ func (s *Server) Logf(f string, args ...interface{}) {
 // Fatalf logs message either via defined user logger or via system one if no user logger is defined.
 // Exits with non-zero status after printing
 func (s *Server) Fatalf(f string, args ...interface{}) {
-	if s.api != nil && s.api.Logger != nil {
+	if s.shutdowner != nil {
+		s.shutdowner.Shutdown(hive.ShutdownWithError(fmt.Errorf(f, args...)))
+	} else if s.api != nil && s.api.Logger != nil {
 		s.api.Logger(f, args...)
 		os.Exit(1)
 	} else {
@@ -151,8 +207,19 @@ func (s *Server) hasScheme(scheme string) bool {
 	return false
 }
 
-// Serve the api
-func (s *Server) Serve() (err error) {
+func (s *Server) Serve() error {
+	// TODO remove when this is not needed for compatibility anymore
+	if err := s.Start(context.TODO()); err != nil {
+		return err
+	}
+	s.wg.Wait()
+	return nil
+}
+
+// Start the server
+func (s *Server) Start(hive.HookContext) (err error) {
+	s.ConfigureAPI()
+
 	if !s.hasListeners {
 		if err = s.Listen(); err != nil {
 			return err
@@ -168,7 +235,6 @@ func (s *Server) Serve() (err error) {
 		s.SetHandler(s.api.Serve(nil))
 	}
 
-	wg := new(sync.WaitGroup)
 	once := new(sync.Once)
 	signalNotify(s.interrupt)
 	go handleInterrupt(once, s)
@@ -192,10 +258,10 @@ func (s *Server) Serve() (err error) {
 			}
 		}
 		servers = append(servers, domainSocket)
-		wg.Add(1)
+		s.wg.Add(1)
 		s.Logf("Serving cilium health API at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := domainSocket.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -222,10 +288,10 @@ func (s *Server) Serve() (err error) {
 		configureServer(httpServer, "http", s.httpServerL.Addr().String())
 
 		servers = append(servers, httpServer)
-		wg.Add(1)
+		s.wg.Add(1)
 		s.Logf("Serving cilium health API at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -318,10 +384,10 @@ func (s *Server) Serve() (err error) {
 		configureServer(httpsServer, "https", s.httpsServerL.Addr().String())
 
 		servers = append(servers, httpsServer)
-		wg.Add(1)
+		s.wg.Add(1)
 		s.Logf("Serving cilium health API at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
-			defer wg.Done()
+			defer s.wg.Done()
 			if err := httpsServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
@@ -329,10 +395,20 @@ func (s *Server) Serve() (err error) {
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
 
-	wg.Add(1)
-	go s.handleShutdown(wg, &servers)
+	s.wg.Add(1)
+	go s.handleShutdown(&servers)
 
-	wg.Wait()
+	return nil
+}
+
+func (s *Server) Stop(hive.HookContext) error {
+	if err := s.Shutdown(); err != nil {
+		return err
+	}
+	// FIXME need to pass HookContext somehow into handleShutdown to make this
+	// respect the timeout. Probably want to fold "handleShutdown" into this
+	// function.
+	s.wg.Wait()
 	return nil
 }
 
@@ -419,10 +495,10 @@ func (s *Server) Shutdown() error {
 	return nil
 }
 
-func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) {
-	// wg.Done must occur last, after s.api.ServerShutdown()
+func (s *Server) handleShutdown(serversPtr *[]*http.Server) {
+	// s.wg.Done must occur last, after s.api.ServerShutdown()
 	// (to preserve old behaviour)
-	defer wg.Done()
+	defer s.wg.Done()
 
 	<-s.shutdown
 
