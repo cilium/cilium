@@ -43,7 +43,7 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:world"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	code, err := ds.d.CreateEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
@@ -55,7 +55,7 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 	// Endpoint is created with initial label as well as disallowed
 	// reserved:world label.
 	epTemplate.Labels = append(epTemplate.Labels, "reserved:init")
-	_, code, err = ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	code, err = ds.d.CreateEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, ErrorMatches, "not allowed to add reserved labels:.+")
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
@@ -70,7 +70,7 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:foo"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	code, err := ds.d.CreateEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
@@ -83,13 +83,9 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	assertOnMetric(c, string(models.EndpointStateWaitingDashForDashIdentity), 0)
 
-	// For this test case, we want to allow the endpoint controllers to rebuild
-	// the endpoint after getting new labels.
-	ds.OnQueueEndpointBuild = ds.d.QueueEndpointBuild
-
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c, ds.d)
-	_, _, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
+	_, err := ds.d.CreateEndpoint(context.TODO(), epTemplate)
 	c.Assert(err, IsNil)
 
 	expectedLabels := labels.Labels{
@@ -113,20 +109,13 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	assertOnMetric(c, string(models.EndpointStateReady), 1)
 }
 
-func (ds *DaemonSuite) TestUpdateSecLabels(c *C) {
-	lbls := labels.NewLabelsFromModel([]string{"reserved:world"})
-	code, err := ds.d.modifyEndpointIdentityLabelsFromAPI("1", lbls, nil)
-	c.Assert(err, Not(IsNil))
-	c.Assert(code, Equals, apiEndpoint.PatchEndpointIDLabelsUpdateFailedCode)
-}
-
 func (ds *DaemonSuite) TestUpdateLabelsFailed(c *C) {
 	cancelledContext, cancelFunc := context.WithTimeout(context.Background(), 1*time.Second)
 	cancelFunc() // Cancel immediately to trigger the codepath to test.
 
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c, ds.d)
-	_, _, err := ds.d.createEndpoint(cancelledContext, ds, epTemplate)
+	_, err := ds.d.CreateEndpoint(cancelledContext, epTemplate)
 	c.Assert(err, ErrorMatches, "request cancelled while resolving identity")
 
 	assertOnMetric(c, string(models.EndpointStateReady), 0)

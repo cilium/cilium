@@ -8,18 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
-	"runtime"
 	"sync"
 	"time"
 
-	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -44,108 +40,6 @@ import (
 )
 
 var errEndpointNotFound = errors.New("endpoint not found")
-
-func getEndpointHandler(d *Daemon, params GetEndpointParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointList)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	resEPs := d.getEndpointList(params)
-
-	if params.Labels != nil && len(resEPs) == 0 {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointNotFound()
-	}
-
-	return NewGetEndpointOK().WithPayload(resEPs)
-}
-
-func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
-	maxGoroutines := runtime.NumCPU()
-	var (
-		epWorkersWg, epsAppendWg sync.WaitGroup
-		convertedLabels          labels.Labels
-		resEPs                   []*models.Endpoint
-	)
-
-	if params.Labels != nil {
-		// Convert params.Labels to model that we can compare with the endpoint's labels.
-		convertedLabels = labels.NewLabelsFromModel(params.Labels)
-	}
-
-	eps := d.endpointManager.GetEndpoints()
-	if len(eps) < maxGoroutines {
-		maxGoroutines = len(eps)
-	}
-	epsCh := make(chan *endpoint.Endpoint, maxGoroutines)
-	epModelsCh := make(chan *models.Endpoint, maxGoroutines)
-
-	epWorkersWg.Add(maxGoroutines)
-	for i := 0; i < maxGoroutines; i++ {
-		// Run goroutines to process each endpoint and the corresponding model.
-		// The obtained endpoint model is sent to the endpoint models channel from
-		// where it will be aggregated later.
-		go func(wg *sync.WaitGroup, epModelsChan chan<- *models.Endpoint, epsChan <-chan *endpoint.Endpoint) {
-			for ep := range epsChan {
-				if ep.HasLabels(convertedLabels) {
-					epModelsChan <- ep.GetModel()
-				}
-			}
-			wg.Done()
-		}(&epWorkersWg, epModelsCh, epsCh)
-	}
-
-	// Send the endpoints to be aggregated a models to the endpoint channel.
-	go func(epsChan chan<- *endpoint.Endpoint, eps []*endpoint.Endpoint) {
-		for _, ep := range eps {
-			epsChan <- ep
-		}
-		close(epsChan)
-	}(epsCh, eps)
-
-	epsAppendWg.Add(1)
-	// This needs to be done over channels since we might not receive all
-	// the existing endpoints since not all endpoints contain the list of
-	// labels that we will use to filter in `ep.HasLabels(convertedLabels)`
-	go func(epsAppended *sync.WaitGroup) {
-		for ep := range epModelsCh {
-			resEPs = append(resEPs, ep)
-		}
-		epsAppended.Done()
-	}(&epsAppendWg)
-
-	epWorkersWg.Wait()
-	close(epModelsCh)
-	epsAppendWg.Wait()
-
-	return resEPs
-}
-
-func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDInvalidCode, err)
-	} else if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointIDNotFound()
-	} else {
-		return NewGetEndpointIDOK().WithPayload(ep.GetModel())
-	}
-}
 
 // fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
@@ -199,116 +93,28 @@ func (uemf *uncachedEndpointMetadataFetcher) Fetch(nsName, podName string) (*sli
 	return ns, p, err
 }
 
-func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
+func invalidDataError(ep *endpoint.Endpoint, err error) (int, error) {
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
 	if ep != nil {
 		ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	}
-	return nil, PutEndpointIDInvalidCode, err
+	return PutEndpointIDInvalidCode, err
 }
 
-func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
-	d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-		// The IP has been provided by the caller and must be released
-		// by the caller
-		NoIPRelease: true,
-	})
+func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (int, error) {
+	d.endpointManager.RemoveEndpoint(ep,
+		endpoint.DeleteConfig{
+			// The IP has been provided by the caller and must be released
+			// by the caller
+			NoIPRelease: true,
+		})
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed")
-	return nil, PutEndpointIDFailedCode, err
+	return PutEndpointIDFailedCode, err
 }
 
-type endpointCreationRequest struct {
-	// cancel is the cancellation function that can be called to cancel
-	// this endpoint create request
-	cancel context.CancelFunc
-
-	// endpoint is the endpoint being added in the request
-	endpoint *endpoint.Endpoint
-
-	// started is the timestamp on when the processing has started
-	started time.Time
-}
-
-type endpointCreationManager struct {
-	mutex     lock.Mutex
-	clientset client.Clientset
-	requests  map[string]*endpointCreationRequest
-}
-
-func newEndpointCreationManager(cs client.Clientset) *endpointCreationManager {
-	return &endpointCreationManager{
-		requests:  map[string]*endpointCreationRequest{},
-		clientset: cs,
-	}
-}
-
-func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel context.CancelFunc) {
-	// Tracking is only performed if Kubernetes pod names are available.
-	// The endpoint create logic already ensures that IPs and containerID
-	// are unique and thus tracking is not required outside of the
-	// Kubernetes context
-	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
-		return
-	}
-
-	podName := ep.GetK8sNamespaceAndPodName()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if req, ok := m.requests[podName]; ok {
-		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same pod")
-		req.cancel()
-	}
-
-	ep.Logger(daemonSubsys).Debug("New create request")
-	m.requests[podName] = &endpointCreationRequest{
-		cancel:   cancel,
-		endpoint: ep,
-		started:  time.Now(),
-	}
-}
-
-func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
-	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
-		return false
-	}
-
-	podName := ep.GetK8sNamespaceAndPodName()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if req, ok := m.requests[podName]; ok {
-		if req.endpoint == ep {
-			ep.Logger(daemonSubsys).Debug("End of create request")
-			delete(m.requests, podName)
-			return true
-		}
-	}
-
-	return false
-}
-
-func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
-	if m.EndCreateRequest(ep) {
-		ep.Logger(daemonSubsys).Warning("Cancelled endpoint create request due to receiving endpoint delete request")
-	}
-}
-
-func (m *endpointCreationManager) DebugStatus() (output string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	for _, req := range m.requests {
-		output += fmt.Sprintf("- %s: %s\n", req.started.String(), req.endpoint.String())
-	}
-	return
-}
-
-// createEndpoint attempts to create the endpoint corresponding to the change
+// CreateEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
-func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+func (d *Daemon) CreateEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (int, error) {
 	if option.Config.EnableEndpointRoutes {
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
@@ -339,7 +145,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		"sync-build":            epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -447,7 +253,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	}
 
 	// e.ID assigned here
-	err = d.endpointManager.AddEndpoint(owner, ep, "Create endpoint from API PUT")
+	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
@@ -532,32 +338,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		}
 	}
 
-	return ep, 0, nil
-}
-
-func putEndpointIDHandler(d *Daemon, params PutEndpointIDParams) (resp middleware.Responder) {
-	if ep := params.Endpoint; ep != nil {
-		log.WithField("endpoint", logfields.Repr(*ep)).Debug("PUT /endpoint/{id} request")
-	} else {
-		log.WithField(logfields.Params, logfields.Repr(params)).Debug("PUT /endpoint/{id} request")
-	}
-	epTemplate := params.Endpoint
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointCreate)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, code, err := d.createEndpoint(params.HTTPRequest.Context(), d, epTemplate)
-	if err != nil {
-		r.Error(err)
-		return api.Error(code, err)
-	}
-
 	ep.Logger(daemonSubsys).Info("Successful endpoint creation")
-
-	return NewPutEndpointIDCreated()
+	return 0, nil
 }
 
 // validPatchTransitionState checks whether the state to which the provided
@@ -573,37 +355,24 @@ func validPatchTransitionState(state *models.EndpointState) bool {
 	return false
 }
 
-func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.Responder {
-	scopedLog := log.WithField(logfields.Params, logfields.Repr(params))
-	if ep := params.Endpoint; ep != nil {
-		scopedLog = scopedLog.WithField("endpoint", logfields.Repr(*ep))
-	}
-	scopedLog.Debug("PATCH /endpoint/{id} request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	epTemplate := params.Endpoint
-
-	log.WithFields(logrus.Fields{
-		logfields.EndpointID:    params.ID,
+func (d *Daemon) PatchEndpoint(ctx context.Context, ID string, epTemplate *models.EndpointChangeRequest) (int, error) {
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.EndpointID:    epTemplate.ID,
 		"addressing":            epTemplate.Addressing,
 		logfields.ContainerID:   epTemplate.ContainerID,
 		"datapathConfiguration": epTemplate.DatapathConfiguration,
 		logfields.Interface:     epTemplate.InterfaceName,
 		logfields.K8sPodName:    epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
 		logfields.Labels:        epTemplate.Labels,
-	}).Info("Patch endpoint request")
+	})
+
+	scopedLog.Info("Patch endpoint request")
 
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err2 != nil {
-		r.Error(err2)
-		return api.Error(PutEndpointIDInvalidCode, err2)
+		return PatchEndpointIDInvalidCode, err2
 	}
 
 	var validStateTransition bool
@@ -616,18 +385,15 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 		validStateTransition = true
 	}
 
-	ep, err := d.endpointManager.Lookup(params.ID)
+	ep, err := d.endpointManager.Lookup(ID)
 	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDInvalidCode, err)
+		return PatchEndpointIDInvalidCode, err
 	}
 	if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewPatchEndpointIDNotFound()
+		return PatchEndpointIDNotFoundCode, errEndpointNotFound
 	}
 	if err = endpoint.APICanModify(ep); err != nil {
-		r.Error(err)
-		return api.Error(PatchEndpointIDInvalidCode, err)
+		return PatchEndpointIDInvalidCode, err
 	}
 
 	// FIXME: Support changing these?
@@ -638,8 +404,7 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	//  Support arbitrary changes? Support only if unset?
 	reason, err := ep.ProcessChangeRequest(newEp, validStateTransition)
 	if err != nil {
-		r.Error(err)
-		return NewPatchEndpointIDNotFound()
+		return PatchEndpointIDNotFoundCode, err
 	}
 
 	if reason != "" {
@@ -651,39 +416,13 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 			err := api.Error(PatchEndpointIDFailedCode,
 				fmt.Errorf("error while regenerating endpoint."+
 					" For more info run: 'cilium endpoint get %d'", ep.ID))
-			r.Error(err)
-			return err
+			return PatchEndpointIDFailedCode, err
 		}
 		// FIXME: Special return code to indicate regeneration happened?
 	}
 
-	return NewPatchEndpointIDOK()
-}
-
-func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
-	// Cancel any ongoing endpoint creation
-	d.endpointCreations.CancelCreateRequest(ep)
-
-	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
-	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-		// If the IP is managed by an external IPAM, it does not need to be released
-		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
-	})
-	for _, err := range errs {
-		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
-	}
-	return len(errs)
-}
-
-// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
-// it from Cilium, releasing all resources associated with it such as its
-// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
-// L7 policy configuration, directories and controllers.
-//
-// Specific users such as the cilium-health EP may choose not to release the IP
-// when deleting the endpoint. Most users should pass true for releaseIP.
-func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
-	return d.endpointManager.RemoveEndpoint(ep, conf)
+	ep.Logger(daemonSubsys).Info("Successful endpoint patch")
+	return PatchEndpointIDOKCode, nil
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
@@ -741,6 +480,34 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 	}
 }
 
+// deleteEndpointQuiet sets the endpoint into disconnecting state and removes
+// it from Cilium, releasing all resources associated with it such as its
+// visibility in the endpointmanager, its BPF programs and maps, (optional) IP,
+// L7 policy configuration, directories and controllers.
+//
+// Specific users such as the cilium-health EP may choose not to release the IP
+// when deleting the endpoint. Most users should pass true for releaseIP.
+func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) []error {
+	return d.endpointManager.RemoveEndpoint(ep, conf)
+}
+
+func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
+	// Cancel any ongoing endpoint creation
+	d.endpointCreations.CancelCreateRequest(ep)
+
+	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
+	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
+		// If the IP is managed by an external IPAM, it does not need to be released
+		NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
+	})
+	for _, err := range errs {
+		scopedLog.WithError(err).Warn("Ignoring error while deleting endpoint")
+	}
+
+	return len(errs)
+
+}
+
 // EndpointCreated is a callback to satisfy EndpointManager.Subscriber,
 // allowing the EndpointManager to be the primary implementer of the core
 // endpoint management functionality while deferring other responsibilities
@@ -749,238 +516,6 @@ func (d *Daemon) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConf
 // It is called after Daemon calls into d.endpointManager.AddEndpoint().
 func (d *Daemon) EndpointCreated(ep *endpoint.Endpoint) {
 	d.SendNotification(monitorAPI.EndpointCreateMessage(ep))
-}
-
-func deleteEndpointIDHandler(d *Daemon, params DeleteEndpointIDParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	if nerr, err := d.DeleteEndpoint(params.ID); err != nil {
-		r.Error(err)
-		if apierr, ok := err.(*api.APIError); ok {
-			return apierr
-		}
-		return api.Error(DeleteEndpointIDErrorsCode, err)
-	} else if nerr > 0 {
-		return NewDeleteEndpointIDErrors().WithPayload(int64(nerr))
-	} else {
-		return NewDeleteEndpointIDOK()
-	}
-}
-
-// EndpointUpdate updates the options of the given endpoint and regenerates the endpoint
-func (d *Daemon) EndpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
-	ep, err := d.endpointManager.Lookup(id)
-	if err != nil {
-		return api.Error(PatchEndpointIDInvalidCode, err)
-	} else if ep == nil {
-		return api.New(PatchEndpointIDConfigNotFoundCode, "endpoint %s not found", id)
-	} else if err := ep.APICanModifyConfig(cfg.Options); err != nil {
-		return api.Error(PatchEndpointIDInvalidCode, err)
-	}
-
-	if err := ep.Update(cfg); err != nil {
-		switch err.(type) {
-		case endpoint.UpdateValidationError:
-			return api.Error(PatchEndpointIDConfigInvalidCode, err)
-		default:
-			return api.Error(PatchEndpointIDConfigFailedCode, err)
-		}
-	}
-	if err := d.endpointManager.UpdateReferences(ep); err != nil {
-		return api.Error(PatchEndpointIDNotFoundCode, err)
-	}
-
-	return nil
-}
-
-func patchEndpointIDConfigHandler(d *Daemon, params PatchEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	if err := d.EndpointUpdate(params.ID, params.EndpointConfiguration); err != nil {
-		r.Error(err)
-		if apierr, ok := err.(*api.APIError); ok {
-			return apierr
-		}
-		return api.Error(PatchEndpointIDFailedCode, err)
-	}
-
-	return NewPatchEndpointIDConfigOK()
-}
-
-func getEndpointIDConfigHandler(d *Daemon, params GetEndpointIDConfigParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDInvalidCode, err)
-	} else if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointIDConfigNotFound()
-	} else {
-		cfgStatus := ep.GetConfigurationStatus()
-
-		return NewGetEndpointIDConfigOK().WithPayload(cfgStatus)
-	}
-}
-
-func getEndpointIDLabelsHandler(d *Daemon, params GetEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDInvalidCode, err)
-	}
-	if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointIDLabelsNotFound()
-	}
-
-	cfg, err := ep.GetLabelsModel()
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDInvalidCode, err)
-	}
-
-	return NewGetEndpointIDLabelsOK().WithPayload(cfg)
-}
-
-func getEndpointIDLogHandler(d *Daemon, params GetEndpointIDLogParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDLogInvalidCode, err)
-	} else if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointIDLogNotFound()
-	} else {
-		return NewGetEndpointIDLogOK().WithPayload(ep.GetStatusModel())
-	}
-}
-
-func getEndpointIDHealthzHandler(d *Daemon, params GetEndpointIDHealthzParams) middleware.Responder {
-	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-
-	if err != nil {
-		r.Error(err)
-		return api.Error(GetEndpointIDHealthzInvalidCode, err)
-	} else if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewGetEndpointIDHealthzNotFound()
-	} else {
-		return NewGetEndpointIDHealthzOK().WithPayload(ep.GetHealthModel())
-	}
-}
-
-// modifyEndpointIdentityLabelsFromAPI adds and deletes the given labels on given endpoint ID.
-// Performs checks for whether the endpoint may be modified by an API call.
-// The received `add` and `del` labels will be filtered with the valid label prefixes.
-// The `add` labels take precedence over `del` labels, this means if the same
-// label is set on both `add` and `del`, that specific label will exist in the
-// endpoint's labels.
-// Returns an HTTP response code and an error msg (or nil on success).
-func (d *Daemon) modifyEndpointIdentityLabelsFromAPI(id string, add, del labels.Labels) (int, error) {
-	addLabels, _ := labelsfilter.Filter(add)
-	delLabels, _ := labelsfilter.Filter(del)
-	if lbls := addLabels.FindReserved(); lbls != nil {
-		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to add reserved labels: %s", lbls)
-	} else if lbls := delLabels.FindReserved(); lbls != nil {
-		return PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
-	}
-
-	ep, err := d.endpointManager.Lookup(id)
-	if err != nil {
-		return PatchEndpointIDInvalidCode, err
-	}
-	if ep == nil {
-		return PatchEndpointIDLabelsNotFoundCode, fmt.Errorf("Endpoint ID %s not found", id)
-	}
-	if err = endpoint.APICanModify(ep); err != nil {
-		return PatchEndpointIDInvalidCode, err
-	}
-
-	if err := ep.ModifyIdentityLabels(addLabels, delLabels); err != nil {
-		return PatchEndpointIDLabelsNotFoundCode, err
-	}
-
-	return PatchEndpointIDLabelsOKCode, nil
-}
-
-func putEndpointIDLabelsHandler(d *Daemon, params PatchEndpointIDLabelsParams) middleware.Responder {
-	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
-
-	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
-	if err != nil {
-		return api.Error(http.StatusTooManyRequests, err)
-	}
-	defer r.Done()
-
-	mod := params.Configuration
-	lbls := labels.NewLabelsFromModel(mod.User)
-
-	ep, err := d.endpointManager.Lookup(params.ID)
-	if err != nil {
-		r.Error(err)
-		return api.Error(PutEndpointIDInvalidCode, err)
-	} else if ep == nil {
-		r.Error(errEndpointNotFound)
-		return NewPatchEndpointIDLabelsNotFound()
-	}
-
-	add, del, err := ep.ApplyUserLabelChanges(lbls)
-	if err != nil {
-		r.Error(err)
-		return api.Error(PutEndpointIDInvalidCode, err)
-	}
-
-	code, err := d.modifyEndpointIdentityLabelsFromAPI(params.ID, add, del)
-	if err != nil {
-		r.Error(err)
-		return api.Error(code, err)
-	}
-	return NewPatchEndpointIDLabelsOK()
 }
 
 // QueueEndpointBuild waits for a "build permit" for the endpoint
@@ -1039,4 +574,93 @@ func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
 	}
 
 	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
+}
+
+type endpointCreationRequest struct {
+	// cancel is the cancellation function that can be called to cancel
+	// this endpoint create request
+	cancel context.CancelFunc
+
+	// endpoint is the endpoint being added in the request
+	endpoint *endpoint.Endpoint
+
+	// started is the timestamp on when the processing has started
+	started time.Time
+}
+
+type endpointCreationManager struct {
+	mutex     lock.Mutex
+	clientset client.Clientset
+	requests  map[string]*endpointCreationRequest
+}
+
+func newEndpointCreationManager(cs client.Clientset) *endpointCreationManager {
+	return &endpointCreationManager{
+		requests:  map[string]*endpointCreationRequest{},
+		clientset: cs,
+	}
+}
+
+func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel context.CancelFunc) {
+	// Tracking is only performed if Kubernetes pod names are available.
+	// The endpoint create logic already ensures that IPs and containerID
+	// are unique and thus tracking is not required outside of the
+	// Kubernetes context
+	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
+		return
+	}
+
+	podName := ep.GetK8sNamespaceAndPodName()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if req, ok := m.requests[podName]; ok {
+		ep.Logger("daemon").Warning("Cancelling obsolete endpoint creating due to new create for same pod")
+		req.cancel()
+	}
+
+	ep.Logger("daemon").Debug("New create request")
+	m.requests[podName] = &endpointCreationRequest{
+		cancel:   cancel,
+		endpoint: ep,
+		started:  time.Now(),
+	}
+}
+
+func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
+	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
+		return false
+	}
+
+	podName := ep.GetK8sNamespaceAndPodName()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if req, ok := m.requests[podName]; ok {
+		if req.endpoint == ep {
+			ep.Logger("daemon").Debug("End of create request")
+			delete(m.requests, podName)
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
+	if m.EndCreateRequest(ep) {
+		ep.Logger("daemon").Warning("Cancelled endpoint create request due to receiving endpoint delete request")
+	}
+}
+
+func (m *endpointCreationManager) DebugStatus() (output string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for _, req := range m.requests {
+		output += fmt.Sprintf("- %s: %s\n", req.started.String(), req.endpoint.String())
+	}
+	return
 }

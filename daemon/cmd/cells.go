@@ -34,6 +34,7 @@ import (
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pprof"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -141,6 +142,11 @@ var (
 
 		// Cilium REST API handlers
 		restapi.Cell,
+
+		// Provide the endpoint API handlers the ability to create endpoints via the daemon.
+		cell.Provide(func(dp promise.Promise[*Daemon]) promise.Promise[restapi.EndpointModifier] {
+			return promise.Map(dp, func(d *Daemon) restapi.EndpointModifier { return d })
+		}),
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,

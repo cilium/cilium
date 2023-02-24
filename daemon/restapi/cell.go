@@ -10,4 +10,8 @@ var Cell = cell.Module(
 	"Cilium Agent API handlers",
 
 	rateLimiterCell, // Request rate-limiting
+
+	cell.Provide(
+		newEndpointHandlers,
+	),
 )

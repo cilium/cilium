@@ -11,15 +11,15 @@ import (
 	"github.com/spf13/cast"
 
 	"github.com/cilium/cilium/api/v1/models"
-	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	daemonapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 )
 
-func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middleware.Responder {
+func getDebugInfoHandler(d *Daemon, params daemonapi.GetDebuginfoParams) middleware.Responder {
 	dr := models.DebugInfo{}
 
 	dr.CiliumVersion = version.Version
@@ -32,9 +32,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 	status := d.getStatus(false)
 	dr.CiliumStatus = &status
 
-	var p endpoint.GetEndpointParams
-
-	dr.EndpointList = d.getEndpointList(p)
+	dr.EndpointList = restapi.GetEndpointList(d.endpointManager, nil)
 	dr.Policy = d.policy.GetRulesList()
 	dr.Subsystem = debug.CollectSubsystemStatus()
 	dr.CiliumMemoryMap = memoryMap(os.Getpid())
@@ -53,7 +51,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 		}
 	}
 
-	return restapi.NewGetDebuginfoOK().WithPayload(&dr)
+	return daemonapi.NewGetDebuginfoOK().WithPayload(&dr)
 }
 
 func memoryMap(pid int) string {

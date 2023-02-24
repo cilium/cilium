@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/api/v1/server/restapi/daemon"
-	"github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/api/v1/server/restapi/metrics"
 	"github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -39,18 +38,6 @@ type handlersOut struct {
 	DaemonGetMapNameHandler            daemon.GetMapNameHandler
 	DaemonGetNodeIdsHandler            daemon.GetNodeIdsHandler
 	DaemonPatchConfigHandler           daemon.PatchConfigHandler
-
-	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
-	EndpointGetEndpointHandler           endpoint.GetEndpointHandler
-	EndpointGetEndpointIDConfigHandler   endpoint.GetEndpointIDConfigHandler
-	EndpointGetEndpointIDHandler         endpoint.GetEndpointIDHandler
-	EndpointGetEndpointIDHealthzHandler  endpoint.GetEndpointIDHealthzHandler
-	EndpointGetEndpointIDLabelsHandler   endpoint.GetEndpointIDLabelsHandler
-	EndpointGetEndpointIDLogHandler      endpoint.GetEndpointIDLogHandler
-	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
-	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
-	EndpointPatchEndpointIDLabelsHandler endpoint.PatchEndpointIDLabelsHandler
-	EndpointPutEndpointIDHandler         endpoint.PutEndpointIDHandler
 
 	IpamDeleteIpamIPHandler ipam.DeleteIpamIPHandler
 	IpamPostIpamHandler     ipam.PostIpamHandler
@@ -139,29 +126,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	out.DaemonPatchConfigHandler = wrapAPIHandler(dp, patchConfigHandler)
 
 	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// /endpoint/
-		out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
-
-		// /endpoint/{id}
-		out.EndpointGetEndpointIDHandler = wrapAPIHandler(dp, getEndpointIDHandler)
-		out.EndpointPutEndpointIDHandler = wrapAPIHandler(dp, putEndpointIDHandler)
-		out.EndpointPatchEndpointIDHandler = wrapAPIHandler(dp, patchEndpointIDHandler)
-		out.EndpointDeleteEndpointIDHandler = wrapAPIHandler(dp, deleteEndpointIDHandler)
-
-		// /endpoint/{id}config/
-		out.EndpointGetEndpointIDConfigHandler = wrapAPIHandler(dp, getEndpointIDConfigHandler)
-		out.EndpointPatchEndpointIDConfigHandler = wrapAPIHandler(dp, patchEndpointIDConfigHandler)
-
-		// /endpoint/{id}/labels/
-		out.EndpointGetEndpointIDLabelsHandler = wrapAPIHandler(dp, getEndpointIDLabelsHandler)
-		out.EndpointPatchEndpointIDLabelsHandler = wrapAPIHandler(dp, putEndpointIDLabelsHandler)
-
-		// /endpoint/{id}/log/
-		out.EndpointGetEndpointIDLogHandler = wrapAPIHandler(dp, getEndpointIDLogHandler)
-
-		// /endpoint/{id}/healthz
-		out.EndpointGetEndpointIDHealthzHandler = wrapAPIHandler(dp, getEndpointIDHealthzHandler)
-
 		// /identity/
 		out.PolicyGetIdentityHandler = wrapAPIHandler(dp, getIdentityHandler)
 		out.PolicyGetIdentityIDHandler = wrapAPIHandler(dp, getIdentityIDHandler)
