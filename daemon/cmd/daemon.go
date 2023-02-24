@@ -83,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
@@ -412,6 +413,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 	nodeLocalStore node.LocalNodeStore,
+	nodeDiscovery promise.Resolver[*nodediscovery.NodeDiscovery],
+	ipsecMgr ipsec.ManagerInterface,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -503,11 +506,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 	lbmap.Init(lbmapInitParams)
 
-	authKeySize, encryptKeyID, err := setupIPSec()
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
-	}
-
 	var mtuConfig mtu.Configuration
 	externalIP := node.GetIPv4()
 	if externalIP == nil {
@@ -515,7 +513,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
-		authKeySize,
+		ipsecMgr,
 		option.Config.EnableIPSec,
 		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
@@ -535,6 +533,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, clientset, mtuConfig, netConf)
+	nodeDiscovery.Resolve(nd)
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -1192,7 +1191,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			clientset,
 			nodeTypes.GetName(),
 			d.nodeLocalStore.Get().Node,
-			encryptKeyID)
+			ipsecMgr.GetCurrentKeySPI())
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
 		}
@@ -1308,14 +1307,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		} else {
 			log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
 		}
-	}
-
-	if option.Config.EnableIPSec {
-		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd, d.Datapath().Node()); err != nil {
-			log.WithError(err).Error("Unable to start IPSec keyfile watcher")
-		}
-
-		ipsec.StartStaleKeysReclaimer(ctx)
 	}
 
 	return &d, restoredEndpoints, nil

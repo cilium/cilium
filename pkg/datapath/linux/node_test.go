@@ -19,7 +19,7 @@ import (
 var (
 	nh = linuxNodeHandler{
 		nodeConfig: datapath.LocalNodeConfiguration{
-			MtuConfig: mtu.NewConfiguration(0, false, false, false, 100, net.IP("1.1.1.1")),
+			MtuConfig: mtu.NewConfiguration(mockAuthKeySizer(0), false, false, false, 100, net.IP("1.1.1.1")),
 		},
 		nodeAddressing: fake.NewNodeAddressing(),
 		datapathConfig: DatapathConfiguration{
@@ -67,7 +67,7 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 
 	fakeNodeAddressing := fake.NewNodeAddressing()
 
-	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil)
+	nodeHandler := NewNodeHandler(dpConfig, fakeNodeAddressing, nil, nil)
 
 	c1 := cidr.MustParseCIDR("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.(*linuxNodeHandler).createNodeRouteSpec(c1, false)

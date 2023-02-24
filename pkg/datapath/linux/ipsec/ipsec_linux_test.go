@@ -15,6 +15,8 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -46,13 +48,23 @@ func (p *IPSecSuitePrivileged) TearDownTest(c *C) {
 }
 
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
-	_, _, err := LoadIPSecKeysFile(path)
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
+	_, _, err = m.loadIPSecKeysFile(path)
 	c.Assert(os.IsNotExist(err), Equals, true)
 }
 
 func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
 	keys := bytes.NewReader(invalidKeysDat)
-	_, _, err := loadIPSecKeys(keys)
+	_, _, err = m.loadIPSecKeys(keys)
 	c.Assert(err, NotNil)
 
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
@@ -60,20 +72,30 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, NotNil)
 }
 
 func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
 	keys := bytes.NewReader(keysDat)
-	_, _, err := loadIPSecKeys(keys)
+	_, _, err = m.loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
 	keys = bytes.NewReader(keysAeadDat)
-	_, _, err = loadIPSecKeys(keys)
+	_, _, err = m.loadIPSecKeys(keys)
 	c.Assert(err, IsNil)
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
 	_, local, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
@@ -90,10 +112,10 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.2.3.4"] = key
-	ipSecKeysGlobal[""] = key
+	m.ipSecKeysGlobal["1.2.3.4"] = key
+	m.ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -108,18 +130,23 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEquals(c *C) {
 		Auth:  nil,
 	}
 
-	ipSecKeysGlobal["1.2.3.4"] = key
-	ipSecKeysGlobal[""] = key
+	m.ipSecKeysGlobal["1.2.3.4"] = key
+	m.ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
-	ipSecKeysGlobal["1.2.3.4"] = nil
-	ipSecKeysGlobal[""] = nil
+	m.ipSecKeysGlobal["1.2.3.4"] = nil
+	m.ipSecKeysGlobal[""] = nil
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	c.Assert(err, IsNil)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
@@ -136,11 +163,11 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 		Crypt: &netlink.XfrmStateAlgo{Name: "cbc(aes)", Key: cryptKey},
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
-	ipSecKeysGlobal[""] = key
+	m.ipSecKeysGlobal["1.1.3.4"] = key
+	m.ipSecKeysGlobal["1.2.3.4"] = key
+	m.ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	cleanIPSecStatesAndPolicies(c)
@@ -155,15 +182,15 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 		Auth:  nil,
 	}
 
-	ipSecKeysGlobal["1.1.3.4"] = key
-	ipSecKeysGlobal["1.2.3.4"] = key
-	ipSecKeysGlobal[""] = key
+	m.ipSecKeysGlobal["1.1.3.4"] = key
+	m.ipSecKeysGlobal["1.2.3.4"] = key
+	m.ipSecKeysGlobal[""] = key
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 
 	// Assert additional rule when tunneling is enabled is inserted
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, IsNil)
 	toProxyPolicy, err := netlink.XfrmPolicyGet(&netlink.XfrmPolicy{
 		Src: remote,
@@ -178,18 +205,23 @@ func (p *IPSecSuitePrivileged) TestUpsertIPSecEndpoint(c *C) {
 	c.Assert(toProxyPolicy, Not(IsNil))
 
 	cleanIPSecStatesAndPolicies(c)
-	ipSecKeysGlobal["1.1.3.4"] = nil
-	ipSecKeysGlobal["1.2.3.4"] = nil
-	ipSecKeysGlobal[""] = nil
+	m.ipSecKeysGlobal["1.1.3.4"] = nil
+	m.ipSecKeysGlobal["1.2.3.4"] = nil
+	m.ipSecKeysGlobal[""] = nil
 }
 
 func (p *IPSecSuitePrivileged) TestUpsertIPSecKeyMissing(c *C) {
+	m, err := newManager(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		IPSecKeyFile: path,
+	}, nil, nil, nil)
+	c.Assert(err, IsNil)
+
 	_, local, err := net.ParseCIDR("1.1.3.4/16")
 	c.Assert(err, IsNil)
 	_, remote, err := net.ParseCIDR("1.2.3.4/16")
 	c.Assert(err, IsNil)
 
-	_, err = UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
+	_, err = m.UpsertIPsecEndpoint(local, remote, local.IP, remote.IP, IPSecDirBoth, false)
 	c.Assert(err, ErrorMatches, "unable to replace local state: IPSec key missing")
 
 	cleanIPSecStatesAndPolicies(c)

@@ -6,6 +6,8 @@ package cmd
 import (
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
@@ -14,7 +16,9 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 var (
@@ -74,6 +78,11 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
+
+		// Promise node discovery until we can modularize it and properly put it into the graph
+		cell.Provide(func() (promise.Resolver[*nodediscovery.NodeDiscovery], promise.Promise[*nodediscovery.NodeDiscovery]) {
+			return promise.New[*nodediscovery.NodeDiscovery]()
+		}),
 	)
 
 	// Datapath provides the privileged operations to apply control-plane
@@ -81,6 +90,14 @@ var (
 	Datapath = cell.Module(
 		"datapath",
 		"Datapath",
+
+		// Promise node discovery until we can modularize it and properly put it into the graph
+		cell.Provide(func() (promise.Resolver[datapath.Datapath], promise.Promise[datapath.Datapath]) {
+			return promise.New[datapath.Datapath]()
+		}),
+
+		// The IPSec package parses IPSec encryption keys and persists them to the linux datapath
+		ipsec.Cell,
 
 		cell.Provide(
 			newWireguardAgent,

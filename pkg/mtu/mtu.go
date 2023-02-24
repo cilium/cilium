@@ -7,6 +7,11 @@ import (
 	"net"
 )
 
+// ipsecAuthKeySizer is an internal interface for ipsec.Manager to avoid import cycles
+type ipsecAuthKeySizer interface {
+	GetAuthKeySize() int
+}
+
 const (
 	// MaxMTU is the highest MTU that can be used for devices and routes
 	// handled by Cilium. It will typically be used to configure inbound
@@ -66,6 +71,9 @@ const (
 
 // Configuration is an MTU configuration as returned by NewConfiguration
 type Configuration struct {
+	//
+	authKeySizer ipsecAuthKeySizer
+
 	// standardMTU is the regular MTU used for configuring devices and
 	// routes where packets are expected to be delivered outside the node.
 	//
@@ -74,17 +82,6 @@ type Configuration struct {
 	// ``pkg/plugins/*`` sources, it will not respect the settings
 	// configured inside the ``daemon/``.
 	standardMTU int
-
-	// tunnelMTU is the MTU used for configuring a tunnel mesh for
-	// inter-node connectivity.
-	//
-	// Similar to StandardMTU, this is a singleton for the process.
-	tunnelMTU int
-
-	// preEncrypMTU is the MTU used for configurations of a encryption route.
-	// If tunneling is enabled the tunnelMTU is used which will include
-	// additional encryption overhead if needed.
-	preEncryptMTU int
 
 	// postEncryptMTU is the MTU used for configurations of a encryption
 	// route _after_ encryption tags have been addded. These will be used
@@ -101,9 +98,7 @@ type Configuration struct {
 // specified, otherwise it will be automatically detected. if encapEnabled is
 // true, the MTU is adjusted to account for encapsulation overhead for all
 // routes involved in node to node communication.
-func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, mtu int, mtuDetectIP net.IP) Configuration {
-	encryptOverhead := 0
-
+func NewConfiguration(authKeySizer ipsecAuthKeySizer, encryptEnabled bool, encapEnabled bool, wireguardEnabled bool, mtu int, mtuDetectIP net.IP) Configuration {
 	if mtu == 0 {
 		var err error
 
@@ -118,24 +113,13 @@ func NewConfiguration(authKeySize int, encryptEnabled bool, encapEnabled bool, w
 		}
 	}
 
-	if encryptEnabled {
-		// Add the difference between the default and the actual key sizes here
-		// to account for users specifying non-default auth key lengths.
-		encryptOverhead = EncryptionIPsecOverhead + (authKeySize - EncryptionDefaultAuthKeyLength)
-	}
-
 	conf := Configuration{
+		authKeySizer:     authKeySizer,
 		standardMTU:      mtu,
-		tunnelMTU:        mtu - (TunnelOverhead + encryptOverhead),
 		postEncryptMTU:   mtu - TunnelOverhead,
-		preEncryptMTU:    mtu - encryptOverhead,
 		encapEnabled:     encapEnabled,
 		encryptEnabled:   encryptEnabled,
 		wireguardEnabled: wireguardEnabled,
-	}
-
-	if conf.tunnelMTU < 0 {
-		conf.tunnelMTU = 0
 	}
 
 	return conf
@@ -168,20 +152,21 @@ func (c *Configuration) GetRouteMTU() int {
 	}
 
 	if c.encryptEnabled && !c.encapEnabled {
-		if c.preEncryptMTU == 0 {
+		preEncryptMTU := c.GetPreEncryptMTU()
+		if preEncryptMTU == 0 {
 			return EthernetMTU - EncryptionIPsecOverhead
 		}
-		return c.preEncryptMTU
+		return preEncryptMTU
 	}
 
-	if c.tunnelMTU == 0 {
+	if c.GetTunnelMTU() == 0 {
 		if c.encryptEnabled {
 			return EthernetMTU - (TunnelOverhead + EncryptionIPsecOverhead)
 		}
 		return EthernetMTU - TunnelOverhead
 	}
 
-	return c.tunnelMTU
+	return c.GetTunnelMTU()
 }
 
 // GetDeviceMTU returns the MTU to be used on workload facing devices.
@@ -191,4 +176,33 @@ func (c *Configuration) GetDeviceMTU() int {
 	}
 
 	return c.standardMTU
+}
+
+// Add the difference between the default and the actual key sizes here
+// to account for users specifying non-default auth key lengths.
+func (c *Configuration) getEncryptionOverhead() int {
+	if !c.encryptEnabled {
+		return 0
+	}
+
+	return EncryptionIPsecOverhead + (c.authKeySizer.GetAuthKeySize() - EncryptionDefaultAuthKeyLength)
+}
+
+// GetTunnelMTU is the MTU used for configuring a tunnel mesh for
+// inter-node connectivity.
+//
+// Similar to StandardMTU, this is a singleton for the process.
+func (c *Configuration) GetTunnelMTU() int {
+	tunnelMTU := c.standardMTU - (TunnelOverhead + c.getEncryptionOverhead())
+	if tunnelMTU < 0 {
+		return 0
+	}
+	return tunnelMTU
+}
+
+// preEncrypMTU is the MTU used for configurations of a encryption route.
+// If tunneling is enabled the tunnelMTU is used which will include
+// additional encryption overhead if needed.
+func (c *Configuration) GetPreEncryptMTU() int {
+	return c.standardMTU - c.getEncryptionOverhead()
 }

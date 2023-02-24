@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
-	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -514,23 +513,6 @@ func (d *Daemon) initMaps() error {
 	}
 
 	return nil
-}
-
-func setupIPSec() (int, uint8, error) {
-	if !option.Config.EncryptNode {
-		ipsec.DeleteIPsecEncryptRoute()
-	}
-
-	if !option.Config.EnableIPSec {
-		return 0, 0, nil
-	}
-
-	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
-	if err != nil {
-		return 0, 0, err
-	}
-	node.SetIPsecKeyIdentity(spi)
-	return authKeySize, spi, nil
 }
 
 func setupVTEPMapping() error {

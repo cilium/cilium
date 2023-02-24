@@ -75,6 +75,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
@@ -1615,7 +1616,7 @@ func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
 	return wgAgent
 }
 
-func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
+func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent, ipsecManager ipsec.ManagerInterface, dpResolver promise.Resolver[datapath.Datapath]) datapath.Datapath {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
 		HostDevice: defaults.HostDevice,
 		ProcFs:     option.Config.ProcFs,
@@ -1633,7 +1634,9 @@ func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath 
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
+	dp := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent, ipsecManager)
+	dpResolver.Resolve(dp)
+	return dp
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has
@@ -1662,6 +1665,8 @@ type daemonParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
+	NodeDiscovery   promise.Resolver[*nodediscovery.NodeDiscovery]
+	IPSecManager    ipsec.ManagerInterface
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1693,7 +1698,10 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.SharedResources,
 				params.CertManager,
 				params.SecretManager,
-				params.LocalNodeStore)
+				params.LocalNodeStore,
+				params.NodeDiscovery,
+				params.IPSecManager,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

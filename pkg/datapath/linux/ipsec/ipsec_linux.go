@@ -25,12 +25,20 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/fswatcher"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
+)
+
+var Cell = cell.Module("ipsec", "IPSec",
+	cell.Provide(NewManager),
 )
 
 type IPSecDir string
@@ -68,30 +76,134 @@ type ipSecKey struct {
 	Aead  *netlink.XfrmStateAlgo
 }
 
-var (
+type ManagerInterface interface {
+	GetAuthKeySize() int
+	GetCurrentKeySPI() uint8
+	IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error
+	UpsertIPsecEndpoint(local *net.IPNet, remote *net.IPNet, outerLocal net.IP, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error)
+	UpsertIPsecEndpointPolicy(local *net.IPNet, remote *net.IPNet, localTmpl net.IP, remoteTmpl net.IP, dir IPSecDir) error
+}
+
+func NewManager(
+	lifecycle hive.Lifecycle,
+	config *option.DaemonConfig,
+	localNode node.LocalNodeStore,
+	dpPromise promise.Promise[datapath.Datapath],
+	nodeDiscovery promise.Promise[*nodediscovery.NodeDiscovery],
+) (ManagerInterface, error) {
+	return newManager(lifecycle, config, localNode, dpPromise, nodeDiscovery)
+}
+
+type Manager struct {
 	ipSecLock lock.RWMutex
 
 	// ipSecKeysGlobal can be accessed by multiple subsystems concurrently,
 	// so it should be accessed only through the getIPSecKeys and
 	// loadIPSecKeys functions, which will ensure the proper lock is held
-	ipSecKeysGlobal = make(map[string]*ipSecKey)
+	ipSecKeysGlobal map[string]*ipSecKey
 
 	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
 	ipSecCurrentKeySPI uint8
 
+	// ipSecCurrentAuthKeySize is the size of the current key
+	ipSecCurrentAuthKeySize int
+
 	// ipSecKeysRemovalTime is used to track at which time a given key is
 	// replaced with a newer one, allowing to reclaim old keys only after
 	// enough time has passed since their replacement
-	ipSecKeysRemovalTime = make(map[uint8]time.Time)
-)
+	ipSecKeysRemovalTime map[uint8]time.Time
+}
 
-func getIPSecKeys(ip net.IP) *ipSecKey {
-	ipSecLock.RLock()
-	defer ipSecLock.RUnlock()
+func newManager(
+	lifecycle hive.Lifecycle,
+	config *option.DaemonConfig,
+	localNode node.LocalNodeStore,
+	dpPromise promise.Promise[datapath.Datapath],
+	nodeDiscovery promise.Promise[*nodediscovery.NodeDiscovery],
+) (*Manager, error) {
+	mgr := &Manager{
+		ipSecKeysGlobal:      make(map[string]*ipSecKey),
+		ipSecKeysRemovalTime: make(map[uint8]time.Time),
+	}
 
-	key, scoped := ipSecKeysGlobal[ip.String()]
+	if !config.EncryptNode {
+		lifecycle.Append(hive.Hook{
+			OnStart: func(hc hive.HookContext) error {
+				DeleteIPsecEncryptRoute()
+				return nil
+			},
+		})
+	}
+
+	if !config.EnableIPSec {
+		return mgr, nil
+	}
+
+	authKeySize, spi, err := mgr.loadIPSecKeysFile(config.IPSecKeyFile)
+	if err != nil {
+		return nil, err
+	}
+	mgr.ipSecCurrentAuthKeySize = authKeySize
+
+	localNode.Update(func(n *node.LocalNode) {
+		n.EncryptionKey = spi
+	})
+
+	reclaimerCtx, reclaimerCancel := context.WithCancel(context.Background())
+	lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			go mgr.startStaleKeysReclaimer(reclaimerCtx)
+			return nil
+		},
+		OnStop: func(hc hive.HookContext) error {
+			reclaimerCancel()
+			return nil
+		},
+	})
+
+	watcherCtx, watcherCancel := context.WithCancel(context.Background())
+	lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			go func() {
+				ctx := context.Background()
+				nd, err := nodeDiscovery.Await(ctx)
+				if err != nil {
+					return
+				}
+
+				dp, err := dpPromise.Await(ctx)
+				if err != nil {
+					return
+				}
+
+				mgr.startKeyfileWatcher(watcherCtx, config.IPSecKeyFile, nd, dp.Node())
+			}()
+			return nil
+		},
+		OnStop: func(hc hive.HookContext) error {
+			watcherCancel()
+			return nil
+		},
+	})
+
+	return mgr, err
+}
+
+func (m *Manager) GetAuthKeySize() int {
+	return m.ipSecCurrentAuthKeySize
+}
+
+func (m *Manager) GetCurrentKeySPI() uint8 {
+	return m.ipSecCurrentKeySPI
+}
+
+func (m *Manager) getIPSecKeys(ip net.IP) *ipSecKey {
+	m.ipSecLock.RLock()
+	defer m.ipSecLock.RUnlock()
+
+	key, scoped := m.ipSecKeysGlobal[ip.String()]
 	if scoped == false {
-		key, _ = ipSecKeysGlobal[""]
+		key, _ = m.ipSecKeysGlobal[""]
 	}
 	return key
 }
@@ -138,8 +250,8 @@ func ipSecJoinState(state *netlink.XfrmState, keys *ipSecKey) {
 	state.Reqid = keys.ReqID
 }
 
-func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
-	key := getIPSecKeys(remoteIP)
+func (m *Manager) ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error) {
+	key := m.getIPSecKeys(remoteIP)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -166,8 +278,8 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
-	key := getIPSecKeys(localIP)
+func (m *Manager) ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
+	key := m.getIPSecKeys(localIP)
 	if key == nil {
 		return 0, fmt.Errorf("IPSec key missing")
 	}
@@ -186,9 +298,9 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP) (uint8, error) {
 	return key.Spi, netlink.XfrmStateAdd(state)
 }
 
-func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
+func (m *Manager) _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, proxyMark bool, dir netlink.Dir) error {
 	optional := int(0)
-	key := getIPSecKeys(dst.IP)
+	key := m.getIPSecKeys(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
@@ -232,16 +344,16 @@ func _ipSecReplacePolicyInFwd(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, prox
 	return netlink.XfrmPolicyUpdate(policy)
 }
 
-func ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
-	if err := _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, true, netlink.XFRM_DIR_IN); err != nil {
+func (m *Manager) ipSecReplacePolicyIn(src, dst *net.IPNet, tmplSrc, tmplDst net.IP) error {
+	if err := m._ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, true, netlink.XFRM_DIR_IN); err != nil {
 		return err
 	}
-	return _ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_IN)
+	return m._ipSecReplacePolicyInFwd(src, dst, tmplSrc, tmplDst, false, netlink.XFRM_DIR_IN)
 }
 
-func IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
+func (m *Manager) IpSecReplacePolicyFwd(dst *net.IPNet, tmplDst net.IP) error {
 	// The source CIDR and IP aren't used in the case of FWD policies.
-	return _ipSecReplacePolicyInFwd(nil, dst, net.IP{}, tmplDst, false, netlink.XFRM_DIR_FWD)
+	return m._ipSecReplacePolicyInFwd(nil, dst, net.IP{}, tmplDst, false, netlink.XFRM_DIR_FWD)
 }
 
 // ipSecXfrmMarkSetSPI takes a XfrmMark base value, an SPI, returns the mark
@@ -263,10 +375,10 @@ func getSPIFromXfrmPolicy(policy *netlink.XfrmPolicy) uint8 {
 	return ipSecXfrmMarkGetSPI(policy.Mark.Value)
 }
 
-func ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPSecDir) error {
+func (m *Manager) ipSecReplacePolicyOut(src, dst *net.IPNet, tmplSrc, tmplDst net.IP, dir IPSecDir) error {
 	// TODO: Remove old policy pointing to target net
 
-	key := getIPSecKeys(dst.IP)
+	key := m.getIPSecKeys(dst.IP)
 	if key == nil {
 		return fmt.Errorf("IPSec key missing")
 	}
@@ -366,7 +478,7 @@ func ipsecDeleteXfrmPolicy(ip net.IP) {
  * state space. Basic idea would be to reference a state using any key generated
  * from BPF program allowing for a single state per security ctx.
  */
-func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
+func (m *Manager) UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.IP, dir IPSecDir, outputMark bool) (uint8, error) {
 	var spi uint8
 	var err error
 
@@ -380,17 +492,17 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 	 */
 	if !outerLocal.Equal(outerRemote) {
 		if dir == IPSecDirIn || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
+			if spi, err = m.ipSecReplaceStateIn(outerLocal, outerRemote, outputMark); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace local state: %s", err)
 				}
 			}
-			if err = ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
+			if err = m.ipSecReplacePolicyIn(remote, local, outerRemote, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy in: %s", err)
 				}
 			}
-			if err = IpSecReplacePolicyFwd(local, outerLocal); err != nil {
+			if err = m.IpSecReplacePolicyFwd(local, outerLocal); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy fwd: %s", err)
 				}
@@ -398,13 +510,13 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 		}
 
 		if dir == IPSecDirOut || dir == IPSecDirOutNode || dir == IPSecDirBoth {
-			if spi, err = ipSecReplaceStateOut(outerLocal, outerRemote); err != nil {
+			if spi, err = m.ipSecReplaceStateOut(outerLocal, outerRemote); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace remote state: %s", err)
 				}
 			}
 
-			if err = ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, dir); err != nil {
+			if err = m.ipSecReplacePolicyOut(local, remote, outerLocal, outerRemote, dir); err != nil {
 				if !os.IsExist(err) {
 					return 0, fmt.Errorf("unable to replace policy out: %s", err)
 				}
@@ -416,8 +528,8 @@ func UpsertIPsecEndpoint(local, remote *net.IPNet, outerLocal, outerRemote net.I
 
 // UpsertIPsecEndpointPolicy adds a policy to the xfrm rules. Used to add a policy when the state
 // rule is already available.
-func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, dir IPSecDir) error {
-	if err := ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, dir); err != nil {
+func (m *Manager) UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl net.IP, dir IPSecDir) error {
+	if err := m.ipSecReplacePolicyOut(local, remote, localTmpl, remoteTmpl, dir); err != nil {
 		if !os.IsExist(err) {
 			return fmt.Errorf("unable to replace templated policy out: %s", err)
 		}
@@ -500,10 +612,10 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	return len(keyTrimmed), key, err
 }
 
-// LoadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
+// loadIPSecKeysFile imports IPSec auth and crypt keys from a file. The format
 // is to put a key per line as follows, (auth-algo auth-key enc-algo enc-key)
 // Returns the authentication overhead in bytes, the key ID, and an error.
-func LoadIPSecKeysFile(path string) (int, uint8, error) {
+func (m *Manager) loadIPSecKeysFile(path string) (int, uint8, error) {
 	log.WithField(logfields.Path, path).Info("Loading IPsec keyfile")
 
 	file, err := os.Open(path)
@@ -511,16 +623,16 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 		return 0, 0, err
 	}
 	defer file.Close()
-	return loadIPSecKeys(file)
+	return m.loadIPSecKeys(file)
 }
 
-func loadIPSecKeys(r io.Reader) (int, uint8, error) {
+func (m *Manager) loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
 	scopedLog := log
 
-	ipSecLock.Lock()
-	defer ipSecLock.Unlock()
+	m.ipSecLock.Lock()
+	defer m.ipSecLock.Unlock()
 
 	if err := encrypt.MapCreate(); err != nil {
 		return 0, 0, fmt.Errorf("Encrypt map create failed: %v", err)
@@ -621,19 +733,19 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		if len(s) == offsetBase+offsetIP+1 {
 			// The IPsec secret has the optional IP address field at the end.
 			log.Warning("IPsec secrets with an IP address as the last argument are deprecated and will be unsupported in v1.13.")
-			if ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
-				oldSpi = ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
+			if m.ipSecKeysGlobal[s[offsetBase+offsetIP]] != nil {
+				oldSpi = m.ipSecKeysGlobal[s[offsetBase+offsetIP]].Spi
 			}
-			ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
+			m.ipSecKeysGlobal[s[offsetBase+offsetIP]] = ipSecKey
 		} else {
-			if ipSecKeysGlobal[""] != nil {
-				oldSpi = ipSecKeysGlobal[""].Spi
+			if m.ipSecKeysGlobal[""] != nil {
+				oldSpi = m.ipSecKeysGlobal[""].Spi
 			}
-			ipSecKeysGlobal[""] = ipSecKey
+			m.ipSecKeysGlobal[""] = ipSecKey
 		}
 
-		ipSecKeysRemovalTime[oldSpi] = time.Now()
-		ipSecCurrentKeySPI = spi
+		m.ipSecKeysRemovalTime[oldSpi] = time.Now()
+		m.ipSecCurrentKeySPI = spi
 	}
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
@@ -664,7 +776,7 @@ func DeleteIPsecEncryptRoute() {
 	}
 }
 
-func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) {
+func (m *Manager) keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) {
 	for {
 		select {
 		case event := <-watcher.Events:
@@ -672,7 +784,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 				continue
 			}
 
-			_, spi, err := LoadIPSecKeysFile(keyfilePath)
+			_, spi, err := m.loadIPSecKeysFile(keyfilePath)
 			if err != nil {
 				log.WithError(err).Errorf("Failed to load IPsec keyfile")
 				continue
@@ -703,13 +815,13 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	}
 }
 
-func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) error {
+func (m *Manager) startKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery *nodediscovery.NodeDiscovery, nodeHandler datapath.NodeHandler) error {
 	watcher, err := fswatcher.New([]string{keyfilePath})
 	if err != nil {
 		return err
 	}
 
-	go keyfileWatcher(ctx, watcher, keyfilePath, nodediscovery, nodeHandler)
+	go m.keyfileWatcher(ctx, watcher, keyfilePath, nodediscovery, nodeHandler)
 
 	return nil
 }
@@ -724,21 +836,21 @@ func StartKeyfileWatcher(ctx context.Context, keyfilePath string, nodediscovery 
 // given SPI there are multiple policies and states associated with it), and we
 // don't want to get inconsistent results because we are calling time.Now()
 // directly in this function.
-func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
+func (m *Manager) ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 	// The SPI associated with the key currently in use should not be reclaimed
-	if spi == ipSecCurrentKeySPI {
+	if spi == m.ipSecCurrentKeySPI {
 		return false
 	}
 
 	// Otherwise retrieve the time at which the key for the given SPI was removed
-	keyRemovalTime, ok := ipSecKeysRemovalTime[spi]
+	keyRemovalTime, ok := m.ipSecKeysRemovalTime[spi]
 	if !ok {
 		// If not found in the keyRemovalTime map, assume the key was
 		// deleted just now.
 		// In this way if the agent gets restarted before an old key is
 		// removed we will always wait at least IPsecKeyDeleteDelay time
 		// before reclaiming it
-		ipSecKeysRemovalTime[spi] = time.Now()
+		m.ipSecKeysRemovalTime[spi] = time.Now()
 
 		return false
 	}
@@ -752,8 +864,8 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 	return true
 }
 
-func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
-	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
+func (m *Manager) deleteStaleXfrmStates(reclaimTimestamp time.Time) {
+	scopedLog := log.WithField(logfields.SPI, m.ipSecCurrentKeySPI)
 
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
@@ -764,7 +876,7 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 	for _, s := range xfrmStateList {
 		stateSPI := uint8(s.Spi)
 
-		if !ipSecSPICanBeReclaimed(stateSPI, reclaimTimestamp) {
+		if !m.ipSecSPICanBeReclaimed(stateSPI, reclaimTimestamp) {
 			continue
 		}
 
@@ -777,8 +889,8 @@ func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
 	}
 }
 
-func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
-	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
+func (m *Manager) deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
+	scopedLog := log.WithField(logfields.SPI, m.ipSecCurrentKeySPI)
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
@@ -789,7 +901,7 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 	for _, p := range xfrmPolicyList {
 		policySPI := getSPIFromXfrmPolicy(&p)
 
-		if !ipSecSPICanBeReclaimed(policySPI, reclaimTimestamp) {
+		if !m.ipSecSPICanBeReclaimed(policySPI, reclaimTimestamp) {
 			continue
 		}
 
@@ -807,30 +919,30 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 	}
 }
 
-func doReclaimStaleKeys() {
-	ipSecLock.Lock()
-	defer ipSecLock.Unlock()
+func (m *Manager) doReclaimStaleKeys() {
+	m.ipSecLock.Lock()
+	defer m.ipSecLock.Unlock()
 
 	// In case no IPSec key has been loaded yet, don't try to reclaim any
 	// old key
-	if ipSecCurrentKeySPI == 0 {
+	if m.ipSecCurrentKeySPI == 0 {
 		return
 	}
 
 	reclaimTimestamp := time.Now()
 
-	deleteStaleXfrmStates(reclaimTimestamp)
-	deleteStaleXfrmPolicies(reclaimTimestamp)
+	m.deleteStaleXfrmStates(reclaimTimestamp)
+	m.deleteStaleXfrmPolicies(reclaimTimestamp)
 }
 
-func StartStaleKeysReclaimer(ctx context.Context) {
+func (m *Manager) startStaleKeysReclaimer(ctx context.Context) {
 	timer, timerDone := inctimer.New()
 
 	go func() {
 		for {
 			select {
 			case <-timer.After(1 * time.Minute):
-				doReclaimStaleKeys()
+				m.doReclaimStaleKeys()
 			case <-ctx.Done():
 				timerDone()
 				return
