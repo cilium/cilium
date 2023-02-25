@@ -38,14 +38,7 @@ import (
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
-// if we strictly enforce a kube-proxy replacement.
-//
-// if we determine the config denotes a "strict" kube-proxy replacement, the
-// returned boolean will be true, when we detect a "non-strict" configuration the
-// return boolean is false.
-//
-// if this function cannot determine the strictness an error is returned and the boolean
-// is false. If an error is returned the boolean is of no meaning.
+// if the config is valid.
 func initKubeProxyReplacementOptions() error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
