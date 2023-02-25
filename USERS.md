@@ -420,6 +420,10 @@ Users (Alphabetically)
       L: https://rafay.co/platform/network-policy-manager/
       Q: @cloudnativeboy @mohanatreya
 
+    * N: Robinhood Markets
+      D: Robinhood uses Cilium for Kubernetes overlay networking in an environment where we run tests for backend services
+      U: CNI, Overlay networking
+      Q: @Madhu CS
 
     * N: SAP
       D: SAP uses Cilium for multiple internal scenarios. For examples for self-hosted Kubernetes scenarios on AWS with SAP Concur and for managed Kubernetes clusters provided with Gardener Project across AWS, Azure, GCP, and OpenStack.
