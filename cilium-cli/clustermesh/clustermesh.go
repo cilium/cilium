@@ -163,7 +163,7 @@ func (k *K8sClusterMesh) apiserverImage(imagePathMode utils.ImagePathMode) strin
 }
 
 func (k *K8sClusterMesh) etcdImage() string {
-	etcdVersion := "v3.4.13"
+	etcdVersion := "v3.5.4"
 	if k.clusterArch == "amd64" {
 		return "quay.io/coreos/etcd:" + etcdVersion
 	}
