@@ -80,7 +80,7 @@ containers. You can check that both clustermesh-apiserver and etcd server are pr
    ```
    $ kubectl get pods -l k8s-app=clustermesh-apiserver \
      -o jsonpath='{range .items[*].spec.containers[*]}{.image}{"\n"}{end}'
-   quay.io/coreos/etcd:v3.4.13
+   quay.io/coreos/etcd:v3.5.4
    quay.io/cilium/clustermesh-apiserver:v1.10.2
    ```
 #### Connect Cilium clusters in to a clustermesh
