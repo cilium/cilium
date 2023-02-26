@@ -26,7 +26,7 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
 
 .. code-block:: shell-session
 
-    $ COSIGN_EXPERIMENTAL=1 cosign verify --certificate-github-workflow-repository cilium/cilium --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-github-workflow-name "Image Release Build" --certificate-github-workflow-ref refs/tags/[RELEASE TAG] quay.io/cilium/cilium:v1.13 | jq
+    $ cosign verify --certificate-github-workflow-repository cilium/cilium --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-github-workflow-name "Image Release Build" --certificate-github-workflow-ref refs/tags/[RELEASE TAG] quay.io/cilium/cilium:v1.13 --certificate-identity "https://github.com/cilium/cilium/.github/workflows/build-images-releases.yaml@refs/tags/v1.13.0" | jq
     
 
 .. note::
@@ -43,7 +43,10 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
     ``--certificate-github-workflow-ref string`` contains the ref claim from 
     the GitHub OIDC Identity token that contains the git ref that the workflow 
     run was based upon.
+
+    ``--certificate-identity`` is used to verify the identity of the certificate
+    from the Github build images release workflow.
     
 
-.. _`Keyless Signatures`: https://github.com/sigstore/cosign/blob/main/KEYLESS.md#keyless-signatures
+.. _`Keyless Signatures`: https://docs.sigstore.dev/cosign/keyless/
 .. _`Cilium workflows`: https://github.com/cilium/cilium/tree/master/.github/workflows
