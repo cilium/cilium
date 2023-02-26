@@ -31,9 +31,8 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
 
 .. note::
 
-    ``COSIGN_EXPERIMENTAL=1`` is used to allow verification of images signed in 
-    ``KEYLESS`` mode. To learn more about keyless signing, please refer to 
-    `Keyless Signatures`_.
+    ``cosign`` is using verifying images signed in ``KEYLESS`` mode. To learn
+    more about keyless signing, please refer to `Keyless Signatures`_.
     
     ``--certificate-github-workflow-name string`` contains the workflow claim 
     from the GitHub OIDC Identity token that contains the name of the executed 
