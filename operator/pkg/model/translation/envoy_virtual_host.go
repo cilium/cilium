@@ -337,8 +337,7 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      getMatchingPrefixRegex(pathMatch.Prefix),
+					Regex: getMatchingPrefixRegex(pathMatch.Prefix),
 				},
 			},
 			Headers:         headerMatchers,
@@ -349,8 +348,7 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      pathMatch.Regex,
+					Regex: pathMatch.Regex,
 				},
 			},
 			Headers:         headerMatchers,
@@ -393,8 +391,7 @@ func getHeaderMatchers(hostnames []string, hostNameSuffixMatch bool, headers []m
 						StringMatch: &envoy_type_matcher_v3.StringMatcher{
 							MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
 								SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-									EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-									Regex:      getMatchingHeaderRegex(host),
+									Regex: getMatchingHeaderRegex(host),
 								},
 							},
 						},
@@ -475,8 +472,7 @@ func getEnvoyStringMatcher(s model.StringMatch) *envoy_type_matcher_v3.StringMat
 		return &envoy_type_matcher_v3.StringMatcher{
 			MatchPattern: &envoy_type_matcher_v3.StringMatcher_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-					Regex:      s.Regex,
+					Regex: s.Regex,
 				},
 			},
 		}

@@ -999,34 +999,41 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 		cnt++
 	}
 
-	googleRe2 := &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
-
 	headers := make([]*envoy_config_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":path",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Path,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Path,
+						},
+					},
 				}}})
 	}
 	if h.Method != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":method",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Method,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Method,
+						},
+					},
 				}}})
 	}
 	if h.Host != "" {
 		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":authority",
-			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
-				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-					EngineType: googleRe2,
-					Regex:      h.Host,
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+				StringMatch: &envoy_type_matcher.StringMatcher{
+					MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+						SafeRegex: &envoy_type_matcher.RegexMatcher{
+							Regex: h.Host,
+						},
+					},
 				}}})
 	}
 	for _, hdr := range h.Headers {
@@ -1036,7 +1043,14 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: key,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_type_matcher.StringMatcher{
+						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+							Exact: strs[1],
+						},
+					},
+				},
+			})
 		} else {
 			// Only header presence needed
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: strs[0],
@@ -1066,14 +1080,26 @@ func getHTTPRule(secretManager certificatemanager.SecretManager, h *api.PortRule
 			// Envoy treats an empty exact match value as matching ANY value; adding
 			// InvertMatch: true here will cause this rule to NEVER match.
 			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
-				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
-				InvertMatch:          true})
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+					StringMatch: &envoy_type_matcher.StringMatcher{
+						MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+							Exact: "",
+						},
+					},
+				},
+				InvertMatch: true})
 		} else {
 			// Header presence and matching (literal) value needed.
 			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
 				if value != "" {
 					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+							StringMatch: &envoy_type_matcher.StringMatcher{
+								MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+									Exact: value,
+								},
+							},
+						}})
 				} else {
 					// Only header presence needed
 					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
