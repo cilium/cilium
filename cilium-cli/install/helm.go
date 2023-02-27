@@ -125,11 +125,13 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 			// TODO(gandro): Future versions of Cilium will remove the following
 			// two limitations, we will need to have set the config map values
 			// based on the installed Cilium version
-			helmMapOpts["l7Proxy"] = "false"
-			k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
+			if versioncheck.MustCompile("<=1.13.0")(k.chartVersion) {
+				helmMapOpts["l7Proxy"] = "false"
+				k.Log("ℹ️  L7 proxy disabled due to Wireguard encryption")
 
-			if k.params.NodeEncryption {
-				k.Log("⚠️️  Wireguard does not support node encryption yet")
+				if k.params.NodeEncryption {
+					k.Log("⚠️️  Wireguard does not support node encryption yet")
+				}
 			}
 		}
 
