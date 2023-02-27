@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -412,6 +413,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 	nodeLocalStore node.LocalNodeStore,
+	authManager auth.Manager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -609,7 +611,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	// TODO: convert these package level variables to types for easier unit
 	// testing in the future.
 	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr, certManager, secretManager); err != nil {
+	if err := d.initPolicy(epMgr, certManager, secretManager, authManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
 	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
