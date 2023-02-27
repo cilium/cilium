@@ -79,9 +79,9 @@ int ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 	/* We are building an L3 skb which doesn't have L2 header, so in theory
-	 * we need to ignore pushing L2 header and set ctx->protocol =
-	 * bpf_ntohs(ETH_P_IP), but bpf verifier doesn't allow us to do so, and
-	 * kernel also doesn't handle an L3 skb properly (see https://elixir.bootlin.com/linux/v6.2.1/source/net/bpf/test_run.c#L1156).
+	 * we need to skip L2 header and set ctx->protocol = bpf_ntohs(ETH_P_IP),
+	 * but bpf verifier doesn't allow us to do so, and kernel also doesn't
+	 * handle an L3 skb properly (see https://elixir.bootlin.com/linux/v6.2.1/source/net/bpf/test_run.c#L1156).
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
@@ -233,9 +233,9 @@ int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	pktgen__init(&builder, ctx);
 
 	/* We are building an L3 skb which doesn't have L2 header, so in theory
-	 * we need to ignore pushing L2 header and set ctx->protocol =
-	 * bpf_ntohs(ETH_P_IP), but bpf verifier doesn't allow us to do so, and
-	 * kernel also doesn't handle an L3 skb properly (see https://elixir.bootlin.com/linux/v6.2.1/source/net/bpf/test_run.c#L1156).
+	 * we need to skip L2 header and set ctx->protocol = bpf_ntohs(ETH_P_IP),
+	 * but bpf verifier doesn't allow us to do so, and kernel also doesn't
+	 * handle an L3 skb properly (see https://elixir.bootlin.com/linux/v6.2.1/source/net/bpf/test_run.c#L1156).
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
