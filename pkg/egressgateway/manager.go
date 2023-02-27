@@ -266,12 +266,10 @@ func (manager *Manager) updatePoliciesBySourceIP() {
 	manager.policyConfigsBySourceIP = make(map[string][]*PolicyConfig)
 
 	for _, policy := range manager.policyConfigs {
-		for epID := range policy.matchedEndpointIDs {
-			if ep, ok := manager.epDataStore[epID]; ok {
-				for _, epIP := range ep.ips {
-					ip := epIP.String()
-					manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
-				}
+		for _, ep := range policy.matchedEndpoints {
+			for _, epIP := range ep.ips {
+				ip := epIP.String()
+				manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
 			}
 		}
 	}
@@ -296,12 +294,7 @@ func (manager *Manager) updatePoliciesBySourceIP() {
 // and CIDR tuples (i.e. whenever one callback invocation returns true)
 func (manager *Manager) policyMatches(sourceIP net.IP, f func(net.IP, *net.IPNet, bool, *gatewayConfig) bool) bool {
 	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
-		for endpointID := range policy.matchedEndpointIDs {
-			ep := manager.epDataStore[endpointID]
-			if ep == nil {
-				continue
-			}
-
+		for _, ep := range policy.matchedEndpoints {
 			for _, endpointIP := range ep.ips {
 				if !endpointIP.Equal(sourceIP) {
 					continue
@@ -349,12 +342,7 @@ func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(
 	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
 		cidrs := policy.destinationMinusExcludedCIDRs()
 
-		for endpointID := range policy.matchedEndpointIDs {
-			ep := manager.epDataStore[endpointID]
-			if ep == nil {
-				continue
-			}
-
+		for _, ep := range policy.matchedEndpoints {
 			for _, endpointIP := range ep.ips {
 				if !endpointIP.Equal(sourceIP) {
 					continue
@@ -414,7 +402,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(manager.epDataStore, addIPRulesAndRoutesForConfig)
+		policyConfig.forEachEndpointAndDestination(addIPRulesAndRoutesForConfig)
 	}
 
 	return
@@ -519,7 +507,7 @@ func (manager *Manager) addMissingEgressRules() {
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndCIDR(manager.epDataStore, addEgressRule)
+		policyConfig.forEachEndpointAndCIDR(addEgressRule)
 	}
 }
 
