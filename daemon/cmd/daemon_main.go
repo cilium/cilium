@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/api/v1/server/restapi"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1662,6 +1663,7 @@ type daemonParams struct {
 	EndpointManager endpointmanager.EndpointManager
 	CertManager     certificatemanager.CertificateManager
 	SecretManager   certificatemanager.SecretManager
+	AuthManager     auth.Manager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1693,7 +1695,8 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.SharedResources,
 				params.CertManager,
 				params.SecretManager,
-				params.LocalNodeStore)
+				params.LocalNodeStore,
+				params.AuthManager)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}

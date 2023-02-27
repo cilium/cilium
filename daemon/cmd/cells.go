@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -74,6 +75,9 @@ var (
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
+
+		// Auth is responsible for authenticating a request if required by a policy.
+		auth.Cell,
 	)
 
 	// Datapath provides the privileged operations to apply control-plane
