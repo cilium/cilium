@@ -1090,6 +1090,9 @@ func (sc *SelectorCache) RemoveIdentitiesFQDNSelectors(fqdnSels []api.FQDNSelect
 }
 
 func (sc *SelectorCache) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+	sc.mutex.RLock()
+	defer sc.mutex.RUnlock()
+
 	ident, ok := sc.idCache[id]
 	if !ok {
 		return labels.LabelArray{}
