@@ -17,7 +17,6 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
-	authMonitor "github.com/cilium/cilium/pkg/auth/monitor"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -43,6 +42,7 @@ func (d *Daemon) initPolicy(
 	epMgr endpointmanager.EndpointManager,
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
+	authManager auth.Manager,
 ) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
@@ -69,7 +69,7 @@ func (d *Daemon) initPolicy(
 		return fmt.Errorf("failed to create policy update trigger: %w", err)
 	}
 
-	d.monitorAgent.RegisterNewConsumer(authMonitor.AddAuthManager(auth.NewAuthManager(epMgr)))
+	d.monitorAgent.RegisterNewConsumer(authManager)
 
 	return nil
 }
