@@ -26,12 +26,18 @@ Let's verify a Cilium image's signature using the ``cosign verify`` command:
 
 .. code-block:: shell-session
 
-    $ cosign verify --certificate-github-workflow-repository cilium/cilium --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-github-workflow-name "Image Release Build" --certificate-github-workflow-ref refs/tags/[RELEASE TAG] quay.io/cilium/cilium:v1.13 --certificate-identity "https://github.com/cilium/cilium/.github/workflows/build-images-releases.yaml@refs/tags/v1.13.0" | jq
+    $ TAG=v1.13.0
+    $ cosign verify --certificate-github-workflow-repository cilium/cilium \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    --certificate-github-workflow-name "Image Release Build" \
+    --certificate-github-workflow-ref refs/tags/${TAG} \
+    --certificate-identity "https://github.com/cilium/cilium/.github/workflows/build-images-releases.yaml@refs/tags/${TAG}" \
+    "quay.io/cilium/cilium:${TAG}" | jq
     
 
 .. note::
 
-    ``cosign`` is using verifying images signed in ``KEYLESS`` mode. To learn
+    ``cosign`` is used to verify images signed in ``KEYLESS`` mode. To learn
     more about keyless signing, please refer to `Keyless Signatures`_.
     
     ``--certificate-github-workflow-name string`` contains the workflow claim 
