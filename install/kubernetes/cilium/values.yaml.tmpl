@@ -911,6 +911,9 @@ hubble:
           replacement: ${1}
       # -- Metrics relabeling configs for the ServiceMonitor hubble
       metricRelabelings: ~
+    # -- Grafana dashboards for hubble
+    # grafana can import dashboards based on the label and value
+    # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
     dashboards:
       enabled: false
       label: grafana_dashboard
@@ -1688,6 +1691,16 @@ prometheus:
   # ref: https://docs.cilium.io/en/stable/observability/metrics/
   metrics: ~
 
+# -- Grafana dashboards for cilium-agent
+# grafana can import dashboards based on the label and value
+# ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+dashboards:
+  enabled: false
+  label: grafana_dashboard
+  namespace: ~
+  labelValue: "1"
+  annotations: {}
+
 # -- Configure Istio proxy options.
 proxy:
   prometheus:
@@ -2046,6 +2059,16 @@ operator:
       relabelings: ~
       # -- Metrics relabeling configs for the ServiceMonitor cilium-operator
       metricRelabelings: ~
+
+  # -- Grafana dashboards for cilium-operator
+  # grafana can import dashboards based on the label and value
+  # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
+  dashboards:
+    enabled: false
+    label: grafana_dashboard
+    namespace: ~
+    labelValue: "1"
+    annotations: {}
 
   # -- Skip CRDs creation for cilium-operator
   skipCRDCreation: false
