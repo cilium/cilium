@@ -257,69 +257,6 @@ func (config *PolicyConfig) forEachEndpointAndDestination(epDataStore map[endpoi
 	}
 }
 
-// matches invokes the given f callback for each combination of endpoints and
-// destination/excluded CIDRs of the receiver policy, passing to the callback
-// the given endpoint and CIDR, together with a boolean value indicating if the
-// CIDR belongs to the excluded ones and the gatewayConfig of the receiver
-// policy, and returns true whenever the f callback matches one of the
-// endpoint and CIDR tuples (i.e. when the callback returns true)
-func (config *PolicyConfig) matches(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, bool, *gatewayConfig) bool) bool {
-
-	for _, endpoint := range epDataStore {
-		if !config.selectsEndpoint(endpoint) {
-			continue
-		}
-
-		for _, endpointIP := range endpoint.ips {
-			isExcludedCIDR := false
-			for _, dstCIDR := range config.dstCIDRs {
-				if f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig) {
-					return true
-				}
-			}
-
-			isExcludedCIDR = true
-			for _, excludedCIDR := range config.excludedCIDRs {
-				if f(endpointIP, excludedCIDR, isExcludedCIDR, &config.gatewayConfig) {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
-// matchesMinusExcludedCIDRs invokes the given f callback for each combination
-// of endpoints and computed destination (i.e. the effective destination CIDR
-// space, defined as the diff between the destination and the excluded CIDRs) of
-// the receiver policy, passing to the callback the given endpoint, CIDR and
-// gatewayConfig of the receiver policy, and returns true whenever the f
-// callback matches one of the endpoint and CIDR tuples (i.e. when the callback
-// returns true)
-func (config *PolicyConfig) matchesMinusExcludedCIDRs(epDataStore map[endpointID]*endpointMetadata,
-	f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
-
-	cidrs := config.destinationMinusExcludedCIDRs()
-
-	for _, endpoint := range epDataStore {
-		if !config.selectsEndpoint(endpoint) {
-			continue
-		}
-
-		for _, endpointIP := range endpoint.ips {
-			for _, cidr := range cidrs {
-				if f(endpointIP, cidr, &config.gatewayConfig) {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
 // ParseCEGP takes a CiliumEgressGatewayPolicy CR and converts to PolicyConfig,
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {

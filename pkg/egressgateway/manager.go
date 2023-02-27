@@ -277,6 +277,101 @@ func (manager *Manager) updatePoliciesBySourceIP() {
 	}
 }
 
+// policyMatches returns true if there exists at least one policy matching the
+// given parameters.
+//
+// This method takes:
+//   - a source IP: this is an optimization that allows to iterate only through
+//     policies that reference an endpoint with the given source IP
+//   - a callback function f: this function is invoked for each policy and for
+//     each combination of the policy's endpoints and destination/excludedCIDRs.
+//
+// The callback f takes as arguments:
+// - the given endpoint
+// - the destination CIDR
+// - a boolean value indicating if the CIDR belongs to the excluded ones
+// - the gatewayConfig of the  policy
+//
+// This method returns true whenever the f callback matches one of the endpoint
+// and CIDR tuples (i.e. whenever one callback invocation returns true)
+func (manager *Manager) policyMatches(sourceIP net.IP, f func(net.IP, *net.IPNet, bool, *gatewayConfig) bool) bool {
+	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
+		for endpointID := range policy.matchedEndpointIDs {
+			ep := manager.epDataStore[endpointID]
+			if ep == nil {
+				continue
+			}
+
+			for _, endpointIP := range ep.ips {
+				if !endpointIP.Equal(sourceIP) {
+					continue
+				}
+
+				isExcludedCIDR := false
+				for _, dstCIDR := range policy.dstCIDRs {
+					if f(endpointIP, dstCIDR, isExcludedCIDR, &policy.gatewayConfig) {
+						return true
+					}
+				}
+
+				isExcludedCIDR = true
+				for _, excludedCIDR := range policy.excludedCIDRs {
+					if f(endpointIP, excludedCIDR, isExcludedCIDR, &policy.gatewayConfig) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// policyMatchesMinusExcludedCIDRs returns true if there exists at least one
+// policy matching the given parameters.
+//
+// This method takes:
+//   - a source IP: this is an optimization that allows to iterate only through
+//     policies that reference an endpoint with the given source IP
+//   - a callback function f: this function is invoked for each policy and for
+//     each combination of the policy's endpoints and computed destinations (i.e.
+//     the effective destination CIDR space, defined as the diff between the
+//     destination and the excluded CIDRs).
+//
+// The callback f takes as arguments:
+// - the given endpoint
+// - the destination CIDR
+// - the gatewayConfig of the  policy
+//
+// This method returns true whenever the f callback matches one of the endpoint
+// and CIDR tuples (i.e. whenever one callback invocation returns true)
+func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
+	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
+		cidrs := policy.destinationMinusExcludedCIDRs()
+
+		for endpointID := range policy.matchedEndpointIDs {
+			ep := manager.epDataStore[endpointID]
+			if ep == nil {
+				continue
+			}
+
+			for _, endpointIP := range ep.ips {
+				if !endpointIP.Equal(sourceIP) {
+					continue
+				}
+
+				for _, cidr := range cidrs {
+					if f(endpointIP, cidr, &policy.gatewayConfig) {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
@@ -352,10 +447,8 @@ nextIpRule:
 			return ipRule.Dst.String() == dstCIDR.String()
 		}
 
-		for _, policyConfig := range manager.policyConfigsBySourceIP[ipRule.Src.IP.String()] {
-			if policyConfig.matchesMinusExcludedCIDRs(manager.epDataStore, matchFunc) {
-				continue nextIpRule
-			}
+		if manager.policyMatchesMinusExcludedCIDRs(ipRule.Src.IP, matchFunc) {
+			continue nextIpRule
 		}
 
 		deleteIpRule(ipRule)
@@ -450,10 +543,8 @@ nextPolicyKey:
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)
 		}
 
-		for _, policyConfig := range manager.policyConfigsBySourceIP[policyKey.SourceIP.String()] {
-			if policyConfig.matches(manager.epDataStore, matchPolicy) {
-				continue nextPolicyKey
-			}
+		if manager.policyMatches(policyKey.SourceIP.IP(), matchPolicy) {
+			continue nextPolicyKey
 		}
 
 		logger := log.WithFields(logrus.Fields{
