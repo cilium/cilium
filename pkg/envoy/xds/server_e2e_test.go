@@ -41,8 +41,8 @@ const (
 )
 
 var (
-	DeferredCompletion error = errors.New("Deferred completion")
-	nodes                    = map[string]*envoy_config_core.Node{
+	DeferredCompletion = errors.New("Deferred completion")
+	nodes              = map[string]*envoy_config_core.Node{
 		node0: {Id: "sidecar~10.0.0.0~node0~bar"},
 		node1: {Id: "sidecar~10.0.0.1~node1~bar"},
 		node2: {Id: "sidecar~10.0.0.2~node2~bar"},
