@@ -1013,6 +1013,21 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif
 #endif
 
+	/* Filter allowed vlan id's and pass them back to kernel.
+	 * We will see the packet again in from-netdev@eth0.vlanXXX.
+	 */
+	if (ctx->vlan_present) {
+		__u32 vlan_id = ctx->vlan_tci & 0xfff;
+
+		if (vlan_id) {
+			if (allow_vlan(ctx->ifindex, vlan_id))
+				return CTX_ACT_OK;
+			else
+				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
+							      CTX_ACT_DROP, METRIC_INGRESS);
+		}
+	}
+
 	ctx_skip_nodeport_clear(ctx);
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
@@ -1033,20 +1048,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	}
 #endif
 #endif
-
-	/* Filter allowed vlan id's and pass them back to kernel.
-	 */
-	if (ctx->vlan_present) {
-		__u32 vlan_id = ctx->vlan_tci & 0xfff;
-
-		if (vlan_id) {
-			if (allow_vlan(ctx->ifindex, vlan_id))
-				return CTX_ACT_OK;
-			else
-				return send_drop_notify_error(ctx, 0, DROP_VLAN_FILTERED,
-							      CTX_ACT_DROP, METRIC_INGRESS);
-		}
-	}
 
 	return handle_netdev(ctx, false);
 }
