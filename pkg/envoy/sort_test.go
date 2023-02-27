@@ -19,29 +19,53 @@ var _ = Suite(&SortSuite{})
 
 var HeaderMatcher1 = &envoy_config_route.HeaderMatcher{
 	Name: "aaa",
-	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-		EngineType: googleRe2, Regex: "aaa"},
+	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+		StringMatch: &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher.RegexMatcher{
+					Regex: "aaa",
+				},
+			},
+		},
 	},
 }
 
 var HeaderMatcher2 = &envoy_config_route.HeaderMatcher{
 	Name: "bbb",
-	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-		EngineType: googleRe2, Regex: "aaa"},
+	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+		StringMatch: &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher.RegexMatcher{
+					Regex: "bbb",
+				},
+			},
+		},
 	},
 }
 
 var HeaderMatcher3 = &envoy_config_route.HeaderMatcher{
 	Name: "bbb",
-	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-		EngineType: googleRe2, Regex: "bbb"},
+	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+		StringMatch: &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher.RegexMatcher{
+					Regex: "bbb",
+				},
+			},
+		},
 	},
 }
 
 var HeaderMatcher4 = &envoy_config_route.HeaderMatcher{
 	Name: "bbb",
-	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
-		EngineType: googleRe2, Regex: "bbb"},
+	HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_StringMatch{
+		StringMatch: &envoy_type_matcher.StringMatcher{
+			MatchPattern: &envoy_type_matcher.StringMatcher_SafeRegex{
+				SafeRegex: &envoy_type_matcher.RegexMatcher{
+					Regex: "bbb",
+				},
+			},
+		},
 	},
 }
 
