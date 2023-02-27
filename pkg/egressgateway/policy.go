@@ -94,13 +94,6 @@ func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]
 	}
 }
 
-// selectsEndpoint determines if the given endpoint is selected by the policy
-// config
-func (config *PolicyConfig) selectsEndpoint(endpointInfo *endpointMetadata) bool {
-	_, ok := config.matchedEndpoints[endpointInfo.id]
-	return ok
-}
-
 func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) bool {
 	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
 }

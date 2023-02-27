@@ -445,11 +445,10 @@ nextIpRule:
 	// Build a list of all the network interfaces that are being actively used by egress gateway
 	activeEgressGwIfaceIndexes := map[int]struct{}{}
 	for _, policyConfig := range manager.policyConfigs {
-		for _, endpoint := range manager.epDataStore {
-			if policyConfig.selectsEndpoint(endpoint) {
-				if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
-					activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
-				}
+		// check if the policy selects at least one endpoint
+		if len(policyConfig.matchedEndpoints) != 0 {
+			if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
+				activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
 			}
 		}
 	}
