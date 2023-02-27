@@ -444,6 +444,12 @@ func (manager *Manager) reconcile(e eventType) {
 	switch e {
 	case eventUpdateEndpoint, eventDeleteEndpoint:
 		manager.updatePoliciesMatchedEndpointIDs()
+
+	// on eventK8sSyncDone we need to update all caches unconditionally as
+	// we don't know which k8s events/resources were received during the
+	// initial k8s sync
+	case eventK8sSyncDone:
+		manager.updatePoliciesMatchedEndpointIDs()
 	}
 
 	manager.regenerateGatewayConfigs()
