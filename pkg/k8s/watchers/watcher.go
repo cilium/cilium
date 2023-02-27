@@ -180,7 +180,7 @@ type envoyConfigManager interface {
 	DeleteEnvoyResources(context.Context, envoy.Resources, envoy.PortAllocator) error
 
 	// envoy.PortAllocator
-	AllocateProxyPort(name string, ingress bool) (uint16, error)
+	AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error)
 	AckProxyPort(ctx context.Context, name string) error
 	ReleaseProxyPort(name string) error
 }
