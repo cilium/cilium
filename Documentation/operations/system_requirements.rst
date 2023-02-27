@@ -173,6 +173,7 @@ linked, either choice is valid.
         CONFIG_CRYPTO_USER_API_HASH=y
         CONFIG_CGROUPS=y
         CONFIG_CGROUP_BPF=y
+        CONFIG_PERF_EVENTS=y
 
 .. note::
 
