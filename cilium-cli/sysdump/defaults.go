@@ -28,6 +28,7 @@ const (
 	DefaultCiliumOperatorLabelSelector       = "io.cilium/app=operator"
 	DefaultClustermeshApiserverLabelSelector = labelPrefix + "clustermesh-apiserver"
 	DefaultDebug                             = false
+	DefaultProfiling                         = true
 	DefaultHubbleLabelSelector               = labelPrefix + "hubble"
 	DefaultHubbleFlowsCount                  = 10000
 	DefaultHubbleFlowsTimeout                = 5 * time.Second
