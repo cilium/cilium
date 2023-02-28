@@ -1240,13 +1240,16 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 
 	ingress := []*models.PolicyRule{}
 	for _, v := range l4.Ingress {
+		rulesBySelector := map[string][][]string{}
 		derivedFrom := labels.LabelArrayList{}
-		for _, rules := range v.RuleOrigin {
+		for sel, rules := range v.RuleOrigin {
 			derivedFrom.Merge(rules...)
+			rulesBySelector[sel.String()] = rules.GetModel()
 		}
 		ingress = append(ingress, &models.PolicyRule{
 			Rule:             v.Marshal(),
 			DerivedFromRules: derivedFrom.GetModel(),
+			RulesBySelector:  rulesBySelector,
 		})
 	}
 
