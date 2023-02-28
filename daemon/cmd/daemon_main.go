@@ -684,6 +684,7 @@ func initializeFlags() {
 	option.BindEnv(Vp, option.IPMasqAgentConfigPath)
 
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
+	flags.MarkHidden(option.InstallIptRules)
 	option.BindEnv(Vp, option.InstallIptRules)
 
 	flags.Duration(option.IPTablesLockTimeout, 5*time.Second, "Time to pass to each iptables invocation to wait for xtables lock acquisition")
