@@ -48,6 +48,7 @@
     "kind/enhancement",
     "release-note/misc"
   ],
+  "stopUpdatingLabel": "renovate/stop-updating",
   "packageRules": [
     {
       "groupName": "all github action dependencies",
