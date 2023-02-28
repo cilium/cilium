@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/pprof"
 )
 
 var (
@@ -36,6 +37,13 @@ var (
 	Infrastructure = cell.Module(
 		"infra",
 		"Infrastructure",
+
+		// Register the pprof HTTP handlers, to get runtime profiling data.
+		pprof.Cell,
+		cell.Config(pprof.Config{
+			PprofAddress: defaults.PprofAddressAgent,
+			PprofPort:    defaults.PprofPortAgent,
+		}),
 
 		// Runs the gops agent, a tool to diagnose Go processes.
 		gops.Cell(defaults.GopsPortAgent),

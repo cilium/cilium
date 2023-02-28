@@ -80,7 +80,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -761,15 +760,6 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(Vp, option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
-	option.BindEnv(Vp, option.PProf)
-
-	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
-	option.BindEnv(Vp, option.PProfAddress)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
-	option.BindEnv(Vp, option.PProfPort)
-
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(Vp, option.EnableXDPPrefilter)
 
@@ -1212,10 +1202,6 @@ func initEnv() {
 			log.Fatalf("Envoy version %s does not match with required version %s ,aborting.",
 				envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA)
 		}
-	}
-
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
 	}
 
 	if option.Config.PreAllocateMaps {
