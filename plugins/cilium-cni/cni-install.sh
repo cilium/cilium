@@ -52,34 +52,9 @@ while test $# -gt 0; do
   esac
 done
 
-BIN_NAME=cilium-cni
-CNI_DIR=${CNI_DIR:-${HOST_PREFIX}/opt/cni}
 CILIUM_CNI_CONF=${CILIUM_CNI_CONF:-${HOST_PREFIX}/etc/cni/net.d/${CNI_CONF_NAME}}
 CNI_CONF_DIR="$(dirname "$CILIUM_CNI_CONF")"
 CILIUM_CUSTOM_CNI_CONF=${CILIUM_CUSTOM_CNI_CONF:-false}
-
-if [ ! -d "${CNI_DIR}/bin" ]; then
-	mkdir -p "${CNI_DIR}/bin"
-fi
-
-# Install the CNI loopback driver if not installed already
-if [ ! -f "${CNI_DIR}/bin/loopback" ]; then
-	echo "Installing loopback driver..."
-
-	# Don't fail hard if this fails as it is usually not required
-	cp /cni/loopback "${CNI_DIR}/bin/" || true
-fi
-
-echo "Installing ${BIN_NAME} to ${CNI_DIR}/bin/ ..."
-
-# Move an eventual old existing binary out of the way, we can't delete it
-# as it might be in use right now.
-if [ -f "${CNI_DIR}/bin/${BIN_NAME}" ]; then
-	rm -f "${CNI_DIR}/bin/${BIN_NAME}.old" || true
-	mv "${CNI_DIR}/bin/${BIN_NAME}" "${CNI_DIR}/bin/${BIN_NAME}.old"
-fi
-
-cp "/opt/cni/bin/${BIN_NAME}" "${CNI_DIR}/bin/"
 
 # The CILIUM_CUSTOM_CNI_CONF env is set by the `cni.customConf` Helm option.
 # It stops this script from touching the host's CNI config directory.
