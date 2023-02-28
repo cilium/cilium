@@ -48,6 +48,8 @@ type Options struct {
 	ClustermeshApiserverLabelSelector string
 	// Whether to enable debug logging.
 	Debug bool
+	// Whether to enable scraping profiling data.
+	Profiling bool
 	// The labels used to target additional pods
 	ExtraLabelSelectors []string
 	// The labels used to target Hubble pods.
@@ -868,6 +870,26 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting profiling data from Cilium pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				if !c.Options.Profiling {
+					return nil
+				}
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get profiling from Cilium pods: %w", err)
+				}
+				if err := c.SubmitProfilingGopsSubtasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+					return fmt.Errorf("failed to collect profiling data from Cilium pods: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -1364,6 +1386,19 @@ func extractGopsPID(output string) (string, error) {
 	return "", fmt.Errorf("failed to extract pid from output: %q", output)
 }
 
+func extractGopsProfileData(output string) (string, error) {
+	splited := strings.Split(output, "\n")
+	prefix := "saved to: "
+
+	for _, str := range splited {
+		if strings.Contains(str, prefix) {
+			return strings.TrimSpace(strings.Split(str, prefix)[1]), nil
+		}
+	}
+	return "", fmt.Errorf("Unable to find output file: %s", output)
+
+}
+
 func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
@@ -1397,28 +1432,36 @@ func (c *Collector) SubmitCniConflistSubtask(ctx context.Context, pods []*corev1
 	return nil
 }
 
-// SubmitGopsSubtasks submits tasks to collect kubernetes logs from pods.
+func (c *Collector) getGopsPID(ctx context.Context, pod *corev1.Pod, containerName string) (string, error) {
+	// Run 'gops' on the pod.
+	gopsOutput, err := c.Client.ExecInPod(ctx, pod.Namespace, pod.Name, containerName, []string{
+		gopsCommand,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list processes %q (%q) in namespace %q: %w", pod.Name, containerName, pod.Namespace, err)
+	}
+	agentPID := gopsPID
+	if c.Options.DetectGopsPID {
+		var err error
+		outputStr := gopsOutput.String()
+		agentPID, err = extractGopsPID(outputStr)
+		if err != nil {
+			return "", err
+		}
+	}
+	return agentPID, nil
+}
+
+// SubmitGopsSubtasks submits tasks to collect gops statistics from pods.
 func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
 	for _, p := range pods {
 		p := p
 		for _, g := range gopsStats {
 			g := g
 			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
-				// Run 'gops' on the pod.
-				gopsOutput, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
-					gopsCommand,
-				})
+				agentPID, err := c.getGopsPID(ctx, p, containerName)
 				if err != nil {
-					return fmt.Errorf("failed to list processes %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
-				}
-				agentPID := gopsPID
-				if c.Options.DetectGopsPID {
-					var err error
-					outputStr := gopsOutput.String()
-					agentPID, err = extractGopsPID(outputStr)
-					if err != nil {
-						return err
-					}
+					return err
 				}
 				o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
 					gopsCommand,
@@ -1431,6 +1474,47 @@ func (c *Collector) SubmitGopsSubtasks(ctx context.Context, pods []*corev1.Pod, 
 				// Dump the output to the temporary directory.
 				if err := c.WriteBytes(fmt.Sprintf(gopsFileName, p.Name, containerName, g), o.Bytes()); err != nil {
 					return fmt.Errorf("failed to collect gops for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+				}
+				return nil
+			}); err != nil {
+				return fmt.Errorf("failed to submit %s gops task for %q: %w", g, p.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// SubmitProfilingGopsSubtasks submits tasks to collect profiling data from pods.
+func (c *Collector) SubmitProfilingGopsSubtasks(ctx context.Context, pods []*corev1.Pod, containerName string) error {
+	for _, p := range pods {
+		p := p
+		for _, g := range gopsProfiling {
+			g := g
+			if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, g), func(ctx context.Context) error {
+				agentPID, err := c.getGopsPID(ctx, p, containerName)
+				if err != nil {
+					return err
+				}
+				o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
+					gopsCommand,
+					g,
+					agentPID,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to collect gops profiling for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+				}
+				filePath, err := extractGopsProfileData(o.String())
+				if err != nil {
+					return fmt.Errorf("failed to collect gops profiling for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+				}
+				f := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-<ts>.pprof", p.Name, g))
+				err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, filePath, f, c.Options.CopyRetryLimit)
+				if err != nil {
+					return fmt.Errorf("failed to collect gops profiling output for %q: %w", p.Name, err)
+				}
+				if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, filePath}); err != nil {
+					c.logWarn("failed to delete profiling output from pod %q in namespace %q: %w", p.Name, p.Namespace, err)
+					return nil
 				}
 				return nil
 			}); err != nil {
