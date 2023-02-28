@@ -1373,10 +1373,6 @@
      - Service type for the shared LB service
      - string
      - ``"LoadBalancer"``
-   * - installIptablesRules
-     - Configure whether to install iptables rules to allow for TPROXY (L7 proxy injection), iptables-based masquerading and compatibility with kube-proxy.
-     - bool
-     - ``true``
    * - installNoConntrackIptablesRules
      - Install Iptables rules to skip netfilter connection tracking on all pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode. Moreover, this option cannot be enabled when Cilium is running in a managed Kubernetes environment or in a chained CNI setup.
      - bool

@@ -1334,11 +1334,6 @@ identityAllocationMode: "crd"
 # @default -- `"5s"`
 identityChangeGracePeriod: ""
 
-# -- Configure whether to install iptables rules to allow for TPROXY
-# (L7 proxy injection), iptables-based masquerading and compatibility
-# with kube-proxy.
-installIptablesRules: true
-
 # -- Install Iptables rules to skip netfilter connection tracking on all pod
 # traffic. This option is only effective when Cilium is running in direct
 # routing and full KPR mode. Moreover, this option cannot be enabled when Cilium
