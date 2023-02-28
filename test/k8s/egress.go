@@ -280,11 +280,26 @@ var _ = SkipDescribeIf(func() bool {
 			Context("egress gw policy", func() {
 				BeforeAll(func() {
 					applyEgressPolicy("egress-gateway-policy.yaml")
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+
+					// Wait for 6 entries:
+					// - 3 policies, each with:
+					//   - 2 matching endpoints
+					//   - 1 destination CIDR
+
+					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 6)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 6)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
 					kubectl.Delete(policyYAML)
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 
 				AfterFailed(func() {
