@@ -526,7 +526,6 @@ data:
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
-  install-iptables-rules: {{ .Values.installIptablesRules | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne .Values.cni.chainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
 {{- else }}
