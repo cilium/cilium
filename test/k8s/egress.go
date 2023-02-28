@@ -286,10 +286,10 @@ var _ = SkipDescribeIf(func() bool {
 					//   - 2 matching endpoints
 					//   - 1 destination CIDR
 
-					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 6)
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 6)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 
-					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 6)
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 6)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
