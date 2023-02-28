@@ -49,8 +49,9 @@ const (
 	// Delayed CES Synctime, CES's are synced with k8s-apiserver after certain delay
 	// Some CES's are delayed to sync with k8s-apiserver.
 	DelayedCESSyncTime = 15 * time.Second
-	// Default CES Synctime, sync instantaeously with k8s-apiserver.
-	DefaultCESSyncTime = 0
+	// Default CES Synctime, multiple consecutive syncs with k8s-apiserver are
+	// batched and synced together after a short delay.
+	DefaultCESSyncTime = 500 * time.Millisecond
 )
 
 type CiliumEndpointSliceController struct {
