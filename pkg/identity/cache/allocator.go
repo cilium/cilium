@@ -277,8 +277,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 	return m
 }
 
-// Close closes the identity allocator and allows to call
-// InitIdentityAllocator() again.
+// Close closes the identity allocator
 func (m *CachingIdentityAllocator) Close() {
 	m.setupMutex.Lock()
 	defer m.setupMutex.Unlock()
@@ -293,6 +292,10 @@ func (m *CachingIdentityAllocator) Close() {
 	}
 
 	m.IdentityAllocator.Delete()
+	if m.events != nil {
+		close(m.events)
+	}
+
 	m.IdentityAllocator = nil
 	m.globalIdentityAllocatorInitialized = make(chan struct{})
 }
