@@ -94,13 +94,8 @@ deb http://apt.kubernetes.io/ kubernetes-xenial main
 EOF
 
 sudo rm /var/lib/apt/lists/lock || true
-# retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
-# apt-key add apt-key.gpg
-# the Google Cloud SDK apt-key is not working at the moment (error 500)
-# kludge: temporarily hardcode the latest version of the key available
-# for future reference, one may use https://web.archive.org/web/ to get whatever
-# was last saved by the Internet Archive's Wayback Machine
-echo "mQENBGKItdQBCADWmKTNZEYWgXy73FvKFY5fRro4tGNa4Be4TZW3wZpct9Cj8EjykU7S9EPoJ3EdKpxFltHRu7QbDi6LWSNA4XxwnudQrYGxnxx6Ru1KBHFxHhLfWsvFcGMwit/znpxtIt9UzqCm2YTEW5NUnzQ4rXYqVQK2FLG4weYJ5bKwkY+ZsnRJpzxdHGJ0pBiqwkMT8bfQdJymUBown+SeuQ2HEqfjVMsIRe0dweD2PHWeWo9fTXsz1Q5abiGckyOVyoN9//DgSvLUocUcZsrWvYPaN+o8lXTO3GYFGNVsx069rxarkeCjOpiQOWrQmywXISQudcusSgmmgfsRZYW7FDBy5MQrABEBAAGwDAAAZ3BnAQAAAAAAALRRUmFwdHVyZSBBdXRvbWF0aWMgU2lnbmluZyBLZXkgKGNsb3VkLXJhcHR1cmUtc2lnbmluZy1rZXktMjAyMi0wMy0wNy0wOF8wMV8wMS5wdWIpsAwAAGdwZwIAAAAAAACJASIEEwEIABYFAmKItdQJELU9yA0T7e8FAhsDAhkBAADBqAf/fEATSCDd0Ng92moa35G+msXeeczsEdLZ64riUaDx6DbqKzqQr/WljDL0AAjVpMbLycRBfDlG84UmIwEed+EQ4oI03rYytotsCi8/5CY2W7heGVzMpwpuNHlZtV2alOt1PV0dkcZl6acjaTKkDvS68xhJzSbodt4nGmWOp6NdmscpsXJXv/kgpnWvKAwH2tIsgNosoP3lNOW7mb+eDAukQdd0LUvvLzqygxq+0WKf1WL0M2FpvnJOg75WlV+lQedQZC5dt0kJJ8mSCQVT5vLbVOuRMq64BtYyyxxVw1Kif0aTSqvjws1osreLstwH1yvPUXMy7t7sYg9AkCNE99bvyLAGAANncGcAuQENBGKItdQBCADIMMJdRcg0Phv7+CrZz3xRE8Fbz8AN+YCLigQeH0B9lijxkjAFr+thB0IrOu7ruwNY+mvdP6dAewUur+pJaIjEe+4s8JBEFb4BxJfBBPuEbGSxbi4OPEJuwT53TMJMEs7+gIxCCmwioTggTBp6JzDsT/cdBeyWCusCQwDWpqoYCoUWJLrUQ6dOlI7s6p+iIUNIamtyBCwb4izs27HdEpX8gvO9rEdtcb7399HyO3oD4gHgcuFiuZTpvWHdn9WYwPGM6npJNG7crtLnctTR0cP9KutSPNzpySeAniHx8L9ebdD9tNPCWC+OtOcGRrcBeEznkYh1C4kzdP1ORm5upnknABEBAAGJAR8EGAEIABMFAmKItdQJELU9yA0T7e8FAhsMAABJmAgAhRPk/dFj71bU/UTXrkEkZZzE9JzUgan/ttyRrV6QbFZABByf4pYjBj+yLKw3280//JWurKox2uzEq1hdXPedRHICRuh1Fjd00otaQ+wGF3kY74zlWivB6Wp6tnL9STQ1oVYBUv7HhSHoJ5shELyedxxHxurUgFAD+pbFXIiK8cnAHfXTJMcrmPpC+YWEC/DeqIyEcNPkzRhtRSuERXcq1n+KJvMUAKMD/tezwvujzBaaSWapmdnGmtRjjL7IxUeGamVWOwLQbUr+34MwzdeJdcL8fav5LA8Uk0ulyeXdwiAK8FKQsixI+xZvz7HUs8ln4pZwGw/TpvO9cMkHogtgzbAGAANncGcA" | base64 -d | apt-key add -
+retry_function "wget https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+apt-key add apt-key.gpg
 
 case $K8S_VERSION in
     "1.24" | "1.25" | "1.26")
