@@ -167,19 +167,28 @@ func NewPolicyRepository(
 	certManager certificatemanager.CertificateManager,
 	secretManager certificatemanager.SecretManager,
 ) *Repository {
-	repoChangeQueue := eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
-	ruleReactionQueue := eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
-	repoChangeQueue.Run()
-	ruleReactionQueue.Run()
-	selectorCache := NewSelectorCache(idAllocator, idCache)
+	repo := NewStoppedPolicyRepository(idAllocator, idCache, certManager, secretManager)
+	repo.Start()
+	return repo
+}
 
+// NewStoppedPolicyRepository creates a new policy repository without starting
+// queues.
+//
+// Qeues must be allocated via [Repository.Start]. The function serves to
+// satisfy hive invariants.
+func NewStoppedPolicyRepository(
+	idAllocator cache.IdentityAllocator,
+	idCache cache.IdentityCache,
+	certManager certificatemanager.CertificateManager,
+	secretManager certificatemanager.SecretManager,
+) *Repository {
+	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		revision:              1,
-		RepositoryChangeQueue: repoChangeQueue,
-		RuleReactionQueue:     ruleReactionQueue,
-		selectorCache:         selectorCache,
-		certManager:           certManager,
-		secretManager:         secretManager,
+		revision:      1,
+		selectorCache: selectorCache,
+		certManager:   certManager,
+		secretManager: secretManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -221,6 +230,16 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 			ctx.PolicyTrace("Found no deny rule\n")
 		}
 	}
+}
+
+// Start allocates and starts various queues used by the Repository.
+//
+// Must only be called if using [NewStoppedPolicyRepository]
+func (p *Repository) Start() {
+	p.RepositoryChangeQueue = eventqueue.NewEventQueueBuffered("repository-change-queue", option.Config.PolicyQueueSize)
+	p.RuleReactionQueue = eventqueue.NewEventQueueBuffered("repository-reaction-queue", option.Config.PolicyQueueSize)
+	p.RepositoryChangeQueue.Run()
+	p.RuleReactionQueue.Run()
 }
 
 // ResolveL4IngressPolicy resolves the L4 ingress policy for a set of endpoints
