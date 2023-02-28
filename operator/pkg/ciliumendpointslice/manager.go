@@ -668,11 +668,8 @@ func (c *cesMgr) insertCESInWorkQueue(ces *cesTracker, baseDelay time.Duration) 
 	if ces.cesInsertedAt.IsZero() {
 		ces.cesInsertedAt = time.Now()
 	}
-	if baseDelay == DefaultCESSyncTime {
-		c.queue.Add(ces.ces.GetName())
-	} else {
-		c.queue.AddAfter(ces.ces.GetName(), baseDelay)
-	}
+
+	c.queue.AddAfter(ces.ces.GetName(), baseDelay)
 }
 
 // Return the CES queue delay in seconds and reset cesInsert time.
