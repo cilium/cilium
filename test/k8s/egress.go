@@ -267,11 +267,27 @@ var _ = SkipDescribeIf(func() bool {
 			Context("egress gw policy", func() {
 				BeforeAll(func() {
 					applyEgressPolicy("egress-gateway-policy.yaml")
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+
+					// Wait for 8 entries:
+					// - cegp-sample matching 2 EPs with 1 destination CIDR
+					// - egress-to-black-hole matching 2 EPs with 1 destination CIDR
+					// - egress-testds matching 2 EPs with 1 destination CIDR
+					// - cenp-sample matching 2 EPs with 1 destination CIDR
+
+					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 8)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 8)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
 					kubectl.Delete(policyYAML)
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 
 				AfterFailed(func() {
@@ -289,11 +305,28 @@ var _ = SkipDescribeIf(func() bool {
 			Context("egress gw policy upgrade", func() {
 				BeforeAll(func() {
 					applyEgressPolicy("egress-gateway-policy-upgrade.yaml")
-					kubectl.WaitForEgressPolicyEntry(k8s1IP, outsideIP)
-					kubectl.WaitForEgressPolicyEntry(k8s2IP, outsideIP)
+
+					// Wait for 8 entries:
+					// - cegp-sample matching 2 EPs with 1 destination CIDR
+					// - cegp-sample-upgrade matching 2 EPs and 1 destination CIDR
+					// - cenp-sample matching matching the same EPs/destination CIDR as cegp-sample-upgrade
+					// - egress-to-black-hole matching 2 EPs with 1 destination CIDR
+					// - egress-testds matching 2 EPs with 1 destination CIDR
+
+					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 8)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 8)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
 					kubectl.Delete(policyYAML)
+
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
+
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 0)
+					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 
 				AfterFailed(func() {
