@@ -3651,6 +3651,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -8813,6 +8826,19 @@ func init() {
         "rule": {
           "description": "The policy rule as json",
           "type": "string"
+        },
+        "rules-by-selector": {
+          "description": "The policy rule labels identifying the policy rules this rule derives from, mapped by selector",
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
