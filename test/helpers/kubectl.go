@@ -166,7 +166,6 @@ var (
 		"ipv4NativeRoutingCIDR":               NativeRoutingCIDR(),
 		"enableIPv4Masquerade":                "false",
 		"install-no-conntrack-iptables-rules": "false",
-		"installIptablesRules":                "true",
 		"l7Proxy":                             "false",
 		"hubble.enabled":                      "false",
 		"kubeProxyReplacement":                "strict",
