@@ -12,7 +12,7 @@ BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
 BPF_SIMPLE_LL = $(patsubst %.o,%.ll,${BPF_SIMPLE})
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
-KERNEL ?= "netnext"
+KERNEL ?= netnext
 
 include ./Makefile.bpf
 
@@ -98,7 +98,7 @@ MAX_BASE_OPTIONS += -DENABLE_TPROXY=1 -DENABLE_HOST_ROUTING=1 -DENABLE_BANDWIDTH
 	-DETH_HLEN=0
 endif
 # Egress Gateway should only be enabled for >= 5.2 kernels
-ifneq (,$(filter $(KERNEL),"54" "netnext"))
+ifneq (,$(filter $(KERNEL),54 netnext))
 MAX_BASE_OPTIONS += -DENABLE_EGRESS_GATEWAY=1
 endif
 
