@@ -292,10 +292,8 @@ func (r *MUPInterworkSegmentDiscoveryRoute) DecodeFromBytes(data []byte, afi uin
 	if bits > addrLen*8 {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, "prefix length is too long")
 	}
-	b := data[p:]
-	if addrLen > len(data[p:]) {
-		b = append(b, make([]byte, addrLen-len(data[p:]))...)
-	}
+	b := make([]byte, addrLen)
+	copy(b[0:byteLen], data[p:p+byteLen])
 	addr, ok := netip.AddrFromSlice(b)
 	if !ok {
 		return NewMessageError(BGP_ERROR_UPDATE_MESSAGE_ERROR, BGP_ERROR_SUB_MALFORMED_ATTRIBUTE_LIST, nil, fmt.Sprintf("Invalid Prefix: %x", data[p:]))
