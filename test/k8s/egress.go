@@ -274,10 +274,10 @@ var _ = SkipDescribeIf(func() bool {
 					// - egress-testds matching 2 EPs with 1 destination CIDR
 					// - cenp-sample matching 2 EPs with 1 destination CIDR
 
-					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 8)
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 8)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 
-					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 8)
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 8)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
@@ -313,10 +313,10 @@ var _ = SkipDescribeIf(func() bool {
 					// - egress-to-black-hole matching 2 EPs with 1 destination CIDR
 					// - egress-testds matching 2 EPs with 1 destination CIDR
 
-					err := kubectl.WaitForEgressPolicyEntries(k8s1IP, 8)
+					err := kubectl.WaitForEgressPolicyEntries(helpers.K8s1, 8)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 
-					err = kubectl.WaitForEgressPolicyEntries(k8s2IP, 8)
+					err = kubectl.WaitForEgressPolicyEntries(helpers.K8s2, 8)
 					Expect(err).Should(BeNil(), "Failed waiting for egress policy map entries")
 				})
 				AfterAll(func() {
