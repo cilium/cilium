@@ -1,25 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package restapi
 
 import (
 	"time"
 
+	"github.com/spf13/pflag"
+
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/rate"
+	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 )
 
+var rateLimiterCell = cell.Module(
+	"rate-limiter",
+	"Rate limiting for Cilium API requests",
+
+	cell.Config(defaultRateLimiterConfig),
+	cell.Provide(newApiRateLimiter),
+)
+
+type rateLimiterConfig struct {
+	APIRateLimit map[string]string
+}
+
+func (def rateLimiterConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringToString(
+		"api-rate-limit",
+		def.APIRateLimit,
+		"API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
+}
+
+var defaultRateLimiterConfig = rateLimiterConfig{
+	APIRateLimit: make(map[string]string),
+}
+
+func newApiRateLimiter(cfg rateLimiterConfig) (*rate.APILimiterSet, error) {
+	return rate.NewAPILimiterSet(cfg.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
+}
+
 const (
-	apiRequestEndpointCreate = "endpoint-create"
-	apiRequestEndpointDelete = "endpoint-delete"
-	apiRequestEndpointGet    = "endpoint-get"
-	apiRequestEndpointPatch  = "endpoint-patch"
-	apiRequestEndpointList   = "endpoint-list"
+	APIRequestEndpointCreate = "endpoint-create"
+	APIRequestEndpointDelete = "endpoint-delete"
+	APIRequestEndpointGet    = "endpoint-get"
+	APIRequestEndpointPatch  = "endpoint-patch"
+	APIRequestEndpointList   = "endpoint-list"
 )
 
 var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 	// PUT /endpoint/{id}
-	apiRequestEndpointCreate: {
+	APIRequestEndpointCreate: {
 		AutoAdjust:                  true,
 		EstimatedProcessingDuration: time.Second * 2,
 		RateLimit:                   0.5,
@@ -38,7 +69,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 	// the maximum number of parallel requests will grow to a larger number
 	// but it will never shrink below 4. Logging is enabled for visibility
 	// as frequency should be low.
-	apiRequestEndpointDelete: {
+	APIRequestEndpointDelete: {
 		EstimatedProcessingDuration: 200 * time.Millisecond,
 		AutoAdjust:                  true,
 		ParallelRequests:            4,
@@ -52,7 +83,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 	//
 	// All GET calls to endpoint attributes are grouped together and rate
 	// limited.
-	apiRequestEndpointGet: {
+	APIRequestEndpointGet: {
 		AutoAdjust:                  true,
 		EstimatedProcessingDuration: time.Millisecond * 200,
 		RateLimit:                   4.0,
@@ -70,7 +101,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 	// group as they are less likely to be expensive. They can be expensive
 	// though if datapath regenerations are required. Logging is enabled
 	// for visibility.
-	apiRequestEndpointPatch: {
+	APIRequestEndpointPatch: {
 		AutoAdjust:                  true,
 		EstimatedProcessingDuration: time.Second,
 		RateLimit:                   0.5,
@@ -85,7 +116,7 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 	// Listing endpoints should be relatively quick, even with a large
 	// number of endpoints on a node. Always permit two parallel requests
 	// and rely on rate limiting to throttle if load becomes high.
-	apiRequestEndpointList: {
+	APIRequestEndpointList: {
 		AutoAdjust:                  true,
 		EstimatedProcessingDuration: time.Millisecond * 300,
 		RateLimit:                   1.0,

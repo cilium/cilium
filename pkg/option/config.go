@@ -1083,9 +1083,6 @@ const (
 	// service.kubernetes.io/service-proxy-name label equals the provided value.
 	K8sServiceProxyName = "k8s-service-proxy-name"
 
-	// APIRateLimitName enables configuration of the API rate limits
-	APIRateLimitName = "api-rate-limit"
-
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout = "crd-wait-timeout"
@@ -2313,9 +2310,6 @@ type DaemonConfig struct {
 	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional
 	K8sServiceProxyName string
 
-	// APIRateLimitName enables configuration of the API rate limits
-	APIRateLimit map[string]string
-
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout time.Duration
@@ -2462,7 +2456,6 @@ var (
 		UseCiliumInternalIPForIPsec:  defaults.UseCiliumInternalIPForIPsec,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
-		APIRateLimit:                     make(map[string]string),
 
 		ExternalClusterIP:      defaults.ExternalClusterIP,
 		EnableVTEP:             defaults.EnableVTEP,
@@ -3383,12 +3376,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		log.Fatalf("unable to parse %s: %s", LogOpt, err)
 	} else {
 		c.LogOpt = m
-	}
-
-	if m, err := command.GetStringMapStringE(vp, APIRateLimitName); err != nil {
-		log.Fatalf("unable to parse %s: %s", APIRateLimitName, err)
-	} else {
-		c.APIRateLimit = m
 	}
 
 	c.bpfMapEventConfigs = make(BPFEventBufferConfigs)

@@ -12,6 +12,7 @@ cilium-agent hive [flags]
 
 ```
       --agent-liveness-update-interval duration          Interval at which the agent updates liveness time for the datapath (default 1s)
+      --api-rate-limit stringToString                    API rate limiting configuration (example: --api-rate-limit endpoint-create=rate-limit:10/m,rate-burst:2) (default [])
       --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --clustermesh-config string                        Path to the ClusterMesh configuration directory
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")

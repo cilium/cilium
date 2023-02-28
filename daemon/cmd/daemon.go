@@ -84,7 +84,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -422,12 +421,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
 	}
 
-	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
-	if err != nil {
-		log.WithError(err).Error("unable to configure API rate limiting")
-		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
-	}
-
 	// Check the kernel if we can make use of managed neighbor entries which
 	// simplifies and fully 'offloads' L2 resolution handling to the kernel.
 	if !option.Config.DryMode {
@@ -536,7 +529,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
-		apiLimiterSet:     apiLimiterSet,
+		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
