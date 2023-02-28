@@ -27,7 +27,3 @@ if [ "${CILIUM_CUSTOM_CNI_CONF}" != "true" ]; then
         -name '*.conflist' \
     \) -delete
 fi
-
-echo "Removing ${CNI_DIR}/bin/cilium-cni..."
-rm -f "${CNI_DIR}/bin/${BIN_NAME}"
-rm -f "${CNI_DIR}/bin/${BIN_NAME}.old"

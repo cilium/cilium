@@ -309,8 +309,6 @@ spec:
         {{- end}}
         - name: cilium-run
           mountPath: /var/run/cilium
-        - name: cni-path
-          mountPath: /host/opt/cni/bin
         - name: etc-cni-netd
           mountPath: {{ .Values.cni.hostConfDirMountPath }}
         {{- if .Values.etcd.enabled }}
@@ -668,6 +666,30 @@ spec:
             done
         terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
+      # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
+      - name: install-cni-binaries
+        image: {{ include "cilium.image" .Values.image | quote }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command:
+          - "/install-plugin.sh"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 10Mi
+        securityContext:
+          {{- if not .Values.securityContext.privileged }}
+          seLinuxOptions:
+            {{- with .Values.securityContext.seLinuxOptions }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
+          capabilities:
+            drop:
+              - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+          - name: cni-path
+            mountPath: /host/opt/cni/bin
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
