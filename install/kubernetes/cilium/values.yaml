@@ -1380,6 +1380,7 @@ hubble:
       className: ""
       hosts:
         - chart-example.local
+      labels: {}
       tls: []
       #  - secretName: chart-example-tls
       #    hosts:
