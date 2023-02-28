@@ -297,16 +297,45 @@ function bpf_clear_cgroups()
 	HOOK=$2
 	NAME=$3
 
+	# Since Linux commit 1ba5ad36e00f ("bpftool: Use libbpf_bpf_attach_type_str"),
+	# bpftool uses the libbpf_bpf_attach_type_str() format in 'bpftool cgroup
+	# show' output. Perform a naive translation to ensure compatibility with prior
+	# bpftool versions and to avoid updating the hook name at all call sites. The
+	# transformed string can be used in a suffix match against the new format.
+
+	# Examples: (old -> transformed, new)
+	# connect4 -> 4_connect, cgroup_inet4_connect
+	# post_bind6 -> 6_post_bind, cgroup_inet6_post_bind
+	# sendmsg4 -> 4_sendmsg, cgroup_udp4_sendmsg
+
+	# There is no inet4/6 variant of e.g. sendmsg, so it's safe to assume the
+	# intended udp4/6 hook is selected.
+	newhook=$(echo "$HOOK" | sed -E 's/([a-z_]+)([0-9])/\2_\1/')
+
 	set +e
 	bpftool link detach pinned "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME" || true
 	rm -f "$BPFFS_ROOT/cilium/socketlb/links/cgroup/$NAME"
-
-	ID=$(bpftool cgroup show $CGRP | grep -w $HOOK | awk '{print $1}')
 	set -e
-	
-	if [ -n "$ID" ]; then
-		bpftool cgroup detach $CGRP $HOOK id $ID
-	fi
+
+	# Get all programs attached to the given cgroup and store their ids in a
+	# newline-separated string. Perform a full match on the 'legacy' hook name
+	# appearing in older versions of bpftool, but perform a suffix match using the
+	# 'new' hook name.
+	ids=$(bpftool cgroup show "$CGRP" -j |
+		jq --arg legacy "$HOOK" --arg new "$newhook" '.[] |
+			select(
+				.attach_type == $legacy or
+				(.attach_type | endswith($new))
+			) | .id')
+
+	# Cilium versions 1.14 and later use ebpf-go to attach cgroup programs, which
+	# potentially attaches programs using the 'multi' flag if the kernel is recent
+	# enough to support the flag, but too old to support bpf_link. Detach all
+	# programs at the given hook since we can't reliably determine which ones
+	# Cilium owns.
+	for id in $ids; do
+		bpftool cgroup detach "$CGRP" "$HOOK" id "$id"
+	done
 }
 
 function create_encap_dev()
