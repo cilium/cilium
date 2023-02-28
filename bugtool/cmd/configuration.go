@@ -256,7 +256,8 @@ func tcInterfaceCommands() ([]string, error) {
 	commands := []string{}
 	for _, iface := range ifaces {
 		commands = append(commands,
-			fmt.Sprintf("tc filter show dev %s", iface.Name),
+			fmt.Sprintf("tc filter show dev %s ingress", iface.Name),
+			fmt.Sprintf("tc filter show dev %s egress", iface.Name),
 			fmt.Sprintf("tc chain show dev %s", iface.Name),
 			fmt.Sprintf("tc class show dev %s", iface.Name))
 	}
