@@ -4346,7 +4346,7 @@ func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
-func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
+func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) error {
 	ciliumPod, err := kub.GetCiliumPodOnNode(node)
 	if err != nil {
 		return err
@@ -4355,12 +4355,32 @@ func (kub *Kubectl) WaitForEgressPolicyEntry(node, ipAddr string) error {
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf egress list | grep -q %s`, ipAddr)
-		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+		cmd := fmt.Sprintf(`cilium bpf egress list | tail -n +2 | wc -l`)
+		out := kub.CiliumExecContext(ctx, ciliumPod, cmd)
+		if !out.WasSuccessful() {
+			kub.Logger().
+				WithFields(logrus.Fields{"cmd": cmd}).
+				WithError(out.GetError()).
+				Warning("Failed to list bpf egress policy map")
+
+			return false
+		}
+
+		count, err := strconv.Atoi(strings.TrimSpace(out.Stdout()))
+		if err != nil {
+			kub.Logger().
+				WithFields(logrus.Fields{"cmd": cmd}).
+				WithError(err).
+				Warning("Failed to parse command output")
+
+			return false
+		}
+
+		return count == expectedCount
 	}
 
 	return WithTimeout(body,
-		fmt.Sprintf("egress policy entry for %s was not found in time", ipAddr),
+		fmt.Sprintf("could not ensure egress policy entries count is equal to %d", expectedCount),
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
