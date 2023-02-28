@@ -71,7 +71,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	if ownedBy, ok := ipam.isIPExcluded(ip); ok {
+	if ownedBy, ok := ipam.isIPExcluded(ip, pool); ok {
 		err = fmt.Errorf("IP %s is excluded, owned by %s", ip, ownedBy)
 		return
 	}
@@ -148,9 +148,10 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 			return
 		}
 
-		if _, ok := ipam.isIPExcluded(result.IP); !ok {
+		if _, ok := ipam.isIPExcluded(result.IP, pool); !ok {
 			log.WithFields(logrus.Fields{
 				"ip":    result.IP.String(),
+				"pool":  pool.String(),
 				"owner": owner,
 			}).Debugf("Allocated random IP")
 			ipam.owner[result.IP.String()] = owner
