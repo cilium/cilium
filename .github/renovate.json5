@@ -75,6 +75,10 @@
         "go.mod",
         "go.sum"
       ],
+      "postUpdateOptions": [
+	// update source import paths on major updates
+        "gomodUpdateImportPaths",
+      ]
       "matchUpdateTypes": [
         "major",
         "minor",
