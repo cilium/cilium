@@ -176,7 +176,6 @@ func New(name string, c Configuration) (*manager, error) {
 		conf:              c,
 		controllerManager: controller.NewManager(),
 		nodeHandlers:      map[datapath.NodeHandler]struct{}{},
-		workerpool:        workerpool.New(numBackgroundWorkers),
 	}
 
 	m.metricEventsReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -214,13 +213,16 @@ func (m *manager) SetIPCache(ipc IPCache) {
 }
 
 func (m *manager) Start(hive.HookContext) error {
+	m.workerpool = workerpool.New(numBackgroundWorkers)
 	return m.workerpool.Submit("backgroundSync", m.backgroundSync)
 }
 
 // Stop shuts down a node manager
 func (m *manager) Stop(hive.HookContext) error {
-	if err := m.workerpool.Close(); err != nil {
-		return err
+	if m.workerpool != nil {
+		if err := m.workerpool.Close(); err != nil {
+			return err
+		}
 	}
 
 	m.mutex.Lock()
