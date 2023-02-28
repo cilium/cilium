@@ -23,4 +23,5 @@ type Task struct {
 	SupportCancel string `json:"SupportCancel" xml:"SupportCancel"`
 	TaskId        string `json:"TaskId" xml:"TaskId"`
 	TaskAction    string `json:"TaskAction" xml:"TaskAction"`
+	ResourceId    string `json:"ResourceId" xml:"ResourceId"`
 }

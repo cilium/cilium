@@ -81,33 +81,34 @@ type DescribeVpnConnectionRequest struct {
 // DescribeVpnConnectionResponse is the response struct for api DescribeVpnConnection
 type DescribeVpnConnectionResponse struct {
 	*responses.BaseResponse
-	Status                 string         `json:"Status" xml:"Status"`
-	RemoteCaCertificate    string         `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
-	EnableNatTraversal     bool           `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
-	CreateTime             int64          `json:"CreateTime" xml:"CreateTime"`
-	EffectImmediately      bool           `json:"EffectImmediately" xml:"EffectImmediately"`
-	VpnGatewayId           string         `json:"VpnGatewayId" xml:"VpnGatewayId"`
-	LocalSubnet            string         `json:"LocalSubnet" xml:"LocalSubnet"`
-	RequestId              string         `json:"RequestId" xml:"RequestId"`
-	VpnConnectionId        string         `json:"VpnConnectionId" xml:"VpnConnectionId"`
-	RemoteSubnet           string         `json:"RemoteSubnet" xml:"RemoteSubnet"`
-	CustomerGatewayId      string         `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
-	Name                   string         `json:"Name" xml:"Name"`
-	EnableDpd              bool           `json:"EnableDpd" xml:"EnableDpd"`
-	AttachType             string         `json:"AttachType" xml:"AttachType"`
-	NetworkType            string         `json:"NetworkType" xml:"NetworkType"`
-	AttachInstanceId       string         `json:"AttachInstanceId" xml:"AttachInstanceId"`
-	Spec                   string         `json:"Spec" xml:"Spec"`
-	State                  string         `json:"State" xml:"State"`
-	ZoneNo                 string         `json:"ZoneNo" xml:"ZoneNo"`
-	InternetIp             string         `json:"InternetIp" xml:"InternetIp"`
-	TransitRouterId        string         `json:"TransitRouterId" xml:"TransitRouterId"`
-	TransitRouterName      string         `json:"TransitRouterName" xml:"TransitRouterName"`
-	CrossAccountAuthorized bool           `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
-	IkeConfig              IkeConfig      `json:"IkeConfig" xml:"IkeConfig"`
-	IpsecConfig            IpsecConfig    `json:"IpsecConfig" xml:"IpsecConfig"`
-	VcoHealthCheck         VcoHealthCheck `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
-	VpnBgpConfig           VpnBgpConfig   `json:"VpnBgpConfig" xml:"VpnBgpConfig"`
+	Status                 string                      `json:"Status" xml:"Status"`
+	RemoteCaCertificate    string                      `json:"RemoteCaCertificate" xml:"RemoteCaCertificate"`
+	EnableNatTraversal     bool                        `json:"EnableNatTraversal" xml:"EnableNatTraversal"`
+	CreateTime             int64                       `json:"CreateTime" xml:"CreateTime"`
+	EffectImmediately      bool                        `json:"EffectImmediately" xml:"EffectImmediately"`
+	VpnGatewayId           string                      `json:"VpnGatewayId" xml:"VpnGatewayId"`
+	LocalSubnet            string                      `json:"LocalSubnet" xml:"LocalSubnet"`
+	RequestId              string                      `json:"RequestId" xml:"RequestId"`
+	VpnConnectionId        string                      `json:"VpnConnectionId" xml:"VpnConnectionId"`
+	RemoteSubnet           string                      `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	CustomerGatewayId      string                      `json:"CustomerGatewayId" xml:"CustomerGatewayId"`
+	Name                   string                      `json:"Name" xml:"Name"`
+	EnableDpd              bool                        `json:"EnableDpd" xml:"EnableDpd"`
+	AttachType             string                      `json:"AttachType" xml:"AttachType"`
+	NetworkType            string                      `json:"NetworkType" xml:"NetworkType"`
+	AttachInstanceId       string                      `json:"AttachInstanceId" xml:"AttachInstanceId"`
+	Spec                   string                      `json:"Spec" xml:"Spec"`
+	State                  string                      `json:"State" xml:"State"`
+	ZoneNo                 string                      `json:"ZoneNo" xml:"ZoneNo"`
+	InternetIp             string                      `json:"InternetIp" xml:"InternetIp"`
+	TransitRouterId        string                      `json:"TransitRouterId" xml:"TransitRouterId"`
+	TransitRouterName      string                      `json:"TransitRouterName" xml:"TransitRouterName"`
+	CrossAccountAuthorized bool                        `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
+	IkeConfig              IkeConfig                   `json:"IkeConfig" xml:"IkeConfig"`
+	IpsecConfig            IpsecConfig                 `json:"IpsecConfig" xml:"IpsecConfig"`
+	VcoHealthCheck         VcoHealthCheck              `json:"VcoHealthCheck" xml:"VcoHealthCheck"`
+	VpnBgpConfig           VpnBgpConfig                `json:"VpnBgpConfig" xml:"VpnBgpConfig"`
+	Tags                   TagsInDescribeVpnConnection `json:"Tags" xml:"Tags"`
 }
 
 // CreateDescribeVpnConnectionRequest creates a request to invoke DescribeVpnConnection API

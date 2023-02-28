@@ -93,6 +93,7 @@ type RevokeSecurityGroupRequest struct {
 	Priority                string                            `position:"Query" name:"Priority"`
 	DestCidrIp              string                            `position:"Query" name:"DestCidrIp"`
 	SourceGroupId           string                            `position:"Query" name:"SourceGroupId"`
+	SecurityGroupRuleId     *[]string                         `position:"Query" name:"SecurityGroupRuleId"  type:"Repeated"`
 }
 
 // RevokeSecurityGroupPermissions is a repeated param struct in RevokeSecurityGroupRequest
