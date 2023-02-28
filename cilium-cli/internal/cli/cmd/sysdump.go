@@ -74,6 +74,9 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 	cmd.Flags().BoolVar(&options.Debug,
 		optionPrefix+"debug", sysdump.DefaultDebug,
 		"Whether to enable debug logging")
+	cmd.Flags().BoolVar(&options.Profiling,
+		optionPrefix+"profiling", sysdump.DefaultProfiling,
+		"Whether to enable scraping profiling data")
 	cmd.Flags().StringArrayVar(&options.ExtraLabelSelectors,
 		optionPrefix+"extra-label-selectors", nil,
 		"Optional set of labels selectors used to target additional pods for log collection.")
