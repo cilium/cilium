@@ -113,6 +113,10 @@ var (
 		"stack",
 		"stats",
 	}
+	gopsProfiling = []string{
+		"pprof-heap",
+		"pprof-cpu",
+	}
 )
 
 var (
