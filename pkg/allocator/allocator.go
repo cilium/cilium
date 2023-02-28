@@ -389,10 +389,6 @@ func (a *Allocator) GetEvents() AllocatorEventChan {
 func (a *Allocator) Delete() {
 	close(a.stopGC)
 	a.mainCache.stop()
-
-	if a.events != nil {
-		close(a.events)
-	}
 }
 
 // WaitForInitialSync waits until the initial sync is complete
@@ -926,5 +922,5 @@ func (rc *RemoteCache) NumEntries() int {
 // Close stops watching for identities in the kvstore associated with the
 // remote cache.
 func (rc *RemoteCache) Close() {
-	rc.cache.stop()
+	rc.cache.allocator.Delete()
 }
