@@ -17,6 +17,7 @@ package ecs
 
 // Permission is a nested struct in ecs response
 type Permission struct {
+	SecurityGroupRuleId     string `json:"SecurityGroupRuleId" xml:"SecurityGroupRuleId"`
 	Direction               string `json:"Direction" xml:"Direction"`
 	SourceGroupId           string `json:"SourceGroupId" xml:"SourceGroupId"`
 	DestGroupOwnerAccount   string `json:"DestGroupOwnerAccount" xml:"DestGroupOwnerAccount"`

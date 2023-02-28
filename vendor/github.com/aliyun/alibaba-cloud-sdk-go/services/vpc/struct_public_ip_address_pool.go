@@ -30,5 +30,7 @@ type PublicIpAddressPool struct {
 	UserType              bool                `json:"UserType" xml:"UserType"`
 	OwnerId               int64               `json:"OwnerId" xml:"OwnerId"`
 	ShareType             string              `json:"ShareType" xml:"ShareType"`
+	ResourceGroupId       string              `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	PublicIpCidrBlockList []PublicIpCidrBlock `json:"PublicIpCidrBlockList" xml:"PublicIpCidrBlockList"`
+	Tags                  []Tag               `json:"Tags" xml:"Tags"`
 }

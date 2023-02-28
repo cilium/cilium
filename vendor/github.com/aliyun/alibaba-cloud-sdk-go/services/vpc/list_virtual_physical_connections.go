@@ -73,6 +73,7 @@ type ListVirtualPhysicalConnectionsRequest struct {
 	*requests.RpcRequest
 	VlanIds                                 *[]string                             `position:"Query" name:"VlanIds"  type:"Repeated"`
 	VirtualPhysicalConnectionBusinessStatus string                                `position:"Query" name:"VirtualPhysicalConnectionBusinessStatus"`
+	ResourceGroupId                         string                                `position:"Query" name:"ResourceGroupId"`
 	VirtualPhysicalConnectionAliUids        *[]string                             `position:"Query" name:"VirtualPhysicalConnectionAliUids"  type:"Repeated"`
 	NextToken                               string                                `position:"Query" name:"NextToken"`
 	VirtualPhysicalConnectionIds            *[]string                             `position:"Query" name:"VirtualPhysicalConnectionIds"  type:"Repeated"`
@@ -80,6 +81,7 @@ type ListVirtualPhysicalConnectionsRequest struct {
 	Tags                                    *[]ListVirtualPhysicalConnectionsTags `position:"Query" name:"Tags"  type:"Repeated"`
 	VirtualPhysicalConnectionStatuses       *[]string                             `position:"Query" name:"VirtualPhysicalConnectionStatuses"  type:"Repeated"`
 	PhysicalConnectionId                    string                                `position:"Query" name:"PhysicalConnectionId"`
+	Name                                    string                                `position:"Query" name:"Name"`
 	MaxResults                              requests.Integer                      `position:"Query" name:"MaxResults"`
 }
 

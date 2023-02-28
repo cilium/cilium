@@ -75,13 +75,16 @@ type CreateImageRequest struct {
 	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
 	SnapshotId           string                          `position:"Query" name:"SnapshotId"`
 	ClientToken          string                          `position:"Query" name:"ClientToken"`
+	SystemTag            *[]CreateImageSystemTag         `position:"Query" name:"SystemTag"  type:"Repeated"`
 	Description          string                          `position:"Query" name:"Description"`
 	Platform             string                          `position:"Query" name:"Platform"`
 	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
 	BootMode             string                          `position:"Query" name:"BootMode"`
 	ImageName            string                          `position:"Query" name:"ImageName"`
+	StorageLocationArn   string                          `position:"Query" name:"StorageLocationArn"`
 	Tag                  *[]CreateImageTag               `position:"Query" name:"Tag"  type:"Repeated"`
 	Architecture         string                          `position:"Query" name:"Architecture"`
+	DetectionStrategy    string                          `position:"Query" name:"DetectionStrategy"`
 	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
@@ -96,6 +99,13 @@ type CreateImageDiskDeviceMapping struct {
 	Size       string `name:"Size"`
 	DiskType   string `name:"DiskType"`
 	Device     string `name:"Device"`
+}
+
+// CreateImageSystemTag is a repeated param struct in CreateImageRequest
+type CreateImageSystemTag struct {
+	Scope string `name:"Scope"`
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateImageTag is a repeated param struct in CreateImageRequest

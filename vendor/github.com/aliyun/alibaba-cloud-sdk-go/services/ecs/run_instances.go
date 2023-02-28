@@ -98,6 +98,7 @@ type RunInstancesRequest struct {
 	ImageId                                  string                          `position:"Query" name:"ImageId"`
 	SpotInterruptionBehavior                 string                          `position:"Query" name:"SpotInterruptionBehavior"`
 	NetworkInterfaceQueueNumber              requests.Integer                `position:"Query" name:"NetworkInterfaceQueueNumber"`
+	SystemTag                                *[]RunInstancesSystemTag        `position:"Query" name:"SystemTag"  type:"Repeated"`
 	IoOptimized                              string                          `position:"Query" name:"IoOptimized"`
 	SecurityGroupId                          string                          `position:"Query" name:"SecurityGroupId"`
 	HibernationOptionsConfigured             requests.Boolean                `position:"Query" name:"HibernationOptions.Configured"`
@@ -174,6 +175,13 @@ type RunInstancesImageOptions struct {
 	LoginAsNonRoot string `name:"LoginAsNonRoot"`
 }
 
+// RunInstancesSystemTag is a repeated param struct in RunInstancesRequest
+type RunInstancesSystemTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
+	Scope string `name:"Scope"`
+}
+
 // RunInstancesArn is a repeated param struct in RunInstancesRequest
 type RunInstancesArn struct {
 	RoleType      string `name:"RoleType"`
@@ -201,6 +209,7 @@ type RunInstancesNetworkInterface struct {
 	InstanceType                string    `name:"InstanceType"`
 	Ipv6AddressCount            string    `name:"Ipv6AddressCount"`
 	Ipv6Address                 *[]string `name:"Ipv6Address" type:"Repeated"`
+	NetworkCardIndex            string    `name:"NetworkCardIndex"`
 }
 
 // RunInstancesDataDisk is a repeated param struct in RunInstancesRequest

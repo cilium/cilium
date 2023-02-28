@@ -72,7 +72,6 @@ func (client *Client) StartInstanceWithCallback(request *StartInstanceRequest, c
 type StartInstanceRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	SourceRegionId       string           `position:"Query" name:"SourceRegionId"`
 	InitLocalDisk        requests.Boolean `position:"Query" name:"InitLocalDisk"`
 	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
