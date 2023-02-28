@@ -148,6 +148,19 @@ func (b *SysdumpSuite) TestExtractGopsPID(c *check.C) {
 
 }
 
+func (b *SysdumpSuite) TestExtractGopsProfileData(c *check.C) {
+	gopsOutput := `
+	Profiling CPU now, will take 30 secs...
+	Profile dump saved to: /tmp/cpu_profile3302111893
+	`
+	wantFilepath := "/tmp/cpu_profile3302111893"
+
+	gotFilepath, err := extractGopsProfileData(gopsOutput)
+	c.Assert(err, check.IsNil)
+	c.Assert(gotFilepath, check.Equals, wantFilepath)
+
+}
+
 func TestKVStoreTask(t *testing.T) {
 	assert := assert.New(t)
 	client := &fakeClient{
