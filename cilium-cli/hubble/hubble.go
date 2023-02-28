@@ -64,6 +64,7 @@ type k8sHubbleImplementation interface {
 	DeletePodCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	ListPods(ctx context.Context, namespace string, options metav1.ListOptions) (*corev1.PodList, error)
 	GetDaemonSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.DaemonSet, error)
+	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
 	CiliumStatus(ctx context.Context, namespace, pod string) (*models.StatusResponse, error)
 	ListCiliumEndpoints(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2.CiliumEndpointList, error)
 	GetServerVersion() (*semver.Version, error)
@@ -668,6 +669,25 @@ func (k *K8sHubble) Enable(ctx context.Context) error {
 	if metricsSvc := k.generateMetricsService(); metricsSvc != nil {
 		k.Log("🚀 Creating Metrics Service...")
 		if _, err := k.client.CreateService(ctx, k.params.Namespace, metricsSvc, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+
+		// Add hubble-metrics port to Cilium agent daemonset
+		k.Log("🔥 Patching Agent DaemonSet...")
+		patch := []byte(fmt.Sprintf(`{
+"spec": {
+	"template": {
+		"spec": {
+			"containers": [{
+				"name": %q,
+					"ports": [{
+						"containerPort": 9965,
+						"hostPort": 9965,
+						"name": "hubble-metrics",
+						"protocol": "TCP"
+}]}]}}}}`, defaults.AgentContainerName))
+		if _, err := k.client.PatchDaemonSet(ctx, k.params.Namespace, defaults.AgentDaemonSetName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
+			k.Log("❌ Unable to patch Agent DaemonSet")
 			return err
 		}
 	}
