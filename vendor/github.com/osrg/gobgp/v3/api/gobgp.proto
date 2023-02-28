@@ -607,6 +607,7 @@ message PeerConf {
   uint32 allow_own_asn = 13;
   bool replace_peer_asn = 14;
   bool admin_down = 15;
+  bool send_software_version = 16;
 }
 
 message PeerGroupConf {

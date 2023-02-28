@@ -8,6 +8,88 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.14.0/0.37.0/0.0.4] 2023-02-27
+
+This release is the last to support [Go 1.18].
+The next release will require at least [Go 1.19].
+
+### Added
+
+- The `event` type semantic conventions are added to `go.opentelemetry.io/otel/semconv/v1.17.0`. (#3697)
+- Support [Go 1.20]. (#3693)
+- The `go.opentelemetry.io/otel/semconv/v1.18.0` package.
+  The package contains semantic conventions from the `v1.18.0` version of the OpenTelemetry specification. (#3719)
+  - The following `const` renames from `go.opentelemetry.io/otel/semconv/v1.17.0` are included:
+    - `OtelScopeNameKey` -> `OTelScopeNameKey`
+    - `OtelScopeVersionKey` -> `OTelScopeVersionKey`
+    - `OtelLibraryNameKey` -> `OTelLibraryNameKey`
+    - `OtelLibraryVersionKey` -> `OTelLibraryVersionKey`
+    - `OtelStatusCodeKey` -> `OTelStatusCodeKey`
+    - `OtelStatusDescriptionKey` -> `OTelStatusDescriptionKey`
+    - `OtelStatusCodeOk` -> `OTelStatusCodeOk`
+    - `OtelStatusCodeError` -> `OTelStatusCodeError`
+  - The following `func` renames from `go.opentelemetry.io/otel/semconv/v1.17.0` are included:
+    - `OtelScopeName` -> `OTelScopeName`
+    - `OtelScopeVersion` -> `OTelScopeVersion`
+    - `OtelLibraryName` -> `OTelLibraryName`
+    - `OtelLibraryVersion` -> `OTelLibraryVersion`
+    - `OtelStatusDescription` -> `OTelStatusDescription`
+- A `IsSampled` method is added to the `SpanContext` implementation in `go.opentelemetry.io/otel/bridge/opentracing` to expose the span sampled state.
+  See the [README](./bridge/opentracing/README.md) for more information. (#3570)
+- The `WithInstrumentationAttributes` option to `go.opentelemetry.io/otel/metric`. (#3738)
+- The `WithInstrumentationAttributes` option to `go.opentelemetry.io/otel/trace`. (#3739)
+- The following environment variables are supported by the periodic `Reader` in `go.opentelemetry.io/otel/sdk/metric`. (#3763)
+  - `OTEL_METRIC_EXPORT_INTERVAL` sets the time between collections and exports.
+  - `OTEL_METRIC_EXPORT_TIMEOUT` sets the timeout an export is attempted.
+
+### Changed
+
+- Fall-back to `TextMapCarrier` when it's not `HttpHeader`s in `go.opentelemetry.io/otel/bridge/opentracing`. (#3679)
+- The `Collect` method of the `"go.opentelemetry.io/otel/sdk/metric".Reader` interface is updated to accept the `metricdata.ResourceMetrics` value the collection will be made into.
+  This change is made to enable memory reuse by SDK users. (#3732)
+- The `WithUnit` option in `go.opentelemetry.io/otel/sdk/metric/instrument` is updated to accept a `string` for the unit value. (#3776)
+
+### Fixed
+
+- Ensure `go.opentelemetry.io/otel` does not use generics. (#3723, #3725)
+- Multi-reader `MeterProvider`s now export metrics for all readers, instead of just the first reader. (#3720, #3724)
+- Remove use of deprecated `"math/rand".Seed` in `go.opentelemetry.io/otel/example/prometheus`. (#3733)
+- Do not silently drop unknown schema data with `Parse` in  `go.opentelemetry.io/otel/schema/v1.1`. (#3743)
+- Data race issue in OTLP exporter retry mechanism. (#3755, #3756)
+- Wrapping empty errors when exporting in `go.opentelemetry.io/otel/sdk/metric`. (#3698, #3772)
+- Incorrect "all" and "resource" definition for schema files in `go.opentelemetry.io/otel/schema/v1.1`. (#3777)
+
+### Deprecated
+
+- The `go.opentelemetry.io/otel/metric/unit` package is deprecated.
+  Use the equivalent unit string instead. (#3776)
+  - Use `"1"` instead of `unit.Dimensionless`
+  - Use `"By"` instead of `unit.Bytes`
+  - Use `"ms"` instead of `unit.Milliseconds`
+
+## [1.13.0/0.36.0] 2023-02-07
+
+### Added
+
+- Attribute `KeyValue` creations functions to `go.opentelemetry.io/otel/semconv/v1.17.0` for all non-enum semantic conventions.
+  These functions ensure semantic convention type correctness. (#3675)
+
+### Fixed
+
+- Removed the `http.target` attribute from being added by `ServerRequest` in the following packages. (#3687)
+  - `go.opentelemetry.io/otel/semconv/v1.13.0/httpconv`
+  - `go.opentelemetry.io/otel/semconv/v1.14.0/httpconv`
+  - `go.opentelemetry.io/otel/semconv/v1.15.0/httpconv`
+  - `go.opentelemetry.io/otel/semconv/v1.16.0/httpconv`
+  - `go.opentelemetry.io/otel/semconv/v1.17.0/httpconv`
+
+### Removed
+
+- The deprecated `go.opentelemetry.io/otel/metric/instrument/asyncfloat64` package is removed. (#3631)
+- The deprecated `go.opentelemetry.io/otel/metric/instrument/asyncint64` package is removed. (#3631)
+- The deprecated `go.opentelemetry.io/otel/metric/instrument/syncfloat64` package is removed. (#3631)
+- The deprecated `go.opentelemetry.io/otel/metric/instrument/syncint64` package is removed. (#3631)
+
 ## [1.12.0/0.35.0] 2023-01-28
 
 ### Added
@@ -2220,7 +2302,9 @@ It contains api and sdk for trace and meter.
 - CircleCI build CI manifest files.
 - CODEOWNERS file to track owners of this project.
 
-[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/open-telemetry/opentelemetry-go/compare/v1.14.0...HEAD
+[1.14.0/0.37.0/0.0.4]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.14.0
+[1.13.0/0.36.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.13.0
 [1.12.0/0.35.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.12.0
 [1.11.2/0.34.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.11.2
 [1.11.1/0.33.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.11.1
@@ -2279,3 +2363,7 @@ It contains api and sdk for trace and meter.
 [0.1.2]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v0.1.2
 [0.1.1]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v0.1.1
 [0.1.0]: https://github.com/open-telemetry/opentelemetry-go/releases/tag/v0.1.0
+
+[Go 1.20]: https://go.dev/doc/go1.20
+[Go 1.19]: https://go.dev/doc/go1.19
+[Go 1.18]: https://go.dev/doc/go1.18

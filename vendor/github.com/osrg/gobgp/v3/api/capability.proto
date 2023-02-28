@@ -99,6 +99,10 @@ message FqdnCapability {
     string domain_name = 2;
 }
 
+message SoftwareVersionCapability {
+    string software_version = 1;
+}
+
 message UnknownCapability {
     uint32 code = 1;
     bytes value = 2;

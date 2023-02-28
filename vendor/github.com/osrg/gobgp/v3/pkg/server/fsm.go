@@ -30,6 +30,7 @@ import (
 	"github.com/eapache/channels"
 	"github.com/osrg/gobgp/v3/internal/pkg/config"
 	"github.com/osrg/gobgp/v3/internal/pkg/table"
+	"github.com/osrg/gobgp/v3/internal/pkg/version"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/packet/bmp"
@@ -727,6 +728,11 @@ func capabilitiesFromConfig(pConf *config.Neighbor) []bgp.ParameterCapabilityInt
 	caps := make([]bgp.ParameterCapabilityInterface, 0, 4)
 	caps = append(caps, bgp.NewCapRouteRefresh())
 	caps = append(caps, bgp.NewCapFQDN(fqdn, ""))
+
+	if pConf.Config.SendSoftwareVersion || pConf.Config.PeerType == config.PEER_TYPE_INTERNAL {
+		softwareVersion := fmt.Sprintf("GoBGP/%s", version.Version())
+		caps = append(caps, bgp.NewCapSoftwareVersion(softwareVersion))
+	}
 
 	for _, af := range pConf.AfiSafis {
 		caps = append(caps, bgp.NewCapMultiProtocol(af.State.Family))

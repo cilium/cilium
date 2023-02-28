@@ -100,7 +100,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			}
 			for _, pkg := range pkgAliases {
 				if isPkgDot(stmt.Fun, pkg, readAllFunc) {
-					pass.Reportf(n.Pos(), "use of %s.ReadAll is prohibited, use bufio.NewReaderSize instead", pkg)
+					pass.Reportf(n.Pos(), "use of %s.ReadAll is prohibited, use safeio.ReadAllLimit instead", pkg)
 				}
 			}
 		}
