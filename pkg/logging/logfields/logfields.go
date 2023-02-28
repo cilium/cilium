@@ -606,6 +606,9 @@ const (
 	// CEPName is the name of the CiliumEndpoint.
 	CEPName = "ciliumEndpointName"
 
+	// CEPCount is the count of the CiliumEndpoint.
+	CEPCount = "ciliumEndpointCount"
+
 	// CEPUID is the UID of the CiliumEndpoint.
 	CEPUID = "ciliumEndpointUID"
 

@@ -138,9 +138,9 @@ func (c *cesMgr) addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ces *cesTracker)
 	// If cep already exists in ces, compare new cep with cached cep.
 	// Update only if there is any change.
 	log.WithFields(logrus.Fields{
-		"CEPName":       cep.Name,
-		"CESName":       ces.ces.GetName(),
-		"totalCEPCount": len(ces.ces.Endpoints),
+		logfields.CEPName:  cep.Name,
+		logfields.CESName:  ces.ces.GetName(),
+		logfields.CEPCount: len(ces.ces.Endpoints),
 	}).Debug("Queueing CEP in the CES")
 
 	for i, ep := range ces.ces.Endpoints {
@@ -217,7 +217,7 @@ func (c *cesMgr) createCES(name string) *cesTracker {
 	}
 	c.desiredCESs.insertCES(cesName, ces)
 	log.WithFields(logrus.Fields{
-		"CESName": cesName,
+		logfields.CESName: cesName,
 	}).Debug("Generated CES")
 	return ces
 }
@@ -227,7 +227,7 @@ func (c *cesMgr) createCES(name string) *cesTracker {
 func (c *cesMgr) deleteCESFromCache(cesName string) {
 	if !c.desiredCESs.hasCESName(cesName) {
 		log.WithFields(logrus.Fields{
-			"CESName": cesName,
+			logfields.CESName: cesName,
 		}).Debug("Failed to retrieve CES object in local cache.")
 		return
 	}
@@ -254,6 +254,10 @@ func (c *cesMgr) updateCESInCache(srcCES *cilium_v2.CiliumEndpointSlice, isDeepC
 				c.desiredCESs.insertCEP(GetCEPNameFromCCEP(&cep, ces.ces.Namespace), srcCES.GetName())
 			}
 		}
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.CESName: srcCES.GetName(),
+		}).Debug("Attempted to updateCESInCache non-existent, skipping.")
 	}
 }
 
@@ -282,16 +286,22 @@ func (c *cesMgr) getCESCopyFromCache(cesName string) (*cilium_v2.CiliumEndpointS
 // CES object or updating an existing CES object.
 func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) string {
 	log.WithFields(logrus.Fields{
-		"CEPName": GetCEPNameFromCCEP(cep, ns),
+		logfields.CEPName: GetCEPNameFromCCEP(cep, ns),
 	}).Debug("Insert CEP in local cache")
 
 	// check the given cep is already exists in any of the CES.
 	// if yes, Update a ces with the given cep object.
-	if cesName, exists := c.desiredCESs.getCESName(GetCEPNameFromCCEP(cep, ns)); exists {
+	cepName := GetCEPNameFromCCEP(cep, ns)
+	if cesName, exists := c.desiredCESs.getCESName(cepName); exists {
 		if ces, ok := c.desiredCESs.getCESTracker(cesName); ok {
 			// add a cep into the ces
 			c.addCEPtoCES(cep, ces)
 			return cesName
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.CESName: cesName,
+				logfields.CEPName: cepName,
+			}).Debug("Could not insert CEP - missing CESName, skipping.")
 		}
 	}
 
@@ -326,7 +336,7 @@ func (c *cesMgr) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint, ns string) 
 // Updating an existing CES object.
 func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	log.WithFields(logrus.Fields{
-		"CEPName": cepName,
+		logfields.CEPName: cepName,
 	}).Debug("Remove CEP from local cache")
 
 	// Check in local cache, if a given cep is already batched in one of the ces.
@@ -334,7 +344,10 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 	if cesName, exists := c.desiredCESs.getCESName(cepName); exists {
 		var ces *cesTracker
 		if ces, exists = c.desiredCESs.getCESTracker(cesName); !exists {
-			log.Info("Attempted to remove non-existent CES, skipping.")
+			log.WithFields(logrus.Fields{
+				logfields.CESName: cesName,
+				logfields.CEPName: cepName,
+			}).Info("Attempted to remove non-existent CES, skipping.")
 			return
 		}
 
@@ -351,9 +364,9 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 			}
 		}
 		log.WithFields(logrus.Fields{
-			"CESName":  cesName,
-			"CEPName":  cepName,
-			"CEPCount": len(ces.ces.Endpoints),
+			logfields.CESName:  cesName,
+			logfields.CEPName:  cepName,
+			logfields.CEPCount: len(ces.ces.Endpoints),
 		}).Debug("Removed CEP from CES")
 
 		// Increment the cepRemove counter
@@ -361,8 +374,9 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 		c.insertCESInWorkQueue(ces, baseDelay)
 	} else {
 		log.WithFields(logrus.Fields{
+			logfields.CESName: cesName,
 			logfields.CEPName: cepName,
-		}).Info("Attempted to retrieve non-existent CES, skip processing.")
+		}).Debug("Could not remove CEP from local cache missing CEPName.")
 	}
 
 	return
@@ -409,6 +423,10 @@ func (c *cesMgr) getCEPCountInCES(cesName string) (cnt int) {
 		ces.backendMutex.RLock()
 		cnt = len(ces.ces.Endpoints)
 		ces.backendMutex.RUnlock()
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.CESName: cesName,
+		}).Debug("Attempted to getCEPCountInCES non-existent CES ,skipping.")
 	}
 	return
 }
@@ -441,6 +459,10 @@ func (c *cesMgr) getRemovedCEPs(cesName string) map[string]struct{} {
 			cepNames[cepName] = struct{}{}
 		}
 		ces.backendMutex.RUnlock()
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.CESName: cesName,
+		}).Debug("Attempted to getRemovedCEPs non-existent cesName,skipping.")
 	}
 
 	return cepNames
@@ -481,7 +503,7 @@ func (c *cesMgr) clearRemovedCEPs(cesName string, remCEPs map[string]struct{}) {
 	// If there are no CEPs are packed in CES, mark for delete.
 	if len(ces.ces.Endpoints) == 0 && len(ces.removedCEPs) == 0 {
 		log.WithFields(logrus.Fields{
-			"CESName": cesName,
+			logfields.CESName: cesName,
 		}).Debug("Remove CES from local cache")
 		// On next DeleteSync, Delete this CES with api-server.
 		c.insertCESInWorkQueue(ces, DefaultCESSyncTime)
@@ -509,7 +531,7 @@ func (c *cesMgr) getCESMetricCountersAndClear(cesName string) (cepInsert int64, 
 func (c *cesManagerIdentity) deleteCESFromCache(cesName string) {
 	if !c.desiredCESs.hasCESName(cesName) {
 		log.WithFields(logrus.Fields{
-			"CESName": cesName,
+			logfields.CESName: cesName,
 		}).Debug("Failed to retrieve CES object in local cache.")
 		return
 	}
@@ -551,6 +573,10 @@ func (c *cesManagerIdentity) InsertCEPInCache(cep *cilium_v2.CoreCiliumEndpoint,
 				// add a cep into the ces
 				c.addCEPtoCES(cep, ces)
 				return cesName
+			} else {
+				log.WithFields(logrus.Fields{
+					logfields.CESName: cesName,
+				}).Debug("Attempted to InsertCEPInCache non-existent cesName,skipping")
 			}
 		}
 	}
@@ -621,6 +647,10 @@ func (c *cesManagerIdentity) updateCESInCache(srcCES *cilium_v2.CiliumEndpointSl
 				c.desiredCESs.insertCEP(GetCEPNameFromCCEP(&cep, ces.ces.Namespace), srcCES.GetName())
 			}
 		}
+	} else {
+		log.WithFields(logrus.Fields{
+			logfields.CESName: srcCES.GetName(),
+		}).Debug("Attempted to updateCESInCache non-existent cesName , skipping")
 	}
 }
 
