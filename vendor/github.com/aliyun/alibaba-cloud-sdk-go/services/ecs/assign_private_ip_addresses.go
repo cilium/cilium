@@ -72,11 +72,13 @@ func (client *Client) AssignPrivateIpAddressesWithCallback(request *AssignPrivat
 type AssignPrivateIpAddressesRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId                requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	Ipv4Prefix                     *[]string        `position:"Query" name:"Ipv4Prefix"  type:"Repeated"`
 	ClientToken                    string           `position:"Query" name:"ClientToken"`
 	SecondaryPrivateIpAddressCount requests.Integer `position:"Query" name:"SecondaryPrivateIpAddressCount"`
 	ResourceOwnerAccount           string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount                   string           `position:"Query" name:"OwnerAccount"`
 	OwnerId                        requests.Integer `position:"Query" name:"OwnerId"`
+	Ipv4PrefixCount                requests.Integer `position:"Query" name:"Ipv4PrefixCount"`
 	PrivateIpAddress               *[]string        `position:"Query" name:"PrivateIpAddress"  type:"Repeated"`
 	NetworkInterfaceId             string           `position:"Query" name:"NetworkInterfaceId"`
 }

@@ -71,30 +71,37 @@ func (client *Client) CreateVpnAttachmentWithCallback(request *CreateVpnAttachme
 // CreateVpnAttachmentRequest is the request struct for api CreateVpnAttachment
 type CreateVpnAttachmentRequest struct {
 	*requests.RpcRequest
-	IkeConfig                    string           `position:"Query" name:"IkeConfig"`
-	AutoConfigRoute              requests.Boolean `position:"Query" name:"AutoConfigRoute"`
-	ResourceOwnerId              requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	CenId                        string           `position:"Query" name:"CenId"`
-	AttachType                   string           `position:"Query" name:"AttachType"`
-	ClientToken                  string           `position:"Query" name:"ClientToken"`
-	IpsecConfig                  string           `position:"Query" name:"IpsecConfig"`
-	BgpConfig                    string           `position:"Query" name:"BgpConfig"`
-	RouteTableAssociationEnabled requests.Boolean `position:"Query" name:"RouteTableAssociationEnabled"`
-	NetworkType                  string           `position:"Query" name:"NetworkType"`
-	HealthCheckConfig            string           `position:"Query" name:"HealthCheckConfig"`
-	CustomerGatewayId            string           `position:"Query" name:"CustomerGatewayId"`
-	LocalSubnet                  string           `position:"Query" name:"LocalSubnet"`
-	RemoteCaCert                 string           `position:"Query" name:"RemoteCaCert"`
-	AutoPublishRouteEnabled      requests.Boolean `position:"Query" name:"AutoPublishRouteEnabled"`
-	RouteTablePropagationEnabled requests.Boolean `position:"Query" name:"RouteTablePropagationEnabled"`
-	RemoteSubnet                 string           `position:"Query" name:"RemoteSubnet"`
-	EffectImmediately            requests.Boolean `position:"Query" name:"EffectImmediately"`
-	ResourceOwnerAccount         string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                 string           `position:"Query" name:"OwnerAccount"`
-	EnableDpd                    requests.Boolean `position:"Query" name:"EnableDpd"`
-	Name                         string           `position:"Query" name:"Name"`
-	ZoneId                       string           `position:"Query" name:"ZoneId"`
-	EnableNatTraversal           requests.Boolean `position:"Query" name:"EnableNatTraversal"`
+	IkeConfig                    string                     `position:"Query" name:"IkeConfig"`
+	AutoConfigRoute              requests.Boolean           `position:"Query" name:"AutoConfigRoute"`
+	ResourceOwnerId              requests.Integer           `position:"Query" name:"ResourceOwnerId"`
+	CenId                        string                     `position:"Query" name:"CenId"`
+	AttachType                   string                     `position:"Query" name:"AttachType"`
+	ClientToken                  string                     `position:"Query" name:"ClientToken"`
+	IpsecConfig                  string                     `position:"Query" name:"IpsecConfig"`
+	BgpConfig                    string                     `position:"Query" name:"BgpConfig"`
+	RouteTableAssociationEnabled requests.Boolean           `position:"Query" name:"RouteTableAssociationEnabled"`
+	NetworkType                  string                     `position:"Query" name:"NetworkType"`
+	HealthCheckConfig            string                     `position:"Query" name:"HealthCheckConfig"`
+	CustomerGatewayId            string                     `position:"Query" name:"CustomerGatewayId"`
+	LocalSubnet                  string                     `position:"Query" name:"LocalSubnet"`
+	RemoteCaCert                 string                     `position:"Query" name:"RemoteCaCert"`
+	AutoPublishRouteEnabled      requests.Boolean           `position:"Query" name:"AutoPublishRouteEnabled"`
+	RouteTablePropagationEnabled requests.Boolean           `position:"Query" name:"RouteTablePropagationEnabled"`
+	RemoteSubnet                 string                     `position:"Query" name:"RemoteSubnet"`
+	EffectImmediately            requests.Boolean           `position:"Query" name:"EffectImmediately"`
+	ResourceOwnerAccount         string                     `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                 string                     `position:"Query" name:"OwnerAccount"`
+	EnableDpd                    requests.Boolean           `position:"Query" name:"EnableDpd"`
+	Tags                         *[]CreateVpnAttachmentTags `position:"Query" name:"Tags"  type:"Repeated"`
+	Name                         string                     `position:"Query" name:"Name"`
+	ZoneId                       string                     `position:"Query" name:"ZoneId"`
+	EnableNatTraversal           requests.Boolean           `position:"Query" name:"EnableNatTraversal"`
+}
+
+// CreateVpnAttachmentTags is a repeated param struct in CreateVpnAttachmentRequest
+type CreateVpnAttachmentTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateVpnAttachmentResponse is the response struct for api CreateVpnAttachment

@@ -71,25 +71,32 @@ func (client *Client) CreateVpnConnectionWithCallback(request *CreateVpnConnecti
 // CreateVpnConnectionRequest is the request struct for api CreateVpnConnection
 type CreateVpnConnectionRequest struct {
 	*requests.RpcRequest
-	IkeConfig            string           `position:"Query" name:"IkeConfig"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	AutoConfigRoute      requests.Boolean `position:"Query" name:"AutoConfigRoute"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	IpsecConfig          string           `position:"Query" name:"IpsecConfig"`
-	BgpConfig            string           `position:"Query" name:"BgpConfig"`
-	HealthCheckConfig    string           `position:"Query" name:"HealthCheckConfig"`
-	CustomerGatewayId    string           `position:"Query" name:"CustomerGatewayId"`
-	LocalSubnet          string           `position:"Query" name:"LocalSubnet"`
-	RemoteSubnet         string           `position:"Query" name:"RemoteSubnet"`
-	EffectImmediately    requests.Boolean `position:"Query" name:"EffectImmediately"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	VpnGatewayId         string           `position:"Query" name:"VpnGatewayId"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	EnableDpd            requests.Boolean `position:"Query" name:"EnableDpd"`
-	RemoteCaCertificate  string           `position:"Query" name:"RemoteCaCertificate"`
-	Name                 string           `position:"Query" name:"Name"`
-	EnableNatTraversal   requests.Boolean `position:"Query" name:"EnableNatTraversal"`
+	IkeConfig            string                     `position:"Query" name:"IkeConfig"`
+	ResourceOwnerId      requests.Integer           `position:"Query" name:"ResourceOwnerId"`
+	AutoConfigRoute      requests.Boolean           `position:"Query" name:"AutoConfigRoute"`
+	ClientToken          string                     `position:"Query" name:"ClientToken"`
+	IpsecConfig          string                     `position:"Query" name:"IpsecConfig"`
+	BgpConfig            string                     `position:"Query" name:"BgpConfig"`
+	HealthCheckConfig    string                     `position:"Query" name:"HealthCheckConfig"`
+	CustomerGatewayId    string                     `position:"Query" name:"CustomerGatewayId"`
+	LocalSubnet          string                     `position:"Query" name:"LocalSubnet"`
+	RemoteSubnet         string                     `position:"Query" name:"RemoteSubnet"`
+	EffectImmediately    requests.Boolean           `position:"Query" name:"EffectImmediately"`
+	ResourceOwnerAccount string                     `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                     `position:"Query" name:"OwnerAccount"`
+	VpnGatewayId         string                     `position:"Query" name:"VpnGatewayId"`
+	OwnerId              requests.Integer           `position:"Query" name:"OwnerId"`
+	EnableDpd            requests.Boolean           `position:"Query" name:"EnableDpd"`
+	Tags                 *[]CreateVpnConnectionTags `position:"Query" name:"Tags"  type:"Repeated"`
+	RemoteCaCertificate  string                     `position:"Query" name:"RemoteCaCertificate"`
+	Name                 string                     `position:"Query" name:"Name"`
+	EnableNatTraversal   requests.Boolean           `position:"Query" name:"EnableNatTraversal"`
+}
+
+// CreateVpnConnectionTags is a repeated param struct in CreateVpnConnectionRequest
+type CreateVpnConnectionTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateVpnConnectionResponse is the response struct for api CreateVpnConnection

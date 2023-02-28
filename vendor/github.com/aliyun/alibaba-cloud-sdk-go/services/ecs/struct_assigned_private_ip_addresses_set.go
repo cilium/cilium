@@ -17,6 +17,7 @@ package ecs
 
 // AssignedPrivateIpAddressesSet is a nested struct in ecs response
 type AssignedPrivateIpAddressesSet struct {
-	NetworkInterfaceId string                                 `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
-	PrivateIpSet       PrivateIpSetInAssignPrivateIpAddresses `json:"PrivateIpSet" xml:"PrivateIpSet"`
+	NetworkInterfaceId string                                  `json:"NetworkInterfaceId" xml:"NetworkInterfaceId"`
+	PrivateIpSet       PrivateIpSetInAssignPrivateIpAddresses  `json:"PrivateIpSet" xml:"PrivateIpSet"`
+	Ipv4PrefixSet      Ipv4PrefixSetInAssignPrivateIpAddresses `json:"Ipv4PrefixSet" xml:"Ipv4PrefixSet"`
 }

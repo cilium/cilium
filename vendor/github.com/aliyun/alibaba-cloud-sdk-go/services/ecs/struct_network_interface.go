@@ -28,6 +28,8 @@ type NetworkInterface struct {
 	Description                 string                                           `json:"Description" xml:"Description"`
 	Type                        string                                           `json:"Type" xml:"Type"`
 	SecurityGroupIds            SecurityGroupIdsInDescribeLaunchTemplateVersions `json:"SecurityGroupIds" xml:"SecurityGroupIds"`
+	Ipv6PrefixSets              Ipv6PrefixSetsInDescribeInstances                `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
+	Ipv4PrefixSets              Ipv4PrefixSetsInDescribeInstances                `json:"Ipv4PrefixSets" xml:"Ipv4PrefixSets"`
 	Ipv6Sets                    Ipv6SetsInDescribeInstances                      `json:"Ipv6Sets" xml:"Ipv6Sets"`
 	PrivateIpSets               PrivateIpSetsInDescribeInstances                 `json:"PrivateIpSets" xml:"PrivateIpSets"`
 }

@@ -71,27 +71,34 @@ func (client *Client) DescribeManagedInstancesWithCallback(request *DescribeMana
 // DescribeManagedInstancesRequest is the request struct for api DescribeManagedInstances
 type DescribeManagedInstancesRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	PageNumber           requests.Integer `position:"Query" name:"PageNumber"`
-	PageSize             requests.Integer `position:"Query" name:"PageSize"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OsType               string           `position:"Query" name:"OsType"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceName         string           `position:"Query" name:"InstanceName"`
-	InstanceId           *[]string        `position:"Query" name:"InstanceId"  type:"Repeated"`
-	InstanceIp           string           `position:"Query" name:"InstanceIp"`
-	ActivationId         string           `position:"Query" name:"ActivationId"`
+	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
+	PageNumber           requests.Integer               `position:"Query" name:"PageNumber"`
+	PageSize             requests.Integer               `position:"Query" name:"PageSize"`
+	Tag                  *[]DescribeManagedInstancesTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                         `position:"Query" name:"OwnerAccount"`
+	OsType               string                         `position:"Query" name:"OsType"`
+	OwnerId              requests.Integer               `position:"Query" name:"OwnerId"`
+	InstanceName         string                         `position:"Query" name:"InstanceName"`
+	InstanceId           *[]string                      `position:"Query" name:"InstanceId"  type:"Repeated"`
+	InstanceIp           string                         `position:"Query" name:"InstanceIp"`
+	ActivationId         string                         `position:"Query" name:"ActivationId"`
+}
+
+// DescribeManagedInstancesTag is a repeated param struct in DescribeManagedInstancesRequest
+type DescribeManagedInstancesTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // DescribeManagedInstancesResponse is the response struct for api DescribeManagedInstances
 type DescribeManagedInstancesResponse struct {
 	*responses.BaseResponse
-	PageSize   int64      `json:"PageSize" xml:"PageSize"`
-	RequestId  string     `json:"RequestId" xml:"RequestId"`
-	PageNumber int64      `json:"PageNumber" xml:"PageNumber"`
-	TotalCount int64      `json:"TotalCount" xml:"TotalCount"`
-	Instances  []Instance `json:"Instances" xml:"Instances"`
+	PageSize   int64                                `json:"PageSize" xml:"PageSize"`
+	RequestId  string                               `json:"RequestId" xml:"RequestId"`
+	PageNumber int64                                `json:"PageNumber" xml:"PageNumber"`
+	TotalCount int64                                `json:"TotalCount" xml:"TotalCount"`
+	Instances  []InstanceInDescribeManagedInstances `json:"Instances" xml:"Instances"`
 }
 
 // CreateDescribeManagedInstancesRequest creates a request to invoke DescribeManagedInstances API

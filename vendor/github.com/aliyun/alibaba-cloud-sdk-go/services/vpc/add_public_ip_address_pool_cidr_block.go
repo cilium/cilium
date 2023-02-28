@@ -71,6 +71,7 @@ func (client *Client) AddPublicIpAddressPoolCidrBlockWithCallback(request *AddPu
 // AddPublicIpAddressPoolCidrBlockRequest is the request struct for api AddPublicIpAddressPoolCidrBlock
 type AddPublicIpAddressPoolCidrBlockRequest struct {
 	*requests.RpcRequest
+	CidrMask              requests.Integer `position:"Query" name:"CidrMask"`
 	PublicIpAddressPoolId string           `position:"Query" name:"PublicIpAddressPoolId"`
 	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken           string           `position:"Query" name:"ClientToken"`

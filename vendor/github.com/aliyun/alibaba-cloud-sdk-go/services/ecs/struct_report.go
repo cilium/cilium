@@ -17,15 +17,15 @@ package ecs
 
 // Report is a nested struct in ecs response
 type Report struct {
-	ResourceId   string  `json:"ResourceId" xml:"ResourceId"`
-	ResourceType string  `json:"ResourceType" xml:"ResourceType"`
-	MetricSetId  string  `json:"MetricSetId" xml:"MetricSetId"`
-	StartTime    string  `json:"StartTime" xml:"StartTime"`
-	EndTime      string  `json:"EndTime" xml:"EndTime"`
-	ReportId     string  `json:"ReportId" xml:"ReportId"`
-	Status       string  `json:"Status" xml:"Status"`
-	CreationTime string  `json:"CreationTime" xml:"CreationTime"`
-	FinishedTime string  `json:"FinishedTime" xml:"FinishedTime"`
-	Severity     string  `json:"Severity" xml:"Severity"`
-	Issues       []Issue `json:"Issues" xml:"Issues"`
+	ResourceId   string                            `json:"ResourceId" xml:"ResourceId"`
+	ResourceType string                            `json:"ResourceType" xml:"ResourceType"`
+	MetricSetId  string                            `json:"MetricSetId" xml:"MetricSetId"`
+	StartTime    string                            `json:"StartTime" xml:"StartTime"`
+	EndTime      string                            `json:"EndTime" xml:"EndTime"`
+	ReportId     string                            `json:"ReportId" xml:"ReportId"`
+	Status       string                            `json:"Status" xml:"Status"`
+	CreationTime string                            `json:"CreationTime" xml:"CreationTime"`
+	FinishedTime string                            `json:"FinishedTime" xml:"FinishedTime"`
+	Severity     string                            `json:"Severity" xml:"Severity"`
+	Issues       IssuesInDescribeDiagnosticReports `json:"Issues" xml:"Issues"`
 }

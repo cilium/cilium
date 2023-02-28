@@ -41,5 +41,7 @@ type NetworkInterfaceSet struct {
 	Attachment                  Attachment                                  `json:"Attachment" xml:"Attachment"`
 	PrivateIpSets               PrivateIpSetsInDescribeNetworkInterfaces    `json:"PrivateIpSets" xml:"PrivateIpSets"`
 	Ipv6Sets                    Ipv6SetsInDescribeNetworkInterfaces         `json:"Ipv6Sets" xml:"Ipv6Sets"`
+	Ipv4PrefixSets              Ipv4PrefixSetsInDescribeNetworkInterfaces   `json:"Ipv4PrefixSets" xml:"Ipv4PrefixSets"`
+	Ipv6PrefixSets              Ipv6PrefixSetsInDescribeNetworkInterfaces   `json:"Ipv6PrefixSets" xml:"Ipv6PrefixSets"`
 	Tags                        TagsInDescribeNetworkInterfaces             `json:"Tags" xml:"Tags"`
 }

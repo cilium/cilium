@@ -18,7 +18,9 @@ package ecs
 // Issue is a nested struct in ecs response
 type Issue struct {
 	MetricId       string `json:"MetricId" xml:"MetricId"`
+	Severity       string `json:"Severity" xml:"Severity"`
+	OccurrenceTime string `json:"OccurrenceTime" xml:"OccurrenceTime"`
 	MetricCategory string `json:"MetricCategory" xml:"MetricCategory"`
 	IssueId        string `json:"IssueId" xml:"IssueId"`
-	Severity       string `json:"Severity" xml:"Severity"`
+	Additional     string `json:"Additional" xml:"Additional"`
 }

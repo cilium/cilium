@@ -79,6 +79,7 @@ type RunCommandRequest struct {
 	CommandContent       string                 `position:"Query" name:"CommandContent"`
 	Timeout              requests.Integer       `position:"Query" name:"Timeout"`
 	Frequency            string                 `position:"Query" name:"Frequency"`
+	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
 	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
 	RepeatMode           string                 `position:"Query" name:"RepeatMode"`
 	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`

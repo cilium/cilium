@@ -71,15 +71,17 @@ func (client *Client) CreateVirtualPhysicalConnectionWithCallback(request *Creat
 // CreateVirtualPhysicalConnectionRequest is the request struct for api CreateVirtualPhysicalConnection
 type CreateVirtualPhysicalConnectionRequest struct {
 	*requests.RpcRequest
-	VpconnAliUid         requests.Integer `position:"Query" name:"VpconnAliUid"`
-	OrderMode            string           `position:"Query" name:"OrderMode"`
-	VlanId               requests.Integer `position:"Query" name:"VlanId"`
-	Description          string           `position:"Query" name:"Description"`
-	Spec                 string           `position:"Query" name:"Spec"`
-	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
-	Token                string           `position:"Query" name:"Token"`
-	PhysicalConnectionId string           `position:"Query" name:"PhysicalConnectionId"`
-	Name                 string           `position:"Query" name:"Name"`
+	VpconnAliUid             requests.Integer `position:"Query" name:"VpconnAliUid"`
+	OrderMode                string           `position:"Query" name:"OrderMode"`
+	VlanId                   requests.Integer `position:"Query" name:"VlanId"`
+	VpconnUidResourceGroupId string           `position:"Query" name:"VpconnUidResourceGroupId"`
+	Description              string           `position:"Query" name:"Description"`
+	Spec                     string           `position:"Query" name:"Spec"`
+	ResourceGroupId          string           `position:"Query" name:"ResourceGroupId"`
+	DryRun                   requests.Boolean `position:"Query" name:"DryRun"`
+	Token                    string           `position:"Query" name:"Token"`
+	PhysicalConnectionId     string           `position:"Query" name:"PhysicalConnectionId"`
+	Name                     string           `position:"Query" name:"Name"`
 }
 
 // CreateVirtualPhysicalConnectionResponse is the response struct for api CreateVirtualPhysicalConnection

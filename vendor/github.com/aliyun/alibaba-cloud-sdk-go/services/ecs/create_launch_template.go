@@ -124,6 +124,7 @@ type CreateLaunchTemplateRequest struct {
 	SystemDiskSize                 requests.Integer                        `position:"Query" name:"SystemDisk.Size"`
 	VpcId                          string                                  `position:"Query" name:"VpcId"`
 	SystemDiskDescription          string                                  `position:"Query" name:"SystemDisk.Description"`
+	SystemDiskEncrypted            string                                  `position:"Query" name:"SystemDisk.Encrypted"`
 }
 
 // CreateLaunchTemplateTemplateTag is a repeated param struct in CreateLaunchTemplateRequest

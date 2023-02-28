@@ -71,23 +71,34 @@ func (client *Client) ReplaceSystemDiskWithCallback(request *ReplaceSystemDiskRe
 // ReplaceSystemDiskRequest is the request struct for api ReplaceSystemDisk
 type ReplaceSystemDiskRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId             requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ImageId                     string           `position:"Query" name:"ImageId"`
-	ClientToken                 string           `position:"Query" name:"ClientToken"`
-	SecurityEnhancementStrategy string           `position:"Query" name:"SecurityEnhancementStrategy"`
-	KeyPairName                 string           `position:"Query" name:"KeyPairName"`
-	Platform                    string           `position:"Query" name:"Platform"`
-	Password                    string           `position:"Query" name:"Password"`
-	LoginAsNonRoot              requests.Boolean `position:"Query" name:"LoginAsNonRoot"`
-	PasswordInherit             requests.Boolean `position:"Query" name:"PasswordInherit"`
-	DiskId                      string           `position:"Query" name:"DiskId"`
-	Architecture                string           `position:"Query" name:"Architecture"`
-	ResourceOwnerAccount        string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                     requests.Integer `position:"Query" name:"OwnerId"`
-	InstanceId                  string           `position:"Query" name:"InstanceId"`
-	SystemDiskSize              requests.Integer `position:"Query" name:"SystemDisk.Size"`
-	UseAdditionalService        requests.Boolean `position:"Query" name:"UseAdditionalService"`
+	ResourceOwnerId             requests.Integer        `position:"Query" name:"ResourceOwnerId"`
+	ImageId                     string                  `position:"Query" name:"ImageId"`
+	ClientToken                 string                  `position:"Query" name:"ClientToken"`
+	EncryptAlgorithm            string                  `position:"Query" name:"EncryptAlgorithm"`
+	SecurityEnhancementStrategy string                  `position:"Query" name:"SecurityEnhancementStrategy"`
+	KeyPairName                 string                  `position:"Query" name:"KeyPairName"`
+	Platform                    string                  `position:"Query" name:"Platform"`
+	Password                    string                  `position:"Query" name:"Password"`
+	LoginAsNonRoot              requests.Boolean        `position:"Query" name:"LoginAsNonRoot"`
+	PasswordInherit             requests.Boolean        `position:"Query" name:"PasswordInherit"`
+	DiskId                      string                  `position:"Query" name:"DiskId"`
+	Arn                         *[]ReplaceSystemDiskArn `position:"Query" name:"Arn"  type:"Repeated"`
+	Architecture                string                  `position:"Query" name:"Architecture"`
+	ResourceOwnerAccount        string                  `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                string                  `position:"Query" name:"OwnerAccount"`
+	OwnerId                     requests.Integer        `position:"Query" name:"OwnerId"`
+	InstanceId                  string                  `position:"Query" name:"InstanceId"`
+	SystemDiskSize              requests.Integer        `position:"Query" name:"SystemDisk.Size"`
+	Encrypted                   requests.Boolean        `position:"Query" name:"Encrypted"`
+	KMSKeyId                    string                  `position:"Query" name:"KMSKeyId"`
+	UseAdditionalService        requests.Boolean        `position:"Query" name:"UseAdditionalService"`
+}
+
+// ReplaceSystemDiskArn is a repeated param struct in ReplaceSystemDiskRequest
+type ReplaceSystemDiskArn struct {
+	Rolearn       string `name:"Rolearn"`
+	RoleType      string `name:"RoleType"`
+	AssumeRoleFor string `name:"AssumeRoleFor"`
 }
 
 // ReplaceSystemDiskResponse is the response struct for api ReplaceSystemDisk
