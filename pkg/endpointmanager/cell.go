@@ -181,10 +181,14 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
-		mgr = mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
 		p.Lifecycle.Append(hive.Hook{
+			OnStart: func(hive.HookContext) error {
+				mgr.WithPeriodicEndpointGC(ctx, checker, p.Config.EndpointGCInterval)
+				return nil
+			},
 			OnStop: func(hive.HookContext) error {
 				cancel()
+				mgr.controllers.RemoveAllAndWait()
 				return nil
 			},
 		})
