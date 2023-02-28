@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
+	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -55,7 +56,7 @@ func NewGetEndpointHandler(d *Daemon) GetEndpointHandler {
 func (h *getEndpoint) Handle(params GetEndpointParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointList)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointList)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -143,7 +144,7 @@ func NewGetEndpointIDHandler(d *Daemon) GetEndpointIDHandler {
 func (h *getEndpointID) Handle(params GetEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -566,7 +567,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) (resp middleware.Resp
 	}
 	epTemplate := params.Endpoint
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointCreate)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointCreate)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -611,7 +612,7 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 	scopedLog.Debug("PATCH /endpoint/{id} request")
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -793,7 +794,7 @@ func NewDeleteEndpointIDHandler(d *Daemon) DeleteEndpointIDHandler {
 func (h *deleteEndpointID) Handle(params DeleteEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/{id} request")
 
-	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointDelete)
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -850,7 +851,7 @@ func NewPatchEndpointIDConfigHandler(d *Daemon) PatchEndpointIDConfigHandler {
 func (h *patchEndpointIDConfig) Handle(params PatchEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/config request")
 
-	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -879,7 +880,7 @@ func NewGetEndpointIDConfigHandler(d *Daemon) GetEndpointIDConfigHandler {
 func (h *getEndpointIDConfig) Handle(params GetEndpointIDConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/config")
 
-	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -910,7 +911,7 @@ func NewGetEndpointIDLabelsHandler(d *Daemon) GetEndpointIDLabelsHandler {
 func (h *getEndpointIDLabels) Handle(params GetEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint/{id}/labels")
 
-	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -946,7 +947,7 @@ func NewGetEndpointIDLogHandler(d *Daemon) GetEndpointIDLogHandler {
 func (h *getEndpointIDLog) Handle(params GetEndpointIDLogParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -976,7 +977,7 @@ func NewGetEndpointIDHealthzHandler(d *Daemon) GetEndpointIDHealthzHandler {
 func (h *getEndpointIDHealthz) Handle(params GetEndpointIDHealthzParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id}/log request")
 
-	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointGet)
+	r, err := h.d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointGet)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}
@@ -1040,7 +1041,7 @@ func NewPatchEndpointIDLabelsHandler(d *Daemon) PatchEndpointIDLabelsHandler {
 func (h *putEndpointIDLabels) Handle(params PatchEndpointIDLabelsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /endpoint/{id}/labels request")
 
-	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), apiRequestEndpointPatch)
+	r, err := h.daemon.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointPatch)
 	if err != nil {
 		return api.Error(http.StatusTooManyRequests, err)
 	}

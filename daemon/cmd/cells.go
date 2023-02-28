@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -121,6 +122,9 @@ var (
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
 		// a common Proxy 'redirect' abstraction.
 		proxy.Cell,
+
+		// Cilium REST API handlers
+		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
