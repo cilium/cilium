@@ -6,7 +6,7 @@ ARG CILIUM_RUNTIME_IMAGE=quay.io/cilium/cilium-runtime:f0c4a2c2ce4af34136027dbe1
 
 
 # cilium-envoy from github.com/cilium/proxy
-#
+# If envoy version is updated, please update related matrix (e.g. envoy.rst) as well.
 FROM quay.io/cilium/cilium-envoy:505865fff55aa3e7e3e490044c428651e0fe339c@sha256:10a5e0fe552d3312753796e98a07366826ae4863bb3f5e704e597b2a21ceceec as cilium-envoy
 
 #
