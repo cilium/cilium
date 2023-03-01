@@ -44,7 +44,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		nh = &nh_params;
 		break;
 	default:
-		return CTX_ACT_DROP;
+		return DROP_NO_FIB;
 	}
 
 	*oif = fib_params.ifindex;
@@ -63,12 +63,12 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	}
 # ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return CTX_ACT_DROP;
+		return DROP_WRITE_ERROR;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return CTX_ACT_DROP;
+		return DROP_WRITE_ERROR;
 	return ctx_redirect(ctx, *oif, 0);
 # endif /* ENABLE_SKIP_FIB */
-	return CTX_ACT_DROP;
+	return DROP_NO_FIB;
 }
 #endif /* ENABLE_IPV6 */
 
@@ -110,7 +110,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		nh = &nh_params;
 		break;
 	default:
-		return CTX_ACT_DROP;
+		return DROP_NO_FIB;
 	}
 
 	*oif = fib_params.ifindex;
@@ -129,12 +129,12 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	}
 # ifndef ENABLE_SKIP_FIB
 	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return CTX_ACT_DROP;
+		return DROP_WRITE_ERROR;
 	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return CTX_ACT_DROP;
+		return DROP_WRITE_ERROR;
 	return ctx_redirect(ctx, *oif, 0);
 # endif /* ENABLE_SKIP_FIB */
-	return CTX_ACT_DROP;
+	return DROP_NO_FIB;
 }
 #endif /* ENABLE_IPV4 */
 
