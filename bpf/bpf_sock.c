@@ -452,13 +452,8 @@ __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 __section("cgroup/connect4")
 int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
-	if (sock_is_health_check(ctx)) {
-		int ret = __sock4_health_fwd(ctx);
-
-		if (ret == SYS_REJECT)
-			try_set_retval(-ECONNREFUSED);
-		return ret;
-	}
+	if (sock_is_health_check(ctx))
+		return __sock4_health_fwd(ctx);
 
 	__sock4_xlate_fwd(ctx, ctx, false);
 	return SYS_PROCEED;
@@ -546,10 +541,8 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 	    !ctx_in_hostns(ctx, NULL))
 		return ret;
 	if (sock_is_health_check(ctx) &&
-	    __sock4_pre_bind(ctx, ctx)) {
-		try_set_retval(-ENOBUFS);
+	    __sock4_pre_bind(ctx, ctx))
 		ret = SYS_REJECT;
-	}
 	return ret;
 }
 #endif /* ENABLE_HEALTH_CHECK */
@@ -931,10 +924,8 @@ int cil_sock6_pre_bind(struct bpf_sock_addr *ctx)
 	    !ctx_in_hostns(ctx, NULL))
 		return ret;
 	if (sock_is_health_check(ctx) &&
-	    __sock6_pre_bind(ctx)) {
-		try_set_retval(-ENOBUFS);
+	    __sock6_pre_bind(ctx))
 		ret = SYS_REJECT;
-	}
 	return ret;
 }
 #endif /* ENABLE_HEALTH_CHECK */
@@ -1080,13 +1071,8 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 __section("cgroup/connect6")
 int cil_sock6_connect(struct bpf_sock_addr *ctx)
 {
-	if (sock_is_health_check(ctx)) {
-		int ret = __sock6_health_fwd(ctx);
-
-		if (ret == SYS_REJECT)
-			try_set_retval(-ECONNREFUSED);
-		return ret;
-	}
+	if (sock_is_health_check(ctx))
+		return __sock6_health_fwd(ctx);
 
 	__sock6_xlate_fwd(ctx, false);
 	return SYS_PROCEED;
