@@ -1,4 +1,4 @@
-Sphinx==5.3.0
+sphinx==5.3.0
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
