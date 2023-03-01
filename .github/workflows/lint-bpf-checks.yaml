@@ -149,10 +149,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Run BPF tests
+      - name: Run BPF tests with code coverage reporting
         run: |
-          # TODO: re-enable coverage reporting, see https://github.com/cilium/cilium/issues/22088
-          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
+          make -C test run_bpf_tests COVER=1 || (echo "Run 'make -C test run_bpf_tests COVER=1' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
