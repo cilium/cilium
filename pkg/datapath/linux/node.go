@@ -1293,7 +1293,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 	if option.Config.Tunnel == option.TunnelDisabled {
 		device = option.Config.EncryptInterface[0]
 	} else {
-		device = linux_defaults.TunnelDeviceName
+		device = option.Config.TunnelDevice()
 	}
 	return route.Route{
 		Nexthop: nil,

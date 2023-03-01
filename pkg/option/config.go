@@ -2448,6 +2448,15 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.Tunnel != TunnelDisabled
 }
 
+// TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
+func (c *DaemonConfig) TunnelDevice() string {
+	if c.TunnelingEnabled() {
+		return fmt.Sprintf("cilium_%s", c.Tunnel)
+	} else {
+		return ""
+	}
+}
+
 // TunnelExists returns true if some traffic may go through a tunnel, including
 // if the primary mode is native routing. For example, in the egress gateway,
 // we may send such traffic to a gateway node via a tunnel.
