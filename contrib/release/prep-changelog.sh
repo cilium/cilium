@@ -33,12 +33,12 @@ handle_args() {
 
     if ! echo "$1" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
-        common::exit 1 "Invalid OLD-VERSION ARG \"$1\"; Expected X.Y.Z[-rcW]"
+        common::exit 1 "Invalid OLD-VERSION ARG \"$1\"; Expected X.Y.Z[-rc.W|-snapshot.W]"
     fi
 
     if ! echo "$2" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
-        common::exit 1 "Invalid NEW-VERSION ARG \"$2\"; Expected X.Y.Z[-rcW]"
+        common::exit 1 "Invalid NEW-VERSION ARG \"$2\"; Expected X.Y.Z[-rc.W|-snapshot.W]"
     fi
 
     if [ "$#" -eq 3 ] && ! echo "$3" | grep -q "[0-9]\+\.[0-9]\+"; then
