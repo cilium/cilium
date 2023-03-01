@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/auth/monitor"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
@@ -27,14 +26,16 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newNullAuthHandler,
+		// CT map authenticator provides support to write authentication information into the eBPF conntrack map
+		newCtMapAuthenticator,
 	),
 )
 
 type authManagerParams struct {
 	cell.In
 
-	EndpointManager endpointmanager.EndpointManager
-	AuthHandlers    []authHandler `group:"authHandlers"`
+	AuthHandlers          []authHandler `group:"authHandlers"`
+	DatapathAuthenticator datapathAuthenticator
 }
 
 type Manager interface {
@@ -43,7 +44,7 @@ type Manager interface {
 }
 
 func newManager(params authManagerParams) (Manager, error) {
-	mgr, err := newAuthManager(params.EndpointManager, params.AuthHandlers)
+	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}

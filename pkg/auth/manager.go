@@ -6,23 +6,19 @@ package auth
 import (
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 type authManager struct {
-	endpointManager endpointmanager.EndpointsLookup
-	authHandlers    map[policy.AuthType]authHandler
-	ipCache         ipCache
+	ipCache               ipCache
+	authHandlers          map[policy.AuthType]authHandler
+	datapathAuthenticator datapathAuthenticator
 }
 
 // ipCache is the set of interactions the auth manager performs with the IPCache
@@ -47,7 +43,12 @@ type authResponse struct {
 	expiryTime time.Time
 }
 
-func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHandler) (*authManager, error) {
+// datapathAuthenticator is responsible to write auth information back to a BPF map
+type datapathAuthenticator interface {
+	markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, resp *authResponse) error
+}
+
+func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if _, ok := ahs[ah.authType()]; ok {
@@ -57,8 +58,8 @@ func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHa
 	}
 
 	return &authManager{
-		endpointManager: epMgr,
-		authHandlers:    ahs,
+		authHandlers:          ahs,
+		datapathAuthenticator: dpAuthenticator,
 	}, nil
 }
 
@@ -72,7 +73,7 @@ func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	// Authenticate according to the requested auth type
 	h, ok := a.authHandlers[authType]
 	if !ok {
-		log.WithField(logfields.AuthType, authType.String()).Warning("auth: Unknown requested auth type")
+		log.WithField(logfields.AuthType, authType).Warning("auth: Unknown requested auth type")
 		return
 	}
 
@@ -84,12 +85,12 @@ func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 
 	authResp, err := h.authenticate(authReq)
 	if err != nil {
-		log.WithError(err).WithField(logfields.AuthType, authType.String()).Warning("auth: Failed to authenticate")
+		log.WithError(err).WithField(logfields.AuthType, authType).Warning("auth: Failed to authenticate")
 		return
 	}
 
-	if err := a.markConnectionAsAuthenticated(dn, ci, authResp); err != nil {
-		log.WithError(err).WithField(logfields.Protocol, ci.Proto).Warning("auth: failed to write auth map")
+	if err := a.datapathAuthenticator.markAuthenticated(dn, ci, authResp); err != nil {
+		log.WithError(err).Warning("auth: Failed to write auth information to BPF map")
 		return
 	}
 
@@ -130,39 +131,6 @@ func (a *authManager) hostIPForConnIP(connIP net.IP) net.IP {
 		return a.ipCache.GetHostIP(fmt.Sprintf("%s/32", connIP))
 	} else if ip.IsIPv6(connIP) {
 		return a.ipCache.GetHostIP(fmt.Sprintf("%s/128", connIP))
-	}
-
-	return nil
-}
-
-func (a *authManager) markConnectionAsAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, resp *authResponse) error {
-	ep := a.endpointManager.LookupCiliumID(dn.Source)
-	if ep == nil {
-		// Maybe endpoint was deleted?
-		log.WithField(logfields.EndpointID, dn.Source).Debug("auth: Cannot find Endpoint")
-		return nil
-	}
-
-	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
-	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
-
-	proto, err := u8proto.ParseProtocol(ci.Proto)
-	if err != nil {
-		return fmt.Errorf("cannot parse protocol: %w", err)
-	}
-
-	/* Update CT flags as authorized. */
-	if err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, isIngress(dn),
-		func(entry *ctmap.CtEntry) error {
-			before := entry.Flags
-			if entry.Flags&ctmap.AuthRequired != 0 {
-				entry.Flags = entry.Flags &^ ctmap.AuthRequired
-				log.Debugf("auth: Cleared auth flag, before %v after %v",
-					before&ctmap.AuthRequired, entry.Flags&ctmap.AuthRequired)
-			}
-			return nil
-		}); err != nil {
-		return fmt.Errorf("conntrack map update failed: %w", err)
 	}
 
 	return nil
