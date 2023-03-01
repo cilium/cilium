@@ -539,8 +539,6 @@ func ConvertToK8sService(obj interface{}) interface{} {
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
 // If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given CNP as
-// empty.
 func ConvertToCCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
@@ -552,7 +550,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 				Specs:      concreteObj.Specs,
 			},
 		}
-		*concreteObj = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return ccnp
 
 	case cache.DeletedFinalStateUnknown:
@@ -572,7 +569,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 			Key: concreteObj.Key,
 			Obj: slimCNP,
 		}
-		*ccnp = cilium_v2.CiliumClusterwideNetworkPolicy{}
 		return dfsu
 
 	default:
@@ -586,8 +582,6 @@ func ConvertToCCNP(obj interface{}) interface{} {
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
 // If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given CNP as
-// empty.
 func ConvertToCNP(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumNetworkPolicy:
@@ -599,7 +593,6 @@ func ConvertToCNP(obj interface{}) interface{} {
 				Specs:      concreteObj.Specs,
 			},
 		}
-		*concreteObj = cilium_v2.CiliumNetworkPolicy{}
 		return cnp
 	case cache.DeletedFinalStateUnknown:
 		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
@@ -617,7 +610,6 @@ func ConvertToCNP(obj interface{}) interface{} {
 				},
 			},
 		}
-		*cnp = cilium_v2.CiliumNetworkPolicy{}
 		return dfsu
 	default:
 		return obj
@@ -672,8 +664,6 @@ func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
 // a cache.DeletedFinalStateUnknown with a *types.Node in its Obj.
 // If the given obj can't be cast into either *v1.Node
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given Node as
-// empty.
 func ConvertToNode(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Node:
@@ -699,7 +689,6 @@ func ConvertToNode(obj interface{}) interface{} {
 				Addresses: convertToAddress(concreteObj.Status.Addresses),
 			},
 		}
-		*concreteObj = v1.Node{}
 		return p
 	case cache.DeletedFinalStateUnknown:
 		node, ok := concreteObj.Obj.(*v1.Node)
@@ -731,7 +720,6 @@ func ConvertToNode(obj interface{}) interface{} {
 				},
 			},
 		}
-		*node = v1.Node{}
 		return dfsu
 	default:
 		return obj
