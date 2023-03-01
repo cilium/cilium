@@ -727,6 +727,12 @@ enum {
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
 	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
 	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
+
+	SVC_FLAGS_NOT_CLUSTERIP_MASK =
+		SVC_FLAG_EXTERNAL_IP |
+		SVC_FLAG_NODEPORT |
+		SVC_FLAG_HOSTPORT |
+		SVC_FLAG_LOADBALANCER,
 };
 
 /* Service flags (lb{4,6}_service->flags2) */
@@ -736,7 +742,9 @@ enum {
 	SVC_FLAG_L7LOADBALANCER = (1 << 2),  /* tproxy redirect to local l7 loadbalancer */
 	SVC_FLAG_LOOPBACK       = (1 << 3),  /* hostport with a loopback hostIP */
 	SVC_FLAG_INT_LOCAL_SCOPE = (1 << 4), /* internalTrafficPolicy=Local */
-	SVC_FLAG_TWO_SCOPES     = (1 << 5),  /* two sets of backends are used for external/internal connections */
+
+	SVC_FLAGS2_NOT_CLUSTERIP_MASK =
+		SVC_FLAG_LOCALREDIRECT,
 };
 
 /* Backend flags (lb{4,6}_backends->flags) */
