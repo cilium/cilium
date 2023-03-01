@@ -3,14 +3,23 @@
 
 package auth
 
-import "github.com/cilium/cilium/pkg/policy"
+import (
+	"time"
 
+	"github.com/cilium/cilium/pkg/policy"
+)
+
+// nullAuthHandler implements an authHandler for auth type null by just authenticate every request.
 type nullAuthHandler struct {
 }
 
-func (r *nullAuthHandler) authenticate() error {
+func (r *nullAuthHandler) authenticate(authReq *authRequest) (*authResponse, error) {
 	// Authentication trivially done
-	return nil
+	log.Debugf("auth: Successfully authenticated request")
+
+	return &authResponse{
+		expiryTime: time.Now().Add(1 * time.Minute),
+	}, nil
 }
 
 func (r *nullAuthHandler) authType() policy.AuthType {

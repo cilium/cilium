@@ -5,9 +5,12 @@ package auth
 
 import (
 	"fmt"
+	"net"
 	"strconv"
+	"time"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -20,9 +23,21 @@ type authManager struct {
 	authHandlers    map[policy.AuthType]authHandler
 }
 
+// authHandler is responsible to handle authentication for a specific auth type
 type authHandler interface {
-	authenticate() error
+	authenticate(*authRequest) (*authResponse, error)
 	authType() policy.AuthType
+}
+
+type authRequest struct {
+	srcIdentity identity.NumericIdentity
+	dstIdentity identity.NumericIdentity
+	srcHostIP   net.IP
+	dstHostIP   net.IP
+}
+
+type authResponse struct {
+	expiryTime time.Time
 }
 
 func newAuthManager(epMgr endpointmanager.EndpointsLookup, authHandlers []authHandler) (*authManager, error) {
@@ -73,7 +88,7 @@ func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 		return
 	}
 
-	if err := h.authenticate(); err != nil {
+	if _, err := h.authenticate(&authRequest{}); err != nil {
 		log.WithError(err).WithField(logfields.AuthType, authType.String()).Warning("auth: Failed to authenticate")
 		return
 	}
