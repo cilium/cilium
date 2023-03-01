@@ -334,6 +334,28 @@ func (m *manager) legacyNodeIpBehavior() bool {
 	return true
 }
 
+func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
+	// If the host firewall is enabled, all traffic to remote nodes must go
+	// through the tunnel to preserve the source identity as part of the
+	// encapsulation. In encryption case we also want to use vxlan device
+	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
+	return address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
+		option.Config.EnableHostFirewall || option.Config.JoinCluster
+}
+
+func (m *manager) nodeAddressHasEncryptKey(address nodeTypes.Address) bool {
+	return (m.conf.NodeEncryptionEnabled() ||
+		// If we are doing encryption, but not node based encryption, then do not
+		// add a key to the nodeIPs so that we avoid a trip through stack and attempting
+		// to encrypt something we know does not have an encryption policy installed
+		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
+		// being sent unencrypted over overlay device.
+		(address.Type != addressing.NodeExternalIP && address.Type != addressing.NodeInternalIP)) &&
+		// Also ignore any remote node's key if the local node opted to not perform
+		// node-to-node encryption
+		!node.GetOptOutNodeEncryption()
+}
+
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
@@ -363,18 +385,6 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	}
 
 	for _, address := range n.IPAddresses {
-		var tunnelIP net.IP
-		key := n.EncryptionKey
-
-		// If the host firewall is enabled, all traffic to remote nodes must go
-		// through the tunnel to preserve the source identity as part of the
-		// encapsulation. In encryption case we also want to use vxlan device
-		// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
-		if address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
-			option.Config.EnableHostFirewall || option.Config.JoinCluster {
-			tunnelIP = nodeIP
-		}
-
 		if option.Config.NodeIpsetNeeded() && address.Type == addressing.NodeInternalIP {
 			iptables.AddToNodeIpset(address.IP)
 		}
@@ -383,17 +393,14 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			continue
 		}
 
-		// If we are doing encryption, but not node based encryption, then do not
-		// add a key to the nodeIPs so that we avoid a trip through stack and attempting
-		// to encrypt something we know does not have an encryption policy installed
-		// in the datapath. By setting key=0 and tunnelIP this will result in traffic
-		// being sent unencrypted over overlay device.
-		if (!m.conf.NodeEncryptionEnabled() &&
-			(address.Type == addressing.NodeExternalIP || address.Type == addressing.NodeInternalIP)) ||
-			// Also ignore any remote node's key if the local node opted to not perform
-			// node-to-node encryption
-			node.GetOptOutNodeEncryption() {
-			key = 0
+		var tunnelIP net.IP
+		if m.nodeAddressHasTunnelIP(address) {
+			tunnelIP = nodeIP
+		}
+
+		var key uint8
+		if m.nodeAddressHasEncryptKey(address) {
+			key = n.EncryptionKey
 		}
 
 		var prefix netip.Prefix
