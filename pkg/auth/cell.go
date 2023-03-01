@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth/monitor"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 )
 
@@ -38,15 +39,40 @@ type authManagerParams struct {
 
 type Manager interface {
 	consumer.MonitorConsumer
+	SetIPCache(*ipcache.IPCache)
 }
 
 func newManager(params authManagerParams) (Manager, error) {
-	manager, err := newAuthManager(params.EndpointManager, params.AuthHandlers)
+	mgr, err := newAuthManager(params.EndpointManager, params.AuthHandlers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	return monitor.New(manager), nil
+	return &manager{
+		monitorConsumer: monitor.New(mgr),
+		manager:         mgr,
+	}, nil
+}
+
+type manager struct {
+	monitorConsumer consumer.MonitorConsumer
+	manager         *authManager
+}
+
+func (r *manager) SetIPCache(ipCache *ipcache.IPCache) {
+	r.manager.ipCache = ipCache
+}
+
+func (r *manager) NotifyAgentEvent(typ int, message interface{}) {
+	r.monitorConsumer.NotifyAgentEvent(typ, message)
+}
+
+func (r *manager) NotifyPerfEvent(data []byte, cpu int) {
+	r.monitorConsumer.NotifyPerfEvent(data, cpu)
+}
+
+func (r *manager) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
+	r.monitorConsumer.NotifyPerfEventLost(numLostEvents, cpu)
 }
 
 type authHandlerResult struct {

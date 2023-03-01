@@ -21,6 +21,12 @@ import (
 type authManager struct {
 	endpointManager endpointmanager.EndpointsLookup
 	authHandlers    map[policy.AuthType]authHandler
+	ipCache         ipCache
+}
+
+// ipCache is the set of interactions the auth manager performs with the IPCache
+type ipCache interface {
+	GetHostIP(ip string) net.IP
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
