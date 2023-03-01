@@ -403,12 +403,7 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 			key = n.EncryptionKey
 		}
 
-		var prefix netip.Prefix
-		if v4 := address.IP.To4(); v4 != nil {
-			prefix = ip.IPToNetPrefix(v4)
-		} else {
-			prefix = ip.IPToNetPrefix(address.IP.To16())
-		}
+		prefix := ip.IPToNetPrefix(address.IP)
 		ipAddrStr := prefix.String()
 		_, err := m.ipcache.Upsert(ipAddrStr, tunnelIP, key, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
