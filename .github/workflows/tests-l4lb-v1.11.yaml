@@ -119,16 +119,16 @@ jobs:
     - name: Set up job variables
       id: vars
       run: |
-	if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
-	  PR_API_JSON=$(curl \
-	    -H "Accept: application/vnd.github.v3+json" \
-	    -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-	    ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
-	  SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
-	else
-	  SHA=${{ github.sha }}
-	fi
-	echo "sha=${SHA}" >> $GITHUB_OUTPUT
+        if [ ${{ github.event.issue.pull_request || github.event.pull_request }} ]; then
+          PR_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.issue.pull_request.url || github.event.pull_request.url }})
+          SHA=$(echo "$PR_API_JSON" | jq -r ".head.sha")
+        else
+          SHA=${{ github.sha }}
+        fi
+        echo "sha=${SHA}" >> $GITHUB_OUTPUT
     - name: Set commit status to success
       uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
       with:
