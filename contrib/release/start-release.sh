@@ -109,6 +109,7 @@ main() {
     target_branch=$(echo "$version" | sed "$BRANCH_REGEX")
     if ! git ls-remote --exit-code --heads $REMOTE $target_branch; then
         target_branch=$(echo "$old_version" | sed "$BRANCH_REGEX")
+        old_branch="$target_branch"
     fi
     $DIR/../../Documentation/check-crd-compat-table.sh "$target_branch" --update
     if [ "${old_branch}" != "" ]; then
