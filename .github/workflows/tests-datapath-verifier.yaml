@@ -172,8 +172,10 @@ jobs:
         include:
           - kernel: '5.4-main'
             ci-kernel: '54'
+          - kernel: '5.10-main'
+            ci-kernel: '510'
           - kernel: '5.15-main'
-            ci-kernel: '54'
+            ci-kernel: '510'
           - kernel: 'bpf-next-main'
             ci-kernel: 'netnext'
     timeout-minutes: 60

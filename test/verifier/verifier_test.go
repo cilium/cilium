@@ -18,7 +18,7 @@ import (
 
 var (
 	ciliumBasePath  = flag.String("cilium-base-path", "", "Cilium checkout base path")
-	ciKernelVersion = flag.String("ci-kernel-version", "", "CI kernel version to assume for verifier tests (supported values: 419, 54, netnext)")
+	ciKernelVersion = flag.String("ci-kernel-version", "", "CI kernel version to assume for verifier tests (supported values: 419, 54, 510, netnext)")
 )
 
 func getCIKernelVersion(t *testing.T) string {
@@ -39,6 +39,8 @@ func getCIKernelVersion(t *testing.T) string {
 		ciKernel = "419"
 	case strings.HasPrefix(release, "5.4"):
 		ciKernel = "54"
+	case strings.HasPrefix(release, "5.10"):
+		ciKernel = "510"
 	case strings.HasPrefix(release, "bpf-next"):
 		ciKernel = "netnext"
 	default:
