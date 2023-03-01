@@ -259,8 +259,8 @@ const (
 	// ServiceHealthCheckNodePort is the port on which we serve health checks
 	ServiceHealthCheckNodePort = "svcHealthCheckNodePort"
 
-	// ServiceExtTrafficPolicy is the external traffic policy of the service
-	ServiceExtTrafficPolicy = "svcExtTrafficPolicy"
+	// ServiceTrafficPolicy is the traffic policy of the service
+	ServiceTrafficPolicy = "svcTrafficPolicy"
 
 	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
 	BackendIDs = "backendIDs"

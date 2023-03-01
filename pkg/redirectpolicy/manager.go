@@ -544,10 +544,10 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 			Name:      config.id.Name + localRedirectSvcStr,
 			Namespace: config.id.Namespace,
 		},
-		Type:             lb.SVCTypeLocalRedirect,
-		Frontend:         frontendAddr,
-		Backends:         backendAddrs,
-		ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Type:          lb.SVCTypeLocalRedirect,
+		Frontend:      frontendAddr,
+		Backends:      backendAddrs,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
 	}
 
 	if _, _, err := rpm.svcManager.UpsertService(p); err != nil {

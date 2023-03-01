@@ -53,7 +53,7 @@ const (
 	serviceFlagNone            = 0
 	serviceFlagExternalIPs     = 1 << 0
 	serviceFlagNodePort        = 1 << 1
-	serviceFlagExtLocalScope   = 1 << 2
+	serviceFlagLocalScope      = 1 << 2
 	serviceFlagHostPort        = 1 << 3
 	serviceFlagSessionAffinity = 1 << 4
 	serviceFlagLoadBalancer    = 1 << 5
@@ -68,7 +68,7 @@ const (
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
-	SvcExtLocal      bool
+	SvcLocal         bool
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
@@ -103,8 +103,8 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagNat46x64
 	}
 
-	if p.SvcExtLocal {
-		flags |= serviceFlagExtLocalScope
+	if p.SvcLocal {
+		flags |= serviceFlagLocalScope
 	}
 	if p.SessionAffinity {
 		flags |= serviceFlagSessionAffinity
@@ -140,10 +140,10 @@ func (s ServiceFlags) SVCType() SVCType {
 	}
 }
 
-// SVCExtTrafficPolicy returns a service traffic policy from the flags
-func (s ServiceFlags) SVCExtTrafficPolicy() SVCTrafficPolicy {
+// SVCTrafficPolicy returns a service traffic policy from the flags
+func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 	switch {
-	case s&serviceFlagExtLocalScope != 0:
+	case s&serviceFlagLocalScope != 0:
 		return SVCTrafficPolicyLocal
 	default:
 		return SVCTrafficPolicyCluster
@@ -168,7 +168,7 @@ func (s ServiceFlags) String() string {
 	var str []string
 
 	str = append(str, string(s.SVCType()))
-	if s&serviceFlagExtLocalScope != 0 {
+	if s&serviceFlagLocalScope != 0 {
 		str = append(str, string(SVCTrafficPolicyLocal))
 	}
 	if s&serviceFlagSessionAffinity != 0 {
@@ -358,7 +358,7 @@ type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
 	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
-	ExtTrafficPolicy          SVCTrafficPolicy // Service external traffic policy
+	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
@@ -391,8 +391,7 @@ func (s *SVC) GetModel() *models.Service {
 		BackendAddresses: make([]*models.BackendAddress, len(s.Backends)),
 		Flags: &models.ServiceSpecFlags{
 			Type:                string(s.Type),
-			TrafficPolicy:       string(s.ExtTrafficPolicy),
-			ExtTrafficPolicy:    string(s.ExtTrafficPolicy),
+			TrafficPolicy:       string(s.TrafficPolicy),
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 

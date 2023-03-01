@@ -90,12 +90,12 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		svcType = loadbalancer.SVCTypeClusterIP
 	}
 
-	var svcExtTrafficPolicy loadbalancer.SVCTrafficPolicy
-	switch params.Config.Flags.ExtTrafficPolicy {
-	case models.ServiceSpecFlagsExtTrafficPolicyLocal:
-		svcExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	var svcTrafficPolicy loadbalancer.SVCTrafficPolicy
+	switch params.Config.Flags.TrafficPolicy {
+	case models.ServiceSpecFlagsTrafficPolicyLocal:
+		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	default:
-		svcExtTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
+		svcTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
 	svcHealthCheckNodePort := params.Config.Flags.HealthCheckNodePort
@@ -111,7 +111,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		Type:                svcType,
 		Frontend:            frontend,
 		Backends:            backends,
-		ExtTrafficPolicy:    svcExtTrafficPolicy,
+		TrafficPolicy:       svcTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
 	}
 	created, id, err := h.svc.UpsertService(p)

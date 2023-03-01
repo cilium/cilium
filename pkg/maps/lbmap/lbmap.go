@@ -125,7 +125,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.ExtLocal, p.NatPolicy,
+	if err := updateMasterService(svcKey, len(backends), int(p.ID), p.Type, p.Local, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -495,7 +495,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		portStr := strconv.Itoa(int(svc.Frontend.Port))
 		host := net.JoinHostPort(addrStr, portStr)
 		svc.Type = flagsCache[host].SVCType()
-		svc.ExtTrafficPolicy = flagsCache[host].SVCExtTrafficPolicy()
+		svc.TrafficPolicy = flagsCache[host].SVCTrafficPolicy()
 		svc.NatPolicy = flagsCache[host].SVCNatPolicy(svc.Frontend.L3n4Addr)
 		newSVCList = append(newSVCList, &svc)
 	}
@@ -553,7 +553,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 }
 
 func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcExtLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
+	svcLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
 	// isRoutable denotes whether this service can be accessed from outside the cluster.
@@ -566,7 +566,7 @@ func updateMasterService(fe ServiceKey, activeBackends int, revNATID int, svcTyp
 	zeroValue.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
-		SvcExtLocal:      svcExtLocal,
+		SvcLocal:         svcLocal,
 		SvcNatPolicy:     svcNatPolicy,
 		SessionAffinity:  sessionAffinity,
 		IsRoutable:       isRoutable,

@@ -619,10 +619,9 @@ that happened before the events were captured by Hubble.
 | frontend_address | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) |  |  |
 | backend_addresses | [ServiceUpsertNotificationAddr](#flow-ServiceUpsertNotificationAddr) | repeated |  |
 | type | [string](#string) |  |  |
-| traffic_policy | [string](#string) |  | **Deprecated.**  |
+| traffic_policy | [string](#string) |  |  |
 | name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
-| ext_traffic_policy | [string](#string) |  |  |
 
 
 

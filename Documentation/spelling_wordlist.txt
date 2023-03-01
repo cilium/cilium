@@ -409,7 +409,6 @@ ethernet
 ethtool
 eventBufferCapacity
 eventQueueSize
-extTrafficPolicy
 extendable
 extensibility
 extern

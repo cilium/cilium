@@ -171,7 +171,7 @@ func (in *Service) deepEqual(other *Service) bool {
 	if in.ServiceAffinity != other.ServiceAffinity {
 		return false
 	}
-	if in.ExtTrafficPolicy != other.ExtTrafficPolicy {
+	if in.TrafficPolicy != other.TrafficPolicy {
 		return false
 	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {

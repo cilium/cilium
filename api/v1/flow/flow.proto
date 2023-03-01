@@ -664,10 +664,9 @@ message ServiceUpsertNotification {
     ServiceUpsertNotificationAddr frontend_address = 2;
     repeated ServiceUpsertNotificationAddr backend_addresses = 3;
     string type = 4;
-    string traffic_policy = 5 [deprecated = true];
+    string traffic_policy = 5;
     string name = 6;
     string namespace = 7;
-    string ext_traffic_policy = 8;
 }
 
 message ServiceDeleteNotification {

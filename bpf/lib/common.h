@@ -721,7 +721,7 @@ enum ct_status {
 enum {
 	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* External IPs */
 	SVC_FLAG_NODEPORT     = (1 << 1),  /* NodePort service */
-	SVC_FLAG_EXT_LOCAL_SCOPE = (1 << 2), /* externalTrafficPolicy=Local */
+	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* externalTrafficPolicy=Local */
 	SVC_FLAG_HOSTPORT     = (1 << 3),  /* hostPort forwarding */
 	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
