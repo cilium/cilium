@@ -13,6 +13,10 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+const (
+	customPodIpAddr = "cni.cilium.io/ipAddress"
+)
+
 // AllocationResult is the result of an allocation
 type AllocationResult struct {
 	// IP is the allocated IP

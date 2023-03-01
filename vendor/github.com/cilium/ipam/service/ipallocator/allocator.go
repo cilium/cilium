@@ -129,17 +129,10 @@ func (r *Range) CIDR() net.IPNet {
 // or has already been reserved.  ErrFull will be returned if there
 // are no addresses left.
 func (r *Range) Allocate(ip net.IP) error {
-	ok, offset := r.contains(ip)
-	if !ok {
-		return &ErrNotInRange{r.net.String()}
-	}
-
-	allocated, err := r.alloc.Allocate(offset)
+	_, offset := r.contains(ip)
+	_, err := r.alloc.Allocate(offset)
 	if err != nil {
 		return err
-	}
-	if !allocated {
-		return ErrAllocated
 	}
 	return nil
 }

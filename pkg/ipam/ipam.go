@@ -120,11 +120,11 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}).Infof("Initializing %s IPAM", c.IPAMMode())
 
 		if c.IPv6Enabled() {
-			ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet)
+			ipam.IPv6Allocator = newHostScopeAllocator(nodeAddressing.IPv6().AllocationCIDR().IPNet, k8sEventReg)
 		}
 
 		if c.IPv4Enabled() {
-			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
+			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet, k8sEventReg)
 		}
 	case ipamOption.IPAMClusterPoolV2:
 		log.Info("Initializing ClusterPool v2 IPAM")
