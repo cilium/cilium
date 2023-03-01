@@ -464,6 +464,10 @@ message FlowFilter {
     // destination_workload filters by a list of destination workload.
     repeated Workload destination_workload = 27;
 
+    // traffic_direction filters flow by direction of the connection, e.g.
+    // ingress or egress.
+    repeated TrafficDirection traffic_direction = 30;
+
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;
     // event_type is the list of event types to filter on
