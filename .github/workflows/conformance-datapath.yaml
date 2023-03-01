@@ -189,7 +189,7 @@ jobs:
             kernel: 'bpf-next-main'
             kube-proxy: 'iptables'
             kpr: 'disabled'
-            tunnel: 'vxlan'
+            tunnel: 'geneve'
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
@@ -227,7 +227,7 @@ jobs:
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
             --helm-set=bpf.masquerade=false"
-          TUNNEL="--helm-set-string=tunnel=vxlan"
+          TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
