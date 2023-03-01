@@ -103,6 +103,9 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 #   - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #     because it conflicts with the pod's security identity.
 #   - More info at https://github.com/cilium/cilium/issues/9209
+# - should respect internalTrafficPolicy=Local Pod to Pod [Feature:ServiceInternalTrafficPolicy]
+#   - Cilium does not support internalTrafficPolicy as Local Redirect Policy allows user to enable node-local redirection.
+#   - More info at https://github.com/cilium/cilium/issues/17796
 echo "Running upstream NetworkPolicy tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.properly.isolate.pods.that.are.selected.by.a.policy.allowing.SCTP..even.if.the.plugin.doesn.t.support.SCTP..Feature.NetworkPolicy.)"
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)|(should.respect.internalTrafficPolicy.Local.Pod.*to.Pod.*.Feature.ServiceInternalTrafficPolicy.)|(should.properly.isolate.pods.that.are.selected.by.a.policy.allowing.SCTP..even.if.the.plugin.doesn.t.support.SCTP..Feature.NetworkPolicy.)"
