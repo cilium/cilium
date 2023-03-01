@@ -240,7 +240,6 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	var (
 		args []string
-		ret  error
 	)
 
 	args = make([]string, initArgMax)
@@ -272,8 +271,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
-			scopedLog.WithError(ret).Warn("Unable to init prefilter")
-			return ret
+			scopedLog.WithError(err).Warn("Unable to init prefilter")
+			return err
 		}
 
 		if err := writePreFilterHeader(preFilter, "./"); err != nil {
