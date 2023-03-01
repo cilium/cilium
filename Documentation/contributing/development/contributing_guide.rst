@@ -24,7 +24,9 @@ a Google doc) where it's easier for reviewers to make comments and suggestions
 in-line. The GitHub feature request template includes a link to the `Cilium
 Feature Proposal template <https://docs.google.com/document/d/1vtE82JExQHw8_-pX2Uhq5acN1BMPxNlS6cMQUezRTWg/edit>`_ which you are welcome to use to help structure your
 proposal. Please make a copy of that template, fill it in with your ideas, and 
-ensure it's publicly visible, before adding the link into the GitHub issue. 
+ensure it's publicly visible, before adding the link into the GitHub issue.
+
+.. _provision_environment:
 
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
