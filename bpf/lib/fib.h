@@ -14,7 +14,8 @@
 static __always_inline int
 redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct ipv6hdr *ip6 __maybe_unused, int *oif)
+		   struct ipv6hdr *ip6 __maybe_unused, int *oif,
+		   __s8 *ext_err __maybe_unused)
 {
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
 	int ret;
@@ -44,6 +45,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		nh = &nh_params;
 		break;
 	default:
+		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
@@ -76,7 +78,8 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct iphdr *ip4 __maybe_unused, int *oif)
+		   struct iphdr *ip4 __maybe_unused, int *oif,
+		   __s8 *ext_err __maybe_unused)
 {
 	/* For deployments with just single external dev, redirect_neigh()
 	 * will resolve the GW and do L2 resolution for us. For multi-device
@@ -110,6 +113,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		nh = &nh_params;
 		break;
 	default:
+		*ext_err = (__s8)ret;
 		return DROP_NO_FIB;
 	}
 
