@@ -522,9 +522,9 @@ github.com/google/gopacket/layers
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
-# github.com/google/renameio v1.0.1
+# github.com/google/renameio/v2 v2.0.0
 ## explicit; go 1.13
-github.com/google/renameio
+github.com/google/renameio/v2
 # github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
@@ -546,6 +546,9 @@ github.com/hashicorp/go-hclog
 # github.com/hashicorp/go-immutable-radix v1.3.1
 ## explicit
 github.com/hashicorp/go-immutable-radix
+# github.com/hashicorp/go-immutable-radix/v2 v2.0.0
+## explicit; go 1.18
+github.com/hashicorp/go-immutable-radix/v2
 # github.com/hashicorp/go-rootcerts v1.0.2
 ## explicit; go 1.12
 github.com/hashicorp/go-rootcerts
