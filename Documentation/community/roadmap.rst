@@ -152,7 +152,18 @@ Tetragon provides security observability and runtime enforcement through the JSO
 CLI for things like process execution, file access, network observability, and
 privileged execution.
 
+Codebase modularization
+~~~~~~~~~~~~~~~~~~~~~~~
 
+As the project is growing in complexity it is becoming increasingly important to be able
+to divide it into more manageable chunks. To achieve this, we're working on modularizing the
+codebase and going from a tightly coupled design (one large initialization and configuration)
+to a more loosely coupled design of mostly self-contained modules. This will make Cilium 
+internals easier to comprehend, test and extend. 
+
+Contributions in this area are very welcome. To get started, take a look at the :ref:`guide-to-the-hive`
+documentation and the issues referenced from `modularization meta issue <modularization-issue_>`_.
+If you have any questions or ideas please join us on the #sig-modularization channel on `Cilium Slack <slack_>`_.
 
 .. _rm-influence:
 
@@ -200,3 +211,4 @@ anything other than trivial fixes.
 .. _slack: https://cilium.io/slack
 .. _enterprise: https://cilium.io/enterprise
 .. _CFP design doc: https://github.com/cilium/design-cfps/tree/main
+.. _modularization-issue: https://github.com/cilium/cilium/issues/23425
