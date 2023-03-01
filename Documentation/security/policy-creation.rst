@@ -26,7 +26,7 @@ Scale down the deathstar Deployment
 ===================================
 
 In this guide we're going to scale down the deathstar Deployment in order to
-next steps:
+simplify the next steps:
 
 .. code-block:: shell-session
 
