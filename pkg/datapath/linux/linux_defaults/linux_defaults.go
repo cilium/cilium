@@ -100,9 +100,6 @@ const (
 	// RulePriorityVtep is the priority of the rule used for routing packets to VTEP device
 	RulePriorityVtep = 112
 
-	// TunnelDeviceName the default name of the tunnel device when using vxlan
-	TunnelDeviceName = "cilium_vxlan"
-
 	// IPSec offset value for node rules
 	IPsecMaxKeyVersion = 15
 
