@@ -603,7 +603,6 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 									Backends:         bes4,
 									Type:             loadbalancer.SVCTypeHostPort,
 									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 									LoopbackHostport: loopbackHostport,
 								})
 						}
@@ -615,7 +614,6 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 									Backends:         bes6,
 									Type:             loadbalancer.SVCTypeHostPort,
 									ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-									IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 									LoopbackHostport: loopbackHostport,
 								})
 						}
@@ -682,7 +680,6 @@ func (k *K8sWatcher) upsertHostPortMapping(oldPod, newPod *slim_corev1.Pod, oldP
 			Backends:            dpSvc.Backends,
 			Type:                dpSvc.Type,
 			ExtTrafficPolicy:    dpSvc.ExtTrafficPolicy,
-			IntTrafficPolicy:    dpSvc.IntTrafficPolicy,
 			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
 			Name: loadbalancer.ServiceName{
 				Name:      fmt.Sprintf("%s/host-port/%d", newPod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),

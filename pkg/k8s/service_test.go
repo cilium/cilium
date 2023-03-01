@@ -116,7 +116,6 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		Selector:                 map[string]string{"foo": "bar"},
 		Labels:                   map[string]string{"foo": "bar"},
@@ -139,7 +138,6 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(svc, checker.DeepEquals, &Service{
 		IsHeadless:               true,
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyCluster,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
@@ -153,7 +151,6 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 			ClusterIP:             "127.0.0.1",
 			Type:                  slim_corev1.ServiceTypeNodePort,
 			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyTypeLocal,
-			InternalTrafficPolicy: slim_corev1.ServiceInternalTrafficPolicyTypeLocal,
 		},
 	}
 
@@ -162,7 +159,6 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	c.Assert(svc, checker.DeepEquals, &Service{
 		FrontendIPs:              []net.IP{net.ParseIP("127.0.0.1")},
 		ExtTrafficPolicy:         loadbalancer.SVCTrafficPolicyLocal,
-		IntTrafficPolicy:         loadbalancer.SVCTrafficPolicyLocal,
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]NodePortToFrontend{},
@@ -224,7 +220,6 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 			"tftp": loadbalancer.NewL4Addr(loadbalancer.L4Type(slim_corev1.ProtocolUDP), uint16(69)),
 		},
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		NodePorts: map[loadbalancer.FEPortName]NodePortToFrontend{
 			"http": {
 				zeroFE.String():     zeroFE,

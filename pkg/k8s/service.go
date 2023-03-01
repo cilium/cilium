@@ -151,14 +151,6 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 		extTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
 	}
 
-	var intTrafficPolicy loadbalancer.SVCTrafficPolicy
-	switch svc.Spec.InternalTrafficPolicy {
-	case slim_corev1.ServiceInternalTrafficPolicyTypeLocal:
-		intTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
-	default:
-		intTrafficPolicy = loadbalancer.SVCTrafficPolicyCluster
-	}
-
 	for _, ip := range svc.Status.LoadBalancer.Ingress {
 		if ip.IP != "" {
 			loadBalancerIPs = append(loadBalancerIPs, ip.IP)
@@ -171,7 +163,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 	}
 
 	svcInfo := NewService(clusterIPs, svc.Spec.ExternalIPs, loadBalancerIPs,
-		lbSrcRanges, headless, extTrafficPolicy, intTrafficPolicy,
+		lbSrcRanges, headless, extTrafficPolicy,
 		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 
@@ -324,10 +316,6 @@ type Service struct {
 	// If set to "Local", only node-local backends are chosen.
 	ExtTrafficPolicy loadbalancer.SVCTrafficPolicy
 
-	// IntTrafficPolicy controls how backends are selected for East-West traffic.
-	// If set to "Local", only node-local backends are chosen.
-	IntTrafficPolicy loadbalancer.SVCTrafficPolicy
-
 	// HealthCheckNodePort defines on which port the node runs a HTTP health
 	// check server which may be used by external loadbalancers to determine
 	// if a node has local backends. This will only have effect if both
@@ -463,7 +451,7 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 
 // NewService returns a new Service with the Ports map initialized.
 func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
-	headless bool, extTrafficPolicy, intTrafficPolicy loadbalancer.SVCTrafficPolicy,
+	headless bool, extTrafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, labels, selector map[string]string,
 	namespace string, svcType loadbalancer.SVCType) *Service {
 
@@ -503,7 +491,6 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 
 		IsHeadless:          headless,
 		ExtTrafficPolicy:    extTrafficPolicy,
-		IntTrafficPolicy:    intTrafficPolicy,
 		HealthCheckNodePort: healthCheckNodePort,
 
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
@@ -584,7 +571,6 @@ func ParseClusterService(svc *serviceStore.ClusterService) *Service {
 		IncludeExternal:  true,
 		Shared:           true,
 		ExtTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		IntTrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
 		Ports:            map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		Labels:           svc.Labels,
 		Selector:         svc.Selector,
@@ -640,7 +626,6 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		s.IncludeExternal &&
 		s.Shared &&
 		s.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
-		s.IntTrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
 		s.HealthCheckNodePort == 0 &&
 		len(s.NodePorts) == 0 &&
 		len(s.K8sExternalIPs) == 0 &&

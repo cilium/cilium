@@ -1197,9 +1197,6 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 	if in.ExternalTrafficPolicy != other.ExternalTrafficPolicy {
 		return false
 	}
-	if in.InternalTrafficPolicy != other.InternalTrafficPolicy {
-		return false
-	}
 	if in.HealthCheckNodePort != other.HealthCheckNodePort {
 		return false
 	}

@@ -234,10 +234,6 @@ type ServiceSpecFlags struct {
 	// Service health check node port
 	HealthCheckNodePort uint16 `json:"healthCheckNodePort,omitempty"`
 
-	// Service internal traffic policy
-	// Enum: [Cluster Local]
-	IntTrafficPolicy string `json:"intTrafficPolicy,omitempty"`
-
 	// Service name  (e.g. Kubernetes service name)
 	Name string `json:"name,omitempty"`
 
@@ -262,10 +258,6 @@ func (m *ServiceSpecFlags) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateExtTrafficPolicy(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if err := m.validateIntTrafficPolicy(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -323,48 +315,6 @@ func (m *ServiceSpecFlags) validateExtTrafficPolicy(formats strfmt.Registry) err
 
 	// value enum
 	if err := m.validateExtTrafficPolicyEnum("flags"+"."+"extTrafficPolicy", "body", m.ExtTrafficPolicy); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-var serviceSpecFlagsTypeIntTrafficPolicyPropEnum []interface{}
-
-func init() {
-	var res []string
-	if err := json.Unmarshal([]byte(`["Cluster","Local"]`), &res); err != nil {
-		panic(err)
-	}
-	for _, v := range res {
-		serviceSpecFlagsTypeIntTrafficPolicyPropEnum = append(serviceSpecFlagsTypeIntTrafficPolicyPropEnum, v)
-	}
-}
-
-const (
-
-	// ServiceSpecFlagsIntTrafficPolicyCluster captures enum value "Cluster"
-	ServiceSpecFlagsIntTrafficPolicyCluster string = "Cluster"
-
-	// ServiceSpecFlagsIntTrafficPolicyLocal captures enum value "Local"
-	ServiceSpecFlagsIntTrafficPolicyLocal string = "Local"
-)
-
-// prop value enum
-func (m *ServiceSpecFlags) validateIntTrafficPolicyEnum(path, location string, value string) error {
-	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeIntTrafficPolicyPropEnum, true); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *ServiceSpecFlags) validateIntTrafficPolicy(formats strfmt.Registry) error {
-	if swag.IsZero(m.IntTrafficPolicy) { // not required
-		return nil
-	}
-
-	// value enum
-	if err := m.validateIntTrafficPolicyEnum("flags"+"."+"intTrafficPolicy", "body", m.IntTrafficPolicy); err != nil {
 		return err
 	}
 

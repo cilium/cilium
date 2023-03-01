@@ -262,9 +262,6 @@ const (
 	// ServiceExtTrafficPolicy is the external traffic policy of the service
 	ServiceExtTrafficPolicy = "svcExtTrafficPolicy"
 
-	// ServiceIntTrafficPolicy is the internal traffic policy of the service
-	ServiceIntTrafficPolicy = "svcIntTrafficPolicy"
-
 	// BackendIDs is the map of backend IDs (lbmap) indexed by backend address
 	BackendIDs = "backendIDs"
 

@@ -24,7 +24,6 @@ var (
 	k8sHostPort         bool
 	k8sLoadBalancer     bool
 	k8sExtTrafficPolicy string
-	k8sIntTrafficPolicy string
 	k8sClusterInternal  bool
 	localRedirect       bool
 	idU                 uint64
@@ -56,8 +55,7 @@ func init() {
 	serviceUpdateCmd.Flags().BoolVarP(&k8sHostPort, "k8s-host-port", "", false, "Set service as a k8s HostPort")
 	serviceUpdateCmd.Flags().BoolVarP(&localRedirect, "local-redirect", "", false, "Set service as Local Redirect")
 	serviceUpdateCmd.Flags().StringVarP(&k8sExtTrafficPolicy, "k8s-ext-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
-	serviceUpdateCmd.Flags().StringVarP(&k8sIntTrafficPolicy, "k8s-int-traffic-policy", "", "Cluster", "Set service with k8s internalTrafficPolicy as {Local,Cluster}")
-	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local xor internalTrafficPolicy=Local")
+	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backendStates, "states", "", []string{}, "Backend state(s) as {active(default),terminating,quarantined,maintenance}")
@@ -153,12 +151,6 @@ func updateService(cmd *cobra.Command, args []string) {
 	} else {
 		spec.Flags.TrafficPolicy = models.ServiceSpecFlagsTrafficPolicyCluster
 		spec.Flags.ExtTrafficPolicy = models.ServiceSpecFlagsExtTrafficPolicyCluster
-	}
-
-	if strings.ToLower(k8sIntTrafficPolicy) == "local" {
-		spec.Flags.IntTrafficPolicy = models.ServiceSpecFlagsIntTrafficPolicyLocal
-	} else {
-		spec.Flags.IntTrafficPolicy = models.ServiceSpecFlagsIntTrafficPolicyCluster
 	}
 
 	spec.FrontendAddress = fa

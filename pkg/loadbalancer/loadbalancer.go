@@ -63,14 +63,12 @@ const (
 	serviceFlagNat46x64        = 1 << 9
 	serviceFlagL7LoadBalancer  = 1 << 10
 	serviceFlagLoopback        = 1 << 11
-	serviceFlagIntLocalScope   = 1 << 12
 )
 
 type SvcFlagParam struct {
 	SvcType          SVCType
 	SvcNatPolicy     SVCNatPolicy
 	SvcExtLocal      bool
-	SvcIntLocal      bool
 	SessionAffinity  bool
 	IsRoutable       bool
 	CheckSourceRange bool
@@ -107,9 +105,6 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 
 	if p.SvcExtLocal {
 		flags |= serviceFlagExtLocalScope
-	}
-	if p.SvcIntLocal {
-		flags |= serviceFlagIntLocalScope
 	}
 	if p.SessionAffinity {
 		flags |= serviceFlagSessionAffinity
@@ -155,16 +150,6 @@ func (s ServiceFlags) SVCExtTrafficPolicy() SVCTrafficPolicy {
 	}
 }
 
-// SVCIntTrafficPolicy returns a service traffic policy from the flags
-func (s ServiceFlags) SVCIntTrafficPolicy() SVCTrafficPolicy {
-	switch {
-	case s&serviceFlagIntLocalScope != 0:
-		return SVCTrafficPolicyLocal
-	default:
-		return SVCTrafficPolicyCluster
-	}
-}
-
 // SVCNatPolicy returns a service NAT policy from the flags
 func (s ServiceFlags) SVCNatPolicy(fe L3n4Addr) SVCNatPolicy {
 	if s&serviceFlagNat46x64 == 0 {
@@ -185,9 +170,6 @@ func (s ServiceFlags) String() string {
 	str = append(str, string(s.SVCType()))
 	if s&serviceFlagExtLocalScope != 0 {
 		str = append(str, string(SVCTrafficPolicyLocal))
-	}
-	if s&serviceFlagIntLocalScope != 0 {
-		str = append(str, "Internal"+string(SVCTrafficPolicyLocal))
 	}
 	if s&serviceFlagSessionAffinity != 0 {
 		str = append(str, "sessionAffinity")
@@ -377,7 +359,6 @@ type SVC struct {
 	Backends                  []*Backend       // List of service backends
 	Type                      SVCType          // Service type
 	ExtTrafficPolicy          SVCTrafficPolicy // Service external traffic policy
-	IntTrafficPolicy          SVCTrafficPolicy // Service internal traffic policy
 	NatPolicy                 SVCNatPolicy     // Service NAT 46/64 policy
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
@@ -412,7 +393,6 @@ func (s *SVC) GetModel() *models.Service {
 			Type:                string(s.Type),
 			TrafficPolicy:       string(s.ExtTrafficPolicy),
 			ExtTrafficPolicy:    string(s.ExtTrafficPolicy),
-			IntTrafficPolicy:    string(s.IntTrafficPolicy),
 			NatPolicy:           natPolicy,
 			HealthCheckNodePort: s.HealthCheckNodePort,
 
@@ -539,8 +519,7 @@ func NewL4Addr(protocol L4Type, number uint16) *L4Addr {
 
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
 // includes the lookup scope for frontend addresses which is used in service
-// handling for externalTrafficPolicy=Local and internalTrafficPolicy=Local,
-// that is, Scope{External,Internal}.
+// handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
 //
 // +deepequal-gen=true
 // +deepequal-gen:private-method=true

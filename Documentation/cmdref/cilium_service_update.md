@@ -16,11 +16,10 @@ cilium service update [flags]
       --frontend string                 Frontend address
   -h, --help                            help for update
       --id uint                         Identifier
-      --k8s-cluster-internal            Set service as cluster-internal for externalTrafficPolicy=Local xor internalTrafficPolicy=Local
+      --k8s-cluster-internal            Set service as cluster-internal for externalTrafficPolicy=Local
       --k8s-ext-traffic-policy string   Set service with k8s externalTrafficPolicy as {Local,Cluster} (default "Cluster")
       --k8s-external                    Set service as a k8s ExternalIPs
       --k8s-host-port                   Set service as a k8s HostPort
-      --k8s-int-traffic-policy string   Set service with k8s internalTrafficPolicy as {Local,Cluster} (default "Cluster")
       --k8s-load-balancer               Set service as a k8s LoadBalancer
       --k8s-node-port                   Set service as a k8s NodePort
       --local-redirect                  Set service as Local Redirect

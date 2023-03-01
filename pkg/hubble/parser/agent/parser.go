@@ -128,7 +128,6 @@ func notifyServiceUpsertedToProto(typ flowpb.AgentEventType, n monitorAPI.Servic
 				Type:             n.Type,
 				TrafficPolicy:    n.ExtTrafficPolicy,
 				ExtTrafficPolicy: n.ExtTrafficPolicy,
-				IntTrafficPolicy: n.IntTrafficPolicy,
 				Name:             n.Name,
 				Namespace:        n.Namespace,
 			},

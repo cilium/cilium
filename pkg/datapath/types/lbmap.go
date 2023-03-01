@@ -44,7 +44,6 @@ type UpsertServiceParams struct {
 	Type                      loadbalancer.SVCType
 	NatPolicy                 loadbalancer.SVCNatPolicy
 	ExtLocal                  bool
-	IntLocal                  bool
 	Scope                     uint8
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32

@@ -91,7 +91,6 @@ type svcInfo struct {
 
 	svcType                   lb.SVCType
 	svcExtTrafficPolicy       lb.SVCTrafficPolicy
-	svcIntTrafficPolicy       lb.SVCTrafficPolicy
 	svcNatPolicy              lb.SVCNatPolicy
 	sessionAffinity           bool
 	sessionAffinityTimeoutSec uint32
@@ -119,7 +118,6 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 		Backends:            backends,
 		Type:                svc.svcType,
 		ExtTrafficPolicy:    svc.svcExtTrafficPolicy,
-		IntTrafficPolicy:    svc.svcIntTrafficPolicy,
 		NatPolicy:           svc.svcNatPolicy,
 		HealthCheckNodePort: svc.svcHealthCheckNodePort,
 		Name:                svc.svcName,
@@ -129,45 +127,20 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	}
 }
 
-func (svc *svcInfo) isExtLocal() bool {
-	switch svc.svcType {
-	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
-		return svc.svcExtTrafficPolicy == lb.SVCTrafficPolicyLocal
-	default:
-		return false
-	}
-}
-
-func (svc *svcInfo) isIntLocal() bool {
-	switch svc.svcType {
-	case lb.SVCTypeClusterIP, lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
-		return svc.svcIntTrafficPolicy == lb.SVCTrafficPolicyLocal
-	default:
-		return false
-	}
-}
-
-func (svc *svcInfo) filterBackends(frontend lb.L3n4AddrID) bool {
+// requireNodeLocalBackends returns true if the frontend service traffic policy
+// is lb.SVCTrafficPolicyLocal and whether only local backends need to be filtered for the
+// given frontend.
+func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool) {
 	switch svc.svcType {
 	case lb.SVCTypeLocalRedirect:
-		return true
-	default:
-		// When both traffic policies are Local, there is only the external scope, which
-		// should contain node-local backends only. Checking isExtLocal is still enough.
-		switch frontend.Scope {
-		case lb.ScopeExternal:
-			if svc.svcType == lb.SVCTypeClusterIP {
-				// ClusterIP doesn't support externalTrafficPolicy and has only the
-				// external scope, which contains only node-local backends when
-				// internalTrafficPolicy=Local.
-				return svc.isIntLocal()
-			}
-			return svc.isExtLocal()
-		case lb.ScopeInternal:
-			return svc.isIntLocal()
-		default:
-			return false
+		return false, true
+	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
+		if svc.svcExtTrafficPolicy == lb.SVCTrafficPolicyLocal {
+			return true, frontend.Scope == lb.ScopeExternal
 		}
+		fallthrough
+	default:
+		return false, false
 	}
 }
 
@@ -582,7 +555,6 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 		logfields.ServiceType:                params.Type,
 		logfields.ServiceExtTrafficPolicy:    params.ExtTrafficPolicy,
-		logfields.ServiceIntTrafficPolicy:    params.IntTrafficPolicy,
 		logfields.ServiceHealthCheckNodePort: params.HealthCheckNodePort,
 		logfields.ServiceName:                params.Name.Name,
 		logfields.ServiceNamespace:           params.Name.Namespace,
@@ -649,7 +621,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
 
-	filterBackends := svc.filterBackends(params.Frontend)
+	onlyLocalBackends, filterBackends := svc.requireNodeLocalBackends(params.Frontend)
 	prevBackendCount := len(svc.backends)
 
 	backendsCopy := []*lb.Backend{}
@@ -685,7 +657,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	// Update lbmaps (BPF service maps)
-	if err = s.upsertServiceIntoLBMaps(svc, svc.isExtLocal(), svc.isIntLocal(), prevBackendCount,
+	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount,
 		newBackends, obsoleteBackendIDs, prevSessionAffinity, prevLoadBalancerSourceRanges,
 		obsoleteSVCBackendIDs, scopedLog); err != nil {
 
@@ -695,7 +667,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
 	if option.Config.EnableHealthCheckNodePort {
-		if svc.isExtLocal() && filterBackends {
+		if onlyLocalBackends && filterBackends {
 			_, activeBackends, _ := segregateBackends(backendsCopy)
 
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcName.Namespace, svc.svcName.Name,
@@ -715,7 +687,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	}
 
 	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
-		svc.svcType, svc.svcExtTrafficPolicy, svc.svcIntTrafficPolicy, svc.svcName.Name, svc.svcName.Namespace)
+		svc.svcType, svc.svcExtTrafficPolicy, svc.svcName.Name, svc.svcName.Namespace)
 	return new, lb.ID(svc.frontend.ID), nil
 }
 
@@ -820,6 +792,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 				info.backends[i].State = updatedB.State
 				info.backends[i].Preferred = updatedB.Preferred
 				found := false
+				onlyLocalBackends, _ := info.requireNodeLocalBackends(info.frontend)
 
 				if p, found = updateSvcs[id]; !found {
 					p = &datapathTypes.UpsertServiceParams{
@@ -829,8 +802,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 						PrevBackendsCount:         len(info.backends),
 						IPv6:                      info.frontend.IsIPv6(),
 						Type:                      info.svcType,
-						ExtLocal:                  info.isExtLocal(),
-						IntLocal:                  info.isIntLocal(),
+						ExtLocal:                  onlyLocalBackends,
 						Scope:                     info.frontend.L3n4Addr.Scope,
 						SessionAffinity:           info.sessionAffinity,
 						SessionAffinityTimeoutSec: info.sessionAffinityTimeoutSec,
@@ -1112,7 +1084,6 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
 
 			svcExtTrafficPolicy:      p.ExtTrafficPolicy,
-			svcIntTrafficPolicy:      p.IntTrafficPolicy,
 			svcNatPolicy:             p.NatPolicy,
 			svcHealthCheckNodePort:   p.HealthCheckNodePort,
 			loadBalancerSourceRanges: p.LoadBalancerSourceRanges,
@@ -1142,7 +1113,6 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
 		svc.svcExtTrafficPolicy = p.ExtTrafficPolicy
-		svc.svcIntTrafficPolicy = p.IntTrafficPolicy
 		svc.svcNatPolicy = p.NatPolicy
 		svc.svcHealthCheckNodePort = p.HealthCheckNodePort
 		svc.sessionAffinity = p.SessionAffinity
@@ -1202,7 +1172,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 	}
 }
 
-func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal bool,
+func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	prevBackendCount int, newBackends []*lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
 	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *logrus.Entry) error {
@@ -1312,8 +1282,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 		IPv6:                      v6FE,
 		NatPolicy:                 natPolicy,
 		Type:                      svc.svcType,
-		ExtLocal:                  isExtLocal,
-		IntLocal:                  isIntLocal,
+		ExtLocal:                  onlyLocalBackends,
 		Scope:                     svc.frontend.L3n4Addr.Scope,
 		SessionAffinity:           svc.sessionAffinity,
 		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
@@ -1422,7 +1391,6 @@ func (s *Service) restoreServicesLocked() error {
 			backendByHash:       map[string]*lb.Backend{},
 			svcType:             svc.Type,
 			svcExtTrafficPolicy: svc.ExtTrafficPolicy,
-			svcIntTrafficPolicy: svc.IntTrafficPolicy,
 			svcNatPolicy:        svc.NatPolicy,
 			LoopbackHostport:    svc.LoopbackHostport,
 
@@ -1616,7 +1584,7 @@ func (s *Service) deleteBackendsFromCacheLocked(svc *svcInfo) []lb.BackendID {
 }
 
 func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []*lb.Backend,
-	svcType lb.SVCType, svcExtTrafficPolicy, svcIntTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) {
+	svcType lb.SVCType, svcExtTrafficPolicy lb.SVCTrafficPolicy, svcName, svcNamespace string) {
 	if s.monitorNotify == nil {
 		return
 	}
@@ -1636,7 +1604,7 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		be = append(be, b)
 	}
 
-	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcExtTrafficPolicy), string(svcIntTrafficPolicy), svcName, svcNamespace)
+	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcExtTrafficPolicy), svcName, svcNamespace)
 	s.monitorNotify.SendNotification(msg)
 }
 

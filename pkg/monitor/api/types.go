@@ -446,7 +446,6 @@ type ServiceUpsertNotification struct {
 	// Deprecated: superseded by ExtTrafficPolicy.
 	TrafficPolicy    string `json:"traffic-policy,omitempty"`
 	ExtTrafficPolicy string `json:"ext-traffic-policy,omitempty"`
-	IntTrafficPolicy string `json:"int-traffic-policy,omitempty"`
 
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,,omitempty"`
@@ -457,7 +456,7 @@ func ServiceUpsertMessage(
 	id uint32,
 	frontend ServiceUpsertNotificationAddr,
 	backends []ServiceUpsertNotificationAddr,
-	svcType, svcExtTrafficPolicy, svcIntTrafficPolicy, svcName, svcNamespace string,
+	svcType, svcExtTrafficPolicy, svcName, svcNamespace string,
 ) AgentNotifyMessage {
 	notification := ServiceUpsertNotification{
 		ID:               id,
@@ -466,7 +465,6 @@ func ServiceUpsertMessage(
 		Type:             svcType,
 		TrafficPolicy:    svcExtTrafficPolicy,
 		ExtTrafficPolicy: svcExtTrafficPolicy,
-		IntTrafficPolicy: svcIntTrafficPolicy,
 		Name:             svcName,
 		Namespace:        svcNamespace,
 	}

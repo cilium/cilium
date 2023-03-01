@@ -484,17 +484,6 @@ const (
 	ServiceExternalTrafficPolicyTypeCluster ServiceExternalTrafficPolicyType = "Cluster"
 )
 
-// Service Internal Traffic Policy Type string
-// +enum
-type ServiceInternalTrafficPolicyType string
-
-const (
-	// ServiceInternalTrafficPolicyTypeLocal specifies node-local endpoints behavior.
-	ServiceInternalTrafficPolicyTypeLocal ServiceInternalTrafficPolicyType = "Local"
-	// ServiceInternalTrafficPolicyTypeCluster specifies node-global (legacy) behavior.
-	ServiceInternalTrafficPolicyTypeCluster ServiceInternalTrafficPolicyType = "Cluster"
-)
-
 // ServiceStatus represents the current status of a service.
 type ServiceStatus struct {
 	// LoadBalancer contains the current status of the load-balancer,
@@ -705,11 +694,6 @@ type ServiceSpec struct {
 	// another node, but should have good overall load-spreading.
 	// +optional
 	ExternalTrafficPolicy ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty" protobuf:"bytes,11,opt,name=externalTrafficPolicy"`
-
-	// internalTrafficPolicy denotes if this Service desires to route internal
-	// traffic to node-local or cluster-wide endpoints.
-	// +optional
-	InternalTrafficPolicy ServiceInternalTrafficPolicyType `json:"internalTrafficPolicy,omitempty" protobuf:"bytes,22,opt,name=internalTrafficPolicy"`
 
 	// healthCheckNodePort specifies the healthcheck nodePort for the service.
 	// This only applies when type is set to LoadBalancer and

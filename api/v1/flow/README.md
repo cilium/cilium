@@ -623,7 +623,6 @@ that happened before the events were captured by Hubble.
 | name | [string](#string) |  |  |
 | namespace | [string](#string) |  |  |
 | ext_traffic_policy | [string](#string) |  |  |
-| int_traffic_policy | [string](#string) |  |  |
 
 
 
