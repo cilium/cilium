@@ -216,8 +216,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 func TestNewSvcFlag(t *testing.T) {
 	type args struct {
 		svcType     SVCType
-		svcExtLocal bool
-		svcIntLocal bool
+		svcLocal    bool
 		svcRoutable bool
 		svcL7LB     bool
 	}
@@ -229,8 +228,7 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeClusterIP,
-				svcExtLocal: false,
-				svcIntLocal: false,
+				svcLocal:    false,
 				svcRoutable: true,
 			},
 			want: serviceFlagNone | serviceFlagRoutable,
@@ -238,8 +236,7 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeNodePort,
-				svcExtLocal: false,
-				svcIntLocal: false,
+				svcLocal:    false,
 				svcRoutable: true,
 			},
 			want: serviceFlagNodePort | serviceFlagRoutable,
@@ -247,8 +244,7 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: false,
-				svcIntLocal: false,
+				svcLocal:    false,
 				svcRoutable: true,
 			},
 			want: serviceFlagExternalIPs | serviceFlagRoutable,
@@ -256,8 +252,7 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeClusterIP,
-				svcExtLocal: true,
-				svcIntLocal: false,
+				svcLocal:    true,
 				svcRoutable: true,
 			},
 			want: serviceFlagNone | serviceFlagExtLocalScope | serviceFlagRoutable,
@@ -265,8 +260,7 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeNodePort,
-				svcExtLocal: true,
-				svcIntLocal: false,
+				svcLocal:    true,
 				svcRoutable: true,
 			},
 			want: serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagRoutable,
@@ -274,98 +268,23 @@ func TestNewSvcFlag(t *testing.T) {
 		{
 			args: args{
 				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: true,
-				svcIntLocal: false,
+				svcLocal:    true,
 				svcRoutable: true,
 			},
 			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcType:     SVCTypeClusterIP,
-				svcExtLocal: false,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagNone | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeNodePort,
-				svcExtLocal: false,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagNodePort | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
 				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: false,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagExternalIPs | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeClusterIP,
-				svcExtLocal: true,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagNone | serviceFlagExtLocalScope | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeNodePort,
-				svcExtLocal: true,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: true,
-				svcIntLocal: true,
-				svcRoutable: true,
-			},
-			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagIntLocalScope | serviceFlagRoutable,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: true,
-				svcIntLocal: false,
+				svcLocal:    true,
 				svcRoutable: false,
 			},
 			want: serviceFlagExternalIPs | serviceFlagExtLocalScope,
 		},
 		{
 			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: false,
-				svcIntLocal: true,
-				svcRoutable: false,
-			},
-			want: serviceFlagExternalIPs | serviceFlagIntLocalScope,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcExtLocal: true,
-				svcIntLocal: true,
-				svcRoutable: false,
-			},
-			want: serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagIntLocalScope,
-		},
-		{
-			args: args{
 				svcType:     SVCTypeLocalRedirect,
-				svcExtLocal: false,
-				svcIntLocal: false,
+				svcLocal:    false,
 				svcRoutable: true,
 			},
 			want: serviceFlagLocalRedirect | serviceFlagRoutable,
@@ -381,8 +300,7 @@ func TestNewSvcFlag(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &SvcFlagParam{
-				SvcExtLocal:     tt.args.svcExtLocal,
-				SvcIntLocal:     tt.args.svcIntLocal,
+				SvcExtLocal:     tt.args.svcLocal,
 				SessionAffinity: false,
 				IsRoutable:      tt.args.svcRoutable,
 				SvcType:         tt.args.svcType,
@@ -430,26 +348,6 @@ func TestServiceFlags_String(t *testing.T) {
 			name: "Test-6",
 			s:    serviceFlagLoadBalancer,
 			want: "LoadBalancer, non-routable",
-		},
-		{
-			name: "Test-7",
-			s:    serviceFlagNodePort | serviceFlagIntLocalScope | serviceFlagRoutable,
-			want: "NodePort, InternalLocal",
-		},
-		{
-			name: "Test-8",
-			s:    serviceFlagExternalIPs | serviceFlagIntLocalScope | serviceFlagRoutable,
-			want: "ExternalIPs, InternalLocal",
-		},
-		{
-			name: "Test-9",
-			s:    serviceFlagNodePort | serviceFlagExtLocalScope | serviceFlagIntLocalScope | serviceFlagRoutable,
-			want: "NodePort, Local, InternalLocal",
-		},
-		{
-			name: "Test-10",
-			s:    serviceFlagExternalIPs | serviceFlagExtLocalScope | serviceFlagIntLocalScope | serviceFlagRoutable,
-			want: "ExternalIPs, Local, InternalLocal",
 		},
 	}
 	for _, tt := range tests {
