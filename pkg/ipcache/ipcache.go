@@ -215,6 +215,14 @@ func endpointIPToCIDR(ip net.IP) *net.IPNet {
 	}
 }
 
+// GetHostIP returns the host IP for the given IP address.
+func (ipc *IPCache) GetHostIP(ip string) net.IP {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	hostIP, _ := ipc.getHostIPCache(ip)
+	return hostIP
+}
+
 func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 	ipKeyPair := ipc.ipToHostIPCache[ip]
 	return ipKeyPair.IP, ipKeyPair.Key
