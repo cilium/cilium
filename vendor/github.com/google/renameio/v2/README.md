@@ -43,6 +43,19 @@ correct sequence of operations hard to identify:
 This package attempts to get all of these details right, provides an intuitive,
 yet flexible API and caters to use-cases where high performance is required.
 
+## Major changes in v2
+
+With major version renameio/v2, `renameio.WriteFile` changes the way that
+permissions are handled. Before version 2, files were created with the
+permissions passed to the function, ignoring the
+[umask](https://en.wikipedia.org/wiki/Umask). From version 2 onwards, these
+permissions are further modified by process' umask (usually the user's
+preferred umask).
+
+If you were relying on the umask being ignored, add the
+`renameio.IgnoreUmask()` option to your `renameio.WriteFile` calls when
+upgrading to v2.
+
 ## Windows support
 
 It is [not possible to reliably write files atomically on

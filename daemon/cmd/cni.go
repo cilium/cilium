@@ -16,7 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/google/renameio"
+	"github.com/google/renameio/v2"
 	"github.com/tidwall/sjson"
 )
 

@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/renameio"
+	"github.com/google/renameio/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
