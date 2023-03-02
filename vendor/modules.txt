@@ -847,6 +847,10 @@ github.com/spf13/viper/internal/encoding/javaproperties
 github.com/spf13/viper/internal/encoding/json
 github.com/spf13/viper/internal/encoding/toml
 github.com/spf13/viper/internal/encoding/yaml
+# github.com/spiffe/spire-api-sdk v1.5.5
+## explicit; go 1.12
+github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
+github.com/spiffe/spire-api-sdk/proto/spire/api/types
 # github.com/stretchr/testify v1.8.2
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
