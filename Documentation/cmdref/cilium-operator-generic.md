@@ -65,8 +65,9 @@ cilium-operator-generic [flags]
       --log-opt map                               Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
       --nodes-gc-interval duration                GC interval for CiliumNodes (default 5m0s)
       --operator-api-serve-addr string            Address to serve API requests (default "localhost:9234")
-      --operator-pprof                            Enable pprof debugging endpoint
-      --operator-pprof-port int                   Port that the pprof listens on (default 6061)
+      --operator-pprof                            Enable serving pprof debugging API
+      --operator-pprof-address string             Address that pprof listens on (default "localhost")
+      --operator-pprof-port uint16                Port that pprof listens on (default 6061)
       --operator-prometheus-serve-addr string     Address to serve Prometheus metrics (default ":9963")
       --parallel-alloc-workers int                Maximum number of parallel IPAM workers (default 50)
       --pod-restart-selector string               cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted (default "k8s-app=kube-dns")
