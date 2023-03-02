@@ -565,6 +565,12 @@ drop_err:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET6,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
 	int ret, oif = 0, ohead = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -597,10 +603,12 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	 */
 	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
-		if (ret == CTX_ACT_REDIRECT) {
+		if (ret == CTX_ACT_REDIRECT && oif) {
 			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
+
+		fib_params.l.family = AF_INET;
 	}
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
@@ -610,12 +618,30 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
 		goto drop_err;
 	}
-	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
-		ret = DROP_INVALID;
-		goto drop_err;
+
+	if (fib_params.l.family == AF_INET) {
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		fib_params.l.ipv4_src = ip4->saddr;
+		fib_params.l.ipv4_dst = ip4->daddr;
+	} else {
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+
+		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+			       (union v6addr *)&ip6->saddr);
+		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+			       (union v6addr *)&ip6->daddr);
 	}
-	ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, true, &ext_err,
-			      ctx_get_ifindex(ctx), &oif);
+
+	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
@@ -881,11 +907,12 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		if (IS_ERR(ret))
 			goto drop_err;
 
-		cilium_capture_out(ctx);
-		if (ret == CTX_ACT_REDIRECT)
+		if (ret == CTX_ACT_REDIRECT && oif) {
+			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
-		ctx_move_xfer(ctx);
-		return ret;
+		}
+
+		goto fib_ipv4;
 	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -898,6 +925,10 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		ret = lb6_to_lb4(ctx, ip6);
 		if (ret < 0)
 			goto drop_err;
+
+#ifdef TUNNEL_MODE
+fib_ipv4:
+#endif
 		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 			ret = DROP_INVALID;
 			goto drop_err;
@@ -1176,7 +1207,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 		return DROP_INVALID;
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	if (nat_46x64_fib)
-		goto skip_rev_dnat;
+		goto fib_lookup;
 #endif
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
@@ -1212,27 +1243,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 			}
 		}
 #endif
-#ifdef ENABLE_NAT_46X64_GATEWAY
-skip_rev_dnat:
-#endif
-		if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
-			struct iphdr *ip4;
 
-			ret = lb6_to_lb4(ctx, ip6);
-			if (ret < 0)
-				return ret;
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
-			fib_params.l.ipv4_src = ip4->saddr;
-			fib_params.l.ipv4_dst = ip4->daddr;
-			fib_params.l.family = AF_INET;
-		} else {
-			ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
-				       (union v6addr *)&ip6->saddr);
-			ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
-				       (union v6addr *)&ip6->daddr);
-		}
-		return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+		goto fib_lookup;
 	}
 out:
 	if (bpf_skip_recirculation(ctx))
@@ -1248,10 +1260,39 @@ encap_redirect:
 	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
 				  tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
-	if (ret == CTX_ACT_REDIRECT)
-		ret = ctx_redirect(ctx, ifindex, 0);
-	return ret;
+	if (IS_ERR(ret))
+		return ret;
+
+	if (ret == CTX_ACT_REDIRECT && ifindex)
+		return ctx_redirect(ctx, ifindex, 0);
+
+	goto fib_ipv4;
 #endif
+
+fib_lookup:
+	if (is_v4_in_v6((union v6addr *)&ip6->saddr)) {
+		struct iphdr *ip4;
+
+		ret = lb6_to_lb4(ctx, ip6);
+		if (ret < 0)
+			return ret;
+
+#ifdef TUNNEL_MODE
+fib_ipv4:
+#endif
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		fib_params.l.ipv4_src = ip4->saddr;
+		fib_params.l.ipv4_dst = ip4->daddr;
+		fib_params.l.family = AF_INET;
+	} else {
+		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+			       (union v6addr *)&ip6->saddr);
+		ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+			       (union v6addr *)&ip6->daddr);
+	}
+	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
@@ -1283,9 +1324,6 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 		goto drop;
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
-	if (fib_ok(ret))
-		return ret;
-	ctx_move_xfer(ctx);
 	return ret;
 drop:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_EGRESS);
@@ -1864,12 +1902,10 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
-		if (ret == CTX_ACT_REDIRECT) {
+		if (ret == CTX_ACT_REDIRECT && oif) {
 			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
 		}
-		ctx_move_xfer(ctx);
-		return ret;
 	}
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
@@ -2117,11 +2153,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		if (IS_ERR(ret))
 			goto drop_err;
 
-		cilium_capture_out(ctx);
-		if (ret == CTX_ACT_REDIRECT)
+		if (ret == CTX_ACT_REDIRECT && oif) {
+			cilium_capture_out(ctx);
 			return ctx_redirect(ctx, oif, 0);
-		ctx_move_xfer(ctx);
-		return ret;
+		}
 	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2486,8 +2521,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			}
 		}
 #endif
-		return fib_redirect_v4(ctx, l3_off, ip4, true, ext_err,
-				       ctx_get_ifindex(ctx), &ifindex);
+
+		goto fib_lookup;
 	}
 out:
 	if (bpf_skip_recirculation(ctx))
@@ -2503,10 +2538,19 @@ encap_redirect:
 	ret = __encap_with_nodeid(ctx, IPV4_DIRECT_ROUTING, src_port,
 				  tunnel_endpoint, SECLABEL, dst_sec_identity,
 				  NOT_VTEP_DST, reason, monitor, &ifindex);
-	if (ret == CTX_ACT_REDIRECT)
-		ret = ctx_redirect(ctx, ifindex, 0);
-	return ret;
+	if (IS_ERR(ret))
+		return ret;
+
+	if (ret == CTX_ACT_REDIRECT && ifindex)
+		return ctx_redirect(ctx, ifindex, 0);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 #endif
+
+fib_lookup:
+	return fib_redirect_v4(ctx, l3_off, ip4, true, ext_err,
+			       ctx_get_ifindex(ctx), &ifindex);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
@@ -2539,9 +2583,6 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 						  CTX_ACT_DROP, METRIC_EGRESS);
 	edt_set_aggregate(ctx, 0);
 	cilium_capture_out(ctx);
-	if (fib_ok(ret))
-		return ret;
-	ctx_move_xfer(ctx);
 	return ret;
 }
 

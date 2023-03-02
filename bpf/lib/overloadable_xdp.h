@@ -4,6 +4,9 @@
 #ifndef __LIB_OVERLOADABLE_XDP_H_
 #define __LIB_OVERLOADABLE_XDP_H_
 
+#include <linux/udp.h>
+#include <linux/ip.h>
+
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
 {
@@ -178,36 +181,90 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
-ctx_set_encap_info(struct xdp_md *ctx __maybe_unused, __u32 src_ip __maybe_unused,
-		   __be16 src_port __maybe_unused,
-		   __u32 node_id __maybe_unused,
-		   __u32 seclabel __maybe_unused,
+ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
+		   __u32 daddr, __u32 seclabel __maybe_unused,
 		   __u32 dstid __maybe_unused,
-		   __u32 vni __maybe_unused,
-		   const void *opt __maybe_unused,
-		   __u32 opt_len __maybe_unused,
-		   bool is_ipv6 __maybe_unused,
-		   int *ifindex __maybe_unused)
+		   __u32 vni __maybe_unused, void *opt, __u32 opt_len,
+		   bool is_ipv6 __maybe_unused, int *ifindex)
 {
-	ctx_store_meta(ctx, CB_ENCAP_NODEID, bpf_ntohl(node_id));
-	ctx_store_meta(ctx, CB_ENCAP_SECLABEL, seclabel);
-	ctx_store_meta(ctx, CB_ENCAP_DSTID, dstid);
-	ctx_set_xfer(ctx, XFER_PKT_ENCAP);
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	if (opt) {
-		if (!is_ipv6) {
-			const __be32 *addr = opt + sizeof(struct geneve_opt_hdr);
-			const __be16 *port = opt + sizeof(struct geneve_opt_hdr) + sizeof(__be32);
+	__u32 inner_len = ctx_full_len(ctx);
+	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
+	void *data, *data_end;
+	struct ethhdr *eth;
+	struct udphdr *udp;
+	struct iphdr *ip4;
+	__u32 outer_len;
 
-			ctx_store_meta(ctx, CB_ENCAP_PORT, *port);
-			ctx_store_meta(ctx, CB_ENCAP_ADDR, *addr);
-		} else {
-			return DROP_DSR_ENCAP_UNSUPP_PROTO;
+	/* Add space in front (50 bytes + options) */
+	outer_len = sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len + opt_len;
+
+	if (ctx_adjust_hroom(ctx, outer_len, BPF_ADJ_ROOM_NET, ctx_adjust_hroom_flags()))
+		return DROP_INVALID;
+
+	/* validate access to outer headers: */
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	if (data + outer_len > data_end)
+		return DROP_INVALID;
+
+	eth = data;
+	ip4 = (void *)eth + sizeof(*eth);
+	udp = (void *)ip4 + sizeof(*ip4);
+
+	memset(data, 0, sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
+
+	switch (TUNNEL_PROTOCOL) {
+	case TUNNEL_PROTOCOL_GENEVE:
+		{
+			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
+
+			if (opt_len > 0)
+				memcpy((void *)geneve + sizeof(*geneve), opt, opt_len);
+
+			geneve->opt_len = (__u8)(opt_len >> 2);
+			geneve->protocol_type = bpf_htons(ETH_P_TEB);
+
+			seclabel = bpf_htonl(seclabel << 8);
+			memcpy(&geneve->vni, &seclabel, sizeof(__u32));
 		}
-	}
-#endif
+		break;
+	case TUNNEL_PROTOCOL_VXLAN:
+		if (opt_len > 0)
+			return DROP_INVALID;
 
-	return CTX_ACT_OK;
+		{
+			struct vxlanhdr *vxlan = (void *)udp + sizeof(*udp);
+
+			vxlan->vx_flags = bpf_htonl(1U << 27);
+
+			seclabel = bpf_htonl(seclabel << 8);
+			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
+		}
+		break;
+	default:
+		__throw_build_bug();
+	}
+
+	udp->source = src_port;
+	udp->dest = bpf_htons(TUNNEL_PORT);
+	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
+	udp->check = 0; /* we use BPF_F_ZERO_CSUM_TX */
+
+	ip4->ihl = 5;
+	ip4->version = IPVERSION;
+	ip4->tot_len = bpf_htons((__u16)(sizeof(*ip4) + bpf_ntohs(udp->len)));
+	ip4->ttl = IPDEFTTL;
+	ip4->protocol = IPPROTO_UDP;
+	ip4->saddr = src_ip;
+	ip4->daddr = bpf_htonl(daddr);
+	ip4->check = csum_fold(csum_diff(NULL, 0, ip4, sizeof(*ip4), 0));
+
+	eth->h_proto = bpf_htons(ETH_P_IP);
+
+	*ifindex = 0;
+
+	return CTX_ACT_REDIRECT;
 }
 #endif /* HAVE_ENCAP */
 
