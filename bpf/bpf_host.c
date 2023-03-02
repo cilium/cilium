@@ -133,8 +133,20 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
-		if (info != NULL && info->sec_label)
-			srcid_from_ipcache = info->sec_label;
+		if (info) {
+			if (info->sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if "srcid_from_proxy"
+				 * (passed into this function) reports the src as
+				 * the host. So we can ignore the ipcache if it
+				 * reports the source as HOST_ID.
+				 */
+				if (info->sec_label != HOST_ID)
+					srcid_from_ipcache = info->sec_label;
+			}
+		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
