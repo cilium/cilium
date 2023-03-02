@@ -91,7 +91,7 @@ func Provide(ctors ...any) Cell {
 	return &provider{ctors: ctors, export: true}
 }
 
-// ProvidePrivate is like Private, but the constructed objects are only
+// ProvidePrivate is like Provide, but the constructed objects are only
 // available within the module it is defined and nested modules.
 func ProvidePrivate(ctors ...any) Cell {
 	return &provider{ctors: ctors, export: false}
