@@ -10,9 +10,28 @@ defined_files=$(
 		/return 0/{exit}
 		{if (!found || !/_strcase_/) next}
 		{gsub(/.* |"|\)|;/, "", $1); print $1}
-		' bpf/source_names_to_ids.h
+		' bpf/source_names_to_ids.h | sort -u
 )
 
+#
+# Now let's find all the names defined inside the go source file
+#
+defined_files_go=$(
+	awk '/sourceFileNames/{found=1; next}
+		{if (!found) next}
+		/}/{exit}
+		{if (!/: /) next}
+		{gsub(/"|,/, "", $2); print $2}
+		' pkg/monitor/datapath_drop.go | sort -u
+)
+if [ "$defined_files" != "$defined_files_go" ]; then
+	echo "File lists in bpf/source_names_to_ids.h and pkg/monitor/datapath_drop.go aren't same, please sync" >&2
+	exit 1
+fi
+
+#
+# Both lists should be the same
+#
 
 #
 # Now we need to find all the C files in the bpf/ directory and all header
