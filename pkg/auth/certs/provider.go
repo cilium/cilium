@@ -6,6 +6,8 @@ package certs
 import (
 	"crypto/tls"
 	"crypto/x509"
+
+	"github.com/cilium/cilium/pkg/identity"
 )
 
 type CertificateProvider interface {
@@ -15,10 +17,16 @@ type CertificateProvider interface {
 
 	// GetCertificateForIdentity gives the certificate and intermediates required
 	// to send as trust chain for a certain identity as well as a private key
-	GetCertificateForIdentity(identity string) (*tls.Certificate, error)
+	GetCertificateForIdentity(id identity.NumericIdentity) (*tls.Certificate, error)
 
 	// ValidateIdentity will check if the SANs or other identity methods are valid
 	// for the given Cilium identity this function is needed as SPIFFE encodes the
 	// full ID in the URI SAN.
-	ValidateIdentity(identity string, cert *x509.Certificate) (bool, error)
+	ValidateIdentity(id identity.NumericIdentity, cert *x509.Certificate) (bool, error)
+
+	// NumericIdentityToSNI will return the SNI that should be used for a given Cilium Identity
+	NumericIdentityToSNI(id identity.NumericIdentity) string
+
+	// SNIToNumericIdentity will return the Cilium Identity for a given SNI
+	SNIToNumericIdentity(sni string) (identity.NumericIdentity, error)
 }

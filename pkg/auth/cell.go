@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/monitor"
+	"github.com/cilium/cilium/pkg/auth/spire"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -24,6 +25,8 @@ var Cell = cell.Module(
 	"auth-manager",
 	"Authenticates requests as demanded by policy",
 
+	spire.Cell,
+
 	// The manager is the main entry point which gets registered to the agent monitor and receives auth requests.
 	cell.Provide(newManager),
 	cell.ProvidePrivate(
@@ -31,8 +34,11 @@ var Cell = cell.Module(
 		newNullAuthHandler,
 		// CT map authenticator provides support to write authentication information into the eBPF conntrack map
 		newCtMapAuthenticator,
+		// MTLS auth handler provides support for auth type "mtls-*" - which performs mTLS authentication.
+		newMTLSAuthHandler,
 	),
 	cell.Config(config{MeshAuthMonitorQueueSize: 1024}),
+	cell.Config(MTLSConfig{}),
 )
 
 type config struct {

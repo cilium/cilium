@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -37,8 +38,9 @@ type SpireDelegateClient struct {
 	stream      delegatedidentityv1.DelegatedIdentity_SubscribeToX509SVIDsClient
 	trustStream delegatedidentityv1.DelegatedIdentity_SubscribeToX509BundlesClient
 
-	svidStore   map[string]*delegatedidentityv1.X509SVIDWithKey
-	trustBundle *x509.CertPool
+	svidStore      map[string]*delegatedidentityv1.X509SVIDWithKey
+	svidStoreMutex lock.RWMutex
+	trustBundle    *x509.CertPool
 
 	cancelListenForUpdates context.CancelFunc
 }
@@ -48,12 +50,6 @@ type SpireDelegateConfig struct {
 	SpiffeTrustDomain    string `mapstructure:"mesh-auth-spiffe-trust-domain"`
 }
 
-type certificateProviderResult struct {
-	cell.Out
-
-	CertificateProvider certs.CertificateProvider `group:"certificateProviders"`
-}
-
 var Cell = cell.Module(
 	"spire-delegate",
 	"Spire Delegate API Client",
@@ -61,7 +57,11 @@ var Cell = cell.Module(
 	cell.Config(SpireDelegateConfig{}),
 )
 
-func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logrus.FieldLogger) certificateProviderResult {
+func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logrus.FieldLogger) certs.CertificateProvider {
+	if cfg.SpireAdminSocketPath == "" {
+		log.Info("Spire Delegate API Client is disabled as no socket path is configured")
+		return nil
+	}
 	client := &SpireDelegateClient{
 		cfg:       cfg,
 		log:       log.WithField(logfields.LogSubsys, "spire-delegate"),
@@ -70,13 +70,11 @@ func newSpireDelegateClient(lc hive.Lifecycle, cfg SpireDelegateConfig, log logr
 
 	lc.Append(hive.Hook{OnStart: client.onStart, OnStop: client.onStop})
 
-	return certificateProviderResult{
-		CertificateProvider: client,
-	}
+	return client
 }
 
 func (cfg SpireDelegateConfig) Flags(flags *pflag.FlagSet) {
-	flags.StringVar(&cfg.SpireAdminSocketPath, "mesh-auth-spire-admin-socket", "/run/spire/sockets/admin.sock", "The path for the SPIRE admin agent Unix socket.")
+	flags.StringVar(&cfg.SpireAdminSocketPath, "mesh-auth-spire-admin-socket", "", "The path for the SPIRE admin agent Unix socket.") // default is /run/spire/sockets/admin.sock
 	flags.StringVar(&cfg.SpiffeTrustDomain, "mesh-auth-spiffe-trust-domain", "spiffe.cilium.io", "The trust domain for the SPIFFE identity.")
 }
 
@@ -168,6 +166,7 @@ func (s *SpireDelegateClient) listenForBundleUpdates(ctx context.Context, errorC
 func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.X509SVIDWithKey) {
 	newSvidStore := map[string]*delegatedidentityv1.X509SVIDWithKey{}
 
+	s.svidStoreMutex.RLock()
 	for _, svid := range svids {
 
 		s.log.Debugf("processing spiffe://%s%s, Expires at %s", svid.X509Svid.Id.TrustDomain,
@@ -176,6 +175,7 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 
 		if svid.X509Svid.Id.TrustDomain != s.cfg.SpiffeTrustDomain {
 			s.log.Debugf("skipping X509-SVID update for trust domain %s as it does not match ours", svid.X509Svid.Id.TrustDomain)
+			s.svidStoreMutex.RUnlock()
 			return
 		}
 
@@ -190,12 +190,14 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 		} else {
 			s.log.Debugf("X509-SVID for %s is new, adding", key)
 		}
-
 		newSvidStore[key] = svid
 
 	}
+	s.svidStoreMutex.RUnlock()
 
+	s.svidStoreMutex.Lock()
 	s.svidStore = newSvidStore
+	s.svidStoreMutex.Unlock()
 }
 
 func (s *SpireDelegateClient) handleX509BundleUpdate(bundles map[string][]byte) {

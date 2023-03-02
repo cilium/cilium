@@ -60,6 +60,9 @@ type authResult struct {
 func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator, ipCache ipCache) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
+		if ah == nil {
+			continue
+		}
 		if _, ok := ahs[ah.authType()]; ok {
 			return nil, fmt.Errorf("multiple handlers for auth type: %s", ah.authType())
 		}
