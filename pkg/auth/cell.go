@@ -44,7 +44,7 @@ type Manager interface {
 }
 
 func newManager(params authManagerParams) (Manager, error) {
-	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator)
+	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}

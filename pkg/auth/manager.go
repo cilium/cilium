@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -48,7 +47,7 @@ type datapathAuthenticator interface {
 	markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, resp *authResponse) error
 }
 
-func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator) (*authManager, error) {
+func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenticator, ipCache ipCache) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if _, ok := ahs[ah.authType()]; ok {
@@ -60,10 +59,18 @@ func newAuthManager(authHandlers []authHandler, dpAuthenticator datapathAuthenti
 	return &authManager{
 		authHandlers:          ahs,
 		datapathAuthenticator: dpAuthenticator,
+		ipCache:               ipCache,
 	}, nil
 }
 
 func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) {
+	if err := a.authRequired(dn, ci); err != nil {
+		log.WithError(err).Warning("auth: Failed to authenticate request")
+		return
+	}
+}
+
+func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) error {
 	authType := getAuthType(dn)
 	policyType := getPolicyType(dn)
 
@@ -73,29 +80,27 @@ func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	// Authenticate according to the requested auth type
 	h, ok := a.authHandlers[authType]
 	if !ok {
-		log.WithField(logfields.AuthType, authType).Warning("auth: Unknown requested auth type")
-		return
+		return fmt.Errorf("unknown requested auth type: %s", authType)
 	}
 
 	authReq, err := a.buildAuthRequest(dn, ci)
 	if err != nil {
-		log.WithError(err).Warning("auth: Failed to gather auth request information")
-		return
+		return fmt.Errorf("failed to gather auth request information: %w", err)
 	}
 
 	authResp, err := h.authenticate(authReq)
 	if err != nil {
-		log.WithError(err).WithField(logfields.AuthType, authType).Warning("auth: Failed to authenticate")
-		return
+		return fmt.Errorf("failed to authenticate with auth type %s: %w", authType, err)
 	}
 
 	if err := a.datapathAuthenticator.markAuthenticated(dn, ci, authResp); err != nil {
-		log.WithError(err).Warning("auth: Failed to write auth information to BPF map")
-		return
+		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
 	}
 
 	log.Debugf("auth: Successfully authenticated request for identity %s->%s, endpoint %s->%s, host %s->%s",
 		dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP, authReq.srcHostIP, authReq.dstHostIP)
+
+	return nil
 }
 
 func (a *authManager) buildAuthRequest(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) (*authRequest, error) {
