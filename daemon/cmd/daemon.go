@@ -282,6 +282,10 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while creating node config header file: %w", err)
 		}
 
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+			return fmt.Errorf("failed while reinitializing datapath: %w", err)
+		}
+
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
 			if err := sockops.SockmapEnable(); err != nil {
@@ -291,10 +295,6 @@ func (d *Daemon) init() error {
 			} else {
 				sockmap.SockmapCreate()
 			}
-		}
-
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 	}
 
