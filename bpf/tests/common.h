@@ -10,6 +10,12 @@
 #include <bpf/loader.h>
 #include <bpf/section.h>
 
+/* We can use this macro inside the actual datapath code
+ * to compile-in the code for testing. The primary usecase
+ * is initializing map-in-map or prog-map.
+ */
+#define BPF_TEST
+
 #ifndef ___bpf_concat
 #define ___bpf_concat(a, b) a ## b
 #endif
