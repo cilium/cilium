@@ -83,6 +83,7 @@ spec:
                             the allowed traffic, if any.
                           enum:
                           - "null"
+                          - mtls-spiffe
                           type: string
                       required:
                       - type
@@ -1437,6 +1438,7 @@ spec:
                             the allowed traffic, if any.
                           enum:
                           - "null"
+                          - mtls-spiffe
                           type: string
                       required:
                       - type
@@ -2556,6 +2558,7 @@ spec:
                               for the allowed traffic, if any.
                             enum:
                             - "null"
+                            - mtls-spiffe
                             type: string
                         required:
                         - type
@@ -3932,6 +3935,7 @@ spec:
                               for the allowed traffic, if any.
                             enum:
                             - "null"
+                            - mtls-spiffe
                             type: string
                         required:
                         - type

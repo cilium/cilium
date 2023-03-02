@@ -228,6 +228,9 @@ cilium-agent [flags]
       --log-opt map                                             Log driver options for cilium-agent, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local5","syslog.tag":"cilium-agent"}
       --log-system-load                                         Enable periodic logging of system load
       --mesh-auth-monitor-queue-size int                        Queue size for the auth monitor (default 1024)
+      --mesh-auth-mtls-listener-port int                        Port on which the Cilium Agent will perfom mTLS handshakes between other Agents
+      --mesh-auth-spiffe-trust-domain string                    The trust domain for the SPIFFE identity. (default "spiffe.cilium.io")
+      --mesh-auth-spire-admin-socket string                     The path for the SPIRE admin agent Unix socket.
       --metrics strings                                         Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)
       --monitor-aggregation string                              Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                       TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
