@@ -60,7 +60,6 @@ done
 #
 # Check that all defined files actually use send_drop_notify*
 #
-retval=0
 for f in $defined_files; do
 	if ! grep --silent -w "$f" <<<"$required_files"; then
 		echo "$0: $f is not using send_drop_notify*, please remove it from bpf/source_names_to_ids.h" >&2
