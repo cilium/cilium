@@ -824,6 +824,7 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 				if b.L3n4Addr.String() != updatedB.L3n4Addr.String() {
 					continue
 				}
+				info.backendByHash[hash] = updatedB
 				info.backends[i].State = updatedB.State
 				info.backends[i].Preferred = updatedB.Preferred
 				found := false
