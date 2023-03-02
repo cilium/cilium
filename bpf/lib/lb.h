@@ -922,7 +922,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		/* Drain existing connections, but redirect new ones to only
 		 * active backends.
 		 */
-		if (backend && !state->syn)
+		if (backend && tuple->nexthdr == IPPROTO_TCP && !state->syn)
 			goto update_state;
 		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false, true);
@@ -1625,7 +1625,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		/* Drain existing connections, but redirect new ones to only
 		 * active backends.
 		 */
-		if (backend && !state->syn)
+		if (backend && tuple->nexthdr == IPPROTO_TCP && !state->syn)
 			goto update_state;
 		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false, true);
