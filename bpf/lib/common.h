@@ -341,6 +341,18 @@ struct policy_entry {
 	__u64		bytes;
 };
 
+struct auth_key {
+	__u32       local_sec_label;
+	__u32       remote_sec_label;
+	__u16       remote_node_id;
+	__u8        auth_type;
+	__u8        pad;
+};
+
+struct auth_info {
+	__u64       expiration;
+};
+
 struct metrics_key {
 	__u8      reason;	/* 0: forwarded, >0 dropped */
 	__u8      dir:2,	/* 1: ingress 2: egress */

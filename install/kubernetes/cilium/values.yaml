@@ -376,6 +376,10 @@ bpf:
   # memory usage but can reduce latency.
   preallocateMaps: false
 
+  # -- (int) Configure the maximum number of entries in auth map.
+  # @default -- `524288`
+  authMapMax: ~
+
   # -- (int) Configure the maximum number of entries in the TCP connection tracking
   # table.
   # @default -- `524288`

@@ -187,6 +187,9 @@ artii
 asm
 assignees
 au
+auth
+authMapMax
+authMapMin
 authenticator
 autoDirectNodeRoutes
 autoMount
@@ -424,6 +427,7 @@ extern
 externalAPILimitBurstSize
 externalAPILimitQPS
 externalIPs
+externalTrafficPolicy
 externalWorkloads
 extraArgs
 extraConfig
@@ -550,6 +554,7 @@ installRoutes
 instanceTagsFilter
 instantiation
 integrations
+internalTrafficPolicy
 internet
 intervalSeconds
 intra
@@ -1112,5 +1117,3 @@ xxxxx
 yaml
 zsh
 zshrc
-externalTrafficPolicy
-internalTrafficPolicy

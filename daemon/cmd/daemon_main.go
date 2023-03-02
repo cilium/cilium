@@ -784,6 +784,9 @@ func initializeFlags() {
 	flags.String(option.PrometheusServeAddr, ":9962", "IP:Port on which to serve prometheus metrics (pass \":Port\" to bind on all interfaces, \"\" is off)")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.PrometheusServeAddr, "PROMETHEUS_SERVE_ADDR")
 
+	flags.Int(option.AuthMapEntriesName, option.AuthMapEntriesDefault, "Maximum number of entries in auth map")
+	option.BindEnv(Vp, option.AuthMapEntriesName)
+
 	flags.Int(option.CTMapEntriesGlobalTCPName, option.CTMapEntriesGlobalTCPDefault, "Maximum number of entries in TCP CT table")
 	option.BindEnvWithLegacyEnvFallback(Vp, option.CTMapEntriesGlobalTCPName, "CILIUM_GLOBAL_CT_MAX_TCP")
 
