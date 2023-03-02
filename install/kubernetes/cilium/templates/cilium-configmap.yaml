@@ -312,6 +312,10 @@ data:
   enable-host-legacy-routing: "true"
 {{- end }}
 
+{{- if .Values.bpf.authMapMax }}
+  # bpf-auth-map-max specifies the maximum number of entries in the auth map
+  bpf-auth-map-max: {{ .Values.bpf.authMapMax | quote }}
+{{- end }}
 {{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair

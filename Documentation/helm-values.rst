@@ -81,6 +81,10 @@
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - bpf.authMapMax
+     - Configure the maximum number of entries in auth map.
+     - int
+     - ``524288``
    * - bpf.autoMount.enabled
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool

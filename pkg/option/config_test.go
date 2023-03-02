@@ -256,6 +256,7 @@ func (s *OptionSuite) TestEndpointStatusIsEnabled(c *C) {
 
 func TestCheckMapSizeLimits(t *testing.T) {
 	type sizes struct {
+		AuthMapEntries        int
 		CTMapEntriesGlobalTCP int
 		CTMapEntriesGlobalAny int
 		NATMapEntriesGlobal   int
@@ -274,6 +275,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "default map sizes",
 			d: &DaemonConfig{
+				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
@@ -284,6 +286,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				SockRevNatEntries:     SockRevNATMapEntriesDefault,
 			},
 			want: sizes{
+				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: CTMapEntriesGlobalTCPDefault,
 				CTMapEntriesGlobalAny: CTMapEntriesGlobalAnyDefault,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
@@ -298,6 +301,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "arbitrary map sizes within range",
 			d: &DaemonConfig{
+				AuthMapEntries:        20000,
 				CTMapEntriesGlobalTCP: 20000,
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
@@ -307,6 +311,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				FragmentsMapEntries:   2 << 14,
 			},
 			want: sizes{
+				AuthMapEntries:        20000,
 				CTMapEntriesGlobalTCP: 20000,
 				CTMapEntriesGlobalAny: 18000,
 				NATMapEntriesGlobal:   2048,
@@ -315,6 +320,26 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				SockRevNatEntries:     18000,
 				FragmentsMapEntries:   2 << 14,
 				WantErr:               false,
+			},
+		},
+		{
+			name: "Auth map size below range",
+			d: &DaemonConfig{
+				AuthMapEntries: AuthMapEntriesMin - 1,
+			},
+			want: sizes{
+				AuthMapEntries: AuthMapEntriesMin - 1,
+				WantErr:        true,
+			},
+		},
+		{
+			name: "Auth map size above range",
+			d: &DaemonConfig{
+				AuthMapEntries: AuthMapEntriesMax + 1,
+			},
+			want: sizes{
+				AuthMapEntries: AuthMapEntriesMax + 1,
+				WantErr:        true,
 			},
 		},
 		{
@@ -380,6 +405,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 		{
 			name: "NAT map auto sizing with default size",
 			d: &DaemonConfig{
+				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: 2048,
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   NATMapEntriesGlobalDefault,
@@ -389,6 +415,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 				FragmentsMapEntries:   defaults.FragmentsMapEntries,
 			},
 			want: sizes{
+				AuthMapEntries:        AuthMapEntriesDefault,
 				CTMapEntriesGlobalTCP: 2048,
 				CTMapEntriesGlobalAny: 4096,
 				NATMapEntriesGlobal:   (2048 + 4096) * 2 / 3,
@@ -459,6 +486,7 @@ func TestCheckMapSizeLimits(t *testing.T) {
 			err := tt.d.checkMapSizeLimits()
 
 			got := sizes{
+				AuthMapEntries:        tt.d.AuthMapEntries,
 				CTMapEntriesGlobalTCP: tt.d.CTMapEntriesGlobalTCP,
 				CTMapEntriesGlobalAny: tt.d.CTMapEntriesGlobalAny,
 				NATMapEntriesGlobal:   tt.d.NATMapEntriesGlobal,

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/auth"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -352,6 +353,10 @@ func (d *Daemon) initMaps() error {
 	}
 
 	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
+		return err
+	}
+
+	if err := auth.InitAuthMap(option.Config.AuthMapEntries); err != nil {
 		return err
 	}
 

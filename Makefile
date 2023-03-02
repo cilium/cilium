@@ -349,6 +349,7 @@ generate-k8s-api: ## Generate Cilium k8s API client, deepcopy and deepequal Go s
 	alibabacloud:types\
 	k8s:types\
 	k8s:utils\
+	maps:auth\
 	maps:ctmap\
 	maps:encrypt\
 	maps:eppolicymap\

@@ -32,6 +32,7 @@ var ignoredELFPrefixes = []string{
 	"IPV6_NODEPORT",              // Global
 	"ROUTER_IP",                  // Global
 	"SNAT_IPV6_EXTERNAL",         // Global
+	"cilium_auth_map",            // Global
 	"cilium_call_policy",         // Global
 	"cilium_egresscall_policy",   // Global
 	"cilium_capture",             // Global

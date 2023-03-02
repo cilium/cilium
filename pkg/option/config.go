@@ -537,6 +537,18 @@ const (
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
+	// AuthMapEntriesMin defines the minimum auth map limit.
+	AuthMapEntriesMin = 1 << 8
+
+	// AuthMapEntriesMax defines the maximum auth map limit.
+	AuthMapEntriesMax = 1 << 24
+
+	// AuthMapEntriesDefault defines the default auth map limit.
+	AuthMapEntriesDefault = 1 << 19
+
+	// AuthMapEntriesName configures max entries for BPF auth map.
+	AuthMapEntriesName = "bpf-auth-map-max"
+
 	// CTMapEntriesGlobalTCPDefault is the default maximum number of entries
 	// in the TCP CT table.
 	CTMapEntriesGlobalTCPDefault = 2 << 18 // 512Ki
@@ -1469,6 +1481,9 @@ type DaemonConfig struct {
 	// NeighMapEntriesGlobal is the maximum number of neighbor mappings
 	// allowed in the BPF neigh table
 	NeighMapEntriesGlobal int
+
+	// AuthMapEntries is the maximum number of entries in the auth map.
+	AuthMapEntries int
 
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
@@ -3475,6 +3490,13 @@ func (c *DaemonConfig) populateNodePortRange(vp *viper.Viper) error {
 }
 
 func (c *DaemonConfig) checkMapSizeLimits() error {
+	if c.AuthMapEntries < AuthMapEntriesMin {
+		return fmt.Errorf("specified AuthMap max entries %d must exceed minimum %d", c.AuthMapEntries, AuthMapEntriesMin)
+	}
+	if c.AuthMapEntries > AuthMapEntriesMax {
+		return fmt.Errorf("specified AuthMap max entries %d must not exceed maximum %d", c.AuthMapEntries, AuthMapEntriesMax)
+	}
+
 	if c.CTMapEntriesGlobalTCP < LimitTableMin || c.CTMapEntriesGlobalAny < LimitTableMin {
 		return fmt.Errorf("specified CT tables values %d/%d must exceed minimum %d",
 			c.CTMapEntriesGlobalTCP, c.CTMapEntriesGlobalAny, LimitTableMin)
@@ -3600,6 +3622,7 @@ func (c *DaemonConfig) calculateBPFMapSizes(vp *viper.Viper) error {
 	// BPF map size options
 	// Any map size explicitly set via option will override the dynamic
 	// sizing.
+	c.AuthMapEntries = vp.GetInt(AuthMapEntriesName)
 	c.CTMapEntriesGlobalTCP = vp.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = vp.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = vp.GetInt(NATMapEntriesGlobalName)

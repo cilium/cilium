@@ -87,6 +87,18 @@ struct {
 } POLICY_MAP __section_maps_btf;
 #endif
 
+#ifdef AUTH_MAP
+/* Global auth map for enforcing authentication policy */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct auth_key);
+	__type(value, struct auth_info);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, AUTH_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} AUTH_MAP __section_maps_btf;
+#endif
+
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
 struct bpf_elf_map __section_maps CALLS_MAP = {
