@@ -76,7 +76,7 @@
         "go.sum"
       ],
       "postUpdateOptions": [
-	// update source import paths on major updates
+        // update source import paths on major updates
         "gomodUpdateImportPaths",
       ],
       "matchUpdateTypes": [
@@ -124,6 +124,9 @@
         "github.com/cilium/proxy",
       ],
       "matchPackagePatterns": [
+        // Once we decide to spend cycles on ginkgo v2 we should update the
+        // dependency manually.
+        "github.com/onsi/gomega/*",
         // k8s dependencies will be updated manually along with tests
         "k8s.io/*",
         "sigs.k8s.io/*"
