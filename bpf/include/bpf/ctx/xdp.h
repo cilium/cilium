@@ -298,6 +298,10 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 			else
 				ret = -EFAULT;
 			break;
+		case 50: /* struct {ethhdr + iphdr + udphdr + genevehdr / vxlanhdr} */
+		case 50 + 12: /* geneve with IPv4 DSR option */
+		case 50 + 24: /* geneve with IPv6 DSR option */
+			break;
 		case 48: /* struct {ipv6hdr + icmp6hdr} */
 			break;
 		case 40: /* struct ipv6hdr */
