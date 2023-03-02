@@ -53,23 +53,23 @@ func Test_authManager_authRequired(t *testing.T) {
 		{
 			name: "missing handler for auth type",
 			args: args{
-				dn: testDropNotify(0),
+				dn: testDropNotify(0, true),
 				ci: testConnInfo("10.244.1.1", "10.244.2.1"),
 			},
 			wantErr: assertErrorString("unknown requested auth type: none"),
 		},
 		{
-			name: "missing node IP for source IP",
+			name: "missing node IP for source IP in case of ingress policy",
 			args: args{
-				dn: testDropNotify(1),
+				dn: testDropNotify(1, true),
 				ci: testConnInfo("10.244.1.2", "10.244.2.1"),
 			},
 			wantErr: assertErrorString("failed to gather auth request information: failed to get host IP of connection source IP 10.244.1.2"),
 		},
 		{
-			name: "missing node IP for destination IP",
+			name: "missing node IP for destination IP in case of egress policy",
 			args: args{
-				dn: testDropNotify(1),
+				dn: testDropNotify(1, false),
 				ci: testConnInfo("10.244.1.1", "10.244.2.2"),
 			},
 			wantErr: assertErrorString("failed to gather auth request information: failed to get host IP of connection destination IP 10.244.2.2"),
@@ -77,7 +77,7 @@ func Test_authManager_authRequired(t *testing.T) {
 		{
 			name: "successful auth",
 			args: args{
-				dn: testDropNotify(1),
+				dn: testDropNotify(1, true),
 				ci: testConnInfo("10.244.1.1", "10.244.2.1"),
 			},
 			wantErr:           assert.NoError,
@@ -86,7 +86,7 @@ func Test_authManager_authRequired(t *testing.T) {
 		{
 			name: "successful auth with lookup of cilium host IP v4 with /32 when getting host IP",
 			args: args{
-				dn: testDropNotify(1),
+				dn: testDropNotify(1, true),
 				ci: testConnInfo("10.244.1.170", "10.244.2.1"),
 			},
 			wantErr:           assert.NoError,
@@ -95,7 +95,7 @@ func Test_authManager_authRequired(t *testing.T) {
 		{
 			name: "successful auth with lookup of cilium host IP v6 with /128 when getting host IP",
 			args: args{
-				dn: testDropNotify(1),
+				dn: testDropNotify(1, true),
 				ci: testConnInfo("ff00::101", "10.244.2.1"),
 			},
 			wantErr:           assert.NoError,
@@ -175,14 +175,19 @@ func testConnInfo(srcIP string, dstIP string) *monitor.ConnectionInfo {
 	}
 }
 
-func testDropNotify(authType int8) *monitor.DropNotify {
+func testDropNotify(authType int8, ingress bool) *monitor.DropNotify {
+	var dstID uint32
+	if ingress {
+		dstID = 1
+	}
+
 	return &monitor.DropNotify{
 		Type:     monitorAPI.MessageTypeDrop,
 		SubType:  uint8(flow.DropReason_AUTH_REQUIRED),
 		Source:   1,
 		SrcLabel: 1,
 		DstLabel: 2,
-		DstID:    2,
+		DstID:    dstID,
 		ExtError: authType, // Auth Type
 	}
 }
