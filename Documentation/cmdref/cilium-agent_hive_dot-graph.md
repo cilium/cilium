@@ -26,6 +26,9 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration     Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string         Absolute path of the kubernetes kubeconfig file
       --mesh-auth-monitor-queue-size int   Queue size for the auth monitor (default 1024)
+      --pprof                              Enable serving pprof debugging API
+      --pprof-address string               Address that pprof listens on (default "localhost")
+      --pprof-port uint16                  Port that pprof listens on (default 6060)
 ```
 
 ### SEE ALSO

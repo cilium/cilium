@@ -240,7 +240,7 @@ cilium-agent [flags]
       --policy-queue-size int                                   Size of queues for policy-related events (default 100)
       --pprof                                                   Enable serving pprof debugging API
       --pprof-address string                                    Address that pprof listens on (default "localhost")
-      --pprof-port int                                          Port that pprof listens on (default 6060)
+      --pprof-port uint16                                       Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                 Prepend custom iptables chains instead of appending (default true)
       --procfs string                                           Root's proc filesystem path (default "/proc")
