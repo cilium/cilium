@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/workerpool"
 	"helm.sh/helm/v3/pkg/action"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,16 +35,28 @@ type UninstallParameters struct {
 }
 
 type K8sUninstaller struct {
-	client k8sInstallerImplementation
-	params UninstallParameters
-	flavor k8s.Flavor
+	client  k8sInstallerImplementation
+	params  UninstallParameters
+	flavor  k8s.Flavor
+	version semver.Version
 }
 
 func NewK8sUninstaller(client k8sInstallerImplementation, p UninstallParameters) *K8sUninstaller {
-	return &K8sUninstaller{
+	uninstaller := &K8sUninstaller{
 		client: client,
 		params: p,
 	}
+	ciliumVersion, err := client.GetRunningCiliumVersion(context.Background(), p.Namespace)
+	if err != nil {
+		uninstaller.Log("Error getting Cilium Version: %s", err)
+	}
+	version, err := semver.Parse(ciliumVersion)
+	if err != nil {
+		uninstaller.Log("Error parsing Cilium Version: %s", err)
+	} else {
+		uninstaller.version = version
+	}
+	return uninstaller
 }
 
 func (k *K8sUninstaller) Log(format string, a ...interface{}) {
@@ -133,7 +146,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{})
 	}
 
-	if needsNodeInit(k.flavor.Kind) {
+	if needsNodeInit(k.flavor.Kind, k.version) {
 		k.Log("🔥 Deleting node init daemonset...")
 		k.client.DeleteDaemonSet(ctx, k.params.Namespace, defaults.NodeInitDaemonSetName, metav1.DeleteOptions{})
 	}

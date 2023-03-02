@@ -169,22 +169,20 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 			}
 		}
 
+		// Set nodeinit enabled option
+		if needsNodeInit(k.flavor.Kind, k.chartVersion) {
+			helmMapOpts["nodeinit.enabled"] = "true"
+		}
+
 		// Set Helm options specific to the detected Kubernetes cluster type
 		switch k.flavor.Kind {
 		case k8s.KindKind:
 			helmMapOpts["ipam.mode"] = ipamKubernetes
 
-		case k8s.KindEKS:
-			helmMapOpts["nodeinit.enabled"] = "true"
-
 		case k8s.KindGKE:
-			helmMapOpts["nodeinit.enabled"] = "true"
 			helmMapOpts["nodeinit.removeCbrBridge"] = "true"
 			helmMapOpts["nodeinit.reconfigureKubelet"] = "true"
 			helmMapOpts["cni.binPath"] = "/home/kubernetes/bin"
-
-		case k8s.KindAKS:
-			helmMapOpts["nodeinit.enabled"] = "true"
 
 		case k8s.KindMicrok8s:
 			helmMapOpts["cni.binPath"] = Microk8sSnapPath + "/opt/cni/bin"
