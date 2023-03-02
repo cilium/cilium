@@ -6,7 +6,7 @@ Everybody listed is a committer as per governance definition.
 
 Regardless of committer status, any code contribution is subject
 to code review requirements as per [CODEOWNERS](CODEOWNERS) and PRs get merged
-by the "janitor role" which is rotated between all committers.
+by the "tophat role" which is rotated between all committers.
 
 ## Cilium Committers
 
