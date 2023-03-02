@@ -46,19 +46,6 @@ spec:
           image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
           imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
           lifecycle:
-            {{- if .Values.eni.enabled }}
-            postStart:
-              exec:
-                command:
-                  - nsenter
-                  - --target=1
-                  - --mount
-                  - --
-                  - "/bin/bash"
-                  - "-c"
-                  - |
-                    {{- tpl (.Files.Get "files/nodeinit/poststart-eni.bash") . | nindent 20 }}
-            {{- end }}
             {{- if .Values.nodeinit.revertReconfigureKubelet }}
             preStop:
               exec:
