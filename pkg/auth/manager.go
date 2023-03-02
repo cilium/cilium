@@ -32,14 +32,13 @@ type authHandler interface {
 }
 
 type authRequest struct {
-	srcIdentity identity.NumericIdentity
-	dstIdentity identity.NumericIdentity
-	srcHostIP   net.IP
-	dstHostIP   net.IP
+	localIdentity  identity.NumericIdentity
+	remoteIdentity identity.NumericIdentity
+	remoteHostIP   net.IP
 }
 
 type authResponse struct {
-	expiryTime time.Time
+	expirationTime time.Time
 }
 
 // datapathAuthenticator is responsible to write auth information back to a BPF map
@@ -72,9 +71,9 @@ func (a *authManager) AuthRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 
 func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) error {
 	authType := getAuthType(dn)
-	policyType := getPolicyType(dn)
+	policyType := getRequestDirection(dn)
 
-	log.Debugf("auth: %s Policy is requiring authentication type %s for identity %d->%d, endpoint %s->%s",
+	log.Debugf("auth: %s policy is requiring authentication type %s for identity %d->%d, endpoint %s->%s",
 		policyType, authType, dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP)
 
 	// Authenticate according to the requested auth type
@@ -97,29 +96,38 @@ func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
 	}
 
-	log.Debugf("auth: Successfully authenticated request for identity %s->%s, endpoint %s->%s, host %s->%s",
-		dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP, authReq.srcHostIP, authReq.dstHostIP)
+	log.Debugf("auth: Successfully authenticated %s request for identity %s->%s, endpoint %s->%s, remote host %s",
+		getRequestDirection(dn), dn.SrcLabel, dn.DstLabel, ci.SrcIP, ci.DstIP, authReq.remoteHostIP)
 
 	return nil
 }
 
 func (a *authManager) buildAuthRequest(dn *monitor.DropNotify, ci *monitor.ConnectionInfo) (*authRequest, error) {
-	srcHostIP := a.hostIPForConnIP(ci.SrcIP)
-	if srcHostIP == nil {
-		return nil, fmt.Errorf("failed to get host IP of connection source IP %s", ci.SrcIP)
-	}
 
-	dstHostIP := a.hostIPForConnIP(ci.DstIP)
-	if dstHostIP == nil {
-		return nil, fmt.Errorf("failed to get host IP of connection destination IP %s", ci.DstIP)
+	var localIdentity identity.NumericIdentity
+	var remoteIdentity identity.NumericIdentity
+	var remoteHostIP net.IP
 
+	if isIngress(dn) {
+		localIdentity = dn.DstLabel
+		remoteIdentity = dn.SrcLabel
+		remoteHostIP = a.hostIPForConnIP(ci.SrcIP)
+		if remoteHostIP == nil {
+			return nil, fmt.Errorf("failed to get host IP of connection source IP %s", ci.SrcIP)
+		}
+	} else {
+		localIdentity = dn.SrcLabel
+		remoteIdentity = dn.DstLabel
+		remoteHostIP = a.hostIPForConnIP(ci.DstIP)
+		if remoteHostIP == nil {
+			return nil, fmt.Errorf("failed to get host IP of connection destination IP %s", ci.DstIP)
+		}
 	}
 
 	return &authRequest{
-		srcIdentity: dn.SrcLabel,
-		dstIdentity: dn.DstLabel,
-		srcHostIP:   srcHostIP,
-		dstHostIP:   dstHostIP,
+		localIdentity:  localIdentity,
+		remoteIdentity: remoteIdentity,
+		remoteHostIP:   remoteHostIP,
 	}, nil
 }
 
@@ -151,9 +159,9 @@ func getAuthType(dn *monitor.DropNotify) policy.AuthType {
 	return policy.AuthType(dn.ExtError)
 }
 
-func getPolicyType(dn *monitor.DropNotify) string {
+func getRequestDirection(dn *monitor.DropNotify) string {
 	if isIngress(dn) {
-		return "Ingress"
+		return "ingress"
 	}
-	return "Egress"
+	return "egress"
 }

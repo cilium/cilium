@@ -18,7 +18,7 @@ func (r *nullAuthHandler) authenticate(authReq *authRequest) (*authResponse, err
 	log.Debugf("auth: Successfully authenticated request")
 
 	return &authResponse{
-		expiryTime: time.Now().Add(1 * time.Minute),
+		expirationTime: time.Now().Add(1 * time.Minute),
 	}, nil
 }
 
