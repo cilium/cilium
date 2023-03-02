@@ -164,7 +164,7 @@ type fakeDatapathAuthenticator struct {
 	authenticated bool
 }
 
-func (r *fakeDatapathAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, resp *authResponse) error {
+func (r *fakeDatapathAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, result *authResult) error {
 	r.authenticated = true
 	return nil
 }

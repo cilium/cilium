@@ -24,7 +24,7 @@ func newCtMapAuthenticator(endpointManager endpointmanager.EndpointsLookup) data
 	}
 }
 
-func (r *ctMapAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, resp *authResponse) error {
+func (r *ctMapAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, _ *authResult) error {
 	ep := r.endpointManager.LookupCiliumID(dn.Source)
 	if ep == nil {
 		// Maybe endpoint was deleted?
