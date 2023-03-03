@@ -382,6 +382,12 @@ Users (Alphabetically)
       L: https://planetscale.com/
       Q: @dctrwatson
 
+    * N: Polar Signals
+      D: Polar Signals uses Cilium as the CNI on its GKE dataplane v2 based clusters.
+      U: Networking
+      L: https://polarsignals.com
+      Q: @polarsignals @brancz
+
     * N: Polverio
       D: Polverio KubeLift is a single-node Kubernetes distribution optimized for Azure, using Cilium as the CNI.
       U: CNI, IPAM
