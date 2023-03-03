@@ -21,9 +21,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.12
-  minikube_version: 1.28.0
+  cilium_cli_version: v0.13.0
+  kind_version: v0.17.0
+  kind_config: .github/kind-config.yaml
   gateway_api_version: v0.5.1
+  metallb_version: 0.12.1
   timeout: 5m
 
 jobs:
@@ -57,25 +59,32 @@ jobs:
           fi
           echo ::set-output name=sha::${SHA}
 
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set kubeProxyReplacement=strict \
+            --helm-set=securityContext.privileged=true \
+            --helm-set=gatewayAPI.enabled=true \
+            --rollback=false \
+            --version="
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
-      - name: Create minikube cluster with multiple nodes
-        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8 # v0.0.11
+      - name: Create kind cluster
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
-          minikube-version: ${{ env.minikube_version }}
-          network-plugin: cni
-          cni: false
-          wait: false
-          start-args: --nodes 3 --docker-opt "default-ulimit=nofile=102400:102400"
-
-      # Start minikube tunnel
-      - name: Setup minikube
-        run: |
-          minikube tunnel &
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
 
       - name: Install Go
         uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
@@ -106,34 +115,46 @@ jobs:
 
       - name: Install Cilium
         run: |
-          helm upgrade -i cilium ./install/kubernetes/cilium \
-            --wait \
-            --namespace kube-system \
-            --set kubeProxyReplacement=strict \
-            --set nodeinit.enabled=true \
-            --set ipam.mode=kubernetes \
-            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set image.pullPolicy=IfNotPresent \
-            --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --set operator.image.suffix=-ci \
-            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --set operator.image.pullPolicy=IfNotPresent \
-            --set operator.image.useDigest=false \
-            --set securityContext.privileged=true \
-            --set gatewayAPI.enabled=true
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
-          kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
-
-          # To make sure that cilium envoy CRs are available
-          kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
-          kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+      - name: Install metallb for LB service
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          
+          cat << EOF > metallb_values.yaml
+          configInline:
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${METALLB_IP_RANGE}
+          psp:
+            create: false
+          EOF
+          
+          helm install --namespace metallb-system \
+            --create-namespace \
+            --repo https://metallb.github.io/metallb metallb metallb \
+            --version ${{ env.metallb_version }} \
+            --values metallb_values.yaml \
+            --wait
 
       - name: Run Gateway API conformance test
         timeout-minutes: 30
         run: |
+          cat << EOF | kubectl apply -f -
+          apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: GatewayClass
+          metadata:
+            name: cilium
+          spec:
+            controllerName: io.cilium/gateway-controller
+          EOF
+          
           GATEWAY_API_CONFORMANCE_TESTS=1 go test -v ./operator/pkg/gateway-api --gateway-class cilium --debug -test.run "TestConformance"
 
       - name: Post-test information gathering
