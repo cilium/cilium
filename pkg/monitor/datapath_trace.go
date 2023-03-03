@@ -125,11 +125,15 @@ func DecodeTraceNotify(data []byte, tn *TraceNotify) error {
 
 	switch version {
 	case TraceNotifyVersion0:
-		return binary.Read(bytes.NewReader(data), byteorder.Native, &tn.TraceNotifyV0)
+		return decodeTraceNotifyVersion0(data, &tn.TraceNotifyV0)
 	case TraceNotifyVersion1:
 		return binary.Read(bytes.NewReader(data), byteorder.Native, tn)
 	}
 	return fmt.Errorf("Unrecognized trace event (version %d)", version)
+}
+
+func decodeTraceNotifyVersion0(data []byte, tn *TraceNotifyV0) error {
+	return binary.Read(bytes.NewReader(data), byteorder.Native, tn)
 }
 
 // dumpIdentity dumps the source and destination identities in numeric or

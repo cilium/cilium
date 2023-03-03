@@ -6,6 +6,7 @@ package monitor
 import (
 	"bytes"
 	"encoding/binary"
+	"testing"
 
 	. "github.com/cilium/checkmate"
 
@@ -120,4 +121,22 @@ func (s *MonitorSuite) TestDecodeTraceNotifyErrors(c *C) {
 	err = DecodeTraceNotify(ev, &tn)
 	c.Assert(err, NotNil)
 	c.Assert(err.Error(), Equals, "Unrecognized trace event (version 255)")
+}
+
+func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
+	input := TraceNotifyV0{}
+	buf := bytes.NewBuffer(nil)
+
+	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		tn := &TraceNotifyV0{}
+		if err := decodeTraceNotifyVersion0(buf.Bytes(), tn); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
