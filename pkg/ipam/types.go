@@ -83,8 +83,8 @@ type IPAM struct {
 	IPv6Allocator Allocator
 	IPv4Allocator Allocator
 
-	// owner maps an IP to the owner
-	owner map[string]string
+	// owner maps an IP to the owner per pool.
+	owner map[Pool]map[string]string
 
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
