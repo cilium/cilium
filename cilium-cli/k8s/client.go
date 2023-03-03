@@ -229,8 +229,16 @@ func (c *Client) GetService(ctx context.Context, namespace, name string, opts me
 	return c.Clientset.CoreV1().Services(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) CreateEndpoints(ctx context.Context, namespace string, ep *corev1.Endpoints, opts metav1.CreateOptions) (*corev1.Endpoints, error) {
+	return c.Clientset.CoreV1().Endpoints(namespace).Create(ctx, ep, opts)
+}
+
 func (c *Client) GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error) {
 	return c.Clientset.CoreV1().Endpoints(namespace).Get(ctx, name, opts)
+}
+
+func (c *Client) DeleteEndpoints(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+	return c.Clientset.CoreV1().Endpoints(namespace).Delete(ctx, name, opts)
 }
 
 func (c *Client) CreateDeployment(ctx context.Context, namespace string, deployment *appsv1.Deployment, opts metav1.CreateOptions) (*appsv1.Deployment, error) {
