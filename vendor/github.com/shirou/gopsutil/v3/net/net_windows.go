@@ -211,7 +211,8 @@ func IOCountersByFileWithContext(ctx context.Context, pernic bool, filename stri
 
 // Return a list of network connections
 // Available kind:
-//   reference to netConnectionKindMap
+//
+//	reference to netConnectionKindMap
 func Connections(kind string) ([]ConnectionStat, error) {
 	return ConnectionsWithContext(context.Background(), kind)
 }
