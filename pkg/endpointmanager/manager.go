@@ -603,8 +603,6 @@ func (mgr *endpointManager) RestoreEndpoint(ep *endpoint.Endpoint) error {
 
 // AddEndpoint takes the prepared endpoint object and starts managing it.
 func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error) {
-	ep.SetDefaultConfiguration(false)
-
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
