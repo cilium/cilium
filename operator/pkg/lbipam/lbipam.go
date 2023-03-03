@@ -1108,7 +1108,7 @@ func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip net.IP) (lbRange *LBRange,
 		return r, false, nil
 	}
 
-	return nil, false, nil
+	return nil, foundPool, nil
 }
 
 // isResponsibleForSVC checks if LB IPAM should allocate and assign IPs or some other controller
