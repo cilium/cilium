@@ -134,9 +134,17 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		go ciliumNodeInformer.Run(isConnected)
 
 		<-kvstore.Connected()
-		close(isConnected)
-
 		log.Info("Connected to key-value store, stopping CiliumNode watcher")
+
+		// Set the ciliumNodeStore as nil so that any attempts of getting the
+		// CiliumNode are performed with a request sent to kube-apiserver
+		// directly instead of relying on an outdated version of the CiliumNode
+		// in this cache.
+		k.ciliumNodeStoreMU.Lock()
+		k.ciliumNodeStore = nil
+		k.ciliumNodeStoreMU.Unlock()
+
+		close(isConnected)
 
 		k.cancelWaitGroupToSyncResources(apiGroup)
 		k.k8sAPIGroups.RemoveAPI(apiGroup)
