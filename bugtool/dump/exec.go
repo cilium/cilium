@@ -4,36 +4,39 @@
 package dump
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os/exec"
 	"syscall"
+	"time"
+
+	"github.com/cilium/cilium/bugtool/cmd"
+	log "github.com/sirupsen/logrus"
 )
 
 // Exec gathers data resource from the stdout/stderr of
 // execing a command.
 type Exec struct {
-	Base `mapstructure:",squash"`
+	base `mapstructure:",squash"`
 	Ext  string
 
-	Cmd  string
-	Args []string
-
-	clauses []Clause
-	filter  func(io.Reader, io.Writer) error
+	Cmd                string
+	HashEncryptionKeys bool
+	Args               []string
 }
 
 func (e *Exec) Validate(ctx context.Context) error {
-	if err := e.Base.validate(); err != nil {
+	log.Debugf("validating: %s", e.Identifier())
+	if err := e.base.validate(); err != nil {
 		return fmt.Errorf("invalid exec %q: %w", e.GetName(), err)
 	}
 	return nil
 }
 
-func NewCommand(name string, ext string, cmd string, args ...string) *Exec {
+func NewExec(name string, ext string, cmd string, args ...string) *Exec {
 	return &Exec{
-		Base: Base{
+		base: base{
 			Name: name,
 			Kind: "Exec",
 		},
@@ -61,22 +64,44 @@ func (e *Exec) Run(ctx context.Context, runtime Context) error {
 		defer errFd.Close()
 
 		c := exec.CommandContext(ctx, e.Cmd, e.Args...)
-		c.Stdout = fd
+
+		var buf *bytes.Buffer
+		if e.HashEncryptionKeys {
+			buf = bytes.NewBuffer([]byte{})
+			c.Stdout = buf
+		} else {
+			c.Stdout = fd
+		}
 		c.Stderr = errFd
 
-		if err := c.Run(); err != nil {
-			return err
+		startTime := time.Now()
+		var runErr error
+		if runErr = c.Run(); runErr != nil {
+			return runErr
 		}
+
+		if e.HashEncryptionKeys {
+			fd.Write(cmd.HashEncryptionKeys(buf.Bytes()))
+		}
+
 		usage := c.ProcessState.SysUsage()
 		defer func() {
+			var ru *syscall.Rusage
 			if rusage, ok := usage.(*syscall.Rusage); ok {
-				runtime.AddResult(TaskResult{
-					Name:  e.Identifier(),
-					Usage: rusage,
-				})
+				ru = rusage
 			}
+			runtime.AddResult(TaskResult{
+				Name:           e.Identifier(),
+				StartTime:      startTime,
+				Duration:       time.Since(startTime).String(),
+				OutputFilePath: e.Filename(),
+
+				Usage: ru,
+				Error: runErr,
+				Code:  c.ProcessState.ExitCode(),
+			})
 		}()
 
-		return ctx.Err()
+		return nil
 	})
 }

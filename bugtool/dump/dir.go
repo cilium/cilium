@@ -13,13 +13,13 @@ const dumpDirPerms = 0700
 // Dir is a task that creates a directory, and schedules all of its subtasks
 // to output in that directory.
 type Dir struct {
-	Base  `mapstructure:",squash"`
-	Tasks []Task `mapstru`
+	base  `mapstructure:",squash"`
+	Tasks []Task `mapstructure:"tasks"`
 }
 
 func NewDir(name string, ts Tasks) *Dir {
 	return &Dir{
-		Base: Base{
+		base: base{
 			Kind: "Dir",
 			Name: name,
 		},
@@ -37,23 +37,21 @@ func (d *Dir) Name() string {
 }
 
 func (d *Dir) Run(ctx context.Context, runtime Context) error {
-	runtime = runtime.WithSubdir(d.Base.Name)
+	runtime = runtime.WithSubdir(d.base.Name)
 	if err := Initialize(runtime); err != nil {
-		return fmt.Errorf("failed to initialize dir task %q: %w", d.Base.Name, err)
+		return fmt.Errorf("failed to initialize dir task %q: %w", d.base.Name, err)
 	}
 
 	for _, task := range d.Tasks {
-		if err := runtime.Submit(task.Identifier(), func(ctx context.Context) error {
-			return task.Run(ctx, runtime)
-		}); err != nil {
-			return fmt.Errorf("failed to submit subtask: %w", err)
+		if err := task.Run(ctx, runtime); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
 func (d *Dir) Validate(ctx context.Context) error {
-	if err := d.Base.validate(); err != nil {
+	if err := d.base.validate(); err != nil {
 		return fmt.Errorf("invalid dir %q: %w", d, err)
 	}
 	for _, t := range d.Tasks {

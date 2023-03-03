@@ -14,13 +14,13 @@ import (
 func TestEncode(t *testing.T) {
 	assert := assert.New(t)
 	root := &Dir{
-		Base: Base{
+		base: base{
 			Kind: "Dir",
 			Name: "d0",
 		},
 		Tasks: []Task{
 			&Exec{
-				Base: Base{
+				base: base{
 					Kind: "Exec",
 					Name: "e0",
 				},
@@ -28,18 +28,19 @@ func TestEncode(t *testing.T) {
 				Args: []string{"/etc/"},
 			},
 			&Exec{
-				Base: Base{
+				base: base{
 					Kind: "Exec",
 					Name: "e1",
 				},
 				Cmd:  "bpftool",
 				Args: []string{"net", "show"},
 			},
-			&Dir{Base: Base{Kind: KindDir, Name: "z"}},
-			&Request{Base: Base{Kind: KindRequest, Name: "z"}},
+			&Dir{base: base{Kind: KindDir, Name: "z"}},
+			&Request{base: base{Kind: KindRequest, Name: "z"}},
 		},
 	}
 	d, err := json.MarshalIndent(root, "", "	")
+	t.Log(string(d))
 	assert.NoError(err)
 	rootTask, err := Decode(bytes.NewReader(d))
 	assert.NoError(err)

@@ -18,7 +18,7 @@ import (
 // Request implements a Task that makes HTTP requests over either a network
 // or unix socket.
 type Request struct {
-	Base `mapstructure:",squash"`
+	base `mapstructure:",squash"`
 	// URL is the url to be passed to the request.
 	URL string
 	// UnixSocketPath denotes optional unix socket to use for request, if not empty
@@ -39,7 +39,7 @@ func (r *Request) Validate(ctx context.Context) error {
 // NewRequest constructs a new Request.
 func NewRequest(name, url string) *Request {
 	return &Request{
-		Base: Base{
+		base: base{
 			Kind: "Request",
 			Name: name,
 		},
@@ -97,6 +97,7 @@ func (r *Request) Run(ctx context.Context, runtime Context) error {
 }
 
 func downloadToFile(ctx context.Context, client *http.Client, url, file string) error {
+	log.Debugf("requesting from: %s", url)
 	l := log.WithFields(log.Fields{
 		"url":  url,
 		"file": file,

@@ -24,17 +24,16 @@ func TestDir(t *testing.T) {
 		return nil
 	}
 	d := NewDir("dir0", Tasks{
-		NewCommand("cmd0", "txt", "echo", "0"),
-		NewCommand("cmd1", "md", "echo", "1"),
+		NewExec("cmd0", "txt", "echo", "0"),
+		NewExec("cmd1", "md", "echo", "1"),
 		NewDir("dir1", Tasks{
-			NewCommand("cmd2", "txt", "echo", "2"),
+			NewExec("cmd2", "txt", "echo", "2"),
 		}),
 	})
 	dir := t.TempDir()
-	c := NewContext(dir, sfn)
+	c := NewContext(dir, sfn, 0)
 	// note: dir0 not included, since it's not evaluated by the scheduler.
 	d.Run(context.Background(), c)
-	assert.Contains(run, "Dir:dir1")
 	assert.Contains(run, "Exec:cmd0")
 	assert.Contains(run, "Exec:cmd1")
 	assert.Contains(run, "Exec:cmd2")

@@ -7,16 +7,16 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path"
 	"strings"
+
+	"github.com/cilium/cilium/bugtool/cmd"
 )
 
 // File implements a Task that will copy a file into a dump.
 type File struct {
-	Base      `mapstructure:",squash"`
-	Src       string
-	MissingOk bool
-	recursive bool
+	base               `mapstructure:",squash"`
+	Src                string
+	ExcludeObjectFiles string `mapstructure:"exclude_object_files"`
 }
 
 func (f *File) Validate(ctx context.Context) error {
@@ -28,30 +28,32 @@ func (f *File) Validate(ctx context.Context) error {
 
 func NewFile(Src string) *File {
 	return &File{
-		Base: Base{
-			Name: "file:" + strings.ReplaceAll(Src, "/", "_"),
+		base: base{
+			Name: strings.ReplaceAll(Src, "/", "_"),
 			Kind: "File",
 		},
-		Src:       Src,
-		MissingOk: false,
+		Src: Src,
 	}
 }
 
-func (f *File) WithRecursive() *File {
+func (f *File) WithExcludeObjFiles(pattern string) *File {
 	nf := *f
-	nf.recursive = true
+	nf.ExcludeObjectFiles = pattern
 	return &nf
 }
 
-func (c *File) Run(ctx context.Context, runtime Context) error {
-	if c.Src == "" {
+func (f *File) Run(ctx context.Context, runtime Context) error {
+	if f.Src == "" {
 		return fmt.Errorf("source file/dir cannot be empty")
 	}
-	_, name := path.Split(c.Src)
-	return runtime.Submit(name, func(_ context.Context) error {
-		out, err := exec.CommandContext(ctx, "cp", "-r", c.Src).CombinedOutput()
+	return runtime.Submit(f.Identifier(), func(_ context.Context) error {
+		out, err := exec.CommandContext(ctx, "cp", "-r", f.Src, runtime.Dir()).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("failed to copy %q: %w, %s", runtime.Dir(), err, out)
+		}
+
+		if f.ExcludeObjectFiles != "" {
+			cmd.RemoveObjectFiles(runtime.Dir(), f.ExcludeObjectFiles)
 		}
 		return nil
 	})

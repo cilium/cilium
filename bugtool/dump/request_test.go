@@ -19,7 +19,7 @@ func TestRequest(t *testing.T) {
 		return fn(context.Background())
 	}
 	dir := t.TempDir()
-	c := NewContext(dir, sfn)
+	c := NewContext(dir, sfn, 0)
 	e.Run(context.Background(), c)
 	assert.Equal("Request:do-req", run)
 }

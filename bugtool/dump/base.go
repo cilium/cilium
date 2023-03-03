@@ -5,22 +5,22 @@ package dump
 
 import "fmt"
 
-// Base provides a compositional base for serializable Task types.
+// base provides a compositional base for serializable Task types.
 // This is the metadata used to identify task types.
 //
 // Note: Tasks should always use composition for the base, and
 // use the mapstructure:",squash" tag so that the task can be correctly
 // be decoded.
-type Base struct {
+type base struct {
 	Name string `json:"Name",mapstructure:"Name"`
 	Kind Kind   `json:"Kind",mapstructure:"Kind"`
 }
 
-func (b Base) Identifier() string {
+func (b base) Identifier() string {
 	return fmt.Sprintf("%s:%s", b.Kind, b.Name)
 }
 
-func (b Base) GetName() string {
+func (b base) GetName() string {
 	return b.Name
 }
 
@@ -32,7 +32,7 @@ var Kinds = []Kind{
 	KindRequest,
 }
 
-func (b Base) validate() error {
+func (b base) validate() error {
 	if b.Kind == "" {
 		return fmt.Errorf("task kind cannot be empty")
 	}

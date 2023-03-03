@@ -22,6 +22,7 @@ const (
 	KindExec    Kind = "Exec"
 	KindRequest Kind = "Request"
 	KindFile    Kind = "File"
+	KindBPFMap  Kind = "BPFMap"
 )
 
 // Decode attempts to decode a task configuration from a reader
@@ -44,7 +45,7 @@ func decodeMap(m map[string]any) (Task, error) {
 	if m == nil {
 		return nil, fmt.Errorf("cannot decode nil map")
 	}
-	result := &Base{}
+	result := &base{}
 	mdec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result: &result,
 	})
@@ -71,7 +72,7 @@ func decodeMap(m map[string]any) (Task, error) {
 			}
 		}
 		return &Dir{
-			Base:  *result,
+			base:  *result,
 			Tasks: ts,
 		}, nil
 	case KindExec:

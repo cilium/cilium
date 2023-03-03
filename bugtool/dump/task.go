@@ -10,8 +10,10 @@ import (
 	"path"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -19,6 +21,7 @@ var (
 	_ Task = &Dir{}
 	_ Task = &Request{}
 	_ Task = &File{}
+	_ Task = &BPFMap[BPFByteBuffer, interface{}]{}
 )
 
 // ScheduleFunc schedules another function for execution.
@@ -27,7 +30,8 @@ type ScheduleFunc func(string, func(context.Context) error) error
 // Context is the runtime context of a task tree. It is used to pass
 // scheduling and reporting functionality down the execution tree.
 type Context struct {
-	dir string
+	dir     string
+	timeout time.Duration
 
 	Submit ScheduleFunc
 
@@ -37,29 +41,55 @@ type Context struct {
 
 // NewContext constructs a new contexts, where baseDir should be the root of the
 // dump directory.
-func NewContext(baseDir string, submit ScheduleFunc) Context {
+func NewContext(baseDir string, submit ScheduleFunc, timeout time.Duration) Context {
 	return Context{
 		dir:     baseDir,
 		Submit:  submit,
-		collect: &collector{results: make(map[string]TaskResults)},
+		timeout: timeout,
+		collect: &collector{results: make(map[string]*TopicResults)},
 	}
 }
 
 // TaskResult contains result metadata about the outcome of a tasks execution.
 type TaskResult struct {
-	Name           string          `json:"name"`
-	Status         string          `json:"status"`
-	Error          string          `json:"error,omitempty"`
-	Usage          *syscall.Rusage `json:"usage,omitempty"`
-	OutputFilePath string          `json:"output_file,omitempty"`
+	Name           string    `json:"name"`
+	StartTime      time.Time `json:"start_time"`
+	Duration       string    `json:"duration"`
+	OutputFilePath string    `json:"output_file,omitempty"`
+
+	Code  int             `json:"return_code"`
+	Error error           `json:"error,omitempty"`
+	Usage *syscall.Rusage `json:"usage,omitempty"`
 }
 
-type TaskResults []TaskResult
+type TopicResults struct {
+	Name    string       `json:"name"`
+	Results []TaskResult `json:"results"`
+}
+
+func (c Context) GetResults() error {
+	for p, v := range c.collect.results {
+		file := path.Join(p, "results.yaml")
+		fd, err := os.Create(file)
+		if err != nil {
+			return fmt.Errorf("failed to create results file: %w", err)
+		}
+		d, err := yaml.Marshal(v)
+		if err != nil {
+			return fmt.Errorf("failed to marshal results: %w", err)
+		}
+		if _, err := fd.Write(d); err != nil {
+			return fmt.Errorf("failed to write results %q: %w", file, err)
+		}
+		fd.Close()
+	}
+	return nil
+}
 
 // collector collects results from tasks.
 type collector struct {
 	sync.RWMutex
-	results map[string]TaskResults
+	results map[string]*TopicResults
 }
 
 func (c Context) AddResult(r TaskResult) {
@@ -69,7 +99,12 @@ func (c Context) AddResult(r TaskResult) {
 func (c *collector) addResult(dir string, r TaskResult) {
 	c.Lock()
 	defer c.Unlock()
-	c.results[dir] = append(c.results[dir], r)
+	if _, ok := c.results[dir]; !ok {
+		c.results[dir] = &TopicResults{
+			Name: dir,
+		}
+	}
+	c.results[dir].Results = append(c.results[dir].Results, r)
 }
 
 // Dir is the current output directory where tasks running under this Context
@@ -101,7 +136,11 @@ func (c Context) CreateErrFile(filename string) (*ErrFile, error) {
 
 // Initialize initializes a runtime context, ensuring that dump directory is in place.
 func Initialize(c Context) error {
+	if c.Dir() == "" {
+		return nil
+	}
 	if err := os.MkdirAll(c.Dir(), dumpDirPerms); err != nil {
+		logrus.Errorf("could not init dir %q: %s", c.Dir(), err.Error())
 		return fmt.Errorf("could not init dump directory %q: %w", c.Dir(), err)
 	}
 	return nil
