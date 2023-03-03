@@ -89,6 +89,7 @@ const (
 	RequestTimeout = 10 * time.Second
 
 	IngressClassName        = "cilium"
+	IngressService          = "cilium-ingress"
 	IngressControllerName   = "cilium.io/ingress-controller"
 	IngressSecretsNamespace = "cilium-secrets"
 
