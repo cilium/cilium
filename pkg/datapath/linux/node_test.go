@@ -82,8 +82,8 @@ func (s *linuxTestSuite) TestCreateNodeRoute(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(generatedRoute.Prefix, checker.DeepEquals, *c1.IPNet)
 	c.Assert(generatedRoute.Device, check.Equals, dpConfig.HostDevice)
-	c.Assert(*generatedRoute.Nexthop, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
-	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv6().PrimaryExternal())
+	c.Assert(generatedRoute.Nexthop, check.IsNil)
+	c.Assert(generatedRoute.Local, checker.DeepEquals, fakeNodeAddressing.IPv6().Router())
 }
 
 func (s *linuxTestSuite) TestCreateNodeRouteSpecMtu(c *check.C) {
