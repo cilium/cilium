@@ -24,7 +24,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= ctx_get_ifindex(ctx),
 	};
 
 	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src,
@@ -94,7 +94,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= ctx_get_ifindex(ctx),
 		.ipv4_src	= ip4->saddr,
 		.ipv4_dst	= ip4->daddr,
 	};
