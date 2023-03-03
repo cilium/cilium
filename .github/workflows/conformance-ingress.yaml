@@ -21,8 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  cilium_cli_version: v0.12.12
-  minikube_version: 1.28.0
+  cilium_cli_version: v0.13.0
+  kind_version: v0.17.0
+  kind_config: .github/kind-config.yaml
+  metallb_version: 0.12.1
   timeout: 5m
 
 jobs:
@@ -93,23 +95,11 @@ jobs:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
-      - name: Create minikube cluster with multiple nodes
-        uses: medyagh/setup-minikube@ab221dee176f8eabd8deddf849b5bf1d6244a6e8 # v0.0.11
+      - name: Create kind cluster
+        uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
         with:
-          minikube-version: ${{ env.minikube_version }}
-          network-plugin: cni
-          cni: false
-          wait: false
-          start-args: --nodes 3 --docker-opt "default-ulimit=nofile=102400:102400"
-
-      # Start minikube tunnel
-      - name: Setup minikube
-        run: |
-          docker pull ${{ env.ECHO_SERVER_IMAGE }}
-          minikube image load ${{ env.ECHO_SERVER_IMAGE }}
-          minikube tunnel &
-        env:
-          ECHO_SERVER_IMAGE: registry.k8s.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
 
       - name: Checkout ingress-controller-conformance
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
@@ -135,33 +125,51 @@ jobs:
 
       - name: Install Cilium
         run: |
-          helm upgrade -i cilium ./install/kubernetes/cilium \
-            --wait \
-            --namespace kube-system \
-            --set kubeProxyReplacement=strict \
-            --set nodeinit.enabled=true \
-            --set ipam.mode=kubernetes \
-            --set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --set image.tag=${{ steps.vars.outputs.sha }} \
-            --set image.pullPolicy=IfNotPresent \
-            --set image.useDigest=false \
-            --set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --set operator.image.suffix=-ci \
-            --set operator.image.tag=${{ steps.vars.outputs.sha }} \
-            --set operator.image.pullPolicy=IfNotPresent \
-            --set operator.image.useDigest=false \
-            --set securityContext.privileged=true \
-            --set ingressController.enabled=true \
-            --set ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
-            --set ingressController.default=${{ matrix.default-ingress-controller }} \
-            --set extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
-          kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
-          kubectl rollout -n kube-system status deploy/coredns --timeout=${{ env.timeout }}
+      - name: Install metallb for LB service
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          
+          cat << EOF > metallb_values.yaml
+          configInline:
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${METALLB_IP_RANGE}
+          psp:
+            create: false
+          EOF
+          
+          helm install --namespace metallb-system \
+            --create-namespace \
+            --repo https://metallb.github.io/metallb metallb metallb \
+            --version ${{ env.metallb_version }} \
+            --values metallb_values.yaml \
+            --wait
 
-          # To make sure that cilium envoy CRs are available
-          kubectl wait --for condition=Established crd/ciliumenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
-          kubectl wait --for condition=Established crd/ciliumclusterwideenvoyconfigs.cilium.io --timeout=${{ env.timeout }}
+      # Remove this step once https://github.com/cilium/cilium-cli/pull/1432 is merged.
+      - name: Create Ingress Endpoint
+        if: ${{ matrix.loadbalancer-mode == 'shared' }}
+        timeout-minutes: 5
+        run: |
+          cat << EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Endpoints
+          metadata:
+            name: cilium-ingress
+            namespace: kube-system
+          subsets:
+          - addresses:
+            - ip: "192.192.192.192"
+            ports:
+            - port: 9999
+          EOF
 
       - name: Create sample workload
         timeout-minutes: 5
@@ -185,7 +193,7 @@ jobs:
           else
             node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
           fi
-          minikube ssh "curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1"
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
 
       - name: Cleanup Sanity check
         timeout-minutes: 5
