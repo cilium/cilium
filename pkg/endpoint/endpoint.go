@@ -964,6 +964,14 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 
 	e.getLogger().WithField("configuration-options", cfg).Debug("updating endpoint configuration options")
 
+	// We need to make sure DatapathConfiguration.DisableSipVerification value is same as
+	// the value of SourceIPVerification option in the endpoint.
+	if e.GetOptions().IsEnabled(option.SourceIPVerification) {
+		e.DatapathConfiguration.DisableSipVerification = false
+	} else {
+		e.DatapathConfiguration.DisableSipVerification = true
+	}
+
 	// CurrentStatus will be not OK when we have an uncleared error in BPF,
 	// policy or Other. We should keep trying to regenerate in the hopes of
 	// succeeding.

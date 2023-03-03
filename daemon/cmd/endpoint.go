@@ -445,6 +445,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
+	// We need to make sure DatapathConfiguration.DisableSipVerification value is same as
+	// the value of SourceIPVerification option in the endpoint.
+	if epTemplate.DatapathConfiguration != nil {
+		if epTemplate.DatapathConfiguration.DisableSipVerification {
+			ep.GetOptions().SetBool(option.SourceIPVerification, false)
+		} else {
+			ep.GetOptions().SetBool(option.SourceIPVerification, true)
+		}
+	}
+
 	// We need to update the the visibility policy after adding the endpoint in
 	// the endpoint manager because the endpoint manager create the endpoint
 	// queue of the endpoint. If we execute this function before the endpoint
