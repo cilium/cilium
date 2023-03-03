@@ -19,6 +19,9 @@ spec:
       - name: hubble-cli
         image: quay.io/cilium/hubble:v0.11.2@sha256:706e819ab74e6812faea48067c5a7df56c2c2ab4a9088e05fbc5fe150cd09848
         imagePullPolicy: IfNotPresent
+        env:
+          - name: HUBBLE_SERVER
+            value: "$(HUBBLE_RELAY_SERVICE_HOST):$(HUBBLE_RELAY_SERVICE_PORT)"
         command:
           - tail
         args:
