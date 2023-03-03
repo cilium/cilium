@@ -141,3 +141,22 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkDecodeTraceNotifyVersion1(b *testing.B) {
+	input := TraceNotifyV1{}
+	buf := bytes.NewBuffer(nil)
+
+	if err := binary.Write(buf, byteorder.Native, input); err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		tn := &TraceNotifyV1{}
+		if err := tn.decodeTraceNotifyVersion1(buf.Bytes()); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
