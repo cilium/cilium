@@ -244,13 +244,13 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 #ifdef ENABLE_VTEP
 		{
 			struct vtep_key vkey = {};
-			struct vtep_value *info;
+			struct vtep_value *vtep;
 
 			vkey.vtep_ip = ip4->saddr & VTEP_MASK;
-			info = map_lookup_elem(&VTEP_MAP, &vkey);
-			if (!info)
+			vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+			if (!vtep)
 				goto skip_vtep;
-			if (info->tunnel_endpoint) {
+			if (vtep->tunnel_endpoint) {
 				if (*identity != WORLD_ID)
 					return DROP_INVALID_VNI;
 			}
