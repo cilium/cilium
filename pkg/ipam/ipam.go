@@ -107,7 +107,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	ipam := &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
-		owner:            map[string]string{},
+		owner:            map[Pool]map[string]string{},
 		expirationTimers: map[string]string{},
 		excludedIPs:      map[string]string{},
 	}
@@ -157,6 +157,28 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	}
 
 	return ipam
+}
+
+// registerIPOwner registers a new owner for an IP in a particular pool.
+func (ipam *IPAM) registerIPOwner(ip net.IP, owner string, pool Pool) {
+	if _, ok := ipam.owner[pool]; !ok {
+		ipam.owner[pool] = make(map[string]string)
+	}
+	ipam.owner[pool][ip.String()] = owner
+}
+
+// releaseIPOwner releases ip from pool and returns the previous owner.
+func (ipam *IPAM) releaseIPOwner(ip net.IP, pool Pool) string {
+	var owner string
+	if m, ok := ipam.owner[pool]; ok {
+		ipStr := ip.String()
+		owner = m[ipStr]
+		delete(m, ipStr)
+		if len(m) == 0 {
+			delete(ipam.owner, pool)
+		}
+	}
+	return owner
 }
 
 // ExcludeIP ensures that a certain IP is never allocated. It is preferred to
