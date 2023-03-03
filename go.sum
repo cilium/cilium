@@ -164,10 +164,10 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/cilium/controller-tools v0.6.2 h1:oIkqAzqncKsm+lQFJVP6n+bqHOVs9nUZ06hgZ4PxlMM=
 github.com/cilium/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
-github.com/cilium/coverbee v0.3.1 h1:HfATR8JDy13g7rZp/GIxo91jKUbiYv3CGEZngAPP3KU=
-github.com/cilium/coverbee v0.3.1/go.mod h1:p9Q2SRC/sPA0qATNfY19GXBUPdcQP6UVV2LKgOHRIzQ=
 github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27 h1:X99IJC9BVwnZiPv3XTuMRf5HlCYUL7rlNEZU/zWVtOo=
 github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27/go.mod h1:nFj/mLY2y3zQe+DDXgl9rXixkJPVLf23UfRlaljzW6k=
+github.com/cilium/coverbee v0.3.2 h1:RaJN5OaHf/M8tmeLemHmdO0H5bFUhvtTAoYbStDIX14=
+github.com/cilium/coverbee v0.3.2/go.mod h1:p9Q2SRC/sPA0qATNfY19GXBUPdcQP6UVV2LKgOHRIzQ=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e h1:VZolEtS7AlGDu3IH368iqkvfQQSGPgOnPjNaUx4dS7M=
 github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e/go.mod h1:c4R5wxGyXhbM6zyKeRKNIc9aab5EZi4z4oOSZvUMvZA=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
