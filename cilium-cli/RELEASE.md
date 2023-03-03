@@ -62,8 +62,7 @@ Then tag and push the release:
 
 When a tag is pushed, a GitHub Action job takes care of creating a new GitHub
 draft release, building artifacts and attaching them to the draft release. Once
-the draft is ready, use the "Auto-generate release notes" button to generate
-the release notes from PR titles, review them and publish the release.
+the draft is ready, review the release notes and publish the release.
 
 ### Update stable.txt
 
