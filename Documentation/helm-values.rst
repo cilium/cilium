@@ -81,6 +81,10 @@
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - bpf.autoMount.enabled
+     - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
+     - bool
+     - ``true``
    * - bpf.clockProbe
      - Enable BPF clock source probing for more efficient tick retrieval.
      - bool
@@ -438,11 +442,11 @@
      - string
      - ``"0s"``
    * - containerRuntime
-     - Configure container runtime specific integration.
+     - Configure container runtime specific integration. Deprecated in favor of bpf.autoMount.enabled. To be removed in 1.15.
      - object
      - ``{"integration":"none"}``
    * - containerRuntime.integration
-     - Enables specific integrations for container runtimes. Supported values: - containerd - crio - docker - none - auto (automatically detect the container runtime)
+     - Enables specific integrations for container runtimes. Supported values: - crio - none
      - string
      - ``"none"``
    * - crdWaitTimeout

@@ -334,6 +334,7 @@ Helm Options
   ``podSecurityContext``.
 * The ``securityContext`` for Hubble Relay now defaults to drop all
   capabilities and run as non-root user.
+* The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
 
 .. _earlier_upgrade_notes:
 

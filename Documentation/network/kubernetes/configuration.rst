@@ -340,7 +340,7 @@ If you want to use CRIO, generate the YAML using:
 
 .. note::
 
-   The helm ``--set containerRuntime.integration=crio`` might not be
+   The helm ``--set bpf.autoMount.enabled=false`` might not be
    required for your setup. For more info see :ref:`crio-known-issues`.
 
 .. parsed-literal::
@@ -374,7 +374,7 @@ Common CRIO issues
 
 Some CRI-O environments automatically mount the bpf filesystem in the pods,
 which is something that Cilium avoids doing when
-``--set containerRuntime.integration=crio`` is set. However, some
+``--set bpf.autoMount.enabled=false`` is set. However, some
 CRI-O environments do not mount the bpf filesystem automatically which causes
 Cilium to print the following message::
 
@@ -387,5 +387,5 @@ Cilium to print the following message::
         level=info msg="Mounting BPF filesystem at /sys/fs/bpf" subsys=bpf
 
 If you see this warning in the Cilium pod logs with your CRI-O environment,
-please remove the flag ``--set containerRuntime.integration=crio`` from
+please remove the flag ``--set bpf.autoMount.enabled=false`` from
 your helm setup and redeploy Cilium.
