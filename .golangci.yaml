@@ -87,7 +87,6 @@ linters:
     - misspell
     - staticcheck
     - unused
-    - varcheck
     - goheader
 
 # To enable later if makes sense
