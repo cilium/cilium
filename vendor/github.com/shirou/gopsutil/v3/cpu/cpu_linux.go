@@ -190,7 +190,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 		switch key {
 		case "Processor":
 			processorName = value
-		case "processor":
+		case "processor", "cpu number":
 			if c.CPU >= 0 {
 				finishCPUInfo(&c)
 				ret = append(ret, c)
@@ -203,6 +203,9 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 			c.CPU = int32(t)
 		case "vendorId", "vendor_id":
 			c.VendorID = value
+			if strings.Contains(value, "S390") {
+				processorName = "S390"
+			}
 		case "CPU implementer":
 			if v, err := strconv.ParseUint(value, 0, 8); err == nil {
 				switch v {
@@ -253,7 +256,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 					}
 				}
 			}
-		case "model name", "cpu":
+		case "Model Name", "model name", "cpu":
 			c.ModelName = value
 			if strings.Contains(value, "POWER8") ||
 				strings.Contains(value, "POWER7") {
@@ -273,7 +276,7 @@ func InfoWithContext(ctx context.Context) ([]InfoStat, error) {
 				return ret, err
 			}
 			c.Stepping = int32(t)
-		case "cpu MHz", "clock":
+		case "cpu MHz", "clock", "cpu MHz dynamic":
 			// treat this as the fallback value, thus we ignore error
 			if t, err := strconv.ParseFloat(strings.Replace(value, "MHz", "", 1), 64); err == nil {
 				c.Mhz = t

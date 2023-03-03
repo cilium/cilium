@@ -53,13 +53,13 @@ func MiscWithContext(ctx context.Context) (*MiscStat, error) {
 	for _, line := range strings.Split(string(out), "\n") {
 		ret.ProcsTotal++
 		switch line {
-			case "R":
-			case "A":
-				ret.ProcsRunning++
-			case "T":
-				ret.ProcsBlocked++
-			default:
-				continue
+		case "R":
+		case "A":
+			ret.ProcsRunning++
+		case "T":
+			ret.ProcsBlocked++
+		default:
+			continue
 		}
 	}
 	return ret, nil

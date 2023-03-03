@@ -8,9 +8,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"golang.org/x/sys/windows"
 )
 
 type PROCESS_MEMORY_COUNTERS struct {
