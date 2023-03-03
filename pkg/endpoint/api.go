@@ -116,6 +116,11 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	if base.DatapathConfiguration != nil {
 		ep.DatapathConfiguration = *base.DatapathConfiguration
+		// We need to make sure DatapathConfiguration.DisableSipVerification value
+		// overrides the value of SourceIPVerification runtime option of the endpoint.
+		if ep.DatapathConfiguration.DisableSipVerification {
+			ep.updateAndOverrideEndpointOptions(option.OptionMap{option.SourceIPVerification: option.OptionDisabled})
+		}
 	}
 
 	if base.Labels != nil {
