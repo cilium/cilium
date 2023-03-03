@@ -292,7 +292,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.EnableIPv6 {
-		args[initArgIPv6NodeIP] = node.GetIPv6().String()
+		args[initArgIPv6NodeIP] = node.GetIPv6Router().String()
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
