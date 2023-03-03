@@ -289,7 +289,7 @@ spec:
           name: host-proc-sys-kernel
         {{- end}}
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if not (eq .Values.containerRuntime.integration "crio") }}
+        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
           {{- if .Values.securityContext.privileged }}
@@ -532,7 +532,7 @@ spec:
               - ALL
           {{- end}}
       {{- end }}
-      {{- if not .Values.securityContext.privileged }}
+      {{- if and .Values.bpf.autoMount.enabled (not .Values.securityContext.privileged) }}
       # Mount the bpf fs if it is not mounted. We will perform this task
       # from a privileged container because the mount propagation bidirectional
       # only works from privileged containers.
@@ -549,7 +549,7 @@ spec:
         securityContext:
           privileged: true
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if not (eq .Values.containerRuntime.integration "crio") }}
+      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         volumeMounts:
         - name: bpf-maps
           mountPath: /sys/fs/bpf
@@ -621,7 +621,7 @@ spec:
           {{- end}}
         volumeMounts:
         {{- /* CRI-O already mounts the BPF filesystem */ -}}
-        {{- if not (eq .Values.containerRuntime.integration "crio") }}
+        {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         - name: bpf-maps
           mountPath: /sys/fs/bpf
         {{- end }}
@@ -713,7 +713,7 @@ spec:
           path: {{ .Values.daemon.runPath }}
           type: DirectoryOrCreate
       {{- /* CRI-O already mounts the BPF filesystem */ -}}
-      {{- if not (eq .Values.containerRuntime.integration "crio") }}
+      {{- if and .Values.bpf.autoMount.enabled (not (eq .Values.containerRuntime.integration "crio")) }}
         # To keep state between restarts / upgrades for bpf maps
       - name: bpf-maps
         hostPath:
