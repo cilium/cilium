@@ -61,11 +61,26 @@ func (c *config[Cfg]) provideConfig(settings AllSettings) (Cfg, error) {
 	// As input, only consider the declared flags.
 	input := make(map[string]any)
 
+	pflags := map[string]struct{}{}
 	c.flags.VisitAll(func(f *pflag.Flag) {
-		if v, ok := settings[f.Name]; ok {
+		pflags[f.Name] = struct{}{}
+	})
+	for k, _ := range pflags {
+		// If this flag is not lower case and there exists a lower case
+		// flag that conflicts with this one, then we need to error out
+		// to avoid ambigous flag mapping.
+		if _, exists := pflags[strings.ToLower(k)]; strings.ToLower(k) != k && exists {
+			return target, fmt.Errorf("flag %q conflicts with %q, all flags are matched in lower case",
+				k, strings.ToLower(k))
+		}
+	}
+
+	c.flags.VisitAll(func(f *pflag.Flag) {
+		fname := strings.ToLower(f.Name)
+		if v, ok := settings[fname]; ok {
 			input[f.Name] = v
 		} else {
-			err = fmt.Errorf("internal error: %s not found from settings", f.Name)
+			err = fmt.Errorf("internal error: %s not found from settings", fname)
 		}
 	})
 	if err != nil {
