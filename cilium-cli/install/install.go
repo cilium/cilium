@@ -144,6 +144,37 @@ func (k *K8sInstaller) generateIngressService() *corev1.Service {
 	return &ingressService
 }
 
+func (k *K8sInstaller) generateIngressEndpoint() *corev1.Endpoints {
+	var (
+		ingressEndpointFilename string
+	)
+
+	switch {
+	case versioncheck.MustCompile(">=1.13.0")(k.chartVersion):
+		ingressEndpointFilename = "templates/cilium-ingress-service.yaml"
+	}
+
+	_, exists := k.manifests[ingressEndpointFilename]
+	if !exists {
+		return nil
+	}
+
+	// as the file templates/cilium-ingress-service.yaml is having multiple objects,
+	// using utils.MustUnmarshalYAML will only unmarshal the first object.
+	// Hence, reconstructing the endpoint object here.
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cilium-ingress",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{{IP: "192.192.192.192"}},
+				Ports:     []corev1.EndpointPort{{Port: 9999}},
+			},
+		},
+	}
+}
+
 func (k *K8sInstaller) getSecretNamespace() string {
 	var (
 		nsFilename string
@@ -195,6 +226,8 @@ type k8sInstallerImplementation interface {
 	PatchDaemonSet(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*appsv1.DaemonSet, error)
 	GetService(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Service, error)
 	GetEndpoints(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*corev1.Endpoints, error)
+	CreateEndpoints(ctx context.Context, namespace string, ep *corev1.Endpoints, opts metav1.CreateOptions) (*corev1.Endpoints, error)
+	DeleteEndpoints(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	CreateService(ctx context.Context, namespace string, service *corev1.Service, opts metav1.CreateOptions) (*corev1.Service, error)
 	DeleteService(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
 	DeleteDeployment(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error
@@ -810,6 +843,18 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		k.pushRollbackStep(func(ctx context.Context) {
 			if err := k.client.DeleteService(ctx, ingressService.GetNamespace(), ingressService.GetName(), metav1.DeleteOptions{}); err != nil {
 				k.Log("Cannot delete %s Ingress Service: %s.%s", ingressService.GetNamespace(), ingressService.GetName(), err)
+			}
+		})
+	}
+
+	ingressEndpoint := k.generateIngressEndpoint()
+	if ingressEndpoint != nil {
+		if _, err := k.client.CreateEndpoints(ctx, ingressService.GetNamespace(), ingressEndpoint, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteEndpoints(ctx, ingressEndpoint.GetNamespace(), ingressEndpoint.GetName(), metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s Ingress Endpoint: %s.%s", ingressEndpoint.GetNamespace(), ingressEndpoint.GetName(), err)
 			}
 		})
 	}
