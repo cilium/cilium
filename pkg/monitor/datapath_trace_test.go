@@ -131,11 +131,12 @@ func BenchmarkDecodeTraceNotifyVersion0(b *testing.B) {
 		b.Fatal(err)
 	}
 
+	b.ReportAllocs()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		tn := &TraceNotifyV0{}
-		if err := decodeTraceNotifyVersion0(buf.Bytes(), tn); err != nil {
+		if err := tn.decodeTraceNotifyVersion0(buf.Bytes()); err != nil {
 			b.Fatal(err)
 		}
 	}
