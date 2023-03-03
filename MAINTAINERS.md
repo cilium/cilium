@@ -4,10 +4,6 @@ See [Governance](Documentation/community/governance/commit_access.rst) for
 governance, commit, and vote guidelines as well as committer responsibilities.
 Everybody listed is a committer as per governance definition.
 
-Regardless of committer status, any code contribution is subject
-to code review requirements as per [CODEOWNERS](CODEOWNERS) and PRs get merged
-by the "tophat role" which is rotated between all committers.
-
 ## Cilium Committers
 
  * [Aditi Ghag] (Isovalent)
