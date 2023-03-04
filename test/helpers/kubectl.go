@@ -4269,7 +4269,7 @@ func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds m
 		wg.Add(1)
 		go func(cmd, logfile string) {
 			defer wg.Done()
-			res := kub.ExecContext(ctx, cmd)
+			res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 
 			if !res.WasSuccessful() {
 				log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
