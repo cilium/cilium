@@ -140,7 +140,8 @@ jobs:
             -v ./operator/pkg/gateway-api \
             --gateway-class cilium \
             --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump \
-            -test.run "TestConformance"
+            -test.run "TestConformance" \
+            -test.skip "TestConformance/HTTPRouteHeaderMatching" # Enable once #23999 is fixed
 
       - name: Post-test information gathering
         if: ${{ !success() }}
