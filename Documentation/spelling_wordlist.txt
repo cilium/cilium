@@ -1112,3 +1112,5 @@ xxxxx
 yaml
 zsh
 zshrc
+externalTrafficPolicy
+internalTrafficPolicy

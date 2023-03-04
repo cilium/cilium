@@ -2344,6 +2344,12 @@ clustermesh:
       # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
       annotations: {}
 
+      # -- The externalTrafficPolicy of service used for apiserver access.
+      externalTrafficPolicy:
+
+      # -- The internalTrafficPolicy of service used for apiserver access.
+      internalTrafficPolicy:
+
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
 

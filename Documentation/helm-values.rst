@@ -297,6 +297,14 @@
      - Annotations for the clustermesh-apiserver For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal" For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
      - object
      - ``{}``
+   * - clustermesh.apiserver.service.externalTrafficPolicy
+     - The externalTrafficPolicy of service used for apiserver access.
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.service.internalTrafficPolicy
+     - The internalTrafficPolicy of service used for apiserver access.
+     - string
+     - ``nil``
    * - clustermesh.apiserver.service.nodePort
      - Optional port to use as the node port for apiserver access.
      - int
