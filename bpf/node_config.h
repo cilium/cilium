@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
+#ifndef __NODE_CONFIG__
+#define __NODE_CONFIG__
+
 /*
  *
  *
@@ -278,3 +281,5 @@ return false;
 # define NAT_46X64_PREFIX_2 0
 # define NAT_46X64_PREFIX_3 0
 #endif
+
+#endif /* __NODE_CONFIG__ */
