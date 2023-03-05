@@ -108,6 +108,8 @@ var (
 
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
+			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
+			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
 			lbipam.Cell,
 			identitygc.Cell,
@@ -287,16 +289,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 			log.Fatalf("Minimal kubernetes version not met: %s < %s",
 				k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 		}
-	}
-
-	// Register the CRDs after validating that we are running on a supported
-	// version of K8s.
-	if clientset.IsEnabled() && !operatorOption.Config.SkipCRDCreation {
-		if err := client.RegisterCRDs(clientset); err != nil {
-			log.WithError(err).Fatal("Unable to register CRDs")
-		}
-	} else {
-		log.Info("Skipping creation of CRDs")
 	}
 
 	// We only support Operator in HA mode for Kubernetes Versions having support for
