@@ -1466,8 +1466,15 @@ func initEnv() {
 		if option.Config.TunnelingEnabled() {
 			log.Fatalf("Cannot specify %s or %s in tunnel mode.", option.LocalRouterIPv4, option.LocalRouterIPv6)
 		}
+		// Release restrictions for BPFHostrouting when using the IPAMDelegatedPlugin
+		// Cloud providers can manage local routes by themselves
 		if !option.Config.EnableEndpointRoutes {
-			log.Fatalf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
+			if option.Config.IPAM == ipamOption.IPAMDelegatedPlugin {
+				log.Warnf("use ipam mode %s without %s, cilium will not manage local endpoint routes.",
+					ipamOption.IPAMDelegatedPlugin, option.EnableEndpointRoutes)
+			} else {
+				log.Fatalf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
+			}
 		}
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
