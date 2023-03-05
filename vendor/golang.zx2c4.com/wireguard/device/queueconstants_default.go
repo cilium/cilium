@@ -7,8 +7,10 @@
 
 package device
 
+import "golang.zx2c4.com/wireguard/conn"
+
 const (
-	QueueStagedSize            = 128
+	QueueStagedSize            = conn.IdealBatchSize
 	QueueOutboundSize          = 1024
 	QueueInboundSize           = 1024
 	QueueHandshakeSize         = 1024
