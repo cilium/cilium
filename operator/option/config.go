@@ -53,10 +53,6 @@ const (
 	// compatible with MetalLB's configuration.
 	BGPConfigPath = "bgp-config-path"
 
-	// SkipCRDCreation specifies whether the CustomResourceDefinition will be
-	// disabled for the operator
-	SkipCRDCreation = "skip-crd-creation"
-
 	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
 	// removed from the cluster in CiliumNetworkPolicy and
 	// CiliumClusterwideNetworkPolicy Status.
@@ -378,10 +374,6 @@ type OperatorConfig struct {
 	// compatible with MetalLB's configuration.
 	BGPConfigPath string
 
-	// SkipCRDCreation disables creation of the CustomResourceDefinition
-	// for the operator
-	SkipCRDCreation bool
-
 	// IPAM options
 
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
@@ -593,7 +585,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.LeaderElectionRetryPeriod = vp.GetDuration(LeaderElectionRetryPeriod)
 	c.BGPAnnounceLBIP = vp.GetBool(BGPAnnounceLBIP)
 	c.BGPConfigPath = vp.GetString(BGPConfigPath)
-	c.SkipCRDCreation = vp.GetBool(SkipCRDCreation)
 	c.LoadBalancerL7 = vp.GetString(LoadBalancerL7)
 	c.LoadBalancerL7Ports = vp.GetStringSlice(LoadBalancerL7Ports)
 	c.LoadBalancerL7Algorithm = vp.GetString(LoadBalancerL7Algorithm)
