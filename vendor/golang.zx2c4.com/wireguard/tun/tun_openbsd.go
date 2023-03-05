@@ -8,13 +8,13 @@ package tun
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sync"
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 )
 
@@ -204,45 +204,43 @@ func (tun *NativeTun) Events() <-chan Event {
 	return tun.events
 }
 
-func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
+func (tun *NativeTun) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
 	select {
 	case err := <-tun.errors:
 		return 0, err
 	default:
-		buff := buff[offset-4:]
+		buff := buffs[0][offset-4:]
 		n, err := tun.tunFile.Read(buff[:])
 		if n < 4 {
 			return 0, err
 		}
-		return n - 4, err
+		sizes[0] = n - 4
+		return 1, err
 	}
 }
 
-func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
-	// reserve space for header
-
-	buff = buff[offset-4:]
-
-	// add packet information header
-
-	buff[0] = 0x00
-	buff[1] = 0x00
-	buff[2] = 0x00
-
-	if buff[4]>>4 == ipv6.Version {
-		buff[3] = unix.AF_INET6
-	} else {
-		buff[3] = unix.AF_INET
+func (tun *NativeTun) Write(buffs [][]byte, offset int) (int, error) {
+	if offset < 4 {
+		return 0, io.ErrShortBuffer
 	}
-
-	// write
-
-	return tun.tunFile.Write(buff)
-}
-
-func (tun *NativeTun) Flush() error {
-	// TODO: can flushing be implemented by buffering and using sendmmsg?
-	return nil
+	for i, buf := range buffs {
+		buf = buf[offset-4:]
+		buf[0] = 0x00
+		buf[1] = 0x00
+		buf[2] = 0x00
+		switch buf[4] >> 4 {
+		case 4:
+			buf[3] = unix.AF_INET
+		case 6:
+			buf[3] = unix.AF_INET6
+		default:
+			return i, unix.EAFNOSUPPORT
+		}
+		if _, err := tun.tunFile.Write(buf); err != nil {
+			return i, err
+		}
+	}
+	return len(buffs), nil
 }
 
 func (tun *NativeTun) Close() error {
@@ -328,4 +326,8 @@ func (tun *NativeTun) MTU() (int, error) {
 	}
 
 	return int(*(*int32)(unsafe.Pointer(&ifr.MTU))), nil
+}
+
+func (tun *NativeTun) BatchSize() int {
+	return 1
 }

@@ -68,9 +68,11 @@ type Device struct {
 	cookieChecker CookieChecker
 
 	pool struct {
-		messageBuffers   *WaitPool
-		inboundElements  *WaitPool
-		outboundElements *WaitPool
+		outboundElementsSlice *WaitPool
+		inboundElementsSlice  *WaitPool
+		messageBuffers        *WaitPool
+		inboundElements       *WaitPool
+		outboundElements      *WaitPool
 	}
 
 	queue struct {
@@ -295,6 +297,7 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
 	device.rate.limiter.Init()
 	device.indexTable.Init()
+
 	device.PopulatePools()
 
 	// create queues
@@ -320,6 +323,19 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	go device.RoutineTUNEventReader()
 
 	return device
+}
+
+// BatchSize returns the BatchSize for the device as a whole which is the max of
+// the bind batch size and the tun batch size. The batch size reported by device
+// is the size used to construct memory pools, and is the allowed batch size for
+// the lifetime of the device.
+func (device *Device) BatchSize() int {
+	size := device.net.bind.BatchSize()
+	dSize := device.tun.device.BatchSize()
+	if size < dSize {
+		size = dSize
+	}
+	return size
 }
 
 func (device *Device) LookupPeer(pk NoisePublicKey) *Peer {
@@ -472,11 +488,13 @@ func (device *Device) BindUpdate() error {
 	var err error
 	var recvFns []conn.ReceiveFunc
 	netc := &device.net
+
 	recvFns, netc.port, err = netc.bind.Open(netc.port)
 	if err != nil {
 		netc.port = 0
 		return err
 	}
+
 	netc.netlinkCancel, err = device.startRouteListener(netc.bind)
 	if err != nil {
 		netc.bind.Close()
@@ -507,8 +525,9 @@ func (device *Device) BindUpdate() error {
 	device.net.stopping.Add(len(recvFns))
 	device.queue.decryption.wg.Add(len(recvFns)) // each RoutineReceiveIncoming goroutine writes to device.queue.decryption
 	device.queue.handshake.wg.Add(len(recvFns))  // each RoutineReceiveIncoming goroutine writes to device.queue.handshake
+	batchSize := netc.bind.BatchSize()
 	for _, fn := range recvFns {
-		go device.RoutineReceiveIncoming(fn)
+		go device.RoutineReceiveIncoming(batchSize, fn)
 	}
 
 	device.log.Verbosef("UDP bind has been updated")

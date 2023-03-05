@@ -1,9 +1,9 @@
+//go:build windows
+
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
  */
-
-//go:build windows
 
 package wintun
 
@@ -89,6 +89,9 @@ func CreateAdapter(name string, tunnelType string, requestedGUID *windows.GUID) 
 	if err != nil {
 		return
 	}
+	if err := procWintunCreateAdapter.Find(); err != nil {
+		return nil, err
+	}
 	r0, _, e1 := syscall.Syscall(procWintunCreateAdapter.Addr(), 3, uintptr(unsafe.Pointer(name16)), uintptr(unsafe.Pointer(tunnelType16)), uintptr(unsafe.Pointer(requestedGUID)))
 	if r0 == 0 {
 		err = e1
@@ -106,6 +109,9 @@ func OpenAdapter(name string) (wintun *Adapter, err error) {
 	if err != nil {
 		return
 	}
+	if err := procWintunOpenAdapter.Find(); err != nil {
+		return nil, err
+	}
 	r0, _, e1 := syscall.Syscall(procWintunOpenAdapter.Addr(), 1, uintptr(unsafe.Pointer(name16)), 0, 0)
 	if r0 == 0 {
 		err = e1
@@ -118,6 +124,9 @@ func OpenAdapter(name string) (wintun *Adapter, err error) {
 
 // Close closes a Wintun adapter.
 func (wintun *Adapter) Close() (err error) {
+	if err := procWintunCloseAdapter.Find(); err != nil {
+		return err
+	}
 	runtime.SetFinalizer(wintun, nil)
 	r1, _, e1 := syscall.Syscall(procWintunCloseAdapter.Addr(), 1, wintun.handle, 0, 0)
 	if r1 == 0 {
@@ -128,6 +137,9 @@ func (wintun *Adapter) Close() (err error) {
 
 // Uninstall removes the driver from the system if no drivers are currently in use.
 func Uninstall() (err error) {
+	if err := procWintunDeleteDriver.Find(); err != nil {
+		return err
+	}
 	r1, _, e1 := syscall.Syscall(procWintunDeleteDriver.Addr(), 0, 0, 0, 0)
 	if r1 == 0 {
 		err = e1
@@ -137,6 +149,9 @@ func Uninstall() (err error) {
 
 // RunningVersion returns the version of the loaded driver.
 func RunningVersion() (version uint32, err error) {
+	if err := procWintunGetRunningDriverVersion.Find(); err != nil {
+		return 0, err
+	}
 	r0, _, e1 := syscall.Syscall(procWintunGetRunningDriverVersion.Addr(), 0, 0, 0, 0)
 	version = uint32(r0)
 	if version == 0 {

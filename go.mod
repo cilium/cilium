@@ -62,7 +62,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.2
-	github.com/osrg/gobgp/v3 v3.11.0
+	github.com/osrg/gobgp/v3 v3.12.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
@@ -90,17 +90,17 @@ require (
 	go.uber.org/goleak v1.2.1
 	go.uber.org/multierr v1.9.0
 	go.universe.tf/metallb v0.11.0
-	golang.org/x/crypto v0.6.0
-	golang.org/x/exp v0.0.0-20230224173230-c95f2b4c22f2
-	golang.org/x/net v0.7.0
+	golang.org/x/crypto v0.7.0
+	golang.org/x/exp v0.0.0-20230304125523-9ff063c70017
+	golang.org/x/net v0.8.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.5.0
-	golang.org/x/term v0.5.0
+	golang.org/x/sys v0.6.0
+	golang.org/x/term v0.6.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.6.0
-	golang.zx2c4.com/wireguard v0.0.0-20230223181233-21636207a675
+	golang.zx2c4.com/wireguard v0.0.0-20230304142546-b6a68cf211aa
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230215201556-9c5414ab4bde
-	google.golang.org/genproto v0.0.0-20230227214838-9b19f0bdc514
+	google.golang.org/genproto v0.0.0-20230303212802-e74f57abe488
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -232,8 +232,8 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/oauth2 v0.4.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
-	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
+	golang.org/x/text v0.8.0 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

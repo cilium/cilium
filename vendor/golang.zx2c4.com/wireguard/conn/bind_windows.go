@@ -321,6 +321,13 @@ func (bind *WinRingBind) Close() error {
 	return nil
 }
 
+// TODO: When all Binds handle IdealBatchSize, remove this dynamic function and
+// rename the IdealBatchSize constant to BatchSize.
+func (bind *WinRingBind) BatchSize() int {
+	// TODO: implement batching in and out of the ring
+	return 1
+}
+
 func (bind *WinRingBind) SetMark(mark uint32) error {
 	return nil
 }
@@ -409,16 +416,22 @@ retry:
 	return n, &ep, nil
 }
 
-func (bind *WinRingBind) receiveIPv4(buf []byte) (int, Endpoint, error) {
+func (bind *WinRingBind) receiveIPv4(buffs [][]byte, sizes []int, eps []Endpoint) (int, error) {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
-	return bind.v4.Receive(buf, &bind.isOpen)
+	n, ep, err := bind.v4.Receive(buffs[0], &bind.isOpen)
+	sizes[0] = n
+	eps[0] = ep
+	return 1, err
 }
 
-func (bind *WinRingBind) receiveIPv6(buf []byte) (int, Endpoint, error) {
+func (bind *WinRingBind) receiveIPv6(buffs [][]byte, sizes []int, eps []Endpoint) (int, error) {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
-	return bind.v6.Receive(buf, &bind.isOpen)
+	n, ep, err := bind.v6.Receive(buffs[0], &bind.isOpen)
+	sizes[0] = n
+	eps[0] = ep
+	return 1, err
 }
 
 func (bind *afWinRingBind) Send(buf []byte, nend *WinRingEndpoint, isOpen *atomic.Uint32) error {
@@ -473,32 +486,38 @@ func (bind *afWinRingBind) Send(buf []byte, nend *WinRingEndpoint, isOpen *atomi
 	return winrio.SendEx(bind.rq, dataBuffer, 1, nil, addressBuffer, nil, nil, 0, 0)
 }
 
-func (bind *WinRingBind) Send(buf []byte, endpoint Endpoint) error {
+func (bind *WinRingBind) Send(buffs [][]byte, endpoint Endpoint) error {
 	nend, ok := endpoint.(*WinRingEndpoint)
 	if !ok {
 		return ErrWrongEndpointType
 	}
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
-	switch nend.family {
-	case windows.AF_INET:
-		if bind.v4.blackhole {
-			return nil
+	for _, buf := range buffs {
+		switch nend.family {
+		case windows.AF_INET:
+			if bind.v4.blackhole {
+				continue
+			}
+			if err := bind.v4.Send(buf, nend, &bind.isOpen); err != nil {
+				return err
+			}
+		case windows.AF_INET6:
+			if bind.v6.blackhole {
+				continue
+			}
+			if err := bind.v6.Send(buf, nend, &bind.isOpen); err != nil {
+				return err
+			}
 		}
-		return bind.v4.Send(buf, nend, &bind.isOpen)
-	case windows.AF_INET6:
-		if bind.v6.blackhole {
-			return nil
-		}
-		return bind.v6.Send(buf, nend, &bind.isOpen)
 	}
 	return nil
 }
 
-func (bind *StdNetBind) BindSocketToInterface4(interfaceIndex uint32, blackhole bool) error {
-	bind.mu.Lock()
-	defer bind.mu.Unlock()
-	sysconn, err := bind.ipv4.SyscallConn()
+func (s *StdNetBind) BindSocketToInterface4(interfaceIndex uint32, blackhole bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sysconn, err := s.ipv4.SyscallConn()
 	if err != nil {
 		return err
 	}
@@ -511,14 +530,14 @@ func (bind *StdNetBind) BindSocketToInterface4(interfaceIndex uint32, blackhole 
 	if err != nil {
 		return err
 	}
-	bind.blackhole4 = blackhole
+	s.blackhole4 = blackhole
 	return nil
 }
 
-func (bind *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole bool) error {
-	bind.mu.Lock()
-	defer bind.mu.Unlock()
-	sysconn, err := bind.ipv6.SyscallConn()
+func (s *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sysconn, err := s.ipv6.SyscallConn()
 	if err != nil {
 		return err
 	}
@@ -531,7 +550,7 @@ func (bind *StdNetBind) BindSocketToInterface6(interfaceIndex uint32, blackhole 
 	if err != nil {
 		return err
 	}
-	bind.blackhole6 = blackhole
+	s.blackhole6 = blackhole
 	return nil
 }
 

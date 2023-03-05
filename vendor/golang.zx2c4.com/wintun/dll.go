@@ -1,9 +1,9 @@
+//go:build windows
+
 /* SPDX-License-Identifier: MIT
  *
  * Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
  */
-
-//go:build windows
 
 package wintun
 
