@@ -999,6 +999,12 @@ data:
 
 {{- end }}
 
+{{- if .Values.auth.mTLS.enabled }}
+  mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
+  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
+{{- end }}
+
 ---
 {{- if and .Values.ipMasqAgent.enabled .Values.ipMasqAgent.config }}
 apiVersion: v1

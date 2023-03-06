@@ -188,9 +188,9 @@ asm
 assignees
 au
 auth
+authenticator
 authMapMax
 authMapMin
-authenticator
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
@@ -710,6 +710,7 @@ monitorInterval
 mountCgroup
 mountPath
 mov
+mtls
 mul
 multi
 multicore
@@ -947,6 +948,9 @@ sockops
 sortBufferDrainTimeout
 sortBufferLenMax
 sourceContext
+spiffe
+spiffeTrustDomain
+spireAdminSocketPath
 src
 srv
 ssl

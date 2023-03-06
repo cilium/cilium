@@ -2604,3 +2604,14 @@ dnsProxy:
 sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
+
+auth:
+  mTLS:
+    # -- Enable mtls-spiffe authentication method in CiliumNetworkPolicy
+    enabled: false
+    # -- SPIRE socket path where the SPIRE delegated api agent is listening
+    spireAdminSocketPath: /run/spire/sockets/admin.sock
+    # -- SPIFFE trust domain to use for fetching certificates
+    spiffeTrustDomain: spiffe.cilium.io
+    # -- port on the agent which is used to mTLS handshakes on
+    port: 4250
