@@ -1473,7 +1473,7 @@ func initEnv() {
 				log.Warnf("use ipam mode %s without %s, cilium will not manage local endpoint routes.",
 					ipamOption.IPAMDelegatedPlugin, option.EnableEndpointRoutes)
 			} else {
-				log.Fatalf("Cannot specify %s or %s  without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
+				log.Fatalf("Cannot specify %s or %s without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
 			}
 		}
 		if option.Config.EnableIPSec {
