@@ -320,7 +320,7 @@ func (k *K8sClusterMesh) generateDeployment(clustermeshApiserverArgs []string) *
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "etcd-data-dir",
-									MountPath: "etcd-data-dir",
+									MountPath: "/var/run/etcd",
 								},
 							},
 						},
