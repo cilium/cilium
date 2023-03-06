@@ -86,7 +86,7 @@ and meeting links.
 ====================== ===================================== ============= ================================================================================
 SIG                    Meeting                               Slack         Description
 ====================== ===================================== ============= ================================================================================
-Datapath               Thursdays, 08:00 PT                   #sig-datapath Development discussions for Linux and eBPF code used in Cilium.
+Datapath               On demand                             #sig-datapath Development discussions for Linux and eBPF code used in Cilium.
 Documentation          None                                  #sig-docs     Documentation, Helm references, and translations.
 Envoy                  On demand                             #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
 Hubble                 During community meeting              #sig-hubble   All Hubble-related code: Server, UI, CLI and Relay.
