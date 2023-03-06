@@ -70,7 +70,14 @@ func Test_dropMonitor_NotifyPerfEvent_AuthenticateDroppedPacketsWithAuthRequired
 
 	mockAuthManager := &fakeAuthManager{}
 
-	dm := &dropMonitor{authManager: mockAuthManager}
+	dm := &dropMonitor{
+		authManager: mockAuthManager,
+		queue:       make(chan dropEvent, 1),
+		shutdown:    make(chan struct{}),
+	}
+
+	dm.startEventProcessing()
+	t.Cleanup(dm.stopEventProcessing)
 
 	buffer := bytes.NewBuffer([]byte{})
 	err := binary.Write(buffer, byteorder.Native, dn)

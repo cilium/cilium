@@ -17,14 +17,15 @@ cilium-agent hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --certificates-directory string    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
-      --enable-k8s-api-discovery         Enable discovery of Kubernetes API groups and resources with the discovery API
-      --gops-port uint16                 Port for gops server to listen on (default 9890)
-      --k8s-api-server string            Kubernetes API server URL
-      --k8s-client-burst int             Burst value allowed for the K8s client
-      --k8s-client-qps float32           Queries per second limit for the K8s client
-      --k8s-heartbeat-timeout duration   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
-      --k8s-kubeconfig-path string       Absolute path of the kubernetes kubeconfig file
+      --certificates-directory string      Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
+      --enable-k8s-api-discovery           Enable discovery of Kubernetes API groups and resources with the discovery API
+      --gops-port uint16                   Port for gops server to listen on (default 9890)
+      --k8s-api-server string              Kubernetes API server URL
+      --k8s-client-burst int               Burst value allowed for the K8s client
+      --k8s-client-qps float32             Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration     Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string         Absolute path of the kubernetes kubeconfig file
+      --mesh-auth-monitor-queue-size int   Queue size for the auth monitor (default 1024)
 ```
 
 ### SEE ALSO

@@ -6,7 +6,10 @@ package auth
 import (
 	"fmt"
 
+	"github.com/spf13/pflag"
+
 	"github.com/cilium/cilium/pkg/auth/monitor"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
@@ -29,11 +32,22 @@ var Cell = cell.Module(
 		// CT map authenticator provides support to write authentication information into the eBPF conntrack map
 		newCtMapAuthenticator,
 	),
+	cell.Config(config{MeshAuthMonitorQueueSize: 1024}),
 )
+
+type config struct {
+	MeshAuthMonitorQueueSize int
+}
+
+func (r config) Flags(flags *pflag.FlagSet) {
+	flags.Int("mesh-auth-monitor-queue-size", r.MeshAuthMonitorQueueSize, "Queue size for the auth monitor")
+}
 
 type authManagerParams struct {
 	cell.In
 
+	Lifecycle             hive.Lifecycle
+	Config                config
 	AuthHandlers          []authHandler `group:"authHandlers"`
 	DatapathAuthenticator datapathAuthenticator
 }
@@ -49,8 +63,15 @@ func newManager(params authManagerParams) (Manager, error) {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
+	dropMonitor := monitor.New(mgr, params.Config.MeshAuthMonitorQueueSize)
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: dropMonitor.OnStart,
+		OnStop:  dropMonitor.OnStop,
+	})
+
 	return &manager{
-		monitorConsumer: monitor.New(mgr),
+		monitorConsumer: dropMonitor,
 		manager:         mgr,
 	}, nil
 }
