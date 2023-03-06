@@ -14,7 +14,8 @@
 static __always_inline int
 redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct ipv6hdr *ip6 __maybe_unused, int *oif)
+		   struct ipv6hdr *ip6 __maybe_unused,
+		   int iif __maybe_unused, int *oif)
 {
 	bool no_neigh = is_defined(ENABLE_SKIP_FIB);
 	int ret;
@@ -23,7 +24,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET6,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= iif,
 	};
 
 	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_src,
@@ -76,7 +77,8 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 static __always_inline int
 redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		   int l3_off __maybe_unused,
-		   struct iphdr *ip4 __maybe_unused, int *oif)
+		   struct iphdr *ip4 __maybe_unused,
+		   int iif __maybe_unused, int *oif)
 {
 	/* For deployments with just single external dev, redirect_neigh()
 	 * will resolve the GW and do L2 resolution for us. For multi-device
@@ -91,7 +93,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 	struct bpf_redir_neigh nh_params;
 	struct bpf_fib_lookup fib_params = {
 		.family		= AF_INET,
-		.ifindex	= ctx->ingress_ifindex,
+		.ifindex	= iif,
 		.ipv4_src	= ip4->saddr,
 		.ipv4_dst	= ip4->daddr,
 	};
