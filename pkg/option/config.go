@@ -814,6 +814,10 @@ const (
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes = "enable-endpoint-routes"
 
+	// ExternallyManagedEndpointRoutes indicate that the routes are managed by some external system
+	// Note that this option can only be used with IPAMDelegatedPlugin
+	ExternallyManagedEndpointRoutes = "externally-managed-endpoint-routes"
+
 	// ExcludeLocalAddress excludes certain addresses to be recognized as a
 	// local address
 	ExcludeLocalAddress = "exclude-local-address"
@@ -1862,6 +1866,10 @@ type DaemonConfig struct {
 	// EnableEndpointRoutes enables use of per endpoint routes
 	EnableEndpointRoutes bool
 
+	// ExternallyManagedEndpointRoutes indicate that the routes are managed by some external system
+	// Note that this option should only be used with IPAMDelegatedPlugin
+	ExternallyManagedEndpointRoutes bool
+
 	// Specifies wheather to annotate the kubernetes nodes or not
 	AnnotateK8sNode bool
 
@@ -2322,43 +2330,44 @@ type DaemonConfig struct {
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		CreationTime:                 time.Now(),
-		Opts:                         NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                      &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:         defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:     defaults.IPv6ClusterAllocCIDRBase,
-		EnableHostIPRestore:          defaults.EnableHostIPRestore,
-		EnableHealthChecking:         defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckNodePort:    defaults.EnableHealthCheckNodePort,
-		EnableIPv4:                   defaults.EnableIPv4,
-		EnableIPv6:                   defaults.EnableIPv6,
-		EnableIPv6NDP:                defaults.EnableIPv6NDP,
-		EnableSCTP:                   defaults.EnableSCTP,
-		EnableL7Proxy:                defaults.EnableL7Proxy,
-		EndpointStatus:               make(map[string]struct{}),
-		DNSMaxIPsPerRestoredRule:     defaults.DNSMaxIPsPerRestoredRule,
-		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
-		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
-		IPAllocationTimeout:          defaults.IPAllocationTimeout,
-		IdentityChangeGracePeriod:    defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:   defaults.IdentityRestoreGracePeriod,
-		FixedIdentityMapping:         make(map[string]string),
-		KVStoreOpt:                   make(map[string]string),
-		LogOpt:                       make(map[string]string),
-		LoopbackIPv4:                 defaults.LoopbackIPv4,
-		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
-		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:              defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
-		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:       IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
-		EnableWellKnownIdentities:    defaults.EnableWellKnownIdentities,
-		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
-		AllocatorListTimeout:         defaults.AllocatorListTimeout,
-		EnableICMPRules:              defaults.EnableICMPRules,
+		CreationTime:                    time.Now(),
+		Opts:                            NewIntOptions(&DaemonOptionLibrary),
+		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:             defaults.EnableHostIPRestore,
+		EnableHealthChecking:            defaults.EnableHealthChecking,
+		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
+		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
+		EnableIPv4:                      defaults.EnableIPv4,
+		EnableIPv6:                      defaults.EnableIPv6,
+		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
+		EnableSCTP:                      defaults.EnableSCTP,
+		EnableL7Proxy:                   defaults.EnableL7Proxy,
+		EndpointStatus:                  make(map[string]struct{}),
+		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
+		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
+		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
+		IPAllocationTimeout:             defaults.IPAllocationTimeout,
+		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
+		FixedIdentityMapping:            make(map[string]string),
+		KVStoreOpt:                      make(map[string]string),
+		LogOpt:                          make(map[string]string),
+		LoopbackIPv4:                    defaults.LoopbackIPv4,
+		ForceLocalPolicyEvalAtSource:    defaults.ForceLocalPolicyEvalAtSource,
+		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
+		ExternallyManagedEndpointRoutes: defaults.ExternallyManagedEndpointRoutes,
+		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
+		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
+		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
+		IdentityAllocationMode:          IdentityAllocationModeKVstore,
+		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
+		EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
+		K8sEnableK8sEndpointSlice:       defaults.K8sEnableEndpointSlice,
+		AllocatorListTimeout:            defaults.AllocatorListTimeout,
+		EnableICMPRules:                 defaults.EnableICMPRules,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 		APIRateLimit:                     make(map[string]string),
@@ -2899,6 +2908,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = vp.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = vp.GetBool(EnableEndpointRoutes)
+	c.ExternallyManagedEndpointRoutes = vp.GetBool(ExternallyManagedEndpointRoutes)
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
 	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
@@ -3601,6 +3611,11 @@ func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
 		if c.EnableEndpointHealthChecking {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}
+	} else if c.ExternallyManagedEndpointRoutes {
+		// ExternallyManagedEndpointRoutes should only be used with IPAMDelegatedPlugin.
+		// It indicates that in IPAM delegate mode, Endpoints routes are all managed by external systems
+		// which have routing management capability.
+		return fmt.Errorf("--%s must be %s when --%s is enabled", IPAM, ipamOption.IPAMDelegatedPlugin, ExternallyManagedEndpointRoutes)
 	}
 	return nil
 }

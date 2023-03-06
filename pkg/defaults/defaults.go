@@ -344,6 +344,10 @@ const (
 	// It is disabled by default for backwards compatibility.
 	EnableEndpointRoutes = false
 
+	// ExternallyManagedEndpointRoutes indicate that the routes are managed by some external system
+	// Note that this option can only be used with IPAMDelegatedPlugin
+	ExternallyManagedEndpointRoutes = false
+
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
 	// disabled by default to annotate kubernetes node and can be enabled using
 	// the provided option.

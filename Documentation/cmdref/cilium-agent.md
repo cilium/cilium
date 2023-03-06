@@ -147,6 +147,7 @@ cilium-agent [flags]
       --envoy-config-timeout duration                           Timeout duration for Envoy Config acknowledgements (default 2m0s)
       --envoy-log string                                        Path to a separate Envoy log file, if any
       --exclude-local-address strings                           Exclude CIDR from being recognized as local address
+      --externally-managed-endpoint-routes                      Use external system management route when IPAM mode is delegated-plugin
       --fixed-identity-mapping map                              Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --gops-port uint16                                        Port for gops server to listen on (default 9890)
   -h, --help                                                    help for cilium-agent

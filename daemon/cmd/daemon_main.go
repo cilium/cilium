@@ -237,6 +237,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(Vp, option.EnableEndpointRoutes)
 
+	flags.Bool(option.ExternallyManagedEndpointRoutes, defaults.ExternallyManagedEndpointRoutes, "Use external system management route when IPAM mode is delegated-plugin")
+	option.BindEnv(Vp, option.ExternallyManagedEndpointRoutes)
+
 	flags.Bool(option.EnableHealthChecking, defaults.EnableHealthChecking, "Enable connectivity health checking")
 	option.BindEnv(Vp, option.EnableHealthChecking)
 
@@ -1468,13 +1471,8 @@ func initEnv() {
 		}
 		// Release restrictions for BPFHostrouting when using the IPAMDelegatedPlugin
 		// Cloud providers can manage local routes by themselves
-		if !option.Config.EnableEndpointRoutes {
-			if option.Config.IPAM == ipamOption.IPAMDelegatedPlugin {
-				log.Warnf("use ipam mode %s without %s, cilium will not manage local endpoint routes.",
-					ipamOption.IPAMDelegatedPlugin, option.EnableEndpointRoutes)
-			} else {
-				log.Fatalf("Cannot specify %s or %s without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
-			}
+		if !option.Config.EnableEndpointRoutes && !option.Config.ExternallyManagedEndpointRoutes {
+			log.Fatalf("Cannot specify %s or %s without %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableEndpointRoutes)
 		}
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify %s or %s with %s.", option.LocalRouterIPv4, option.LocalRouterIPv6, option.EnableIPSecName)
