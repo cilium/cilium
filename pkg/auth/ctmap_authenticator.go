@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -24,24 +23,24 @@ func newCtMapAuthenticator(endpointManager endpointmanager.EndpointsLookup) data
 	}
 }
 
-func (r *ctMapAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, _ *authResult) error {
-	ep := r.endpointManager.LookupCiliumID(dn.Source)
+func (r *ctMapAuthenticator) markAuthenticated(result *authResult) error {
+	ep := r.endpointManager.LookupCiliumID(result.dn.Source)
 	if ep == nil {
 		// Maybe endpoint was deleted?
-		log.WithField(logfields.EndpointID, dn.Source).Debug("auth: Cannot find Endpoint")
+		log.WithField(logfields.EndpointID, result.dn.Source).Debug("auth: Cannot find Endpoint")
 		return nil
 	}
 
-	srcAddr := ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(ci.SrcPort), 10)
-	dstAddr := ci.DstIP.String() + ":" + strconv.FormatUint(uint64(ci.DstPort), 10)
+	srcAddr := result.ci.SrcIP.String() + ":" + strconv.FormatUint(uint64(result.ci.SrcPort), 10)
+	dstAddr := result.ci.DstIP.String() + ":" + strconv.FormatUint(uint64(result.ci.DstPort), 10)
 
-	proto, err := u8proto.ParseProtocol(ci.Proto)
+	proto, err := u8proto.ParseProtocol(result.ci.Proto)
 	if err != nil {
 		return fmt.Errorf("cannot parse protocol: %w", err)
 	}
 
 	/* Update CT flags as authorized. */
-	if err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, isIngress(dn),
+	if err := ctmap.Update(ep.ConntrackName(), srcAddr, dstAddr, proto, isIngress(result.dn),
 		func(entry *ctmap.CtEntry) error {
 			before := entry.Flags
 			if entry.Flags&ctmap.AuthRequired != 0 {

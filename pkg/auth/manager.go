@@ -43,10 +43,13 @@ type authResponse struct {
 
 // datapathAuthenticator is responsible to write auth information back to a BPF map
 type datapathAuthenticator interface {
-	markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, result *authResult) error
+	markAuthenticated(result *authResult) error
 }
 
+// authResult contains all relevant information which are necessary to write the info back to data path after a successful authentication.
 type authResult struct {
+	dn             *monitor.DropNotify
+	ci             *monitor.ConnectionInfo
 	localIdentity  identity.NumericIdentity
 	remoteIdentity identity.NumericIdentity
 	remoteHostIP   net.IP
@@ -101,6 +104,8 @@ func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 	}
 
 	result := &authResult{
+		dn:             dn,
+		ci:             ci,
 		localIdentity:  authReq.localIdentity,
 		remoteIdentity: authReq.remoteIdentity,
 		remoteHostIP:   authReq.remoteHostIP,
@@ -108,7 +113,7 @@ func (a *authManager) authRequired(dn *monitor.DropNotify, ci *monitor.Connectio
 		expirationTime: authResp.expirationTime,
 	}
 
-	if err := a.datapathAuthenticator.markAuthenticated(dn, ci, result); err != nil {
+	if err := a.datapathAuthenticator.markAuthenticated(result); err != nil {
 		return fmt.Errorf("failed to write auth information to BPF map: %w", err)
 	}
 
