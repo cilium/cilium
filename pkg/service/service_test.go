@@ -987,6 +987,87 @@ func (m *ManagerTestSuite) TestUpsertServiceWithTerminatingBackends(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
 }
 
+// TestUpsertServiceWithOnlyTerminatingBackends tests that a terminating backend is still
+// used if there are not active backends.
+func (m *ManagerTestSuite) TestUpsertServiceWithOnlyTerminatingBackends(c *C) {
+	option.Config.NodePortAlg = option.NodePortAlgMaglev
+	backends := backends1 // There are 2 backends
+	p := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends,
+		Type:                      lb.SVCTypeNodePort,
+		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 100,
+		Name:                      lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+
+	// Reset state as backends are pointers to lb.Backend
+	p.Backends[0].State = lb.BackendStateActive
+	p.Backends[1].State = lb.BackendStateActive
+
+	created, id1, err := m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 2)
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
+
+	// The terminating backend should not be considered
+	p.Backends[1].State = lb.BackendStateTerminating
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 2)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 2)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 1)
+
+	// Delete terminating backends.
+	p.Backends = p.Backends[:1]
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 1)
+
+	// The terminating backend should be considered since there are no more active
+	p.Backends[0].State = lb.BackendStateTerminating
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 1)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 1)
+	c.Assert(m.lbmap.SvcActiveBackendsCount[uint16(id1)], Equals, 0)
+
+	// Delete terminating backends.
+	p.Backends = []*lb.Backend{}
+
+	created, id1, err = m.svc.UpsertService(p)
+
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id1, Equals, lb.ID(1))
+	c.Assert(len(m.lbmap.ServiceByID[uint16(id1)].Backends), Equals, 0)
+	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+	c.Assert(m.svc.svcByID[id1].svcName.Name, Equals, "svc1")
+	c.Assert(m.svc.svcByID[id1].svcName.Namespace, Equals, "ns1")
+	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 0)
+}
+
 // Tests whether upsert service provisions the Maglev LUT for ClusterIP,
 // if ExternalClusterIP is true
 func (m *ManagerTestSuite) TestUpsertServiceWithExternalClusterIP(c *C) {
