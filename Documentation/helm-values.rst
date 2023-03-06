@@ -37,6 +37,22 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - auth.mTLS.enabled
+     - Enable mtls-spiffe authentication method in CiliumNetworkPolicy
+     - bool
+     - ``false``
+   * - auth.mTLS.port
+     - port on the agent which is used to mTLS handshakes on
+     - int
+     - ``4250``
+   * - auth.mTLS.spiffeTrustDomain
+     - SPIFFE trust domain to use for fetching certificates
+     - string
+     - ``"spiffe.cilium.io"``
+   * - auth.mTLS.spireAdminSocketPath
+     - SPIRE socket path where the SPIRE delegated api agent is listening
+     - string
+     - ``"/run/spire/sockets/admin.sock"``
    * - autoDirectNodeRoutes
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool

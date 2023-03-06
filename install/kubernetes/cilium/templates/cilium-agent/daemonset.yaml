@@ -281,6 +281,11 @@ spec:
           {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
+        {{- if .Values.auth.mTLS.enabled }}
+        - name: spire-agent-socket
+          mountPath: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          readOnly: false
+        {{- end }}
         {{- if not .Values.securityContext.privileged }}
         # Unprivileged containers need to mount /proc/sys/net from the host
         # to have write access
@@ -776,6 +781,12 @@ spec:
         hostPath:
           path: /run/xtables.lock
           type: FileOrCreate
+      {{- if .Values.auth.mTLS.enabled }}
+      - name: spire-agent-socket
+        hostPath:
+          path: {{ dir .Values.auth.mTLS.spireAdminSocketPath }}
+          type: DirectoryOrCreate
+      {{- end }}
       {{- if .Values.kubeConfigPath }}
       - name: kube-config
         hostPath:
