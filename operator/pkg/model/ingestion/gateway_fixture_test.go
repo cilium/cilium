@@ -395,9 +395,13 @@ var headerMatchingHTTPRoute = gatewayv1beta1.HTTPRoute{
 								Name:  "color",
 								Value: "blue",
 							},
+						},
+					},
+					{
+						Headers: []gatewayv1beta1.HTTPHeaderMatch{
 							{
 								Name:  "color",
-								Value: "green",
+								Value: "blue",
 							},
 						},
 					},
@@ -421,6 +425,10 @@ var headerMatchingHTTPRoute = gatewayv1beta1.HTTPRoute{
 								Name:  "color",
 								Value: "red",
 							},
+						},
+					},
+					{
+						Headers: []gatewayv1beta1.HTTPHeaderMatch{
 							{
 								Name:  "color",
 								Value: "yellow",

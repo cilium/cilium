@@ -284,11 +284,7 @@ var headerMatchingHTTPListeners = []model.HTTPListener{
 				HeadersMatch: []model.KeyValueMatch{
 					{
 						Key:   "color",
-						Match: model.StringMatch{Exact: "blue"},
-					},
-					{
-						Key:   "color",
-						Match: model.StringMatch{Exact: "green"},
+						Match: model.StringMatch{Prefix: "", Exact: "blue", Regex: ""},
 					},
 				},
 				Backends: []model.Backend{
@@ -303,14 +299,49 @@ var headerMatchingHTTPListeners = []model.HTTPListener{
 			},
 			{
 				HeadersMatch: []model.KeyValueMatch{
-					{Key: "color", Match: model.StringMatch{Exact: "red"}},
-					{Key: "color", Match: model.StringMatch{Exact: "yellow"}},
+					{
+						Key:   "color",
+						Match: model.StringMatch{Exact: "blue"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				HeadersMatch: []model.KeyValueMatch{
+					{
+						Key:   "color",
+						Match: model.StringMatch{Exact: "red"},
+					},
 				},
 				Backends: []model.Backend{
 					{
 						Name:      "infra-backend-v2",
 						Namespace: "gateway-conformance-infra",
 						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				HeadersMatch: []model.KeyValueMatch{
+					{
+						Key:   "color",
+						Match: model.StringMatch{Exact: "yellow"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra", Port: &model.BackendPort{
 							Port: 8080,
 						},
 					},
