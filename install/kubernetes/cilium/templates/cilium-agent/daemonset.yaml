@@ -785,11 +785,27 @@ spec:
       {{- end }}
         # To read the clustermesh configuration
       - name: clustermesh-secrets
-        secret:
-          secretName: cilium-clustermesh
+        projected:
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
-          optional: true
+          sources:
+          - secret:
+              name: cilium-clustermesh
+              optional: true
+              # note: items are not explicitly listed here, since the entries of this secret
+              # depend on the peers configured, and that would cause a restart of all agents
+              # at every addition/removal. Leaving the field empty makes each secret entry
+              # to be automatically projected into the volume as a file whose name is the key.
+          - secret:
+              name: clustermesh-apiserver-remote-cert
+              optional: true
+              items:
+              - key: tls.key
+                path: common-etcd-client.key
+              - key: tls.crt
+                path: common-etcd-client.crt
+              - key: ca.crt
+                path: common-etcd-client-ca.crt
       {{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
       - name: ip-masq-agent
         configMap:
