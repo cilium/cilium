@@ -222,8 +222,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	}
 	sort.Strings(testNames)
 
+	// Get maps used for common mocking facilities
+	skbMdMap := coll.Maps[mockSkbMetaMap]
+
 	for _, name := range testNames {
-		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap]))
+		t.Run(name, subTest(testNameToPrograms[name], coll.Maps[suiteResultMap], skbMdMap))
 	}
 
 	if globalLogReader != nil {
@@ -291,9 +294,10 @@ const (
 	ResultSuccess = 1
 
 	suiteResultMap = "suite_result_map"
+	mockSkbMetaMap = "mock_skb_meta_map"
 )
 
-func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
+func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t *testing.T) {
 	return func(t *testing.T) {
 		// create ctx with the max allowed size(4k - head room - tailroom)
 		ctx := make([]byte, 4096-256-320)
@@ -347,13 +351,19 @@ func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
 
 		// Clear map value after each test
 		defer func() {
-			var key int32
-			value := make([]byte, resultMap.ValueSize())
-			resultMap.Lookup(&key, &value)
-			for i := 0; i < len(value); i++ {
-				value[i] = 0
+			for _, m := range []*ebpf.Map{resultMap, skbMdMap} {
+				if m == nil {
+					continue
+				}
+
+				var key int32
+				value := make([]byte, m.ValueSize())
+				m.Lookup(&key, &value)
+				for i := 0; i < len(value); i++ {
+					value[i] = 0
+				}
+				m.Update(&key, &value, ebpf.UpdateAny)
 			}
-			resultMap.Update(&key, &value, ebpf.UpdateAny)
 		}()
 
 		var key int32
