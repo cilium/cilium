@@ -131,6 +131,8 @@ jobs:
             --set securityContext.privileged=true \
             --set ingressController.enabled=true \
             --set ingressController.loadbalancerMode=dedicated \
+            --set bpf.masquerade=true \
+            --set enableIPv6Masquerade=false \
             --set extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}
 
           kubectl wait -n kube-system --for=condition=Ready -l app.kubernetes.io/part-of=cilium pod --timeout=${{ env.timeout }}
