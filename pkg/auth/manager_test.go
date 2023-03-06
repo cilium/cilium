@@ -7,12 +7,12 @@ import (
 	"net"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
@@ -164,7 +164,7 @@ type fakeDatapathAuthenticator struct {
 	authenticated bool
 }
 
-func (r *fakeDatapathAuthenticator) markAuthenticated(dn *monitor.DropNotify, ci *monitor.ConnectionInfo, result *authResult) error {
+func (r *fakeDatapathAuthenticator) markAuthenticated(result *authResult) error {
 	r.authenticated = true
 	return nil
 }
