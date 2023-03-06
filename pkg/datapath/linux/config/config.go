@@ -908,7 +908,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		if len(option.Config.GetDevices()) == 1 {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		} else if option.Config.EnableBPFFIBCustomRules {
-			fmt.Fprintf(fw, "#define ENABLE_BPF_FIB_CUSTOM_RULES 1\n")
+			fmt.Fprintf(fw, "#define REDIRECT_FIB_LOOKUP_FLAG 0\n")
 		}
 	}
 

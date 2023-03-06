@@ -11,12 +11,10 @@
 #include "neigh.h"
 #include "l3.h"
 
-#ifdef ENABLE_BPF_FIB_CUSTOM_RULES
 /* For multi-device deployments we use custom FIB rule to perform a FIB 
-* lookup prior to the redirect
-*/
-#define REDIRECT_FIB_LOOKUP_FLAG 0
-#else
+ * lookup prior to the redirect
+ */
+#ifndef REDIRECT_FIB_LOOKUP_FLAG
 #define REDIRECT_FIB_LOOKUP_FLAG BPF_FIB_LOOKUP_DIRECT
 #endif
 
