@@ -1200,6 +1200,11 @@ gracefully. The endpoint state is fully removed when the agent receives
 a Kubernetes delete event for the endpoint. The `Kubernetes
 pod termination <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>`_
 documentation contains more background on the behavior and configuration using ``terminationGracePeriodSeconds``.
+There are some special cases, like zero disruption during rolling updates, that require to be able to send traffic
+to Terminating Pods that are still Serving traffic during the Terminating period, the Kubernetes blog
+`Advancements in Kubernetes Traffic Engineering
+<https://kubernetes.io/blog/2022/12/30/advancements-in-kubernetes-traffic-engineering/#traffic-loss-from-load-balancers-during-rolling-updates>`_
+explains it in detail.
 
 .. admonition:: Video
   :class: attention
