@@ -10,6 +10,10 @@ default_cluster_name=""
 default_image=""
 default_kubeproxy_mode="iptables"
 default_ipfamily="dual"
+default_pod_subnet=""
+default_service_subnet=""
+default_agent_port_prefix="234"
+default_operator_port_prefix="235"
 
 PROG=${0}
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
@@ -19,6 +23,10 @@ cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
 image="${4:-${IMAGE:=${default_image}}}"
 kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
+pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
+service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
+agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
+operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
@@ -75,8 +83,8 @@ if [[ -n "${image}" ]]; then
 fi
 
 node_config() {
-    local agentDebugPort="234$1$2"
-    local operatorDebugPort="235$1$2"
+    local agentDebugPort="$agent_port_prefix$1$2"
+    local operatorDebugPort="$operator_port_prefix$1$2"
     local max="$3"
 
     echo "  extraMounts:"
@@ -120,6 +128,8 @@ networking:
   disableDefaultCNI: true
   kubeProxyMode: ${kubeproxy_mode}
   ipFamily: ${ipfamily}
+  ${pod_subnet:+"podSubnet: "$pod_subnet}
+  ${service_subnet:+"serviceSubnet: "$service_subnet}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
@@ -128,7 +138,7 @@ EOF
 
 docker network connect "kind" "${reg_name}" || true
 
-for node in $(kind get nodes); do
+for node in $(kubectl get nodes --no-headers -o custom-columns=:.metadata.name); do
   kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${reg_port}";
 done
 
