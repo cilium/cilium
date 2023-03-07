@@ -87,10 +87,6 @@ const (
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
 
-	// OperatorAPIServeAddr IP:Port on which to serve api requests in
-	// operator (pass ":Port" to bind on all interfaces, "" is off)
-	OperatorAPIServeAddr = "operator-api-serve-addr"
-
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
 	// metrics (pass ":Port" to bind on all interfaces, "" is off).
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
@@ -343,7 +339,6 @@ type OperatorConfig struct {
 	// will simply return.
 	EndpointGCInterval time.Duration
 
-	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
@@ -571,7 +566,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)

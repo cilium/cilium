@@ -33,6 +33,7 @@ cilium-operator-generic hive dot-graph [flags]
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
       --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
+      --operator-api-serve-addr string                       Address to serve API requests (default "localhost:9234")
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
