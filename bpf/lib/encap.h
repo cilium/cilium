@@ -130,7 +130,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni, ifindex);
+	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni, NULL, 0, false, ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
 				  ct_reason, monitor);
@@ -295,5 +295,76 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 }
 #endif /* TUNNEL_MODE */
 
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+static __always_inline int
+__encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+			__u32 seclabel, __u32 dstid, __u32 vni,
+			void *opt, __u32 opt_len, bool is_ipv6,
+			enum trace_reason ct_reason,
+			__u32 monitor, int *ifindex)
+{
+	__u32 node_id;
+	int ret;
+
+	/* When encapsulating, a packet originating from the local host is
+	 * being considered as a packet from a remote node as it is being
+	 * received.
+	 */
+	if (seclabel == HOST_ID)
+		seclabel = LOCAL_NODE_ID;
+
+	node_id = bpf_ntohl(tunnel_endpoint);
+
+	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
+
+	ret = ctx_set_encap_info(ctx, node_id, seclabel, dstid, vni,
+				 opt, opt_len, is_ipv6, ifindex);
+	if (ret == CTX_ACT_REDIRECT)
+		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
+				  ct_reason, monitor);
+
+	return ret;
+}
+
+static __always_inline int
+encap_and_redirect_with_nodeid_opt(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
+				   __u32 seclabel, __u32 dstid, __u32 vni,
+				   void *opt, __u32 opt_len, bool is_ipv6,
+				   const struct trace_ctx *trace)
+{
+	int ifindex = 0;
+
+	int ret = __encap_with_nodeid_opt(ctx, tunnel_endpoint, seclabel, dstid,
+					  vni, opt, opt_len, is_ipv6,
+					  trace->reason, trace->monitor, &ifindex);
+	if (ret != CTX_ACT_REDIRECT)
+		return ret;
+
+	return ctx_redirect(ctx, ifindex, 0);
+}
+
+static __always_inline void
+set_geneve_dsr_opt4(__be16 port, __be32 addr, struct geneve_dsr_opt4 *gopt)
+{
+	memset(gopt, 0, sizeof(*gopt));
+	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
+	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
+	gopt->hdr.length = DSR_IPV4_GENEVE_OPT_LEN;
+	gopt->addr = addr;
+	gopt->port = port;
+}
+
+static __always_inline void
+set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
+		    struct geneve_dsr_opt6 *gopt)
+{
+	memset(gopt, 0, sizeof(*gopt));
+	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
+	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
+	gopt->hdr.length = DSR_IPV6_GENEVE_OPT_LEN;
+	ipv6_addr_copy(&gopt->addr, addr);
+	gopt->port = port;
+}
+#endif
 #endif /* HAVE_ENCAP */
 #endif /* __LIB_ENCAP_H_ */

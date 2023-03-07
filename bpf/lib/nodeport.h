@@ -239,6 +239,36 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 	return 0;
 }
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
+						 struct ipv6hdr *ip6,
+						 const union v6addr *svc_addr,
+						 __be16 svc_port,
+						 int *ifindex)
+{
+	struct remote_endpoint_info *info;
+	union v6addr *dst;
+	struct geneve_dsr_opt6 gopt;
+
+	dst = (union v6addr *)&ip6->daddr;
+	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+	if (info && info->tunnel_endpoint != 0) {
+		set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
+
+		return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+						WORLD_ID,
+						info->sec_label,
+						NOT_VTEP_DST,
+						&gopt,
+						sizeof(gopt),
+						true,
+						(enum trace_reason)CT_NEW,
+						TRACE_PAYLOAD_LEN,
+						ifindex);
+	}
+
+	return DROP_NO_TUNNEL_ENDPOINT;
+}
 #endif /* DSR_ENCAP_MODE */
 
 static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
@@ -483,10 +513,23 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			    ctx_load_meta(ctx, CB_HINT), &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	/* Currently, DSR with GENEVE implementation doesn't support IPv6
+	 * with XDP. Therefore the XDP-to-TC punt isn't needed. That is the
+	 * reason why the encap_geneve_dsr_opt6 vs encap_geneve_dsr_opt4
+	 * cases are divergent.
+	 */
+	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif);
+	if (!IS_ERR(ret)) {
+		if (ret == CTX_ACT_REDIRECT) {
+			cilium_capture_out(ctx);
+			return ctx_redirect(ctx, oif, 0);
+		}
+	}
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
-	if (unlikely(ret)) {
+	if (IS_ERR(ret)) {
 		if (dsr_fail_needs_reply(ret))
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
 		goto drop_err;
@@ -946,7 +989,7 @@ redo:
 		ctx_store_meta(ctx, CB_ADDR_V6_2, tuple.daddr.p2);
 		ctx_store_meta(ctx, CB_ADDR_V6_3, tuple.daddr.p3);
 		ctx_store_meta(ctx, CB_ADDR_V6_4, tuple.daddr.p4);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key.dport);
 		ctx_store_meta(ctx, CB_ADDR_V6_1, key.address.p1);
 		ctx_store_meta(ctx, CB_ADDR_V6_2, key.address.p2);
@@ -1404,6 +1447,32 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
+						 struct iphdr *ip4, __be32 svc_addr,
+						 __be16 svc_port, int *ifindex)
+{
+	struct remote_endpoint_info *info = NULL;
+	struct geneve_dsr_opt4 gopt;
+
+	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	if (info && info->tunnel_endpoint != 0) {
+		set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
+
+		return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+						WORLD_ID,
+						info->sec_label,
+						NOT_VTEP_DST,
+						&gopt,
+						sizeof(gopt),
+						false,
+						(enum trace_reason)CT_NEW,
+						TRACE_PAYLOAD_LEN,
+						ifindex);
+	}
+
+	return DROP_NO_TUNNEL_ENDPOINT;
+}
 #endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
@@ -1628,10 +1697,20 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	ret = dsr_set_opt4(ctx, ip4,
 			   addr,
 			   port, &ohead);
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif);
+	if (!IS_ERR(ret)) {
+		if (ret == CTX_ACT_REDIRECT) {
+			cilium_capture_out(ctx);
+			return ctx_redirect(ctx, oif, 0);
+		}
+		ctx_move_xfer(ctx);
+		return ret;
+	}
 #else
 # error "Invalid load balancer DSR encapsulation mode!"
 #endif
-	if (unlikely(ret)) {
+	if (IS_ERR(ret)) {
 		if (dsr_fail_needs_reply(ret))
 			return dsr_reply_icmp4(ctx, ip4, addr, port, ret, ohead);
 		goto drop_err;
@@ -2085,7 +2164,7 @@ redo:
 		ctx_store_meta(ctx, CB_HINT,
 			       ((__u32)tuple.sport << 16) | tuple.dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, tuple.daddr);
-#elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
+#elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE || DSR_ENCAP_MODE == DSR_ENCAP_NONE
 		ctx_store_meta(ctx, CB_PORT, key.dport);
 		ctx_store_meta(ctx, CB_ADDR_V4, key.address);
 #endif /* DSR_ENCAP_MODE */

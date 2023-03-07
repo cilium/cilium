@@ -193,6 +193,7 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 		   __u32 dstid __maybe_unused, __u32 vni __maybe_unused,
+		   void *opt, __u32 opt_len, bool is_ipv6 __maybe_unused,
 		   int *ifindex)
 {
 	struct bpf_tunnel_key key = {};
@@ -211,6 +212,12 @@ ctx_set_encap_info(struct __sk_buff *ctx, __u32 node_id, __u32 seclabel,
 	ret = ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX);
 	if (unlikely(ret < 0))
 		return DROP_WRITE_ERROR;
+
+	if (opt && opt_len > 0) {
+		ret = ctx_set_tunnel_opt(ctx, opt, opt_len);
+		if (unlikely(ret < 0))
+			return DROP_WRITE_ERROR;
+	}
 
 	*ifindex = ENCAP_IFINDEX;
 
