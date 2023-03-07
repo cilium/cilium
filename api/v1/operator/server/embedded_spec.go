@@ -57,6 +57,12 @@ func init() {
             "schema": {
               "type": "string"
             }
+          },
+          "501": {
+            "description": "Cilium operator health status not available",
+            "schema": {
+              "type": "string"
+            }
           }
         }
       }
@@ -123,6 +129,12 @@ func init() {
           },
           "500": {
             "description": "Cilium operator is not healthy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "501": {
+            "description": "Cilium operator health status not available",
             "schema": {
               "type": "string"
             }
