@@ -258,7 +258,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 skip_vtep:
 #endif
 
-		/* See comment at equivalent code in handle_ipv6() */
 		if (info && identity_is_remote_node(*identity))
 			*identity = info->sec_label;
 	}
