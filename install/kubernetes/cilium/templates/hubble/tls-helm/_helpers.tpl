@@ -12,8 +12,8 @@ certificate would be signed by a different CA.
 {{- define "hubble-generate-certs.helm.setup-ca" }}
   {{- if not .ca }}
     {{- $ca := "" -}}
-    {{- $crt := .Values.hubble.tls.ca.cert | default .Values.tls.ca.cert -}}
-    {{- $key := .Values.hubble.tls.ca.key | default .Values.tls.ca.key -}}
+    {{- $crt := .Values.tls.ca.cert -}}
+    {{- $key := .Values.tls.ca.key -}}
     {{- if and $crt $key }}
       {{- $ca = buildCustomCert $crt $key -}}
     {{- else }}

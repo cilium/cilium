@@ -385,6 +385,9 @@ Helm Options
   Cilium 1.15.
 * Value ``hubble.peerService.enabled`` was deprecated in Cilium 1.13 and has
   been removed. The peer service is no longer optional.
+* Values ``hubble.tls.ca``, ``hubble.tls.ca.cert`` and ``hubble.tls.ca.key``
+  were deprecated in Cilium 1.12 in favor of ``tls.ca``, ``tls.ca.cert`` and
+  ``tls.ca.key`` respectively, and have been removed.
 
 .. _earlier_upgrade_notes:
 
