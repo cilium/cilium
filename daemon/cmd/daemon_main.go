@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -1654,20 +1655,24 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
-	Clientset       k8sClient.Clientset
-	Datapath        datapath.Datapath
-	WGAgent         *wg.Agent `optional:"true"`
-	LocalNodeStore  node.LocalNodeStore
-	BGPController   *bgpv1.Controller
-	Shutdowner      hive.Shutdowner
-	SharedResources k8s.SharedResources
-	CacheStatus     k8s.CacheStatus
-	NodeManager     nodeManager.NodeManager
-	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	AuthManager     auth.Manager
+	Lifecycle         hive.Lifecycle
+	Clientset         k8sClient.Clientset
+	Datapath          datapath.Datapath
+	WGAgent           *wg.Agent `optional:"true"`
+	LocalNodeStore    node.LocalNodeStore
+	BGPController     *bgpv1.Controller
+	Shutdowner        hive.Shutdowner
+	SharedResources   k8s.SharedResources
+	CacheStatus       k8s.CacheStatus
+	NodeManager       nodeManager.NodeManager
+	EndpointManager   endpointmanager.EndpointManager
+	CertManager       certificatemanager.CertificateManager
+	SecretManager     certificatemanager.SecretManager
+	AuthManager       auth.Manager
+	IdentityAllocator CachingIdentityAllocator
+	Policy            *policy.Repository
+	PolicyUpdater     *policy.Updater
+	IPCache           *ipcache.IPCache
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1702,6 +1707,10 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.LocalNodeStore,
 				params.AuthManager,
 				params.CacheStatus,
+				params.IPCache,
+				params.IdentityAllocator,
+				params.Policy,
+				params.PolicyUpdater,
 			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)

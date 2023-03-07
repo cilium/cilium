@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -299,12 +298,4 @@ func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 }
 
 func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {
-}
-
-func (ds *DaemonSuite) GetNodeSuffix() string {
-	return ds.d.GetNodeSuffix()
-}
-
-func (ds *DaemonSuite) UpdateIdentities(added, deleted cache.IdentityCache) {
-	ds.d.UpdateIdentities(added, deleted)
 }

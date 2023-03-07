@@ -4,8 +4,10 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"sync"
 	"time"
@@ -18,18 +20,24 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
@@ -39,9 +47,6 @@ import (
 
 // initPolicy initializes the core policy components of the daemon.
 func (d *Daemon) initPolicy(
-	epMgr endpointmanager.EndpointManager,
-	certManager certificatemanager.CertificateManager,
-	secretManager certificatemanager.SecretManager,
 	authManager auth.Manager,
 ) error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
@@ -58,20 +63,91 @@ func (d *Daemon) initPolicy(
 	}
 	d.datapathRegenTrigger = rt
 
-	d.policy = policy.NewPolicyRepository(d.identityAllocator,
-		d.identityAllocator.GetIdentityCache(),
-		certManager,
-		secretManager,
-	)
-	d.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
-	d.policyUpdater, err = policy.NewUpdater(d.policy, epMgr)
-	if err != nil {
-		return fmt.Errorf("failed to create policy update trigger: %w", err)
+	d.monitorAgent.RegisterNewConsumer(authManager)
+	return nil
+}
+
+type policyParams struct {
+	cell.In
+
+	Lifecycle       hive.Lifecycle
+	EndpointManager endpointmanager.EndpointManager
+	CertManager     certificatemanager.CertificateManager
+	SecretManager   certificatemanager.SecretManager
+	Datapath        datapath.Datapath
+	CacheStatus     k8s.CacheStatus
+}
+
+type policyOut struct {
+	cell.Out
+
+	IdentityAllocator CachingIdentityAllocator
+	Repository        *policy.Repository
+	Updater           *policy.Updater
+	IPCache           *ipcache.IPCache
+}
+
+// newPolicyTrifecta instantiates CachingIdentityAllocator, Repository and IPCache.
+//
+// The three have a circular dependency on each other and therefore require
+// special care.
+func newPolicyTrifecta(params policyParams) (policyOut, error) {
+	iao := &identityAllocatorOwner{}
+	idAlloc := &cachingIdentityAllocator{
+		cache.NewCachingIdentityAllocator(iao),
+		nil,
 	}
 
-	d.monitorAgent.RegisterNewConsumer(authManager)
+	iao.policy = policy.NewStoppedPolicyRepository(
+		idAlloc,
+		idAlloc.GetIdentityCache(),
+		params.CertManager,
+		params.SecretManager,
+	)
+	iao.policy.SetEnvoyRulesFunc(envoy.GetEnvoyHTTPRules)
 
-	return nil
+	policyUpdater, err := policy.NewUpdater(iao.policy, params.EndpointManager)
+	if err != nil {
+		return policyOut{}, fmt.Errorf("failed to create policy update trigger: %w", err)
+	}
+	iao.policyUpdater = policyUpdater
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	ipc := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
+		IdentityAllocator: idAlloc,
+		PolicyHandler:     iao.policy.GetSelectorCache(),
+		DatapathHandler:   params.EndpointManager,
+		NodeHandler:       params.Datapath.Node(),
+		CacheStatus:       params.CacheStatus,
+	})
+	idAlloc.ipcache = ipc
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			iao.policy.Start()
+			return nil
+		},
+		OnStop: func(hc hive.HookContext) error {
+			cancel()
+
+			// Preserve the order of shutdown but still propagate the error
+			// to hive.
+			err := ipc.Shutdown()
+			policyUpdater.Shutdown()
+			idAlloc.Close()
+
+			return err
+		},
+	})
+
+	return policyOut{
+		IdentityAllocator: idAlloc,
+		Repository:        iao.policy,
+		Updater:           policyUpdater,
+		IPCache:           ipc,
+	}, nil
 }
 
 // TriggerPolicyUpdates triggers policy updates by deferring to the
@@ -80,17 +156,43 @@ func (d *Daemon) TriggerPolicyUpdates(force bool, reason string) {
 	d.policyUpdater.TriggerPolicyUpdates(force, reason)
 }
 
+// identityAllocatorOwner is used to break the circular dependency between
+// CachingIdentityAllocator and policy.Repository.
+type identityAllocatorOwner struct {
+	policy        *policy.Repository
+	policyUpdater *policy.Updater
+}
+
 // UpdateIdentities informs the policy package of all identity changes
 // and also triggers policy updates.
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (d *Daemon) UpdateIdentities(added, deleted cache.IdentityCache) {
+func (iao *identityAllocatorOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
 	wg := &sync.WaitGroup{}
-	d.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
+	iao.policy.GetSelectorCache().UpdateIdentities(added, deleted, wg)
 	// Wait for update propagation to endpoints before triggering policy updates
 	wg.Wait()
-	d.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+	iao.policyUpdater.TriggerPolicyUpdates(false, "one or more identities created or deleted")
+}
+
+// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
+// agent
+func (iao *identityAllocatorOwner) GetNodeSuffix() string {
+	var ip net.IP
+
+	switch {
+	case option.Config.EnableIPv4:
+		ip = node.GetIPv4()
+	case option.Config.EnableIPv6:
+		ip = node.GetIPv6()
+	}
+
+	if ip == nil {
+		log.Fatal("Node IP not available yet")
+	}
+
+	return ip.String()
 }
 
 // PolicyAddEvent is a wrapper around the parameters for policyAdd.
