@@ -2085,6 +2085,11 @@ operator:
   # pod running.
   removeNodeTaints: true
 
+  # -- Taint nodes where Cilium is scheduled but not running. This prevents pods
+  # from being scheduled to nodes where Cilium is not the default CNI provider.
+  # @default -- same as removeNodeTaints
+  setNodeTaints: ~
+
   # -- Set Node condition NetworkUnavailable to 'false' with the reason
   # 'CiliumIsUp' for nodes that have a healthy Cilium pod.
   setNodeNetworkStatus: true
