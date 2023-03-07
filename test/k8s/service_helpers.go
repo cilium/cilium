@@ -57,16 +57,6 @@ func ciliumDelService(kubectl *helpers.Kubectl, id int64) {
 	}
 }
 
-func ciliumHasServiceIP(kubectl *helpers.Kubectl, pod, vip string) bool {
-	service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
-	vip4 := fmt.Sprintf(" %s:", vip)
-	if strings.Contains(service.Stdout(), vip4) {
-		return true
-	}
-	vip6 := fmt.Sprintf(" [%s]:", vip)
-	return strings.Contains(service.Stdout(), vip6)
-}
-
 var newlineRegexp = regexp.MustCompile(`\n[ \t\n]*`)
 
 func trimNewlines(script string) string {
