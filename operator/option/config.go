@@ -282,6 +282,10 @@ const (
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints = "remove-cilium-node-taints"
 
+	// SetCiliumNodeTaints is whether or not to taint nodes that do not have
+	// a running Cilium instance.
+	SetCiliumNodeTaints = "set-cilium-node-taints"
+
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition = "set-cilium-is-up-condition"
@@ -537,6 +541,10 @@ type OperatorConfig struct {
 	// should be removed in Kubernetes nodes.
 	RemoveCiliumNodeTaints bool
 
+	// SetCiliumNodeTaints is whether or not to set taints on nodes that do not
+	// have a running Cilium pod.
+	SetCiliumNodeTaints bool
+
 	// SetCiliumIsUpCondition sets the CiliumIsUp node condition in Kubernetes
 	// nodes.
 	SetCiliumIsUpCondition bool
@@ -598,6 +606,7 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
 	c.RemoveCiliumNodeTaints = vp.GetBool(RemoveCiliumNodeTaints)
+	c.SetCiliumNodeTaints = vp.GetBool(SetCiliumNodeTaints)
 	c.SetCiliumIsUpCondition = vp.GetBool(SetCiliumIsUpCondition)
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
