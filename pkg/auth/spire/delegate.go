@@ -169,10 +169,6 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 	s.svidStoreMutex.RLock()
 	for _, svid := range svids {
 
-		s.log.Debugf("processing spiffe://%s%s, Expires at %s", svid.X509Svid.Id.TrustDomain,
-			svid.X509Svid.Id.Path,
-			time.Unix(svid.X509Svid.ExpiresAt, 0))
-
 		if svid.X509Svid.Id.TrustDomain != s.cfg.SpiffeTrustDomain {
 			s.log.Debugf("skipping X509-SVID update for trust domain %s as it does not match ours", svid.X509Svid.Id.TrustDomain)
 			s.svidStoreMutex.RUnlock()
@@ -245,7 +241,10 @@ func (s *SpireDelegateClient) initWatcher(ctx context.Context) (delegatedidentit
 
 	unixPath := fmt.Sprintf("unix://%s", s.cfg.SpireAdminSocketPath)
 
-	conn, err := grpc.Dial(unixPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(unixPath, grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(20*1024*1024),
+			grpc.MaxCallSendMsgSize(20*1024*1024))) // setting this to 20MB to handle large bundles TODO: improve this once fixed upstream (https://github.com/cilium/cilium/issues/24297)
 	if err != nil {
 		return nil, nil, fmt.Errorf("grpc.Dial() failed on %s: %w", unixPath, err)
 	}
