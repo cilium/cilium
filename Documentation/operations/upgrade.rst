@@ -388,6 +388,8 @@ Helm Options
 * Values ``hubble.tls.ca``, ``hubble.tls.ca.cert`` and ``hubble.tls.ca.key``
   were deprecated in Cilium 1.12 in favor of ``tls.ca``, ``tls.ca.cert`` and
   ``tls.ca.key`` respectively, and have been removed.
+* Value ``hubble.ui.securityContext.enabled`` was deprecated in Cilium 1.12 in
+  favor of ``hubble.ui.securityContext``, and has been removed.
 
 .. _earlier_upgrade_notes:
 
