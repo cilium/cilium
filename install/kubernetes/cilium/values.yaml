@@ -2289,6 +2289,7 @@ clustermesh:
     #   tls:
     #     cert: ""
     #     key: ""
+    #     caCert: ""
 
   apiserver:
     # -- Clustermesh API server image.
