@@ -364,13 +364,12 @@ static __always_inline int find_dsr_v6(struct __ctx_buff *ctx, __u8 nexthdr,
 }
 
 static __always_inline int
-nodeport_extract_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
+			struct ipv6hdr *ip6 __maybe_unused,
 			const struct ipv6_ct_tuple *tuple, int l4_off,
 			union v6addr *addr, __be16 *port, bool *dsr)
 {
-	struct dsr_opt_v6 opt __align_stack_8 = {};
 	struct ipv6_ct_tuple tmp = *tuple;
-	int ret;
 
 	if (tuple->nexthdr == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = {};
@@ -387,15 +386,37 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		}
 	}
 
-	ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
-	if (ret != 0)
-		return ret;
+#if defined(IS_BPF_OVERLAY)
+	{
+		struct geneve_dsr_opt6 gopt;
+		int ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
 
-	if (*dsr) {
-		*addr = opt.addr;
-		*port = opt.port;
-		return 0;
+		if (ret > 0) {
+			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
+			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
+				*dsr = true;
+				*port = gopt.port;
+				ipv6_addr_copy(addr, &gopt.addr);
+				return 0;
+			}
+		}
 	}
+#else
+	{
+		struct dsr_opt_v6 opt __align_stack_8 = {};
+		int ret;
+
+		ret = find_dsr_v6(ctx, ip6->nexthdr, &opt, dsr);
+		if (ret != 0)
+			return ret;
+
+		if (*dsr) {
+			*addr = opt.addr;
+			*port = opt.port;
+			return 0;
+		}
+	}
+#endif
 
 	if (tuple->nexthdr == IPPROTO_TCP)
 		ct_update_dsr(get_ct_map6(&tmp), &tmp, false);
@@ -952,6 +973,8 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 		if (nodeport_uses_dsr6(&tuple)) {
+#if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
+	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 			bool dsr = false;
 
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
@@ -969,7 +992,7 @@ skip_service_lookup:
 
 			if (IS_ERR(ret))
 				return ret;
-
+#endif
 			return CTX_ACT_OK;
 		}
 #endif /* ENABLE_DSR */
@@ -1557,7 +1580,8 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 #endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
-nodeport_extract_dsr_v4(struct __ctx_buff *ctx, const struct iphdr *ip4,
+nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
+			const struct iphdr *ip4 __maybe_unused,
 			const struct ipv4_ct_tuple *tuple, int l4_off,
 			__be32 *addr, __be16 *port, bool *dsr)
 {
@@ -1589,6 +1613,24 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx, const struct iphdr *ip4,
 		}
 	}
 
+#if defined(IS_BPF_OVERLAY)
+	{
+		struct geneve_dsr_opt4 gopt;
+		int ret = 0;
+
+		ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
+
+		if (ret > 0) {
+			if (gopt.hdr.opt_class == bpf_htons(DSR_GENEVE_OPT_CLASS) &&
+			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
+				*dsr = true;
+				*port = gopt.port;
+				*addr = gopt.addr;
+				return 0;
+			}
+		}
+	}
+#else
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
@@ -1606,6 +1648,7 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx, const struct iphdr *ip4,
 			return 0;
 		}
 	}
+#endif
 
 	/* SYN for a new connection that's not / no longer DSR.
 	 * If it's reopened, avoid sending subsequent traffic down the DSR path.
@@ -2131,6 +2174,8 @@ skip_service_lookup:
 
 #ifdef ENABLE_DSR
 		if (nodeport_uses_dsr4(&tuple)) {
+#if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
+	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
 			bool dsr = false;
 
 			/* Check if packet has embedded DSR info, or belongs to
@@ -2148,7 +2193,7 @@ skip_service_lookup:
 
 			if (IS_ERR(ret))
 				return ret;
-
+#endif
 #ifndef ENABLE_MASQUERADE
 			/* The packet is DSR-eligible, so we know for sure that it is
 			 * not reply traffic by a remote backend which would require
