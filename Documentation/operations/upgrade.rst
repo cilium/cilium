@@ -390,6 +390,15 @@ Helm Options
   ``tls.ca.key`` respectively, and have been removed.
 * Value ``hubble.ui.securityContext.enabled`` was deprecated in Cilium 1.12 in
   favor of ``hubble.ui.securityContext``, and has been removed.
+* Values ``ipam.operator.clusterPoolIPv4PodCIDR`` and
+  ``ipam.operator.clusterPoolIPv6PodCIDR`` were deprecated in Cilium 1.11 in
+  favor of ``ipam.operator.clusterPoolIPv4PodCIDRList`` and
+  ``ipam.operator.clusterPoolIPv6PodCIDRList``, respectively, and have been
+  removed.
+  In order to preserve the default behavior for selecting CIDRs when default
+  values are kept, ``ipam.operator.clusterPoolIPv4PodCIDRList`` now defaults to
+  a singleton containing the default CIDR value for the removed value
+  ``ipam.operator.clusterPoolIPv4PodCIDR`` (and similarly for IPv6).
 
 .. _earlier_upgrade_notes:
 
