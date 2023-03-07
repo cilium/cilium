@@ -52,3 +52,4 @@ subjects:
   name: {{ .Values.serviceAccounts.cilium.name | quote }}
   namespace: {{ template "cilium.namespace" . }}
 {{- end}}
+{{- end -}}
