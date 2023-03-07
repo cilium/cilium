@@ -44,7 +44,7 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 					dst := check.ICMPEndpoint("", addr.Address)
 					ipFam := check.GetIPFamily(addr.Address)
 
-					t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, dst, ipFam).Run(func(a *check.Action) {
+					t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &pod, dst, ipFam).Run(func(a *check.Action) {
 						a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 
 						a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{

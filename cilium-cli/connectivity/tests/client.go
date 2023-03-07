@@ -40,7 +40,7 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 			dst := dst // copy to avoid memory aliasing when using reference
 
 			t.ForEachIPFamily(func(ipFam check.IPFamily) {
-				t.NewAction(s, fmt.Sprintf("ping-%d", i), &src, &dst, ipFam).Run(func(a *check.Action) {
+				t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &src, &dst, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 
 					a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
