@@ -717,22 +717,22 @@ encryption:
     # -- Enables the fallback to the user-space implementation.
     userspaceFallback: false
 
-  # -- Deprecated in favor of encryption.ipsec.keyFile.
+  # -- Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15.
   # Name of the key file inside the Kubernetes secret configured via secretName.
   # This option is only effective when encryption.type is set to ipsec.
   keyFile: keys
 
-  # -- Deprecated in favor of encryption.ipsec.mountPath.
+  # -- Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15.
   # Path to mount the secret inside the Cilium pod.
   # This option is only effective when encryption.type is set to ipsec.
   mountPath: /etc/ipsec
 
-  # -- Deprecated in favor of encryption.ipsec.secretName.
+  # -- Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15.
   # Name of the Kubernetes secret containing the encryption keys.
   # This option is only effective when encryption.type is set to ipsec.
   secretName: cilium-ipsec-keys
 
-  # -- Deprecated in favor of encryption.ipsec.interface.
+  # -- Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15.
   # The interface to use for encrypted traffic.
   # This option is only effective when encryption.type is set to ipsec.
   interface: ""

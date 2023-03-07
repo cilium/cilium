@@ -379,6 +379,10 @@ Helm Options
 * Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` is being
   deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
   removed in v1.15.
+* Values ``encryption.keyFile``, ``encryption.mountPath``,
+  ``encryption.secretName`` and ``encryption.interface`` are deprecated in
+  favor of their ``encryption.ipsec.*`` counterparts and will be removed in
+  Cilium 1.15.
 
 .. _earlier_upgrade_notes:
 

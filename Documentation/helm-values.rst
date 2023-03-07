@@ -633,7 +633,7 @@
      - bool
      - ``false``
    * - encryption.interface
-     - Deprecated in favor of encryption.ipsec.interface. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.interface. To be removed in 1.15. The interface to use for encrypted traffic. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``""``
    * - encryption.ipsec.interface
@@ -653,11 +653,11 @@
      - string
      - ``""``
    * - encryption.keyFile
-     - Deprecated in favor of encryption.ipsec.keyFile. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.keyFile. To be removed in 1.15. Name of the key file inside the Kubernetes secret configured via secretName. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"keys"``
    * - encryption.mountPath
-     - Deprecated in favor of encryption.ipsec.mountPath. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.mountPath. To be removed in 1.15. Path to mount the secret inside the Cilium pod. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"/etc/ipsec"``
    * - encryption.nodeEncryption
@@ -665,7 +665,7 @@
      - bool
      - ``false``
    * - encryption.secretName
-     - Deprecated in favor of encryption.ipsec.secretName. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
+     - Deprecated in favor of encryption.ipsec.secretName. To be removed in 1.15. Name of the Kubernetes secret containing the encryption keys. This option is only effective when encryption.type is set to ipsec.
      - string
      - ``"cilium-ipsec-keys"``
    * - encryption.type
