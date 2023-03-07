@@ -19,6 +19,10 @@ var goleakOptions = []goleak.Option{
 	// by prior tests or by package init() functions (like the
 	// client-go logger).
 	goleak.IgnoreCurrent(),
+	// Ignore goroutines started by the policy trifecta, see [newPolicyTrifecta].
+	goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/identity/cache.(*identityWatcher).watch.func1"),
+	goleak.IgnoreTopFunction("github.com/cilium/cilium/pkg/trigger.(*Trigger).waiter"),
+	goleak.IgnoreTopFunction("sync.runtime_notifyListWait"),
 }
 
 // TestAgentCell verifies that the Agent hive can be instantiated with

@@ -411,6 +411,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	nodeLocalStore node.LocalNodeStore,
 	authManager auth.Manager,
 	cacheStatus k8s.CacheStatus,
+	ipc *ipcache.IPCache,
+	identityAllocator CachingIdentityAllocator,
+	pr *policy.Repository,
+	policyUpdater *policy.Updater,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -555,6 +559,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		endpointCreations: newEndpointCreationManager(clientset),
 		apiLimiterSet:     apiLimiterSet,
 		controllers:       controller.NewManager(),
+		// **NOTE** The global identity allocator is not yet initialized here; that
+		// happens below via InitIdentityAllocator(). Only the local identity
+		// allocator is initialized here.
+		identityAllocator: identityAllocator,
+		ipcache:           ipc,
+		policy:            pr,
+		policyUpdater:     policyUpdater,
 	}
 
 	if option.Config.RunMonitorAgent {
@@ -598,27 +609,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		ipcachemap.IPCacheMap().Close()
 	}
 
-	// Propagate identity allocator down to packages which themselves do not
-	// have types to which we can add an allocator member.
-	//
-	// **NOTE** The global identity allocator is not yet initialized here; that
-	// happens below vie InitIdentityAllocator(). Only the local identity allocator
-	// is initialized here.
-	//
-	// TODO: convert these package level variables to types for easier unit
-	// testing in the future.
-	d.identityAllocator = NewCachingIdentityAllocator(&d)
-	if err := d.initPolicy(epMgr, certManager, secretManager, authManager); err != nil {
+	if err := d.initPolicy(authManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
 	}
-	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           ctx,
-		IdentityAllocator: d.identityAllocator,
-		PolicyHandler:     d.policy.GetSelectorCache(),
-		DatapathHandler:   epMgr,
-		NodeHandler:       dp.Node(),
-		CacheStatus:       cacheStatus,
-	})
+
 	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
 	// possible so that the old IDs are still available. That is why we do this ASAP after the
 	// new (userspace) ipcache is created above.
@@ -1385,16 +1379,9 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 
 // Close shuts down a daemon
 func (d *Daemon) Close() {
-	if err := d.ipcache.Shutdown(); err != nil {
-		log.WithError(err).Debug("Failure during ipcache shutdown")
-	}
-	if d.policyUpdater != nil {
-		d.policyUpdater.Shutdown()
-	}
 	if d.datapathRegenTrigger != nil {
 		d.datapathRegenTrigger.Shutdown()
 	}
-	d.identityAllocator.Close()
 	identitymanager.RemoveAll()
 	d.cgroupManager.Close()
 }
@@ -1473,23 +1460,4 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
-}
-
-// GetNodeSuffix returns the suffix to be appended to kvstore keys of this
-// agent
-func (d *Daemon) GetNodeSuffix() string {
-	var ip net.IP
-
-	switch {
-	case option.Config.EnableIPv4:
-		ip = node.GetIPv4()
-	case option.Config.EnableIPv6:
-		ip = node.GetIPv6()
-	}
-
-	if ip == nil {
-		log.Fatal("Node IP not available yet")
-	}
-
-	return ip.String()
 }
