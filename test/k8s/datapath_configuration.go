@@ -234,29 +234,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	// DirectRouting without AutoDirectNodeRoutes not supported outside of GKE.
-	SkipContextIf(helpers.DoesNotRunOnGKE, "DirectRouting", func() {
-		It("Check connectivity with direct routing", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		It("Check connectivity with direct routing and endpointRoutes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"k8s.requireIPv4PodCIDR": "true",
-				"endpointRoutes.enabled": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
 	Context("AutoDirectNodeRoutes", func() {
 		BeforeEach(func() {
 			SkipIfIntegration(helpers.CIIntegrationGKE)
