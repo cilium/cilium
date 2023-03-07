@@ -1468,26 +1468,18 @@
      - IPv4 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``24``
-   * - ipam.operator.clusterPoolIPv4PodCIDR
-     - Deprecated in favor of ipam.operator.clusterPoolIPv4PodCIDRList. IPv4 CIDR range to delegate to individual nodes for IPAM.
-     - string
-     - ``"10.0.0.0/8"``
    * - ipam.operator.clusterPoolIPv4PodCIDRList
      - IPv4 CIDR list range to delegate to individual nodes for IPAM.
      - list
-     - ``[]``
+     - ``["10.0.0.0/8"]``
    * - ipam.operator.clusterPoolIPv6MaskSize
      - IPv6 CIDR mask size to delegate to individual nodes for IPAM.
      - int
      - ``120``
-   * - ipam.operator.clusterPoolIPv6PodCIDR
-     - Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList. IPv6 CIDR range to delegate to individual nodes for IPAM.
-     - string
-     - ``"fd00::/104"``
    * - ipam.operator.clusterPoolIPv6PodCIDRList
      - IPv6 CIDR list range to delegate to individual nodes for IPAM.
      - list
-     - ``[]``
+     - ``["fd00::/104"]``
    * - ipam.operator.externalAPILimitBurstSize
      - The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity.
      - string

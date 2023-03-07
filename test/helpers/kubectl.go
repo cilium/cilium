@@ -120,7 +120,7 @@ var (
 		"ipv4NativeRoutingCIDR":  IPv4NativeRoutingCIDR,
 		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
-		"ipam.operator.clusterPoolIPv6PodCIDR": "fd02::/112",
+		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
