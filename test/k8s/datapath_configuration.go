@@ -4,7 +4,6 @@
 package k8sTest
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"regexp"
@@ -143,22 +142,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	SkipContextIf(helpers.SkipQuarantined, "Encapsulation", func() {
-		validateBPFTunnelMap := func() {
-			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
-			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
-			status := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, "cilium bpf tunnel list | wc -l")
-
-			// ipv4+ipv6: 2 entries for each remote node + 1 header row
-			numEntries := (kubectl.GetNumCiliumNodes()-1)*2 + 1
-			if value := helpers.HelmOverride("ipv6.enabled"); value == "false" {
-				// ipv4 only: 1 entry for each remote node + 1 header row
-				numEntries = (kubectl.GetNumCiliumNodes() - 1) + 1
-			}
-
-			Expect(status.IntOutput()).Should(Equal(numEntries), "Did not find expected number of entries in BPF tunnel map")
-		}
-
 		enableVXLANTunneling := func(options map[string]string) {
 			options["tunnel"] = "vxlan"
 			if helpers.RunsOnGKE() {
@@ -167,38 +150,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 				options["endpointRoutes.enabled"] = "true"
 			}
 		}
-
-		It("Check connectivity with VXLAN encapsulation", func() {
-			options := map[string]string{}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		}, 600)
-
-		// Geneve is currently not supported on GKE
-		SkipItIf(helpers.RunsOnGKE, "Check connectivity with Geneve encapsulation", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel": "geneve",
-			}, DeployCiliumOptionsAndDNS)
-			validateBPFTunnelMap()
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		It("Check vxlan connectivity with per-endpoint routes", func() {
-			options := map[string]string{
-				"endpointRoutes.enabled": "true",
-			}
-			enableVXLANTunneling(options)
-			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-
-			if helpers.RunsOn419OrLaterKernel() {
-				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
-			}
-		})
 
 		It("Check iptables masquerading with random-fully", func() {
 			options := map[string]string{
@@ -217,6 +168,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				Should(BeTrue(), "IPv6 connectivity test to http://google.com failed")
 		})
 
+		// TODO(brb) Enable IPv6 masq in ci-datapath, and then drop this test case
 		It("Check iptables masquerading without random-fully", func() {
 			options := map[string]string{
 				"bpf.masquerade":       "false",
