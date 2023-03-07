@@ -100,6 +100,7 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 #define ctx_get_tunnel_key		xdp_get_tunnel_key__stub
 #define ctx_set_tunnel_key		xdp_set_tunnel_key__stub
 
+#define ctx_get_tunnel_opt		xdp_get_tunnel_opt__stub
 #define ctx_set_tunnel_opt		xdp_set_tunnel_opt__stub
 
 #define ctx_event_output		xdp_event_output
@@ -378,5 +379,4 @@ ctx_get_ifindex(const struct xdp_md *ctx)
 {
 	return ctx->ingress_ifindex;
 }
-
 #endif /* __BPF_CTX_XDP_H_ */
