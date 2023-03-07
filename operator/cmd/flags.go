@@ -243,9 +243,6 @@ func init() {
 	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
 	option.BindEnv(Vp, operatorOption.OperatorPrometheusServeAddr)
 
-	flags.String(operatorOption.OperatorAPIServeAddr, "localhost:9234", "Address to serve API requests")
-	option.BindEnv(Vp, operatorOption.OperatorAPIServeAddr)
-
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(Vp, operatorOption.SyncK8sServices)
 

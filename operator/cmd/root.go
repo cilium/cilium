@@ -108,11 +108,24 @@ var (
 			}
 		}),
 
+		cell.Provide(func(
+			operatorCfg *operatorOption.OperatorConfig,
+		) api.SharedConfig {
+			return api.SharedConfig{
+				EnableK8s: operatorCfg.EnableK8s,
+			}
+		}),
+
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
 			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
 			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
+
+			api.HealthHandlerCell(kvstoreEnabled),
+			api.MetricsHandlerCell,
+			api.ServerCell,
+
 			lbipam.Cell,
 			auth.Cell,
 			legacyCell,
@@ -140,11 +153,9 @@ func Execute() {
 }
 
 func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
-	apiServerShutdownSignal := make(chan struct{})
-
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
-			go runOperator(llc, clientset, shutdowner, apiServerShutdownSignal)
+			go runOperator(llc, clientset, shutdowner)
 			return nil
 		},
 		OnStop: func(ctx hive.HookContext) error {
@@ -152,7 +163,6 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 				return err
 			}
 			doCleanup()
-			close(apiServerShutdownSignal)
 			return nil
 		},
 	})
@@ -210,7 +220,6 @@ func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
-	operatorAddr = vp.GetString(operatorOption.OperatorAPIServeAddr)
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
@@ -231,63 +240,14 @@ func doCleanup() {
 	leaderElectionCtxCancel()
 }
 
-func getAPIServerAddr() []string {
-	if operatorOption.Config.OperatorAPIServeAddr == "" {
-		return []string{"127.0.0.1:0", "[::1]:0"}
-	}
-	return []string{operatorOption.Config.OperatorAPIServeAddr}
-}
-
-// checkStatus checks the connection status to the kvstore and
-// k8s apiserver and returns an error if any of them is unhealthy
-func checkStatus(clientset k8sClient.Clientset) error {
-	if kvstoreEnabled() {
-		// We check if we are the leader here because only the leader has
-		// access to the kvstore client. Otherwise, the kvstore client check
-		// will block. It is safe for a non-leader to skip this check, as the
-		// it is the leader's responsibility to report the status of the
-		// kvstore client.
-		if leader, ok := IsLeader.Load().(bool); ok && leader {
-			if client := kvstore.Client(); client == nil {
-				return fmt.Errorf("kvstore client not configured")
-			} else if _, err := client.Status(); err != nil {
-				return err
-			}
-		}
-	}
-
-	if _, err := clientset.Discovery().ServerVersion(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // runOperator implements the logic of leader election for cilium-operator using
 // built-in leader election capbility in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
-func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner, apiServerShutdownSignal chan struct{}) {
+func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	log.Infof("Cilium Operator %s", version.Version)
 
-	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
-
-	// Configure API server for the operator.
-	srv, err := api.NewServer(apiServerShutdownSignal, allSystemsGo, getAPIServerAddr()...)
-	if err != nil {
-		log.WithError(err).Fatalf("Unable to create operator apiserver")
-	}
-	close(allSystemsGo)
-
-	if operatorOption.Config.EnableK8s {
-		go func() {
-			err = srv.WithStatusCheckFunc(func() error { return checkStatus(clientset) }).StartServer()
-			if err != nil {
-				log.WithError(err).Fatalf("Unable to start operator apiserver")
-			}
-		}()
-	}
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()

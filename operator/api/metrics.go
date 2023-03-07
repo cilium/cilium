@@ -11,25 +11,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-type getMetrics struct {
-	*Server
-}
-
-// NewGetMetricsHandler handles metrics requests.
-func NewGetMetricsHandler(s *Server) metrics.GetMetricsHandler {
-	return &getMetrics{Server: s}
-}
-
-// Handle handles GET requests for /metrics/ .
-func (h *getMetrics) Handle(params metrics.GetMetricsParams) middleware.Responder {
-	m, err := opMetrics.DumpMetrics()
-	if err != nil {
-		return metrics.NewGetMetricsFailed()
-	}
-
-	return metrics.NewGetMetricsOK().WithPayload(m)
-}
-
 var MetricsHandlerCell = cell.Module(
 	"metrics-handler",
 	"Operator metrics HTTP handler",
