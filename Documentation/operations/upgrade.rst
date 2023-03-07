@@ -383,6 +383,8 @@ Helm Options
   ``encryption.secretName`` and ``encryption.interface`` are deprecated in
   favor of their ``encryption.ipsec.*`` counterparts and will be removed in
   Cilium 1.15.
+* Value ``hubble.peerService.enabled`` was deprecated in Cilium 1.13 and has
+  been removed. The peer service is no longer optional.
 
 .. _earlier_upgrade_notes:
 

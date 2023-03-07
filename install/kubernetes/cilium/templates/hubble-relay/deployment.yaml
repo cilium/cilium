@@ -1,5 +1,4 @@
 {{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
-{{- $mountSocket := not .Values.hubble.peerService.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -82,11 +81,6 @@ spec:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
           volumeMounts:
-          {{- if $mountSocket }}
-          - name: hubble-sock-dir
-            mountPath: {{ dir .Values.hubble.socketPath }}
-            readOnly: true
-          {{- end }}
           - name: config
             mountPath: /etc/hubble-relay
             readOnly: true
@@ -132,12 +126,6 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
-      {{- if $mountSocket }}
-      - name: hubble-sock-dir
-        hostPath:
-          path: {{ dir .Values.hubble.socketPath }}
-          type: Directory
-      {{- end }}
       {{- if .Values.hubble.tls.enabled }}
       - name: tls
         projected:
