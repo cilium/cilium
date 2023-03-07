@@ -968,10 +968,6 @@
      - The cluster domain to use to query the Hubble Peer service. It should be the local cluster.
      - string
      - ``"cluster.local"``
-   * - hubble.peerService.enabled
-     - Enable a K8s Service for the Peer service, so that it can be accessed by a non-local client. This configuration option is deprecated, the peer service will be non-optional starting Cilium v1.14.
-     - bool
-     - ``true``
    * - hubble.peerService.targetPort
      - Target Port for the Peer service, must match the hubble.listenAddress' port.
      - int
