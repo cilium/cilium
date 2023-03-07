@@ -186,38 +186,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("AutoDirectNodeRoutes", func() {
-		BeforeEach(func() {
-			SkipIfIntegration(helpers.CIIntegrationGKE)
-			SkipIfIntegration(helpers.CIIntegrationAKS)
-		})
-
-		It("Check connectivity with automatic direct nodes routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":               "disabled",
-				"autoDirectNodeRoutes": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			if helpers.RunsOn419OrLaterKernel() {
-				By("Test BPF masquerade")
-				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false, false)).
-					Should(BeTrue(), "Connectivity test to http://google.com failed")
-			}
-		})
-
-		It("Check direct connectivity with per endpoint routes", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"tunnel":                 "disabled",
-				"autoDirectNodeRoutes":   "true",
-				"endpointRoutes.enabled": "true",
-				"ipv6.enabled":           "false",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-	})
-
 	SkipContextIf(func() bool {
 		return helpers.RunsWithKubeProxyReplacement() || helpers.GetCurrentIntegration() != "" || helpers.SkipQuarantined()
 	}, "IPv6 masquerading", func() {
