@@ -947,8 +947,17 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
+  {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
+{{- end -}}
 {{- if .Values.operator.removeNodeTaints }}
   remove-cilium-node-taints: "true"
+{{- end }}
+{{- /* set node taints if setNodeTaints is explicitly enabled or removeNodeTaints is set */ -}}
+{{- if or .Values.operator.setNodeTaints
+          ( and (kindIs "invalid" .Values.operator.setNodeTaints)
+                .Values.operator.removeNodeTaints ) }}
+  set-cilium-node-taints: "true"
 {{- end }}
 {{- if .Values.operator.setNodeNetworkStatus }}
   set-cilium-is-up-condition: "true"

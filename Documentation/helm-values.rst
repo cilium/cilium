@@ -1841,6 +1841,10 @@
      - Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod.
      - bool
      - ``true``
+   * - operator.setNodeTaints
+     - Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider.
+     - string
+     - same as removeNodeTaints
    * - operator.skipCNPStatusStartupClean
      - Skip CNP node status clean up at operator startup.
      - bool

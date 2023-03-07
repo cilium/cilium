@@ -511,6 +511,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.rollOutPods | bool | `false` | Roll out cilium-operator pods automatically when configmap is updated. |
 | operator.securityContext | object | `{}` | Security context to be added to cilium-operator pods |
 | operator.setNodeNetworkStatus | bool | `true` | Set Node condition NetworkUnavailable to 'false' with the reason 'CiliumIsUp' for nodes that have a healthy Cilium pod. |
+| operator.setNodeTaints | string | same as removeNodeTaints | Taint nodes where Cilium is scheduled but not running. This prevents pods from being scheduled to nodes where Cilium is not the default CNI provider. |
 | operator.skipCNPStatusStartupClean | bool | `false` | Skip CNP node status clean up at operator startup. |
 | operator.skipCRDCreation | bool | `false` | Skip CRDs creation for cilium-operator |
 | operator.tolerations | list | `[{"operator":"Exists"}]` | Node tolerations for cilium-operator scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
