@@ -1319,11 +1319,7 @@
    * - hubble.ui.securityContext
      - Security context to be added to Hubble UI pods
      - object
-     - ``{"enabled":true,"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
-   * - hubble.ui.securityContext.enabled
-     - Deprecated in favor of hubble.ui.securityContext. Whether to set the security context on the Hubble UI pods.
-     - bool
-     - ``true``
+     - ``{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}``
    * - hubble.ui.service
      - hubble-ui service configuration.
      - object

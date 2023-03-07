@@ -1341,9 +1341,6 @@ hubble:
 
     # -- Security context to be added to Hubble UI pods
     securityContext:
-      # -- Deprecated in favor of hubble.ui.securityContext.
-      # Whether to set the security context on the Hubble UI pods.
-      enabled: true
       runAsUser: 1001
       runAsGroup: 1001
       fsGroup: 1001

@@ -379,8 +379,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.ui.priorityClassName | string | `""` | The priority class to use for hubble-ui |
 | hubble.ui.replicas | int | `1` | The number of replicas of Hubble UI to deploy. |
 | hubble.ui.rollOutPods | bool | `false` | Roll out Hubble-ui pods automatically when configmap is updated. |
-| hubble.ui.securityContext | object | `{"enabled":true,"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}` | Security context to be added to Hubble UI pods |
-| hubble.ui.securityContext.enabled | bool | `true` | Deprecated in favor of hubble.ui.securityContext. Whether to set the security context on the Hubble UI pods. |
+| hubble.ui.securityContext | object | `{"fsGroup":1001,"runAsGroup":1001,"runAsUser":1001}` | Security context to be added to Hubble UI pods |
 | hubble.ui.service | object | `{"annotations":{},"nodePort":31235,"type":"ClusterIP"}` | hubble-ui service configuration. |
 | hubble.ui.service.annotations | object | `{}` | Annotations to be added for the Hubble UI service |
 | hubble.ui.service.nodePort | int | `31235` | - The port to use when the service type is set to NodePort. |
