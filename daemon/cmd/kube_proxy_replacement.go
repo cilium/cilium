@@ -91,7 +91,8 @@ func initKubeProxyReplacementOptions() error {
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption &&
-			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP ||
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchIPIP &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve ||
 			option.Config.NodePortMode == option.NodePortModeHybrid &&
 				option.Config.LoadBalancerDSRDispatch != option.DSRDispatchOption {
 			return fmt.Errorf("Invalid value for --%s: %s", option.LoadBalancerDSRDispatch, option.Config.LoadBalancerDSRDispatch)
@@ -185,9 +186,16 @@ func initKubeProxyReplacementOptions() error {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.TunnelingEnabled() &&
+		if option.Config.Tunnel == option.TunnelVXLAN &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
-			return fmt.Errorf("Node Port %q mode cannot be used with tunneling.", option.Config.NodePortMode)
+			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, option.Config.Tunnel)
+		}
+
+		if option.Config.Tunnel == option.TunnelGeneve &&
+			option.Config.NodePortMode != option.NodePortModeSNAT &&
+			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
+			return fmt.Errorf("Node Port %q mode with %s dispatch cannot be used with %s tunneling.",
+				option.Config.NodePortMode, option.Config.LoadBalancerDSRDispatch, option.Config.Tunnel)
 		}
 
 		if option.Config.NodePortMode == option.NodePortModeDSR &&
