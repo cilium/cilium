@@ -99,3 +99,46 @@ func (o *GetHealthzInternalServerError) WriteResponse(rw http.ResponseWriter, pr
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// GetHealthzNotImplementedCode is the HTTP code returned for type GetHealthzNotImplemented
+const GetHealthzNotImplementedCode int = 501
+
+/*
+GetHealthzNotImplemented Cilium operator health status not available
+
+swagger:response getHealthzNotImplemented
+*/
+type GetHealthzNotImplemented struct {
+
+	/*
+	  In: Body
+	*/
+	Payload string `json:"body,omitempty"`
+}
+
+// NewGetHealthzNotImplemented creates GetHealthzNotImplemented with default headers values
+func NewGetHealthzNotImplemented() *GetHealthzNotImplemented {
+
+	return &GetHealthzNotImplemented{}
+}
+
+// WithPayload adds the payload to the get healthz not implemented response
+func (o *GetHealthzNotImplemented) WithPayload(payload string) *GetHealthzNotImplemented {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the get healthz not implemented response
+func (o *GetHealthzNotImplemented) SetPayload(payload string) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *GetHealthzNotImplemented) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(501)
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+}
