@@ -152,12 +152,12 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	switch reqType {
 	case requestHTTP:
 		// Curl the server from the client to generate some traffic
-		t.NewAction(s, "curl", client, server, ipFam).Run(func(a *check.Action) {
+		t.NewAction(s, fmt.Sprintf("curl-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, t.Context().CurlCommand(server, ipFam))
 		})
 	case requestICMPEcho:
 		// Ping the server from the client to generate some traffic
-		t.NewAction(s, "ping", client, server, ipFam).Run(func(a *check.Action) {
+		t.NewAction(s, fmt.Sprintf("ping-%s", ipFam), client, server, ipFam).Run(func(a *check.Action) {
 			a.ExecInPod(ctx, t.Context().PingCommand(server, ipFam))
 		})
 	default:

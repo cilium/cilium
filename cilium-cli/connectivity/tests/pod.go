@@ -50,7 +50,7 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 			t.ForEachIPFamily(func(ipFam check.IPFamily) {
-				t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, echo, ipFam).Run(func(a *check.Action) {
+				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 					if s.method == "" {
 						a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam))
 					} else {
@@ -105,7 +105,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 			}
 
 			t.ForEachIPFamily(func(ipFam check.IPFamily) {
-				s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%d", i), &client, echo, ipFam)
+				s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam)
 			})
 
 			i++
