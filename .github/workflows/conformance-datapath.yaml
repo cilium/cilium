@@ -156,6 +156,7 @@ jobs:
             encryption-node: 'false'
             lb-mode: 'snat'
             endpoint-routes: 'true'
+            egress-gateway: 'true'
 
           - name: '5'
             kernel: '5.15-main'
@@ -166,6 +167,7 @@ jobs:
             encryption-node: 'false'
             lb-mode: 'snat'
             endpoint-routes: 'true'
+            egress-gateway: 'true'
 
           - name: '6'
             kernel: '6.0-main'
@@ -175,6 +177,7 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'true'
             lb-mode: 'snat'
+            egress-gateway: 'true'
 
           - name: '7'
             kernel: 'bpf-next-main'
@@ -184,6 +187,7 @@ jobs:
             encryption: 'wireguard'
             encryption-node: 'true'
             lb-mode: 'snat'
+            egress-gateway: 'true'
 
           - name: '8'
             kernel: 'bpf-next-main'
@@ -225,8 +229,7 @@ jobs:
             --rollback=false \
             --config monitor-aggregation=none \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }} \
-            --helm-set=bpf.masquerade=false"
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=tunnel=disabled --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16"
@@ -244,8 +247,17 @@ jobs:
           if [ "${{ matrix.ipv6 }}" != "false" ]; then
             IPV6="--helm-set=ipv6.enabled=true"
           fi
+          # We need to enable BPF masquerading for EGW so we keep the default
+          # here. masq is off due to https://github.com/cilium/cilium/issues/23283
+          EGRESS_GATEWAY="--helm-set=bpf.masquerade=false"
+          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
+            EGRESS_GATEWAY="--helm-set=bpf.masquerade=true --helm-set=enableIPv6Masquerade=false"
+            # Force legacy host routing to work around #23283 with masq on.
+            EGRESS_GATEWAY+=" --helm-set=bpf.hostLegacyRouting=true"
+            EGRESS_GATEWAY+=" --helm-set=egressGateway.enabled=true"
+          fi
 
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6}"
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
