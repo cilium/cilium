@@ -50,6 +50,10 @@ type ControllerParams struct {
 	// An unset DoFunc is an error and will be logged as one.
 	DoFunc ControllerFunc
 
+	// CancelDoFuncOnUpdate when set to true cancels the controller context
+	// (the DoFunc) to allow quick termination of controller
+	CancelDoFuncOnUpdate bool
+
 	// StopFunc is called when the controller stops. It is intended to run any
 	// clean-up tasks for the controller (e.g. deallocate/release resources)
 	// It is guaranteed that DoFunc is called at least once before StopFunc is
@@ -318,6 +322,17 @@ shutdown:
 //
 // If the RunInterval exceeds ControllerMaxInterval, it will be capped.
 func (c *Controller) updateParamsLocked(params ControllerParams) {
+	if c.params.CancelDoFuncOnUpdate && c.cancelDoFunc != nil {
+		c.cancelDoFunc()
+
+		// (re)set the context as the previous might have been cancelled
+		if params.Context == nil {
+			c.ctxDoFunc, c.cancelDoFunc = context.WithCancel(context.Background())
+		} else {
+			c.ctxDoFunc, c.cancelDoFunc = context.WithCancel(params.Context)
+		}
+	}
+
 	c.params = params
 
 	maxInterval := time.Duration(option.Config.MaxControllerInterval) * time.Second
