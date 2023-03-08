@@ -669,6 +669,8 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		shuffleEndpoints(config.Endpoints)
 	}
 
+	// Set client context so that client can be cancelled from outside
+	config.Context = ctx
 	// Set DialTimeout to 0, otherwise the creation of a new client will
 	// block until DialTimeout is reached or a connection to the server
 	// is made.
@@ -783,6 +785,8 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 				ec.lastHeartbeat = time.Now()
 				ec.RWMutex.Unlock()
 				log.Debug("Received update notification of heartbeat")
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
@@ -929,6 +933,19 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 	localCache := watcherCache{}
 	listSignalSent := false
 
+	defer func() {
+		close(w.Events)
+		w.stopWait.Done()
+
+		// The watch might be aborted by closing
+		// the context instead of calling
+		// w.Stop() from outside. In that case
+		// we make sure to close everything and
+		// as this uses sync.Once it can be
+		// run multiple times (if that's the case).
+		w.Stop()
+	}()
+
 	scopedLog := e.getLogger().WithFields(logrus.Fields{
 		fieldWatcher: w,
 		fieldPrefix:  w.Prefix,
@@ -1036,10 +1053,7 @@ reList:
 			case <-ctx.Done():
 				return
 			case <-w.stopWatch:
-				close(w.Events)
-				w.stopWait.Done()
 				return
-
 			case r, ok := <-etcdWatch:
 				if !ok {
 					time.Sleep(50 * time.Millisecond)
