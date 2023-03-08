@@ -270,6 +270,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
 				return nil
 			},
+			CancelDoFuncOnUpdate: true,
 		},
 	)
 }
