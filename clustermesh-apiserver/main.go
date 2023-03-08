@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
+	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -112,8 +113,8 @@ func init() {
 	rootHive = hive.New(
 		pprof.Cell,
 		cell.Config(pprof.Config{
-			PprofAddress: defaults.PprofAddressAPIServer,
-			PprofPort:    defaults.PprofPortAPIServer,
+			PprofAddress: apiserverOption.PprofAddressAPIServer,
+			PprofPort:    apiserverOption.PprofPortAPIServer,
 		}),
 
 		gops.Cell(defaults.GopsPortApiserver),
