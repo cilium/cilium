@@ -50,6 +50,8 @@ spec:
           /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
           etcdctl user add root --no-password;
           etcdctl user grant-role root root;
+          etcdctl user add admin-{{ .Values.cluster.name }} --no-password;
+          etcdctl user grant-role admin-{{ .Values.cluster.name }} root;
           etcdctl user add externalworkload --no-password;
           etcdctl role add externalworkload;
           etcdctl role grant-permission externalworkload --from-key read '';
