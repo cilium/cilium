@@ -49,6 +49,9 @@ var (
 	consulDummyConfigFile = "/tmp/cilium-consul-certs/cilium-consul.yaml"
 
 	module = newConsulModule()
+
+	// ErrNotImplemented is the error which is returned when a functionality is not implemented.
+	ErrNotImplemented = errors.New("not implemented")
 )
 
 func init() {
@@ -767,4 +770,14 @@ func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, ch
 // StatusCheckErrors returns a channel which receives status check errors
 func (c *consulClient) StatusCheckErrors() <-chan error {
 	return c.statusCheckErrors
+}
+
+// UserEnforcePresence is not implemented for the consul backend
+func (c *consulClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {
+	return ErrNotImplemented
+}
+
+// UserEnforceAbsence is not implemented for the consul backend
+func (c *consulClient) UserEnforceAbsence(ctx context.Context, name string) error {
+	return ErrNotImplemented
 }
