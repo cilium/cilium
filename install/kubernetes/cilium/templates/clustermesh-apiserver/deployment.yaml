@@ -1,4 +1,7 @@
 {{- if (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) }}
+{{- if not (list "legacy" "migration" "cluster" | has .Values.clustermesh.apiserver.tls.authMode) -}}
+{{- fail ".Values.clustermesh.apiserver.tls.authMode must be one of legacy, migration, cluster" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -133,6 +136,10 @@ spec:
         - --cluster-id=$(CLUSTER_ID)
         - --kvstore-opt
         - etcd.config=/var/lib/cilium/etcd-config.yaml
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - --cluster-users-enabled
+        - --cluster-users-config-path=/var/lib/cilium/etcd-config/users.yaml
+        {{- end }}
         env:
         - name: CLUSTER_NAME
           valueFrom:
@@ -167,6 +174,11 @@ spec:
         - name: etcd-admin-client
           mountPath: /var/lib/cilium/etcd-secrets
           readOnly: true
+        {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+        - name: etcd-users-config
+          mountPath: /var/lib/cilium/etcd-config
+          readOnly: true
+        {{- end }}
         {{- with .Values.clustermesh.apiserver.extraVolumeMounts }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -186,6 +198,13 @@ spec:
           secretName: clustermesh-apiserver-admin-cert
           # note: the leading zero means this number is in octal representation: do not remove it
           defaultMode: 0400
+      {{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+      - name: etcd-users-config
+        configMap:
+          name: clustermesh-remote-users
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+      {{- end }}
       - name: etcd-data-dir
         emptyDir: {}
       {{- with .Values.clustermesh.apiserver.extraVolumes }}

@@ -46,6 +46,7 @@ spec:
             {{- if .Values.clustermesh.useAPIServer }}
             - "--clustermesh-apiserver-remote-cert-generate"
             - "--clustermesh-apiserver-remote-cert-validity-duration={{ $certValiditySecondsStr }}"
+            - "--clustermesh-apiserver-remote-cert-common-name={{ include "clustermesh-apiserver-generate-certs.remote-common-name" . }}"
             {{- end }}
           {{- with .Values.certgen.extraVolumeMounts }}
           volumeMounts:
