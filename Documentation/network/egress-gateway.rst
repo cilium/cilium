@@ -55,6 +55,15 @@ Additionally, the enablement of the egress gateway feature requires that both
 BPF masquerading and the kube-proxy replacement are enabled, which may not be
 possible in all environments (due to, e.g., incompatible kernel versions).
 
+Delay for enforcement of egress policies on new pods
+----------------------------------------------------
+
+When new pods are started, there is a delay before egress gateway policies are
+applied for those pods. That means traffic from those pods may leave the
+cluster with a source IP address (pod IP or node IP) that doesn't match the
+egress gateway IP. That egressing traffic will also not be redirected through
+the gateway node.
+
 Incompatibility with other features
 -----------------------------------
 
