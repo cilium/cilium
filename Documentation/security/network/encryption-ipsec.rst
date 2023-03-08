@@ -228,11 +228,14 @@ Troubleshooting
    The list of decryption interfaces should have all native devices that may
    receive pod traffic (for example, ENI interfaces).
 
- * All XFRM errors correspond to a packet drop in the kernel. Except for
-   ``XfrmFwdHdrError``, ``XfrmInError``, and ``XfrmInStateInvalid``, all XFRM
-   errors indicate a bug in Cilium or an operational mistake.
-   ``XfrmOutStateSeqError``, ``XfrmInStateProtoError``, and ``XfrmInNoStates``
-   may be caused by operational mistakes, as detailed in the following points.
+All XFRM errors correspond to a packet drop in the kernel. The following
+details operational mistakes and expected behaviors that can cause those
+errors.
+
+ * When a node reboots, the key used to communicate with it is expected to
+   change on other nodes. You may notice the ``XfrmInNoStates`` and
+   ``XfrmOutNoStates`` counters increase while the new node key is being
+   deployed.
 
  * If the sequence number reaches its maximum value for any XFRM OUT state, it
    will result in packet drops and XFRM errors of type
