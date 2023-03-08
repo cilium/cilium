@@ -55,17 +55,16 @@ Additionally, the enablement of the egress gateway feature requires that both
 BPF masquerading and the kube-proxy replacement are enabled, which may not be
 possible in all environments (due to, e.g., incompatible kernel versions).
 
-Compatibility with other features
-=================================
-
-L7 policies
------------
+Incompatibility with other features
+-----------------------------------
 
 Egress gateway is currently partially incompatible with L7 policies.
 Specifically, when an egress gateway policy and an L7 policy both select the same
 endpoint, traffic from that endpoint will not go through egress gateway, even if
 the policy allows it. Full support will be added in an upcoming release once
 :gh-issue:`19642` is resolved.
+
+Egress gateway is not supported for IPv6 traffic.
 
 Enable egress gateway
 =====================
