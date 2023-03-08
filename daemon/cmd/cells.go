@@ -41,8 +41,8 @@ var (
 		// Register the pprof HTTP handlers, to get runtime profiling data.
 		pprof.Cell,
 		cell.Config(pprof.Config{
-			PprofAddress: defaults.PprofAddressAgent,
-			PprofPort:    defaults.PprofPortAgent,
+			PprofAddress: option.PprofAddressAgent,
+			PprofPort:    option.PprofPortAgent,
 		}),
 
 		// Runs the gops agent, a tool to diagnose Go processes.

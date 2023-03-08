@@ -158,8 +158,8 @@ func newOperatorHive() *hive.Hive {
 			}
 		}),
 		cell.Config(operatorPprofConfig{
-			OperatorPprofAddress: defaults.PprofAddressOperator,
-			OperatorPprofPort:    defaults.PprofPortOperator,
+			OperatorPprofAddress: operatorOption.PprofAddressOperator,
+			OperatorPprofPort:    operatorOption.PprofPortOperator,
 		}),
 
 		gops.Cell(defaults.GopsPortOperator),

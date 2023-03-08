@@ -37,6 +37,12 @@ const (
 
 	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
 	CNPStatusCleanupBurstDefault = 20
+
+	// PprofAddressOperator is the default value for pprof in the operator
+	PprofAddressOperator = "localhost"
+
+	// PprofPortOperator is the default value for pprof in the operator
+	PprofPortOperator = 6061
 )
 
 const (
