@@ -121,6 +121,7 @@ func init() {
 		k8sClient.Cell,
 		k8s.SharedResourcesCell,
 		healthAPIServerCell,
+		usersManagementCell,
 
 		cell.Invoke(registerHooks),
 	)
