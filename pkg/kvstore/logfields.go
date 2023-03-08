@@ -43,4 +43,10 @@ const (
 
 	// fieldEtcdEndpoint is the etcd endpoint we talk to
 	fieldEtcdEndpoint = "etcdEndpoint"
+
+	// FieldUser identifies a user in the kvstore
+	FieldUser = logfields.User
+
+	// FieldRole identifies a role in the kvstore
+	FieldRole = "role"
 )
