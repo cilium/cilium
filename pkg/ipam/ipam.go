@@ -169,9 +169,9 @@ func (ipam *IPAM) ExcludeIP(ip net.IP, owner string, pool Pool) {
 }
 
 // isIPExcluded is used to check if a particular IP is excluded from being allocated.
-func (ipam *IPAM) isIPExcluded(ip net.IP) bool {
-	_, ok := ipam.excludedIPs[ip.String()]
-	return ok
+func (ipam *IPAM) isIPExcluded(ip net.IP) (string, bool) {
+	owner, ok := ipam.excludedIPs[ip.String()]
+	return owner, ok
 }
 
 // PoolOrDefault returns the default pool if no pool is specified.
