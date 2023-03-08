@@ -17,6 +17,7 @@ Brouer
 CES
 CIDR
 CIDRs
+CN
 CRD
 CRI
 Cavium
@@ -188,9 +189,10 @@ asm
 assignees
 au
 auth
-authenticator
 authMapMax
 authMapMin
+authMode
+authenticator
 autoDirectNodeRoutes
 autoMount
 autoProtectPortRange
