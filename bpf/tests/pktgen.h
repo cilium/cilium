@@ -109,8 +109,8 @@ enum pkt_layer {
 /* Packet builder */
 struct pktgen {
 	struct __ctx_buff *ctx;
-	__u16 cur_off;
-	__u16 layer_offsets[PKT_BUILDER_LAYERS];
+	__u64 cur_off;
+	__u64 layer_offsets[PKT_BUILDER_LAYERS];
 	enum pkt_layer layers[PKT_BUILDER_LAYERS];
 };
 
@@ -350,7 +350,7 @@ void *pktgen__push_data_room(struct pktgen *builder, int len)
 	/* Check that any value within the struct will not exceed a u16 which
 	 * is the max allowed offset within a packet from ctx->data.
 	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - len)
+	if ((__u16)builder->cur_off >= MAX_PACKET_OFF - len)
 		return 0;
 
 	layer = ctx_data(ctx) + builder->cur_off;
@@ -406,7 +406,7 @@ void pktgen__finish(const struct pktgen *builder)
 			goto exit;
 
 		case PKT_LAYER_ETH:
-			layer_off = builder->layer_offsets[i];
+			layer_off = (__u16)builder->layer_offsets[i];
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
@@ -442,7 +442,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_IPV4:
-			layer_off = builder->layer_offsets[i];
+			layer_off = (__u16)builder->layer_offsets[i];
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
@@ -480,7 +480,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_IPV6:
-			layer_off = builder->layer_offsets[i];
+			layer_off = (__u16)builder->layer_offsets[i];
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
@@ -521,7 +521,7 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_TCP:
-			layer_off = builder->layer_offsets[i];
+			layer_off = (__u16)builder->layer_offsets[i];
 			/* Check that any value within the struct will not exceed a u16 which
 			 * is the max allowed offset within a packet from ctx->data.
 			 */
@@ -542,10 +542,10 @@ void pktgen__finish(const struct pktgen *builder)
 
 			if (builder->layers[i + 1] == PKT_LAYER_NONE) {
 				/* If no data or next header exists, calc using the current offset */
-				hdr_size = builder->cur_off - builder->layer_offsets[i];
+				hdr_size = (__u16)(builder->cur_off - builder->layer_offsets[i]);
 			} else {
-				hdr_size = builder->layer_offsets[i + 1] -
-						builder->layer_offsets[i];
+				hdr_size = (__u16)(builder->layer_offsets[i + 1] -
+						   builder->layer_offsets[i]);
 			}
 
 			tcp_layer->doff = hdr_size / 4;
