@@ -763,10 +763,23 @@ func (m *IptablesManager) iptProxyRules(proxyPort uint16, ingress bool, name str
 }
 
 func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd string, IP string, port *lb.L4Addr) error {
+	var err error
+
 	protocol := strings.ToLower(port.Protocol)
 	p := strconv.FormatUint(uint64(port.Port), 10)
 
-	if err := prog.runProg([]string{
+	// currently the only use case for this is node-local-dns
+	// with LRP, node-local-dns should be deployed as a non-host-namespaced
+	// pod and  we want to skip kernel conntrack for any traffic between the
+	// application pod and the node-local-dns pod
+	// There are 4 types of packets that we want to skip conntrack:
+	// 1. From a non-host pod to the node-local-dns pod
+	// 2. From the node-local-dns pod to a non-host pod
+	// 3. From a hostNetwork pod to the node-local-dns pod
+	// 4. From the node-local-dns pod to a hostNetwork pod
+
+	// 1. The following 2 rules cover packets from non-host pod to node-local-dns
+	if err = prog.runProg([]string{
 		"-t", "raw",
 		cmd, ciliumPreRawChain,
 		"-p", protocol,
@@ -774,9 +787,100 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 		"--dport", p,
 		"-j", "CT",
 		"--notrack"}); err != nil {
-		return err
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
 	}
-	if err := prog.runProg([]string{
+	if err = prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumForwardChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport",
+		p, "-j",
+		"ACCEPT"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+
+	// 2. The following 2 rules cover packets from node-local-dns to
+	// non-host pod
+	if err = prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumPreRawChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport", p,
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+	if err = prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumForwardChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport",
+		p, "-j",
+		"ACCEPT"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+
+	// 3. The following 2 rules cover packets from host namespaced pod to
+	// node-local-dns
+	if err = prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport", p,
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+	if err = prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumOutputChain,
+		"-p", protocol,
+		"-d", IP,
+		"--dport", p,
+		"-j", "ACCEPT"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+
+	// 4. The following rule (and the prerouting rule in case 2)
+	// covers packets from node-local-dns to host namespaced pod
+	if err = prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumInputChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport",
+		p, "-j",
+		"ACCEPT"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+
+	// The following rules are kept for compatibility with host-namespaced
+	// node-local-dns if user already deploys in the legacy mode without
+	// LRP.
+	if err = prog.runProg([]string{
+		"-t", "raw",
+		cmd, ciliumOutputRawChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport", p,
+		"-j", "CT",
+		"--notrack"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+	if err = prog.runProg([]string{
+		"-t", "filter",
+		cmd, ciliumOutputChain,
+		"-p", protocol,
+		"-s", IP,
+		"--sport", p,
+		"-j", "ACCEPT"}); err != nil {
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
+	}
+	if err = prog.runProg([]string{
 		"-t", "filter",
 		cmd, ciliumInputChain,
 		"-p", protocol,
@@ -784,48 +888,9 @@ func (m *IptablesManager) endpointNoTrackRules(prog iptablesInterface, cmd strin
 		"--dport",
 		p, "-j",
 		"ACCEPT"}); err != nil {
-		return err
+		log.WithError(err).Warning("Failed to enforce endpoint notrack")
 	}
-	if err := prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumOutputRawChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		return err
-	}
-	if err := prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumOutputChain,
-		"-p", protocol,
-		"-d", IP,
-		"--dport", p,
-		"-j", "ACCEPT"}); err != nil {
-		return err
-	}
-	if err := prog.runProg([]string{
-		"-t", "raw",
-		cmd, ciliumOutputRawChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-j", "CT",
-		"--notrack"}); err != nil {
-		return err
-	}
-	if err := prog.runProg([]string{
-		"-t", "filter",
-		cmd, ciliumOutputChain,
-		"-p", protocol,
-		"-s", IP,
-		"--sport", p,
-		"-j", "ACCEPT"}); err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // InstallNoTrackRules is explicitly called when a pod has valid "policy.cilium.io/no-track-port" annotation.
