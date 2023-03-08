@@ -481,7 +481,6 @@ jenkinsfiles @cilium/ci-structure
 /test/Makefile* @cilium/ci-structure @cilium/build
 # Service handling tests
 /test/k8s/services.go @cilium/sig-lb @cilium/ci-structure
-/test/runtime/lb.go @cilium/sig-lb @cilium/ci-structure
 # Datapath tests
 /test/bpf/ @cilium/sig-datapath
 /test/bpf/check-complexity.sh @cilium/loader
