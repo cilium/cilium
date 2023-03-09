@@ -35,7 +35,7 @@ const (
 
 var (
 	// IPIdentitiesPath is the path to where endpoint IPs are stored in the key-value
-	//store.
+	// store.
 	IPIdentitiesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ip", "v1")
 
 	// AddressSpace is the address space (cluster, etc.) in which policy is
@@ -201,12 +201,18 @@ type IPIdentityWatcher struct {
 
 	clusterID uint32
 
-	ipcache *IPCache
+	ipcache IPCacher
+}
+
+type IPCacher interface {
+	Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (bool, error)
+	ForEachListener(f func(listener IPIdentityMappingListener))
+	Delete(IP string, source source.Source) (namedPortsChanged bool)
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend.
-func NewIPIdentityWatcher(ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	return NewClusterIPIdentityWatcher(0, ipc, backend)
 }
 
@@ -215,7 +221,7 @@ func NewIPIdentityWatcher(ipc *IPCache, backend kvstore.BackendOperations) *IPId
 // is that each IP <=> Identity mapping will be annotated with ClusterID. Thus, it
 // can be used for watching the kvstore of the remote cluster with overlapping PodCIDR.
 // Calling this function with clusterID = 0 is identical to calling NewIPIdentityWatcher.
-func NewClusterIPIdentityWatcher(clusterID uint32, ipc *IPCache, backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewClusterIPIdentityWatcher(clusterID uint32, ipc IPCacher, backend kvstore.BackendOperations) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
 		clusterID: clusterID,
 		backend:   backend,
@@ -275,11 +281,9 @@ restart:
 			//   the deletion event.
 			switch event.Typ {
 			case kvstore.EventTypeListDone:
-				iw.ipcache.Lock()
-				for _, listener := range iw.ipcache.listeners {
+				iw.ipcache.ForEachListener(func(listener IPIdentityMappingListener) {
 					listener.OnIPIdentityCacheGC()
-				}
-				iw.ipcache.Unlock()
+				})
 				iw.closeSynced()
 
 			case kvstore.EventTypeCreate, kvstore.EventTypeModify:

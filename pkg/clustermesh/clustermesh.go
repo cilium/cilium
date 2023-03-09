@@ -65,7 +65,7 @@ type Configuration struct {
 	// remote cluster.
 	RemoteIdentityWatcher RemoteIdentityWatcher
 
-	IPCache *ipcache.IPCache
+	IPCache ipcache.IPCacher
 }
 
 func SetClusterConfig(clusterName string, config *cmtypes.CiliumClusterConfig, backend kvstore.BackendOperations) error {
@@ -144,7 +144,7 @@ type ClusterMesh struct {
 	controllers   *controller.Manager
 	configWatcher *configDirectoryWatcher
 
-	ipcache *ipcache.IPCache
+	ipcache ipcache.IPCacher
 
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
