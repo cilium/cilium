@@ -93,6 +93,7 @@ type deploymentParameters struct {
 	HostPort       int
 	Command        []string
 	Affinity       *corev1.Affinity
+	NodeSelector   map[string]string
 	ReadinessProbe *corev1.Probe
 	Labels         map[string]string
 	HostNetwork    bool
@@ -146,6 +147,7 @@ func newDeployment(p deploymentParameters) *appsv1.Deployment {
 						},
 					},
 					Affinity:           p.Affinity,
+					NodeSelector:       p.NodeSelector,
 					HostNetwork:        p.HostNetwork,
 					ServiceAccountName: p.Name,
 				},
@@ -396,7 +398,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				HostNetwork: ct.params.PerfHostNet,
+				NodeSelector: ct.params.NodeSelector,
+				HostNetwork:  ct.params.PerfHostNet,
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ClientName()), metav1.CreateOptions{})
 			if err != nil {
@@ -446,7 +449,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				HostNetwork: ct.params.PerfHostNet,
+				NodeSelector: ct.params.NodeSelector,
+				HostNetwork:  ct.params.PerfHostNet,
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ServerName()), metav1.CreateOptions{})
 			if err != nil {
@@ -493,7 +497,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 										{Key: "name", Operator: metav1.LabelSelectorOpIn, Values: []string{nm.ClientName()}}}},
 									TopologyKey: "kubernetes.io/hostname"}}}},
 					},
-					HostNetwork: ct.params.PerfHostNet,
+					NodeSelector: ct.params.NodeSelector,
+					HostNetwork:  ct.params.PerfHostNet,
 				})
 				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(nm.ClientAcrossName()), metav1.CreateOptions{})
 				if err != nil {
@@ -629,12 +634,13 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), clientDeploymentName)
 		clientDeployment := newDeployment(deploymentParameters{
-			Name:      clientDeploymentName,
-			Kind:      kindClientName,
-			NamedPort: "http-8080",
-			Port:      8080,
-			Image:     ct.params.CurlImage,
-			Command:   []string{"/bin/ash", "-c", "sleep 10000000"},
+			Name:         clientDeploymentName,
+			Kind:         kindClientName,
+			NamedPort:    "http-8080",
+			Port:         8080,
+			Image:        ct.params.CurlImage,
+			Command:      []string{"/bin/ash", "-c", "sleep 10000000"},
+			NodeSelector: ct.params.NodeSelector,
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientDeploymentName), metav1.CreateOptions{})
 		if err != nil {
@@ -672,6 +678,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					},
 				},
 			},
+			NodeSelector: ct.params.NodeSelector,
 		})
 		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(client2DeploymentName), metav1.CreateOptions{})
 		if err != nil {
@@ -727,6 +734,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
+				NodeSelector:   ct.params.NodeSelector,
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 			}, ct.params.DNSTestServerImage)
 			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoOtherNodeDeploymentName), metav1.CreateOptions{})

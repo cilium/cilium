@@ -50,6 +50,7 @@ type Parameters struct {
 	DNSTestServerImage    string
 	Datapath              bool
 	AgentPodSelector      string
+	NodeSelector          map[string]string
 	ExternalTarget        string
 	ExternalCIDR          string
 	ExternalIP            string
