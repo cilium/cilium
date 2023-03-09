@@ -809,3 +809,11 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 	}
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
+
+func (ipc *IPCache) ForEachListener(f func(listener IPIdentityMappingListener)) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	for _, listener := range ipc.listeners {
+		f(listener)
+	}
+}
