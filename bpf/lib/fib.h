@@ -31,8 +31,7 @@ redirect_direct_v6(struct __ctx_buff *ctx __maybe_unused,
 	ipv6_addr_copy((union v6addr *)&fib_params.ipv6_dst,
 		       (union v6addr *)&ip6->daddr);
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT);
+	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), 0);
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 		break;
@@ -96,8 +95,7 @@ redirect_direct_v4(struct __ctx_buff *ctx __maybe_unused,
 		.ipv4_dst	= ip4->daddr,
 	};
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT);
+	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params), 0);
 	switch (ret) {
 	case BPF_FIB_LKUP_RET_SUCCESS:
 		break;
