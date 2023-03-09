@@ -117,8 +117,8 @@ func TestVerifier(t *testing.T) {
 				t.Logf("Cleaning %s build files", bpfProgram.name)
 				cmd := exec.Command("make", "-C", "bpf/", "clean")
 				cmd.Dir = *ciliumBasePath
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("Failed to clean bpf objects: %v", err)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("Failed to clean bpf objects: %v\ncommand output: %s", err, out)
 				}
 
 				t.Logf("Building %s object file", bpfProgram.name)
@@ -128,8 +128,8 @@ func TestVerifier(t *testing.T) {
 					fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
 					fmt.Sprintf("KERNEL=%s", kernelVersion),
 				)
-				if err := cmd.Run(); err != nil {
-					t.Fatalf("Failed to compile %s bpf objects: %v", bpfProgram.name, err)
+				if out, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("Failed to compile %s bpf objects: %v\ncommand output: %s", bpfProgram.name, err, out)
 				}
 
 				t.Logf("Running the verifier test script with %s", bpfProgram.name)
