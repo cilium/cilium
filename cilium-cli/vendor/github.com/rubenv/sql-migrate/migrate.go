@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-gorp/gorp/v3"
+
 	"github.com/rubenv/sql-migrate/sqlparse"
 )
 
@@ -444,17 +445,42 @@ func ExecMax(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirecti
 	return migSet.ExecMax(db, dialect, m, dir, max)
 }
 
+// Execute a set of migrations
+//
+// Will apply at the target `version` of migration. Cannot be a negative value.
+//
+// Returns the number of applied migrations.
+func ExecVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
+	if version < 0 {
+		return 0, fmt.Errorf("target version %d should not be negative", version)
+	}
+	return migSet.ExecVersion(db, dialect, m, dir, version)
+}
+
 // Returns the number of applied migrations.
 func (ms MigrationSet) ExecMax(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int) (int, error) {
 	migrations, dbMap, err := ms.PlanMigration(db, dialect, m, dir, max)
 	if err != nil {
 		return 0, err
 	}
+	return ms.applyMigrations(dir, migrations, dbMap)
+}
 
-	// Apply migrations
+// Returns the number of applied migrations.
+func (ms MigrationSet) ExecVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
+	migrations, dbMap, err := ms.PlanMigrationToVersion(db, dialect, m, dir, version)
+	if err != nil {
+		return 0, err
+	}
+	return ms.applyMigrations(dir, migrations, dbMap)
+}
+
+// Applies the planned migrations and returns the number of applied migrations.
+func (ms MigrationSet) applyMigrations(dir MigrationDirection, migrations []*PlannedMigration, dbMap *gorp.DbMap) (int, error) {
 	applied := 0
 	for _, migration := range migrations {
 		var executor SqlExecutor
+		var err error
 
 		if migration.DisableTransaction {
 			executor = dbMap
@@ -524,7 +550,23 @@ func PlanMigration(db *sql.DB, dialect string, m MigrationSource, dir MigrationD
 	return migSet.PlanMigration(db, dialect, m, dir, max)
 }
 
+// Plan a migration to version.
+func PlanMigrationToVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) ([]*PlannedMigration, *gorp.DbMap, error) {
+	return migSet.PlanMigrationToVersion(db, dialect, m, dir, version)
+}
+
+// Plan a migration.
 func (ms MigrationSet) PlanMigration(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int) ([]*PlannedMigration, *gorp.DbMap, error) {
+	return ms.planMigrationCommon(db, dialect, m, dir, max, -1)
+}
+
+// Plan a migration to version.
+func (ms MigrationSet) PlanMigrationToVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) ([]*PlannedMigration, *gorp.DbMap, error) {
+	return ms.planMigrationCommon(db, dialect, m, dir, 0, version)
+}
+
+// A common method to plan a migration.
+func (ms MigrationSet) planMigrationCommon(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int, version int64) ([]*PlannedMigration, *gorp.DbMap, error) {
 	dbMap, err := ms.getMigrationDbMap(db, dialect)
 	if err != nil {
 		return nil, nil, err
@@ -581,7 +623,24 @@ func (ms MigrationSet) PlanMigration(db *sql.DB, dialect string, m MigrationSour
 	// Figure out which migrations to apply
 	toApply := ToApply(migrations, record.Id, dir)
 	toApplyCount := len(toApply)
-	if max > 0 && max < toApplyCount {
+
+	if version >= 0 {
+		targetIndex := 0
+		for targetIndex < len(toApply) {
+			tempVersion := toApply[targetIndex].VersionInt()
+			if dir == Up && tempVersion > version || dir == Down && tempVersion < version {
+				return nil, nil, newPlanError(&Migration{}, fmt.Errorf("unknown migration with version id %d in database", version).Error())
+			}
+			if tempVersion == version {
+				toApplyCount = targetIndex + 1
+				break
+			}
+			targetIndex++
+		}
+		if targetIndex == len(toApply) {
+			return nil, nil, newPlanError(&Migration{}, fmt.Errorf("unknown migration with version id %d in database", version).Error())
+		}
+	} else if max > 0 && max < toApplyCount {
 		toApplyCount = max
 	}
 	for _, v := range toApply[0:toApplyCount] {
