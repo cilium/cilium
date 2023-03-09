@@ -68,7 +68,8 @@ var (
 
 	// Use a Go context so we can tell the leaderelection code when we
 	// want to step down
-	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
+	leaderElectionCtx       context.Context
+	leaderElectionCtxCancel context.CancelFunc
 
 	operatorAddr string
 
@@ -225,7 +226,7 @@ func initEnv() {
 func doCleanup() {
 	IsLeader.Store(false)
 
-	// Cancelling this conext here makes sure that if the operator hold the
+	// Cancelling this context here makes sure that if the operator hold the
 	// leader lease, it will be released.
 	leaderElectionCtxCancel()
 }
@@ -270,6 +271,7 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 	allSystemsGo := make(chan struct{})
 	IsLeader.Store(false)
+	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
 
 	// Configure API server for the operator.
 	srv, err := api.NewServer(apiServerShutdownSignal, allSystemsGo, getAPIServerAddr()...)
