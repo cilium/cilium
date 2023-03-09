@@ -386,7 +386,7 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
@@ -396,7 +396,7 @@ jobs:
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
             ./cilium-cli connectivity test --collect-sysdump-on-failure \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            kind delete cluster
+            ./contrib/scripts/kind-down.sh --keep-registry
 
       - name: Fetch artifacts
         if: ${{ !success() }}

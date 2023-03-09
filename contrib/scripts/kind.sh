@@ -14,8 +14,17 @@ default_pod_subnet=""
 default_service_subnet=""
 default_agent_port_prefix="234"
 default_operator_port_prefix="235"
+default_network="kind-cilium"
 
 PROG=${0}
+
+xdp=false
+if [ "${1:-}" = "--xdp" ]; then
+  xdp=true
+  shift
+fi
+readonly xdp
+
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
 workers="${2:-${WORKERS:=${default_workers}}}"
 cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
@@ -27,10 +36,13 @@ pod_subnet="${PODSUBNET:=${default_pod_subnet}}"
 service_subnet="${SERVICESUBNET:=${default_service_subnet}}"
 agent_port_prefix="${AGENTPORTPREFIX:=${default_agent_port_prefix}}"
 operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
+
+bridge_dev="br-${default_network}"
+v6_prefix="fc00:c111::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ${PROG} [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
+  echo "Usage: ${PROG} [--xdp] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
 }
 
 have_kind() {
@@ -117,6 +129,16 @@ workers() {
   done
 }
 
+# create a custom network so we can control the name of the bridge device.
+# Inspired by https://github.com/kubernetes-sigs/kind/blob/6b58c9dfcbdb1b3a0d48754d043d59ca7073589b/pkg/cluster/internal/providers/docker/network.go#L149-L161
+docker network create -d=bridge \
+  -o "com.docker.network.bridge.enable_ip_masquerade=true" \
+  -o "com.docker.network.bridge.name=${bridge_dev}" \
+  --ipv6 --subnet "${v6_prefix}" \
+  "${default_network}"
+
+export KIND_EXPERIMENTAL_DOCKER_NETWORK="${default_network}"
+
 # create a cluster with the local registry enabled in containerd
 cat <<EOF | ${kind_cmd} --config=-
 kind: Cluster
@@ -144,7 +166,27 @@ containerdConfigPatches:
     endpoint = ["http://${reg_name}:${reg_port}"]
 EOF
 
-docker network connect "kind" "${reg_name}" || true
+if [ "${xdp}" = true ]; then
+  if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
+    pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
+    clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+    popd > /dev/null
+  fi
+
+  for ifc in /sys/class/net/"${bridge_dev}"/brif/*; do
+    ifc="${ifc#"/sys/class/net/${bridge_dev}/brif/"}"
+
+    # Attach a dummy XDP prog to the host side of the veth so that XDP_TX in the
+    # pod side works.
+    sudo ip link set dev "${ifc}" xdp obj "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o"
+
+    # Disable TX and RX csum offloading, as veth does not support it. Otherwise,
+    # the forwarded packets by the LB to the worker node will have invalid csums.
+    sudo ethtool -K "${ifc}" rx off tx off > /dev/null
+  done
+fi
+
+docker network connect "${default_network}" "${reg_name}" || true
 
 for node in $(kubectl get nodes --no-headers -o custom-columns=:.metadata.name); do
   kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${reg_port}";
