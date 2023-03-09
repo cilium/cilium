@@ -306,9 +306,20 @@ func createConfig(apiServerURL, kubeCfgPath string, qps float32, burst int) (*re
 		config = &rest.Config{Host: apiServerURL, UserAgent: userAgent}
 	}
 
-	config.QPS = qps
-	config.Burst = burst
+	setConfig(config, userAgent, qps, burst)
 	return config, nil
+}
+
+func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
+	if userAgent != "" {
+		config.UserAgent = userAgent
+	}
+	if qps != 0.0 {
+		config.QPS = qps
+	}
+	if burst != 0 {
+		config.Burst = burst
+	}
 }
 
 func (c *compositeClientset) waitForConn(ctx context.Context) error {
