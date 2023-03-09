@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
+	operatorApi "github.com/cilium/cilium/operator/api"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/cidr"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -256,7 +257,9 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = true
 			}).
 			StartAgent().
-			StartOperator(func(_ *viper.Viper) {}).
+			StartOperator(func(vp *viper.Viper) {
+				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+			}).
 			Execute(func() error { return applyDummyCNPs(test) }).
 			Eventually(func() error { return validateCNPs(test) })
 
@@ -271,7 +274,9 @@ func init() {
 				operatorCfg.SkipCNPStatusStartupClean = false
 			}).
 			StartAgent().
-			StartOperator(func(_ *viper.Viper) {}).
+			StartOperator(func(vp *viper.Viper) {
+				vp.Set(operatorApi.OperatorAPIServeAddr, "localhost:0")
+			}).
 			Execute(func() error { return applyDummyCNPs(test) }).
 			Eventually(func() error { return validateCNPsAfterGC(test) })
 
