@@ -48,17 +48,17 @@ type authManagerParams struct {
 
 	Lifecycle             hive.Lifecycle
 	Config                config
+	IPCache               *ipcache.IPCache
 	AuthHandlers          []authHandler `group:"authHandlers"`
 	DatapathAuthenticator datapathAuthenticator
 }
 
 type Manager interface {
 	consumer.MonitorConsumer
-	SetIPCache(*ipcache.IPCache)
 }
 
 func newManager(params authManagerParams) (Manager, error) {
-	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator, nil)
+	mgr, err := newAuthManager(params.AuthHandlers, params.DatapathAuthenticator, params.IPCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
@@ -70,31 +70,7 @@ func newManager(params authManagerParams) (Manager, error) {
 		OnStop:  dropMonitor.OnStop,
 	})
 
-	return &manager{
-		monitorConsumer: dropMonitor,
-		manager:         mgr,
-	}, nil
-}
-
-type manager struct {
-	monitorConsumer consumer.MonitorConsumer
-	manager         *authManager
-}
-
-func (r *manager) SetIPCache(ipCache *ipcache.IPCache) {
-	r.manager.ipCache = ipCache
-}
-
-func (r *manager) NotifyAgentEvent(typ int, message interface{}) {
-	r.monitorConsumer.NotifyAgentEvent(typ, message)
-}
-
-func (r *manager) NotifyPerfEvent(data []byte, cpu int) {
-	r.monitorConsumer.NotifyPerfEvent(data, cpu)
-}
-
-func (r *manager) NotifyPerfEventLost(numLostEvents uint64, cpu int) {
-	r.monitorConsumer.NotifyPerfEventLost(numLostEvents, cpu)
+	return dropMonitor, nil
 }
 
 type authHandlerResult struct {
