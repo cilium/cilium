@@ -455,6 +455,28 @@ func (m *ManagerTestSuite) testUpsertAndDeleteService(c *C) {
 	c.Assert(found, Equals, true)
 	c.Assert(len(m.lbmap.ServiceByID), Equals, 0)
 	c.Assert(len(m.lbmap.BackendByID), Equals, 0)
+
+	// Should ignore the source range if it does not match FE's ip family
+	cidr1, err = cidr.ParseCIDR("fd00::/8")
+	c.Assert(err, IsNil)
+	cidr2, err = cidr.ParseCIDR("192.168.1.0/24")
+	c.Assert(err, IsNil)
+
+	p4 := &lb.SVC{
+		Frontend:                  frontend1,
+		Backends:                  backends1,
+		Type:                      lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		IntTrafficPolicy:          lb.SVCTrafficPolicyCluster,
+		SessionAffinity:           true,
+		SessionAffinityTimeoutSec: 300,
+		Name:                      lb.ServiceName{Name: "svc3", Namespace: "ns3"},
+		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
+	}
+	created, id4, err := m.svc.UpsertService(p4)
+	c.Assert(created, Equals, true)
+	c.Assert(err, IsNil)
+	c.Assert(len(m.lbmap.SourceRanges[uint16(id4)]), Equals, 1)
 }
 
 func (m *ManagerTestSuite) TestRestoreServices(c *C) {
