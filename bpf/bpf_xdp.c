@@ -42,11 +42,6 @@
 #include "lib/nodeport.h"
 
 #ifdef ENABLE_PREFILTER
-#ifndef HAVE_LPM_TRIE_MAP_TYPE
-# undef CIDR4_LPM_PREFILTER
-# undef CIDR6_LPM_PREFILTER
-#endif
-
 #ifdef CIDR4_FILTER
 struct {
 	__uint(type, BPF_MAP_TYPE_HASH);

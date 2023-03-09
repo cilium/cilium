@@ -30,18 +30,6 @@ const (
 
 	// Name is the canonical name for the IPCache map on the filesystem.
 	Name = "cilium_ipcache"
-
-	// maxPrefixLengths is an approximation of how many different CIDR
-	// prefix lengths may be supported by the BPF datapath without causing
-	// BPF code generation to exceed the verifier instruction limit.
-	// It applies to Linux versions that lack support for LPM, ie < v4.11.
-	//
-	// This is based upon the defines in bpf/ep_config.h, which in turn
-	// are derived by building the bpf/ directory and running the script
-	// test/bpf/verifier-test.sh, then adjusting the number of unique
-	// prefix lengths until the script passes.
-	maxPrefixLengths6 = 4
-	maxPrefixLengths4 = 18
 )
 
 // Key implements the bpf.MapKey interface.
@@ -243,10 +231,7 @@ func (m *Map) DeleteWithOverwrite(k bpf.MapKey) error {
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
 func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
-	if BackedByLPM() {
-		return net.IPv6len*8 + 1, net.IPv4len*8 + 1
-	}
-	return maxPrefixLengths6, maxPrefixLengths4
+	return net.IPv6len*8 + 1, net.IPv4len*8 + 1
 }
 
 func (m *Map) supportsDelete() bool {
@@ -293,12 +278,6 @@ func (m *Map) supportsDelete() bool {
 // the delete operation.
 func SupportsDelete() bool {
 	return IPCacheMap().supportsDelete()
-}
-
-// BackedByLPM returns true if the IPCache is backed by a proper LPM
-// implementation (provided by Linux kernels 4.11 or later), false otherwise.
-func BackedByLPM() bool {
-	return IPCacheMap().MapType == bpf.MapTypeLPMTrie
 }
 
 var (

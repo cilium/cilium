@@ -525,7 +525,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
 		"HAVE_LRU_HASH_MAP_TYPE": probes.Maps[ebpf.LRUHash],
-		"HAVE_LPM_TRIE_MAP_TYPE": probes.Maps[ebpf.LPMTrie],
 		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
 		"HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
