@@ -133,38 +133,6 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 #define CUSTOM_CALLS_IDX_IPV6_EGRESS	3
 #endif /* ENABLE_CUSTOM_CALLS && CUSTOM_CALLS_MAP */
 
-#ifdef HAVE_LPM_TRIE_MAP_TYPE
-#define LPM_MAP_TYPE BPF_MAP_TYPE_LPM_TRIE
-#else
-#define LPM_MAP_TYPE BPF_MAP_TYPE_HASH
-#endif
-
-#ifndef HAVE_LPM_TRIE_MAP_TYPE
-/* Define a function with the following NAME which iterates through PREFIXES
- * (a list of integers ordered from high to low representing prefix length),
- * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
- * IPTYPE.
- */
-#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
-static __always_inline int __##NAME(IPTYPE addr)			\
-{									\
-	int prefixes[] = { PREFIXES };					\
-	const int size = ARRAY_SIZE(prefixes);				\
-	int i;								\
-									\
-_Pragma("unroll")							\
-	for (i = 0; i < size; i++)					\
-		if (LOOKUP_FN(&MAP, addr, prefixes[i]))			\
-			return 1;					\
-									\
-	return 0;							\
-}
-#endif /* HAVE_LPM_TRIE_MAP_TYPE */
-
-#ifndef SKIP_UNDEF_LPM_LOOKUP_FN
-#undef LPM_LOOKUP_FN
-#endif
-
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
 	__u16 pad1;
@@ -183,7 +151,7 @@ struct ipcache_key {
 
 /* Global IP -> Identity map for applying egress label-based policy */
 struct {
-	__uint(type, LPM_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct ipcache_key);
 	__type(value, struct remote_endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
@@ -225,7 +193,7 @@ struct {
 
 #ifdef ENABLE_EGRESS_GATEWAY
 struct {
-	__uint(type, LPM_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
 	__type(key, struct egress_gw_policy_key);
 	__type(value, struct egress_gw_policy_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);

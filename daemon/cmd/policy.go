@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	bpfIPCache "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -159,7 +158,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	prefixes := policy.GetCIDRPrefixes(sourceRules)
 	logger.WithField("prefixes", prefixes).Debug("Policy imported via API, found CIDR prefixes...")
 
-	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
+	_, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
@@ -168,21 +167,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 			err:    api.Error(PutPolicyFailureCode, err),
 		}
 		return
-	}
-	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
-		// Only recompile if configuration has changed.
-		logger.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			_ = d.prefixLengths.Delete(prefixes)
-			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
-			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
-				"Failed to recompile base programs due to prefix length count change")
-			resChan <- &PolicyAddResult{
-				newRev: 0,
-				err:    api.Error(PutPolicyFailureCode, err),
-			}
-			return
-		}
 	}
 
 	// Any newly allocated identities MUST be upserted to the ipcache if
@@ -195,7 +179,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	// in the policy.Repository and released upon policyDelete().
 	newlyAllocatedIdentities := make(map[netip.Prefix]*identity.Identity)
 	if _, err := d.ipcache.AllocateCIDRs(prefixes, nil, newlyAllocatedIdentities); err != nil {
-		_ = d.prefixLengths.Delete(prefixes)
+		d.prefixLengths.Delete(prefixes)
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
 		resChan <- &PolicyAddResult{
@@ -261,15 +245,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	addedRules.UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpointsToRegen, &policySelectionWG)
 
 	d.policy.Mutex.Unlock()
-
-	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
-		// bpf_host needs to be recompiled whenever CIDR policy changed.
-		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
-			logger.Debug("CIDR policy has changed; regenerating host endpoint")
-			endpointsToRegen.Insert(hostEp)
-			endpointsToBumpRevision.Delete(hostEp)
-		}
-	}
 
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
 	// time is from before the locking above, and thus includes all waits and
@@ -505,21 +480,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	prefixes := policy.GetCIDRPrefixes(deletedRules.AsPolicyRules())
 	log.WithField("prefixes", prefixes).Debug("Policy deleted via API, found prefixes...")
 
-	prefixesChanged := d.prefixLengths.Delete(prefixes)
-	if !bpfIPCache.BackedByLPM() && prefixesChanged {
-		// Only recompile if configuration has changed.
-		log.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			log.WithError(err).Error("Unable to recompile base programs")
-		}
-
-		// bpf_host needs to be recompiled whenever CIDR policy changed.
-		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
-			log.Debug("CIDR policy has changed; regenerating host endpoint")
-			endpointsToRegen.Insert(hostEp)
-			epsToBumpRevision.Delete(hostEp)
-		}
-	}
+	d.prefixLengths.Delete(prefixes)
 
 	// Releasing prefixes from ipcache is serialized with the corresponding
 	// ipcache upserts via the policy reaction queue. Execution order
