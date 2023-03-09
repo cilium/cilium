@@ -58,8 +58,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	int ret;
 
 #ifndef ENABLE_SKIP_FIB
-	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l),
-			 BPF_FIB_LOOKUP_DIRECT);
+	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
 		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
