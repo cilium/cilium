@@ -73,9 +73,9 @@ var (
 
 	operatorAddr string
 
-	// IsLeader is an atomic boolean value that is true when the Operator is
+	// isLeader is an atomic boolean value that is true when the Operator is
 	// elected leader. Otherwise, it is false.
-	IsLeader atomic.Value
+	isLeader atomic.Bool
 
 	// OperatorCell are the operator specific cells without infrastructure cells.
 	// Used also in tests.
@@ -116,15 +116,18 @@ var (
 			}
 		}),
 
+		api.HealthHandlerCell(
+			kvstoreEnabled,
+			isLeader.Load,
+		),
+		api.MetricsHandlerCell,
+		api.ServerCell,
+
 		// These cells are started only after the operator is elected leader.
 		WithLeaderLifecycle(
 			// The CRDs registration should be the first operation to be invoked after the operator is elected leader.
 			client.RegisterCRDsCell,
 			k8s.SharedResourcesCell,
-
-			api.HealthHandlerCell(kvstoreEnabled),
-			api.MetricsHandlerCell,
-			api.ServerCell,
 
 			lbipam.Cell,
 			auth.Cell,
@@ -233,7 +236,7 @@ func initEnv() {
 }
 
 func doCleanup() {
-	IsLeader.Store(false)
+	isLeader.Store(false)
 
 	// Cancelling this context here makes sure that if the operator hold the
 	// leader lease, it will be released.
@@ -246,7 +249,8 @@ func doCleanup() {
 func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	log.Infof("Cilium Operator %s", version.Version)
 
-	IsLeader.Store(false)
+	isLeader.Store(false)
+
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
 
 	if operatorOption.Config.EnableMetrics {
@@ -386,7 +390,7 @@ func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 // OnOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
 func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
-	IsLeader.Store(true)
+	isLeader.Store(true)
 
 	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
 	if legacy.clientset.IsEnabled() && !option.Config.DisableCiliumEndpointCRD && option.Config.EnableCiliumEndpointSlice {

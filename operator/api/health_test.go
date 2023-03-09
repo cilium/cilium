@@ -40,6 +40,9 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 			func() bool {
 				return false
 			},
+			func() bool {
+				return false
+			},
 		),
 
 		// transform GetHealthzHandler in a http.HandlerFunc to use
@@ -88,6 +91,9 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 		}),
 
 		HealthHandlerCell(
+			func() bool {
+				return false
+			},
 			func() bool {
 				return false
 			},

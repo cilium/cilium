@@ -17,8 +17,12 @@ import (
 )
 
 type kvstoreEnabledFunc func() bool
+type isOperatorLeadingFunc func() bool
 
-func HealthHandlerCell(kvstoreEnabled kvstoreEnabledFunc) cell.Cell {
+func HealthHandlerCell(
+	kvstoreEnabled kvstoreEnabledFunc,
+	isOperatorLeading isOperatorLeadingFunc,
+) cell.Cell {
 	return cell.Module(
 		"health-handler",
 		"Operator health HTTP handler",
@@ -35,20 +39,22 @@ func HealthHandlerCell(kvstoreEnabled kvstoreEnabledFunc) cell.Cell {
 			}
 
 			return &healthHandler{
-				enabled:        true,
-				kvstoreEnabled: kvstoreEnabled,
-				discovery:      clientset.Discovery(),
-				log:            logger,
+				enabled:           true,
+				isOperatorLeading: isOperatorLeading,
+				kvstoreEnabled:    kvstoreEnabled,
+				discovery:         clientset.Discovery(),
+				log:               logger,
 			}
 		}),
 	)
 }
 
 type healthHandler struct {
-	enabled        bool
-	discovery      discovery.DiscoveryInterface
-	kvstoreEnabled kvstoreEnabledFunc
-	log            logrus.FieldLogger
+	enabled           bool
+	isOperatorLeading isOperatorLeadingFunc
+	kvstoreEnabled    kvstoreEnabledFunc
+	discovery         discovery.DiscoveryInterface
+	log               logrus.FieldLogger
 }
 
 func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Responder {
@@ -67,7 +73,12 @@ func (h *healthHandler) Handle(params operator.GetHealthzParams) middleware.Resp
 // checkStatus verifies the connection status to the kvstore and the
 // k8s apiserver and returns an error if any of them is unhealthy
 func (h *healthHandler) checkStatus() error {
-	if h.kvstoreEnabled() {
+	// We check if we are the leader here because only the leader has
+	// access to the kvstore client. Otherwise, the kvstore client check
+	// will block. It is safe for a non-leader to skip this check, as the
+	// it is the leader's responsibility to report the status of the
+	// kvstore client.
+	if h.isOperatorLeading() && h.kvstoreEnabled() {
 		client := kvstore.Client()
 		if client == nil {
 			return errors.New("kvstore client not configured")
