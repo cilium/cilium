@@ -640,7 +640,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 			}
 		}
 	}
-	nodeMngr.SetIPCache(d.ipcache)
 
 	proxy.Allocator = d.identityAllocator
 
