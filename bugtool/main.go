@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/cilium/cilium/bugtool/cmd"
@@ -128,6 +129,10 @@ func main() {
 				sd.Shutdown()
 			}
 
+			if config.Wait {
+				waitForAgentReady(ctx)
+			}
+
 			defer cleanup(config, bugtool.outDir)
 
 			log.Debugf("Running bugtool with %d workers", bugtoolConfig.ParallelWorkers)
@@ -174,7 +179,7 @@ func main() {
 
 func archive(config *options.Config, dbgDir string) {
 	sendArchiveToStdout := config.DumpPath == "-"
-	log.Debug("Attempting to archive of type %q at path %q",
+	log.Debugf("Attempting to archive of type %q at path %q",
 		config.ArchiveType, config.DumpPath)
 	if config.Archive {
 		switch config.ArchiveType {
@@ -217,5 +222,23 @@ func cleanup(config *options.Config, dbgDir string) {
 				fmt.Fprintf(os.Stderr, "Failed to cleanup temporary files %s\n", err)
 			}
 		}
+	}
+}
+
+func waitForAgentReady(ctx context.Context) {
+	log.Debug("waiting for agent status to be ready")
+	for {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*20)
+		defer cancel()
+		err := exec.CommandContext(ctx, "cilium", "status").Run()
+		if err != nil {
+			if ee, ok := err.(*exec.ExitError); ok {
+				log.Infof("cilium status returned %d, retrying...", ee.ExitCode())
+				time.Sleep(time.Second)
+				continue
+			}
+			log.Fatal("encountered unexpected error waiting for agent to be ready: %w", err)
+		}
+		break
 	}
 }

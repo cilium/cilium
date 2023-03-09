@@ -32,7 +32,8 @@ type Config struct {
 	ExcludeObjectFiles bool          `mapstructure:"exclude-object-files"`
 	Generate           bool          `mapstructure:"generate"`
 	Timeout            time.Duration `mapstructure:"timeout"`
-	Debug              bool
+	Debug              bool          `mapstructure:"debug"`
+	Wait               bool          `mapstructure:"wait"`
 
 	// Deprecated flags:
 	DryRun bool `mapstructure:"dry-run"` // Deprecated.
@@ -73,6 +74,7 @@ func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
 	flags.DurationVar(&bugtoolConf.Timeout, "timeout", 30*time.Second, "Dump timeout seconds")
 	flags.BoolVar(&bugtoolConf.Debug, "debug", false, "Enable debug logging")
 	flags.BoolVar(&bugtoolConf.ExcludeObjectFiles, "exclude-object-files", false, "Exclude per-endpoint object files. Template object files will be kept")
+	flags.BoolVar(&bugtoolConf.Wait, "wait", true, "Wait for agent to be ready before attempting dump, avoids trying to get data that hasn't been initialized yet")
 }
 
 func (bugtoolConf *Config) Validate() error {
