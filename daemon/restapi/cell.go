@@ -3,7 +3,9 @@
 
 package restapi
 
-import "github.com/cilium/cilium/pkg/hive/cell"
+import (
+	"github.com/cilium/cilium/pkg/hive/cell"
+)
 
 var Cell = cell.Module(
 	"cilium-restapi",
@@ -11,7 +13,5 @@ var Cell = cell.Module(
 
 	rateLimiterCell, // Request rate-limiting
 
-	cell.Provide(
-		newEndpointHandlers,
-	),
+	endpointHandlersCell,
 )

@@ -183,9 +183,12 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	// This returns the most recent log entry for this endpoint. It is backwards
 	// compatible with the json from before we added `cilium endpoint log` but it
 	// only returns 1 entry.
-	statusLog := e.status.GetModel()
-	if len(statusLog) > 0 {
-		statusLog = statusLog[:1]
+	var statusLog []*models.EndpointStatusChange
+	if e.status != nil {
+		statusLog = e.status.GetModel()
+		if len(statusLog) > 0 {
+			statusLog = statusLog[:1]
+		}
 	}
 
 	lblMdl := model.NewModel(&e.OpLabels)

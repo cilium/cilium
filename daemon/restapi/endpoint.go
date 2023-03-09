@@ -27,7 +27,28 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 )
 
-var errEndpointNotFound = errors.New("endpoint not found")
+var endpointHandlersCell = cell.Module(
+	"cilium-restapi-endpoints",
+	"Cilium API handlers for endpoints",
+
+	cell.Provide(newEndpointHandlers),
+	cell.ProvidePrivate(
+		func(em endpointmanager.EndpointManager) endpointLookup {
+			return em
+		},
+	),
+)
+
+// endpointLookup is the subset of methods in EndpointManager used by the
+// handlers.
+//
+// Note that modifications to endpoints still go mostly via EndpointModifier
+// implemented by cmd.Daemon.
+type endpointLookup interface {
+	GetEndpoints() []*endpoint.Endpoint
+	Lookup(id string) (*endpoint.Endpoint, error)
+	UpdateReferences(ep *endpoint.Endpoint) error
+}
 
 // endpointGetHandlerParams are the common set of parameters shared
 // by the endpoint GET handlers.
@@ -35,7 +56,7 @@ type endpointGetHandlerParams struct {
 	cell.In
 
 	Log       logrus.FieldLogger
-	Endpoints endpointmanager.EndpointsLookup
+	Endpoints endpointLookup
 	RateLimit *rate.APILimiterSet
 }
 
@@ -44,9 +65,9 @@ type endpointGetHandlerParams struct {
 type endpointModifyHandlerParams struct {
 	cell.In
 
-	Log             logrus.FieldLogger
-	EndpointManager endpointmanager.EndpointManager
-	RateLimit       *rate.APILimiterSet
+	Log       logrus.FieldLogger
+	Endpoints endpointLookup
+	RateLimit *rate.APILimiterSet
 
 	EndpointModifierPromise promise.Promise[EndpointModifier]
 }
@@ -112,6 +133,8 @@ func newEndpointHandlers(getP endpointGetHandlerParams, postP endpointModifyHand
 	}
 }
 
+var errEndpointNotFound = errors.New("endpoint not found")
+
 func (h getEndpointHandler) Handle(params endpointapi.GetEndpointParams) middleware.Responder {
 	h.Log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /endpoint request")
 
@@ -134,7 +157,7 @@ func (h getEndpointHandler) Handle(params endpointapi.GetEndpointParams) middlew
 // GetEndpointList retrieves endpoints matching the given (optional) label set. Returns
 // endpoint as REST API models.
 // Exported for use in cmd.getDebugInfoHandler. Unexport once debuginfo handler moves here.
-func GetEndpointList(endpoints endpointmanager.EndpointsLookup, modelLabels models.Labels) []*models.Endpoint {
+func GetEndpointList(endpoints endpointLookup, modelLabels models.Labels) []*models.Endpoint {
 	maxGoroutines := runtime.NumCPU()
 	var (
 		epWorkersWg, epsAppendWg sync.WaitGroup
@@ -403,7 +426,7 @@ func (h patchEndpointIDLabelsHandler) modifyEndpointIdentityLabelsFromAPI(id str
 		return endpointapi.PatchEndpointIDLabelsUpdateFailedCode, fmt.Errorf("Not allowed to delete reserved labels: %s", lbls)
 	}
 
-	ep, err := h.EndpointManager.Lookup(id)
+	ep, err := h.Endpoints.Lookup(id)
 	if err != nil {
 		return endpointapi.PatchEndpointIDInvalidCode, err
 	}
@@ -433,7 +456,7 @@ func (h patchEndpointIDLabelsHandler) Handle(params endpointapi.PatchEndpointIDL
 	mod := params.Configuration
 	lbls := labels.NewLabelsFromModel(mod.User)
 
-	ep, err := h.EndpointManager.Lookup(params.ID)
+	ep, err := h.Endpoints.Lookup(params.ID)
 	if err != nil {
 		r.Error(err)
 		return api.Error(endpointapi.PutEndpointIDInvalidCode, err)
@@ -478,7 +501,7 @@ func (h patchEndpointIDConfigHandler) Handle(params endpointapi.PatchEndpointIDC
 
 // endpointUpdate updates the options of the given endpoint and regenerates the endpoint
 func (h patchEndpointIDConfigHandler) endpointUpdate(id string, cfg *models.EndpointConfigurationSpec) error {
-	ep, err := h.EndpointManager.Lookup(id)
+	ep, err := h.Endpoints.Lookup(id)
 	if err != nil {
 		return api.Error(endpointapi.PatchEndpointIDInvalidCode, err)
 	} else if ep == nil {
@@ -495,7 +518,7 @@ func (h patchEndpointIDConfigHandler) endpointUpdate(id string, cfg *models.Endp
 			return api.Error(endpointapi.PatchEndpointIDConfigFailedCode, err)
 		}
 	}
-	if err := h.EndpointManager.UpdateReferences(ep); err != nil {
+	if err := h.Endpoints.UpdateReferences(ep); err != nil {
 		return api.Error(endpointapi.PatchEndpointIDNotFoundCode, err)
 	}
 
