@@ -82,7 +82,7 @@ const (
 func (s *linuxPrivilegedBaseTestSuite) SetUpTest(c *check.C, addressing datapath.NodeAddressing, enableIPv6, enableIPv4 bool) {
 	rlimit.RemoveMemlock()
 	s.nodeAddressing = addressing
-	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, 1500, nil)
+	s.mtuConfig = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 	s.enableIPv6 = enableIPv6
 	s.enableIPv4 = enableIPv4
 

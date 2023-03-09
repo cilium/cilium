@@ -494,6 +494,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		option.Config.EnableIPSec,
 		option.Config.TunnelExists(),
 		option.Config.EnableWireguard,
+		option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
 		configuredMTU,
 		externalIP,
 	)
