@@ -86,6 +86,9 @@ type Clientset interface {
 
 	// Config returns the configuration used to create this client.
 	Config() Config
+
+	// RestConfig returns the deep copy of rest configuration.
+	RestConfig() *rest.Config
 }
 
 // compositeClientset implements the Clientset using real clients.
@@ -200,6 +203,10 @@ func (c *compositeClientset) Disable() {
 
 func (c *compositeClientset) Config() Config {
 	return c.config
+}
+
+func (c *compositeClientset) RestConfig() *rest.Config {
+	return rest.CopyConfig(c.restConfig)
 }
 
 func (c *compositeClientset) onStart(startCtx hive.HookContext) error {
@@ -457,6 +464,10 @@ func (c *FakeClientset) Disable() {
 
 func (c *FakeClientset) Config() Config {
 	return Config{}
+}
+
+func (c *FakeClientset) RestConfig() *rest.Config {
+	return &rest.Config{}
 }
 
 func NewFakeClientset() (*FakeClientset, Clientset) {
