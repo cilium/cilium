@@ -25,7 +25,7 @@ func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)       
 func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
 func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}
 
-var mtuMock = mtu.NewConfiguration(0, false, false, false, 1500, nil)
+var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
