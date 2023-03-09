@@ -1,11 +1,8 @@
 # Go Relational Persistence
 
-[![build status](https://img.shields.io/travis/go-gorp/gorp/master.svg)](http://travis-ci.org/go-gorp/gorp)
-[![code coverage](https://img.shields.io/coveralls/go-gorp/gorp.svg)](https://coveralls.io/r/go-gorp/gorp)
+[![build status](https://github.com/go-gorp/gorp/actions/workflows/go.yml/badge.svg)](https://github.com/go-gorp/gorp/actions)
 [![issues](https://img.shields.io/github/issues/go-gorp/gorp.svg)](https://github.com/go-gorp/gorp/issues)
-[![godoc v1](https://img.shields.io/badge/godoc-v1-375EAB.svg)](https://godoc.org/gopkg.in/gorp.v1)
-[![godoc v2](https://img.shields.io/badge/godoc-v2-375EAB.svg)](https://godoc.org/gopkg.in/gorp.v2)
-[![godoc bleeding edge](https://img.shields.io/badge/godoc-bleeding--edge-375EAB.svg)](https://godoc.org/github.com/go-gorp/gorp)
+[![Go Reference](https://pkg.go.dev/badge/github.com/go-gorp/gorp/v3.svg)](https://pkg.go.dev/github.com/go-gorp/gorp/v3)
 
 ### Update 2016-11-13: Future versions
 

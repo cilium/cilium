@@ -6,7 +6,12 @@ package gorp
 
 import "fmt"
 
-type GorpLogger interface {
+// GorpLogger is a deprecated alias of Logger.
+type GorpLogger = Logger
+
+// Logger is the type that gorp uses to log SQL statements.
+// See DbMap.TraceOn.
+type Logger interface {
 	Printf(format string, v ...interface{})
 }
 
@@ -18,10 +23,10 @@ type GorpLogger interface {
 // Use TraceOn if you want to spy on the SQL statements that gorp
 // generates.
 //
-// Note that the base log.Logger type satisfies GorpLogger, but adapters can
+// Note that the base log.Logger type satisfies Logger, but adapters can
 // easily be written for other logging packages (e.g., the golang-sanctioned
 // glog framework).
-func (m *DbMap) TraceOn(prefix string, logger GorpLogger) {
+func (m *DbMap) TraceOn(prefix string, logger Logger) {
 	m.logger = logger
 	if prefix == "" {
 		m.logPrefix = prefix
