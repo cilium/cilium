@@ -130,6 +130,14 @@ networking:
   ipFamily: ${ipfamily}
   ${pod_subnet:+"podSubnet: "$pod_subnet}
   ${service_subnet:+"serviceSubnet: "$service_subnet}
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        "v": "3"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
