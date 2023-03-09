@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/ip"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -222,7 +223,14 @@ func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
 	if len(prevRanges) != len(m.SourceRanges[revNATID]) {
 		return fmt.Errorf("Inconsistent view of source ranges")
 	}
-	m.SourceRanges[revNATID] = ranges
+	srcRanges := []*cidr.CIDR{}
+	for _, cidr := range ranges {
+		if ip.IsIPv6(cidr.IP) == !ipv6 {
+			continue
+		}
+		srcRanges = append(srcRanges, cidr)
+	}
+	m.SourceRanges[revNATID] = srcRanges
 
 	return nil
 }
