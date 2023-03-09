@@ -20,7 +20,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -514,70 +513,14 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 	return &cm, nil
 }
 
-func (k *K8sInstaller) deployResourceQuotas(ctx context.Context) error {
-	k.Log("🚀 Creating Resource quotas...")
-
-	ciliumResourceQuota := &corev1.ResourceQuota{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaults.AgentResourceQuota,
-		},
-		Spec: corev1.ResourceQuotaSpec{
-			Hard: corev1.ResourceList{
-				// 5k nodes * 2 DaemonSets (Cilium and cilium node init)
-				corev1.ResourcePods: resource.MustParse("10k"),
-			},
-			ScopeSelector: &corev1.ScopeSelector{
-				MatchExpressions: []corev1.ScopedResourceSelectorRequirement{
-					{
-						ScopeName: corev1.ResourceQuotaScopePriorityClass,
-						Operator:  corev1.ScopeSelectorOpIn,
-						Values:    []string{"system-node-critical"},
-					},
-				},
-			},
-		},
+func (k *K8sInstaller) generateResourceQuotas() []*corev1.ResourceQuota {
+	resoureceQuotasFilename := "templates/cilium-resource-quota.yaml"
+	resourceQuotasFile, exists := k.manifests[resoureceQuotasFilename]
+	if !exists {
+		return nil
 	}
-
-	if _, err := k.client.CreateResourceQuota(ctx, k.params.Namespace, ciliumResourceQuota, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	k.pushRollbackStep(func(ctx context.Context) {
-		if err := k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ResourceQuota: %s", defaults.AgentResourceQuota, err)
-		}
-	})
-
-	operatorResourceQuota := &corev1.ResourceQuota{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaults.OperatorResourceQuota,
-		},
-		Spec: corev1.ResourceQuotaSpec{
-			Hard: corev1.ResourceList{
-				// 15 "clusterwide" Cilium Operator pods for HA
-				corev1.ResourcePods: resource.MustParse("15"),
-			},
-			ScopeSelector: &corev1.ScopeSelector{
-				MatchExpressions: []corev1.ScopedResourceSelectorRequirement{
-					{
-						ScopeName: corev1.ResourceQuotaScopePriorityClass,
-						Operator:  corev1.ScopeSelectorOpIn,
-						Values:    []string{"system-cluster-critical"},
-					},
-				},
-			},
-		},
-	}
-
-	if _, err := k.client.CreateResourceQuota(ctx, k.params.Namespace, operatorResourceQuota, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	k.pushRollbackStep(func(ctx context.Context) {
-		if err := k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.OperatorResourceQuota, metav1.DeleteOptions{}); err != nil {
-			k.Log("Cannot delete %s ResourceQuota: %s", defaults.OperatorResourceQuota, err)
-		}
-	})
-
-	return nil
+	resourceQuotas := utils.MustUnmarshalYAMLMulti[*corev1.ResourceQuota]([]byte(resourceQuotasFile))
+	return resourceQuotas
 }
 
 func (k *K8sInstaller) restartUnmanagedPods(ctx context.Context) error {
@@ -729,11 +672,6 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 				}
 			}
 		}
-	case k8s.KindGKE:
-		// TODO(aanm) automate this as well in form of helm chart
-		if err := k.deployResourceQuotas(ctx); err != nil {
-			return err
-		}
 
 	case k8s.KindAKS:
 		// We only made the secret-based azure installation available in >= 1.12.0
@@ -758,6 +696,19 @@ func (k *K8sInstaller) Install(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	resourceQuotas := k.generateResourceQuotas()
+	for _, resourceQuota := range resourceQuotas {
+		k.Log("🚀 Creating resource quota %s...", resourceQuota.Name)
+		if _, err := k.client.CreateResourceQuota(ctx, k.params.Namespace, resourceQuota, metav1.CreateOptions{}); err != nil {
+			return err
+		}
+		k.pushRollbackStep(func(ctx context.Context) {
+			if err := k.client.DeleteResourceQuota(ctx, k.params.Namespace, resourceQuota.Name, metav1.DeleteOptions{}); err != nil {
+				k.Log("Cannot delete %s ResourceQuota: %s", resourceQuota.Name, err)
+			}
+		})
 	}
 
 	k.Log("🚀 Creating Service accounts...")
