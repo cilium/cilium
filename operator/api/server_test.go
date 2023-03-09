@@ -29,9 +29,14 @@ func TestAPIServerDisabled(t *testing.T) {
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		MetricsHandlerCell,
-		HealthHandlerCell(func() bool {
-			return false
-		}),
+		HealthHandlerCell(
+			func() bool {
+				return false
+			},
+			func() bool {
+				return true
+			},
+		),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableK8s: false,
@@ -75,9 +80,14 @@ func TestAPIServerEnabled(t *testing.T) {
 	hive := hive.New(
 		k8sClient.FakeClientCell,
 		MetricsHandlerCell,
-		HealthHandlerCell(func() bool {
-			return false
-		}),
+		HealthHandlerCell(
+			func() bool {
+				return false
+			},
+			func() bool {
+				return true
+			},
+		),
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				EnableK8s: true,
