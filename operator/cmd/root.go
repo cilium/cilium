@@ -310,16 +310,18 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 		ns = metav1.NamespaceDefault
 	}
 
-	leResourceLock := &resourcelock.LeaseLock{
-		LeaseMeta: metav1.ObjectMeta{
-			Name:      leaderElectionResourceLockName,
-			Namespace: ns,
-		},
-		Client: clientset.CoordinationV1(),
-		LockConfig: resourcelock.ResourceLockConfig{
+	leResourceLock, err := resourcelock.NewFromKubeconfig(
+		resourcelock.LeasesResourceLock,
+		ns,
+		leaderElectionResourceLockName,
+		resourcelock.ResourceLockConfig{
 			// Identity name of the lock holder
 			Identity: operatorID,
 		},
+		clientset.RestConfig(),
+		operatorOption.Config.LeaderElectionRenewDeadline)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to create resource lock for leader election")
 	}
 
 	// Start the leader election for running cilium-operators
