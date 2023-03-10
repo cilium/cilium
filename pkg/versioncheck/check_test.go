@@ -101,6 +101,21 @@ func (vc *VersionCheckTestSuite) TestMustCompile(c *C) {
 			constraint: ">=1.17.0-alpha.1",
 			want:       true,
 		},
+		{
+			version:    "1.14.0-snapshot.0",
+			constraint: ">=1.13.0",
+			want:       true,
+		},
+		{
+			version:    "1.14.0-snapshot.1",
+			constraint: ">=1.14.0-snapshot.0",
+			want:       true,
+		},
+		{
+			version:    "1.14.0-snapshot.0",
+			constraint: ">=1.14.0",
+			want:       false,
+		},
 	}
 	for _, t := range tests {
 		ver, err := Version(t.version)
