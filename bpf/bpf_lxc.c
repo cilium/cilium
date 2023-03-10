@@ -463,7 +463,8 @@ ct_recreate6:
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb);
+				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+				 NULL);
 		if (IS_ERR(ret))
 			return ret;
 		trace.monitor = TRACE_PAYLOAD_LEN;
@@ -918,7 +919,8 @@ ct_recreate4:
 		 * handling here, but turns out that verifier cannot handle it.
 		 */
 		ret = ct_create4(ct_map, ct_related_map, tuple, ctx,
-				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb);
+				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+				 NULL);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -1506,7 +1508,7 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false);
+				 &ct_state_new, *proxy_port > 0, false, NULL);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1827,7 +1829,7 @@ skip_policy_enforcement:
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false);
+				 &ct_state_new, *proxy_port > 0, false, NULL);
 		if (IS_ERR(ret))
 			return ret;
 

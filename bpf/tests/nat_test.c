@@ -74,7 +74,8 @@ static __always_inline int mock_ct_create4(__maybe_unused const void *map_main,
 					   __maybe_unused const int dir,
 					   __maybe_unused const struct ct_state *ct_state,
 					   __maybe_unused bool proxy_redirect,
-					   __maybe_unused bool from_l7lb)
+					   __maybe_unused bool from_l7lb,
+					   __maybe_unused __s8 *ext_err)
 {
 	return mock_ct_create4_response;
 }
