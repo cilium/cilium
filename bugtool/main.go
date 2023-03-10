@@ -22,7 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/version"
 	"github.com/cilium/workerpool"
-	"gopkg.in/yaml.v3"
+
+	"sigs.k8s.io/yaml"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -96,6 +97,7 @@ func main() {
 			bugtool *Bugtool,
 			sd hive.Shutdowner,
 		) {
+			defer sd.Shutdown()
 			if err := config.Validate(); err != nil {
 				log.Fatalf("Invalid config: %s", err)
 			}
@@ -117,16 +119,20 @@ func main() {
 					log.Info("[Deprecated] use --generate instead")
 				}
 				log.Info("Generating bugtool config file")
-				// TODO: Check this
-				fd, err := os.Create(config.Config)
+				fd, err := os.Create(config.ConfigFile)
 				if err != nil {
-					log.Fatalf("Failed to open config file: %v", err)
+					log.Fatalf("Failed to open config file %q: %v", config.ConfigFile, err)
 				}
-				enc := yaml.NewEncoder(fd)
-				if err := enc.Encode(root); err != nil {
+				d, err := yaml.Marshal(root)
+				if err != nil {
 					log.Fatalf("Failed to encode dump root: %v", err)
 				}
-				sd.Shutdown()
+
+				if _, err := fd.Write(d); err != nil {
+					log.Fatalf("Failed to encode dump root: %v", err)
+				}
+				log.Infof("Config file written to %q", config.ConfigFile)
+				return
 			}
 
 			if config.Wait {
@@ -166,7 +172,6 @@ func main() {
 
 			archive(config, bugtool.outDir)
 			fmt.Printf(disclaimer)
-			sd.Shutdown()
 		}),
 	)
 
