@@ -267,7 +267,6 @@ Makefile* @cilium/build
 /daemon/cmd/prefilter.go @cilium/sig-datapath
 /daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
-/daemon/cmd/sysctl* @cilium/sig-datapath
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -398,7 +397,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/datapath/linux/node.go @cilium/ipsec @cilium/sig-datapath
 /pkg/datapath/linux/probes/ @cilium/loader
 /pkg/datapath/linux/requirements.go @cilium/loader
-/pkg/datapath/loader.go @cilium/loader
+/pkg/datapath/types/loader.go @cilium/loader
 /pkg/datapath/loader/ @cilium/loader
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent

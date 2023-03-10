@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -43,6 +42,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -83,7 +83,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
-	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
 	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -1572,7 +1571,7 @@ func (d *Daemon) initKVStore() {
 	}
 }
 
-func newWireguardAgent(lc hive.Lifecycle) *wg.Agent {
+func newWireguardAgent(lc hive.Lifecycle) *wireguard.Agent {
 	var wgAgent *wireguard.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
@@ -1639,7 +1638,7 @@ type daemonParams struct {
 	Lifecycle         hive.Lifecycle
 	Clientset         k8sClient.Clientset
 	Datapath          datapath.Datapath
-	WGAgent           *wg.Agent `optional:"true"`
+	WGAgent           *wireguard.Agent `optional:"true"`
 	LocalNodeStore    node.LocalNodeStore
 	BGPController     *bgpv1.Controller
 	Shutdowner        hive.Shutdowner

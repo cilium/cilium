@@ -6,7 +6,7 @@ package regeneration
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/datapath"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
