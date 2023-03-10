@@ -248,23 +248,51 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 {
 	struct remote_endpoint_info *info;
 	union v6addr *dst;
-	struct geneve_dsr_opt6 gopt;
+	bool need_opt = true;
+	__u8 nexthdr = ip6->nexthdr;
+	int hdrlen;
+
+	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	/* See encap_geneve_dsr_opt4(): */
+	if (nexthdr == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = { .value = 0 };
+
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + hdrlen, &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+			need_opt = false;
+	}
 
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
-		set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
+		if (need_opt) {
+			struct geneve_dsr_opt6 gopt;
 
-		return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
-						WORLD_ID,
-						info->sec_label,
-						NOT_VTEP_DST,
-						&gopt,
-						sizeof(gopt),
-						true,
-						(enum trace_reason)CT_NEW,
-						TRACE_PAYLOAD_LEN,
-						ifindex);
+			set_geneve_dsr_opt6(svc_port, svc_addr, &gopt);
+			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+							WORLD_ID,
+							info->sec_label,
+							NOT_VTEP_DST,
+							&gopt,
+							sizeof(gopt),
+							true,
+							(enum trace_reason)CT_NEW,
+							TRACE_PAYLOAD_LEN,
+							ifindex);
+		}
+
+		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
+					  WORLD_ID,
+					  info->sec_label,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN,
+					  ifindex);
 	}
 
 	return DROP_NO_TUNNEL_ENDPOINT;
@@ -1453,22 +1481,48 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 						 __be16 svc_port, int *ifindex)
 {
 	struct remote_endpoint_info *info = NULL;
-	struct geneve_dsr_opt4 gopt;
+	bool need_opt = true;
+
+	if (ip4->protocol == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = { .value = 0 };
+
+		if (l4_load_tcp_flags(ctx, ETH_HLEN + ipv4_hdrlen(ip4), &tcp_flags) < 0)
+			return DROP_CT_INVALID_HDR;
+
+		/* The GENEVE option is required only for the first packet
+		 * (SYN), in the case of TCP, as for further packets of the
+		 * same connection a remote node will use a NAT entry to
+		 * reverse xlate a reply.
+		 */
+		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
+			need_opt = false;
+	}
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 	if (info && info->tunnel_endpoint != 0) {
-		set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
+		if (need_opt) {
+			struct geneve_dsr_opt4 gopt;
 
-		return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
-						WORLD_ID,
-						info->sec_label,
-						NOT_VTEP_DST,
-						&gopt,
-						sizeof(gopt),
-						false,
-						(enum trace_reason)CT_NEW,
-						TRACE_PAYLOAD_LEN,
-						ifindex);
+			set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
+			return  __encap_with_nodeid_opt(ctx, info->tunnel_endpoint,
+							 WORLD_ID,
+							 info->sec_label,
+							 NOT_VTEP_DST,
+							 &gopt,
+							 sizeof(gopt),
+							 false,
+							 (enum trace_reason)CT_NEW,
+							 TRACE_PAYLOAD_LEN,
+							 ifindex);
+		}
+
+		return __encap_with_nodeid(ctx, info->tunnel_endpoint,
+					  WORLD_ID,
+					  info->sec_label,
+					  NOT_VTEP_DST,
+					  (enum trace_reason)CT_NEW,
+					  TRACE_PAYLOAD_LEN,
+					  ifindex);
 	}
 
 	return DROP_NO_TUNNEL_ENDPOINT;
