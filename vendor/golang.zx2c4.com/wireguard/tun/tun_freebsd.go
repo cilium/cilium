@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2022 WireGuard LLC. All Rights Reserved.
  */
 
 package tun
@@ -329,50 +329,49 @@ func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
 
-func (tun *NativeTun) Events() <-chan Event {
+func (tun *NativeTun) Events() chan Event {
 	return tun.events
 }
 
-func (tun *NativeTun) Read(buffs [][]byte, sizes []int, offset int) (int, error) {
+func (tun *NativeTun) Read(buff []byte, offset int) (int, error) {
 	select {
 	case err := <-tun.errors:
 		return 0, err
 	default:
-		buff := buffs[0][offset-4:]
+		buff := buff[offset-4:]
 		n, err := tun.tunFile.Read(buff[:])
 		if n < 4 {
 			return 0, err
 		}
-		sizes[0] = n - 4
-		return 1, err
+		return n - 4, err
 	}
 }
 
-func (tun *NativeTun) Write(buffs [][]byte, offset int) (int, error) {
+func (tun *NativeTun) Write(buf []byte, offset int) (int, error) {
 	if offset < 4 {
 		return 0, io.ErrShortBuffer
 	}
-	for i, buf := range buffs {
-		buf = buf[offset-4:]
-		if len(buf) < 5 {
-			return i, io.ErrShortBuffer
-		}
-		buf[0] = 0x00
-		buf[1] = 0x00
-		buf[2] = 0x00
-		switch buf[4] >> 4 {
-		case 4:
-			buf[3] = unix.AF_INET
-		case 6:
-			buf[3] = unix.AF_INET6
-		default:
-			return i, unix.EAFNOSUPPORT
-		}
-		if _, err := tun.tunFile.Write(buf); err != nil {
-			return i, err
-		}
+	buf = buf[offset-4:]
+	if len(buf) < 5 {
+		return 0, io.ErrShortBuffer
 	}
-	return len(buffs), nil
+	buf[0] = 0x00
+	buf[1] = 0x00
+	buf[2] = 0x00
+	switch buf[4] >> 4 {
+	case 4:
+		buf[3] = unix.AF_INET
+	case 6:
+		buf[3] = unix.AF_INET6
+	default:
+		return 0, unix.EAFNOSUPPORT
+	}
+	return tun.tunFile.Write(buf)
+}
+
+func (tun *NativeTun) Flush() error {
+	// TODO: can flushing be implemented by buffering and using sendmmsg?
+	return nil
 }
 
 func (tun *NativeTun) Close() error {
@@ -428,8 +427,4 @@ func (tun *NativeTun) MTU() (int, error) {
 		return 0, fmt.Errorf("failed to get MTU on %s: %w", tun.name, errno)
 	}
 	return int(*(*int32)(unsafe.Pointer(&ifr.MTU))), nil
-}
-
-func (tun *NativeTun) BatchSize() int {
-	return 1
 }

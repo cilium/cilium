@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2022 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -72,7 +72,7 @@ func newHandshakeQueue() *handshakeQueue {
 }
 
 type autodrainingInboundQueue struct {
-	c chan *[]*QueueInboundElement
+	c chan *QueueInboundElement
 }
 
 // newAutodrainingInboundQueue returns a channel that will be drained when it gets GC'd.
@@ -81,7 +81,7 @@ type autodrainingInboundQueue struct {
 // some other means, such as sending a sentinel nil values.
 func newAutodrainingInboundQueue(device *Device) *autodrainingInboundQueue {
 	q := &autodrainingInboundQueue{
-		c: make(chan *[]*QueueInboundElement, QueueInboundSize),
+		c: make(chan *QueueInboundElement, QueueInboundSize),
 	}
 	runtime.SetFinalizer(q, device.flushInboundQueue)
 	return q
@@ -90,13 +90,10 @@ func newAutodrainingInboundQueue(device *Device) *autodrainingInboundQueue {
 func (device *Device) flushInboundQueue(q *autodrainingInboundQueue) {
 	for {
 		select {
-		case elems := <-q.c:
-			for _, elem := range *elems {
-				elem.Lock()
-				device.PutMessageBuffer(elem.buffer)
-				device.PutInboundElement(elem)
-			}
-			device.PutInboundElementsSlice(elems)
+		case elem := <-q.c:
+			elem.Lock()
+			device.PutMessageBuffer(elem.buffer)
+			device.PutInboundElement(elem)
 		default:
 			return
 		}
@@ -104,7 +101,7 @@ func (device *Device) flushInboundQueue(q *autodrainingInboundQueue) {
 }
 
 type autodrainingOutboundQueue struct {
-	c chan *[]*QueueOutboundElement
+	c chan *QueueOutboundElement
 }
 
 // newAutodrainingOutboundQueue returns a channel that will be drained when it gets GC'd.
@@ -114,7 +111,7 @@ type autodrainingOutboundQueue struct {
 // All sends to the channel must be best-effort, because there may be no receivers.
 func newAutodrainingOutboundQueue(device *Device) *autodrainingOutboundQueue {
 	q := &autodrainingOutboundQueue{
-		c: make(chan *[]*QueueOutboundElement, QueueOutboundSize),
+		c: make(chan *QueueOutboundElement, QueueOutboundSize),
 	}
 	runtime.SetFinalizer(q, device.flushOutboundQueue)
 	return q
@@ -123,13 +120,10 @@ func newAutodrainingOutboundQueue(device *Device) *autodrainingOutboundQueue {
 func (device *Device) flushOutboundQueue(q *autodrainingOutboundQueue) {
 	for {
 		select {
-		case elems := <-q.c:
-			for _, elem := range *elems {
-				elem.Lock()
-				device.PutMessageBuffer(elem.buffer)
-				device.PutOutboundElement(elem)
-			}
-			device.PutOutboundElementsSlice(elems)
+		case elem := <-q.c:
+			elem.Lock()
+			device.PutMessageBuffer(elem.buffer)
+			device.PutOutboundElement(elem)
 		default:
 			return
 		}

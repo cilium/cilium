@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2022 WireGuard LLC. All Rights Reserved.
  */
 
 package device
@@ -175,6 +175,8 @@ func init() {
 }
 
 func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, error) {
+	errZeroECDHResult := errors.New("ECDH returned all zeros")
+
 	device.staticIdentity.RLock()
 	defer device.staticIdentity.RUnlock()
 
@@ -202,9 +204,9 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	handshake.mixHash(msg.Ephemeral[:])
 
 	// encrypt static key
-	ss, err := handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
-	if err != nil {
-		return nil, err
+	ss := handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
+	if isZero(ss[:]) {
+		return nil, errZeroECDHResult
 	}
 	var key [chacha20poly1305.KeySize]byte
 	KDF2(
@@ -219,7 +221,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 
 	// encrypt timestamp
 	if isZero(handshake.precomputedStaticStatic[:]) {
-		return nil, errInvalidPublicKey
+		return nil, errZeroECDHResult
 	}
 	KDF2(
 		&handshake.chainKey,
@@ -262,10 +264,11 @@ func (device *Device) ConsumeMessageInitiation(msg *MessageInitiation) *Peer {
 	mixKey(&chainKey, &InitialChainKey, msg.Ephemeral[:])
 
 	// decrypt static key
+	var err error
 	var peerPK NoisePublicKey
 	var key [chacha20poly1305.KeySize]byte
-	ss, err := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
-	if err != nil {
+	ss := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
+	if isZero(ss[:]) {
 		return nil
 	}
 	KDF2(&chainKey, &key, chainKey[:], ss[:])
@@ -381,16 +384,12 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 	handshake.mixHash(msg.Ephemeral[:])
 	handshake.mixKey(msg.Ephemeral[:])
 
-	ss, err := handshake.localEphemeral.sharedSecret(handshake.remoteEphemeral)
-	if err != nil {
-		return nil, err
-	}
-	handshake.mixKey(ss[:])
-	ss, err = handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
-	if err != nil {
-		return nil, err
-	}
-	handshake.mixKey(ss[:])
+	func() {
+		ss := handshake.localEphemeral.sharedSecret(handshake.remoteEphemeral)
+		handshake.mixKey(ss[:])
+		ss = handshake.localEphemeral.sharedSecret(handshake.remoteStatic)
+		handshake.mixKey(ss[:])
+	}()
 
 	// add preshared key
 
@@ -407,9 +406,11 @@ func (device *Device) CreateMessageResponse(peer *Peer) (*MessageResponse, error
 
 	handshake.mixHash(tau[:])
 
-	aead, _ := chacha20poly1305.New(key[:])
-	aead.Seal(msg.Empty[:0], ZeroNonce[:], nil, handshake.hash[:])
-	handshake.mixHash(msg.Empty[:])
+	func() {
+		aead, _ := chacha20poly1305.New(key[:])
+		aead.Seal(msg.Empty[:0], ZeroNonce[:], nil, handshake.hash[:])
+		handshake.mixHash(msg.Empty[:])
+	}()
 
 	handshake.state = handshakeResponseCreated
 
@@ -454,19 +455,17 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 		mixHash(&hash, &handshake.hash, msg.Ephemeral[:])
 		mixKey(&chainKey, &handshake.chainKey, msg.Ephemeral[:])
 
-		ss, err := handshake.localEphemeral.sharedSecret(msg.Ephemeral)
-		if err != nil {
-			return false
-		}
-		mixKey(&chainKey, &chainKey, ss[:])
-		setZero(ss[:])
+		func() {
+			ss := handshake.localEphemeral.sharedSecret(msg.Ephemeral)
+			mixKey(&chainKey, &chainKey, ss[:])
+			setZero(ss[:])
+		}()
 
-		ss, err = device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
-		if err != nil {
-			return false
-		}
-		mixKey(&chainKey, &chainKey, ss[:])
-		setZero(ss[:])
+		func() {
+			ss := device.staticIdentity.privateKey.sharedSecret(msg.Ephemeral)
+			mixKey(&chainKey, &chainKey, ss[:])
+			setZero(ss[:])
+		}()
 
 		// add preshared key (psk)
 
@@ -484,7 +483,7 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 		// authenticate transcript
 
 		aead, _ := chacha20poly1305.New(key[:])
-		_, err = aead.Open(nil, ZeroNonce[:], msg.Empty[:], hash[:])
+		_, err := aead.Open(nil, ZeroNonce[:], msg.Empty[:], hash[:])
 		if err != nil {
 			return false
 		}

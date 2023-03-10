@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  *
- * Copyright (C) 2017-2023 WireGuard LLC. All Rights Reserved.
+ * Copyright (C) 2017-2022 WireGuard LLC. All Rights Reserved.
  *
  * This implements userspace semantics of "sticky sockets", modeled after
  * WireGuard's kernelspace implementation. This is more or less a straight port
@@ -25,7 +25,7 @@ import (
 )
 
 func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {
-	if _, ok := bind.(*conn.StdNetBind); !ok {
+	if _, ok := bind.(*conn.LinuxSocketBind); !ok {
 		return nil, nil
 	}
 
@@ -112,11 +112,11 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 									pePtr.peer.Unlock()
 									break
 								}
-								if uint32(pePtr.peer.endpoint.(*conn.StdNetEndpoint).SrcIfidx()) == ifidx {
+								if uint32(pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).Src4().Ifindex) == ifidx {
 									pePtr.peer.Unlock()
 									break
 								}
-								pePtr.peer.endpoint.(*conn.StdNetEndpoint).ClearSrc()
+								pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).ClearSrc()
 								pePtr.peer.Unlock()
 							}
 							attr = attr[attrhdr.Len:]
@@ -136,12 +136,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							peer.RUnlock()
 							continue
 						}
-						nativeEP, _ := peer.endpoint.(*conn.StdNetEndpoint)
+						nativeEP, _ := peer.endpoint.(*conn.LinuxSocketEndpoint)
 						if nativeEP == nil {
 							peer.RUnlock()
 							continue
 						}
-						if nativeEP.DstIP().Is6() || nativeEP.SrcIfidx() == 0 {
+						if nativeEP.IsV6() || nativeEP.Src4().Ifindex == 0 {
 							peer.RUnlock()
 							break
 						}
@@ -169,12 +169,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								Len:  8,
 								Type: unix.RTA_DST,
 							},
-							nativeEP.DstIP().As4(),
+							nativeEP.Dst4().Addr,
 							unix.RtAttr{
 								Len:  8,
 								Type: unix.RTA_SRC,
 							},
-							nativeEP.SrcIP().As4(),
+							nativeEP.Src4().Src,
 							unix.RtAttr{
 								Len:  8,
 								Type: unix.RTA_MARK,
