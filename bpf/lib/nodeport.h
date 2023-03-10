@@ -614,7 +614,6 @@ declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV6_NODEPORT_NAT
 int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 {
 	const bool nat_46x64 = nat46x64_cb_xlate(ctx);
-	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
 			.family		= AF_INET6,
@@ -625,6 +624,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
+		.addr = IPV6_DIRECT_ROUTING,
 	};
 	int ret, oif = 0;
 	void *data, *data_end;
@@ -638,8 +638,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 #endif
 
 	if (nat_46x64)
-		build_v4_in_v6(&tmp, IPV4_DIRECT_ROUTING);
-	target.addr = tmp;
+		build_v4_in_v6(&target.addr, IPV4_DIRECT_ROUTING);
+
 #ifdef TUNNEL_MODE
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -1260,7 +1260,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = 0,
+		.addr = 0, /* set by snat_v4_prepare_state() */
 		.egress_gateway = 0,
 	};
 	int ret = CTX_ACT_OK;
@@ -1658,15 +1658,14 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
+		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
+		 * So we need to assume that the direct routing device is going to be
+		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
+		 * This will change once we have resolved GH#17158.
+		 */
+		.addr = IPV4_DIRECT_ROUTING,
 	};
 	int ret;
-
-	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-	 * So we need to assume that the direct routing device is going to be
-	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-	 * This will change once we have resolved GH#17158.
-	 */
-	target.addr = IPV4_DIRECT_ROUTING;
 
 	ret = snat_v4_rev_nat(ctx, &target);
 	if (IS_ERR(ret)) {
@@ -1714,6 +1713,12 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
+		/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
+		 * So we need to assume that the direct routing device is going to be
+		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
+		 * This will change once we have resolved GH#17158.
+		 */
+		.addr = IPV4_DIRECT_ROUTING,
 	};
 	int ret, oif = 0;
 	void *data, *data_end;
@@ -1723,14 +1728,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct remote_endpoint_info *info;
 	int verdict = CTX_ACT_REDIRECT;
 	bool use_tunnel = false;
-#endif
-	/* Unfortunately, the bpf_fib_lookup() is not able to set src IP addr.
-	 * So we need to assume that the direct routing device is going to be
-	 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
-	 * This will change once we have resolved GH#17158.
-	 */
-	target.addr = IPV4_DIRECT_ROUTING;
-#ifdef TUNNEL_MODE
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
