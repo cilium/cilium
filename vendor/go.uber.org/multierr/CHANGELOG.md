@@ -1,6 +1,14 @@
 Releases
 ========
 
+v1.10.0 (2023-03-08)
+====================
+
+-   Comply with Go 1.20's multiple-error interface.
+-   Drop Go 1.18 support.
+    Per the support policy, only Go 1.19 and 1.20 are supported now.
+-   Drop all non-test external dependencies.
+
 v1.9.0 (2022-12-12)
 ===================
 
