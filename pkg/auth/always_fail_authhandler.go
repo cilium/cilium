@@ -6,6 +6,7 @@ package auth
 import (
 	"errors"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -25,4 +26,8 @@ func (r *alwaysFailAuthHandler) authenticate(authReq *authRequest) (*authRespons
 
 func (r *alwaysFailAuthHandler) authType() policy.AuthType {
 	return policy.AuthTypeAlwaysFail
+}
+
+func (r *alwaysFailAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
 }

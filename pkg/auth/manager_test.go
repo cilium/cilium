@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/policy"
@@ -161,6 +162,10 @@ func (r *fakeAuthHandler) authenticate(authReq *authRequest) (*authResponse, err
 
 func (r *fakeAuthHandler) authType() policy.AuthType {
 	return policy.AuthType(255)
+}
+
+func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
 }
 
 // Fake DatapathAuthenticator

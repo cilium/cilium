@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -67,6 +68,16 @@ func (s *SpireDelegateClient) sniToSPIFFEID(id identity.NumericIdentity) string 
 	return "spiffe://" + s.cfg.SpiffeTrustDomain + "/identity/" + id.String()
 }
 
+func (s *SpireDelegateClient) spiffeIDToNumericIdentity(spiffeID string) (identity.NumericIdentity, error) {
+	prefix := "spiffe://" + s.cfg.SpiffeTrustDomain + "/identity/"
+	if !strings.HasPrefix(spiffeID, prefix) {
+		return 0, fmt.Errorf("SPIFFE ID %s does not belong to our trust domain or is not in the valid format", spiffeID)
+	}
+
+	idStr := strings.TrimPrefix(spiffeID, prefix)
+	return identity.ParseNumericIdentity(idStr)
+}
+
 func (s *SpireDelegateClient) ValidateIdentity(id identity.NumericIdentity, cert *x509.Certificate) (bool, error) {
 	spiffeID := s.sniToSPIFFEID(id)
 
@@ -90,4 +101,8 @@ func (s *SpireDelegateClient) SNIToNumericIdentity(sni string) (identity.Numeric
 
 	idStr := strings.TrimSuffix(sni, suffix)
 	return identity.ParseNumericIdentity(idStr)
+}
+
+func (s *SpireDelegateClient) SubscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return s.rotatedIdentitiesChan
 }
