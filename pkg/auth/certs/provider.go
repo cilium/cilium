@@ -10,6 +10,10 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 )
 
+type CertificateRotationEvent struct {
+	Identity identity.NumericIdentity
+}
+
 type CertificateProvider interface {
 	// GetTrustBundle gives the CA trust bundle for the certificate provider
 	// this is then used to verify the certificates given by the peer in the handshake
@@ -29,4 +33,7 @@ type CertificateProvider interface {
 
 	// SNIToNumericIdentity will return the Cilium Identity for a given SNI
 	SNIToNumericIdentity(sni string) (identity.NumericIdentity, error)
+
+	// SubscribeToRotatedIdentities will return a channel with the identities that have rotated certificates
+	SubscribeToRotatedIdentities() <-chan CertificateRotationEvent
 }

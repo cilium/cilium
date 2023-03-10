@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -77,6 +78,10 @@ func (f *fakeCertificateProvider) SNIToNumericIdentity(sni string) (identity.Num
 
 	idStr := strings.TrimSuffix(sni, suffix)
 	return identity.ParseNumericIdentity(idStr)
+}
+
+func (f *fakeCertificateProvider) SubscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
 }
 
 func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[string]*ecdsa.PrivateKey, *x509.CertPool) {
