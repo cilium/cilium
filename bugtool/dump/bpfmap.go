@@ -5,9 +5,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
+	"github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/ebpf"
 )
+
+// This provides a lookup from map name to a factory to create
+// bpfmap Tasks.
+//
+// TODO: Provide generic fallback for non registered types?
+var typedBPFMapRegistry = map[string]taskFactory{
+	"ipcache":     bpfMapFactory[ipcache.Key, ipcache.RemoteEndpointInfo]{},
+	"call_policy": bpfMapFactory[lxcmap.EndpointKey, lxcmap.EndpointInfo]{},
+	"lxc":         bpfMapFactory[lxcmap.EndpointKey, lxcmap.EndpointInfo]{},
+	"tunnel_map":  bpfMapFactory[tunnel.TunnelKey, tunnel.TunnelValue]{},
+}
+
+func getTaskFactory(mapName string) (taskFactory, error) {
+	n := strings.TrimPrefix(mapName, "cilium_")
+	if tf, ok := typedBPFMapRegistry[n]; ok {
+		return tf, nil
+	}
+	return nil, fmt.Errorf("no known bpfmap map %q", mapName)
+}
 
 // NewBPFMap constructs a new BPF map to dump a pinned bpf map file.
 func NewPinnedBPFMap[KT fmt.Stringer, VT any](pinnedFile string) *BPFMap[KT, VT] {
@@ -24,13 +47,8 @@ func NewPinnedBPFMap[KT fmt.Stringer, VT any](pinnedFile string) *BPFMap[KT, VT]
 // by dumping bpf maps.
 type BPFMap[KT fmt.Stringer, VT any] struct {
 	base
-	K, V       string
 	PinnedFile string
 }
-
-type BPFByteBuffer []byte
-
-func (b BPFByteBuffer) String() string { return string(b) }
 
 func (e *BPFMap[KT, VT]) Run(ctx context.Context, runtime Context) error {
 	runtime.Submit(e.Identifier(), func(_ context.Context) error {
@@ -71,4 +89,20 @@ func (e *BPFMap[KT, VT]) Run(ctx context.Context, runtime Context) error {
 
 func (e *BPFMap[KT, VT]) Validate(context.Context) error {
 	return nil
+}
+
+type bpfMapFactory[KT fmt.Stringer, VT any] struct{}
+
+func (f bpfMapFactory[KT, VT]) Create(pp string) Task {
+	return NewPinnedBPFMap[KT, VT](pp)
+}
+
+type taskFactory interface {
+	Create(string) Task
+}
+
+type BPFMapBuffer []byte
+
+func (b BPFMapBuffer) String() string {
+	return string(b)
 }

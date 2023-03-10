@@ -81,6 +81,12 @@ func decodeMap(m map[string]any) (Task, error) {
 		return decodeObj[File](m)
 	case KindRequest:
 		return decodeObj[Request](m)
+	case KindBPFMap:
+		tf, err := getTaskFactory(result.GetName())
+		if err != nil {
+			return nil, err
+		}
+		return tf.Create(result.GetName()), nil
 	default:
 		return nil, fmt.Errorf("got unexpected object kind: %q, should be one of: %v: %q", result.Kind, []Kind{KindDir, KindExec, KindFile, KindRequest}, m)
 	}

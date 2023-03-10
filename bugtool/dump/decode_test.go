@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/maps/ipcache"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,6 +39,7 @@ func TestEncode(t *testing.T) {
 			},
 			&Dir{base: base{Kind: KindDir, Name: "z"}},
 			&Request{base: base{Kind: KindRequest, Name: "z"}},
+			NewPinnedBPFMap[ipcache.Key, ipcache.RemoteEndpointInfo]("cilium_ipcache"),
 		},
 	}
 	d, err := json.MarshalIndent(root, "", "	")

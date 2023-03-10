@@ -4,6 +4,7 @@
 package dump
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -21,7 +22,7 @@ var (
 	_ Task = &Dir{}
 	_ Task = &Request{}
 	_ Task = &File{}
-	_ Task = &BPFMap[BPFByteBuffer, interface{}]{}
+	_ Task = &BPFMap[*bytes.Buffer, interface{}]{}
 )
 
 // ScheduleFunc schedules another function for execution.
