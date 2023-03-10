@@ -169,6 +169,10 @@ func preflightReconciler(ctx context.Context, _ *BGPRouterManager, sc *ServerWit
 	// actions as if this is a new BgpServer.
 	sc.Config = nil
 
+	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
+	sc.PodCIDRAnnouncements = nil
+	sc.ServiceAnnouncements = nil
+
 	return nil
 }
 
