@@ -7,9 +7,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 )
 
@@ -17,7 +16,7 @@ var _ datapath.Datapath = (*FakeDatapath)(nil)
 
 type FakeDatapath struct {
 	node           *FakeNodeHandler
-	nodeAddressing types.NodeAddressing
+	nodeAddressing datapath.NodeAddressing
 	loader         datapath.Loader
 	lbmap          *mockmaps.LBMockMap
 }
@@ -43,7 +42,7 @@ func (f *FakeDatapath) FakeNode() *FakeNodeHandler {
 
 // LocalNodeAddressing returns a fake node addressing implementation of the
 // local node
-func (f *FakeDatapath) LocalNodeAddressing() types.NodeAddressing {
+func (f *FakeDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return f.nodeAddressing
 }
 
@@ -103,7 +102,7 @@ func (f *FakeDatapath) Procfs() string {
 	return "/proc"
 }
 
-func (f *FakeDatapath) LBMap() types.LBMap {
+func (f *FakeDatapath) LBMap() datapath.LBMap {
 	return f.lbmap
 }
 

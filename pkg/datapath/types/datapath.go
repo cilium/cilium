@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package datapath
-
-import (
-	"github.com/cilium/cilium/pkg/datapath/types"
-)
+package types
 
 // Datapath is the interface to abstract all datapath interactions. The
 // abstraction allows to implement the datapath requirements with multiple
@@ -19,7 +15,7 @@ type Datapath interface {
 
 	// LocalNodeAddressing must return the node addressing implementation
 	// of the local node
-	LocalNodeAddressing() types.NodeAddressing
+	LocalNodeAddressing() NodeAddressing
 
 	// Loader must return the implementation of the loader, which is responsible
 	// for loading, reloading, and compiling datapath programs.
@@ -29,7 +25,7 @@ type Datapath interface {
 	WireguardAgent() WireguardAgent
 
 	// LBMap returns the load-balancer map
-	LBMap() types.LBMap
+	LBMap() LBMap
 
 	Procfs() string
 }
