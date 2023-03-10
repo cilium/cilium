@@ -185,7 +185,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx, &trace, ext_err);
+		ret = ipv6_host_policy_egress(ctx, secctx, ip6, &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -370,7 +370,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	src_id = resolve_srcid_ipv6(ctx, src_id, true);
 
 	/* to-netdev is attached to the egress path of the native device. */
-	return ipv6_host_policy_egress(ctx, src_id, trace, ext_err);
+	return ipv6_host_policy_egress(ctx, src_id, ip6, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
@@ -482,7 +482,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
 		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid,
-					      &trace, ext_err);
+					      ip4, &trace, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -681,7 +681,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 	/* We need to pass the srcid from ipcache to host firewall. See
 	 * comment in ipv4_host_policy_egress() for details.
 	 */
-	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, trace, ext_err);
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, ip4, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
@@ -1408,6 +1408,9 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 		.monitor = 0,
 	};
 	int ret = CTX_ACT_OK;
+	void *data, *data_end;
+	struct iphdr *ip4 __maybe_unused;
+	struct ipv6hdr *ip6 __maybe_unused;
 	__u16 proto = 0;
 
 	if (!validate_ethertype(ctx, &proto))
@@ -1421,19 +1424,25 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-	  ret = ipv6_host_policy_egress(ctx, HOST_ID, &trace, ext_err);
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ret = ipv6_host_policy_egress(ctx, HOST_ID, ip6, &trace, ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		/* The last parameter, ipcache_srcid, is only required when
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		/* The third parameter, ipcache_srcid, is only required when
 		 * the src_id is not HOST_ID. For details, see
 		 * whitelist_snated_egress_connections.
 		 * We only arrive here from bpf_lxc if we know the
 		 * src_id is HOST_ID. Therefore, we don't need to pass a value
 		 * for the last parameter. That avoids an ipcache lookup.
 		 */
-	  ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, &trace, ext_err);
+		ret = ipv4_host_policy_egress(ctx, HOST_ID, 0, ip4, &trace, ext_err);
 		break;
 # endif
 	default:

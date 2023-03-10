@@ -17,7 +17,8 @@
 # ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
-			struct trace_ctx *trace, __s8 *ext_err)
+			struct ipv6hdr *ip6, struct trace_ctx *trace,
+			__s8 *ext_err)
 {
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
@@ -27,16 +28,11 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	struct ipv6_ct_tuple tuple = {};
 	__u32 dst_sec_identity = 0;
 	__u16 node_id = 0;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
 
 	/* Only enforce host policies for packets from host IPs. */
 	if (src_sec_identity != HOST_ID)
 		return CTX_ACT_OK;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	/* Lookup connection in conntrack map. */
 	tuple.nexthdr = ip6->nexthdr;
@@ -275,7 +271,8 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 static __always_inline int
 ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 			__u32 ipcache_srcid __maybe_unused,
-			struct trace_ctx *trace, __s8 *ext_err)
+			struct iphdr *ip4, struct trace_ctx *trace,
+			__s8 *ext_err)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -285,8 +282,6 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 	struct ipv4_ct_tuple tuple = {};
 	__u32 dst_sec_identity = 0;
 	__u16 node_id = 0;
-	void *data, *data_end;
-	struct iphdr *ip4;
 	__u16 proxy_port = 0;
 
 	if (src_sec_identity != HOST_ID) {
@@ -298,9 +293,6 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		return CTX_ACT_OK;
 #  endif
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	/* Lookup connection in conntrack map. */
 	tuple.nexthdr = ip4->protocol;
