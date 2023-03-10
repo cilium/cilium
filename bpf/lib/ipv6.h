@@ -38,7 +38,7 @@ static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 	return (opthdr->hdrlen + 2) << 2;
 }
 
-static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
+static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *nexthdr, int l3_off)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr opthdr __align_stack_8;
@@ -57,7 +57,7 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (ctx_load_bytes(ctx, ETH_HLEN + len, &opthdr, sizeof(opthdr)) < 0)
+			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
 				return DROP_INVALID;
 
 			nh = opthdr.nexthdr;
@@ -75,6 +75,11 @@ static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
 
 	/* Reached limit of supported extension headers */
 	return DROP_INVALID_EXTHDR;
+}
+
+static __always_inline int ipv6_hdrlen(struct __ctx_buff *ctx, __u8 *nexthdr)
+{
+	return ipv6_hdrlen_offset(ctx, nexthdr, ETH_HLEN);
 }
 
 static __always_inline void ipv6_addr_copy(union v6addr *dst,
