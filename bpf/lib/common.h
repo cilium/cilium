@@ -56,13 +56,6 @@
 #define NOT_VTEP_DST 0
 #endif
 
-/* TODO: ipsec v6 tunnel datapath still needs separate fixing */
-#ifndef ENABLE_IPSEC
-# ifdef ENABLE_IPV6
-#  define ENABLE_ENCAP_HOST_REMAP 1
-# endif
-#endif
-
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
