@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
-	"github.com/cilium/cilium/pkg/hubble/defaults"
+	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 )
 
 // Peer represents a hubble peer.
@@ -25,8 +25,9 @@ type Peer struct {
 	//  - testcluster/runtime1
 	Name string
 
-	// Address is the address of the peer's gRPC service.
-	Address net.Addr
+	// Target is the target of the peer's gRPC service.
+	// See https://github.com/grpc/grpc/blob/master/doc/naming.md
+	Target string
 
 	// TLSEnabled indicates whether the service offered by the peer has TLS
 	// enabled.
@@ -41,45 +42,23 @@ func FromChangeNotification(cn *peerpb.ChangeNotification) *Peer {
 	if cn == nil {
 		return (*Peer)(nil)
 	}
-	var err error
-	var addr net.Addr
-	switch a := cn.GetAddress(); {
-	case strings.HasPrefix(a, "unix://"), strings.HasPrefix(a, "/") && strings.HasSuffix(a, ".sock"):
-		addr, err = net.ResolveUnixAddr("unix", a)
-	case a == "":
-		// no address specified, leave it nil
-	default:
-		var host, port string
-		if host, port, err = net.SplitHostPort(a); err == nil {
-			if ip := net.ParseIP(host); ip != nil {
-				var p int
-				if p, err = strconv.Atoi(port); err == nil {
-					addr = &net.TCPAddr{
-						IP:   ip,
-						Port: p,
-					}
-				} else {
-					err = nil
-					addr = &net.TCPAddr{
-						IP:   ip,
-						Port: defaults.ServerPort,
-					}
-				}
-			} else {
-				// resolve then
-				addr, err = net.ResolveTCPAddr("tcp", a)
-			}
-		} else if ip := net.ParseIP(a); ip != nil {
-			err = nil
-			addr = &net.TCPAddr{
-				IP:   ip,
-				Port: defaults.ServerPort,
+	target := cn.GetAddress()
+	// A file path referencing a unix socket, prepend the unix:// scheme
+	if strings.HasPrefix(target, "/") && strings.HasSuffix(target, ".sock") {
+		target = "unix://" + target
+	}
+
+	// If it's a non-socket, check that it has the port specified
+	if !strings.HasPrefix(target, "unix://") {
+		_, _, err := net.SplitHostPort(target)
+		// Error indicates no port specified, add the default port
+		if err != nil {
+			if addrErr, ok := err.(*net.AddrError); ok && strings.Contains(addrErr.Err, "missing port") {
+				target = net.JoinHostPort(target, strconv.Itoa(hubbleDefaults.ServerPort))
 			}
 		}
 	}
-	if err != nil {
-		addr = (net.Addr)(nil)
-	}
+
 	var tlsEnabled bool
 	var tlsServerName string
 	if tls := cn.GetTls(); tls != nil {
@@ -88,7 +67,7 @@ func FromChangeNotification(cn *peerpb.ChangeNotification) *Peer {
 	}
 	return &Peer{
 		Name:          cn.GetName(),
-		Address:       addr,
+		Target:        target,
 		TLSEnabled:    tlsEnabled,
 		TLSServerName: tlsServerName,
 	}

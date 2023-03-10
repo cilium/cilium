@@ -95,7 +95,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 
 	for _, p := range peers {
 		if !isAvailable(p.Conn) {
-			s.opts.log.WithField("address", p.Address).Infof(
+			s.opts.log.WithField("target", p.Target).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
 			s.peers.ReportOffline(p.Name)
@@ -192,13 +192,11 @@ func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) 
 				ServerName: p.TLSServerName,
 			},
 		}
-		if p.Address != nil {
-			n.Address = p.Address.String()
-		}
+		n.Address = p.Target
 		nodes = append(nodes, n)
 		if !isAvailable(p.Conn) {
 			n.State = relaypb.NodeState_NODE_UNAVAILABLE
-			s.opts.log.WithField("address", p.Address).Infof(
+			s.opts.log.WithField("target", p.Target).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
 			s.peers.ReportOffline(p.Name)
@@ -297,7 +295,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	for _, p := range peers {
 		if !isAvailable(p.Conn) {
 			numUnavailableNodes++
-			s.opts.log.WithField("address", p.Address).Infof(
+			s.opts.log.WithField("target", p.Target).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
 			s.peers.ReportOffline(p.Name)

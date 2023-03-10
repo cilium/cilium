@@ -74,20 +74,7 @@ func New(options ...Option) (*Server, error) {
 		return nil, ErrNoServerTLSConfig
 	}
 
-	var peerClientBuilder peerTypes.ClientBuilder = &peerTypes.LocalClientBuilder{
-		DialTimeout: opts.dialTimeout,
-	}
-	if !strings.HasPrefix(opts.peerTarget, "unix://") {
-		peerClientBuilder = &peerTypes.RemoteClientBuilder{
-			DialTimeout:   opts.dialTimeout,
-			TLSConfig:     opts.clientTLSConfig,
-			TLSServerName: peer.TLSServerName(defaults.PeerServiceName, opts.clusterName),
-		}
-	}
-
-	pm, err := pool.NewPeerManager(
-		pool.WithPeerServiceAddress(opts.peerTarget),
-		pool.WithPeerClientBuilder(peerClientBuilder),
+	poolOpts := []pool.Option{
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
 			Options: []grpc.DialOption{
@@ -99,7 +86,30 @@ func New(options ...Option) (*Server, error) {
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),
 		pool.WithLogger(opts.log),
-	)
+	}
+
+	if opts.peerTarget != "" {
+		var peerClientBuilder peerTypes.ClientBuilder = &peerTypes.LocalClientBuilder{
+			DialTimeout: opts.dialTimeout,
+		}
+		if !strings.HasPrefix(opts.peerTarget, "unix://") {
+			peerClientBuilder = &peerTypes.RemoteClientBuilder{
+				DialTimeout:   opts.dialTimeout,
+				TLSConfig:     opts.clientTLSConfig,
+				TLSServerName: peer.TLSServerName(defaults.PeerServiceName, opts.clusterName),
+			}
+		}
+		poolOpts = append(poolOpts,
+			pool.WithPeerServiceAddress(opts.peerTarget),
+			pool.WithPeerClientBuilder(peerClientBuilder),
+		)
+	}
+
+	if len(opts.staticPeers) != 0 {
+		poolOpts = append(poolOpts, pool.WithStaticPeers(opts.staticPeers))
+	}
+
+	pm, err := pool.NewPeerManager(poolOpts...)
 	if err != nil {
 		return nil, err
 	}

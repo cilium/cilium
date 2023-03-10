@@ -24,6 +24,7 @@ const MinTLSVersion = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
+	staticPeers            []string
 	peerTarget             string
 	dialTimeout            time.Duration
 	retryTimeout           time.Duration
@@ -61,6 +62,14 @@ type Option func(o *options) error
 func WithPeerTarget(t string) Option {
 	return func(o *options) error {
 		o.peerTarget = t
+		return nil
+	}
+}
+
+// WithStaticPeers sets static peers to connect to
+func WithStaticPeers(peers []string) Option {
+	return func(o *options) error {
+		o.staticPeers = peers
 		return nil
 	}
 }

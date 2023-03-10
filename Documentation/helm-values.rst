@@ -1476,6 +1476,10 @@
      - Max number of flows that can be buffered for sorting before being sent to the client (per request) (e.g. 100).
      - string
      - ``nil``
+   * - hubble.relay.staticPeers
+     - A list of static peer URLs for relay to connect to. Specify HTTPS to enable TLS.
+     - list
+     - ``[]``
    * - hubble.relay.terminationGracePeriodSeconds
      - Configure termination grace period for hubble relay Deployment.
      - int

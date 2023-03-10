@@ -57,15 +57,28 @@ func NewPeerManager(options ...Option) (*PeerManager, error) {
 
 // Start starts the manager.
 func (m *PeerManager) Start() {
-	m.wg.Add(2)
-	go func() {
-		defer m.wg.Done()
-		m.watchNotifications()
-	}()
+	// Start the connection manager first, since it's consuming the peers being added
+	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
 		m.manageConnections()
 	}()
+
+	// Add the static peers next
+	if len(m.opts.staticPeers) != 0 {
+		for _, peer := range m.opts.staticPeers {
+			m.add(peer)
+		}
+	}
+
+	// Finally, start the notification manager, which watches for new peers
+	if m.opts.peerServiceAddress != "" {
+		m.wg.Add(1)
+		go func() {
+			defer m.wg.Done()
+			m.watchNotifications()
+		}()
+	}
 }
 
 func (m *PeerManager) watchNotifications() {
@@ -205,7 +218,7 @@ func (m *PeerManager) List() []poolTypes.Peer {
 		peers = append(peers, poolTypes.Peer{
 			Peer: peerTypes.Peer{
 				Name:          v.Name,
-				Address:       v.Address,
+				Target:        v.Target,
 				TLSEnabled:    v.TLSEnabled,
 				TLSServerName: v.TLSServerName,
 			},
@@ -293,7 +306,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
-	if p.Address == nil || (p.nextConnAttempt.After(now) && !ignoreBackoff) {
+	if p.Target == "" || (p.nextConnAttempt.After(now) && !ignoreBackoff) {
 		return
 	}
 	if p.conn != nil {
@@ -312,13 +325,13 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	}
 
 	scopedLog := m.opts.log.WithFields(logrus.Fields{
-		"address":    p.Address,
+		"target":     p.Target,
 		"hubble-tls": p.TLSEnabled,
 		"peer":       p.Name,
 	})
 
 	scopedLog.Info("Connecting")
-	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
+	conn, err := m.opts.clientConnBuilder.ClientConn(p.Target, p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
@@ -346,7 +359,7 @@ func (m *PeerManager) disconnect(p *peer) {
 	}
 
 	scopedLog := m.opts.log.WithFields(logrus.Fields{
-		"address":    p.Address,
+		"target":     p.Target,
 		"hubble-tls": p.TLSEnabled,
 		"peer":       p.Name,
 	})

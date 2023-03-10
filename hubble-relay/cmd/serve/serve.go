@@ -36,6 +36,7 @@ const (
 	keyListenAddress          = "listen-address"
 	keyMetricsListenAddress   = "metrics-listen-address"
 	keyPeerService            = "peer-service"
+	keyStaticPeers            = "static-peers"
 	keySortBufferMaxLen       = "sort-buffer-len-max"
 	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
 	keyTLSClientCertFile      = "tls-client-cert-file"
@@ -155,6 +156,7 @@ func runServe(vp *viper.Viper) error {
 	opts := []server.Option{
 		server.WithLocalClusterName(vp.GetString(keyClusterName)),
 		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
+		server.WithStaticPeers(vp.GetStringSlice(keyStaticPeers)),
 		server.WithPeerTarget(vp.GetString(keyPeerService)),
 		server.WithListenAddress(vp.GetString(keyListenAddress)),
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),

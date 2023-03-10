@@ -4,12 +4,16 @@
 package pool
 
 import (
+	"net"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/pkg/backoff"
+	hubbleDefaults "github.com/cilium/cilium/pkg/hubble/defaults"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
@@ -47,6 +51,7 @@ type Option func(o *options) error
 
 // options stores all the configuration values for peer manager.
 type options struct {
+	staticPeers        []*peerTypes.Peer
 	peerServiceAddress string
 	peerClientBuilder  peerTypes.ClientBuilder
 	clientConnBuilder  poolTypes.ClientConnBuilder
@@ -69,6 +74,36 @@ func WithPeerServiceAddress(a string) Option {
 func WithPeerClientBuilder(b peerTypes.ClientBuilder) Option {
 	return func(o *options) error {
 		o.peerClientBuilder = b
+		return nil
+	}
+}
+
+// WithStaticPeers sets static peers to connect to
+func WithStaticPeers(peers []string) Option {
+	return func(o *options) error {
+		for _, p := range peers {
+			u, err := url.Parse(p)
+			if err != nil {
+				return err
+			}
+			host := u.Hostname()
+			port := u.Port()
+			if port == "" {
+				port = strconv.Itoa(hubbleDefaults.ServerPort)
+			}
+			target := net.JoinHostPort(host, port)
+			tlsEnabled := u.Scheme == "https"
+			tlsServerName := ""
+			if tlsEnabled {
+				tlsServerName = host
+			}
+			o.staticPeers = append(o.staticPeers, &peerTypes.Peer{
+				Name:          u.Hostname(),
+				Target:        target,
+				TLSEnabled:    tlsEnabled,
+				TLSServerName: tlsServerName,
+			})
+		}
 		return nil
 	}
 }

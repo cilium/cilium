@@ -1200,6 +1200,11 @@ hubble:
     # time this timeout is reached (only affects requests in follow-mode) (e.g. "1s").
     sortBufferDrainTimeout: ~
 
+    # -- A list of static peer URLs for relay to connect to. Specify HTTPS to enable TLS.
+    staticPeers: []
+      # - https://hubble-relay.cluster-2.example.com
+      # - https://hubble-relay.cluster-3.example.com
+
     # -- Port to use for the k8s service backed by hubble-relay pods.
     # If not set, it is dynamically assigned to port 443 if TLS is enabled and to
     # port 80 if not.
