@@ -21,7 +21,7 @@ type Config struct {
 	Topics            []string      `mapstructure:"topics"`
 	DumpPath          string        `mapstructure:"tmp"`
 	ExecTimeout       time.Duration `mapstructure:"exec-timeout"`
-	Config            string        `mapstructure:"config"`
+	ConfigFile        string        `mapstructure:"config-file"`
 	GetPProf          bool          `mapstructure:"get-pprof"`
 	PprofPort         int           `mapstructure:"pprof-port"`
 	PprofDebug        int           `mapstructure:"pprof-debug"`
@@ -69,7 +69,7 @@ func (bugtoolConf *Config) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&bugtoolConf.Generate, "generate", false, "Create configuration file of all commands that would have been executed")
 	flags.BoolVar(&bugtoolConf.DryRun, "dry-run", false, "[DEPRECATED: use \"--generate\" instead] Create configuration file of all commands that would have been executed")
 	flags.DurationVarP(&bugtoolConf.ExecTimeout, "exec-timeout", "", 30*time.Second, "The default timeout for any cmd execution in seconds")
-	flags.StringVarP(&bugtoolConf.Config, "config", "", "", "Configuration to decide what should be run")
+	flags.StringVarP(&bugtoolConf.ConfigFile, "config-file", "", "", "Configuration to decide what should be run")
 	flags.IntVar(&bugtoolConf.ParallelWorkers, "parallel-workers", runtime.NumCPU(), "Maximum number of parallel worker tasks, use 0 for number of CPUs")
 	flags.DurationVar(&bugtoolConf.Timeout, "timeout", 30*time.Second, "Dump timeout seconds")
 	flags.BoolVar(&bugtoolConf.Debug, "debug", false, "Enable debug logging")

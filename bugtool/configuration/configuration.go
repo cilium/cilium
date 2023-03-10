@@ -30,15 +30,15 @@ func deduplicate(arr []string) []string {
 }
 
 func CreateDump(conf *options.Config) dump.Task {
-	if conf.Config != "" {
-		log.Debug("Using specified config file: %s", conf.Config)
-		fd, err := os.Open(conf.Config)
+	if conf.ConfigFile != "" && !conf.Generate && !conf.DryRun {
+		log.Debugf("Using specified config file: %s", conf.ConfigFile)
+		fd, err := os.Open(conf.ConfigFile)
 		if err != nil {
-			log.Fatalf("Failed to open config file %s: %v", conf.Config, err)
+			log.Fatalf("Failed to open config file %s: %v", conf.ConfigFile, err)
 		}
 		t, err := dump.Decode(fd)
 		if err != nil {
-			log.Fatalf("Failed to decode config %s: %v", conf.Config, err)
+			log.Fatalf("Failed to decode config %s: %v", conf.ConfigFile, err)
 		}
 		return t
 	}

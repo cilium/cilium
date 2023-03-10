@@ -23,9 +23,9 @@ const bpftoolMapDumpPrefix = "bpftool-map-dump-pinned-"
 // TODO: Convert these to use dump.BPFMap task type.
 func GenerateBPFToolTasks() dump.Tasks {
 	ts := dump.Tasks{
-		newBPFMapTask("map", "show"),
-		newBPFMapTask("prog", "show"),
-		newBPFMapTask("net", "show"),
+		dump.NewExec("bpftool-net-show", "json", "bpftool", "net", "show", "-j"),
+		dump.NewExec("bpftool-prog-show", "json", "bpftool", "prog", "show", "-j"),
+		dump.NewExec("bpftool-map-show", "json", "bpftool", "map", "show", "-j"),
 	}
 
 	var mountpoint string
@@ -115,9 +115,9 @@ func mapDumpPinned(mountPoint string, mapNames ...string) dump.Tasks {
 		return fmt.Sprintf("%s/tc/globals/%s", mountPoint, mapName)
 	}
 	// TODO: Convert more maps to use this task type, using correct models.
-	rs = append(rs, dump.NewPinnedBPFMap[lxcmap.EndpointKey, lxcmap.EndpointInfo](fname("cilium_call_policy")))
-	rs = append(rs, dump.NewPinnedBPFMap[ipcache.Key, ipcache.RemoteEndpointInfo](fname("cilium_ipcache")))
-	rs = append(rs, dump.NewPinnedBPFMap[lxcmap.EndpointKey, lxcmap.EndpointInfo](fname("cilium_lxc")))
+	rs = append(rs, dump.NewPinnedBPFMap[lxcmap.EndpointKey, lxcmap.EndpointInfo](fname("call_policy")))
+	rs = append(rs, dump.NewPinnedBPFMap[ipcache.Key, ipcache.RemoteEndpointInfo](fname("ipcache")))
+	rs = append(rs, dump.NewPinnedBPFMap[lxcmap.EndpointKey, lxcmap.EndpointInfo](fname("lxc")))
 	rs = append(rs, dump.NewPinnedBPFMap[tunnel.TunnelKey, tunnel.TunnelValue](fname("tunnel_map")))
 	return rs
 }
