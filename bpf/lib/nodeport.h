@@ -1710,12 +1710,6 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
 int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET,
-			.ifindex	= ctx_get_ifindex(ctx),
-		},
-	};
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
@@ -1758,8 +1752,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 					  info->sec_label,
 					  NOT_VTEP_DST,
 					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
-					  (int *)&fib_params.l.ifindex);
+					  TRACE_PAYLOAD_LEN, &oif);
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -1777,7 +1770,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (use_tunnel) {
 		cilium_capture_out(ctx);
 		if (verdict == CTX_ACT_REDIRECT)
-			return ctx_redirect(ctx, fib_params.l.ifindex, 0);
+			return ctx_redirect(ctx, oif, 0);
 		ctx_move_xfer(ctx);
 		return verdict;
 	}
@@ -1786,10 +1779,9 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
-	fib_params.l.ipv4_src = ip4->saddr;
-	fib_params.l.ipv4_dst = ip4->daddr;
 
-	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
+	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err,
+			      ctx_get_ifindex(ctx), &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
