@@ -53,65 +53,6 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
 #endif /* ENABLE_IPSEC */
 
 static __always_inline int
-encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
-			    const bool egress __maybe_unused)
-{
-#ifdef ENABLE_ENCAP_HOST_REMAP
-	struct csum_offset csum = {};
-	union v6addr host_ip;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	union v6addr *which;
-	__u8 nexthdr;
-	__u16 proto;
-	__be32 sum;
-	__u32 noff;
-	__u64 off;
-	int ret;
-
-	validate_ethertype(ctx, &proto);
-	if (proto != bpf_htons(ETH_P_IPV6))
-		return 0;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-	/* For requests routed via tunnel with external v6 node IP
-	 * we need to remap their source address to the router address
-	 * as otherwise replies are not routed via tunnel but public
-	 * address instead.
-	 */
-	if (egress) {
-		BPF_V6(host_ip, HOST_IP);
-		which = (union v6addr *)&ip6->saddr;
-	} else {
-		BPF_V6(host_ip, ROUTER_IP);
-		which = (union v6addr *)&ip6->daddr;
-	}
-	if (ipv6_addrcmp(which, &host_ip))
-		return 0;
-	nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen(ctx, &nexthdr);
-	if (ret < 0)
-		return ret;
-	off = ((void *)ip6 - data) + ret;
-	if (egress) {
-		BPF_V6(host_ip, ROUTER_IP);
-		noff = ETH_HLEN + offsetof(struct ipv6hdr, saddr);
-	} else {
-		BPF_V6(host_ip, HOST_IP);
-		noff = ETH_HLEN + offsetof(struct ipv6hdr, daddr);
-	}
-	sum = csum_diff(which, 16, &host_ip, 16, 0);
-	csum_l4_offset_and_flags(nexthdr, &csum);
-	if (ctx_store_bytes(ctx, noff, &host_ip, 16, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
-#endif /* ENABLE_ENCAP_HOST_REMAP */
-	return 0;
-}
-
-static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 		    __u32 seclabel, __u32 dstid, __u32 vni __maybe_unused,
 		    enum trace_reason ct_reason, __u32 monitor, int *ifindex)

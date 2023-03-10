@@ -64,9 +64,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			return ret;
 	}
 #endif
-	ret = encap_remap_v6_host_address(ctx, false);
-	if (unlikely(ret < 0))
-		return ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -530,11 +527,7 @@ out:
 __section("to-overlay")
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
-	int ret;
-
-	ret = encap_remap_v6_host_address(ctx, true);
-	if (unlikely(ret < 0))
-		goto out;
+	int ret = TC_ACT_OK;
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
@@ -558,8 +551,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		goto out;
 	}
 	ret = handle_nat_fwd(ctx);
-#endif
 out:
+#endif
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
