@@ -472,7 +472,7 @@ func (l4 *L4Filter) GetListener() string {
 // To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
 // DenyPreferredInsert() instead of directly inserting the value to the map.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities) MapState {
+func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection) MapState {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -530,7 +530,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
+			keysToAdd.DenyPreferredInsert(keyToAdd, entry)
 
 			if port == 0 {
 				// Allow-all
@@ -542,23 +542,23 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			continue
 		}
 
-		idents := cs.GetSelections()
+		identities := cs.GetSelections()
 		if option.Config.Debug {
 			if isDenyRule {
 				logger.WithFields(logrus.Fields{
 					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
+					logfields.PolicyID:         identities,
 				}).Debug("ToMapState: Denied remote IDs")
 			} else {
 				logger.WithFields(logrus.Fields{
 					logfields.EndpointSelector: cs,
-					logfields.PolicyID:         idents,
+					logfields.PolicyID:         identities,
 				}).Debug("ToMapState: Allowed remote IDs")
 			}
 		}
-		for _, id := range idents {
+		for _, id := range identities {
 			keyToAdd.Identity = id.Uint32()
-			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
+			keysToAdd.DenyPreferredInsert(keyToAdd, entry)
 		}
 	}
 

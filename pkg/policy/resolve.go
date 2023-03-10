@@ -168,7 +168,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 	for _, filter := range l4PolicyMap {
 		lookupDone := false
 		proxyport := uint16(0)
-		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache)
+		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction)
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
@@ -188,7 +188,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 					continue
 				}
 			}
-			policyMapState.DenyPreferredInsert(keyFromFilter, entry, p.SelectorCache)
+			policyMapState.DenyPreferredInsert(keyFromFilter, entry)
 		}
 	}
 }
@@ -200,7 +200,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, p.SelectorCache)
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState)
 }
 
 // AllowsIdentity returns whether the specified policy allows
