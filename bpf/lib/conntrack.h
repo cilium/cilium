@@ -831,12 +831,14 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb)
+				      bool proxy_redirect, bool from_l7lb,
+				      __s8 *ext_err)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
+	int err;
 
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
@@ -868,10 +870,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
-		return DROP_CT_CREATE_FAILED;
-	}
+	err = map_update_elem(map_main, tuple, &entry, 0);
+	if (unlikely(err < 0))
+		goto err_ct_fill_up;
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
@@ -887,12 +888,17 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0) {
-			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
-			return DROP_CT_CREATE_FAILED;
-		}
+		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		if (unlikely(err < 0))
+			goto err_ct_fill_up;
 	}
 	return 0;
+
+err_ct_fill_up:
+	if (ext_err)
+		*ext_err = (__s8)err;
+	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
+	return DROP_CT_CREATE_FAILED;
 }
 
 static __always_inline int ct_create4(const void *map_main,
@@ -900,12 +906,14 @@ static __always_inline int ct_create4(const void *map_main,
 				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb)
+				      bool proxy_redirect, bool from_l7lb,
+				      __s8 *ext_err)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
+	int err;
 
 	if (dir == CT_SERVICE) {
 		entry.backend_id = ct_state->backend_id;
@@ -939,10 +947,9 @@ static __always_inline int ct_create4(const void *map_main,
 		    ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
-		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
-		return DROP_CT_CREATE_FAILED;
-	}
+	err = map_update_elem(map_main, tuple, &entry, 0);
+	if (unlikely(err < 0))
+		goto err_ct_fill_up;
 
 	if (ct_state->addr && ct_state->loopback) {
 		__u8 flags = tuple->flags;
@@ -965,10 +972,9 @@ static __always_inline int ct_create4(const void *map_main,
 			tuple->daddr = ct_state->addr;
 		}
 
-		if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
-			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
-			return DROP_CT_CREATE_FAILED;
-		}
+		err = map_update_elem(map_main, tuple, &entry, 0);
+		if (unlikely(err < 0))
+			goto err_ct_fill_up;
 
 		tuple->saddr = saddr;
 		tuple->daddr = daddr;
@@ -991,12 +997,17 @@ static __always_inline int ct_create4(const void *map_main,
 		 * the below throws an error, but we might as well just let
 		 * it time out.
 		 */
-		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0) {
-			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
-			return DROP_CT_CREATE_FAILED;
-		}
+		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
+		if (unlikely(err < 0))
+			goto err_ct_fill_up;
 	}
 	return 0;
+
+err_ct_fill_up:
+	if (ext_err)
+		*ext_err = (__s8)err;
+	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
+	return DROP_CT_CREATE_FAILED;
 }
 
 /* The function tries to determine whether the flow identified by the given
