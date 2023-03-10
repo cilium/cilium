@@ -991,7 +991,7 @@ golang.org/x/crypto/poly1305
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
-# golang.org/x/exp v0.0.0-20230307190834-24139beb5833
+# golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0
 ## explicit; go 1.18
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
