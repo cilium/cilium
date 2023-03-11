@@ -3,8 +3,9 @@
 
 #include "common.h"
 
-#include <bpf/ctx/skb.h>
+#include <bpf/ctx/xdp.h>
 
+#include "pktgen.h"
 #include "node_config.h"
 
 /* SKIP_UNDEF_LPM_LOOKUP_FN is used to control if the LPM_LOOKUP_FN macro in
@@ -36,6 +37,178 @@ LPM_LOOKUP_FN(lpm4_lookup31, __be32, PREFIX31, dummy_map, match_dummy_prefix)
 LPM_LOOKUP_FN(lpm4_lookup22, __be32, PREFIX22, dummy_map, match_dummy_prefix)
 LPM_LOOKUP_FN(lpm4_lookup11, __be32, PREFIX11, dummy_map, match_dummy_prefix)
 LPM_LOOKUP_FN(lpm4_lookup0, __be32, PREFIX0, dummy_map, match_dummy_prefix)
+
+PKTGEN("xdp", "ipv6_without_extension_header")
+int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
+
+	l3 = pktgen__push_default_ipv6hdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	memcpy(&l3->saddr, (__u8 *)v6_node_one, sizeof(l3->saddr));
+	memcpy(&l3->daddr, (__u8 *)v6_node_two, sizeof(l3->daddr));
+
+	l4 = pktgen__push_default_tcphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = tcp_src_one;
+	l4->dest = tcp_svc_one;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("xdp", "ipv6_without_extension_header")
+int ipv6_without_extension_header_setup(__maybe_unused struct __ctx_buff *ctx)
+{
+	return 123;
+}
+
+CHECK("xdp", "ipv6_without_extension_header")
+int ipv6_without_extension_header_check(struct __ctx_buff *ctx)
+{
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	__u32 *status_code;
+	__u8 nexthdr;
+
+	test_init();
+
+	if (ctx_data(ctx) + sizeof(__u32) > ctx_data_end(ctx))
+		test_fatal("status code out of bounds");
+
+	status_code = ctx_data(ctx);
+	assert(*status_code == 123);
+
+	xdp_adjust_head(ctx, 4);
+	l2 = ctx_data(ctx);
+	if ((void *)(l2 + 1) > ctx_data_end(ctx))
+		test_fatal("l2 out of bounds");
+
+	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
+
+	l3 = (void *)l2 + ETH_HLEN;
+	if ((void *)(l3 + 1) > ctx_data_end(ctx))
+		test_fatal("l3 out of bounds");
+
+	nexthdr = l3->nexthdr;
+	assert(ipv6_hdrlen(ctx, &nexthdr) > 0);
+	assert(nexthdr == IPPROTO_TCP);
+
+	test_finish();
+}
+
+struct ipv6_authhdr {
+	struct ipv6_opt_hdr opt;
+	__u16 reserved;
+	int spi;
+	int seq;
+	char icv[];
+};
+
+PKTGEN("xdp", "ipv6_with_auth_hop_tcp")
+int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct ipv6_authhdr *authhdr;
+	struct ipv6_opt_hdr *l3_next;
+
+	pktgen__init(&builder, ctx);
+
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
+
+	l3 = pktgen__push_default_ipv6hdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+
+	memcpy(&l3->saddr, (__u8 *)v6_node_one, sizeof(l3->saddr));
+	memcpy(&l3->daddr, (__u8 *)v6_node_two, sizeof(l3->daddr));
+
+	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_AUTH);
+	if (!l3_next)
+		return TEST_ERROR;
+
+	authhdr = (struct ipv6_authhdr *)l3_next;
+	authhdr->spi = 0x222;
+	authhdr->seq = 1;
+
+	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_HOP);
+	if (!l3_next)
+		return TEST_ERROR;
+
+	l4 = pktgen__push_default_tcphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = tcp_src_one;
+	l4->dest = tcp_svc_one;
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("xdp", "ipv6_with_auth_hop_tcp")
+int ipv6_with_hop_auth_tcp_setup(__maybe_unused struct __ctx_buff *ctx)
+{
+	return 1234;
+}
+
+CHECK("xdp", "ipv6_with_auth_hop_tcp")
+int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
+{
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	__u32 *status_code;
+	__u8 nexthdr;
+
+	test_init();
+
+	if (ctx_data(ctx) + sizeof(__u32) > ctx_data_end(ctx))
+		test_fatal("status code out of bounds");
+
+	status_code = ctx_data(ctx);
+	assert(*status_code == 1234);
+
+	xdp_adjust_head(ctx, 4);
+	l2 = ctx_data(ctx);
+	if ((void *)(l2 + 1) > ctx_data_end(ctx))
+		test_fatal("l2 out of bounds");
+
+	assert(l2->h_proto == __bpf_htons(ETH_P_IPV6));
+
+	l3 = (void *)l2 + ETH_HLEN;
+	if ((void *)(l3 + 1) > ctx_data_end(ctx))
+		test_fatal("l3 out of bounds");
+
+	nexthdr = l3->nexthdr;
+	assert(ipv6_hdrlen(ctx, &nexthdr) > 0);
+	assert(nexthdr == IPPROTO_TCP);
+
+	test_finish();
+}
 
 CHECK("xdp", "ipv6")
 int bpf_test(__maybe_unused struct xdp_md *ctx)
