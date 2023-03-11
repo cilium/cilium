@@ -60,11 +60,12 @@ static __always_inline int ipv6_hdrlen_offset(struct __ctx_buff *ctx, __u8 *next
 			if (ctx_load_bytes(ctx, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
 				return DROP_INVALID;
 
-			nh = opthdr.nexthdr;
 			if (nh == NEXTHDR_AUTH)
 				len += ipv6_authlen(&opthdr);
 			else
 				len += ipv6_optlen(&opthdr);
+
+			nh = opthdr.nexthdr;
 			break;
 
 		default:
