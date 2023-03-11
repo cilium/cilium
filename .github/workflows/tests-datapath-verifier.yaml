@@ -195,6 +195,7 @@ jobs:
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
+            uname -a
 
       - name: Run verifier tests
         uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
