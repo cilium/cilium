@@ -4,6 +4,7 @@
 package benchmarks
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"reflect"
@@ -15,7 +16,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -413,7 +413,7 @@ var nodeSampleJSON = `{
 }
 `
 
-func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c *C) {
+func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, c *C) {
 	n := v1.Node{}
 	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
 	n.ResourceVersion = "1"
@@ -468,7 +468,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 			},
 			k8s.ConvertToNode,
 		)
-		go controller.Run(wait.NeverStop)
+		go controller.Run(ctx.Done())
 	} else {
 		_, controller := cache.NewInformer(
 			lw,
@@ -504,7 +504,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 				},
 			},
 		)
-		go controller.Run(wait.NeverStop)
+		go controller.Run(ctx.Done())
 	}
 
 	wg.Add(1)
@@ -533,20 +533,20 @@ func OldCopyObjToV1Node(obj interface{}) *v1.Node {
 	return node.DeepCopy()
 }
 
-func (k *K8sIntegrationSuite) Benchmark_Informer(c *C) {
+func (k *K8sIntegrationSuite) Benchmark_Informer(ctx context.Context, c *C) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
 		nCycles = c.N
 	}
 
-	k.benchmarkInformer(nCycles, true, c)
+	k.benchmarkInformer(ctx, nCycles, true, c)
 }
 
-func (k *K8sIntegrationSuite) Benchmark_K8sInformer(c *C) {
+func (k *K8sIntegrationSuite) Benchmark_K8sInformer(ctx context.Context, c *C) {
 	nCycles, err := strconv.Atoi(os.Getenv("CYCLES"))
 	if err != nil {
 		nCycles = c.N
 	}
 
-	k.benchmarkInformer(nCycles, false, c)
+	k.benchmarkInformer(ctx, nCycles, false, c)
 }
