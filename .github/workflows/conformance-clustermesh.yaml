@@ -71,6 +71,7 @@ env:
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   check_changes:
