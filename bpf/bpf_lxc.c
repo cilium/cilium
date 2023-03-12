@@ -108,7 +108,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new,
-				ip4->saddr, has_l4_header, false);
+				has_l4_header, false);
 		if (IS_ERR(ret))
 			return ret;
 	}

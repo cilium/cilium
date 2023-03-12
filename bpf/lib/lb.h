@@ -1525,12 +1525,13 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
-				     struct ct_state *state, __be32 saddr,
+				     struct ct_state *state,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
+	__be32 saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
 	__u32 backend_id = 0;
