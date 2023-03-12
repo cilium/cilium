@@ -31,6 +31,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: headerMatchingHTTPCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteListenerHostnameMatching",
+			args: args{
+				m: &model.Model{
+					HTTP: listenerHostnameMatchingHTTPListeners,
+				},
+			},
+			want: listenerHostNameMatchingCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
