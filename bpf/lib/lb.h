@@ -691,14 +691,15 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 # error "Invalid load balancer backend selection algorithm!"
 #endif /* LB_SELECTION */
 
-static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     const union v6addr *new_dst, __u8 nexthdr,
+static __always_inline int lb6_xlate(struct __ctx_buff *ctx, __u8 nexthdr,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,
 				     const struct lb6_backend *backend,
 				     const bool skip_l3_xlate)
 {
+	const union v6addr *new_dst = &backend->address;
+
 	if (skip_l3_xlate)
 		goto l4_xlate;
 
@@ -838,7 +839,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
@@ -949,7 +949,6 @@ update_state:
 #endif
 
 	ipv6_addr_copy(&tuple->daddr, &backend->address);
-	addr = &tuple->daddr;
 
 	if (lb_skip_l4_dnat())
 		return CTX_ACT_OK;
@@ -957,7 +956,7 @@ update_state:
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend, skip_l3_xlate);
 drop_no_service:
 	tuple->flags = flags;
@@ -1360,12 +1359,13 @@ lb4_select_backend_id(struct __ctx_buff *ctx,
 #endif /* LB_SELECTION */
 
 static __always_inline int
-lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
+lb4_xlate(struct __ctx_buff *ctx, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct csum_offset *csum_off, struct lb4_key *key,
 	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header,
 	  const bool skip_l3_xlate)
 {
+	const __be32 *new_daddr = &backend->address;
 	__be32 sum;
 	int ret;
 
@@ -1530,11 +1530,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const bool skip_l3_xlate)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	__be32 new_saddr = 0, new_daddr;
 	__be32 saddr = tuple->saddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
 	__u32 backend_id = 0;
+	__be32 new_saddr = 0;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
@@ -1647,7 +1647,7 @@ update_state:
 	 */
 	tuple->flags = flags;
 	state->rev_nat_index = svc->rev_nat_index;
-	state->addr = new_daddr = backend->address;
+	state->addr = backend->address;
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id,
@@ -1679,7 +1679,7 @@ update_state:
 	if (likely(backend->port))
 		tuple->sport = backend->port;
 
-	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
+	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
 drop_no_service:
