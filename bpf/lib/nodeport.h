@@ -1954,8 +1954,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr, has_l4_header,
-					skip_l3_xlate);
+					has_l4_header, skip_l3_xlate);
 		}
 		if (IS_ERR(ret))
 			return ret;
