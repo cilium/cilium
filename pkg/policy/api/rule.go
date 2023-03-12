@@ -64,7 +64,7 @@ type Rule struct {
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
 	// IngressDeny is a list of IngressDenyRule which are enforced at ingress.
-	// Any rule inserted here will by denied regardless of the allowed ingress
+	// Any rule inserted here will be denied regardless of the allowed ingress
 	// rules in the 'ingress' field.
 	// If omitted or empty, this rule does not apply at ingress.
 	//
@@ -78,7 +78,7 @@ type Rule struct {
 	Egress []EgressRule `json:"egress,omitempty"`
 
 	// EgressDeny is a list of EgressDenyRule which are enforced at egress.
-	// Any rule inserted here will by denied regardless of the allowed egress
+	// Any rule inserted here will be denied regardless of the allowed egress
 	// rules in the 'egress' field.
 	// If omitted or empty, this rule does not apply at egress.
 	//
