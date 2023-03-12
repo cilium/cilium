@@ -42,6 +42,7 @@ var (
 	testPath               = flag.String("bpf-test-path", "", "Path to the eBPF tests")
 	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
 	testCoverageFormat     = flag.String("coverage-format", "html", "Specify the format of the coverage report")
+	noTestCoverage         = flag.String("no-test-coverage", "", "Don't collect coverages for the file matches to the given regex")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
 
@@ -126,12 +127,30 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	spec := loadAndPrepSpec(t, elfPath)
 
 	var (
-		coll *ebpf.Collection
-		cfg  []*coverbee.BasicBlock
-		err  error
+		coll            *ebpf.Collection
+		cfg             []*coverbee.BasicBlock
+		err             error
+		collectCoverage bool
 	)
 
-	if *testCoverageReport == "" {
+	if *testCoverageReport != "" {
+		if *noTestCoverage != "" {
+			matched, err := regexp.MatchString(*noTestCoverage, entry.Name())
+			if err != nil {
+				t.Fatal("test file regex matching failed:", err)
+			}
+
+			if matched {
+				t.Logf("Disabling coverage report for %s", entry.Name())
+			}
+
+			collectCoverage = !matched
+		} else {
+			collectCoverage = true
+		}
+	}
+
+	if !collectCoverage {
 		coll, err = bpf.LoadCollection(spec, ebpf.CollectionOptions{})
 	} else {
 		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{
@@ -235,7 +254,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	if *testCoverageReport == "" {
+	if !collectCoverage {
 		return nil
 	}
 
