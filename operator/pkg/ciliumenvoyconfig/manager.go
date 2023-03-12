@@ -40,7 +40,7 @@ type Manager struct {
 }
 
 // New returns a new Manager for CiliumEnvoyConfig
-func New(client client.Clientset, indexer cache.Store, ports []string, algorithm string) (*Manager, error) {
+func New(ctx context.Context, client client.Clientset, indexer cache.Store, ports []string, algorithm string) (*Manager, error) {
 	manager := &Manager{
 		queue:        workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		client:       client,
@@ -50,7 +50,7 @@ func New(client client.Clientset, indexer cache.Store, ports []string, algorithm
 		algorithm:    algorithm,
 	}
 
-	envoyConfigManager, err := newEnvoyConfigManager(client, manager.maxRetries)
+	envoyConfigManager, err := newEnvoyConfigManager(ctx, client, manager.maxRetries)
 	if err != nil {
 		return nil, err
 	}
