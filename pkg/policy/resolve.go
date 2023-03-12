@@ -138,10 +138,12 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
+	p.SelectorCache.mutex.RLock()
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	if !isHost {
 		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
+	p.SelectorCache.mutex.RUnlock()
 
 	return calculatedPolicy
 }
