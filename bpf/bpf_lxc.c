@@ -75,7 +75,6 @@
 static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4)
 {
 	struct ipv4_ct_tuple tuple = {};
-	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	bool has_l4_header;
 	struct lb4_service *svc;
@@ -95,8 +94,6 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	}
 
 	lb4_fill_key(&key, &tuple);
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT), false);
 	if (svc) {
@@ -107,7 +104,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new,
+				&key, &tuple, svc, &ct_state_new,
 				has_l4_header, false);
 		if (IS_ERR(ret))
 			return ret;
@@ -124,7 +121,6 @@ skip_service_lookup:
 static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6)
 {
 	struct ipv6_ct_tuple tuple = {};
-	struct csum_offset csum_off = {};
 	struct ct_state ct_state_new = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
@@ -141,7 +137,6 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	}
 
 	lb6_fill_key(&key, &tuple);
-	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	/*
 	 * Check if the destination address is among the address that should
@@ -159,8 +154,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new,
-				false);
+				&key, &tuple, svc, &ct_state_new, false);
 		if (IS_ERR(ret))
 			return ret;
 	}

@@ -799,7 +799,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	struct csum_offset csum_off = {};
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
@@ -823,7 +822,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	}
 
 	lb6_fill_key(&key, &tuple);
-	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb6_lookup_service(&key, false, false);
 	if (svc) {
@@ -845,7 +843,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		}
 #endif
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
-				&csum_off, &key, &tuple, svc, &ct_state_new,
+				&key, &tuple, svc, &ct_state_new,
 				skip_l3_xlate);
 		if (IS_ERR(ret))
 			return ret;
@@ -1906,7 +1904,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int ret,  l3_off = ETH_HLEN, l4_off;
-	struct csum_offset csum_off = {};
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
@@ -1931,8 +1928,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	}
 
 	lb4_fill_key(&key, &tuple);
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 
 	svc = lb4_lookup_service(&key, false, false);
 	if (svc) {
@@ -1962,7 +1957,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 				return NAT_46X64_RECIRC;
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
-					&csum_off, &key, &tuple, svc, &ct_state_new,
+					&key, &tuple, svc, &ct_state_new,
 					has_l4_header, skip_l3_xlate);
 		}
 		if (IS_ERR(ret))
