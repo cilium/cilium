@@ -113,6 +113,98 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 	},
 })
 
+// basicHTTPListeners is the internal model representation of the simple HTTP listeners
+var basicHTTPListeners = []model.HTTPListener{
+	{
+		Name: "prod-web-gw",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "my-gateway",
+				Namespace: "default",
+				Group:     "gateway.networking.k8s.io",
+				Version:   "v1beta1",
+				Kind:      "Gateway",
+			},
+		},
+		Address:  "",
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{
+					Prefix: "/bar",
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "my-service",
+						Namespace: "default",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// basicHTTPListenersCiliumEnvoyConfig is the generated CiliumEnvoyConfig basic http listener model.
+var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-my-gateway",
+		Namespace: "default",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "my-gateway",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-my-gateway",
+				Namespace: "default",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "my-service",
+				Namespace: "default",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/bar(/.*)?$",
+											},
+										},
+									},
+									Action: toRouteAction("default", "my-service", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("default", "my-service", "8080"))},
+		},
+	},
+}
+
 // headerMatchingHTTPListeners is the internal modal for Conformance/HTTPRouteHeaderMatching
 var headerMatchingHTTPListeners = []model.HTTPListener{
 	{

@@ -23,6 +23,15 @@ func Test_translator_Translate(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "Basic HTTP Listener",
+			args: args{
+				m: &model.Model{
+					HTTP: basicHTTPListeners,
+				},
+			},
+			want: basicHTTPListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteHeaderMatching",
 			args: args{
 				m: &model.Model{
