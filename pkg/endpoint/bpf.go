@@ -197,7 +197,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	return err
 }
 
-// policyIdentitiesLabelLookup is an implementation of the policy.Identites interface.
+// policyIdentitiesLabelLookup is an implementation of the policy.Identities interface.
 type policyIdentitiesLabelLookup struct {
 	*Endpoint
 }
@@ -207,6 +207,12 @@ type policyIdentitiesLabelLookup struct {
 // with a label cache. This enables `l4.ToMapstate` to look up CIDRs associated with
 // identites to make a final determination about whether they should even be inserted into
 // an Endpoint's policy map.
+//
+// Note that while other policy implementations use the SelectorCache as the
+// underlying source for labels during calls to ToMapState(), this
+// implementation uses the identity allocator. This means that the locking
+// patterns from this code path will differ from the other policy calculation
+// cases!
 func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
 	ident := p.allocator.LookupIdentityByID(context.Background(), id)
 	return ident.LabelArray
