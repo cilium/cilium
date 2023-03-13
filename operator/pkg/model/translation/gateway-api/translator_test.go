@@ -32,6 +32,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: basicHTTPListenersCiliumEnvoyConfig,
 		},
 		{
+			name: "Conformance/HTTPRouteSimpleSameNamespace",
+			args: args{
+				m: &model.Model{
+					HTTP: simpleSameNamespaceHTTPListeners,
+				},
+			},
+			want: simpleSameNamespaceHTTPListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteCrossNamespace",
 			args: args{
 				m: &model.Model{

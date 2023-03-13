@@ -907,12 +907,50 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var simpleSameNamespaceHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   simpleSameNamespaceHTTPRoutes,
+	Services:     allServices,
+}
+
+var simpleSameNamespaceHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestGatewayAPI(t *testing.T) {
 
 	tests := map[string]gwTestCase{
 		"basic http": {
 			input: basicHTTP,
 			want:  basicHTTPListeners,
+		},
+		"Conformance/HTTPRouteSimpleSameNamespace": {
+			input: simpleSameNamespaceHTTPInput,
+			want:  simpleSameNamespaceHTTPListeners,
 		},
 		"Conformance/HTTPRouteCrossNamespace": {
 			input: crossNamespaceHTTPInput,
