@@ -737,6 +737,245 @@ var headerMatchingHTTPCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// hostnameIntersectionHTTPListeners is a internal model representation of the Conformance/HTTPRouteHostnameIntersection
+var hostnameIntersectionHTTPListeners = []model.HTTPListener{
+	{
+		Name: "listener-1",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "httproute-hostname-intersection",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "very.specific.com",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"very.specific.com"},
+				PathMatch: model.StringMatch{Prefix: "/s1"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				Hostnames: []string{"very.specific.com"},
+				PathMatch: model.StringMatch{Prefix: "/s3"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v3",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "listener-2",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Namespace: "gateway-conformance-infra",
+				Name:      "httproute-hostname-intersection",
+			},
+		},
+		Port:     80,
+		Hostname: "*.wildcard.io",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"bar.wildcard.io", "foo.bar.wildcard.io", "foo.wildcard.io"},
+				PathMatch: model.StringMatch{Prefix: "/s2"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+	{
+		Name: "listener-3",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "httproute-hostname-intersection",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*.anotherwildcard.io",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"*.anotherwildcard.io"},
+				PathMatch: model.StringMatch{Prefix: "/s4"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-httproute-hostname-intersection",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "httproute-hostname-intersection",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-httproute-hostname-intersection",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v2",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v3",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "very.specific.com",
+							Domains: []string{"very.specific.com", "very.specific.com:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s1(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s3(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV3,
+								},
+							},
+						},
+						{
+							Name:    "bar.wildcard.io",
+							Domains: []string{"bar.wildcard.io", "bar.wildcard.io:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s2(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+							},
+						},
+						{
+							Name:    "foo.bar.wildcard.io",
+							Domains: []string{"foo.bar.wildcard.io", "foo.bar.wildcard.io:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s2(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+							},
+						},
+						{
+							Name:    "foo.wildcard.io",
+							Domains: []string{"foo.wildcard.io", "foo.wildcard.io:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s2(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+							},
+						},
+						{
+							Name:    "*.anotherwildcard.io",
+							Domains: []string{"*.anotherwildcard.io", "*.anotherwildcard.io:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/s4(/.*)?$",
+											},
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+			{Any: backendV2XDSResource},
+			{Any: backendV3XDSResource},
+		},
+	},
+}
+
 // listenerHostnameMatchingHTTPListeners are the internal model for Conformance/HTTPRouteListenerHostnameMatching
 var listenerHostnameMatchingHTTPListeners = []model.HTTPListener{
 	{
