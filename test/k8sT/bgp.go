@@ -19,6 +19,7 @@ import (
 )
 
 var _ = SkipDescribeIf(
+
 	func() bool {
 		// The 5.4 CI job is intended to catch BPF complexity regressions and
 		// as such doesn't need to execute this test suite.
