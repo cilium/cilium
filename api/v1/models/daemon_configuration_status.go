@@ -44,6 +44,12 @@ type DaemonConfigurationStatus struct {
 	// Configured compatibility mode for --egress-multi-home-ip-rule-compat
 	EgressMultiHomeIPRuleCompat bool `json:"egress-multi-home-ip-rule-compat,omitempty"`
 
+	// MAC address for host side veth interface
+	EndpointInterfaceHostMAC string `json:"endpointInterfaceHostMAC,omitempty"`
+
+	// MAC address for container side veth interface
+	EndpointInterfaceMAC string `json:"endpointInterfaceMAC,omitempty"`
+
 	// Immutable configuration (read-only)
 	Immutable ConfigurationMap `json:"immutable,omitempty"`
 

@@ -2350,6 +2350,12 @@ definitions:
       routeMTU:
         description: MTU for network facing routes
         type: integer
+      endpointInterfaceHostMAC:
+        description: MAC address for host side veth interface
+        type: string
+      endpointInterfaceMAC:
+        description: MAC address for container side veth interface
+        type: string
       datapathMode:
         "$ref": "#/definitions/DatapathMode"
       ipam-mode:

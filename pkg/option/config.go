@@ -803,6 +803,12 @@ const (
 	// LocalRouterIPv6 is the link-local IPv6 address to use for Cilium router device
 	LocalRouterIPv6 = "local-router-ipv6"
 
+	// EndpointInterfaceHostMAC defines MAC address for host side veth interface
+	EndpointInterfaceHostMAC = "endpoint-interface-host-mac"
+
+	// EndpointInterfaceMAC defines MAC address for container side veth interface
+	EndpointInterfaceMAC = "endpoint-interface-mac"
+
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource = "force-local-policy-eval-at-source"
@@ -1855,6 +1861,12 @@ type DaemonConfig struct {
 	// LocalRouterIPv6 is the link-local IPv6 address used for Cilium's router device
 	LocalRouterIPv6 string
 
+	// EndpointInterfaceHostMAC defines MAC address for host side veth interface
+	EndpointInterfaceHostMAC string
+
+	// EndpointInterfaceMAC defines MAC address for container side veth interface
+	EndpointInterfaceMAC string
+
 	// ForceLocalPolicyEvalAtSource forces a policy decision at the source
 	// endpoint for all local communication
 	ForceLocalPolicyEvalAtSource bool
@@ -2348,6 +2360,8 @@ var (
 		KVStoreOpt:                   make(map[string]string),
 		LogOpt:                       make(map[string]string),
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
+		EndpointInterfaceHostMAC:     defaults.EndpointInterfaceHostMAC,
+		EndpointInterfaceMAC:         defaults.EndpointInterfaceMAC,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
 		AnnotateK8sNode:              defaults.AnnotateK8sNode,
@@ -2879,6 +2893,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableWireguard = vp.GetBool(EnableWireguard)
 	c.EnableWireguardUserspaceFallback = vp.GetBool(EnableWireguardUserspaceFallback)
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
+	c.EndpointInterfaceHostMAC = viper.GetString(EndpointInterfaceHostMAC)
+	c.EndpointInterfaceMAC = viper.GetString(EndpointInterfaceMAC)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = vp.GetString(EgressMasqueradeInterfaces)

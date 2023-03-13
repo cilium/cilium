@@ -61,11 +61,19 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groMaxSize, gsoMaxSize
 	// explicitly setting MAC addrs for both veth ends. This sets
 	// addr_assign_type for NET_ADDR_SET which prevents systemd from changing
 	// the addrs.
-	epHostMAC, err = mac.GenerateRandMAC()
+	if ep.HostMac != "" {
+		epHostMAC, err = mac.ParseMAC(ep.HostMac)
+	} else {
+		epHostMAC, err = mac.GenerateRandMAC()
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
 	}
-	epLXCMAC, err = mac.GenerateRandMAC()
+	if ep.Mac != "" {
+		epLXCMAC, _ = mac.ParseMAC(ep.Mac)
+	} else {
+		epLXCMAC, err = mac.GenerateRandMAC()
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
 	}

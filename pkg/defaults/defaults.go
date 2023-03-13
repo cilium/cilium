@@ -335,6 +335,12 @@ const (
 	// LoopbackIPv4 is the default address for service loopback
 	LoopbackIPv4 = "169.254.42.1"
 
+	// EndpointInterfaceHostMAC is set to empty to enable auto generation (default mode)
+	EndpointInterfaceHostMAC = ""
+
+	// EndpointInterfaceMAC is set to empty to enable auto generation (default mode)
+	EndpointInterfaceMAC = ""
+
 	// ForceLocalPolicyEvalAtSource is the default value for
 	// option.ForceLocalPolicyEvalAtSource. It can be enabled to provide
 	// backwards compatibility.

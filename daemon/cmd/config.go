@@ -199,6 +199,8 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
+		EndpointInterfaceHostMAC:    option.Config.EndpointInterfaceHostMAC,
+		EndpointInterfaceMAC:        option.Config.EndpointInterfaceMAC,
 		GROMaxSize:                  int64(d.bigTCPConfig.GetGROMaxSize()),
 		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOMaxSize()),
 	}

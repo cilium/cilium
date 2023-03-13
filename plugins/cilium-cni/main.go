@@ -486,6 +486,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		K8sPodName:            string(cniArgs.K8S_POD_NAME),
 		K8sNamespace:          string(cniArgs.K8S_POD_NAMESPACE),
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{},
+		Mac:                   conf.EndpointInterfaceMAC,
+		HostMac:               conf.EndpointInterfaceHostMAC,
 	}
 
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {

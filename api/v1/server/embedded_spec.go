@@ -2087,6 +2087,14 @@ func init() {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
           "type": "boolean"
         },
+        "endpointInterfaceHostMAC": {
+          "description": "MAC address for host side veth interface",
+          "type": "string"
+        },
+        "endpointInterfaceMAC": {
+          "description": "MAC address for container side veth interface",
+          "type": "string"
+        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -6853,6 +6861,14 @@ func init() {
         "egress-multi-home-ip-rule-compat": {
           "description": "Configured compatibility mode for --egress-multi-home-ip-rule-compat",
           "type": "boolean"
+        },
+        "endpointInterfaceHostMAC": {
+          "description": "MAC address for host side veth interface",
+          "type": "string"
+        },
+        "endpointInterfaceMAC": {
+          "description": "MAC address for container side veth interface",
+          "type": "string"
         },
         "immutable": {
           "description": "Immutable configuration (read-only)",
