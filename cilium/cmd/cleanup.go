@@ -507,14 +507,16 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 		}
 		for _, f := range filters {
 			if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
-				// Filters created Go bpf loader are of format 'cilium-<iface>'.
-				// iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
+				// iproute2 uses the filename and section (bpf_overlay.o:[from-overlay])
+				// as the filter name.
 				if strings.Contains(bpfFilter.Name, "bpf_netdev") ||
 					strings.Contains(bpfFilter.Name, "bpf_network") ||
 					strings.Contains(bpfFilter.Name, "bpf_host") ||
 					strings.Contains(bpfFilter.Name, "bpf_lxc") ||
 					strings.Contains(bpfFilter.Name, "bpf_overlay") ||
-					strings.Contains(bpfFilter.Name, "cilium") {
+					// Filters created by the Go bpf loader contain the bpf function and
+					// interface name, like cil_from_netdev-eth0.
+					strings.Contains(bpfFilter.Name, "cil_") {
 					allFilters = append(allFilters, bpfFilter)
 				}
 			}
