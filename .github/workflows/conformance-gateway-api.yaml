@@ -160,7 +160,7 @@ jobs:
             -p 4 \
             -v ./operator/pkg/gateway-api \
             --gateway-class cilium \
-            --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump \
+            --supported-features ReferenceGrant,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
             -test.run "TestConformance"
 
       - name: Post-test information gathering

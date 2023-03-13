@@ -2398,6 +2398,362 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// responseHeaderModifierHTTPListeners is the internal representation of the Conformance/HTTPRouteResponseHeaderModifier
+var responseHeaderModifierHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port: 80, Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/set"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				ResponseHeaderModifier: &model.HTTPHeaderFilter{
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "set-overwrites-values",
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/add"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				ResponseHeaderModifier: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "add-appends-values",
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/remove"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				ResponseHeaderModifier: &model.HTTPHeaderFilter{
+					HeadersToRemove: []string{"X-Header-Remove"},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/multiple"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				ResponseHeaderModifier: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add-1",
+							Value: "header-add-1",
+						},
+						{
+							Name:  "X-Header-Add-2",
+							Value: "header-add-2",
+						},
+						{
+							Name:  "X-Header-Add-3",
+							Value: "header-add-3",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set-1",
+							Value: "header-set-1",
+						},
+						{
+							Name:  "X-Header-Set-2",
+							Value: "header-set-2",
+						},
+					},
+					HeadersToRemove: []string{
+						"X-Header-Remove-1",
+						"X-Header-Remove-2",
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/case-insensitivity"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				ResponseHeaderModifier: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "header-add",
+						},
+						{
+							Name:  "x-lowercase-add",
+							Value: "lowercase-add",
+						},
+						{
+							Name:  "x-Mixedcase-ADD-1",
+							Value: "mixedcase-add-1",
+						},
+						{
+							Name:  "X-mixeDcase-add-2",
+							Value: "mixedcase-add-2",
+						},
+						{
+							Name:  "X-UPPERCASE-ADD",
+							Value: "uppercase-add",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "header-set",
+						},
+					},
+					HeadersToRemove: []string{
+						"X-Header-Remove",
+					},
+				},
+			},
+		},
+	},
+}
+var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/case-insensitivity(/.*)?$",
+											},
+										},
+									},
+									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add",
+												Value: "header-add",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "x-lowercase-add",
+												Value: "lowercase-add",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "x-Mixedcase-ADD-1",
+												Value: "mixedcase-add-1",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-mixeDcase-add-2",
+												Value: "mixedcase-add-2",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-UPPERCASE-ADD",
+												Value: "uppercase-add",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set",
+												Value: "header-set",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+									},
+									ResponseHeadersToRemove: []string{"X-Header-Remove"},
+									Action:                  routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/multiple(/.*)?$",
+											},
+										},
+									},
+									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add-1",
+												Value: "header-add-1",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add-2",
+												Value: "header-add-2",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add-3",
+												Value: "header-add-3",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set-1",
+												Value: "header-set-1",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set-2",
+												Value: "header-set-2",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+									},
+									ResponseHeadersToRemove: []string{"X-Header-Remove-1", "X-Header-Remove-2"},
+									Action:                  routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/remove(/.*)?$",
+											},
+										},
+									},
+									ResponseHeadersToRemove: []string{"X-Header-Remove"},
+									Action:                  routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/set(/.*)?$",
+											},
+										},
+									},
+									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set",
+												Value: "set-overwrites-values",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/add(/.*)?$",
+											},
+										},
+									},
+									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add",
+												Value: "add-appends-values",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
