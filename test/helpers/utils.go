@@ -534,6 +534,17 @@ func DoesNotRunOn419OrLaterKernel() bool {
 	return !RunsOn419OrLaterKernel()
 }
 
+// RunsOn419OrNetNextKernel checks whether a test case is running on 4.19.x (x > 57) or net-next kernel.
+func RunsOn419OrNetNextKernel() bool {
+	return RunsOnNetNextKernel() || RunsOn419Kernel()
+}
+
+// DoesNotRunOn419OrNetNextKernel is the complement function of
+// RunsOn419OrNetNextKernel.
+func DoesNotRunOn419OrNetNextKernel() bool {
+	return !RunsOn419OrNetNextKernel()
+}
+
 // RunsOn54OrLaterKernel checks whether a test case is running on 5.4 or later kernel
 func RunsOn54OrLaterKernel() bool {
 	return RunsOnNetNextKernel() || RunsOn54Kernel()

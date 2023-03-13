@@ -74,7 +74,10 @@ var (
 //
 // The test is skipped on all but 4.19 kernels. These are already covered in the GHA datapath
 // verifier workflow, see .github/workflows/tests-datapath-verifier.yaml.
-var _ = SkipDescribeIf(helpers.DoesNotRunOn419Kernel, "K8sDatapathVerifier", func() {
+//
+// The test is temporarily not skipped on net-next kernels, because of a bug in
+// the implementation of the GitHub Actions workflow that affects these kernels.
+var _ = SkipDescribeIf(helpers.DoesNotRunOn419OrNetNextKernel, "K8sDatapathVerifier", func() {
 	var kubectl *helpers.Kubectl
 
 	collectObjectFiles := func() {
