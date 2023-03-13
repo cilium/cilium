@@ -346,7 +346,7 @@ static __always_inline int dsr_set_ext6(struct __ctx_buff *ctx,
 	opt.hdr.hdrlen = DSR_IPV6_EXT_LEN;
 	opt.opt_type = DSR_IPV6_OPT_TYPE;
 	opt.opt_len = DSR_IPV6_OPT_LEN;
-	ipv6_addr_copy(&opt.addr, svc_addr);
+	ipv6_addr_copy_unaligned(&opt.addr, svc_addr);
 	opt.port = svc_port;
 
 	if (ctx_adjust_hroom(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
@@ -526,7 +526,8 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			    gopt.hdr.type == DSR_GENEVE_OPT_TYPE) {
 				*dsr = true;
 				*port = gopt.port;
-				ipv6_addr_copy(addr, (union v6addr *)&gopt.addr);
+				ipv6_addr_copy_unaligned(addr,
+							 (union v6addr *)&gopt.addr);
 				return 0;
 			}
 		}
