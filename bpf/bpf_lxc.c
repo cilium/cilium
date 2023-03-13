@@ -419,26 +419,28 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	/* Create CT entry if drop for auth required. */
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		if (ct_status == CT_NEW) {
+			ct_state_new.src_sec_id = SECLABEL;
+			ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+				   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+				   true);
+		} else if (!ct_state->auth_required) {
+			verdict = CTX_ACT_OK; /* allow if auth done */
+		}
+	}
+
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 1,
-					   verdict, proxy_port, policy_match_type, audited);
-		/* Crete CT entry if drop for auth required. */
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			if (ct_status == CT_NEW) {
-				ct_state_new.src_sec_id = SECLABEL;
-				ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
-					   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-					   true);
-				return verdict;
-			} else if (!ct_state->auth_required) {
-				verdict = CTX_ACT_OK; /* allow if auth done */
-			}
-		}
-		if (verdict != CTX_ACT_OK)
-			return verdict;
+					   verdict, proxy_port,
+					   policy_match_type, audited);
 	}
+
+	if (verdict != CTX_ACT_OK)
+		return verdict;
 
 skip_policy_enforcement:
 	switch (ct_status) {
@@ -868,27 +870,29 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	/* Create CT entry if drop for auth required. */
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		if (ct_status == CT_NEW) {
+			ct_state_new.src_sec_id = SECLABEL;
+			ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
+				   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
+				   true);
+		} else if (!ct_state->auth_required) {
+			verdict = CTX_ACT_OK; /* allow if auth done */
+		}
+	}
+
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ct_status != CT_ESTABLISHED) {
 		send_policy_verdict_notify(ctx, *dst_id, tuple->dport,
 					   tuple->nexthdr, POLICY_EGRESS, 0,
-					   verdict, proxy_port, policy_match_type, audited);
-		/* Crete CT entry if drop for auth required. */
-		if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-			if (ct_status == CT_NEW) {
-				ct_state_new.src_sec_id = SECLABEL;
-				ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
-					   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-					   true);
-				return verdict;
-			} else if (!ct_state->auth_required) {
-				verdict = CTX_ACT_OK; /* allow if auth done */
-			}
-		}
-		if (verdict != CTX_ACT_OK) {
-			return verdict;
-		}
+					   verdict, proxy_port,
+					   policy_match_type, audited);
 	}
+
+	if (verdict != CTX_ACT_OK)
+		return verdict;
+
 skip_policy_enforcement:
 	switch (ct_status) {
 	case CT_NEW:
