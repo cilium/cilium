@@ -1357,3 +1357,37 @@ var requestHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 		},
 	},
 }
+
+// HTTPRoute simple same namespace
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.5.1/conformance/tests/httproute-simple-same-namespace.yaml
+var simpleSameNamespaceHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway-conformance-infra-test",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
