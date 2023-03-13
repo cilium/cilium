@@ -1447,3 +1447,100 @@ var methodMatchingHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 		},
 	},
 }
+
+// HTTPRoute request redirect
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.6.0/conformance/tests/httproute-request-redirect.yaml
+var requestRedirectHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "request-redirect",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/hostname-redirect"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: gatewayv1beta1.HTTPRouteFilterRequestRedirect,
+							RequestRedirect: &gatewayv1beta1.HTTPRequestRedirectFilter{
+								Hostname: model.AddressOf[gatewayv1beta1.PreciseHostname]("example.com"),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/status-code-301"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: gatewayv1beta1.HTTPRouteFilterRequestRedirect,
+							RequestRedirect: &gatewayv1beta1.HTTPRequestRedirectFilter{
+								StatusCode: model.AddressOf(301),
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/host-and-status"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: gatewayv1beta1.HTTPRouteFilterRequestRedirect,
+							RequestRedirect: &gatewayv1beta1.HTTPRequestRedirectFilter{
+								Hostname:   model.AddressOf[gatewayv1beta1.PreciseHostname]("example.com"),
+								StatusCode: model.AddressOf(301),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
