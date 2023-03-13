@@ -99,6 +99,15 @@ func (d *Daemon) launchHubble() {
 		localSrvOpts []serveroption.Option
 	)
 
+	if len(option.Config.HubbleMonitorEvents) > 0 {
+		monitorFilter, err := monitor.NewMonitorFilter(logger, option.Config.HubbleMonitorEvents)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to initialize Hubble monitor event filter")
+		} else {
+			observerOpts = append(observerOpts, observeroption.WithOnMonitorEvent(monitorFilter))
+		}
+	}
+
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
