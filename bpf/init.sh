@@ -484,9 +484,11 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		# Filters created Go bpf loader are of format 'cilium-<iface>'.
-		# iproute2 would use the filename and section, e.g. bpf_overlay.o:[from-overlay].
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev\|bpf_host\|cilium"; then
+		# iproute2 uses the filename and section (bpf_overlay.o:[from-overlay]) as
+		# the filter name. Filters created by the Go bpf loader contain the bpf
+		# function and interface name, like cil_from_netdev-eth0.
+		# Only detach programs known to be attached to 'physical' network devices.
+		if tc filter show dev "$iface" "$where" | grep -qE "\b(bpf_host|cil_from_netdev|cil_to_netdev)"; then
 			echo "Removing $where TC filter from interface $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi
