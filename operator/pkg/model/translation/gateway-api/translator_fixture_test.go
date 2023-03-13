@@ -1356,6 +1356,150 @@ var matchingAcrossHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// matchingHTTPListeners is the internal model for Conformance/HTTPRouteMatching
+var matchingHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port: 80, Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Exact: "/"},
+				HeadersMatch: []model.KeyValueMatch{
+					{
+						Key:   "version",
+						Match: model.StringMatch{Exact: "one"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/v2"},
+				HeadersMatch: []model.KeyValueMatch{
+					{
+						Key:   "version",
+						Match: model.StringMatch{Exact: "two"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v2",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/v2",
+										},
+										Headers: []*envoy_config_route_v3.HeaderMatcher{
+											{
+												Name: "version",
+												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "two",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/",
+										},
+										Headers: []*envoy_config_route_v3.HeaderMatcher{
+											{
+												Name: "version",
+												HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "one",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+			{Any: backendV2XDSResource},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
