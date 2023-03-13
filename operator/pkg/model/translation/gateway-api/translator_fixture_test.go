@@ -287,6 +287,115 @@ var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// exactPathMatchingHTTPListeners is the internal model representation of Conformance/HTTPExactPathMatching
+var exactPathMatchingHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Kind:      "Gateway",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Exact: "/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Exact: "/two"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+var exactPathMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v2",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/one",
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
+											Path: "/two",
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+			{Any: backendV2XDSResource},
+		},
+	},
+}
+
 // headerMatchingHTTPListeners is the internal modal for Conformance/HTTPRouteHeaderMatching
 var headerMatchingHTTPListeners = []model.HTTPListener{
 	{
