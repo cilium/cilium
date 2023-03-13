@@ -205,6 +205,88 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// crossNamespaceHTTPListeners is the internal model representation of the Conformance/HTTPRouteCrossNamespace
+var crossNamespaceHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "backend-namespaces",
+				Namespace: "gateway-conformance-infra",
+				Kind:      "Gateway",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Backends: []model.Backend{
+					{
+						Name:      "web-backend",
+						Namespace: "gateway-conformance-web-backend",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-backend-namespaces",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "backend-namespaces",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-backend-namespaces",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "web-backend",
+				Namespace: "gateway-conformance-web-backend",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: toRouteAction("gateway-conformance-web-backend", "web-backend", "8080"),
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: toAny(toEnvoyCluster("gateway-conformance-web-backend", "web-backend", "8080"))},
+		},
+	},
+}
+
 // headerMatchingHTTPListeners is the internal modal for Conformance/HTTPRouteHeaderMatching
 var headerMatchingHTTPListeners = []model.HTTPListener{
 	{
