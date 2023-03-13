@@ -914,39 +914,39 @@ func TestGatewayAPI(t *testing.T) {
 			input: basicHTTP,
 			want:  basicHTTPListeners,
 		},
-		"cross namespace": {
+		"Conformance/HTTPRouteCrossNamespace": {
 			input: crossNamespaceHTTPInput,
 			want:  crossNamespaceHTTPListeners,
 		},
-		"exact path matching": {
+		"Conformance/HTTPExactPathMatching": {
 			input: exactPathMatchingHTTPInput,
 			want:  exactPathMatchingHTTPListeners,
 		},
-		"header matching": {
+		"Conformance/HTTPRouteHeaderMatching": {
 			input: headerMatchingHTTPInput,
 			want:  headerMatchingHTTPListeners,
 		},
-		"hostname intersection": {
+		"Conformance/HTTPRouteHostnameIntersection": {
 			input: hostnameIntersectionHTTPInput,
 			want:  hostnameIntersectionHTTPListeners,
 		},
-		"listener hostname matching": {
+		"Conformance/HTTPRouteListenerHostnameMatching": {
 			input: listenerHostnameMatchingHTTPInput,
 			want:  listenerHostnameMatchingHTTPListeners,
 		},
-		"matching across": {
+		"Conformance/HTTPRouteMatchingAcrossRoutes": {
 			input: matchingAcrossHTTPInput,
 			want:  matchingAcrossHTTPListeners,
 		},
-		"matching": {
+		"Conformance/HTTPRouteMatching": {
 			input: matchingHTTPInput,
 			want:  matchingHTTPListeners,
 		},
-		"query param matching": {
+		"Conformance/HTTPRouteQueryParamMatching": {
 			input: queryParamMatchingHTTPInput,
 			want:  queryParamMatchingHTTPListeners,
 		},
-		"request header modifier": {
+		"Conformance/HTTPRouteRequestHeaderModifier": {
 			input: requestHeaderModifierHTTPInput,
 			want:  requestHeaderModifierHTTPListeners,
 		},
