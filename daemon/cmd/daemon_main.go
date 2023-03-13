@@ -34,8 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	"github.com/cilium/cilium/pkg/datapath/iptables"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -84,7 +82,6 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
-	wireguardTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 const (
@@ -1569,55 +1566,6 @@ func (d *Daemon) initKVStore() {
 			"address": addr,
 		}).Fatal("Unable to setup kvstore")
 	}
-}
-
-func newWireguardAgent(lc hive.Lifecycle) *wireguard.Agent {
-	var wgAgent *wireguard.Agent
-	if option.Config.EnableWireguard {
-		if option.Config.EnableIPSec {
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
-				option.EnableWireguard, option.EnableIPSecName)
-		}
-
-		var err error
-		privateKeyPath := filepath.Join(option.Config.StateDir, wireguardTypes.PrivKeyFilename)
-		wgAgent, err = wireguard.NewAgent(privateKeyPath)
-		if err != nil {
-			log.Fatalf("failed to initialize wireguard: %s", err)
-		}
-
-		lc.Append(hive.Hook{
-			OnStop: func(hive.HookContext) error {
-				wgAgent.Close()
-				return nil
-			},
-		})
-	} else {
-		// Delete wireguard device from previous run (if such exists)
-		link.DeleteByName(wireguardTypes.IfaceName)
-	}
-	return wgAgent
-}
-
-func newDatapath(lc hive.Lifecycle, wgAgent *wireguard.Agent) datapath.Datapath {
-	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice: defaults.HostDevice,
-		ProcFs:     option.Config.ProcFs,
-	}
-
-	iptablesManager := &iptables.IptablesManager{}
-
-	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error {
-			if err := enableIPForwarding(); err != nil {
-				log.Fatalf("enabling IP forwarding via sysctl failed: %s", err)
-			}
-
-			iptablesManager.Init()
-			return nil
-		}})
-
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, wgAgent)
 }
 
 // daemonCell wraps the existing implementation of the cilium-agent that has

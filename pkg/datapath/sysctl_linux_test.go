@@ -3,7 +3,7 @@
 
 //go:build linux
 
-package cmd
+package datapath
 
 import (
 	"github.com/cilium/cilium/pkg/testutils"

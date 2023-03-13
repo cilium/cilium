@@ -7,12 +7,11 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/node"
@@ -28,7 +27,7 @@ var (
 
 		Infrastructure,
 		ControlPlane,
-		Datapath,
+		datapath.Cell,
 	)
 
 	// Infrastructure provides access and services to the outside.
@@ -91,21 +90,5 @@ var (
 
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
-	)
-
-	// Datapath provides the privileged operations to apply control-plane
-	// decision to the kernel.
-	Datapath = cell.Module(
-		"datapath",
-		"Datapath",
-
-		cell.Provide(
-			newWireguardAgent,
-			newDatapath,
-		),
-
-		cell.Provide(func(dp datapath.Datapath) ipcacheTypes.NodeHandler {
-			return dp.Node()
-		}),
 	)
 )
