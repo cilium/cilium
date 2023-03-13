@@ -1500,6 +1500,243 @@ var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	},
 }
 
+// queryParamMatchingHTTPListeners is the internal model for Conformance/HTTPRouteQueryParamMatching
+var queryParamMatchingHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				QueryParamsMatch: []model.KeyValueMatch{
+					{
+						Key:   "animal",
+						Match: model.StringMatch{Exact: "whale"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				QueryParamsMatch: []model.KeyValueMatch{
+					{
+						Key:   "animal",
+						Match: model.StringMatch{Exact: "dolphin"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				QueryParamsMatch: []model.KeyValueMatch{
+					{
+						Key:   "animal",
+						Match: model.StringMatch{Exact: "dolphin"},
+					},
+					{
+						Key:   "color",
+						Match: model.StringMatch{Exact: "blue"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v3",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				QueryParamsMatch: []model.KeyValueMatch{
+					{
+						Key:   "ANIMAL",
+						Match: model.StringMatch{Exact: "Whale"},
+					},
+				},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v3",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+var queryParamMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v2",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v3",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{
+											{
+												Name: "animal",
+												QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "dolphin",
+														},
+													},
+												},
+											},
+											{
+												Name: "color",
+												QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "blue",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV3,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{
+											{
+												Name: "animal",
+												QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "whale",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV1,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{
+											{
+												Name: "animal",
+												QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "dolphin",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV2,
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+										QueryParameters: []*envoy_config_route_v3.QueryParameterMatcher{
+											{
+												Name: "ANIMAL",
+												QueryParameterMatchSpecifier: &envoy_config_route_v3.QueryParameterMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher_v3.StringMatcher{
+														MatchPattern: &envoy_type_matcher_v3.StringMatcher_Exact{
+															Exact: "Whale",
+														},
+													},
+												},
+											},
+										},
+									},
+									Action: routeActionBackendV3,
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+			{Any: backendV2XDSResource},
+			{Any: backendV3XDSResource},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
