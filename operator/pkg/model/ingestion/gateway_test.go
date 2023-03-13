@@ -941,6 +941,53 @@ var simpleSameNamespaceHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var methodMatchingHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   methodMatchingHTTPRoutes,
+	Services:     allServices,
+}
+
+var methodMatchingHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Method: model.AddressOf("POST"),
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+			{
+				Method: model.AddressOf("GET"),
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestGatewayAPI(t *testing.T) {
 
 	tests := map[string]gwTestCase{
@@ -979,6 +1026,10 @@ func TestGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteMatching": {
 			input: matchingHTTPInput,
 			want:  matchingHTTPListeners,
+		},
+		"Conformance/HTTPRouteMethodMatching": {
+			input: methodMatchingHTTPInput,
+			want:  methodMatchingHTTPListeners,
 		},
 		"Conformance/HTTPRouteQueryParamMatching": {
 			input: queryParamMatchingHTTPInput,

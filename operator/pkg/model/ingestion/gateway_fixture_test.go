@@ -1391,3 +1391,59 @@ var simpleSameNamespaceHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 		},
 	},
 }
+
+// HTTPRoute method matching
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.6.0/conformance/tests/httproute-method-matching.yaml
+var methodMatchingHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "method-matching",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Method: model.AddressOf[gatewayv1beta1.HTTPMethod]("POST"),
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Method: model.AddressOf[gatewayv1beta1.HTTPMethod]("GET"),
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v2",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
