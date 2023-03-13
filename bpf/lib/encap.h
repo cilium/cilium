@@ -267,7 +267,8 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
 	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
 	gopt->hdr.length = DSR_IPV6_GENEVE_OPT_LEN;
-	ipv6_addr_copy((union v6addr *)&gopt->addr, addr);
+	ipv6_addr_copy_unaligned((union v6addr *)&gopt->addr, addr);
+
 	gopt->port = port;
 }
 #endif

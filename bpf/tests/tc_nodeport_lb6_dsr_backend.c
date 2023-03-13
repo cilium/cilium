@@ -102,7 +102,7 @@ int nodeport_dsr_backend_pktgen(struct __ctx_buff *ctx)
 
 	opt->opt_type = DSR_IPV6_OPT_TYPE;
 	opt->opt_len = DSR_IPV6_OPT_LEN;
-	ipv6_addr_copy((union v6addr *)&opt->addr, &frontend_ip);
+	ipv6_addr_copy_unaligned((union v6addr *)&opt->addr, &frontend_ip);
 	opt->port = FRONTEND_PORT;
 
 	/* Push TCP header */
