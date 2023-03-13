@@ -221,6 +221,9 @@ type SelectorCache struct {
 	userMutex lock.Mutex
 	// userNotes holds a FIFO list of user notifications to be made
 	userNotes []userNotification
+
+	// used to lazily start the handler for user notifications.
+	startNotificationsHandlerOnce sync.Once
 }
 
 // GetModel returns the API model of the SelectorCache.
@@ -267,6 +270,9 @@ func (sc *SelectorCache) handleUserNotifications() {
 }
 
 func (sc *SelectorCache) queueUserNotification(user CachedSelectionUser, selector CachedSelector, added, deleted []identity.NumericIdentity, wg *sync.WaitGroup) {
+	sc.startNotificationsHandlerOnce.Do(func() {
+		go sc.handleUserNotifications()
+	})
 	wg.Add(1)
 	sc.userMutex.Lock()
 	sc.userNotes = append(sc.userNotes, userNotification{
@@ -288,8 +294,6 @@ func NewSelectorCache(allocator cache.IdentityAllocator, ids cache.IdentityCache
 		selectors:   make(map[string]identitySelector),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
-	go sc.handleUserNotifications()
-
 	return sc
 }
 
