@@ -22,6 +22,8 @@ type httpHandler struct {
 	context   *api.ContextOptions
 	useV2     bool
 	exemplars bool
+
+	registeredMetrics []*prometheus.MetricVec
 }
 
 func (h *httpHandler) Init(registry *prometheus.Registry, options api.Options) error {
@@ -47,6 +49,7 @@ func (h *httpHandler) Init(registry *prometheus.Registry, options api.Options) e
 		}, append(h.context.GetLabelNames(), "method", "reporter"))
 		registry.MustRegister(h.requests)
 		registry.MustRegister(h.duration)
+		h.registeredMetrics = append(h.registeredMetrics, h.requests.MetricVec, h.duration.MetricVec)
 	} else {
 		h.requests = prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: api.DefaultPrometheusNamespace,
@@ -66,6 +69,7 @@ func (h *httpHandler) Init(registry *prometheus.Registry, options api.Options) e
 		registry.MustRegister(h.requests)
 		registry.MustRegister(h.responses)
 		registry.MustRegister(h.duration)
+		h.registeredMetrics = append(h.registeredMetrics, h.requests.MetricVec, h.responses.MetricVec, h.duration.MetricVec)
 	}
 	return nil
 }
@@ -82,7 +86,7 @@ func (h *httpHandler) Context() *api.ContextOptions {
 }
 
 func (h *httpHandler) ListMetricVec() []*prometheus.MetricVec {
-	return []*prometheus.MetricVec{h.requests.MetricVec, h.responses.MetricVec, h.duration.MetricVec}
+	return h.registeredMetrics
 }
 
 func (h *httpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
