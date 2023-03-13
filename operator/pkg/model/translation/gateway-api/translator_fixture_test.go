@@ -2254,6 +2254,150 @@ var requestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyC
 	},
 }
 
+// requestRedirectHTTPListeners is the internal representation of the Conformance/HTTPRouteRequestRedirect
+var requestRedirectHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Kind:      "Gateway",
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/hostname-redirect"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname: model.AddressOf("example.com"),
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/status-code-301"},
+				Backends:  []model.Backend{},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					StatusCode: model.AddressOf(301),
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/host-and-status"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname:   model.AddressOf("example.com"),
+					StatusCode: model.AddressOf(301),
+				},
+			},
+		},
+	},
+}
+var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/hostname-redirect(/.*)?$",
+											},
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Redirect{
+										Redirect: &envoy_config_route_v3.RedirectAction{
+											HostRedirect: "example.com",
+										},
+									},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/status-code-301(/.*)?$",
+											},
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Redirect{
+										Redirect: &envoy_config_route_v3.RedirectAction{},
+									},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
+											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
+												Regex: "/host-and-status(/.*)?$",
+											},
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Redirect{
+										Redirect: &envoy_config_route_v3.RedirectAction{
+											HostRedirect: "example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),

@@ -988,6 +988,69 @@ var methodMatchingHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var requestRedirectHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   requestRedirectHTTPRoutes,
+	Services:     allServices,
+}
+var requestRedirectHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/hostname-redirect"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname: model.AddressOf("example.com"),
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/status-code-301"},
+				Backends:  []model.Backend{},
+				DirectResponse: &model.DirectResponse{
+					StatusCode: 500,
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					StatusCode: model.AddressOf(301),
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/host-and-status"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestRedirect: &model.HTTPRequestRedirectFilter{
+					Hostname:   model.AddressOf("example.com"),
+					StatusCode: model.AddressOf(301),
+				},
+			},
+		},
+	},
+}
+
 func TestGatewayAPI(t *testing.T) {
 
 	tests := map[string]gwTestCase{
@@ -1038,6 +1101,10 @@ func TestGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteRequestHeaderModifier": {
 			input: requestHeaderModifierHTTPInput,
 			want:  requestHeaderModifierHTTPListeners,
+		},
+		"Conformance/HTTPRouteRequestRedirect": {
+			input: requestRedirectHTTPInput,
+			want:  requestRedirectHTTPListeners,
 		},
 	}
 
