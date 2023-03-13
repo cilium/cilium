@@ -12,7 +12,6 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -516,7 +515,7 @@ func getHeadersToAdd(filter *model.HTTPHeaderFilter) []*envoy_config_core_v3.Hea
 				Key:   h.Name,
 				Value: h.Value,
 			},
-			Append: &wrappers.BoolValue{Value: true},
+			AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
 		})
 	}
 
@@ -526,7 +525,7 @@ func getHeadersToAdd(filter *model.HTTPHeaderFilter) []*envoy_config_core_v3.Hea
 				Key:   h.Name,
 				Value: h.Value,
 			},
-			Append: &wrappers.BoolValue{Value: false},
+			AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 		})
 	}
 	return result
