@@ -94,6 +94,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: matchingHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteQueryParamMatching",
+			args: args{
+				m: &model.Model{
+					HTTP: queryParamMatchingHTTPListeners,
+				},
+			},
+			want: queryParamMatchingHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
