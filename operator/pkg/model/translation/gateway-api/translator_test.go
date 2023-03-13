@@ -59,6 +59,15 @@ func Test_translator_Translate(t *testing.T) {
 			want: headerMatchingHTTPCiliumEnvoyConfig,
 		},
 		{
+			name: "Conformance/HTTPRouteHostnameIntersection",
+			args: args{
+				m: &model.Model{
+					HTTP: hostnameIntersectionHTTPListeners,
+				},
+			},
+			want: hostnameIntersectionHTTPListenersCiliumEnvoyConfig,
+		},
+		{
 			name: "Conformance/HTTPRouteListenerHostnameMatching",
 			args: args{
 				m: &model.Model{
