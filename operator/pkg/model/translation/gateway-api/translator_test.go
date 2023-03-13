@@ -103,6 +103,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: queryParamMatchingHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteRequestHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: requestHeaderModifierHTTPListeners,
+				},
+			},
+			want: requestHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
