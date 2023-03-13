@@ -139,6 +139,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: requestRedirectHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteResponseHeaderModifier",
+			args: args{
+				m: &model.Model{
+					HTTP: responseHeaderModifierHTTPListeners,
+				},
+			},
+			want: responseHeaderModifierHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
