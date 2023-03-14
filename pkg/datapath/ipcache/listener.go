@@ -206,11 +206,10 @@ func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcach
 	}
 }
 
-// garbageCollect implements GC of the ipcache map in the following way:
-//
-//	Periodically sweep through every element in the BPF map and check it
-//	against the in-memory copy of the map. If it doesn't exist in memory,
-//	delete the entry.
+// garbageCollect implements GC of the ipcache map in the form of a
+// periodically sweep through every element in the BPF map and check it
+// against the in-memory copy of the map. If it doesn't exist in memory,
+// delete the entry.
 //
 // Returns an error if garbage collection failed to occur.
 func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, error) {
@@ -236,6 +235,7 @@ func (l *BPFListener) garbageCollect(ctx context.Context) (*sync.WaitGroup, erro
 			return nil, fmt.Errorf("error deleting key %s from ipcache BPF map: %s", k, err)
 		}
 	}
+
 	return nil, nil
 }
 

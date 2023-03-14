@@ -141,8 +141,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.Affinity6MapName,
 			lbmap.SourceRange6MapName,
 			lbmap.HealthProbe6MapName,
-			cidrmap.MapName + "v6_dyn",
-			cidrmap.MapName + "v6_fix",
+			cidrmap.MapName + "v6",
 		}...)
 	}
 
@@ -165,8 +164,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			lbmap.SourceRange4MapName,
 			lbmap.HealthProbe4MapName,
 			ipmasq.MapName,
-			cidrmap.MapName + "v4_dyn",
-			cidrmap.MapName + "v4_fix",
+			cidrmap.MapName + "v4",
 		}...)
 	}
 
@@ -209,10 +207,8 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !option.Config.EnableXDPPrefilter {
 		maps = append(maps, []string{
-			cidrmap.MapName + "v4_dyn",
-			cidrmap.MapName + "v4_fix",
-			cidrmap.MapName + "v6_dyn",
-			cidrmap.MapName + "v6_fix",
+			cidrmap.MapName + "v4",
+			cidrmap.MapName + "v6",
 		}...)
 	}
 
