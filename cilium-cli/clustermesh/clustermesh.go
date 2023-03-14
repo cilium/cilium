@@ -475,8 +475,8 @@ type Parameters struct {
 func (p Parameters) validateParams() error {
 	if p.ApiserverImage != defaults.ClusterMeshApiserverImage {
 		return nil
-	} else if !utils.CheckVersion(p.ApiserverVersion) && p.ApiserverVersion != "" {
-		return fmt.Errorf("invalid syntax %q for image tag", p.ApiserverVersion)
+	} else if err := utils.CheckVersion(p.ApiserverVersion); err != nil {
+		return err
 	}
 	return nil
 }
