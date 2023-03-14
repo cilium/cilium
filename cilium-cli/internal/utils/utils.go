@@ -18,8 +18,11 @@ import (
 
 var versionRegexp = regexp.MustCompile(`^((v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+)*|[a-zA-Z0-9-_.@:]*:[a-zA-Z0-9-_.@:]+)|([0-9a-fA-F]{40})|(latest))$`).MatchString
 
-func CheckVersion(version string) bool {
-	return versionRegexp(version)
+func CheckVersion(version string) error {
+	if !versionRegexp(version) && version != "" {
+		return fmt.Errorf("invalid syntax %q for image tag", version)
+	}
+	return nil
 }
 
 func ParseCiliumVersion(version string) (semver.Version, error) {
