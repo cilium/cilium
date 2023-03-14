@@ -13,7 +13,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/blang/semver/v4"
@@ -70,13 +69,12 @@ type etcdModule struct {
 	config *client.Config
 }
 
-var (
-	// versionCheckTimeout is the time we wait trying to verify the version
-	// of an etcd endpoint. The timeout can be encountered on network
-	// connectivity problems.
-	// This field needs to be accessed with the atomic library.
-	versionCheckTimeout = int64(30 * time.Second)
+// versionCheckTimeout is the time we wait trying to verify the version
+// of an etcd endpoint. The timeout can be encountered on network
+// connectivity problems.
+const versionCheckTimeout = 30 * time.Second
 
+var (
 	// statusCheckTimeout is the timeout when performing status checks with
 	// all etcd endpoints
 	statusCheckTimeout = 10 * time.Second
@@ -583,7 +581,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
 
-	if err := e.checkMinVersion(ctx); err != nil {
+	if err := e.checkMinVersion(ctx, versionCheckTimeout); err != nil {
 		return err
 	}
 
@@ -758,7 +756,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 		ec.getLogger().Info("Initial etcd session established")
 
-		if err := ec.checkMinVersion(ctx); err != nil {
+		if err := ec.checkMinVersion(ctx, versionCheckTimeout); err != nil {
 			handleSessionError(fmt.Errorf("unable to validate etcd version: %s", err))
 		}
 	}()
@@ -849,12 +847,11 @@ func (e *etcdClient) sessionError() (err error) {
 // checkMinVersion checks the minimal version running on etcd cluster.  This
 // function should be run whenever the etcd client is connected for the first
 // time and whenever the session is renewed.
-func (e *etcdClient) checkMinVersion(ctx context.Context) error {
+func (e *etcdClient) checkMinVersion(ctx context.Context, timeout time.Duration) error {
 	eps := e.client.Endpoints()
 
 	for _, ep := range eps {
-		vcTimeout := atomic.LoadInt64(&versionCheckTimeout)
-		v, err := getEPVersion(ctx, e.client.Maintenance, ep, time.Duration(vcTimeout))
+		v, err := getEPVersion(ctx, e.client.Maintenance, ep, timeout)
 		if err != nil {
 			e.getLogger().WithError(Hint(err)).WithField(fieldEtcdEndpoint, ep).
 				Warn("Unable to verify version of etcd endpoint")
