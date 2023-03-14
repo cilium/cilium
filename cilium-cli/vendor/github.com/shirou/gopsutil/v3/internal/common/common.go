@@ -6,6 +6,7 @@ package common
 //  - linux (amd64, arm)
 //  - freebsd (amd64)
 //  - windows (amd64)
+
 import (
 	"bufio"
 	"bytes"

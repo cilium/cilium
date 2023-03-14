@@ -12,8 +12,11 @@ option go_package = "github.com/cilium/cilium/api/v1/flow";
 
 message Flow {
     google.protobuf.Timestamp time = 1;
-    Verdict verdict = 2;
 
+    // uuid is a universally unique identifier for this flow.
+    string uuid = 34;
+
+    Verdict verdict = 2;
     // only applicable to Verdict = DROPPED.
     // deprecated in favor of drop_reason_desc.
     uint32 drop_reason = 3 [deprecated=true];
@@ -122,21 +125,40 @@ enum TraceObservationPoint {
     // observation point is always going to be present on trace events.
     UNKNOWN_POINT = 0;
 
+    // TO_PROXY indicates network packets are transmitted towards the l7 proxy.
     TO_PROXY = 1;
+    // TO_HOST indicates network packets are transmitted towards the host
+    // namespace.
     TO_HOST = 2;
+    // TO_STACK indicates network packets are transmitted towards the Linux
+    // kernel network stack on host machine.
     TO_STACK = 3;
+    // TO_OVERLAY indicates network packets are transmitted towards the tunnel
+    // device.
     TO_OVERLAY = 4;
-    // same as TO_LXC, which had a 0 value. This index is intentionally very
-    // high so when new segments are added in bpf, there are no collisions
+    // TO_ENDPOINT indicates network packets are transmitted towards endpoints
+    // (containers).
     TO_ENDPOINT = 101;
-
+    // FROM_ENDPOINT indicates network packets were received from endpoints
+    // (containers).
     FROM_ENDPOINT = 5;
+    // FROM_PROXY indicates network packets were received from the l7 proxy.
     FROM_PROXY = 6;
+    // FROM_HOST indicates network packets were received from the host
+    // namespace.
     FROM_HOST = 7;
+    // FROM_STACK indicates network packets were received from the Linux kernel
+    // network stack on host machine.
     FROM_STACK = 8;
+    // FROM_OVERLAY indicates network packets were received from the tunnel
+    // device.
     FROM_OVERLAY = 9;
+    // FROM_NETWORK indicates network packets were received from native
+    // devices.
     FROM_NETWORK = 10;
-    TO_NETWORK= 11;
+    // TO_NETWORK indicates network packets are transmitted towards native
+    // devices.
+    TO_NETWORK = 11;
 }
 
 message Layer4 {
@@ -405,6 +427,8 @@ message CiliumEventType {
 // FlowFilter represent an individual flow filter. All fields are optional. If
 // multiple fields are set, then all fields must match for the filter to match.
 message FlowFilter {
+    // uuid filters by a list of flow uuids.
+    repeated string uuid = 29;
     // source_ip filters by a list of source ips. Each of the source ips can be
     // specified as an exact match (e.g. "1.1.1.1") or as a CIDR range (e.g.
     // "1.1.1.0/24").
@@ -439,6 +463,10 @@ message FlowFilter {
     repeated string destination_service = 17;
     // destination_workload filters by a list of destination workload.
     repeated Workload destination_workload = 27;
+
+    // traffic_direction filters flow by direction of the connection, e.g.
+    // ingress or egress.
+    repeated TrafficDirection traffic_direction = 30;
 
     // only return Flows that were classified with a particular verdict.
     repeated Verdict verdict = 5;

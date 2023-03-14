@@ -56,8 +56,8 @@ func Version(version string) (semver.Version, error) {
 	for _, pre := range ver.Pre {
 		if strings.Contains(pre.VersionStr, "rc") ||
 			strings.Contains(pre.VersionStr, "beta") ||
-			strings.Contains(pre.VersionStr, "alpha") {
-
+			strings.Contains(pre.VersionStr, "alpha") ||
+			strings.Contains(pre.VersionStr, "snapshot") {
 			return ver, nil
 		}
 	}

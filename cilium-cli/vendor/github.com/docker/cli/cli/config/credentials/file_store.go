@@ -75,7 +75,6 @@ func ConvertToHostname(url string) string {
 		stripped = strings.TrimPrefix(url, "https://")
 	}
 
-	nameParts := strings.SplitN(stripped, "/", 2)
-
-	return nameParts[0]
+	hostName, _, _ := strings.Cut(stripped, "/")
+	return hostName
 }
