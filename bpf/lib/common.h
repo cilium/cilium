@@ -1184,6 +1184,25 @@ struct geneve_dsr_opt6 {
 	__u16	pad;
 };
 
+struct genevehdr {
+#ifdef __LITTLE_ENDIAN_BITFIELD
+	__u8 opt_len:6,
+	     ver:2;
+	__u8 rsvd:6,
+	     critical:1,
+	     control:1;
+#else
+	__u8 ver:2,
+	     opt_len:6;
+	__u8 control:1,
+	     critical:1,
+	     rsvd:6;
+#endif
+	__be16 protocol_type;
+	__u8 vni[3];
+	__u8 reserved;
+};
+
 #include "overloadable.h"
 
 #endif /* __LIB_COMMON_H_ */

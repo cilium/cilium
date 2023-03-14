@@ -244,11 +244,15 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 						 struct ipv6hdr *ip6,
 						 const union v6addr *svc_addr,
 						 __be16 svc_port,
-						 int *ifindex)
+						 int *ifindex, int *ohead)
 {
 	struct remote_endpoint_info *info;
 	union v6addr *dst;
 	bool need_opt = true;
+	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
+		sizeof(struct genevehdr) + ETH_HLEN;
+	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
+	__u16 total_len = 0;
 	__u8 nexthdr = ip6->nexthdr;
 	int hdrlen;
 
@@ -265,6 +269,16 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			need_opt = false;
+	}
+
+	if (need_opt)
+		encap_len += sizeof(struct geneve_dsr_opt6);
+
+	total_len = encap_len + payload_len;
+
+	if (dsr_is_too_big(ctx, total_len)) {
+		*ohead = encap_len;
+		return DROP_FRAG_NEEDED;
 	}
 
 	dst = (union v6addr *)&ip6->daddr;
@@ -547,7 +561,7 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	 * reason why the encap_geneve_dsr_opt6 vs encap_geneve_dsr_opt4
 	 * cases are divergent.
 	 */
-	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif);
+	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT) {
 			cilium_capture_out(ctx);
@@ -1478,10 +1492,13 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 						 struct iphdr *ip4, __be32 svc_addr,
-						 __be16 svc_port, int *ifindex)
+						 __be16 svc_port, int *ifindex, __be16 *ohead)
 {
 	struct remote_endpoint_info *info = NULL;
 	bool need_opt = true;
+	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
+		sizeof(struct genevehdr) + ETH_HLEN;
+	__u16 total_len = 0;
 
 	if (ip4->protocol == IPPROTO_TCP) {
 		union tcp_flags tcp_flags = { .value = 0 };
@@ -1496,6 +1513,16 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 		 */
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			need_opt = false;
+	}
+
+	if (need_opt)
+		encap_len += sizeof(struct geneve_dsr_opt4);
+
+	total_len = encap_len + bpf_ntohs(ip4->tot_len);
+
+	if (dsr_is_too_big(ctx, total_len)) {
+		*ohead = encap_len;
+		return DROP_FRAG_NEEDED;
 	}
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
@@ -1752,7 +1779,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			   addr,
 			   port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif);
+	ret = encap_geneve_dsr_opt4(ctx, ip4, addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT) {
 			cilium_capture_out(ctx);
