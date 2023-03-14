@@ -17,21 +17,6 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
-	// PprofAddressAgent is the default value for pprof in the agent
-	PprofAddressAgent = "localhost"
-
-	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofAddressAPIServer = "localhost"
-
-	// PprofPortAgent is the default value for pprof in the agent
-	PprofPortAgent = 6060
-
-	// PprofPortAgent is the default value for pprof in the operator
-	PprofPortOperator = 6061
-
-	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofPortAPIServer = 6063
-
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 
@@ -136,7 +121,7 @@ const (
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate
-	ToFQDNsMinTTL = 3600 // 1 hour in seconds
+	ToFQDNsMinTTL = 0
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
@@ -229,6 +214,10 @@ const (
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
+
+	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
+	// node-to-node encryption
+	NodeEncryptionOptOutLabels = "node-role.kubernetes.io/control-plane"
 
 	// MonitorQueueSizePerCPU is the default value for the monitor queue
 	// size per CPU
@@ -341,7 +330,7 @@ const (
 	EnableEndpointRoutes = false
 
 	// AnnotateK8sNode is the default value for option.AnnotateK8sNode. It is
-	// enabled by default to annotate kubernetes node and can be disabled using
+	// disabled by default to annotate kubernetes node and can be enabled using
 	// the provided option.
 	AnnotateK8sNode = false
 
@@ -526,6 +515,9 @@ const (
 
 	// Enable BGP control plane features.
 	EnableBGPControlPlane = false
+
+	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
+	EnableK8sNetworkPolicy = true
 )
 
 var (

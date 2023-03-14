@@ -338,8 +338,10 @@ func flagFromFileEnv(filePath, envName string) (val string, ok bool) {
 		}
 	}
 	for _, fileVar := range strings.Split(filePath, ",") {
-		if data, err := ioutil.ReadFile(fileVar); err == nil {
-			return string(data), true
+		if fileVar != "" {
+			if data, err := ioutil.ReadFile(fileVar); err == nil {
+				return string(data), true
+			}
 		}
 	}
 	return "", false

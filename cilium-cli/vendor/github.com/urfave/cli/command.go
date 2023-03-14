@@ -98,8 +98,10 @@ type Commands []Command
 
 // Run invokes the command given the context, parses ctx.Args() to generate command-specific flags
 func (c Command) Run(ctx *Context) (err error) {
-	if len(c.Subcommands) > 0 {
-		return c.startApp(ctx)
+	if !c.SkipFlagParsing {
+		if len(c.Subcommands) > 0 {
+			return c.startApp(ctx)
+		}
 	}
 
 	if !c.HideHelp && (HelpFlag != BoolFlag{}) {
@@ -226,18 +228,23 @@ func reorderArgs(commandFlags []Flag, args []string) []string {
 	nextIndexMayContainValue := false
 	for i, arg := range args {
 
-		// dont reorder any args after a --
-		// read about -- here:
-		// https://unix.stackexchange.com/questions/11376/what-does-double-dash-mean-also-known-as-bare-double-dash
-		if arg == "--" {
-			remainingArgs = append(remainingArgs, args[i:]...)
-			break
-
-			// checks if this arg is a value that should be re-ordered next to its associated flag
-		} else if nextIndexMayContainValue && !strings.HasPrefix(arg, "-") {
+		// if we're expecting an option-value, check if this arg is a value, in
+		// which case it should be re-ordered next to its associated flag
+		if nextIndexMayContainValue && !argIsFlag(commandFlags, arg) {
 			nextIndexMayContainValue = false
 			reorderedArgs = append(reorderedArgs, arg)
+		} else if arg == "--" {
+			// don't reorder any args after the -- delimiter As described in the POSIX spec:
+			// https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap12.html#tag_12_02
+			// > Guideline 10:
+			// >   The first -- argument that is not an option-argument should be accepted
+			// >   as a delimiter indicating the end of options. Any following arguments
+			// >   should be treated as operands, even if they begin with the '-' character.
 
+			// make sure the "--" delimiter itself is at the start
+			remainingArgs = append([]string{"--"}, remainingArgs...)
+			remainingArgs = append(remainingArgs, args[i+1:]...)
+			break
 			// checks if this is an arg that should be re-ordered
 		} else if argIsFlag(commandFlags, arg) {
 			// we have determined that this is a flag that we should re-order
@@ -256,8 +263,9 @@ func reorderArgs(commandFlags []Flag, args []string) []string {
 
 // argIsFlag checks if an arg is one of our command flags
 func argIsFlag(commandFlags []Flag, arg string) bool {
-	// checks if this is just a `-`, and so definitely not a flag
-	if arg == "-" {
+	if arg == "-" || arg == "--" {
+		// `-` is never a flag
+		// `--` is an option-value when following a flag, and a delimiter indicating the end of options in other cases.
 		return false
 	}
 	// flags always start with a -

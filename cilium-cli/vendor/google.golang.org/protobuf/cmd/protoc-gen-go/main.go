@@ -6,8 +6,7 @@
 // both proto2 and proto3 versions of the protocol buffer language.
 //
 // For more information about the usage of this plugin, see:
-//
-//	https://developers.google.com/protocol-buffers/docs/reference/go-generated
+// https://protobuf.dev/reference/go/go-generated.
 package main
 
 import (
@@ -22,7 +21,7 @@ import (
 	"google.golang.org/protobuf/internal/version"
 )
 
-const genGoDocURL = "https://developers.google.com/protocol-buffers/docs/reference/go-generated"
+const genGoDocURL = "https://protobuf.dev/reference/go/go-generated"
 const grpcDocURL = "https://grpc.io/docs/languages/go/quickstart/#regenerate-grpc-code"
 
 func main() {

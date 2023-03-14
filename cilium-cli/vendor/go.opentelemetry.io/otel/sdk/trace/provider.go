@@ -76,6 +76,7 @@ type TracerProvider struct {
 	mu             sync.Mutex
 	namedTracer    map[instrumentation.Scope]*tracer
 	spanProcessors atomic.Value
+	isShutdown     bool
 
 	// These fields are not protected by the lock mu. They are assumed to be
 	// immutable after creation of the TracerProvider.
@@ -163,6 +164,9 @@ func (p *TracerProvider) Tracer(name string, opts ...trace.TracerOption) trace.T
 func (p *TracerProvider) RegisterSpanProcessor(sp SpanProcessor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.isShutdown {
+		return
+	}
 	newSPS := spanProcessorStates{}
 	newSPS = append(newSPS, p.spanProcessors.Load().(spanProcessorStates)...)
 	newSPS = append(newSPS, newSpanProcessorState(sp))
@@ -173,6 +177,9 @@ func (p *TracerProvider) RegisterSpanProcessor(sp SpanProcessor) {
 func (p *TracerProvider) UnregisterSpanProcessor(sp SpanProcessor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.isShutdown {
+		return
+	}
 	old := p.spanProcessors.Load().(spanProcessorStates)
 	if len(old) == 0 {
 		return
@@ -227,12 +234,17 @@ func (p *TracerProvider) ForceFlush(ctx context.Context) error {
 	return nil
 }
 
-// Shutdown shuts down the span processors in the order they were registered.
+// Shutdown shuts down TracerProvider. All registered span processors are shut down
+// in the order they were registered and any held computational resources are released.
 func (p *TracerProvider) Shutdown(ctx context.Context) error {
 	spss := p.spanProcessors.Load().(spanProcessorStates)
 	if len(spss) == 0 {
 		return nil
 	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.isShutdown = true
 
 	var retErr error
 	for _, sps := range spss {
@@ -255,6 +267,7 @@ func (p *TracerProvider) Shutdown(ctx context.Context) error {
 			}
 		}
 	}
+	p.spanProcessors.Store(spanProcessorStates{})
 	return retErr
 }
 

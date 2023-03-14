@@ -71,7 +71,7 @@ func callSVMon(ctx context.Context) (*VirtualMemoryStat, *SwapMemoryStat, error)
 					swap.Total = t * pagesize
 				}
 				if t, err := strconv.ParseUint(p[3], 10, 64); err == nil {
-					swap.Free = swap.Total - t * pagesize
+					swap.Free = swap.Total - t*pagesize
 				}
 			}
 			break

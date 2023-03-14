@@ -248,7 +248,7 @@ func excludeContainedCIDR(allowCIDR, removeCIDR *net.IPNet) []*net.IPNet {
 
 // Flip the 'n'th highest bit in 'ip'. 'ip' is modified in place. 'n' is zero indexed.
 func flipNthHighestBit(ip net.IP, n uint) {
-	i := (n / 8)
+	i := n / 8
 	ip[i] = ip[i] ^ 0x80>>(n%8)
 }
 
@@ -317,7 +317,7 @@ func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
 		ip = *netRange.First
 	} else {
 		ip = *netRange.Last
-		index += 1
+		index++
 	}
 	if ip.To4() != nil {
 		val.SetBytes(ip.To4())
@@ -333,7 +333,7 @@ func GetIPAtIndex(ipNet net.IPNet, index int64) net.IP {
 
 func getPreviousIP(ip net.IP) net.IP {
 	// Cannot go lower than zero!
-	if ip.Equal(net.IP(defaultIPv4)) || ip.Equal(net.IP(defaultIPv6)) {
+	if ip.Equal(defaultIPv4) || ip.Equal(defaultIPv6) {
 		return ip
 	}
 
@@ -572,7 +572,7 @@ func rangeToCIDRs(firstIP, lastIP net.IP) []*net.IPNet {
 		} else {
 			bitLen = ipv6BitLen
 		}
-		_, _, right := partitionCIDR(spanningCIDR, net.IPNet{IP: prevFirstRangeIP, Mask: net.CIDRMask(bitLen, bitLen)})
+		_, _, right := PartitionCIDR(spanningCIDR, net.IPNet{IP: prevFirstRangeIP, Mask: net.CIDRMask(bitLen, bitLen)})
 
 		// Append all CIDRs but the first, as this CIDR includes the upper
 		// bound of the spanning CIDR, which we still need to partition on.
@@ -595,7 +595,7 @@ func rangeToCIDRs(firstIP, lastIP net.IP) []*net.IPNet {
 		} else {
 			bitLen = ipv6BitLen
 		}
-		left, _, _ := partitionCIDR(spanningCIDR, net.IPNet{IP: nextFirstRangeIP, Mask: net.CIDRMask(bitLen, bitLen)})
+		left, _, _ := PartitionCIDR(spanningCIDR, net.IPNet{IP: nextFirstRangeIP, Mask: net.CIDRMask(bitLen, bitLen)})
 		cidrList = append(cidrList, left...)
 	} else {
 		// Otherwise, there is no need to partition; just use add the spanning
@@ -605,13 +605,13 @@ func rangeToCIDRs(firstIP, lastIP net.IP) []*net.IPNet {
 	return cidrList
 }
 
-// partitionCIDR returns a list of IP Networks partitioned upon excludeCIDR.
+// PartitionCIDR returns a list of IP Networks partitioned upon excludeCIDR.
 // The first list contains the networks to the left of the excludeCIDR in the
 // partition,  the second is a list containing the excludeCIDR itself if it is
 // contained within the targetCIDR (nil otherwise), and the
 // third is a list containing the networks to the right of the excludeCIDR in
 // the partition.
-func partitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, []*net.IPNet, []*net.IPNet) {
+func PartitionCIDR(targetCIDR net.IPNet, excludeCIDR net.IPNet) ([]*net.IPNet, []*net.IPNet, []*net.IPNet) {
 	var targetIsIPv4 bool
 	if targetCIDR.IP.To4() != nil {
 		targetIsIPv4 = true

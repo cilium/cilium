@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	ippkg "github.com/cilium/cilium/pkg/ip"
 )
 
@@ -217,4 +218,145 @@ func (ac AddrCluster) As20() (ac20 [20]byte) {
 // lose the ClusterID information. It should be used with an extra care.
 func (ac AddrCluster) AsNetIP() net.IP {
 	return ac.addr.AsSlice()
+}
+
+func (ac AddrCluster) AsPrefixCluster() PrefixCluster {
+	return PrefixClusterFrom(ac.addr, ac.addr.BitLen(), ac.clusterID)
+}
+
+// PrefixCluster is a type that holds a pair of prefix and ClusterID.
+// We should use this type as much as possible when we implement
+// prefix + Cluster addressing. We should avoid managing prefix and
+// ClusterID separately. Otherwise, it is very hard for code readers
+// to see where we are using cluster-aware addressing.
+type PrefixCluster struct {
+	prefix    netip.Prefix
+	clusterID uint32
+}
+
+// ParsePrefixCluster parses s as an Prefix + ClusterID and returns PrefixCluster.
+// The string s can be a bare IP prefix string (any prefix format allowed in
+// netip.ParsePrefix()) or prefix string + @ + ClusterID with decimal. Bare prefix
+// string is considered as prefix string + @ + ClusterID = 0.
+func ParsePrefixCluster(s string) (PrefixCluster, error) {
+	atIndex := strings.LastIndex(s, "@")
+
+	var (
+		prefixStr    string
+		clusterIDStr string
+	)
+
+	if atIndex == -1 {
+		// s may be a bare IP prefix string, still valid
+		prefixStr = s
+		clusterIDStr = ""
+	} else {
+		// s may be a prefix + ClusterID string
+		prefixStr = s[:atIndex]
+		clusterIDStr = s[atIndex+1:]
+	}
+
+	prefix, err := netip.ParsePrefix(prefixStr)
+	if err != nil {
+		return PrefixCluster{}, err
+	}
+
+	if clusterIDStr == "" {
+		if atIndex != len(s)-1 {
+			return PrefixCluster{prefix: prefix, clusterID: 0}, nil
+		} else {
+			// handle the invalid case like "10.0.0.0/24@"
+			return PrefixCluster{}, fmt.Errorf("empty cluster ID")
+		}
+	}
+
+	clusterID64, err := strconv.ParseUint(clusterIDStr, 10, 32)
+	if err != nil {
+		return PrefixCluster{}, err
+	}
+
+	return PrefixCluster{prefix: prefix, clusterID: uint32(clusterID64)}, nil
+}
+
+// MustParsePrefixCluster calls ParsePrefixCluster(s) and panics on error.
+// It is intended for use in tests with hard-coded strings.
+func MustParsePrefixCluster(s string) PrefixCluster {
+	prefixCluster, err := ParsePrefixCluster(s)
+	if err != nil {
+		panic(err)
+	}
+	return prefixCluster
+}
+
+func (pc PrefixCluster) IsSingleIP() bool {
+	return pc.prefix.IsSingleIP()
+}
+
+func PrefixClusterFrom(addr netip.Addr, bits int, clusterID uint32) PrefixCluster {
+	return PrefixCluster{
+		prefix:    netip.PrefixFrom(addr, bits),
+		clusterID: clusterID,
+	}
+}
+
+func PrefixClusterFromCIDR(c *cidr.CIDR, clusterID uint32) PrefixCluster {
+	if c == nil {
+		return PrefixCluster{}
+	}
+
+	addr, ok := ippkg.AddrFromIP(c.IP)
+	if !ok {
+		return PrefixCluster{}
+	}
+	ones, _ := c.Mask.Size()
+
+	return PrefixCluster{
+		prefix:    netip.PrefixFrom(addr, ones),
+		clusterID: clusterID,
+	}
+}
+
+func (pc0 PrefixCluster) Equal(pc1 PrefixCluster) bool {
+	return pc0.prefix == pc1.prefix && pc0.clusterID == pc1.clusterID
+}
+
+func (pc PrefixCluster) IsValid() bool {
+	return pc.prefix.IsValid()
+}
+
+func (pc PrefixCluster) AddrCluster() AddrCluster {
+	return AddrClusterFrom(pc.prefix.Addr(), pc.clusterID)
+}
+
+func (pc PrefixCluster) String() string {
+	if pc.clusterID == 0 {
+		return pc.prefix.String()
+	}
+	return pc.prefix.String() + "@" + strconv.FormatUint(uint64(pc.clusterID), 10)
+}
+
+// AsIPNet returns the IP prefix part of PrefixCluster as a net.IPNet type. This
+// function exists for keeping backward compatibility between the existing
+// components which are not aware of the cluster-aware addressing. Calling
+// this function against the PrefixCluster which has non-zero clusterID will
+// lose the ClusterID information. It should be used with an extra care.
+func (pc PrefixCluster) AsIPNet() net.IPNet {
+	addr := pc.prefix.Addr()
+	return net.IPNet{
+		IP:   addr.AsSlice(),
+		Mask: net.CIDRMask(pc.prefix.Bits(), addr.BitLen()),
+	}
+}
+
+// This function is solely exists for annotating IPCache's key string with ClusterID.
+// IPCache's key string is IP address or Prefix string (10.0.0.1 and 10.0.0.0/32 are
+// different entry). This function assumes given string is one of those format and
+// just put @<ClusterID> suffix and there's no format check for performance reason.
+// User must make sure the input is a valid IP or Prefix string.
+//
+// We should eventually remove this function once we finish refactoring IPCache and
+// stop using string as a key. At that point, we should consider using PrefixCluster
+// type for IPCache's key.
+func AnnotateIPCacheKeyWithClusterID(key string, clusterID uint32) string {
+	return key + "@" + strconv.FormatUint(uint64(clusterID), 10)
 }
