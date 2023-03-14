@@ -178,7 +178,7 @@ func newTransport(tlsConfig *tls.Config) *http.Transport {
 }
 
 func v2AuthHTTPClient(endpoint *url.URL, authTransport http.RoundTripper, modifiers []transport.RequestModifier, creds auth.CredentialStore, scopes []auth.Scope) (*http.Client, error) {
-	challengeManager, _, err := registry.PingV2Registry(endpoint, authTransport)
+	challengeManager, err := registry.PingV2Registry(endpoint, authTransport)
 	if err != nil {
 		return nil, err
 	}

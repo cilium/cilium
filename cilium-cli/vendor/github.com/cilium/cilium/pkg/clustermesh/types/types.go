@@ -15,6 +15,18 @@ const (
 	ClusterIDMax = 255
 )
 
+func ValidateClusterID(clusterID uint32) error {
+	if clusterID == ClusterIDMin {
+		return fmt.Errorf("ClusterID %d is reserved", ClusterIDMin)
+	}
+
+	if clusterID > ClusterIDMax {
+		return fmt.Errorf("ClusterID > %d is not supported", ClusterIDMax)
+	}
+
+	return nil
+}
+
 type CiliumClusterConfig struct {
 	ID uint32 `json:"id,omitempty"`
 }

@@ -3,6 +3,7 @@ package gotenv
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -174,9 +175,36 @@ func Write(env Env, filename string) error {
 	return file.Sync()
 }
 
+// splitLines is a valid SplitFunc for a bufio.Scanner. It will split lines on CR ('\r'), LF ('\n') or CRLF (any of the three sequences).
+// If a CR is immediately followed by a LF, it is treated as a CRLF (one single line break).
+func splitLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, bufio.ErrFinalToken
+	}
+
+	idx := bytes.IndexAny(data, "\r\n")
+	switch {
+	case atEOF && idx < 0:
+		return len(data), data, bufio.ErrFinalToken
+
+	case idx < 0:
+		return 0, nil, nil
+	}
+
+	// consume CR or LF
+	eol := idx + 1
+	// detect CRLF
+	if len(data) > eol && data[eol-1] == '\r' && data[eol] == '\n' {
+		eol++
+	}
+
+	return eol, data[:idx], nil
+}
+
 func strictParse(r io.Reader, override bool) (Env, error) {
 	env := make(Env)
 	scanner := bufio.NewScanner(r)
+	scanner.Split(splitLines)
 
 	firstLine := true
 
@@ -283,7 +311,6 @@ func parseLine(s string, env Env, override bool) error {
 			return varReplacement(s, hsq, env, override)
 		}
 		val = varRgx.ReplaceAllStringFunc(val, fv)
-		val = parseVal(val, env, hdq, override)
 	}
 
 	env[key] = val
@@ -351,19 +378,4 @@ func checkFormat(s string, env Env) error {
 	}
 
 	return fmt.Errorf("line `%s` doesn't match format", s)
-}
-
-func parseVal(val string, env Env, ignoreNewlines bool, override bool) string {
-	if strings.Contains(val, "=") && !ignoreNewlines {
-		kv := strings.Split(val, "\r")
-
-		if len(kv) > 1 {
-			val = kv[0]
-			for _, l := range kv[1:] {
-				_ = parseLine(l, env, override)
-			}
-		}
-	}
-
-	return val
 }

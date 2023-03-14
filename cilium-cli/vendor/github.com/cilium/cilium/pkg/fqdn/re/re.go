@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"regexp"
 	"sync/atomic"
-	"unsafe"
 
 	lru "github.com/golang/groupcache/lru"
 
@@ -31,7 +30,7 @@ var (
 // LRU. This function will return an error if the LRU has not already been
 // initialized.
 func CompileRegex(p string) (*regexp.Regexp, error) {
-	lru := (*RegexCompileLRU)(atomic.LoadPointer(&regexCompileLRU))
+	lru := regexCompileLRU.Load()
 	if lru == nil {
 		return nil, errors.New("FQDN regex compilation LRU not yet initialized")
 	}
@@ -60,16 +59,16 @@ func InitRegexCompileLRU(size int) error {
 			"FQDN regex compilation LRU size is unlimited, which can grow unbounded potentially consuming too much memory. Consider passing a maximum size via --%s.",
 			option.FQDNRegexCompileLRUSize)
 	}
-	atomic.StorePointer(&regexCompileLRU, unsafe.Pointer(&RegexCompileLRU{
+	regexCompileLRU.Store(&RegexCompileLRU{
 		Mutex: &lock.Mutex{},
 		Cache: lru.New(size),
-	}))
+	})
 	return nil
 }
 
 // regexCompileLRU is the singleton instance of the LRU that's shared
 // throughout Cilium.
-var regexCompileLRU unsafe.Pointer // *RegexCompileLRU
+var regexCompileLRU atomic.Pointer[RegexCompileLRU]
 
 // RegexCompileLRU is an LRU cache for storing compiled regex objects of FQDN
 // names or patterns, used in CiliumNetworkPolicy or

@@ -163,6 +163,23 @@ func (in *CiliumEgressGatewayPolicySpec) DeepEqual(other *CiliumEgressGatewayPol
 		}
 	}
 
+	if ((in.ExcludedCIDRs != nil) && (other.ExcludedCIDRs != nil)) || ((in.ExcludedCIDRs == nil) != (other.ExcludedCIDRs == nil)) {
+		in, other := &in.ExcludedCIDRs, &other.ExcludedCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
+	}
+
 	if (in.EgressGateway == nil) != (other.EgressGateway == nil) {
 		return false
 	} else if in.EgressGateway != nil {
