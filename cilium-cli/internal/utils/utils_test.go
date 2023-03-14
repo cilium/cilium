@@ -24,6 +24,7 @@ func TestCheckVersion(t *testing.T) {
 		{"1.9.6.5", false},
 		{"v1.10.0-rc1", true},
 		{"1.10.0-rc1", true},
+		{"1.14.0-snapshot.0", true},
 		{"10.42.0", true},
 		{"1.9", false},
 		{"v1.9", false},
