@@ -115,6 +115,40 @@ func (m *HttpProtocolOptions) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetHttpFilters() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("HttpFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HttpProtocolOptionsValidationError{
+						field:  fmt.Sprintf("HttpFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HttpProtocolOptionsValidationError{
+					field:  fmt.Sprintf("HttpFilters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.UpstreamProtocolOptions.(type) {
 
 	case *HttpProtocolOptions_ExplicitHttpConfig_:

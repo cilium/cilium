@@ -140,6 +140,17 @@ fmt.Println(string(b))
 
 [marshal]: https://pkg.go.dev/github.com/pelletier/go-toml/v2#Marshal
 
+## Unstable API
+
+This API does not yet follow the backward compatibility guarantees of this
+library. They provide early access to features that may have rough edges or an
+API subject to change.
+
+### Parser
+
+Parser is the unstable API that allows iterative parsing of a TOML document at
+the AST level. See https://pkg.go.dev/github.com/pelletier/go-toml/v2/unstable.
+
 ## Benchmarks
 
 Execution time speedup compared to other Go TOML libraries:

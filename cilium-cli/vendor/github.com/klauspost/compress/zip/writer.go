@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.16
-// +build go1.16
-
 package zip
 
 import (
@@ -128,7 +125,7 @@ func (w *Writer) Close() error {
 		b.uint16(uint16(len(h.Comment)))
 		b = b[4:] // skip disk number start and internal file attr (2x uint16)
 		b.uint32(h.ExternalAttrs)
-		if h.offset > uint32max {
+		if h.isZip64() || h.offset > uint32max {
 			b.uint32(uint32max)
 		} else {
 			b.uint32(uint32(h.offset))
@@ -438,7 +435,7 @@ func min64(x, y uint64) uint64 {
 
 // Deprecated: CreateHeaderRaw is replaced by CreateRaw (stdlib name).
 func (w *Writer) CreateHeaderRaw(fh *FileHeader) (io.Writer, error) {
-	return w.CreateHeader(fh)
+	return w.CreateRaw(fh)
 }
 
 // CreateRaw adds a file to the zip archive using the provided FileHeader and

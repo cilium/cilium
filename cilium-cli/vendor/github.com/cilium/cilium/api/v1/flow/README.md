@@ -264,6 +264,7 @@ EventTypeFilter is a filter describing a particular event type
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| uuid | [string](#string) |  | uuid is a universally unique identifier for this flow. |
 | verdict | [Verdict](#flow-Verdict) |  |  |
 | drop_reason | [uint32](#uint32) |  | **Deprecated.** only applicable to Verdict = DROPPED. deprecated in favor of drop_reason_desc. |
 | ethernet | [Ethernet](#flow-Ethernet) |  | l2 |
@@ -308,6 +309,7 @@ multiple fields are set, then all fields must match for the filter to match.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| uuid | [string](#string) | repeated | uuid filters by a list of flow uuids. |
 | source_ip | [string](#string) | repeated | source_ip filters by a list of source ips. Each of the source ips can be specified as an exact match (e.g. &#34;1.1.1.1&#34;) or as a CIDR range (e.g. &#34;1.1.1.0/24&#34;). |
 | source_pod | [string](#string) | repeated | source_pod filters by a list of source pod name prefixes, optionally within a given namespace (e.g. &#34;xwing&#34;, &#34;kube-system/coredns-&#34;). The pod name can be omitted to only filter by namespace (e.g. &#34;kube-system/&#34;) |
 | source_fqdn | [string](#string) | repeated | source_fqdn filters by a list of source fully qualified domain names |
@@ -320,6 +322,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | destination_label | [string](#string) | repeated | destination_label filters on a list of destination label selectors |
 | destination_service | [string](#string) | repeated | destination_service filters on a list of destination service names |
 | destination_workload | [Workload](#flow-Workload) | repeated | destination_workload filters by a list of destination workload. |
+| traffic_direction | [TrafficDirection](#flow-TrafficDirection) | repeated | traffic_direction filters flow by direction of the connection, e.g. ingress or egress. |
 | verdict | [Verdict](#flow-Verdict) | repeated | only return Flows that were classified with a particular verdict. |
 | event_type | [EventTypeFilter](#flow-EventTypeFilter) | repeated | event_type is the list of event types to filter on |
 | http_status_code | [string](#string) | repeated | http_status_code is a list of string prefixes (e.g. &#34;4&#43;&#34;, &#34;404&#34;, &#34;5&#43;&#34;) to filter on the HTTP status code |
@@ -1049,18 +1052,18 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | UNKNOWN_POINT | 0 | Cilium treats 0 as TO_LXC, but its&#39;s something we should work to remove. This is intentionally set as unknown, so proto API can guarantee the observation point is always going to be present on trace events. |
-| TO_PROXY | 1 |  |
-| TO_HOST | 2 |  |
-| TO_STACK | 3 |  |
-| TO_OVERLAY | 4 |  |
-| TO_ENDPOINT | 101 | same as TO_LXC, which had a 0 value. This index is intentionally very high so when new segments are added in bpf, there are no collisions |
-| FROM_ENDPOINT | 5 |  |
-| FROM_PROXY | 6 |  |
-| FROM_HOST | 7 |  |
-| FROM_STACK | 8 |  |
-| FROM_OVERLAY | 9 |  |
-| FROM_NETWORK | 10 |  |
-| TO_NETWORK | 11 |  |
+| TO_PROXY | 1 | TO_PROXY indicates network packets are transmitted towards the l7 proxy. |
+| TO_HOST | 2 | TO_HOST indicates network packets are transmitted towards the host namespace. |
+| TO_STACK | 3 | TO_STACK indicates network packets are transmitted towards the Linux kernel network stack on host machine. |
+| TO_OVERLAY | 4 | TO_OVERLAY indicates network packets are transmitted towards the tunnel device. |
+| TO_ENDPOINT | 101 | TO_ENDPOINT indicates network packets are transmitted towards endpoints (containers). |
+| FROM_ENDPOINT | 5 | FROM_ENDPOINT indicates network packets were received from endpoints (containers). |
+| FROM_PROXY | 6 | FROM_PROXY indicates network packets were received from the l7 proxy. |
+| FROM_HOST | 7 | FROM_HOST indicates network packets were received from the host namespace. |
+| FROM_STACK | 8 | FROM_STACK indicates network packets were received from the Linux kernel network stack on host machine. |
+| FROM_OVERLAY | 9 | FROM_OVERLAY indicates network packets were received from the tunnel device. |
+| FROM_NETWORK | 10 | FROM_NETWORK indicates network packets were received from native devices. |
+| TO_NETWORK | 11 | TO_NETWORK indicates network packets are transmitted towards native devices. |
 
 
 

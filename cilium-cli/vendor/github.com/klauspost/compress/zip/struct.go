@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build go1.16
-// +build go1.16
-
 /*
 Package zip provides support for reading and writing ZIP archives.
 
@@ -392,12 +389,4 @@ func unixModeToFileMode(m uint32) fs.FileMode {
 		mode |= fs.ModeSticky
 	}
 	return mode
-}
-
-// dataDescriptor holds the data descriptor that optionally follows the file
-// contents in the zip file.
-type dataDescriptor struct {
-	crc32            uint32
-	compressedSize   uint64
-	uncompressedSize uint64
 }

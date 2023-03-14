@@ -112,8 +112,8 @@ func printStackTo(sec float64, stack []byte, writer io.Writer) {
 	// runtime/debug.Stack(0xc424c4a370, 0xc421f7f750, 0x1)
 	//   /usr/local/go/src/runtime/debug/stack.go:24 +0xa7
 	//   ...
-	// To know which trace belongs to which go routine we will append the
-	// go routine number to every line of the stack trace.
+	// To know which trace belongs to which goroutine we will append the
+	// goroutine number to every line of the stack trace.
 	writer.Write(bytes.Replace(
 		stack,
 		[]byte{'\n'},

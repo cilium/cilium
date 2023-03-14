@@ -248,7 +248,7 @@ func (a *App) Run(arguments []string) (err error) {
 		return cerr
 	}
 
-	if a.After != nil {
+	if a.After != nil && !context.shellComplete {
 		defer func() {
 			if afterErr := a.After(context); afterErr != nil {
 				if err != nil {
@@ -260,7 +260,7 @@ func (a *App) Run(arguments []string) (err error) {
 		}()
 	}
 
-	if a.Before != nil {
+	if a.Before != nil && !context.shellComplete {
 		beforeErr := a.Before(context)
 		if beforeErr != nil {
 			a.handleExitCoder(context, beforeErr)
@@ -374,7 +374,7 @@ func (a *App) RunAsSubcommand(ctx *Context) (err error) {
 		return cerr
 	}
 
-	if a.After != nil {
+	if a.After != nil && !context.shellComplete {
 		defer func() {
 			afterErr := a.After(context)
 			if afterErr != nil {
@@ -388,7 +388,7 @@ func (a *App) RunAsSubcommand(ctx *Context) (err error) {
 		}()
 	}
 
-	if a.Before != nil {
+	if a.Before != nil && !context.shellComplete {
 		beforeErr := a.Before(context)
 		if beforeErr != nil {
 			a.handleExitCoder(context, beforeErr)

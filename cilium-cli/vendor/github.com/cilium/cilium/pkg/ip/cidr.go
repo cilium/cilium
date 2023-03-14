@@ -110,3 +110,23 @@ func IPsToNetPrefixes(ips []net.IP) []netip.Prefix {
 	}
 	return res
 }
+
+// NetsContainsAny checks that any subnet in the `a` subnet group *fully*
+// contains any of the subnets in the `b` subnet group.
+func NetsContainsAny(a, b []*net.IPNet) bool {
+	for _, an := range a {
+		aMask, _ := an.Mask.Size()
+		aIsIPv4 := an.IP.To4() != nil
+		for _, bn := range b {
+			bIsIPv4 := bn.IP.To4() != nil
+			isSameFamily := aIsIPv4 == bIsIPv4
+			if isSameFamily {
+				bMask, _ := bn.Mask.Size()
+				if bMask >= aMask && an.Contains(bn.IP) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}

@@ -23,7 +23,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
 const (
@@ -59,7 +59,7 @@ func (fromEnv) Detect(context.Context) (*Resource, error) {
 	var res *Resource
 
 	if svcName != "" {
-		res = NewSchemaless(semconv.ServiceNameKey.String(svcName))
+		res = NewSchemaless(semconv.ServiceName(svcName))
 	}
 
 	r2, err := constructOTResources(attrs)

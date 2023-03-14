@@ -53,8 +53,15 @@ const (
 	// Identity is the identifier of a security identity
 	Identity = "identity"
 
+	// ConflictingIdentity is the identifier of a security identity that conflicts
+	// with 'Identity'
+	ConflictingIdentity = "conflictingIdentity"
+
 	// Ingress is the identifier of an ingress object
 	Ingress = "ingress"
+
+	// IngressClass is the identifier of an ingress class object
+	IngressClass = "ingressClass"
 
 	// OldIdentity is a previously used security identity
 	OldIdentity = "oldIdentity"
@@ -244,6 +251,9 @@ const (
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
+	// AddrCluster is a pair of IP address and ClusterID
+	AddrCluster = "addrCluster"
+
 	// ServiceID is the orchestration unique ID of a service
 	ServiceID = "serviceID"
 
@@ -386,6 +396,9 @@ const (
 
 	// Resource is a resource
 	Resource = "resource"
+
+	// ConflictingResource is a resource that conflicts with 'Resource'
+	ConflictingResource = "conflictingResource"
 
 	// Route is a L2 or L3 Linux route
 	Route = "route"
@@ -592,6 +605,9 @@ const (
 
 	// CEPName is the name of the CiliumEndpoint.
 	CEPName = "ciliumEndpointName"
+
+	// CEPCount is the count of the CiliumEndpoint.
+	CEPCount = "ciliumEndpointCount"
 
 	// CEPUID is the UID of the CiliumEndpoint.
 	CEPUID = "ciliumEndpointUID"
