@@ -267,7 +267,7 @@ func isSubnetAtCapacity(err error) bool {
 	return false
 }
 
-// AllocateIPs performs the ENI allocation oepration
+// AllocateIPs performs the ENI allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error {
 	// Check if the interface to allocate on is prefix delegated
 	n.mutex.RLock()

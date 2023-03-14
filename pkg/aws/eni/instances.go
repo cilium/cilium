@@ -34,6 +34,10 @@ type EC2API interface {
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
 	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
+	AssignIPv6IpAddresses(ctx context.Context, eniID string, addresses int32) error
+	UnassignIPv6IpAddresses(ctx context.Context, eniID string, addresses []string) error
+	AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error
+	UnassignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes []string) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date

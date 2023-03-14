@@ -314,6 +314,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		IP:             aws.ToString(iface.PrivateIpAddress),
 		SecurityGroups: []string{},
 		Addresses:      []string{},
+		IPv6Addresses:  []string{},
 	}
 
 	if iface.MacAddress != nil {
@@ -374,6 +375,16 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 		eni.Addresses = append(eni.Addresses, ips...)
 		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
+	}
+
+	for _, prefix := range iface.Ipv6Prefixes {
+		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv6Prefix))
+		if e != nil {
+			err = fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv6Prefix), e)
+			return
+		}
+		eni.IPv6Addresses = append(eni.IPv6Addresses, ips...)
+		eni.IPv6Prefixes = append(eni.IPv6Prefixes, aws.ToString(prefix.Ipv6Prefix))
 	}
 
 	for _, g := range iface.Groups {
@@ -653,16 +664,45 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 	return err
 }
 
+// AssignIPv6IpAddresses assigns the specified number of IPv6 IP
+// addresses
+func (c *Client) AssignIPv6IpAddresses(ctx context.Context, eniID string, addresses int32) error {
+	input := &ec2.AssignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6AddressCount:   aws.Int32(addresses),
+	}
+
+	c.limiter.Limit(ctx, "AssignIPv6IpAddresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.AssignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("AssignIPv6IpAddresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+// UnassignIPv6IpAddresses unassigns specified IPv6 IP addresses from ENI
+func (c *Client) UnassignIPv6IpAddresses(ctx context.Context, eniID string, addresses []string) error {
+	input := &ec2.UnassignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6Addresses:      addresses,
+	}
+
+	c.limiter.Limit(ctx, "UnassignIPv6IpAddresses")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.UnassignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("UnassignIPv6IpAddresses", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
 func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId: aws.String(eniID),
 		Ipv4PrefixCount:    aws.Int32(prefixes),
 	}
 
-	c.limiter.Limit(ctx, "AssignPrivateIpAddresses")
+	c.limiter.Limit(ctx, "AssignENIPrefixes")
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("AssignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall("AssignENIPrefixes", deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 
@@ -672,10 +712,36 @@ func (c *Client) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes
 		Ipv4Prefixes:       prefixes,
 	}
 
-	c.limiter.Limit(ctx, "UnassignPrivateIpAddresses")
+	c.limiter.Limit(ctx, "UnassignENIPrefixes")
 	sinceStart := spanstat.Start()
 	_, err := c.ec2Client.UnassignPrivateIpAddresses(ctx, input)
-	c.metricsAPI.ObserveAPICall("UnassignPrivateIpAddresses", deriveStatus(err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall("UnassignENIPrefixes", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+func (c *Client) AssignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes int32) error {
+	input := &ec2.AssignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6PrefixCount:    aws.Int32(prefixes),
+	}
+
+	c.limiter.Limit(ctx, "AssignENIIPv6Prefixes")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.AssignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("AssignENIIPv6Prefixes", deriveStatus(err), sinceStart.Seconds())
+	return err
+}
+
+func (c *Client) UnassignENIIPv6Prefixes(ctx context.Context, eniID string, prefixes []string) error {
+	input := &ec2.UnassignIpv6AddressesInput{
+		NetworkInterfaceId: aws.String(eniID),
+		Ipv6Prefixes:       prefixes,
+	}
+
+	c.limiter.Limit(ctx, "UnassignENIIPv6Prefixes")
+	sinceStart := spanstat.Start()
+	_, err := c.ec2Client.UnassignIpv6Addresses(ctx, input)
+	c.metricsAPI.ObserveAPICall("UnassignENIIPv6Prefixes", deriveStatus(err), sinceStart.Seconds())
 	return err
 }
 

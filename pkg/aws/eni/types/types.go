@@ -152,7 +152,7 @@ type ENI struct {
 	// +optional
 	ID string `json:"id,omitempty"`
 
-	// IP is the primary IP of the ENI
+	// IP is the primary IPv4 IP of the ENI
 	//
 	// +optional
 	IP string `json:"ip,omitempty"`
@@ -188,12 +188,12 @@ type ENI struct {
 	// +optional
 	VPC AwsVPC `json:"vpc,omitempty"`
 
-	// Addresses is the list of all secondary IPs associated with the ENI
+	// Addresses is the list of all secondary IPv4 IPs associated with the ENI
 	//
 	// +optional
 	Addresses []string `json:"addresses,omitempty"`
 
-	// Prefixes is the list of all /28 prefixes associated with the ENI
+	// Prefixes is the list of all IPv4 /28 prefixes associated with the ENI
 	//
 	// +optional
 	Prefixes []string `json:"prefixes,omitempty"`
@@ -206,6 +206,16 @@ type ENI struct {
 	//
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// Addresses is the list of all secondary IPv4 IPs associated with the ENI
+	//
+	// +optional
+	IPv6Addresses []string `json:"ipv6-addresses,omitempty"`
+
+	// Prefixes is the list of all IPv4 /28 prefixes associated with the ENI
+	//
+	// +optional
+	IPv6Prefixes []string `json:"ipv6-prefixes,omitempty"`
 }
 
 // InterfaceID returns the identifier of the interface
