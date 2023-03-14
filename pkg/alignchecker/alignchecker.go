@@ -91,21 +91,44 @@ func getStructInfoFromBTF(t btf.Type) (*structInfo, error) {
 	return nil, fmt.Errorf("unsupported type: %s", t)
 }
 
-func memberOffsets(members []btf.Member) map[string]uint32 {
-	unions := 0
-	offsets := make(map[string]uint32, len(members))
+func dotConcat(x, y string) string {
+	dot := ""
+	if x != "" && y != "" {
+		dot = "."
+	}
+	return x + dot + y
+}
+
+func _memberOffsets(members []btf.Member, offsets map[string]uint32, currOffset uint32, prefix string) {
+	anonUnions := 0
+	anonStructs := 0
+
 	for _, member := range members {
-		n := member.Name
-		// Create surrogate names ($union0, $union1, etc) for unnamed union members.
-		if n == "" {
+		memberName := member.Name
+		if memberName == "" {
 			if _, ok := member.Type.(*btf.Union); ok {
-				n = fmt.Sprintf("$union%d", unions)
-				unions++
+				memberName = fmt.Sprintf("$union%d", anonUnions)
+				anonUnions++
+			} else if _, ok := member.Type.(*btf.Struct); ok {
+				memberName = fmt.Sprintf("$struct%d", anonStructs)
+				anonStructs++
 			}
 		}
-		offsets[n] = uint32(member.Offset.Bytes())
-	}
 
+		fullName := dotConcat(prefix, memberName)
+		offset := uint32(member.Offset.Bytes())
+		if typ, ok := member.Type.(*btf.Union); ok {
+			_memberOffsets(typ.Members, offsets, currOffset+offset, fullName)
+		} else if typ, ok := member.Type.(*btf.Struct); ok {
+			_memberOffsets(typ.Members, offsets, currOffset+offset, fullName)
+		}
+		offsets[fullName] = currOffset + offset
+	}
+}
+
+func memberOffsets(members []btf.Member) map[string]uint32 {
+	offsets := make(map[string]uint32, len(members))
+	_memberOffsets(members, offsets, 0, "")
 	return offsets
 }
 
@@ -132,10 +155,12 @@ func check(name string, toCheck []reflect.Type, structs map[string]*structInfo, 
 				continue
 			}
 			goOffset := uint32(g.Field(i).Offset)
-			cOffset := c.fieldOffsets[fieldName]
-			if goOffset != cOffset {
-				return fmt.Errorf("%s.%s offset(%d) does not match %s.%s(%d)",
-					g, g.Field(i).Name, goOffset, name, fieldName, cOffset)
+			if cOffset, ok := c.fieldOffsets[fieldName]; !ok {
+				return fmt.Errorf("%s.%s does not match any field (should match %s.%s) [debug=%v]",
+					g, g.Field(i).Name, name, fieldName, c.fieldOffsets)
+			} else if goOffset != cOffset {
+				return fmt.Errorf("%s.%s offset(%d) does not match %s.%s(%d) [debug=%v]",
+					g, g.Field(i).Name, goOffset, name, fieldName, cOffset, c.fieldOffsets)
 			}
 		}
 	}

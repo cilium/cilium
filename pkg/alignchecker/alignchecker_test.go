@@ -22,6 +22,25 @@ func TestAlignChecker(t *testing.T) {
 		_ foo
 	}
 
+	type foo3 struct {
+		_ [4]uint32 `align:"$union0.ip6"`
+		_ uint32    `align:"$union1.p2"`
+		_ uint8     `align:"family"`
+		_ uint8     `align:"pad4"`
+		_ uint16    `align:"pad5"`
+	}
+
+	type foo4 struct {
+		_ uint32 `align:"$union0.$struct0.ip4"`
+		_ uint32 `align:"$union0.$struct0.pad1"`
+		_ uint32 `align:"$union0.$struct0.pad2"`
+		_ uint32 `align:"$union0.$struct0.pad3"`
+		_ uint32 `align:"$union1.p1"`
+		_ uint8  `align:"family"`
+		_ uint8  `align:"pad4"`
+		_ uint16 `align:"pad5"`
+	}
+
 	type fooInvalidSize struct {
 		_ uint32
 	}
@@ -60,6 +79,20 @@ func TestAlignChecker(t *testing.T) {
 			[]reflect.Type{
 				reflect.TypeOf(foo{}),
 				reflect.TypeOf(foo2{}),
+			},
+			"",
+		},
+		{
+			"foo",
+			[]reflect.Type{
+				reflect.TypeOf(foo3{}),
+			},
+			"",
+		},
+		{
+			"foo",
+			[]reflect.Type{
+				reflect.TypeOf(foo4{}),
 			},
 			"",
 		},
