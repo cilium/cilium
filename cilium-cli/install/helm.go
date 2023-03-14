@@ -284,7 +284,7 @@ func (k *K8sInstaller) generateManifests(ctx context.Context) error {
 	if len(apiVersions) == 0 {
 		gvs, err := k.client.ListAPIResources(ctx)
 		if err != nil {
-			k.Log("⚠️ Unable to list kubernetes api resources, try --api-versions if needed: %w", err)
+			k.Log("⚠️ Unable to list kubernetes api resources, try --api-versions if needed: %s", err)
 		}
 		for _, gv := range gvs {
 			switch gv {
