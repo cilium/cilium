@@ -13,8 +13,8 @@ import (
 
 func TestCheckVersion(t *testing.T) {
 	tests := []struct {
-		name string
-		want bool
+		version string
+		valid   bool
 	}{
 		{"0.0.1", true},
 		{"v0.0.1", true},
@@ -43,9 +43,12 @@ func TestCheckVersion(t *testing.T) {
 		{"-ci:92ff7ffa762f6f8bc397a28e6f3147906e20e8fa@sha256:4fde4abc19a1cbedb5084f683f5d91c0ea04b964a029e6d0ba43961e1ff5b5d8", true},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := CheckVersion(tt.name); got != tt.want {
-				t.Errorf("CheckVersion() = %v, want %v", got, tt.want)
+		t.Run(tt.version, func(t *testing.T) {
+			err := CheckVersion(tt.version)
+			if err != nil && tt.valid {
+				t.Errorf("CheckVersion(%q) = %v, want no error", tt.version, err)
+			} else if err == nil && !tt.valid {
+				t.Errorf("CheckVersion(%q) returned no error, want an error", tt.version)
 			}
 		})
 	}

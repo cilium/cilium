@@ -391,8 +391,8 @@ func (p *Parameters) validate() error {
 	}
 	if p.AgentImage != "" || p.OperatorImage != "" || p.RelayImage != "" {
 		return nil
-	} else if !utils.CheckVersion(p.Version) && p.Version != "" {
-		return fmt.Errorf("invalid syntax %q for image tag", p.Version)
+	} else if err := utils.CheckVersion(p.Version); err != nil {
+		return err
 	}
 
 	return nil

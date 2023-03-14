@@ -148,13 +148,13 @@ func (p *Parameters) Log(format string, a ...interface{}) {
 
 func (p *Parameters) validateParams() error {
 	if p.RelayImage == defaults.RelayImage {
-		if !utils.CheckVersion(p.RelayVersion) && p.RelayVersion != "" {
-			return fmt.Errorf("invalid syntax %q for image tag", p.RelayVersion)
+		if err := utils.CheckVersion(p.RelayVersion); err != nil {
+			return err
 		}
 	}
 	if p.UIImage == defaults.HubbleUIImage || p.UIBackendImage == defaults.HubbleUIBackendImage {
-		if !utils.CheckVersion(p.UIVersion) && p.UIVersion != "" {
-			return fmt.Errorf("invalid syntax %q for image tag", p.UIVersion)
+		if err := utils.CheckVersion(p.UIVersion); err != nil {
+			return err
 		}
 	}
 	return nil
