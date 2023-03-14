@@ -319,7 +319,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		st4 = "IPv4: " + st4
 		for ip := range allocv4 {
 			// XXX: only consider default pool for now
-			owner, _ := ipam.owner[PoolDefault][ip]
+			owner := ipam.getIPOwner(ip, PoolDefault)
 			// If owner is not available, report IP but leave owner empty
 			allocv4[ip] = owner
 		}
@@ -330,7 +330,7 @@ func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, 
 		st6 = "IPv6: " + st6
 		for ip := range allocv6 {
 			// XXX: only consider default pool for now
-			owner, _ := ipam.owner[PoolDefault][ip]
+			owner := ipam.getIPOwner(ip, PoolDefault)
 			// If owner is not available, report IP but leave owner empty
 			allocv6[ip] = owner
 		}
