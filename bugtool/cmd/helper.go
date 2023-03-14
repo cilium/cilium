@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type tarWriter interface {
@@ -22,14 +24,14 @@ type tarWriter interface {
 	WriteHeader(hdr *tar.Header) error
 }
 
-type walker struct {
+type Walker struct {
 	baseDir, dbgDir string
 	output          tarWriter
 	log             io.Writer
 }
 
-func newWalker(baseDir, dbgDir string, output tarWriter, logger io.Writer) *walker {
-	return &walker{
+func NewWalker(baseDir, dbgDir string, output tarWriter, logger io.Writer) *Walker {
+	return &Walker{
 		baseDir: baseDir,
 		dbgDir:  dbgDir,
 		output:  output,
@@ -37,7 +39,7 @@ func newWalker(baseDir, dbgDir string, output tarWriter, logger io.Writer) *walk
 	}
 }
 
-func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
+func (w *Walker) WalkPath(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		fmt.Fprintf(w.log, "Error while walking path %s: %s", path, err)
 		return nil
@@ -57,7 +59,7 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	defer file.Close()
 
 	if info.IsDir() {
-		fmt.Fprintf(w.log, "Skipping directory %s\n", info.Name())
+		log.Debugf("Skipping directory %s", info.Name())
 		return nil
 	}
 
@@ -91,7 +93,7 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	return err
 }
 
-func createArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
+func CreateArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	// Based on https://blog.ralch.com/articles/golang-working-with-tar-and-gzip/
 	file := os.Stdout
 	archivePath := "STDOUT"
@@ -117,13 +119,13 @@ func createArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
 		baseDir = filepath.Base(dbgDir)
 	}
 
-	walker := newWalker(baseDir, dbgDir, writer, os.Stderr)
-	return archivePath, filepath.Walk(dbgDir, walker.walkPath)
+	walker := NewWalker(baseDir, dbgDir, writer, os.Stderr)
+	return archivePath, filepath.Walk(dbgDir, walker.WalkPath)
 }
 
-func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
+func CreateGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	// Based on https://blog.ralch.com/articles/golang-working-with-tar-and-gzip/
-	source, err := createArchive(dbgDir, false)
+	source, err := CreateArchive(dbgDir, false)
 	if err != nil {
 		return "", err
 	}
@@ -163,9 +165,9 @@ func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
 // `auth` pattern.
 var isEncryptionKey = regexp.MustCompile("(auth|enc|aead|comp)(.*[[:blank:]](0[xX][[:xdigit:]]+))?")
 
-// hashEncryptionKeys processes the buffer containing the output of `ip -s xfrm state`.
+// HashEncryptionKeys processes the buffer containing the output of `ip -s xfrm state`.
 // It searches for IPsec keys in the output and replaces them by their hash.
-func hashEncryptionKeys(output []byte) []byte {
+func HashEncryptionKeys(output []byte) []byte {
 	var b bytes.Buffer
 	lines := bytes.Split(output, []byte("\n"))
 	// Search for lines containing encryption keys.

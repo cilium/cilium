@@ -4,15 +4,16 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/cilium/cilium/bugtool/cmd"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	if err := cmd.BugtoolRootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.WithError(err).Fatal("failed to run root command")
 		os.Exit(1)
 	}
 }

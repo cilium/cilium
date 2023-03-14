@@ -20,8 +20,12 @@ import (
 	"time"
 
 	"github.com/cilium/workerpool"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/bugtool/configuration"
+	"github.com/cilium/cilium/bugtool/options"
 	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
@@ -45,7 +49,29 @@ var BugtoolRootCmd = &cobra.Command{
 	$ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
 	$ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar`,
 	Run: func(cmd *cobra.Command, args []string) {
-		runTool()
+		// Create config and parse flags
+		config := &options.Config{}
+		flags := &pflag.FlagSet{}
+		config.Flags(flags)
+		if err := flags.Parse(args[:]); err != nil {
+			if errors.Is(err, pflag.ErrHelp) {
+				os.Exit(0)
+			}
+			log.Fatalf("Failed to parse flags: %s", err)
+		}
+
+		// Create v2 Bugtool.
+		bugtoolV2 := CreateBugtool(config)
+
+		// Create dump config tree.
+		root := configuration.CreateDump(config)
+
+		// Run tool.
+		bugtoolV2.runTool(
+			cmd.Context(),
+			config,
+			root,
+		)
 	},
 }
 
@@ -189,7 +215,7 @@ func runTool() {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
 		os.Exit(1)
 	}
-	defer cleanup(dbgDir)
+	defer cleanup(dbgDir, archive)
 	cmdDir := createDir(dbgDir, "cmd")
 	confDir := createDir(dbgDir, "conf")
 
@@ -245,14 +271,14 @@ func runTool() {
 	if archive {
 		switch archiveType {
 		case "gz":
-			gzipPath, err := createGzip(dbgDir, sendArchiveToStdout)
+			gzipPath, err := CreateGzip(dbgDir, sendArchiveToStdout)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to create gzip %s\n", err)
 				os.Exit(1)
 			}
 			fmt.Fprintf(os.Stderr, "\nGZIP at %s\n", gzipPath)
 		case "tar":
-			archivePath, err := createArchive(dbgDir, sendArchiveToStdout)
+			archivePath, err := CreateArchive(dbgDir, sendArchiveToStdout)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
 				os.Exit(1)
@@ -278,7 +304,7 @@ func printDisclaimer() {
 	fmt.Fprint(os.Stderr, disclaimer)
 }
 
-func cleanup(dbgDir string) {
+func cleanup(dbgDir string, archive bool) {
 	if archive {
 		var files []string
 
@@ -335,7 +361,7 @@ func runAll(commands []string, cmdDir string, k8sPods []string) {
 			if strings.Contains(cmd, "xfrm state") {
 				//  Output of 'ip -s xfrm state' needs additional processing to replace
 				// raw keys by their hash.
-				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, hashEncryptionKeys)
+				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, HashEncryptionKeys)
 			} else {
 				writeCmdToFile(cmdDir, cmd, k8sPods, enableMarkdown, nil)
 			}

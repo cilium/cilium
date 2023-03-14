@@ -68,14 +68,14 @@ func (b *BugtoolSuite) TearDownSuite(c *C) {
 // back out and continue with the filepath walk. This allows gathering of other
 // information in a bugtool run when there's an issue with a particular file.
 func (b *BugtoolSuite) TestWalkPath(c *C) {
-	w := newWalker(baseDir, tmpDir, &dummyTarWriter{}, &logWrapper{c.Logf})
+	w := NewWalker(baseDir, tmpDir, &dummyTarWriter{}, &logWrapper{c.Logf})
 	c.Assert(w, NotNil)
 
 	// Invalid paths
 	invalidFile := "doesnotexist"
-	err := w.walkPath(invalidFile, nil, nil)
+	err := w.WalkPath(invalidFile, nil, nil)
 	c.Assert(err, IsNil)
-	err = w.walkPath(invalidFile, nil, fmt.Errorf("ignore me please"))
+	err = w.WalkPath(invalidFile, nil, fmt.Errorf("ignore me please"))
 	c.Assert(err, IsNil)
 
 	// Invalid symlink
@@ -86,7 +86,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, NotNil)
 	info, err := os.Lstat(invalidLink)
 	c.Assert(err, IsNil)
-	err = w.walkPath(invalidLink, info, nil)
+	err = w.WalkPath(invalidLink, info, nil)
 	c.Assert(err, IsNil)
 
 	// With real file
@@ -94,7 +94,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, IsNil)
 	info, err = os.Stat(realFile.Name())
 	c.Assert(err, IsNil)
-	err = w.walkPath(realFile.Name(), info, nil)
+	err = w.WalkPath(realFile.Name(), info, nil)
 	c.Assert(err, IsNil)
 
 	// With real link to real file
@@ -103,7 +103,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, IsNil)
 	info, err = os.Lstat(realLink)
 	c.Assert(err, IsNil)
-	err = w.walkPath(realLink, info, nil)
+	err = w.WalkPath(realLink, info, nil)
 	c.Assert(err, IsNil)
 
 	// With directory
@@ -111,7 +111,7 @@ func (b *BugtoolSuite) TestWalkPath(c *C) {
 	c.Assert(err, IsNil)
 	info, err = os.Stat(nestedDir)
 	c.Assert(err, IsNil)
-	err = w.walkPath(nestedDir, info, nil)
+	err = w.WalkPath(nestedDir, info, nil)
 	c.Assert(err, IsNil)
 }
 
@@ -143,7 +143,7 @@ func (b *BugtoolSuite) TestHashEncryptionKeys(c *C) {
 	}
 
 	for _, v := range testdata {
-		modifiedString := hashEncryptionKeys([]byte(v.input))
+		modifiedString := HashEncryptionKeys([]byte(v.input))
 		c.Assert(string(modifiedString), Equals, v.output)
 	}
 }
