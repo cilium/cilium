@@ -473,6 +473,20 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
 		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
 
+		By("Check whether svc flows are not interrupted upon cilium-agent restart")
+		ciliumFilter := "k8s-app=cilium"
+		res = kubectl.Exec(fmt.Sprintf(
+			"%s -n %s delete pods -l %s",
+			helpers.KubectlCmd, helpers.CiliumNamespace, ciliumFilter))
+		res.ExpectSuccess("Failed to delete cilium pods")
+		ExpectAllPodsTerminated(kubectl)
+		err = kubectl.WaitforPods(
+			helpers.CiliumNamespace, fmt.Sprintf("-l %s", ciliumFilter), helpers.HelperTimeout)
+		Expect(err).Should(BeNil(), "Pods are not ready after timeout")
+		err = kubectl.CiliumEndpointWaitReady()
+		Expect(err).To(BeNil(), "Endpoints are not ready after timeout")
+		checkNoInteruptsInSVCFlows()
+
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
 		// cilium with in this updates test.
