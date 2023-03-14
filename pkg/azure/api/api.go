@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -189,6 +190,10 @@ func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface
 		result2, err2 := c.interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete(ctx, c.resourceGroup, *scaleset.Name)
 		c.metricsAPI.ObserveAPICall("Interfaces.ListVirtualMachineScaleSetNetworkInterfacesComplete", deriveStatus(err2), sinceStart.Seconds())
 		if err2 != nil {
+			// For scale set created by AKS node group (otherwise it will return an empty list) without any instances API will return not found. Then it can be skipped.
+			if v, ok := err2.(autorest.DetailedError); ok && v.StatusCode == http.StatusNotFound {
+				continue
+			}
 			return nil, err2
 		}
 
