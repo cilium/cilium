@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -47,22 +48,22 @@ type AllocationResult struct {
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string) (*AllocationResult, error)
+	Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
 
 	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
 	// upstream or fails
-	AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error)
+	AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
-	Release(ip net.IP) error
+	Release(ip net.IP, pool Pool) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available
-	AllocateNext(owner string) (*AllocationResult, error)
+	AllocateNext(owner string, pool Pool) (*AllocationResult, error)
 
 	// AllocateNextWithoutSyncUpstream allocates the next available IP without syncing
 	// upstream or fails if no more IPs are available
-	AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error)
+	AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error)
 
 	// Dump returns a map of all allocated IPs with the IP represented as
 	// key in the map. Dump must also provide a status one-liner to
@@ -82,8 +83,8 @@ type IPAM struct {
 	IPv6Allocator Allocator
 	IPv4Allocator Allocator
 
-	// owner maps an IP to the owner
-	owner map[string]string
+	// owner maps an IP to the owner per pool.
+	owner map[Pool]map[string]string
 
 	// expirationTimers is a map of all expiration timers. Each entry
 	// represents a IP allocation which is protected by an expiration
@@ -93,7 +94,8 @@ type IPAM struct {
 	// mutex covers access to all members of this struct
 	allocatorMutex lock.RWMutex
 
-	// excludedIPS contains excluded IPs and their respective owners.
+	// excludedIPS contains excluded IPs and their respective owners per pool. The key is a
+	// combination pool:ip to avoid having to maintain a map of maps.
 	excludedIPs map[string]string
 }
 
@@ -125,3 +127,14 @@ func (ipam *IPAM) GetVpcCIDRs() (vpcCIDRs []*cidr.CIDR) {
 	}
 	return append(secondary, primary)
 }
+
+// Pool is the the IP pool from which to allocate.
+type Pool string
+
+func (p Pool) String() string {
+	return string(p)
+}
+
+const (
+	PoolDefault Pool = ipamOption.PoolDefault
+)

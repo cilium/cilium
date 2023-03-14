@@ -239,20 +239,6 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # define VTEP_MASK 0xffffff
 #endif
 
-/* It appears that we can support around the below number of prefixes in an
- * unrolled loop for LPM CIDR handling in older kernels along with the rest of
- * the logic in the datapath, hence the defines below. This number was arrived
- * to by adjusting the number of prefixes and running:
- *
- *    $ make -C bpf && sudo test/bpf/verifier-test.sh
- *
- *  If you're from a future where all supported kernels include LPM map type,
- *  consider deprecating the hash-based CIDR lookup and removing the below.
- */
-#define IPCACHE4_PREFIXES 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, \
-4, 3, 2, 1
-#define IPCACHE6_PREFIXES 4, 3, 2, 1
-
 #define VLAN_FILTER(ifindex, vlan_id) switch (ifindex) { \
 case 116: \
 switch (vlan_id) { \

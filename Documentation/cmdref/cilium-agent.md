@@ -240,7 +240,7 @@ cilium-agent [flags]
       --policy-queue-size int                                   Size of queues for policy-related events (default 100)
       --pprof                                                   Enable serving pprof debugging API
       --pprof-address string                                    Address that pprof listens on (default "localhost")
-      --pprof-port int                                          Port that pprof listens on (default 6060)
+      --pprof-port uint16                                       Port that pprof listens on (default 6060)
       --preallocate-bpf-maps                                    Enable BPF map pre-allocation (default true)
       --prepend-iptables-chains                                 Prepend custom iptables chains instead of appending (default true)
       --procfs string                                           Root's proc filesystem path (default "/proc")
@@ -262,7 +262,7 @@ cilium-agent [flags]
       --tofqdns-endpoint-max-ip-per-hostname int                Maximum number of IPs to maintain per FQDN name for each endpoint (default 50)
       --tofqdns-idle-connection-grace-period duration           Time during which idle but previously active connections with expired DNS lookups are still considered alive (default 0s)
       --tofqdns-max-deferred-connection-deletes int             Maximum number of IPs to retain for expired DNS lookups with still-active connections (default 10000)
-      --tofqdns-min-ttl int                                     The minimum time, in seconds, to use DNS data for toFQDNs policies. (default 3600 )
+      --tofqdns-min-ttl int                                     The minimum time, in seconds, to use DNS data for toFQDNs policies
       --tofqdns-pre-cache string                                DNS cache data at this path is preloaded on agent startup
       --tofqdns-proxy-port int                                  Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration               The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)

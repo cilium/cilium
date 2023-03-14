@@ -17,21 +17,6 @@ const (
 	// ClusterMeshHealthPort is the default value for option.ClusterMeshHealthPort
 	ClusterMeshHealthPort = 80
 
-	// PprofAddressAgent is the default value for pprof in the agent
-	PprofAddressAgent = "localhost"
-
-	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofAddressAPIServer = "localhost"
-
-	// PprofPortAgent is the default value for pprof in the agent
-	PprofPortAgent = 6060
-
-	// PprofPortAgent is the default value for pprof in the operator
-	PprofPortOperator = 6061
-
-	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofPortAPIServer = 6063
-
 	// GopsPortAgent is the default value for option.GopsPort in the agent
 	GopsPortAgent = 9890
 
@@ -136,7 +121,7 @@ const (
 
 	// ToFQDNsMinTTL is the default lower bound for TTLs used with ToFQDNs rules.
 	// This is used in DaemonConfig.Populate
-	ToFQDNsMinTTL = 3600 // 1 hour in seconds
+	ToFQDNsMinTTL = 0
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache

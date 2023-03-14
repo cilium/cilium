@@ -418,34 +418,34 @@ func parseVerifierState(line string) (*VerifierState, error) {
 		var value string
 
 		line = line[equal+1:]
-		if len(line) == 0 {
-			break
-		}
+		// If there are chars left after '=' find the end of the current value.
+		// If not, the current key may not have a value (R1=) which is also valid.
+		if len(line) > 1 {
+			bktDepth := 0
+			i := 0
+			for {
+				i++
+				if i >= len(line) {
+					value = line
+					line = line[i:]
+					break
+				}
 
-		bktDepth := 0
-		i := 0
-		for {
-			i++
-			if i >= len(line) {
-				value = line
-				line = line[i:]
-				break
-			}
+				if line[i] == '(' {
+					bktDepth++
+					continue
+				}
 
-			if line[i] == '(' {
-				bktDepth++
-				continue
-			}
+				if line[i] == ')' {
+					bktDepth--
+					continue
+				}
 
-			if line[i] == ')' {
-				bktDepth--
-				continue
-			}
-
-			if line[i] == ' ' && bktDepth == 0 {
-				value = line[:i]
-				line = line[i+1:]
-				break
+				if line[i] == ' ' && bktDepth == 0 {
+					value = line[:i]
+					line = line[i+1:]
+					break
+				}
 			}
 		}
 

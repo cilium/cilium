@@ -274,25 +274,28 @@ included.
 Unintended DNS Policy Drops
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``toFQDNSs`` policy enforcement relies on the source POD performing a DNS query
-before using an IP address returned in the DNS response. Sometimes PODs may hold
+``toFQDNSs`` policy enforcement relies on the source pod performing a DNS query
+before using an IP address returned in the DNS response. Sometimes pods may hold
 on to a DNS response and start new connections to the same IP address at a later
-time. This may trigger policy drops if the DNS response has expired as
-requested by the DNS server in the time-to-live (TTL) value in the
-response. When DNS is used for service load balancing the advertised TTL value
-may be short (e.g., 60 seconds). To allow for reasonable POD behavior without
-unintended policy drops Cilium employs a configurable minimum DNS TTL value via
-``--tofqdns-min-ttl`` which defaults to 3600 seconds. This setting overrides
-short TTLs and allows the POD to use the IP address in the DNS response for one
-hour. Existing connections also keep the IP address as allowed in the
-policy. Any new connections opened by the POD using the same IP address without
-performing a new DNS query after the (possibly extended) DNS TTL has expired
-can be dropped by Cilium policy enforcement. To allow PODs to use the DNS
-response after TTL expiry for new connections a command line option
-``--tofqdns-idle-connection-grace-period`` may be used to keep the
-IP-address/name mapping valid in the policy for an extended time after DNS TTL
-expiry. This option takes effect only if the POD has opened at least one
-connection during the DNS TTL period.
+time. This may trigger policy drops if the DNS response has expired as requested
+by the DNS server in the time-to-live (TTL) value in the response. When DNS is
+used for service load balancing the advertised TTL value may be short (e.g., 60
+seconds).
+
+Cilium honors the TTL values returned by the DNS server by default, but you can
+override them by setting a minimum TTL using ``--tofqdns-min-ttl`` flag. This
+setting overrides short TTLs and allows the pod to use the IP address in the DNS
+response for a longer duration. Existing connections also keep the IP address as
+allowed in the policy.
+
+Any new connections opened by the pod using the same IP address without
+performing a new DNS query after the (possibly extended) DNS TTL has expired are
+dropped by Cilium policy enforcement. To allow pods to use the DNS response
+after TTL expiry for new connections, a command line option
+``--tofqdns-idle-connection-grace-period`` may be used to keep the IP address /
+name mapping valid in the policy for an extended time after DNS TTL expiry. This
+option takes effect only if the pod has opened at least one connection during
+the DNS TTL period.
 
 Datapath Plumbing
 ~~~~~~~~~~~~~~~~~

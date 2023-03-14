@@ -113,7 +113,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.DatapathPolicyRevision: e.policyRevision,
 		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 		logfields.IPv4:                   e.GetIPv4Address(),
-		logfields.IPv6:                   e.GetIPv4Address(),
+		logfields.IPv6:                   e.GetIPv6Address(),
 		logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
 	})
 
@@ -171,7 +171,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 			logfields.DatapathPolicyRevision: e.policyRevision,
 			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 			logfields.IPv4:                   e.GetIPv4Address(),
-			logfields.IPv6:                   e.GetIPv4Address(),
+			logfields.IPv6:                   e.GetIPv6Address(),
 			logfields.K8sPodName:             e.getK8sNamespaceAndPodName(),
 		})
 

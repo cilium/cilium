@@ -149,6 +149,19 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 
 func newOperatorHive() *hive.Hive {
 	h := hive.New(
+		pprof.Cell,
+		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
+			return pprof.Config{
+				Pprof:        cfg.OperatorPprof,
+				PprofAddress: cfg.OperatorPprofAddress,
+				PprofPort:    cfg.OperatorPprofPort,
+			}
+		}),
+		cell.Config(operatorPprofConfig{
+			OperatorPprofAddress: operatorOption.PprofAddressOperator,
+			OperatorPprofPort:    operatorOption.PprofPortOperator,
+		}),
+
 		gops.Cell(defaults.GopsPortOperator),
 		k8sClient.Cell,
 		OperatorCell,
@@ -266,10 +279,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 
 	if operatorOption.Config.EnableMetrics {
 		operatorMetrics.Register()
-	}
-
-	if operatorOption.Config.PProf {
-		pprof.Enable(operatorOption.Config.PProfAddress, operatorOption.Config.PProfPort)
 	}
 
 	if clientset.IsEnabled() {

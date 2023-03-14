@@ -5,7 +5,7 @@ package seven
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"sort"
 	"time"
 
@@ -89,8 +89,11 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 
 	ip := decodeIP(r.IPVersion, r.SourceEndpoint, r.DestinationEndpoint)
 
-	sourceIP := net.ParseIP(ip.Source)
-	destinationIP := net.ParseIP(ip.Destination)
+	// Ignore IP parsing errors as IPs can be empty. Getters will handle invalid values.
+	// Flows with empty IPs have been observed in practice, but it was not clear what kind of flows
+	// those are - errors handling here should be revisited once it's clear.
+	sourceIP, _ := netip.ParseAddr(ip.Source)
+	destinationIP, _ := netip.ParseAddr(ip.Destination)
 	var sourceNames, destinationNames []string
 	var sourceNamespace, sourcePod, destinationNamespace, destinationPod string
 	if p.dnsGetter != nil {
@@ -206,7 +209,7 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 	return 0
 }
 
-func (p *Parser) updateEndpointWorkloads(ip net.IP, endpoint *flowpb.Endpoint) {
+func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *flowpb.Endpoint) {
 	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
 		if pod := ep.GetPod(); pod != nil {
 			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)

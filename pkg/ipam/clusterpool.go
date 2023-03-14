@@ -708,12 +708,12 @@ func newClusterPoolAllocator(family Family, conf Configuration, owner Owner, k8s
 	}
 }
 
-func (c *clusterPoolAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (c *clusterPoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	defer sharedCRDWatcher.triggerWithReason("allocation of IP")
-	return c.AllocateWithoutSyncUpstream(ip, owner)
+	return c.AllocateWithoutSyncUpstream(ip, owner, pool)
 }
 
-func (c *clusterPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (c *clusterPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
 	if err := c.pool.allocate(ip); err != nil {
 		return nil, err
 	}
@@ -721,12 +721,12 @@ func (c *clusterPoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner stri
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (c *clusterPoolAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (c *clusterPoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
 	defer sharedCRDWatcher.triggerWithReason("allocation of next IP")
-	return c.AllocateNextWithoutSyncUpstream(owner)
+	return c.AllocateNextWithoutSyncUpstream(owner, pool)
 }
 
-func (c *clusterPoolAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (c *clusterPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error) {
 	ip, err := c.pool.allocateNext()
 	if err != nil {
 		return nil, err
@@ -735,7 +735,7 @@ func (c *clusterPoolAllocator) AllocateNextWithoutSyncUpstream(owner string) (*A
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (c *clusterPoolAllocator) Release(ip net.IP) error {
+func (c *clusterPoolAllocator) Release(ip net.IP, pool Pool) error {
 	defer sharedCRDWatcher.triggerWithReason("release of IP")
 	return c.pool.release(ip)
 }

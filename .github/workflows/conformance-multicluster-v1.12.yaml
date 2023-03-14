@@ -341,8 +341,8 @@ jobs:
             --collect-sysdump-on-failure \
             --test '!/pod-to-.*-nodeport' \
             --test '!no-policies/pod-to-service' \
-            --test '!/pod-to-cidr' \
-            --external-target google.com
+            --external-target google.com \
+            --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4
         # TODO: Remove `no-policies/pod-to-service` test exception (unreliable
         # on clustermesh) once https://github.com/cilium/cilium-cli/issues/600
         # is fixed.

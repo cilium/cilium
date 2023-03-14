@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -83,6 +84,7 @@ type Configuration struct {
 	ipcacheTypes.PolicyHandler
 	ipcacheTypes.DatapathHandler
 	ipcacheTypes.NodeHandler
+	k8s.CacheStatus
 }
 
 // IPCache is a collection of mappings:
@@ -114,9 +116,7 @@ type IPCache struct {
 	// is then swapped in place while 'mutex' is being held.
 	namedPorts types.NamedPortMultiMap
 
-	// k8sSyncedChecker knows how to check for whether the K8s watcher cache
-	// has been fully synced.
-	k8sSyncedChecker k8sSyncedChecker
+	cacheStatus k8s.CacheStatus
 
 	// Configuration provides pointers towards other agent components that
 	// the IPCache relies upon at runtime.
@@ -791,12 +791,6 @@ func (ipc *IPCache) LookupByHostRLocked(hostIPv4, hostIPv6 net.IP) (cidrs []net.
 	return cidrs
 }
 
-// RegisterK8sWaiter registers the object that checks for wehther the K8s cache
-// has been fully synced.
-func (ipc *IPCache) RegisterK8sSyncedChecker(c k8sSyncedChecker) {
-	ipc.k8sSyncedChecker = c
-}
-
 // Equal returns true if two K8sMetadata pointers contain the same data or are
 // both nil.
 func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
@@ -816,8 +810,10 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
 
-// k8sCacheIsSynced is an interface for checking if the K8s watcher cache has
-// been fully synced.
-type k8sSyncedChecker interface {
-	K8sCacheIsSynced() bool
+func (ipc *IPCache) ForEachListener(f func(listener IPIdentityMappingListener)) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	for _, listener := range ipc.listeners {
+		f(listener)
+	}
 }

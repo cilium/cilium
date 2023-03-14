@@ -311,6 +311,12 @@ Annotations:
 
 1.14 Upgrade Notes
 ------------------
+* The default value of ``--tofqdns-min-ttl`` has changed from 3600 seconds to
+  zero. This means Cilium DNS network policy now honors the TTLs returned from
+  the upstream DNS server by default. Explicitly configure ``--tofqdns-min-ttl``
+  if you need to preserve the previous DNS network policy behavior that lets
+  applications create new connections after the TTL specified by the upstream
+  DNS server is expired.
 
 Added Metrics
 ~~~~~~~~~~~~~

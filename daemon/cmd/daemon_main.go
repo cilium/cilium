@@ -53,6 +53,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -79,7 +80,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -760,15 +760,6 @@ func initializeFlags() {
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(Vp, option.Version)
 
-	flags.Bool(option.PProf, false, "Enable serving pprof debugging API")
-	option.BindEnv(Vp, option.PProf)
-
-	flags.String(option.PProfAddress, defaults.PprofAddressAgent, "Address that pprof listens on")
-	option.BindEnv(Vp, option.PProfAddress)
-
-	flags.Int(option.PProfPort, defaults.PprofPortAgent, "Port that pprof listens on")
-	option.BindEnv(Vp, option.PProfPort)
-
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(Vp, option.EnableXDPPrefilter)
 
@@ -835,7 +826,7 @@ func initializeFlags() {
 	flags.MarkHidden(option.CMDRef)
 	option.BindEnv(Vp, option.CMDRef)
 
-	flags.Int(option.ToFQDNsMinTTL, 0, fmt.Sprintf("The minimum time, in seconds, to use DNS data for toFQDNs policies. (default %d )", defaults.ToFQDNsMinTTL))
+	flags.Int(option.ToFQDNsMinTTL, defaults.ToFQDNsMinTTL, "The minimum time, in seconds, to use DNS data for toFQDNs policies")
 	option.BindEnv(Vp, option.ToFQDNsMinTTL)
 
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
@@ -1211,10 +1202,6 @@ func initEnv() {
 			log.Fatalf("Envoy version %s does not match with required version %s ,aborting.",
 				envoyVersionArray[2], envoy.RequiredEnvoyVersionSHA)
 		}
-	}
-
-	if option.Config.PProf {
-		pprof.Enable(option.Config.PProfAddress, option.Config.PProfPort)
 	}
 
 	if option.Config.PreAllocateMaps {
@@ -1647,25 +1634,31 @@ var daemonCell = cell.Module(
 	"Legacy Daemon",
 
 	cell.Provide(newDaemonPromise),
+	cell.Provide(func() k8s.CacheStatus { return make(k8s.CacheStatus) }),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
 )
 
 type daemonParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
-	Clientset       k8sClient.Clientset
-	Datapath        datapath.Datapath
-	WGAgent         *wg.Agent `optional:"true"`
-	LocalNodeStore  node.LocalNodeStore
-	BGPController   *bgpv1.Controller
-	Shutdowner      hive.Shutdowner
-	SharedResources k8s.SharedResources
-	NodeManager     nodeManager.NodeManager
-	EndpointManager endpointmanager.EndpointManager
-	CertManager     certificatemanager.CertificateManager
-	SecretManager   certificatemanager.SecretManager
-	AuthManager     auth.Manager
+	Lifecycle         hive.Lifecycle
+	Clientset         k8sClient.Clientset
+	Datapath          datapath.Datapath
+	WGAgent           *wg.Agent `optional:"true"`
+	LocalNodeStore    node.LocalNodeStore
+	BGPController     *bgpv1.Controller
+	Shutdowner        hive.Shutdowner
+	SharedResources   k8s.SharedResources
+	CacheStatus       k8s.CacheStatus
+	NodeManager       nodeManager.NodeManager
+	EndpointManager   endpointmanager.EndpointManager
+	CertManager       certificatemanager.CertificateManager
+	SecretManager     certificatemanager.SecretManager
+	AuthManager       auth.Manager
+	IdentityAllocator CachingIdentityAllocator
+	Policy            *policy.Repository
+	PolicyUpdater     *policy.Updater
+	IPCache           *ipcache.IPCache
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1698,7 +1691,13 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.CertManager,
 				params.SecretManager,
 				params.LocalNodeStore,
-				params.AuthManager)
+				params.AuthManager,
+				params.CacheStatus,
+				params.IPCache,
+				params.IdentityAllocator,
+				params.Policy,
+				params.PolicyUpdater,
+			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)
 			}
@@ -1749,7 +1748,7 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	if params.Clientset.IsEnabled() {
 		// Wait only for certain caches, but not all!
 		// (Check Daemon.InitK8sSubsystem() for more info)
-		<-d.k8sCachesSynced
+		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)

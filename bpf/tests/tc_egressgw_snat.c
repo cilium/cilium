@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define HAVE_LPM_TRIE_MAP_TYPE
 #include "common.h"
 
 #include <bpf/ctx/skb.h>

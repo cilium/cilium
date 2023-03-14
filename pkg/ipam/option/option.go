@@ -50,3 +50,6 @@ const ENIPDBlockSizeIPv4 = 16
 // ENIPDBlockSizeIPv6 is the number of IPs available on an ENI IPv6 prefix. Currently, AWS only supports /80 fixed size
 // prefixes. Every /80 prefix contains 281474976710656 IP addresses.
 const ENIPDBlockSizeIPv6 = 281474976710656
+
+// PoolDefault is the default IP pool from which to allocate.
+const PoolDefault = "default"

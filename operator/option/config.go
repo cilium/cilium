@@ -37,6 +37,12 @@ const (
 
 	// CNPStatusCleanupBurstDefault is the default maximum burst for the CNP NodeStatus updates GC.
 	CNPStatusCleanupBurstDefault = 20
+
+	// PprofAddressOperator is the default value for pprof in the operator
+	PprofAddressOperator = "localhost"
+
+	// PprofPortOperator is the default value for pprof in the operator
+	PprofPortOperator = 6061
 )
 
 const (
@@ -92,15 +98,6 @@ const (
 	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
 	// metrics (pass ":Port" to bind on all interfaces, "" is off).
 	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
-
-	// PProf enabled pprof debugging endpoint
-	PProf = "operator-pprof"
-
-	// PProfAddress is the port that the pprof listens on
-	PProfAddress = "operator-pprof-address"
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort = "operator-pprof-port"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -349,15 +346,6 @@ type OperatorConfig struct {
 	OperatorAPIServeAddr        string
 	OperatorPrometheusServeAddr string
 
-	// PProf enables pprof debugging endpoint
-	PProf bool
-
-	// PProfAddress is the address that the pprof listens on
-	PProfAddress string
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort int
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
@@ -585,9 +573,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
 	c.OperatorAPIServeAddr = vp.GetString(OperatorAPIServeAddr)
 	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
-	c.PProf = vp.GetBool(PProf)
-	c.PProfAddress = vp.GetString(PProfAddress)
-	c.PProfPort = vp.GetInt(PProfPort)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)

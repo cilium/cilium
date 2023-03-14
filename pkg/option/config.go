@@ -419,15 +419,6 @@ const (
 	// Version prints the version information
 	Version = "version"
 
-	// PProf enables serving the pprof debugging API
-	PProf = "pprof"
-
-	// PProfAddress is the port that the pprof listens on
-	PProfAddress = "pprof-address"
-
-	// PProfPort is the port that the pprof listens on
-	PProfPort = "pprof-port"
-
 	// EnableXDPPrefilter enables XDP-based prefiltering
 	EnableXDPPrefilter = "enable-xdp-prefilter"
 
@@ -1272,6 +1263,12 @@ const (
 
 	// KubeProxyReplacement healthz server bind address
 	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
+
+	// PprofAddressAgent is the default value for pprof in the agent
+	PprofAddressAgent = "localhost"
+
+	// PprofPortAgent is the default value for pprof in the agent
+	PprofPortAgent = 6060
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -1690,9 +1687,6 @@ type DaemonConfig struct {
 	SocketPath                 string
 	TracePayloadlen            int
 	Version                    string
-	PProf                      bool
-	PProfAddress               string
-	PProfPort                  int
 	PrometheusServeAddr        string
 	ToFQDNsMinTTL              int
 
@@ -2991,9 +2985,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.MonitorAggregationInterval = vp.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = vp.GetInt(MonitorQueueSizeName)
 	c.MTU = vp.GetInt(MTUName)
-	c.PProf = vp.GetBool(PProf)
-	c.PProfAddress = vp.GetString(PProfAddress)
-	c.PProfPort = vp.GetInt(PProfPort)
 	c.PreAllocateMaps = vp.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = vp.GetBool(PrependIptablesChainsName)
 	c.ProcFs = vp.GetString(ProcFs)
