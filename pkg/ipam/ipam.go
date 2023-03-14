@@ -159,6 +159,15 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 	return ipam
 }
 
+// getIPOwner returns the owner for an IP in a particular pool or the empty
+// string in case the pool or IP is not registered.
+func (ipam *IPAM) getIPOwner(ip string, pool Pool) string {
+	if p, ok := ipam.owner[pool]; ok {
+		return p[ip]
+	}
+	return ""
+}
+
 // registerIPOwner registers a new owner for an IP in a particular pool.
 func (ipam *IPAM) registerIPOwner(ip net.IP, owner string, pool Pool) {
 	if _, ok := ipam.owner[pool]; !ok {
