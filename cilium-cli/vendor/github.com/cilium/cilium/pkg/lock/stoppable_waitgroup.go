@@ -58,7 +58,7 @@ func (l *StoppableWaitGroup) WaitChannel() <-chan struct{} {
 	return l.noopDone
 }
 
-// Add adds the go routine to the list of routines to that Wait() will have
+// Add adds the goroutine to the list of routines to that Wait() will have
 // to wait before it returns.
 // If the StoppableWaitGroup was stopped this will be a no-op.
 func (l *StoppableWaitGroup) Add() {
@@ -69,9 +69,9 @@ func (l *StoppableWaitGroup) Add() {
 	}
 }
 
-// Done will decrement the number of go routines the Wait() will have to wait
+// Done will decrement the number of goroutines the Wait() will have to wait
 // before it returns.
-// This function is a no-op once all go routines that have called 'Add()' have
+// This function is a no-op once all goroutines that have called 'Add()' have
 // also called 'Done()' and the StoppableWaitGroup was stopped.
 func (l *StoppableWaitGroup) Done() {
 	select {

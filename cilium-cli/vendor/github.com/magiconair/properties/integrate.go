@@ -1,4 +1,4 @@
-// Copyright 2018 Frank Schroeder. All rights reserved.
+// Copyright 2013-2022 Frank Schroeder. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -10,8 +10,9 @@ import "flag"
 // the respective key for flag.Flag.Name.
 //
 // It's use is recommended with command line arguments as in:
-// 	flag.Parse()
-// 	p.MustFlag(flag.CommandLine)
+//
+//	flag.Parse()
+//	p.MustFlag(flag.CommandLine)
 func (p *Properties) MustFlag(dst *flag.FlagSet) {
 	m := make(map[string]*flag.Flag)
 	dst.VisitAll(func(f *flag.Flag) {

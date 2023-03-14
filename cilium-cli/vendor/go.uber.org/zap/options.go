@@ -133,7 +133,8 @@ func IncreaseLevel(lvl zapcore.LevelEnabler) Option {
 }
 
 // OnFatal sets the action to take on fatal logs.
-// Deprecated: Use WithFatalHook instead.
+//
+// Deprecated: Use [WithFatalHook] instead.
 func OnFatal(action zapcore.CheckWriteAction) Option {
 	return WithFatalHook(action)
 }

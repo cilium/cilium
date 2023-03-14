@@ -1,5 +1,50 @@
 ## Changelog
 
+### [1.8.7](https://github.com/magiconair/properties/tree/v1.8.7) - 08 Dec 2022
+
+ * [PR #65](https://github.com/magiconair/properties/pull/65): Speedup Merge
+
+   Thanks to [@AdityaVallabh](https://github.com/AdityaVallabh) for the patch.
+
+ * [PR #66](https://github.com/magiconair/properties/pull/66): use github actions
+
+### [1.8.6](https://github.com/magiconair/properties/tree/v1.8.6) - 23 Feb 2022
+
+ * [PR #57](https://github.com/magiconair/properties/pull/57):Fix "unreachable code" lint error
+
+   Thanks to [@ellie](https://github.com/ellie) for the patch.
+
+ * [PR #63](https://github.com/magiconair/properties/pull/63): Make TestMustGetParsedDuration backwards compatible
+
+   This patch ensures that the `TestMustGetParsedDuration` still works with `go1.3` to make the
+   author happy until it affects real users.
+
+   Thanks to [@maage](https://github.com/maage) for the patch.
+
+### [1.8.5](https://github.com/magiconair/properties/tree/v1.8.5) - 24 Mar 2021
+
+ * [PR #55](https://github.com/magiconair/properties/pull/55): Fix: Encoding Bug in Comments
+
+   When reading comments \ are loaded correctly, but when writing they are then
+   replaced by \\. This leads to wrong comments when writing and reading multiple times.
+
+   Thanks to [@doxsch](https://github.com/doxsch) for the patch.
+
+### [1.8.4](https://github.com/magiconair/properties/tree/v1.8.4) - 23 Sep 2020
+
+ * [PR #50](https://github.com/magiconair/properties/pull/50): enhance error message for circular references
+
+   Thanks to [@sriv](https://github.com/sriv) for the patch.
+
+### [1.8.3](https://github.com/magiconair/properties/tree/v1.8.3) - 14 Sep 2020
+
+ * [PR #49](https://github.com/magiconair/properties/pull/49): Include the key in error message causing the circular reference
+
+   The change is include the key in the error message which is causing the circular
+   reference when parsing/loading the properties files.
+
+   Thanks to [@haroon-sheikh](https://github.com/haroon-sheikh) for the patch.
+
 ### [1.8.2](https://github.com/magiconair/properties/tree/v1.8.2) - 25 Aug 2020
 
  * [PR #36](https://github.com/magiconair/properties/pull/36): Escape backslash on write

@@ -169,3 +169,138 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = SocketOptionValidationError{}
+
+// Validate checks the field values on SocketOptionsOverride with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *SocketOptionsOverride) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SocketOptionsOverride with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SocketOptionsOverrideMultiError, or nil if none found.
+func (m *SocketOptionsOverride) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SocketOptionsOverride) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetSocketOptions() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SocketOptionsOverrideValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SocketOptionsOverrideValidationError{
+						field:  fmt.Sprintf("SocketOptions[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SocketOptionsOverrideValidationError{
+					field:  fmt.Sprintf("SocketOptions[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return SocketOptionsOverrideMultiError(errors)
+	}
+	return nil
+}
+
+// SocketOptionsOverrideMultiError is an error wrapping multiple validation
+// errors returned by SocketOptionsOverride.ValidateAll() if the designated
+// constraints aren't met.
+type SocketOptionsOverrideMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SocketOptionsOverrideMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SocketOptionsOverrideMultiError) AllErrors() []error { return m }
+
+// SocketOptionsOverrideValidationError is the validation error returned by
+// SocketOptionsOverride.Validate if the designated constraints aren't met.
+type SocketOptionsOverrideValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e SocketOptionsOverrideValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e SocketOptionsOverrideValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e SocketOptionsOverrideValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e SocketOptionsOverrideValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e SocketOptionsOverrideValidationError) ErrorName() string {
+	return "SocketOptionsOverrideValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e SocketOptionsOverrideValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sSocketOptionsOverride.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = SocketOptionsOverrideValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = SocketOptionsOverrideValidationError{}

@@ -210,6 +210,11 @@ func (r *Rule) RequiresDerivative() bool {
 			return true
 		}
 	}
+	for _, rule := range r.EgressDeny {
+		if rule.RequiresDerivative() {
+			return true
+		}
+	}
 	return false
 }
 
@@ -218,6 +223,7 @@ func (r *Rule) RequiresDerivative() bool {
 func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 	newRule := r.DeepCopy()
 	newRule.Egress = []EgressRule{}
+	newRule.EgressDeny = []EgressDenyRule{}
 
 	for _, egressRule := range r.Egress {
 		derivativeEgressRule, err := egressRule.CreateDerivative(ctx)
@@ -225,6 +231,14 @@ func (r *Rule) CreateDerivative(ctx context.Context) (*Rule, error) {
 			return newRule, err
 		}
 		newRule.Egress = append(newRule.Egress, *derivativeEgressRule)
+	}
+
+	for _, egressDenyRule := range r.EgressDeny {
+		derivativeEgressDenyRule, err := egressDenyRule.CreateDerivative(ctx)
+		if err != nil {
+			return newRule, err
+		}
+		newRule.EgressDeny = append(newRule.EgressDeny, *derivativeEgressDenyRule)
 	}
 	return newRule, nil
 }

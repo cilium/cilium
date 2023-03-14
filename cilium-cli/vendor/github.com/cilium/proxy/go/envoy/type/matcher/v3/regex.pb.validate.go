@@ -112,16 +112,6 @@ func (m *RegexMatcher) validate(all bool) error {
 			}
 		}
 
-	default:
-		err := RegexMatcherValidationError{
-			field:  "EngineType",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {

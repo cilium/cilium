@@ -68,7 +68,7 @@ func open(paths []string) ([]zapcore.WriteSyncer, func(), error) {
 
 	var openErr error
 	for _, path := range paths {
-		sink, err := newSink(path)
+		sink, err := _sinkRegistry.newSink(path)
 		if err != nil {
 			openErr = multierr.Append(openErr, fmt.Errorf("open sink %q: %w", path, err))
 			continue
