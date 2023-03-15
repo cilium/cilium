@@ -72,12 +72,11 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
 		verdict = auth_lookup(src_id, dst_id, node_id, (__u8)*ext_err);
 
-	/* Only create CT entry for accepted connections, or when auth is required */
-	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+	/* Only create CT entry for accepted connections */
+	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		ct_state_new.src_sec_id = HOST_ID;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
-				 verdict == DROP_POLICY_AUTH_REQUIRED);
+				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -156,14 +155,13 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
 		verdict = auth_lookup(dst_id, *src_id, node_id, (__u8)ext_err);
 
-	/* Only create CT entry for accepted connections, or when auth is required */
-	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+	/* Only create CT entry for accepted connections */
+	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_id;
 		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
-				 verdict == DROP_POLICY_AUTH_REQUIRED);
+				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -222,7 +220,7 @@ whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid,
 		if (ret == CT_NEW) {
 			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4,
 					 &tuple, ctx, CT_EGRESS, &ct_state_new,
-					 false, false, false);
+					 false, false);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -293,12 +291,11 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
 		verdict = auth_lookup(src_id, dst_id, node_id, (__u8)*ext_err);
 
-	/* Only create CT entry for accepted connections, or when auth is required */
-	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+	/* Only create CT entry for accepted connections */
+	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		ct_state_new.src_sec_id = HOST_ID;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
-				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false,
-				 verdict == DROP_POLICY_AUTH_REQUIRED);
+				 ctx, CT_EGRESS, &ct_state_new, proxy_port > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -382,14 +379,13 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id,
 	if (verdict == DROP_POLICY_AUTH_REQUIRED)
 		verdict = auth_lookup(dst_id, *src_id, node_id, (__u8)ext_err);
 
-	/* Only create CT entry for accepted connections, or when auth is required */
-	if (ret == CT_NEW && (verdict == CTX_ACT_OK || verdict == DROP_POLICY_AUTH_REQUIRED)) {
+	/* Only create CT entry for accepted connections */
+	if (ret == CT_NEW && verdict == CTX_ACT_OK) {
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *src_id;
 		ct_state_new.node_port = ct_state.node_port;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
-				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false,
-				 verdict == DROP_POLICY_AUTH_REQUIRED);
+				 ctx, CT_INGRESS, &ct_state_new, proxy_port > 0, false);
 		if (IS_ERR(ret))
 			return ret;
 	}
