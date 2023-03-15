@@ -31,6 +31,7 @@ type NetConf struct {
 	EnableDebug  bool                   `json:"enable-debug"`
 	LogFormat    string                 `json:"log-format"`
 	LogFile      string                 `json:"log-file"`
+	ChainingMode string                 `json:"chaining-mode"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration
