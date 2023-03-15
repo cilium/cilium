@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -48,14 +49,14 @@ func (k *AuthMapTestSuite) TestAuthMap(c *C) {
 
 	info, err := authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
 	c.Assert(err, IsNil)
-	c.Assert(info.Expiration, Equals, uint64(10))
+	c.Assert(info.Expiration, Equals, utime.UTime(10))
 
 	err = authMap.Update(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull, 20)
 	c.Assert(err, IsNil)
 
 	info, err = authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
 	c.Assert(err, IsNil)
-	c.Assert(info.Expiration, Equals, uint64(20))
+	c.Assert(info.Expiration, Equals, utime.UTime(20))
 
 	err = authMap.Delete(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
 	c.Assert(err, IsNil)

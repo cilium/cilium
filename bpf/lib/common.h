@@ -350,6 +350,7 @@ struct auth_key {
 	__u8        pad;
 };
 
+/* expiration is Unix epoch time in unit nanosecond/2^9 (ns/512). */
 struct auth_info {
 	__u64       expiration;
 };

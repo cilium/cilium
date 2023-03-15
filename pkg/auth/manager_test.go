@@ -145,6 +145,10 @@ func (r *fakeIPCache) GetHostIP(ip string) net.IP {
 	return r.ipHostMappings[ip]
 }
 
+func (r *fakeIPCache) AllocateNodeID(net.IP) uint16 {
+	return 0
+}
+
 // Fake AuthHandler
 
 type fakeAuthHandler struct {

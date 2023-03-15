@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -81,7 +82,7 @@ func initMap(maxEntries int, create bool) error {
 
 // Update inserts or updates the auth map object associated with the provided
 // (local identity, remote identity, remote host id, auth type) quadruple.
-func (m *Map) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration uint64) error {
+func (m *Map) Update(localIdentity identity.NumericIdentity, remoteIdentity identity.NumericIdentity, remoteNodeID uint16, authType policy.AuthType, expiration utime.UTime) error {
 	key := newAuthKey(localIdentity, remoteIdentity, remoteNodeID, authType)
 	val := AuthInfo{Expiration: expiration}
 	return m.Map.Update(key, val, 0)
@@ -158,12 +159,12 @@ func newAuthKey(localIdentity identity.NumericIdentity, remoteIdentity identity.
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type AuthInfo struct {
-	Expiration uint64 `align:"expiration"`
+	Expiration utime.UTime `align:"expiration"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF value.
 func (r *AuthInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(r) }
 
 func (r *AuthInfo) String() string {
-	return fmt.Sprintf("expiration=%d", r.Expiration)
+	return fmt.Sprintf("expiration=%q", r.Expiration)
 }
