@@ -128,7 +128,7 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (
 	}
 
 	if ipam.Address == nil {
-		return nil, nil, fmt.Errorf("Invalid IPAM response, missing addressing")
+		return nil, nil, fmt.Errorf("invalid IPAM response, missing addressing")
 	}
 
 	releaseFunc := func(context.Context) {
@@ -327,7 +327,7 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 
 	gwIP := net.ParseIP(gw)
 	if gwIP == nil {
-		return nil, nil, fmt.Errorf("Invalid gateway address: %s", gw)
+		return nil, nil, fmt.Errorf("invalid gateway address: %s", gw)
 	}
 
 	return &cniTypesV1.IPConfig{
@@ -604,7 +604,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = c.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		err = fmt.Errorf("Unable to create endpoint: %s", err)
+		err = fmt.Errorf("unable to create endpoint: %s", err)
 		return
 	}
 
