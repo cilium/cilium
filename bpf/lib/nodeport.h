@@ -303,7 +303,6 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 							NOT_VTEP_DST,
 							&gopt,
 							sizeof(gopt),
-							true,
 							(enum trace_reason)CT_NEW,
 							TRACE_PAYLOAD_LEN,
 							ifindex);
@@ -596,11 +595,6 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 #elif DSR_ENCAP_MODE == DSR_ENCAP_NONE
 	ret = dsr_set_ext6(ctx, ip6, &addr, port, &ohead);
 #elif DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	/* Currently, DSR with GENEVE implementation doesn't support IPv6
-	 * with XDP. Therefore the XDP-to-TC punt isn't needed. That is the
-	 * reason why the encap_geneve_dsr_opt6 vs encap_geneve_dsr_opt4
-	 * cases are divergent.
-	 */
 	ret = encap_geneve_dsr_opt6(ctx, ip6, &addr, port, &oif, &ohead);
 	if (!IS_ERR(ret)) {
 		if (ret == CTX_ACT_REDIRECT && oif) {
@@ -1635,7 +1629,6 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx,
 							NOT_VTEP_DST,
 							&gopt,
 							sizeof(gopt),
-							false,
 							(enum trace_reason)CT_NEW,
 							TRACE_PAYLOAD_LEN,
 							ifindex);

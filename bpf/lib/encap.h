@@ -50,8 +50,8 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel,
-				 dstid, vni, NULL, 0, false, ifindex);
+	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni,
+				 NULL, 0, ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
 				  ct_reason, monitor);
@@ -240,7 +240,7 @@ static __always_inline int
 __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 			__u32 tunnel_endpoint,
 			__u32 seclabel, __u32 dstid, __u32 vni,
-			void *opt, __u32 opt_len, bool is_ipv6,
+			void *opt, __u32 opt_len,
 			enum trace_reason ct_reason,
 			__u32 monitor, int *ifindex)
 {
@@ -258,30 +258,13 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
-	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, dstid, vni,
-				 opt, opt_len, is_ipv6, ifindex);
+	ret = ctx_set_encap_info(ctx, src_ip, src_port, node_id, seclabel, vni, opt,
+				 opt_len, ifindex);
 	if (ret == CTX_ACT_REDIRECT)
 		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, dstid, 0, *ifindex,
 				  ct_reason, monitor);
 
 	return ret;
-}
-
-static __always_inline int
-encap_and_redirect_with_nodeid_opt(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-				   __u32 seclabel, __u32 dstid, __u32 vni,
-				   void *opt, __u32 opt_len, bool is_ipv6,
-				   const struct trace_ctx *trace)
-{
-	int ifindex = 0;
-
-	int ret = __encap_with_nodeid_opt(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
-					  vni, opt, opt_len, is_ipv6,
-					  trace->reason, trace->monitor, &ifindex);
-	if (ret != CTX_ACT_REDIRECT)
-		return ret;
-
-	return ctx_redirect(ctx, ifindex, 0);
 }
 
 static __always_inline void
