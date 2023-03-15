@@ -271,6 +271,8 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 			else
 				ret = -EFAULT;
 			break;
+		case -8:  /* __u32 opt[2] */
+			break;
 		case 48: /* struct {ipv6hdr + icmp6hdr} */
 			break;
 		case 40: /* struct ipv6hdr */

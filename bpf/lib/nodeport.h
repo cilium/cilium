@@ -1368,6 +1368,9 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 		 */
 		if (!(tcp_flags.value & (TCP_FLAG_SYN)))
 			return 0;
+	} else if (ip4->protocol == IPPROTO_UDP) {
+		if(ipv4_is_not_first_fragment(ip4))
+			return 0;
 	}
 
 	if (ipv4_hdrlen(ip4) + sizeof(opt) > sizeof(struct iphdr) + MAX_IPOPTLEN)
@@ -1403,6 +1406,34 @@ static __always_inline int dsr_set_opt4(struct __ctx_buff *ctx,
 
 	return 0;
 }
+static __always_inline int dsr_clear_opt4(struct __ctx_buff *ctx,
+                    struct iphdr *ip4, struct dsr_opt_v4 *opt)
+{
+    __u32 iph_old, iph_new;
+    __u16 tot_len = bpf_ntohs(ip4->tot_len) - sizeof(struct dsr_opt_v4);
+    __be32 sum;
+
+    if (ip4->protocol == IPPROTO_TCP) {
+        return 0;
+    }
+
+    iph_old = *(__u32 *)ip4;
+    ip4->ihl -= sizeof(struct dsr_opt_v4) >> 2;
+    ip4->tot_len = bpf_htons(tot_len);
+    iph_new = *(__u32 *)ip4;
+
+    sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
+    sum = csum_diff(opt, sizeof(struct dsr_opt_v4), NULL, 0, sum);
+   
+    if (ctx_adjust_hroom(ctx, -8, BPF_ADJ_ROOM_NET,
+			     ctx_adjust_hroom_flags()))
+		return DROP_INVALID;
+
+	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
+		return DROP_CSUM_L3;
+
+    return 0;
+} 
 #endif /* DSR_ENCAP_MODE */
 
 static __always_inline int
@@ -1452,7 +1483,7 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx, struct iphdr *ip4,
 			*dsr = true;
 			*addr = bpf_ntohl(opt.addr);
 			*port = bpf_ntohs(opt.port);
-			return 0;
+			return dsr_clear_opt4(ctx,ip4,&opt);
 		}
 	}
 
