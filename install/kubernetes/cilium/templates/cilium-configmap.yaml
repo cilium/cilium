@@ -833,9 +833,10 @@ data:
 {{- end }}
 
 {{- if .Values.enableCnpStatusUpdates }}
-  disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
+  disable-cnp-status-updates: "false"
 {{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
   disable-cnp-status-updates: "true"
+  cnp-node-status-gc-interval: "0s"
 {{- end }}
 
 {{- if .Values.egressGateway.enabled }}
