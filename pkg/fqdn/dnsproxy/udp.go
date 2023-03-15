@@ -59,42 +59,51 @@ var rawconn6 *net.IPConn // raw socket for sending IPv6
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
 // The socket may be receiving both IPv4 and IPv6 data, so set both options, if enabled.
 func transparentSetsockopt(fd int, ipv4, ipv6 bool) error {
-	var err4, err6 error
 	if ipv6 {
-		err6 = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1)
-		if err6 == nil {
-			err6 = unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1)
+		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1); err != nil {
+			return fmt.Errorf("setsockopt(IPV6_TRANSPARENT) failed: %w", err)
 		}
-		if err6 != nil {
-			return err6
+		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1); err != nil {
+			return fmt.Errorf("setsockopt(IPV6_RECVORIGDSTADDR) failed: %w", err)
 		}
 	}
 	if ipv4 {
-		err4 = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1)
-		if err4 == nil {
-			err4 = unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1)
+		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1); err != nil {
+			return fmt.Errorf("setsockopt(IP_TRANSPARENT) failed: %w", err)
 		}
-		if err4 != nil {
-			return err4
+		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1); err != nil {
+			return fmt.Errorf("setsockopt(IP_RECVORIGDSTADDR) failed: %w", err)
 		}
 	}
 	return nil
 }
 
+// listenConfig sets the socket options for the fqdn proxy transparent socket.
+// Note that it is also used for TCP sockets.
 func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 	return &net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {
 			var opErr error
 			err := c.Control(func(fd uintptr) {
-				opErr = transparentSetsockopt(int(fd), ipv4, ipv6)
-				if opErr == nil && mark != 0 {
-					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, mark)
+				if err := transparentSetsockopt(int(fd), ipv4, ipv6); err != nil {
+					opErr = err
+					return
 				}
-				if opErr == nil {
-					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+				if mark != 0 {
+					if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, mark); err != nil {
+						opErr = fmt.Errorf("setsockopt(SO_MARK) failed: %w", err)
+						return
+					}
 				}
-				if opErr == nil && !option.Config.EnableBPFTProxy {
-					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+				if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1); err != nil {
+					opErr = fmt.Errorf("setsockopt(SO_REUSEADDR) failed: %w", err)
+					return
+				}
+				if !option.Config.EnableBPFTProxy {
+					if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
+						opErr = fmt.Errorf("setsockopt(SO_REUSEPORT) failed: %w", err)
+						return
+					}
 				}
 			})
 			if err != nil {
