@@ -339,7 +339,6 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 		v4.protocol = v6.nexthdr;
 	v4.ttl = v6.hop_limit;
 	v4.tot_len = bpf_htons(bpf_ntohs(v6.payload_len) + sizeof(v4));
-	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
 	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0)
 		return DROP_WRITE_ERROR;
