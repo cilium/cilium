@@ -37,9 +37,10 @@ func (k *AuthMapTestSuite) SetUpSuite(c *C) {
 }
 
 func (k *AuthMapTestSuite) TestAuthMap(c *C) {
-	err := initMap(10, true)
+	authMap := newMap(10)
+	err := authMap.init()
 	c.Assert(err, IsNil)
-	defer authMap.Unpin()
+	defer authMap.bpfMap.Unpin()
 
 	_, err = authMap.Lookup(identity.NumericIdentity(1), identity.NumericIdentity(2), 1, policy.AuthTypeNull)
 	c.Assert(errors.Is(err, ebpf.ErrKeyNotExist), Equals, true)

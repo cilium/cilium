@@ -35,13 +35,14 @@ var bpfAuthListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth list")
 
-		if err := authmap.OpenAuthMap(); err != nil {
+		authMap, err := authmap.LoadAuthMap()
+		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find auth bpf map")
 				return
 			}
 
-			Fatalf("Cannot open auth bpf map: %s", err)
+			Fatalf("Cannot load auth bpf map: %s", err)
 		}
 
 		var bpfAuthList []authEntry
@@ -56,7 +57,7 @@ var bpfAuthListCmd = &cobra.Command{
 			})
 		}
 
-		if err := authmap.AuthMap().IterateWithCallback(parse); err != nil {
+		if err := authMap.IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the auth map: %s\n", err)
 		}
 
