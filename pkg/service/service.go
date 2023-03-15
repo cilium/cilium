@@ -818,6 +818,9 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 		be.State = updatedB.State
 		be.Preferred = updatedB.Preferred
 
+		// set correct backend ID from global backend cache
+		updatedB.ID = be.ID
+
 		for id, info := range s.svcByID {
 			var p *datapathTypes.UpsertServiceParams
 			for i, b := range info.backends {
