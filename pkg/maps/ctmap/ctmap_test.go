@@ -11,7 +11,6 @@ import (
 
 	. "gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
@@ -61,21 +60,19 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 }
 
 func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.1), Equals, time.Minute)  // no change
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.2), Equals, time.Minute)  // no change
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.25), Equals, time.Minute) // no change
+	c.Assert(calculateInterval(time.Minute, 0.1), Equals, time.Minute)  // no change
+	c.Assert(calculateInterval(time.Minute, 0.2), Equals, time.Minute)  // no change
+	c.Assert(calculateInterval(time.Minute, 0.25), Equals, time.Minute) // no change
 
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.40), Equals, 36*time.Second)
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.60), Equals, 24*time.Second)
+	c.Assert(calculateInterval(time.Minute, 0.40), Equals, 36*time.Second)
+	c.Assert(calculateInterval(time.Minute, 0.60), Equals, 24*time.Second)
 
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.01), Equals, 15*time.Second)
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 10*time.Second, 0.04), Equals, 15*time.Second)
+	c.Assert(calculateInterval(10*time.Second, 0.01), Equals, 15*time.Second)
+	c.Assert(calculateInterval(10*time.Second, 0.04), Equals, 15*time.Second)
 
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 1*time.Second, 0.9), Equals, defaults.ConntrackGCMinInterval)
-	c.Assert(calculateInterval(bpf.MapTypeHash, 1*time.Second, 0.9), Equals, defaults.ConntrackGCMinInterval)
+	c.Assert(calculateInterval(1*time.Second, 0.9), Equals, defaults.ConntrackGCMinInterval)
 
-	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
-	c.Assert(calculateInterval(bpf.MapTypeHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxInterval)
+	c.Assert(calculateInterval(24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
 }
 
 func (t *CTMapTestSuite) TestFilterMapsByProto(c *C) {
