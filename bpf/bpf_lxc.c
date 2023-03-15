@@ -113,7 +113,7 @@ skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_CT_EGRESS);
-	return ret;
+	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* ENABLE_IPV4 */
 
@@ -163,7 +163,7 @@ skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
 	lb6_ctx_store_state(ctx, &ct_state_new, proxy_port);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_CT_EGRESS);
-	return ret;
+	return DROP_MISSED_TAIL_CALL;
 }
 #endif /* ENABLE_IPV6 */
 
