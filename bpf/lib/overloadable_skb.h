@@ -187,10 +187,8 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, __u32 src_ip,
 		   __be16 src_port __maybe_unused, __u32 node_id,
-		   __u32 seclabel, __u32 dstid __maybe_unused,
-		   __u32 vni __maybe_unused,
-		   void *opt, __u32 opt_len, bool is_ipv6 __maybe_unused,
-		   int *ifindex)
+		   __u32 seclabel, __u32 vni __maybe_unused,
+		   void *opt, __u32 opt_len, int *ifindex)
 {
 	struct bpf_tunnel_key key = {};
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;

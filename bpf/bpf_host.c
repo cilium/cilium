@@ -1213,12 +1213,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
-#ifdef HAVE_ENCAP
-	struct trace_ctx trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = TRACE_PAYLOAD_LEN,
-	};
-#endif
 #endif
 	int ret;
 
@@ -1246,47 +1240,6 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #ifdef HAVE_ENCAP
 	if (flags & XFER_PKT_SNAT_DONE)
 		ctx_snat_done_set(ctx);
-
-	if (flags & XFER_PKT_ENCAP) {
-		edt_set_aggregate(ctx, 0);
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-		{
-			struct geneve_dsr_opt4 gopt;
-			__be16 port = (__be16)ctx_get_xfer(ctx, XFER_ENCAP_PORT);
-			__be32 addr = ctx_get_xfer(ctx, XFER_ENCAP_ADDR);
-
-			if (port && addr) {
-				set_geneve_dsr_opt4(port, addr, &gopt);
-
-				ret = encap_and_redirect_with_nodeid_opt(ctx,
-								  ctx_get_xfer(ctx,
-									       XFER_ENCAP_NODEID),
-								  ctx_get_xfer(ctx,
-									       XFER_ENCAP_SECLABEL),
-								  ctx_get_xfer(ctx,
-									       XFER_ENCAP_DSTID),
-								  NOT_VTEP_DST,
-								  &gopt,
-								  sizeof(gopt),
-								  false,
-								  &trace);
-				if (IS_ERR(ret))
-					goto drop_err;
-
-				return ret;
-			}
-		}
-#endif
-		ret = __encap_and_redirect_with_nodeid(ctx, 0,
-						       ctx_get_xfer(ctx, XFER_ENCAP_NODEID),
-						       ctx_get_xfer(ctx, XFER_ENCAP_SECLABEL),
-						       ctx_get_xfer(ctx, XFER_ENCAP_DSTID),
-						       NOT_VTEP_DST, &trace);
-		if (IS_ERR(ret))
-			goto drop_err;
-
-		return ret;
-	}
 #endif
 #endif
 

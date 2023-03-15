@@ -120,36 +120,11 @@ static __always_inline __maybe_unused void ctx_set_xfer(struct xdp_md *ctx,
 static __always_inline __maybe_unused void ctx_move_xfer(struct xdp_md *ctx)
 {
 	__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
-	int meta_size = 4;
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	meta_size = 6;
-#endif
-
 	/* We transfer data from XFER_MARKER. This specifically
 	 * does not break packet trains in GRO.
 	 */
-	if (meta_xfer & XFER_PKT_ENCAP) {
-		if (!ctx_adjust_meta(ctx, -(int)(meta_size * sizeof(__u32)))) {
-			__u32 *data_meta = ctx_data_meta(ctx);
-			__u32 *data = ctx_data(ctx);
 
-			if (!ctx_no_room(data_meta + meta_size, data)) {
-				data_meta[XFER_FLAGS] = meta_xfer;
-				data_meta[XFER_ENCAP_NODEID] =
-					ctx_load_meta(ctx, CB_ENCAP_NODEID);
-				data_meta[XFER_ENCAP_SECLABEL] =
-					ctx_load_meta(ctx, CB_ENCAP_SECLABEL);
-				data_meta[XFER_ENCAP_DSTID] =
-					ctx_load_meta(ctx, CB_ENCAP_DSTID);
-#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-				data_meta[XFER_ENCAP_PORT] =
-					ctx_load_meta(ctx, CB_ENCAP_PORT);
-				data_meta[XFER_ENCAP_ADDR] =
-					ctx_load_meta(ctx, CB_ENCAP_ADDR);
-#endif
-			}
-		}
-	} else if (meta_xfer) {
+	if (meta_xfer) {
 		if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
 			__u32 *data_meta = ctx_data_meta(ctx);
 			__u32 *data = ctx_data(ctx);
@@ -183,9 +158,7 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		   __u32 daddr, __u32 seclabel __maybe_unused,
-		   __u32 dstid __maybe_unused,
-		   __u32 vni __maybe_unused, void *opt, __u32 opt_len,
-		   bool is_ipv6 __maybe_unused, int *ifindex)
+		   __u32 vni __maybe_unused, void *opt, __u32 opt_len, int *ifindex)
 {
 	__u32 inner_len = ctx_full_len(ctx);
 	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
