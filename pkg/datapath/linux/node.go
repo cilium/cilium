@@ -1025,7 +1025,7 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 						upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 					}
 				} else {
-					localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
+					localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 					remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 					n.replaceNodeIPSecOutRoute(new6Net)
 					spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
