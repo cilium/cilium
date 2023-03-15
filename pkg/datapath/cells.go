@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,6 +31,9 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 	),
+
+	// Provides the auth.Map which contains the authentication state between Cilium security identities.
+	authmap.Cell,
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
 		return dp.Node()

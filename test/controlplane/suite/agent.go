@@ -17,6 +17,8 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/maps/authmap"
+	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	agentOption "github.com/cilium/cilium/pkg/option"
@@ -51,7 +53,7 @@ func (h *agentHandle) tearDown() {
 	node.Uninitialize()
 }
 
-func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {
+func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset) (*fakeDatapath.FakeDatapath, agentHandle, error) {
 	var (
 		err           error
 		handle        agentHandle
@@ -69,6 +71,7 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 			func() datapath.Datapath { return fdp },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
+			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 		),
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
