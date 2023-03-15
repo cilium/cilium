@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +24,7 @@ type authEntry struct {
 	RemoteIdentity uint32
 	RemoteNodeID   uint16
 	AuthType       uint8
-	Expiration     uint64
+	Expiration     time.Time
 }
 
 var bpfAuthListCmd = &cobra.Command{
@@ -51,7 +52,7 @@ var bpfAuthListCmd = &cobra.Command{
 				RemoteIdentity: key.RemoteIdentity,
 				RemoteNodeID:   key.RemoteNodeID,
 				AuthType:       key.AuthType,
-				Expiration:     val.Expiration,
+				Expiration:     val.Expiration.Time(),
 			})
 		}
 
@@ -79,7 +80,7 @@ func printAuthList(authList []authEntry) {
 
 	fmt.Fprintln(w, "SRC IDENTITY\tDST IDENTITY\tREMOTE NODE ID\tAUTH TYPE\tEXPIRATION")
 	for _, a := range authList {
-		fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%d\n", a.LocalIdentity, a.RemoteIdentity, a.RemoteNodeID, policy.AuthType(a.AuthType), a.Expiration)
+		fmt.Fprintf(w, "%d\t%d\t%d\t%s\t%s\n", a.LocalIdentity, a.RemoteIdentity, a.RemoteNodeID, policy.AuthType(a.AuthType), a.Expiration)
 	}
 
 	w.Flush()

@@ -20,6 +20,7 @@
 
 #define EVENT_SOURCE LXC_ID
 
+#include "lib/auth.h"
 #include "lib/tailcall.h"
 #include "lib/common.h"
 #include "lib/config.h"
@@ -436,16 +437,13 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	if (verdict == DROP_POLICY_AUTH_REQUIRED)
+		verdict = auth_lookup(SECLABEL, *dst_id, node_id, (__u8)*ext_err);
 	/* Create CT entry if drop for auth required. */
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		if (ct_status == CT_NEW) {
-			ct_state_new.src_sec_id = SECLABEL;
-			ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
-				   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				   true);
-		} else if (!ct_state->auth_required) {
-			verdict = CTX_ACT_OK; /* allow if auth done */
-		}
+	if (verdict == DROP_POLICY_AUTH_REQUIRED && ct_status == CT_NEW) {
+		ct_state_new.src_sec_id = SECLABEL;
+		ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
+			   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb, true);
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
@@ -887,16 +885,13 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	verdict = policy_can_egress4(ctx, tuple, SECLABEL, *dst_id,
 				     &policy_match_type, &audited, ext_err, &proxy_port);
 
+	if (verdict == DROP_POLICY_AUTH_REQUIRED)
+		verdict = auth_lookup(SECLABEL, *dst_id, node_id, (__u8)*ext_err);
 	/* Create CT entry if drop for auth required. */
-	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
-		if (ct_status == CT_NEW) {
-			ct_state_new.src_sec_id = SECLABEL;
-			ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
-				   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				   true);
-		} else if (!ct_state->auth_required) {
-			verdict = CTX_ACT_OK; /* allow if auth done */
-		}
+	if (verdict == DROP_POLICY_AUTH_REQUIRED && ct_status == CT_NEW) {
+		ct_state_new.src_sec_id = SECLABEL;
+		ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
+			   CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb, true);
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
@@ -1481,9 +1476,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple->dport, tuple->nexthdr, false,
 					    &policy_match_type, &audited, ext_err, proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED &&
-	    ret != CT_NEW && !ct_state->auth_required)
-		verdict = CTX_ACT_OK; /* allow if auth done */
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
+
+		if (sep)
+			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
@@ -1802,10 +1800,12 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 					    tuple->dport, tuple->nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, proxy_port);
-	if (verdict == DROP_POLICY_AUTH_REQUIRED &&
-	    ret != CT_NEW && !ct_state->auth_required)
-		verdict = CTX_ACT_OK; /* allow if auth done */
+	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
+		struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 
+		if (sep)
+			verdict = auth_lookup(SECLABEL, src_label, sep->node_id, (__u8)*ext_err);
+	}
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
 	if (verdict != CTX_ACT_OK || ret != CT_ESTABLISHED)
 		send_policy_verdict_notify(ctx, src_label, tuple->dport,
