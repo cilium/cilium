@@ -323,64 +323,62 @@ talked about XDP this mode is typically implied.
   production environment either the native or offloaded mode is better
   suited and the recommended way to run XDP.
 
-..
+.. _xdp_drivers:
 
 **Driver support**
 
-Since BPF and XDP is evolving quickly in terms of feature and driver support,
-the following lists native and offloaded XDP drivers as of kernel 4.17.
-
 **Drivers supporting native XDP**
 
-* **Broadcom**
+A list of drivers supporting native XDP can be found in the table below. The
+corresponding network driver name of an interface can be determined as follows:
 
-  * bnxt
+.. code-block:: shell-session
 
-..
+    # ethtool -i eth0
+    driver: nfp
+    [...]
 
-* **Cavium**
-
-  * thunderx
-
-..
-
-* **Intel**
-
-  * ixgbe
-  * ixgbevf
-  * i40e
-
-..
-
-* **Mellanox**
-
-  * mlx4
-  * mlx5
-
-..
-
-* **Netronome**
-
-  * nfp
-
-..
-
-* **Others**
-
-  * tun
-  * virtio_net
-
-..
-
-* **Qlogic**
-
-  * qede
-
-..
-
-* **Solarflare**
-
-  * sfc [1]_
++-------------------+------------+-------------+
+| Vendor            | Driver     | XDP Support |
++===================+============+=============+
+| Amazon            | ena        | >= 5.6      |
++-------------------+------------+-------------+
+| Broadcom          | bnxt_en    | >= 4.11     |
++-------------------+------------+-------------+
+| Cavium            | thunderx   | >= 4.12     |
++-------------------+------------+-------------+
+| Freescale         | dpaa2      | >= 5.0      |
++-------------------+------------+-------------+
+| Intel             | ixgbe      | >= 4.12     |
+|                   +------------+-------------+
+|                   | ixgbevf    | >= 4.17     |
+|                   +------------+-------------+
+|                   | i40e       | >= 4.13     |
+|                   +------------+-------------+
+|                   | ice        | >= 5.5      |
++-------------------+------------+-------------+
+| Marvell           | mvneta     | >= 5.5      |
++-------------------+------------+-------------+
+| Mellanox          | mlx4       | >= 4.8      |
+|                   +------------+-------------+
+|                   | mlx5       | >= 4.9      |
++-------------------+------------+-------------+
+| Microsoft         | hv_netvsc  | >= 5.6      |
++-------------------+------------+-------------+
+| Netronome         | nfp        | >= 4.10     |
++-------------------+------------+-------------+
+| Others            | virtio_net | >= 4.10     |
+|                   +------------+-------------+
+|                   | tun/tap    | >= 4.14     |
++-------------------+------------+-------------+
+| Qlogic            | qede       | >= 4.10     |
++-------------------+------------+-------------+
+| Socionext         | netsec     | >= 5.3      |
++-------------------+------------+-------------+
+| Solarflare        | sfc        | >= 5.5      |
++-------------------+------------+-------------+
+| Texas Instruments | cpsw       | >= 5.3      |
++-------------------+------------+-------------+
 
 **Drivers supporting offloaded XDP**
 
@@ -392,8 +390,6 @@ the following lists native and offloaded XDP drivers as of kernel 4.17.
 
     Examples for writing and loading XDP programs are included in the `bpf_dev` section under the respective tools.
 
-.. [1] XDP for sfc available via out of tree driver as of kernel 4.17, but
-   will be upstreamed soon.
 .. [2] Some BPF helper functions such as retrieving the current CPU number
    will not be available in an offloaded setting.
 

@@ -617,56 +617,7 @@ the multi-device XDP acceleration.
 NodePort acceleration can be used with either direct routing (``tunnel=disabled``)
 or tunnel mode. Direct routing is recommended to achieve optimal performance.
 
-A list of drivers supporting native XDP can be found in the table below. The
-corresponding network driver name of an interface can be determined as follows:
-
-.. code-block:: shell-session
-
-    # ethtool -i eth0
-    driver: nfp
-    [...]
-
-+-------------------+------------+-------------+
-| Vendor            | Driver     | XDP Support |
-+===================+============+=============+
-| Amazon            | ena        | >= 5.6      |
-+-------------------+------------+-------------+
-| Broadcom          | bnxt_en    | >= 4.11     |
-+-------------------+------------+-------------+
-| Cavium            | thunderx   | >= 4.12     |
-+-------------------+------------+-------------+
-| Freescale         | dpaa2      | >= 5.0      |
-+-------------------+------------+-------------+
-| Intel             | ixgbe      | >= 4.12     |
-|                   +------------+-------------+
-|                   | ixgbevf    | >= 4.17     |
-|                   +------------+-------------+
-|                   | i40e       | >= 4.13     |
-|                   +------------+-------------+
-|                   | ice        | >= 5.5      |
-+-------------------+------------+-------------+
-| Marvell           | mvneta     | >= 5.5      |
-+-------------------+------------+-------------+
-| Mellanox          | mlx4       | >= 4.8      |
-|                   +------------+-------------+
-|                   | mlx5       | >= 4.9      |
-+-------------------+------------+-------------+
-| Microsoft         | hv_netvsc  | >= 5.6      |
-+-------------------+------------+-------------+
-| Netronome         | nfp        | >= 4.10     |
-+-------------------+------------+-------------+
-| Others            | virtio_net | >= 4.10     |
-|                   +------------+-------------+
-|                   | tun/tap    | >= 4.14     |
-+-------------------+------------+-------------+
-| Qlogic            | qede       | >= 4.10     |
-+-------------------+------------+-------------+
-| Socionext         | netsec     | >= 5.3      |
-+-------------------+------------+-------------+
-| Solarflare        | sfc        | >= 5.5      |
-+-------------------+------------+-------------+
-| Texas Instruments | cpsw       | >= 5.3      |
-+-------------------+------------+-------------+
+A list of drivers supporting XDP can be found in :ref:`the documentation for XDP<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
 the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
