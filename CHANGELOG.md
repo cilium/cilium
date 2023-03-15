@@ -1,5 +1,79 @@
 # Changelog
 
+## v1.12.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy to 1.23.4 (Backport PR #23957, Upstream PR #23800, @sayboras)
+* helm: Add pod and container security context (Backport PR #24083, Upstream PR #23443, @sayboras)
+* helm: Add SA automount configuration (Backport PR #24083, Upstream PR #23441, @sayboras)
+* helm: Add support of annotations in hubble ui service (Backport PR #23779, Upstream PR #23709, @brnck)
+
+**Bugfixes:**
+* [EKS] Fix deadlock causing network connectivity outages when kube-apiservers scale down (Backport PR #23957, Upstream PR #23836, @christarazi)
+* Add the option to preserve CNI configuration file on agent shutdown. This can help prevent issues where pods can no longer be deleted. This may cause some transient error messages to be displayed if a pod is scheduled while Cilium is being upgraded. (Backport PR #24197, Upstream PR #24009, @squeed)
+* agent: fix incorrect deletion of veth host interfaces on bootstrap (Backport PR #23957, Upstream PR #23787, @giorio94)
+* Avoid k8s CiliumNode initialization problems when Cilium connects to the KVStore (Backport PR #24197, Upstream PR #24156, @aanm)
+* cilium-health status: fix endpoint reachability in succinct view (Backport PR #23779, Upstream PR #23506, @giorio94)
+* clustermesh: fix services cache bloat due to incorrect deletion (Backport PR #24083, Upstream PR #23947, @giorio94)
+* daemon: fix panic when running with etcd with endpoint crd disabled (Backport PR #24386, Upstream PR #24085, @tommyp1ckles)
+* envoy: Avoid empty typeURL for all resources (Backport PR #23861, Upstream PR #23763, @sayboras)
+* Fix connectivity issue upon agent restart in case of ipv6 + direct routing + KPR replacement (Backport PR #23957, Upstream PR #23857, @giorio94)
+* Fix deadlock in cilium-operator when using CiliumEndpointSlices (Backport PR #24369, Upstream PR #24343, @alan-kut)
+* Fix enable-stale-cilium-endpoint-cleanup flag not actually disabling the cleanup init set when set to false. This provides a workaround for an existing panic that can occur when running using etcd kvstore. (Backport PR #24310, Upstream PR #23874, @sjdot)
+* Fix IPv6 policy enforcement for SNATed traffic from the Host (Backport PR #24369, Upstream PR #24132, @ysksuzuki)
+* Fix operator crash race condition for CES identity map concurrent read/write (Backport PR #24197, Upstream PR #23605, @dlapcevic)
+* init.sh: fix cgroup program detachment and detach multiple progs with retry (Backport PR #24183, Upstream PR #24118, @ti-mo)
+* ipam/crd: Fix panic due to concurrent map read and map write (Backport PR #23779, Upstream PR #23713, @gandro)
+* node: require ipv4 address when wireguard is enabled (Backport PR #24039, Upstream PR #23552, @giorio94)
+* watchers: endpointsync can manage already owned CiliumEndpoints. (Backport PR #24083, Upstream PR #23499, @tommyp1ckles)
+
+**CI Changes:**
+* bpf/Makefile: Cover VTEP in compile tests (Backport PR #24197, Upstream PR #24106, @pchaigno)
+* ci: Update docs-builder image for documentation workflow (Backport PR #24067, Upstream PR #21040, @qmonnet)
+* egressgw: test: switch to WaitForEgressPolicyEntries (Backport PR #24155, Upstream PR #24097, @jibi)
+* test: Update policy for hairpin flow validation (Backport PR #23779, Upstream PR #23480, @aditighag)
+* workflows: Bump timeout of ConformanceKind workflow (Backport PR #23957, Upstream PR #22072, @pchaigno)
+
+**Misc Changes:**
+* .github: remove stable tags (#23830, @aanm)
+* Add leader requirement to watch from Etcd. (Backport PR #24083, Upstream PR #23590, @marseel)
+* bpf: Fix usage of tunnel map structs (Backport PR #24083, Upstream PR #23469, @pchaigno)
+* bugtool: Add ingress/egress tc filter dump (Backport PR #24197, Upstream PR #24057, @joestringer)
+* bugtool: Dump envoy metrics for troubleshooting (Backport PR #23779, Upstream PR #22797, @sayboras)
+* chore(deps): update actions/checkout action to v3.3.0 (v1.12) (#23994, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (patch) (#23993, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.11.2 (v1.12) (#23909, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 4a45212 (v1.12) (#23693, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 9fa30fc (v1.12) (#24137, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.2 (v1.12) (#23923, @renovate[bot])
+* clustermesh, kvstore: consistently pass controller context to kvstore operations (Backport PR #23779, Upstream PR #23333, @tklauser)
+* docs: correct Prometheus port (Backport PR #23779, Upstream PR #23404, @lizrice)
+* docs: Document CONFIG_PERF_EVENTS requirement (Backport PR #24197, Upstream PR #24055, @joestringer)
+* docs: Drop sphinxcontrib-openapi fork, switch back to upstream (Backport PR #23779, Upstream PR #23118, @qmonnet)
+* docs: Fix the dead link to Mellanox performance tuning guide (Backport PR #24083, Upstream PR #24012, @gentoo-root)
+* docs: Mark Git repository as safe, at runtime, if in a container (Backport PR #24067, Upstream PR #21069, @qmonnet)
+* docs: replace usage of api.twitter.com (Backport PR #23779, Upstream PR #23669, @kaworu)
+* Enable Google Analytics 4 (Backport PR #24067, Upstream PR #22220, @chalin)
+* fix(deps): update module golang.org/x/net to v0.7.0 [security] (master) (Backport PR #23957, Upstream PR #23904, @renovate[bot])
+* Fixed link to broken anchor in RKE doc (Backport PR #23779, Upstream PR #23706, @raphink)
+* init.sh: clean up cgroup bpf_links created by newer versions of Cilium (Backport PR #24183, Upstream PR #23537, @ti-mo)
+* Introduce node IDs in the datapath and the agent, so datapath can later use them to identify remote nodes (Backport PR #23779, Upstream PR #23202, @pchaigno)
+* IPsec: Remove `IP_POOLS` logic (Backport PR #24083, Upstream PR #24030, @pchaigno)
+* Node ID restoration (Backport PR #23779, Upstream PR #23578, @pchaigno)
+* Remove / in RKE doc link as it causes redirect bug (Backport PR #23779, Upstream PR #23728, @raphink)
+* workflow: fixes LLVM, Clang cache and install path (Backport PR #23779, Upstream PR #23740, @brlbil)
+
+**Other Changes:**
+* agent: dump stack on stale probes [backport-1.12] (#24213, @squeed)
+* docs: Add note for operator.extraEnv (#23843, @sayboras)
+* install: Update image digests for v1.12.7 (#23738, @joestringer)
+* Revert "Pick up etcd v3.5.7" (#23788, @michi-covalent)
+* update images 1.12 (#24303, @nebril)
+* v1.12 - Backport initContainer change (#24332, @ferozsalam)
+
 ## v1.12.7
 
 Summary of Changes
