@@ -27,7 +27,7 @@ release:
 	docker run \
 		--rm \
 		--workdir /cilium \
-		--volume `pwd`:/cilium docker.io/library/golang:1.20.1-alpine3.17 \
+		--volume `pwd`:/cilium docker.io/library/golang:1.20.2-alpine3.17 \
 		sh -c "apk add --no-cache setpriv make git && \
 			/usr/bin/setpriv --reuid=$(RELEASE_UID) --regid=$(RELEASE_GID) --clear-groups make GOCACHE=/tmp/gocache local-release"
 
