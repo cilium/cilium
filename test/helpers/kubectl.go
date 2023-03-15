@@ -83,24 +83,27 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"image.repository":           "k8s1:5000/cilium/cilium-dev",
-		"image.tag":                  "latest",
-		"image.useDigest":            "false",
-		"preflight.image.repository": "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
-		"preflight.image.tag":        "latest",
-		"preflight.image.useDigest":  "false",
-		"operator.image.repository":  "k8s1:5000/cilium/operator",
-		"operator.image.tag":         "latest",
-		"operator.image.suffix":      "",
-		"operator.image.useDigest":   "false",
+		"image.repository":               "k8s1:5000/cilium/cilium-dev",
+		"image.tag":                      "latest",
+		"image.useDigest":                "false",
+		"image.imagePullPolicy":          "IfNotPresent",
+		"preflight.image.repository":     "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
+		"preflight.image.tag":            "latest",
+		"preflight.image.useDigest":      "false",
+		"operator.image.repository":      "k8s1:5000/cilium/operator",
+		"operator.image.tag":             "latest",
+		"operator.image.suffix":          "",
+		"operator.image.useDigest":       "false",
+		"operator.image.imagePullPolicy": "IfNotPresent",
 
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
-		"hubble.enabled":                "true",
-		"hubble.listenAddress":          ":4244",
-		"hubble.eventBufferCapacity":    "65535",
-		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
-		"hubble.relay.image.tag":        "latest",
-		"hubble.relay.image.useDigest":  "false",
+		"hubble.enabled":                     "true",
+		"hubble.listenAddress":               ":4244",
+		"hubble.eventBufferCapacity":         "65535",
+		"hubble.relay.image.repository":      "k8s1:5000/cilium/hubble-relay",
+		"hubble.relay.image.tag":             "latest",
+		"hubble.relay.image.useDigest":       "false",
+		"hubble.relay.image.imagePullPolicy": "IfNotPresent",
 
 		"debug.enabled": "true",
 		"debug.verbose": "flow",
