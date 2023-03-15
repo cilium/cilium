@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -50,6 +51,8 @@ var (
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
+
+		cni.Cell,
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),

@@ -1878,24 +1878,6 @@ type DaemonConfig struct {
 	// RunMonitorAgent indicates whether to run the monitor agent
 	RunMonitorAgent bool
 
-	// ReadCNIConfiguration reads the CNI configuration file and extracts
-	// Cilium relevant information. This can be used to pass per node
-	// configuration to Cilium.
-	ReadCNIConfiguration string
-
-	// WriteCNIConfigurationWhenReady writes the CNI configuration to the
-	// specified location once the agent is ready to serve requests. This
-	// allows to keep a Kubernetes node NotReady until Cilium is up and
-	// running and able to schedule endpoints.
-	WriteCNIConfigurationWhenReady string
-
-	// CNIExclusive, if true, directs the agent to remove all other CNI configuration files
-	CNIExclusive bool
-
-	// CNILogFile is a path on disk (on the host) for the CNI plugin binary to use
-	// for logging.
-	CNILogFile string
-
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
@@ -2037,9 +2019,6 @@ type DaemonConfig struct {
 
 	// IPAM is the IPAM method to use
 	IPAM string
-
-	// Enable chaining with another CNI plugin.
-	CNIChainingMode string
 
 	// AutoCreateCiliumNodeResource enables automatic creation of a
 	// CiliumNode resource for the local node
@@ -2884,7 +2863,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ClusterID = vp.GetUint32(ClusterIDName)
 	c.ClusterName = vp.GetString(ClusterName)
 	c.ClusterMeshConfig = vp.GetString(ClusterMeshConfigName)
-	c.CNIChainingMode = vp.GetString(CNIChainingMode)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)
@@ -3013,7 +2991,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.ProxyPrometheusPort = vp.GetInt(ProxyPrometheusPort)
 	c.ProxyMaxRequestsPerConnection = vp.GetInt(ProxyMaxRequestsPerConnection)
 	c.ProxyMaxConnectionDuration = time.Duration(vp.GetInt64(ProxyMaxConnectionDuration))
-	c.ReadCNIConfiguration = vp.GetString(ReadCNIConfiguration)
 	c.RestoreState = vp.GetBool(Restore)
 	c.RouteMetric = vp.GetInt(RouteMetric)
 	c.RunDir = vp.GetString(StateDir)
@@ -3023,9 +3000,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.SockopsEnable = vp.GetBool(SockopsEnableName)
 	c.TracePayloadlen = vp.GetInt(TracePayloadlen)
 	c.Version = vp.GetString(Version)
-	c.WriteCNIConfigurationWhenReady = vp.GetString(WriteCNIConfigurationWhenReady)
-	c.CNIExclusive = vp.GetBool(CNIExclusive)
-	c.CNILogFile = vp.GetString(CNILogFile)
 	c.PolicyTriggerInterval = vp.GetDuration(PolicyTriggerInterval)
 	c.CTMapEntriesTimeoutTCP = vp.GetDuration(CTMapEntriesTimeoutTCPName)
 	c.CTMapEntriesTimeoutAny = vp.GetDuration(CTMapEntriesTimeoutAnyName)

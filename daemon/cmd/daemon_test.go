@@ -17,6 +17,8 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
+	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -146,6 +148,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 			func() *option.DaemonConfig { return option.Config },
+			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 		),
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {

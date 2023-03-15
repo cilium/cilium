@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package cmd
+package cni
 
 import (
 	"os"
 	"path"
 	"testing"
 
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/logging"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tidwall/gjson"
@@ -16,42 +16,45 @@ import (
 
 func TestInstallCNIConfFile(t *testing.T) {
 	workdir := t.TempDir()
-	opts := &option.DaemonConfig{
-		Debug:                          false,
-		CNILogFile:                     "/opt\"/cni.log", // test escaping :-)
-		CNIChainingMode:                "none",
-		CNIExclusive:                   true,
-		WriteCNIConfigurationWhenReady: path.Join(workdir, "05-cilium.conflist"),
+	cfg := Config{
+		CNILogFile:            `/opt"/cni.log`,
+		CNIChainingMode:       "none",
+		CNIExclusive:          true,
+		WriteCNIConfWhenReady: path.Join(workdir, "05-cilium.conflist"),
 	}
+	c := newConfigManager(logging.DefaultLogger, cfg, false)
 
 	touch(t, workdir, "other.conflist")
 	touch(t, workdir, "05-cilium.conf") // older config file we no longer create
 
-	err := installCNIConfFile(opts)
+	err := c.setupCNIConfFile()
 	assert.NoError(t, err)
 
 	filenames := ls(t, workdir)
 
 	assert.ElementsMatch(t, filenames, []string{
 		"05-cilium.conflist",
+		"05-cilium.conf.cilium_bak",
 		"other.conflist.cilium_bak",
 	})
 
 	data, err := os.ReadFile(path.Join(workdir, "05-cilium.conflist"))
 	assert.NoError(t, err)
 	val := gjson.GetBytes(data, "plugins.0.type")
-	assert.Equal(t, val.String(), "cilium-cni")
+	assert.Equal(t, "cilium-cni", val.String())
 
 }
 
 func TestMergeExistingAWSConfig(t *testing.T) {
-	opts := &option.DaemonConfig{
-		Debug:           false,
-		CNILogFile:      "/opt\"/cni.log", // test escaping :-)
-		CNIChainingMode: "aws-cni",
-	}
-
 	workdir := t.TempDir()
+	cfg := Config{
+		CNILogFile:            `/opt"/cni.log`,
+		CNIChainingMode:       "aws-cni",
+		CNIExclusive:          true,
+		WriteCNIConfWhenReady: path.Join(workdir, "05-cilium.conflist"),
+	}
+	c := newConfigManager(logging.DefaultLogger, cfg, false)
+
 	// write an "existing" AWS config
 	existing := `
 {
@@ -69,34 +72,34 @@ func TestMergeExistingAWSConfig(t *testing.T) {
 `
 	assert.NoError(t, os.WriteFile(path.Join(workdir, "10-aws.conflist"), []byte(existing), 0644))
 
-	res, err := renderCNIConf(opts, workdir)
+	res, err := c.renderCNIConf()
 	assert.NoError(t, err)
 
 	val := gjson.GetBytes(res, `plugins.#`)
-	assert.Equal(t, val.Int(), int64(3))
+	assert.Equal(t, int64(3), val.Int())
 
 	val = gjson.GetBytes(res, `plugins.@reverse.0.type`)
-	assert.Equal(t, val.String(), "cilium-cni")
+	assert.Equal(t, "cilium-cni", val.String())
 
 }
 
 func TestRenderCNIConf(t *testing.T) {
-	opts := &option.DaemonConfig{
-		Debug:      false,
-		CNILogFile: "/opt\"/cni.log", // test escaping :-)
+	cfg := Config{
+		CNILogFile:      `/opt"/cni.log`,
+		CNIChainingMode: "aws-cni",
 	}
+	c := newConfigManager(logging.DefaultLogger, cfg, false)
 	// check that all templates compile
 	for mode := range cniConfigs {
-		opts.CNIChainingMode = mode
-		conf, err := renderCNIConf(opts, "/")
+		c.config.CNIChainingMode = mode
+		conf, err := c.renderCNIConf()
 		assert.NoError(t, err)
 		res := gjson.GetBytes(conf, `plugins.#(type=="cilium-cni").log-file`)
 		assert.True(t, res.Exists(), mode)
-		assert.Equal(t, res.String(), "/opt\"/cni.log", mode)
+		assert.Equal(t, `/opt"/cni.log`, res.String(), mode)
 	}
 
 	assert.Equal(t,
-		string(renderCNITemplate(awsCNIEntry, opts)),
 		`
 {
 	"type": "cilium-cni",
@@ -104,6 +107,7 @@ func TestRenderCNIConf(t *testing.T) {
 	"log-file": "/opt\"/cni.log"
 }
 `,
+		string(c.renderCNITemplate(awsCNIEntry)),
 	)
 
 }
@@ -117,16 +121,20 @@ func TestFindFile(t *testing.T) {
 	touch(t, workdir, "b")
 
 	found, _ := findFile(workdir, []string{"a", "b"})
-	assert.Equal(t, found, path.Join(workdir, "b"))
+	assert.Equal(t, path.Join(workdir, "b"), found)
 
 	touch(t, workdir, "a")
 	found, _ = findFile(workdir, []string{"a", "b"})
-	assert.Equal(t, found, path.Join(workdir, "a"))
+	assert.Equal(t, path.Join(workdir, "a"), found)
 }
 
 func TestCleanupOtherCNI(t *testing.T) {
-
 	workdir := t.TempDir()
+	cfg := Config{
+		CNIExclusive:          true,
+		WriteCNIConfWhenReady: path.Join(workdir, "42-keep.json"),
+	}
+	c := newConfigManager(logging.DefaultLogger, cfg, false)
 
 	for _, name := range []string{
 		"01-someoneelse.conf",
@@ -137,9 +145,8 @@ func TestCleanupOtherCNI(t *testing.T) {
 		touch(t, workdir, name)
 	}
 
-	if err := cleanupOtherCNI(workdir, "42-keep.json"); err != nil {
-		t.Fatal(err)
-	}
+	err := c.cleanupOtherCNI()
+	assert.NoError(t, err)
 
 	filenames := ls(t, workdir)
 	assert.ElementsMatch(t, filenames, []string{
