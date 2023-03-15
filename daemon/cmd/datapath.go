@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
@@ -21,7 +20,6 @@ import (
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -386,10 +384,8 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
-	createSockRevNatMaps := option.Config.EnableSocketLB &&
-		probes.HaveMapType(ebpf.LRUHash) == nil
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		createSockRevNatMaps, option.Config.RestoreState); err != nil {
+		option.Config.EnableSocketLB, option.Config.RestoreState); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 

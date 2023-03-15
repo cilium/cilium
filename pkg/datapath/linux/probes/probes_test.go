@@ -254,21 +254,21 @@ func TestWriteFeatureHeader(t *testing.T) {
 	}{
 		{
 			features: map[string]bool{
-				"HAVE_LRU_HASH_MAP_TYPE": true,
+				"HAVE_FIB_LOOKUP": true,
 			},
 			common: true,
 			expectedLines: []string{
-				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+				"#define HAVE_FIB_LOOKUP 1",
 			},
 		},
 		{
 			features: map[string]bool{
-				"HAVE_LRU_HASH_MAP_TYPE": true,
+				"HAVE_FIB_LOOKUP": true,
 			},
 			common: false,
 			expectedLines: []string{
 				"#include \"features.h\"",
-				"#define HAVE_LRU_HASH_MAP_TYPE 1",
+				"#define HAVE_FIB_LOOKUP 1",
 			},
 		},
 	}

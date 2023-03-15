@@ -36,12 +36,6 @@ struct nat_entry {
 
 #define NAT_CONTINUE_XLATE	0
 
-#ifdef HAVE_LRU_HASH_MAP_TYPE
-# define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
-#else
-# define NAT_MAP_TYPE BPF_MAP_TYPE_HASH
-#endif
-
 #ifdef HAVE_LARGE_INSN_LIMIT
 # define SNAT_COLLISION_RETRIES		128
 # define SNAT_SIGNAL_THRES		64
@@ -118,14 +112,11 @@ struct ipv4_nat_target {
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 struct {
-	__uint(type, NAT_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv4_ct_tuple);
 	__type(value, struct ipv4_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
-#ifndef HAVE_LRU_HASH_MAP_TYPE
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-#endif
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -136,13 +127,10 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
 	__array(values, struct {
-		__uint(type, NAT_MAP_TYPE);
+		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv4_ct_tuple);
 		__type(value, struct ipv4_nat_entry);
 		__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
-#ifndef HAVE_LRU_HASH_MAP_TYPE
-		__uint(map_flags, CONDITIONAL_PREALLOC);
-#endif
 	});
 } PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf;
 #endif
@@ -903,14 +891,11 @@ struct ipv6_nat_target {
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 struct {
-	__uint(type, NAT_MAP_TYPE);
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
 	__type(key, struct ipv6_ct_tuple);
 	__type(value, struct ipv6_nat_entry);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
-#ifndef HAVE_LRU_HASH_MAP_TYPE
-	__uint(map_flags, CONDITIONAL_PREALLOC);
-#endif
 } SNAT_MAPPING_IPV6 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
@@ -921,13 +906,10 @@ struct {
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
 	__array(values, struct {
-		__uint(type, NAT_MAP_TYPE);
+		__uint(type, BPF_MAP_TYPE_LRU_HASH);
 		__type(key, struct ipv6_ct_tuple);
 		__type(value, struct ipv6_nat_entry);
 		__uint(max_entries, SNAT_MAPPING_IPV6_SIZE);
-#ifndef HAVE_LRU_HASH_MAP_TYPE
-		__uint(map_flags, CONDITIONAL_PREALLOC);
-#endif
 	});
 } PER_CLUSTER_SNAT_MAPPING_IPV6 __section_maps_btf;
 #endif

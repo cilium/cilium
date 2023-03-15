@@ -63,12 +63,6 @@ func initKubeProxyReplacementOptions() error {
 		option.Config.EnableSocketLB = false
 		option.Config.EnableSocketLBTracing = false
 
-		if option.Config.EnableSessionAffinity {
-			if err := disableSessionAffinityIfNeeded(); err != nil {
-				return err
-			}
-		}
-
 		return nil
 	}
 
@@ -320,10 +314,6 @@ func probeKubeProxyReplacementOptions() error {
 		}
 	} else {
 		option.Config.EnableSocketLBTracing = false
-	}
-
-	if err := disableSessionAffinityIfNeeded(); err != nil {
-		return err
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {
@@ -698,14 +688,5 @@ func checkNodePortAndEphemeralPortRanges() error {
 			nodePortRangeStr, err)
 	}
 
-	return nil
-}
-
-func disableSessionAffinityIfNeeded() error {
-	if option.Config.EnableSessionAffinity {
-		if !option.Config.DryMode && probes.HaveMapType(ebpf.LRUHash) != nil {
-			return fmt.Errorf("SessionAffinity feature requires BPF LRU maps")
-		}
-	}
 	return nil
 }
