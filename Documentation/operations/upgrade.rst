@@ -312,6 +312,8 @@ Annotations:
   if you need to preserve the previous DNS network policy behavior that lets
   applications create new connections after the TTL specified by the upstream
   DNS server is expired.
+* Cilium now writes its CNI configuration file to ``05-cilium.conflist`` in
+  all cases, rather than the previous default of ``05-cilium.conf``.
 
 Removed Options
 ~~~~~~~~~~~~~~~

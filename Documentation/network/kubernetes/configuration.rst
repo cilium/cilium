@@ -129,17 +129,11 @@ CNI
 delegate networking configuration. You can find additional information on the
 :term:`CNI` project website.
 
-.. note:: Kubernetes ``>= 1.3.5`` requires the ``loopback`` :term:`CNI` plugin to be
-          installed on all worker nodes. The binary is typically provided by
-          most Kubernetes distributions. See section :ref:`install_cni` for
-          instructions on how to install :term:`CNI` in case the ``loopback`` binary
-          is not already installed on your worker nodes.
+CNI configuration is automatically taken care of when deploying Cilium via the provided
+:term:`DaemonSet`. The ``cilium`` pod will generate an appropriate CNI configuration
+file and write it to disk on startup.
 
-CNI configuration is automatically being taken care of when deploying Cilium
-via the provided :term:`DaemonSet`. The script ``cni-install.sh`` is automatically run
-via the ``postStart`` mechanism when the ``cilium`` pod is started.
-
-.. note:: In order for the ``cni-install.sh`` script to work properly, the
+.. note:: In order for CNI installation to work properly, the
           ``kubelet`` task must either be running on the host filesystem of the
           worker node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin``
           directories must be mounted into the container where ``kubelet`` is
@@ -150,65 +144,60 @@ The CNI auto installation is performed as follows:
 1. The ``/etc/cni/net.d`` and ``/opt/cni/bin`` directories are mounted from the
    host filesystem into the pod where Cilium is running.
 
-2. The file ``/etc/cni/net.d/05-cilium.conf`` is written in case it does not
-   exist yet.
-
-3. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
+2. The binary ``cilium-cni`` is installed to ``/opt/cni/bin``. Any existing
    binary with the name ``cilium-cni`` is overwritten.
 
-.. _install_cni:
-
-Manually installing CNI
------------------------
-
-This step is typically already included in all Kubernetes distributions or
-Kubernetes installers but can be performed manually:
-
-.. code-block:: shell-session
-
-    sudo mkdir -p /opt/cni
-    wget https://storage.googleapis.com/kubernetes-release/network-plugins/cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
-    sudo tar -xvf cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz -C /opt/cni
-    rm cni-0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff.tar.gz
+3. The file ``/etc/cni/net.d/05-cilium.conflist`` is written.
 
 
 Adjusting CNI configuration
 ---------------------------
 
 The CNI configuration file is automatically written and maintained by the
-scripts ``cni-install.sh`` and ``cni-uninstall.sh`` which are running as
-``postStart`` and ``preStop`` hooks of the Cilium pod.
+cilium pod. It is written after the agent has finished initialization and
+is ready to handle pod sandbox creation. In addition, the agent will remove
+any other CNI configuration files by default.
 
-If you want to provide your own custom CNI configuration file, set the
-``CILIUM_CUSTOM_CNI_CONF`` environment variable to avoid overwriting the
-configuration file by adding the following to the ``env:`` section of the
-``cilium`` DaemonSet:
+There are a number of Helm variables that adjust CNI configuration management.
+For a full description, see the helm documentation. A brief summary:
 
-.. code-block:: yaml
++--------------------+----------------------------------------+---------+
+| Helm variable      | Description                            | Default |
++====================+========================================+=========+
+| ``cni.customConf`` | Disable CNI configuration management   | false   |
++--------------------+----------------------------------------+---------+
+| ``cni.exclusive``  | Remove other CNI configuration files   | true    |
++--------------------+----------------------------------------+---------+
+| ``cni.install``    | Install CNI configuration and binaries | true    |
++--------------------+----------------------------------------+---------+
 
-        - name: CILIUM_CUSTOM_CNI_CONF
-          value: "true"
 
-The CNI installation can be configured with environment variables. These
-environment variables can be specified in the :term:`DaemonSet` file like this:
+If you want to provide your own custom CNI configuration file, you can do
+so by passing a path to a cni template file, either on disk or provided
+via a configMap. The Helm options that configure this are:
 
-.. code-block:: yaml
++----------------------+----------------------------------------------------------------+
+| Helm variable        | Description                                                    |
++======================+================================================================+
+| ``cni.readCniConf``  | Path (inside the agent) to a source CNI configuration file     |
++----------------------+----------------------------------------------------------------+
+| ``cni.configMap``    | Name of a ConfigMap containing a source CNI configuration file |
++----------------------+----------------------------------------------------------------+
+| ``cni.configMapKey`` | Install CNI configuration and binaries                         |
++----------------------+----------------------------------------------------------------+
 
-    env:
-      - name: "CNI_CONF_NAME"
-        value: "05-cilium.conf"
+These Helm variables are converted to a smaller set of cilium ConfigMap keys:
 
-The following variables are supported:
++-------------------------------+--------------------------------------------------------+
+| ConfigMap key                 | Description                                            |
++===============================+========================================================+
+| ``write-cni-conf-when-ready`` | Path to write the CNI configuration file               |
++-------------------------------+--------------------------------------------------------+
+| ``read-cni-conf``             | Path to read the source CNI configuration file         |
++-------------------------------+--------------------------------------------------------+
+| ``cni-exclusive``             | Whether or not to remove other CNI configuration files |
++-------------------------------+--------------------------------------------------------+
 
-+---------------------+--------------------------------------+------------------------+
-| Option              | Description                          | Default                |
-+---------------------+--------------------------------------+------------------------+
-| HOST_PREFIX         | Path prefix of all host mounts       | /host                  |
-+---------------------+--------------------------------------+------------------------+
-| CNI_DIR             | Path to mounted CNI plugin directory | ${HOST_PREFIX}/opt/cni |
-+---------------------+--------------------------------------+------------------------+
-| CNI_CONF_NAME       | Name of configuration file           | 05-cilium.conf         |
-+---------------------+--------------------------------------+------------------------+
 
 CRD Validation
 ==============
