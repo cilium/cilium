@@ -1737,7 +1737,9 @@ func runDaemon() {
 	}
 
 	if !option.Config.DryMode {
-		if k8s.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
+		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
+		// watchers/indexers will not be initialized.
+		if k8s.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
 			go func() {
 				if restoreComplete != nil {
 					<-restoreComplete
