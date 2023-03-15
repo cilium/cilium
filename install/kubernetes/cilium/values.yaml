@@ -505,8 +505,9 @@ cni:
   # -- Specify the path to a CNI config to read from on agent start.
   # This can be useful if you want to manage your CNI
   # configuration outside of a Kubernetes environment. This parameter is
-  # mutually exclusive with the 'cni.configMap' parameter.
-  # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+  # mutually exclusive with the 'cni.configMap' parameter. The agent will
+  # write this to 05-cilium.conflist on startup.
+  # readCniConf: /host/etc/cni/net.d/05-sample.conflist.input
 
   # -- When defined, configMap will mount the provided value as ConfigMap and
   # interpret the cniConf variable as CNI configuration file and write it

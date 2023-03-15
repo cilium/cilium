@@ -709,9 +709,18 @@ data:
 {{- end }}
 {{- if .Values.cni.configMap }}
   read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
+{{- if .Values.cni.customConf  }}
+  {{- /* legacy: v1.13 and before needed cni.customConf: true with cni.configMap */ -}}
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
+{{- end }}
 {{- else if .Values.cni.readCniConf }}
   read-cni-conf: {{ .Values.cni.readCniConf }}
+{{- end }}
+{{- if and (not .Values.cni.customConf) .Values.cni.install }}
+  # Tell the agent to generate and write a CNI configuration file
+  write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
+  cni-exclusive: {{ .Values.cni.exclusive | quote }}
+  cni-log-file: {{ .Values.cni.logFile | quote }}
 {{- end }}
 {{- if .Values.cni.uninstall }}
   cni-uninstall: {{ .Values.cni.uninstall | quote }}
