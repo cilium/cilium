@@ -1784,7 +1784,9 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 			<-restoreComplete
 		}
 
-		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup {
+		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
+		// watchers/indexers will not be initialized.
+		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
 			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
 			// This will clear out any CiliumEndpoints that may be stale.
 			// Likely causes for this are Pods having their init container restarted or the node being restarted.
