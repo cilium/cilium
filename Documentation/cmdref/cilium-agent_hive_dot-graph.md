@@ -18,6 +18,9 @@ cilium-agent hive dot-graph [flags]
 
 ```
       --certificates-directory string          Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
+      --cni-chaining-mode string               Enable CNI chaining with the specified plugin (default "none")
+      --cni-exclusive                          Whether to remove other CNI configurations
+      --cni-log-file string                    Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
       --enable-k8s-api-discovery               Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                       Port for gops server to listen on (default 9890)
       --install-egress-gateway-routes          Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
@@ -33,6 +36,8 @@ cilium-agent hive dot-graph [flags]
       --pprof                                  Enable serving pprof debugging API
       --pprof-address string                   Address that pprof listens on (default "localhost")
       --pprof-port uint16                      Port that pprof listens on (default 6060)
+      --read-cni-conf string                   CNI configuration file to use as a source for --write-cni-conf-when-ready. If not supplied, a suitable one will be generated.
+      --write-cni-conf-when-ready string       Write the CNI configuration to the specified path when agent is ready
 ```
 
 ### SEE ALSO

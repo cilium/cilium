@@ -279,6 +279,7 @@ type IptablesManager struct {
 	haveSocketMatch      bool
 	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
+	CNIChainingMode      string
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -1031,11 +1032,11 @@ func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) ui
 	return uint16(portUInt64)
 }
 
-func getDeliveryInterface(ifName string) string {
+func (m *IptablesManager) getDeliveryInterface(ifName string) string {
 	switch {
 	case option.Config.EnableEndpointRoutes:
 		// aws-cni creates container interfaces with names like eni621c0fc8425.
-		if option.Config.CNIChainingMode == "aws-cni" {
+		if m.CNIChainingMode == "aws-cni" {
 			return "eni+"
 		}
 		return "lxc+"
@@ -1494,7 +1495,7 @@ func (m *IptablesManager) installRules(ifName string) error {
 		return fmt.Errorf("cannot install xfrm rules: %w", err)
 	}
 
-	localDeliveryInterface := getDeliveryInterface(ifName)
+	localDeliveryInterface := m.getDeliveryInterface(ifName)
 
 	if err := m.installForwardChainRules(ifName, localDeliveryInterface, ciliumForwardChain); err != nil {
 		return fmt.Errorf("cannot install forward chain rules to %s: %w", ciliumForwardChain, err)

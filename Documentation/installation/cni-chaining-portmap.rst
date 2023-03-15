@@ -49,8 +49,7 @@ Deploy Cilium release via Helm:
    You can combine the ``cni.chainingMode=portmap`` option with any of
    the other installation guides.
 
-As Cilium is deployed as a DaemonSet, it will write a new CNI configuration
-``05-cilium.conflist`` and remove the standard ``05-cilium.conf``. The new
+As Cilium is deployed as a DaemonSet, it will write a new CNI configuration. The new
 configuration now enables HostPort. Any new pod scheduled is now able to make
 use of the HostPort functionality.
 

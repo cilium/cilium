@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/daemon/cmd"
+	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
+	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
@@ -66,6 +68,7 @@ func startCiliumAgent(t *testing.T, nodeName string, clientset k8sClient.Clients
 			func() k8sClient.Clientset { return clientset },
 			func() datapath.Datapath { return fdp },
 			func() *option.DaemonConfig { return option.Config },
+			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
 		),
 		cmd.ControlPlane,
 		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {

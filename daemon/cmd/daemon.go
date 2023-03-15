@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
@@ -206,6 +207,9 @@ type Daemon struct {
 
 	// BIG-TCP config values
 	bigTCPConfig bigtcp.Configuration
+
+	// just used to tie together some status reporting
+	cniConfigManager cni.CNIConfigManager
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -399,6 +403,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	pr *policy.Repository,
 	policyUpdater *policy.Updater,
 	egressGatewayManager *egressgateway.Manager,
+	cniConfigManager cni.CNIConfigManager,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -420,17 +425,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
-	if option.Config.ReadCNIConfiguration != "" {
-		netConf, err = cnitypes.ReadNetConf(option.Config.ReadCNIConfiguration)
-		if err != nil {
-			log.WithError(err).Error("Unable to read CNI configuration")
-			return nil, nil, fmt.Errorf("unable to read CNI configuration: %w", err)
-		}
-
-		if netConf.MTU != 0 {
-			configuredMTU = netConf.MTU
-			log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
-		}
+	if mtu := cniConfigManager.GetMTU(); mtu > 0 {
+		configuredMTU = mtu
+		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
 	}
 
 	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
@@ -551,6 +548,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		policy:               pr,
 		policyUpdater:        policyUpdater,
 		egressGatewayManager: egressGatewayManager,
+		cniConfigManager:     cniConfigManager,
 	}
 
 	if option.Config.RunMonitorAgent {
