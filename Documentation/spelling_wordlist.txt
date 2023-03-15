@@ -823,6 +823,7 @@ prepend
 prepended
 prepulls
 prerequirement
+prestop
 printf
 priori
 priorityClassName

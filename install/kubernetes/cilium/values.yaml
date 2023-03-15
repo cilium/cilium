@@ -2179,6 +2179,15 @@ nodeinit:
   # -- bootstrapFile is the location of the file where the bootstrap timestamp is
   # written by the node-init DaemonSet
   bootstrapFile: "/tmp/cilium-bootstrap.d/cilium-bootstrap-time"
+  
+  # -- startup offers way to customize startup nodeinit script (pre and post position)
+  startup:
+   preScript: ""
+   postScript: ""
+  # -- prestop offers way to customize prestop nodeinit script (pre and post position)
+  prestop:
+   preScript: ""
+   postScript: ""
 
 preflight:
   # -- Enable Cilium pre-flight resources (required for upgrade)
