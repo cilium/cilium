@@ -184,8 +184,7 @@
 // into the global cache for the same domain or a different one (or both).
 // Note: The CT GC has a variable run period. This ranges from 30s to 12 hours
 // and is shorter when more connection churn is observed (the constants are
-// ConntrackGCMinInterval, ConntrackGCMaxInterval and ConntrackGCMaxLRUInterval
-// in package defaults).
+// ConntrackGCMinInterval and ConntrackGCMaxLRUInterval in package defaults).
 //
 // === Flow of DNS data ===
 //
