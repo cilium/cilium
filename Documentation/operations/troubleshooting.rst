@@ -399,8 +399,19 @@ Handling drop (CT: Map insertion failed)
 If connectivity fails and ``cilium monitor --type drop`` shows ``xx drop (CT:
 Map insertion failed)``, then it is likely that the connection tracking table
 is filling up and the automatic adjustment of the garbage collector interval is
-insufficient. Set ``--conntrack-gc-interval`` to an interval lower than the
-default.  Alternatively, the value for ``bpf-ct-global-any-max`` and
+insufficient.
+
+Setting ``--conntrack-gc-interval`` to an interval lower than the current value
+may help. This controls the time interval between two garbage collection runs.
+
+By default ``--contrack-gc-interval`` is set to 0 which translates to
+using a dynamic interval. In that case, the interval is updated after each
+garbage collection run depending on how many entries where garbage collected.
+If very few or no entries were garbage collected, the interval will increase;
+if many entries were garbage collected, it will decrease. The current interval
+value is reported in the Cilium agent logs.
+
+Alternatively, the value for ``bpf-ct-global-any-max`` and
 ``bpf-ct-global-tcp-max`` can be increased. Setting both of these options will
 be a trade-off of CPU for ``conntrack-gc-interval``, and for
 ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` the amount of memory
