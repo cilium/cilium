@@ -328,6 +328,29 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 	c.Assert(DeleteService.String(), check.Equals, "service-deleted")
 }
 
+func (s *K8sSuite) TestServiceMutators(c *check.C) {
+	var m1, m2 int
+
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+	svcCache.ServiceMutators = append(svcCache.ServiceMutators,
+		func(svc *slim_corev1.Service, svcInfo *Service) { m1++ },
+		func(svc *slim_corev1.Service, svcInfo *Service) { m2++ },
+	)
+	swg := lock.NewStoppableWaitGroup()
+	svcCache.UpdateService(&slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector:  map[string]string{"foo": "bar"},
+			Type:      slim_corev1.ServiceTypeClusterIP,
+		},
+	}, swg)
+
+	// Assert that the service mutators configured have been executed.
+	c.Assert(m1, check.Equals, 1)
+	c.Assert(m2, check.Equals, 1)
+}
+
 func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 

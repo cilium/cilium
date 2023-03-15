@@ -90,6 +90,8 @@ type ServiceCache struct {
 	nodeAddressing types.NodeAddressing
 
 	selfNodeZoneLabel string
+
+	ServiceMutators []func(svc *slim_corev1.Service, svcInfo *Service)
 }
 
 // NewServiceCache returns a new ServiceCache
@@ -190,6 +192,10 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	svcID, newService := ParseService(k8sSvc, s.nodeAddressing)
 	if newService == nil {
 		return svcID
+	}
+
+	for _, mutator := range s.ServiceMutators {
+		mutator(k8sSvc, newService)
 	}
 
 	s.mutex.Lock()
