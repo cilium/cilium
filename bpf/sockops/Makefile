@@ -11,7 +11,6 @@ include ../Makefile.bpf
 
 SOCKOPS_OPTIONS = \
 	 -DSKIP_DEBUG \
-	 -DHAVE_LRU_HASH_MAP_TYPE \
 	 -DENABLE_IPV4 \
 	 -DENABLE_IPV6 \
 	 -DENCAP_IFINDEX=1

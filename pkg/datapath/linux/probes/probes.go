@@ -90,7 +90,6 @@ type miscFeatures struct {
 }
 
 type FeatureProbes struct {
-	Maps           map[ebpf.MapType]bool
 	ProgramHelpers map[ProgramHelper]bool
 	Misc           miscFeatures
 }
@@ -475,17 +474,8 @@ func CreateHeaderFiles(headerDir string, probes *FeatureProbes) error {
 // be added in the correct `write*Header()` function.
 func ExecuteHeaderProbes() *FeatureProbes {
 	probes := FeatureProbes{
-		Maps:           make(map[ebpf.MapType]bool),
 		ProgramHelpers: make(map[ProgramHelper]bool),
 		Misc:           miscFeatures{},
-	}
-
-	maps := []ebpf.MapType{
-		ebpf.LRUHash,
-		ebpf.LPMTrie,
-	}
-	for _, m := range maps {
-		probes.Maps[m] = (HaveMapType(m) == nil)
 	}
 
 	progHelpers := []ProgramHelper{
@@ -524,7 +514,6 @@ func ExecuteHeaderProbes() *FeatureProbes {
 // writeCommonHeader defines macross for bpf/include/bpf/features.h
 func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 	features := map[string]bool{
-		"HAVE_LRU_HASH_MAP_TYPE": probes.Maps[ebpf.LRUHash],
 		"HAVE_NETNS_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnGetNetnsCookie}] &&
 			probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetNetnsCookie}],
 		"HAVE_SOCKET_COOKIE": probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSockAddr, asm.FnGetSocketCookie}],
