@@ -207,7 +207,6 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 				ct_state->dsr = entry->dsr;
 				ct_state->proxy_redirect = entry->proxy_redirect;
 				ct_state->from_l7lb = entry->from_l7lb;
-				ct_state->auth_required = entry->auth_required;
 				ct_state->from_tunnel = entry->from_tunnel;
 				ct_state->ifindex = entry->ifindex;
 			}
@@ -832,8 +831,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 				      struct ipv6_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb,
-				      bool auth_required)
+				      bool proxy_redirect, bool from_l7lb)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -853,7 +851,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		 */
 		entry.proxy_redirect = proxy_redirect;
 		entry.from_l7lb = from_l7lb;
-		entry.auth_required = auth_required;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
@@ -903,8 +900,7 @@ static __always_inline int ct_create4(const void *map_main,
 				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, const enum ct_dir dir,
 				      const struct ct_state *ct_state,
-				      bool proxy_redirect, bool from_l7lb,
-				      bool auth_required)
+				      bool proxy_redirect, bool from_l7lb)
 {
 	/* Create entry in original direction */
 	struct ct_entry entry = { };
@@ -925,7 +921,6 @@ static __always_inline int ct_create4(const void *map_main,
 		 */
 		entry.proxy_redirect = proxy_redirect;
 		entry.from_l7lb = from_l7lb;
-		entry.auth_required = auth_required;
 	}
 
 	entry.rev_nat_index = ct_state->rev_nat_index;

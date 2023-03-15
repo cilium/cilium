@@ -891,7 +891,7 @@ struct ct_entry {
 	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
 	      from_l7lb:1, /* Connection is originated from an L7 LB proxy */
-	      auth_required:1,
+	      reserved1:1, /* Was auth_required, not used in production anywhere */
 	      from_tunnel:1, /* Connection is over tunnel */
 	      reserved:5;
 	__u16 rev_nat_index;
@@ -1080,7 +1080,7 @@ struct ct_state {
 	      syn:1,
 	      proxy_redirect:1,	/* Connection is redirected to a proxy */
 	      from_l7lb:1,	/* Connection is originated from an L7 LB proxy */
-	      auth_required:1,
+	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      reserved:8;
 	__be32 addr;

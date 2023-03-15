@@ -520,7 +520,6 @@ const (
 	ProxyRedirect
 	DSR
 	FromL7LB
-	AuthRequired
 	MaxFlags
 )
 
@@ -554,9 +553,6 @@ func (c *CtEntry) flagsString() string {
 	}
 	if (c.Flags & FromL7LB) != 0 {
 		sb.WriteString("FromL7LB ")
-	}
-	if (c.Flags & AuthRequired) != 0 {
-		sb.WriteString("AuthRequired ")
 	}
 
 	unknownFlags := c.Flags
