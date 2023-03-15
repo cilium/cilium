@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.11.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Bump envoy to 1.23.4 (Backport PR #23958, Upstream PR #23800, @sayboras)
+* helm: Add pod and container security context (Backport PR #24089, Upstream PR #23443, @sayboras)
+* helm: Add SA automount configuration (Backport PR #24089, Upstream PR #23441, @sayboras)
+
+**Bugfixes:**
+* Add the option to preserve CNI configuration file on agent shutdown. This can help prevent issues where pods can no longer be deleted. This may cause some transient error messages to be displayed if a pod is scheduled while Cilium is being upgraded. (Backport PR #24198, Upstream PR #24009, @squeed)
+* agent: fix incorrect deletion of veth host interfaces on bootstrap (Backport PR #23958, Upstream PR #23787, @giorio94)
+* clustermesh: fix services cache bloat due to incorrect deletion (Backport PR #24089, Upstream PR #23947, @giorio94)
+* daemon: fix panic when running with etcd with endpoint crd disabled (Backport PR #24385, Upstream PR #24085, @tommyp1ckles)
+* envoy: Avoid empty typeURL for all resources (Backport PR #23862, Upstream PR #23763, @sayboras)
+* Fix connectivity issue upon agent restart in case of ipv6 + direct routing + KPR replacement (Backport PR #23958, Upstream PR #23857, @giorio94)
+* Fix enable-stale-cilium-endpoint-cleanup flag not actually disabling the cleanup init set when set to false. This provides a workaround for an existing panic that can occur when running using etcd kvstore. (Backport PR #24308, Upstream PR #23874, @sjdot)
+* Fix IPv6 policy enforcement for SNATed traffic from the Host (Backport PR #24368, Upstream PR #24132, @ysksuzuki)
+* Fix leaking service backend entries when services with terminating backends were deleted. (#23858, @aditighag)
+* ipam/crd: Fix panic due to concurrent map read and map write (Backport PR #23958, Upstream PR #23713, @gandro)
+* node: require ipv4 address when wireguard is enabled (Backport PR #24040, Upstream PR #23552, @giorio94)
+
+**Misc Changes:**
+* Add leader requirement to watch from Etcd. (Backport PR #24089, Upstream PR #23590, @marseel)
+* bpf: Fix usage of tunnel map structs (Backport PR #24089, Upstream PR #23469, @pchaigno)
+* bugtool: Add ingress/egress tc filter dump (Backport PR #24198, Upstream PR #24057, @joestringer)
+* chore(deps): update all github action dependencies (v1.11) (minor) (#24004, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.11) (patch) (#23995, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.11.2 (v1.11) (#23924, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 9fa30fc (v1.11) (#24141, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.2 (v1.11) (#23949, @renovate[bot])
+* docs: Document CONFIG_PERF_EVENTS requirement (Backport PR #24198, Upstream PR #24055, @joestringer)
+* docs: Fix the dead link to Mellanox performance tuning guide (Backport PR #24089, Upstream PR #24012, @gentoo-root)
+* docs: replace usage of api.twitter.com (Backport PR #23958, Upstream PR #23669, @kaworu)
+* Enable Google Analytics 4 (Backport PR #24066, Upstream PR #22220, @chalin)
+* fix(deps): update module golang.org/x/net to v0.7.0 [security] (master) (Backport PR #23958, Upstream PR #23904, @renovate[bot])
+* Fixed link to broken anchor in RKE doc (Backport PR #23958, Upstream PR #23706, @raphink)
+* IPsec: Remove `IP_POOLS` logic (Backport PR #24089, Upstream PR #24030, @pchaigno)
+* Node ID restoration (Backport PR #23686, Upstream PR #23578, @pchaigno)
+* Remove / in RKE doc link as it causes redirect bug (Backport PR #23958, Upstream PR #23728, @raphink)
+* workflow: fixes LLVM, Clang cache and install path (Backport PR #23958, Upstream PR #23740, @brlbil)
+
+**Other Changes:**
+* images: update cilium-{runtime,builder} for 1.11 (#24302, @nebril)
+* install: Update image digests for v1.11.14 (#23737, @joestringer)
+* Revert "Pick up etcd v3.4.23" (#23789, @michi-covalent)
+* v1.11 - Backport initContainer change (#24329, @ferozsalam)
+
 ## v1.11.14
 
 Summary of Changes
