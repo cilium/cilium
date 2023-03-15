@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/signal"
 )
@@ -35,6 +36,15 @@ var Cell = cell.Module(
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
+	),
+	// Providing k8s resource Node & Identity privately to avoid further usage of them in other agent components
+	cell.ProvidePrivate(
+		// TODO: use node manager to get events of all nodes, including the ones of other clusters (ClusterMesh)
+		// https://github.com/cilium/cilium/issues/25899
+		k8s.CiliumNodeResource,
+		// TODO: add support for KVStore. K8s identity events are only provided for CRD based identity backend.
+		// https://github.com/cilium/cilium/issues/25898
+		k8s.CiliumIdentityResource,
 	),
 	cell.Config(config{MeshAuthQueueSize: 1024}),
 	cell.Config(MutualAuthConfig{}),
