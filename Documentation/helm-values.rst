@@ -1669,6 +1669,10 @@
      - Labels to be added to node-init pods.
      - object
      - ``{}``
+   * - nodeinit.prestop
+     - prestop offers way to customize prestop nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.priorityClassName
      - The priority class to use for the nodeinit pod.
      - string
@@ -1681,6 +1685,10 @@
      - Security context to be added to nodeinit pods.
      - object
      - ``{"capabilities":{"add":["SYS_MODULE","NET_ADMIN","SYS_ADMIN","SYS_CHROOT","SYS_PTRACE"]},"privileged":false,"seLinuxOptions":{"level":"s0","type":"spc_t"}}``
+   * - nodeinit.startup
+     - startup offers way to customize startup nodeinit script (pre and post position)
+     - object
+     - ``{"postScript":"","preScript":""}``
    * - nodeinit.tolerations
      - Node tolerations for nodeinit scheduling to nodes with taints ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
      - list
