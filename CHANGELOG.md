@@ -1,5 +1,105 @@
 # Changelog
 
+## v1.13.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add CLI command to dump cgroups metadata (Backport PR #23834, Upstream PR #23641, @alexkats)
+* Add pod-name hubble metrics context for pod name label without namespace (Backport PR #24058, Upstream PR #23199, @chancez)
+* envoy: Bump envoy to 1.23.4 (Backport PR #23956, Upstream PR #23800, @sayboras)
+* helm: Add pod and container security context (Backport PR #24086, Upstream PR #23443, @sayboras)
+* helm: Add SA automount configuration (Backport PR #24086, Upstream PR #23441, @sayboras)
+* helm: Add support of annotations in hubble ui service (Backport PR #23834, Upstream PR #23709, @brnck)
+* Hide `--install-iptables-rules` agent flag and remove `installIptablesRules` Helm flag (Backport PR #24200, Upstream PR #24081, @pchaigno)
+
+**Bugfixes:**
+* [EKS] Fix deadlock causing network connectivity outages when kube-apiservers scale down (Backport PR #23956, Upstream PR #23836, @christarazi)
+* Add the option to preserve CNI configuration file on agent shutdown. This can help prevent issues where pods can no longer be deleted. This may cause some transient error messages to be displayed if a pod is scheduled while Cilium is being upgraded. (Backport PR #24200, Upstream PR #24009, @squeed)
+* agent: fix incorrect deletion of veth host interfaces on bootstrap (Backport PR #23956, Upstream PR #23787, @giorio94)
+* Avoid k8s CiliumNode initialization problems when Cilium connects to the KVStore (Backport PR #24200, Upstream PR #24156, @aanm)
+* bpf: Fix broken remote-node identity classification (Backport PR #23956, Upstream PR #23091, @ysksuzuki)
+* clustermesh: fix cluster synchronization wait group increment (Backport PR #24058, Upstream PR #23741, @giorio94)
+* clustermesh: fix services cache bloat due to incorrect deletion (Backport PR #24058, Upstream PR #23947, @giorio94)
+* daemon: fix panic when running with etcd with endpoint crd disabled (Backport PR #24387, Upstream PR #24085, @tommyp1ckles)
+* envoy: Avoid empty typeURL for all resources (Backport PR #23860, Upstream PR #23763, @sayboras)
+* Fix bug that would prevent IPsec from working with GENEVE encapsulation. (Backport PR #24200, Upstream PR #24116, @borkmann)
+* Fix bug that would prevent SRv6 decapsulation when BPF Host Routing was disabled. (Backport PR #23834, Upstream PR #23825, @ldelossa)
+* Fix connectivity issue upon agent restart in case of ipv6 + direct routing + KPR replacement (Backport PR #23956, Upstream PR #23857, @giorio94)
+* Fix deadlock in cilium-operator when using CiliumEndpointSlices (Backport PR #24370, Upstream PR #24343, @alan-kut)
+* Fix enable-stale-cilium-endpoint-cleanup flag not actually disabling the cleanup init set when set to false. This provides a workaround for an existing panic that can occur when running using etcd kvstore. (Backport PR #24311, Upstream PR #23874, @sjdot)
+* Fix FIB lookup for traffic to a L7 service backend, when BPF host-routing is enabled and multiple external devices are configured. (Backport PR #24195, Upstream PR #24182, @julianwiedmann)
+* Fix incorrectly dropping in-cluster traffic for L7 ingress resources (Backport PR #24200, Upstream PR #23984, @sayboras)
+* Fix IPv6 policy enforcement for SNATed traffic from the Host (Backport PR #24370, Upstream PR #24132, @ysksuzuki)
+* Fix memory leak caused on clustermesh reconnect. (Backport PR #24086, Upstream PR #23785, @oblazek)
+* Fix operator crash race condition for CES identity map concurrent read/write (Backport PR #24086, Upstream PR #23605, @dlapcevic)
+* Fix Pod connectivity interruption during agent restart (Backport PR #24370, Upstream PR #24336, @ti-mo)
+* Fix restoreServicesLocked() potential nil pointer panic (Backport PR #23834, Upstream PR #23446, @dlapcevic)
+* fix(helm): add missing updateStrategy to hubble-ui deployment (Backport PR #24058, Upstream PR #23975, @mhulscher)
+* Fixes a bug where the Helm value `cni.configMap` no longer worked. (Backport PR #23834, Upstream PR #23743, @squeed)
+* Fixes a memory leak and (possible) source of stale data for Clustermesh whenever the connection to the remote cluster is disrupted or restarted. (Backport PR #23834, Upstream PR #23532, @squeed)
+* gateway-api: Combine metrics registry with operator (Backport PR #23834, Upstream PR #23501, @sayboras)
+* helm: Fix duplicate `enable-envoy-config` flag when enabling L7LB, Ingress Controller, or GatewayAPI simultaneously (Backport PR #23956, Upstream PR #23866, @DWSR)
+* Hubble Relay: fix reported uptime (Backport PR #24058, Upstream PR #23966, @rolinh)
+* init.sh: fix cgroup program detachment and detach multiple progs with retry (Backport PR #24184, Upstream PR #24118, @ti-mo)
+* install: don't render role / rolebinding when agent disabled (Backport PR #24200, Upstream PR #23877, @squeed)
+* ipam/crd: Fix panic due to concurrent map read and map write (Backport PR #23834, Upstream PR #23713, @gandro)
+* k8s: Handle EndpointSlice AddressType field properly (Backport PR #23956, Upstream PR #23803, @YutaroHayakawa)
+* kvstore: prevent deletion delay for node-unrelated events (Backport PR #24086, Upstream PR #23745, @giorio94)
+* node: require ipv4 address when wireguard is enabled (#23552, @giorio94)
+* watchers: endpointsync can manage already owned CiliumEndpoints. (Backport PR #24086, Upstream PR #23499, @tommyp1ckles)
+
+**CI Changes:**
+* bpf/Makefile: Cover VTEP in compile tests (Backport PR #24200, Upstream PR #24106, @pchaigno)
+* CI: switch to registry.k8s.io (Backport PR #24058, Upstream PR #23821, @ameukam)
+* egressgw: test: switch to WaitForEgressPolicyEntries (Backport PR #24179, Upstream PR #24097, @jibi)
+* test: Get rid of 4.9 pipeline (Backport PR #23834, Upstream PR #23343, @brb)
+* test: Skip K8sPolicyTestExtended on the 4.19 (Backport PR #23956, Upstream PR #23934, @brb)
+* test: Update policy for hairpin flow validation (Backport PR #23834, Upstream PR #23480, @aditighag)
+
+**Misc Changes:**
+* Add leader requirement to watch from Etcd. (Backport PR #24058, Upstream PR #23590, @marseel)
+* agent: dump stack on stale probes (Backport PR #24086, Upstream PR #23915, @squeed)
+* bpf,test: Define BPF_TEST macro for map-in-map/prog-map initialization (Backport PR #24200, Upstream PR #24127, @YutaroHayakawa)
+* bpf: Fix usage of tunnel map structs (Backport PR #24086, Upstream PR #23469, @pchaigno)
+* bugtool: Add ingress/egress tc filter dump (Backport PR #24200, Upstream PR #24057, @joestringer)
+* chore(deps): update actions/checkout action to v3.3.0 (v1.13) (#23992, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (patch) (#23991, @renovate[bot])
+* chore(deps): update base-images (v1.13) (#24104, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.11.2 (v1.13) (#23851, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.6 docker digest to 1a86aa6 (v1.13) (#24105, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.6 docker digest to 7ce31d1 (v1.13) (#23775, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.6 docker digest to 7ce31d1 (v1.13) (#23776, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.11.2 (v1.13) (#23908, @renovate[bot])
+* docs: Clarify basic kernel requirement (Backport PR #24058, Upstream PR #23951, @pchaigno)
+* docs: Document CONFIG_PERF_EVENTS requirement (Backport PR #24200, Upstream PR #24055, @joestringer)
+* docs: Document kernel requirement for L3 devices support (Backport PR #24200, Upstream PR #24101, @pchaigno)
+* docs: Document upgrade behaviour for 1.13.x (#24364, @joestringer)
+* docs: Fix missing disclaimer content to Ingress and Gateway API pages (Backport PR #23956, Upstream PR #23756, @kayceeDev)
+* docs: Fix the dead link to Mellanox performance tuning guide (Backport PR #24086, Upstream PR #24012, @gentoo-root)
+* docs: replace usage of api.twitter.com (Backport PR #23834, Upstream PR #23669, @kaworu)
+* Document exemplars option for hubble httpV2 metrics (Backport PR #23834, Upstream PR #23620, @chancez)
+* fix(deps): update module golang.org/x/net to v0.7.0 [security] (master) (Backport PR #23956, Upstream PR #23904, @renovate[bot])
+* Fixed broken/deprecated links (Backport PR #24058, Upstream PR #23920, @PhilipSchmid)
+* Fixed link to broken anchor in RKE doc (Backport PR #23834, Upstream PR #23706, @raphink)
+* Fixes a flake in the kubectl wait part of the CI (Backport PR #23834, Upstream PR #23733, @meyskens)
+* init.sh: clean up cgroup bpf_links created by newer versions of Cilium (Backport PR #24184, Upstream PR #23537, @ti-mo)
+* IPsec: Remove `IP_POOLS` logic (Backport PR #24086, Upstream PR #24030, @pchaigno)
+* kvstore: add clusterName suffix to session controllers (Backport PR #24086, Upstream PR #23928, @oblazek)
+* Remove / in RKE doc link as it causes redirect bug (Backport PR #23834, Upstream PR #23728, @raphink)
+* test/runtime: Set NO_COLOR for privileged tests (Backport PR #24058, Upstream PR #23151, @joestringer)
+* Update CNI to 1.2.0 (#23319, @michi-covalent)
+* Update signature verification docs for Sigstore 2.0 (Backport PR #24086, Upstream PR #24029, @jedsalazar)
+* workflow: fixes LLVM, Clang cache and install path (Backport PR #23834, Upstream PR #23740, @brlbil)
+
+**Other Changes:**
+* .github: remove workflows that are not branch specific (#23842, @aanm)
+* gha: Bump timeout to 90 minutes for build commit. (#23959, @sayboras)
+* install: Update image digests for v1.13.0 (#23783, @aanm)
+* update images 1.13 (#24331, @nebril)
+* v1.13 - Backport initContainer change (#24333, @ferozsalam)
+
 ## v1.13.0
 
 Summary of Changes
