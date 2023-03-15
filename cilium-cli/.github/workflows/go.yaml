@@ -16,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+    - uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f
 
     - name: Set up Go
       uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
