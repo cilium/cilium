@@ -1131,7 +1131,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 }
 
 static __always_inline void
-lb4_fill_key(struct lb4_key *key, struct ipv4_ct_tuple *tuple)
+lb4_fill_key(struct lb4_key *key, const struct ipv4_ct_tuple *tuple)
 {
 	/* FIXME: set after adding support for different L4 protocols in LB */
 	key->proto = 0;

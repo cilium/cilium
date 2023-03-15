@@ -160,7 +160,7 @@ static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
 	ctx->mark |= MARK_MAGIC_SNAT_DONE;
 }
 
-static __always_inline bool ctx_snat_done(struct __sk_buff *ctx)
+static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
