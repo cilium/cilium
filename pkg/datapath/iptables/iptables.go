@@ -1597,13 +1597,13 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 		return nil
 	}
 
-	insertAcceptXfrm := func(table, chain string) error {
+	insertAcceptXfrm := func(ipt *ipt, table, chain string) error {
 		matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkDecrypt, linux_defaults.RouteMarkMask)
 		matchFromIPSecDecrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 
 		comment := "exclude xfrm marks from " + table + " " + chain + " chain"
 
-		if err := ip4tables.runProg([]string{
+		if err := ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecEncrypt,
@@ -1612,7 +1612,7 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 			return err
 		}
 
-		return ip4tables.runProg([]string{
+		return ipt.runProg([]string{
 			"-t", table,
 			"-A", chain,
 			"-m", "mark", "--mark", matchFromIPSecDecrypt,
@@ -1620,23 +1620,21 @@ func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
 			"-j", "ACCEPT"})
 	}
 
-	if err := insertAcceptXfrm("filter", ciliumInputChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("filter", ciliumOutputChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("filter", ciliumForwardChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumPostNatChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumPreNatChain); err != nil {
-		return err
-	}
-	if err := insertAcceptXfrm("nat", ciliumOutputNatChain); err != nil {
-		return err
+	for _, chain := range ciliumChains {
+		switch chain.table {
+		case "filter", "nat":
+			if option.Config.EnableIPv4 {
+				if err := insertAcceptXfrm(ip4tables, chain.table, chain.name); err != nil {
+					return err
+				}
+			}
+			// ip6tables chain exists only if chain.ipv6 is true
+			if option.Config.EnableIPv6 && chain.ipv6 {
+				if err := insertAcceptXfrm(ip6tables, chain.table, chain.name); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
