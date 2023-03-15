@@ -274,7 +274,8 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	void *data, *data_end;
 	int ret;
 
-	build_bug_on(len_diff <= 0 || len_diff >= 64);
+	/* Note: when bumping len_diff, consider headroom on popular NICs. */
+	build_bug_on(len_diff <= 0 || len_diff >= 128);
 	build_bug_on(mode != BPF_ADJ_ROOM_NET);
 
 	ret = xdp_adjust_head(ctx, -len_diff);
