@@ -175,6 +175,8 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
         For more details on how to set up an ACK cluster please follow
         the `official documentation <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_.
 
+.. _install_cilium_cli:
+
 Install the Cilium CLI
 ======================
 
