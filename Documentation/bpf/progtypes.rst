@@ -370,6 +370,8 @@ corresponding network driver name of an interface can be determined as follows:
 | Others            | virtio_net | >= 4.10     |
 |                   +------------+-------------+
 |                   | tun/tap    | >= 4.14     |
+|                   +------------+-------------+
+|                   | bond       | >= 5.15     |
 +-------------------+------------+-------------+
 | Qlogic            | qede       | >= 4.10     |
 +-------------------+------------+-------------+
