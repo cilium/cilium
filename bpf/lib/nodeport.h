@@ -882,7 +882,7 @@ skip_service_lookup:
 				ctx_store_meta(ctx, CB_ADDR_V6_3, key.address.p3);
 				ctx_store_meta(ctx, CB_ADDR_V6_4, key.address.p4);
 				ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_DSR_INGRESS);
-				ret = DROP_MISSED_TAIL_CALL;
+				return DROP_MISSED_TAIL_CALL;
 			}
 
 			if (IS_ERR(ret))
@@ -1985,7 +1985,7 @@ skip_service_lookup:
 				ctx_store_meta(ctx, CB_PORT, key.dport);
 				ctx_store_meta(ctx, CB_ADDR_V4, key.address);
 				ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_DSR_INGRESS);
-				ret = DROP_MISSED_TAIL_CALL;
+				return DROP_MISSED_TAIL_CALL;
 			}
 
 			if (IS_ERR(ret))
