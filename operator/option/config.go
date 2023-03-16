@@ -415,7 +415,7 @@ type OperatorConfig struct {
 	// ENITags are the tags that will be added to every ENI created by the AWS ENI IPAM
 	ENITags map[string]string
 
-	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
 	ParallelAllocWorkers int64
 
 	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
@@ -571,6 +571,12 @@ func (c *OperatorConfig) Populate() {
 		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
 			SyncK8sServices)
 	}
+
+	// IPAM options
+
+	c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
+	c.IPAMAPIBurst = viper.GetInt(IPAMAPIBurst)
+	c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
 
 	// AWS options
 
