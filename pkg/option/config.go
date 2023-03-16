@@ -545,6 +545,10 @@ const (
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
+	// CNIChainingTarget is the name of a CNI network in to which we should
+	// insert our plugin configuration
+	CNIChainingTarget = "cni-chaining-target"
+
 	// AuthMapEntriesMin defines the minimum auth map limit.
 	AuthMapEntriesMin = 1 << 8
 

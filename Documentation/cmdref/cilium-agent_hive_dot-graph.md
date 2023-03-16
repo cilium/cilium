@@ -19,6 +19,7 @@ cilium-agent hive dot-graph [flags]
 ```
       --certificates-directory string                    Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cni-chaining-mode string                         Enable CNI chaining with the specified plugin (default "none")
+      --cni-chaining-target string                       CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                    Whether to remove other CNI configurations
       --cni-log-file string                              Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
       --egress-gateway-policy-map-max int                Maximum number of entries in egress gateway policy map (default 16384)
