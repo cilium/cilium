@@ -135,6 +135,12 @@ Users (Alphabetically)
       L: https://github.com/slzcc/crane
       Q: @slzcc
 
+    * N: Daimler Truck AG 
+      D: The CSG RuntimeDepartment of DaimlerTruck is maintaining an AKS k8s cluster as a shared resource for DevOps crews and is using Cilium as the default CNI (BYOCNI).
+      U: Networking, NetworkPolicy and Monitoring
+      L: https://daimlertruck.com
+      Q: @brandshaide
+
     * N: DaoCloud - spiderpool & merbridge
       D: spiderpool is using Cilium as their main CNI plugin for overlay and merbridge is using  Cilium eBPF library to speed up your Service Mesh
       U: CNI, Service load-balancing, cluster mesh
