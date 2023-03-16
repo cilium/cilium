@@ -92,7 +92,16 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	return linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent)
+
+	params.LC.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			datapath.Node().RestoreNodeIDs()
+			return nil
+		},
+	})
+
+	return datapath
 }
 
 type datapathParams struct {
