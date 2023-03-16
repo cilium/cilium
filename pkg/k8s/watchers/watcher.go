@@ -951,6 +951,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			Name: loadbalancer.ServiceName{
 				Name:      svcID.Name,
 				Namespace: svcID.Namespace,
+				Cluster:   svcID.Cluster,
 			},
 		}
 		if _, _, err := k.svcManager.UpsertService(p); err != nil {

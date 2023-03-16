@@ -850,7 +850,7 @@ paths:
           description: Success
           schema:
             type: string
-            format: binary 
+            format: binary
         '404':
           description: Map not found
   "/metrics/":
@@ -2756,6 +2756,9 @@ definitions:
             type: string
           namespace:
             description: Service namespace  (e.g. Kubernetes namespace)
+            type: string
+          cluster:
+            description: Service cluster
             type: string
       updateServices:
         description: |

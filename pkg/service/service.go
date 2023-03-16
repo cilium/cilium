@@ -1155,7 +1155,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.sessionAffinity = p.SessionAffinity
 		svc.sessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
 		svc.loadBalancerSourceRanges = p.LoadBalancerSourceRanges
-		// Name and namespace are both optional and intended for exposure via
+		// Name, namespace and cluster are optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
 		if p.Name.Name != "" {
@@ -1163,6 +1163,9 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		}
 		if p.Name.Namespace != "" {
 			svc.svcName.Namespace = p.Name.Namespace
+		}
+		if p.Name.Cluster != "" {
+			svc.svcName.Cluster = p.Name.Cluster
 		}
 		// We have heard about the service from k8s, so unset the flag so that
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
