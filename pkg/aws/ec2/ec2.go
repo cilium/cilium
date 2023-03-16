@@ -374,7 +374,7 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 
 	for _, ip := range iface.Ipv6Addresses {
 		if ip.Ipv6Address != nil {
-			eni.IPv6Addresses = append(eni.Addresses, aws.ToString(ip.Ipv6Address))
+			eni.IPv6Addresses = append(eni.IPv6Addresses, aws.ToString(ip.Ipv6Address))
 		}
 	}
 
