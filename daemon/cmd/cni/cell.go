@@ -31,6 +31,7 @@ type Config struct {
 	CNIChainingMode       string
 	CNILogFile            string
 	CNIExclusive          bool
+	CNIChainingTarget     string
 }
 
 type CNIConfigManager interface {
@@ -52,6 +53,7 @@ func (cfg Config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.ReadCNIConfiguration, defaultConfig.ReadCNIConf, fmt.Sprintf("CNI configuration file to use as a source for --%s. If not supplied, a suitable one will be generated.", option.WriteCNIConfigurationWhenReady))
 	flags.String(option.CNIChainingMode, defaultConfig.CNIChainingMode, "Enable CNI chaining with the specified plugin")
 	flags.String(option.CNILogFile, defaultConfig.CNILogFile, "Path where the CNI plugin should write logs")
+	flags.String(option.CNIChainingTarget, defaultConfig.CNIChainingTarget, "CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.")
 	flags.Bool(option.CNIExclusive, defaultConfig.CNIExclusive, "Whether to remove other CNI configurations")
 }
 
@@ -62,6 +64,14 @@ func enableConfigManager(lc hive.Lifecycle, log logrus.FieldLogger, cfg Config, 
 }
 
 func newConfigManager(log logrus.FieldLogger, cfg Config, debug bool) *cniConfigManager {
+	if cfg.CNIChainingMode == "aws-cni" && cfg.CNIChainingTarget == "" {
+		cfg.CNIChainingTarget = "aws-cni"
+	}
+
+	if cfg.CNIChainingTarget != "" && cfg.CNIChainingMode == "" {
+		cfg.CNIChainingMode = "generic-veth"
+	}
+
 	c := &cniConfigManager{
 		config:     cfg,
 		debug:      debug,

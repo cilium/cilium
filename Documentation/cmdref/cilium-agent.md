@@ -63,6 +63,7 @@ cilium-agent [flags]
       --cluster-name string                                     Name of the cluster (default "default")
       --clustermesh-config string                               Path to the ClusterMesh configuration directory
       --cni-chaining-mode string                                Enable CNI chaining with the specified plugin (default "none")
+      --cni-chaining-target string                              CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.
       --cni-exclusive                                           Whether to remove other CNI configurations
       --cni-log-file string                                     Path where the CNI plugin should write logs (default "/var/run/cilium/cilium-cni.log")
       --config string                                           Configuration file (default "$HOME/ciliumd.yaml")
