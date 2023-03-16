@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -310,11 +311,15 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		return
 	}
 
+	if len(iface.Ipv6Prefixes) != 0 {
+		err = fmt.Errorf("IPv6 prefix feature on ENI is not supported yet")
+		return
+	}
+
 	eni = &eniTypes.ENI{
 		IP:             aws.ToString(iface.PrivateIpAddress),
 		SecurityGroups: []string{},
 		Addresses:      []string{},
-		IPv6Addresses:  []string{},
 	}
 
 	if iface.MacAddress != nil {
@@ -367,6 +372,12 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 	}
 
+	for _, ip := range iface.Ipv6Addresses {
+		if ip.Ipv6Address != nil {
+			eni.IPv6Addresses = append(eni.Addresses, aws.ToString(ip.Ipv6Address))
+		}
+	}
+
 	for _, prefix := range iface.Ipv4Prefixes {
 		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv4Prefix))
 		if e != nil {
@@ -375,16 +386,6 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		}
 		eni.Addresses = append(eni.Addresses, ips...)
 		eni.Prefixes = append(eni.Prefixes, aws.ToString(prefix.Ipv4Prefix))
-	}
-
-	for _, prefix := range iface.Ipv6Prefixes {
-		ips, e := ipPkg.PrefixToIps(aws.ToString(prefix.Ipv6Prefix))
-		if e != nil {
-			err = fmt.Errorf("unable to parse CIDR %s: %w", aws.ToString(prefix.Ipv6Prefix), e)
-			return
-		}
-		eni.IPv6Addresses = append(eni.IPv6Addresses, ips...)
-		eni.IPv6Prefixes = append(eni.IPv6Prefixes, aws.ToString(prefix.Ipv6Prefix))
 	}
 
 	for _, g := range iface.Groups {
@@ -514,11 +515,24 @@ func (c *Client) GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error) {
 			continue
 		}
 
+		// There is no AvailableIpAddressCount parameter for IPv6 provided by AWS
+		// So just calculate the IPv6 address count instead
+		// According: https://docs.aws.amazon.com/securityhub/1.0/APIReference/API_AwsEc2SubnetDetails.html
+		availableIPv6AddressCount := big.NewInt(0)
+		for _, IPv6CidrBlock := range s.Ipv6CidrBlockAssociationSet {
+			IPv6Cidr, err := cidr.ParseCIDR(aws.ToString(IPv6CidrBlock.Ipv6CidrBlock))
+			if err != nil {
+				continue
+			}
+			availableIPv6AddressCount = availableIPv6AddressCount.And(availableIPv6AddressCount, ipPkg.CountIPsInCIDR(IPv6Cidr.IPNet))
+		}
+
 		subnet := &ipamTypes.Subnet{
-			ID:                 aws.ToString(s.SubnetId),
-			CIDR:               c,
-			AvailableAddresses: int(aws.ToInt32(s.AvailableIpAddressCount)),
-			Tags:               map[string]string{},
+			ID:                     aws.ToString(s.SubnetId),
+			CIDR:                   c,
+			AvailableAddresses:     int(aws.ToInt32(s.AvailableIpAddressCount)),
+			AvailableIPv6Addresses: availableIPv6AddressCount,
+			Tags:                   map[string]string{},
 		}
 
 		if s.AvailabilityZone != nil {

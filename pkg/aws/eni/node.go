@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"sort"
 	"strings"
@@ -209,11 +210,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
-			fieldEniID:     e.ID,
-			"needIndex":    *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
-			"index":        e.Number,
-			"addressLimit": limits.IPv4,
-			"numAddresses": len(e.Addresses),
+			fieldEniID:         e.ID,
+			"needIndex":        *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
+			"index":            e.Number,
+			"addressLimit":     limits.IPv4,
+			"IPv6AddressLimit": limits.IPv6,
+			"numAddresses":     len(e.Addresses),
+			"numIPv6Addresses": len(e.IPv6Addresses),
 		}).Debug("Considering ENI for allocation")
 
 		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
@@ -223,15 +226,18 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 		effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
 		availableOnENI := math.IntMax(effectiveLimits-len(e.Addresses), 0)
-		if availableOnENI <= 0 {
+		IPv6effectiveLimits := n.getEffectiveIPv6IPLimits(&e, limits.IPv6)
+		IPv6availableOnENI := math.IntMax(IPv6effectiveLimits-len(e.IPv6Addresses), 0)
+		if availableOnENI <= 0 && IPv6availableOnENI <= 0 {
 			continue
 		} else {
 			a.InterfaceCandidates++
 		}
 
 		scopedLog.WithFields(logrus.Fields{
-			fieldEniID:       e.ID,
-			"availableOnEni": availableOnENI,
+			fieldEniID:           e.ID,
+			"availableOnEni":     availableOnENI,
+			"IPv6availableOnENI": IPv6availableOnENI,
 		}).Debug("ENI has IPs available")
 
 		if subnet := n.manager.GetSubnet(e.Subnet.ID); subnet != nil {
@@ -244,6 +250,14 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				a.InterfaceID = key
 				a.PoolID = ipamTypes.PoolID(subnet.ID)
 				a.AvailableForAllocation = math.IntMin(subnet.AvailableAddresses, availableOnENI)
+
+				bigIPv6availableOnENI := big.NewInt(int64(IPv6availableOnENI))
+				cmpResult := subnet.AvailableIPv6Addresses.Cmp(bigIPv6availableOnENI)
+				if cmpResult == -1 {
+					a.AvailableIPv6ForAllocation = bigIPv6availableOnENI
+				} else {
+					a.AvailableIPv6ForAllocation = subnet.AvailableIPv6Addresses
+				}
 			}
 		}
 	}
@@ -797,6 +811,13 @@ func (n *Node) getEffectiveIPLimits(eni *eniTypes.ENI, limits int) (effectiveLim
 		effectiveLimits += len(eni.Prefixes) * (option.ENIPDBlockSizeIPv4 - 1)
 	}
 	return effectiveLimits
+}
+
+// getEffectiveIPv6IPLimits computing the effective number of available IPv6 addresses on the ENI
+// based on limits
+func (n *Node) getEffectiveIPv6IPLimits(eni *eniTypes.ENI, limits int) (effectiveLimits int) {
+	// For IPv6 prefix is not supported yet, just return the IPv6 limits
+	return limits
 }
 
 // findSuitableSubnet attempts to find a subnet to allocate an ENI in according to the following heuristic.

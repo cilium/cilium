@@ -8,6 +8,7 @@ package ipam
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -538,6 +539,10 @@ type AllocationAction struct {
 	// IPs available for allocation on that interface. This number may be
 	// lower than the number of IPs required to resolve the deficit.
 	AvailableForAllocation int
+
+	// AvailableIPv6ForAllocation is the number IPv6 IPs available for allocation.
+	// It is just the same as AvailableForAllocation for IPv4
+	AvailableIPv6ForAllocation *big.Int
 
 	// MaxIPsToAllocate is set by the core IPAM layer before
 	// NodeOperations.AllocateIPs() is called and defines the maximum

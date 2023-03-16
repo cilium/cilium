@@ -5,9 +5,9 @@ package types
 
 import (
 	"fmt"
-
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
+	"math/big"
 )
 
 // Limits specifies the IPAM relevant instance limits
@@ -220,6 +220,10 @@ type Subnet struct {
 	// AvailableAddresses is the number of addresses available for
 	// allocation
 	AvailableAddresses int
+
+	// AvailableAddresses is the number of IPv6 addresses available for
+	// allocation
+	AvailableIPv6Addresses *big.Int
 
 	// Tags is the tags of the subnet
 	Tags Tags
