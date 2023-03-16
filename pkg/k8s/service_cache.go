@@ -554,8 +554,8 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 
 	// The cluster the service belongs to will match the current one when dealing with external
 	// workloads (and in that case all endpoints shall be always present), and not match in the
-	// cluster-mesh case (where remote endpoints shall be used only if it is global and shared).
-	if service.Cluster != option.Config.ClusterName && !(service.IncludeExternal && service.Shared) {
+	// cluster-mesh case (where remote endpoints shall be used only if it is shared).
+	if service.Cluster != option.Config.ClusterName && !service.Shared {
 		delete(externalEndpoints.endpoints, service.Cluster)
 	} else {
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
