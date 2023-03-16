@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
-	"github.com/cilium/cilium/pkg/maps/auth"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -147,7 +147,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["METRICS_MAP"] = metricsmap.MapName
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
 	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
-	cDefinesMap["AUTH_MAP"] = auth.MapName
+	cDefinesMap["AUTH_MAP"] = authmap.MapName
 	cDefinesMap["AUTH_MAP_SIZE"] = fmt.Sprintf("%d", option.Config.AuthMapEntries)
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)

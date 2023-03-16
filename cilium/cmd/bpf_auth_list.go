@@ -14,7 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/maps/auth"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -34,7 +34,7 @@ var bpfAuthListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf auth list")
 
-		if err := auth.OpenAuthMap(); err != nil {
+		if err := authmap.OpenAuthMap(); err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
 				fmt.Fprintln(os.Stderr, "Cannot find auth bpf map")
 				return
@@ -44,7 +44,7 @@ var bpfAuthListCmd = &cobra.Command{
 		}
 
 		var bpfAuthList []authEntry
-		parse := func(key *auth.AuthKey, val *auth.AuthInfo) {
+		parse := func(key *authmap.AuthKey, val *authmap.AuthInfo) {
 
 			bpfAuthList = append(bpfAuthList, authEntry{
 				LocalIdentity:  key.LocalIdentity,
@@ -55,7 +55,7 @@ var bpfAuthListCmd = &cobra.Command{
 			})
 		}
 
-		if err := auth.AuthMap().IterateWithCallback(parse); err != nil {
+		if err := authmap.AuthMap().IterateWithCallback(parse); err != nil {
 			Fatalf("Error dumping contents of the auth map: %s\n", err)
 		}
 

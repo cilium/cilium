@@ -8,7 +8,7 @@ import (
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/maps/auth"
+	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -95,8 +95,8 @@ func CheckStructAlignments(path string) error {
 		"tunnel_value":           {reflect.TypeOf(tunnel.TunnelValue{})},
 		"vtep_key":               {reflect.TypeOf(vtep.Key{})},
 		"vtep_value":             {reflect.TypeOf(vtep.VtepEndpointInfo{})},
-		"auth_key":               {reflect.TypeOf(auth.AuthKey{})},
-		"auth_info":              {reflect.TypeOf(auth.AuthInfo{})},
+		"auth_key":               {reflect.TypeOf(authmap.AuthKey{})},
+		"auth_info":              {reflect.TypeOf(authmap.AuthInfo{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
