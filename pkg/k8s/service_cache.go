@@ -496,8 +496,10 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 		}
 	}
 
+	var hasExternalEndpoints bool
 	if svcFound && svc.IncludeExternal {
-		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
+		externalEndpoints, ok := s.externalEndpoints[id]
+		hasExternalEndpoints = ok && len(externalEndpoints.endpoints) > 0
 		if hasExternalEndpoints {
 			// remote cluster endpoints already contain all Endpoints from all
 			// EndpointSlices so no need to search the endpoints of a particular
@@ -522,7 +524,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 
 	// Report the service as ready if a local endpoints object exists or if
 	// external endpoints have been identified
-	return endpoints, hasLocalEndpoints || len(endpoints.Backends) > 0
+	return endpoints, hasLocalEndpoints || hasExternalEndpoints
 }
 
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
