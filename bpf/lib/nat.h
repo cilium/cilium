@@ -122,19 +122,35 @@ struct {
 } SNAT_MAPPING_IPV4 __section_maps_btf;
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+struct per_cluster_snat_mapping_ipv4_inner_map {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, struct ipv4_ct_tuple);
+	__type(value, struct ipv4_nat_entry);
+	__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
+#ifndef BPF_TEST
+};
+#else
+} per_cluster_snat_mapping_ipv4_1 __section_maps_btf,
+  per_cluster_snat_mapping_ipv4_2 __section_maps_btf;
+#endif
+
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
 	__type(key, __u32);
 	__type(value, __u32);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
 	__uint(max_entries, 256);
-	__array(values, struct {
-		__uint(type, BPF_MAP_TYPE_LRU_HASH);
-		__type(key, struct ipv4_ct_tuple);
-		__type(value, struct ipv4_nat_entry);
-		__uint(max_entries, SNAT_MAPPING_IPV4_SIZE);
-	});
+	__array(values, struct per_cluster_snat_mapping_ipv4_inner_map);
+#ifndef BPF_TEST
 } PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf;
+#else
+} PER_CLUSTER_SNAT_MAPPING_IPV4 __section_maps_btf = {
+	.values = {
+		[1] = &per_cluster_snat_mapping_ipv4_1,
+		[2] = &per_cluster_snat_mapping_ipv4_2,
+	},
+};
+#endif
 #endif
 
 #ifdef ENABLE_IP_MASQ_AGENT
