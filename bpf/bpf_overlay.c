@@ -306,7 +306,7 @@ not_esp:
 			goto to_host;
 
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
-					   METRIC_INGRESS, false, false);
+					   METRIC_INGRESS, false, false, true);
 	}
 
 	/* A packet entering the node from the tunnel and not going to a local
