@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"reflect"
@@ -87,11 +88,6 @@ type Map struct {
 	name string
 	path string
 	lock lock.RWMutex
-
-	// inParallelMode is true when the Map is currently being run in
-	// parallel and all modifications are performed on both maps until
-	// EndParallelMode() is called.
-	inParallelMode bool
 
 	// cachedCommonName is the common portion of the name excluding any
 	// endpoint ID
@@ -446,48 +442,27 @@ func (m *Map) setPathIfUnset() error {
 	return nil
 }
 
-// EndParallelMode ends the parallel mode of a map
-func (m *Map) EndParallelMode() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if m.inParallelMode {
-		m.inParallelMode = false
-		m.scopedLogger().Debug("End of parallel mode")
-	}
-}
-
-// OpenParallel is similar to OpenOrCreate() but prepares the existing map to
-// be faded out while a new map is taking over. This can be used if a map is
-// shared between multiple consumers and the context of the shared map is
-// changing. Any update to the shared map would impact all consumers and
-// consumers can only be updated one by one. Parallel mode allows for consumers
-// to continue using the old version of the map until the consumer is updated
-// to use the new version.
-func (m *Map) OpenParallel() (bool, error) {
+// Recreate removes any pin at the Map's pin path, recreates and re-pins it.
+func (m *Map) Recreate() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	if m.fd != 0 {
-		return false, fmt.Errorf("OpenParallel() called on already open map: %s", m.name)
+		return fmt.Errorf("Recreate() called on already open map: %s", m.name)
 	}
 
 	if err := m.setPathIfUnset(); err != nil {
-		return false, err
+		return err
 	}
 
-	if _, err := os.Stat(m.path); err == nil {
-		err := os.Remove(m.path)
-		if err != nil {
-			log.WithError(err).Warning("Unable to remove BPF map for parallel operation")
-			// Fall back to non-parallel mode
-		} else {
-			m.scopedLogger().Debug("Opening map in parallel mode")
-			m.inParallelMode = true
-		}
+	if err := os.Remove(m.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("removing pinned map %s: %w", m.name, err)
 	}
 
-	return m.openOrCreate(true)
+	m.scopedLogger().Debugf("Removed map pin at %s, recreating and re-pinning map %s", m.path, m.name)
+
+	_, err := m.openOrCreate(true)
+	return err
 }
 
 // OpenOrCreate attempts to open the Map, or if it does not yet exist, create

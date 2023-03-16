@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -12,8 +13,109 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	datapathIPCache "github.com/cilium/cilium/pkg/datapath/ipcache"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/source"
 )
+
+type initializerParams struct {
+	cell.In
+
+	Lifecycle       hive.Lifecycle
+	AgentIPCache    *ipcache.IPCache
+	DatapathIPCache datapathIPCache.BPFListenerInterface
+	LocalNodeStore  node.LocalNodeStore
+}
+
+type IPCacheInitializer struct{}
+
+func newIPCacheInitializer(params initializerParams) *IPCacheInitializer {
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			oldIngressIPs := params.DatapathIPCache.GetOldIngressIPs()
+			restoredCIDRs := params.DatapathIPCache.GetOldCIDRs()
+			oldNIDs := params.DatapathIPCache.GetOldNIDs()
+
+			for _, ingressIP := range oldIngressIPs {
+				ip := ingressIP.IP
+				if ip.To4() != nil {
+					params.LocalNodeStore.Update(func(n *node.LocalNode) {
+						n.IPv4IngressIP = ip
+					})
+				} else {
+					params.LocalNodeStore.Update(func(n *node.LocalNode) {
+						n.IPv6IngressIP = ip
+					})
+				}
+			}
+
+			// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
+			// possible so that the old IDs are still available. That is why we do this ASAP after the
+			// new (userspace) ipcache is created above.
+			//
+			// CIDRs were dumped from the old ipcache, they are re-allocated here, hopefully with the
+			// same numeric IDs as before, but the restored identities are to be upsterted to the new
+			// (datapath) ipcache after it has been initialized below. This is accomplished by passing
+			// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
+			// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
+			restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
+			if len(restoredCIDRs) > 0 {
+				log.Infof("Restoring %d old CIDR identities", len(restoredCIDRs))
+				_, err := params.AgentIPCache.AllocateCIDRs(restoredCIDRs, oldNIDs, restoredCIDRidentities)
+				if err != nil {
+					log.WithError(err).Error("Error allocating old CIDR identities")
+				}
+				// Log a warning for the first CIDR identity than could not be restored with the
+				// same numeric identity as before the restart. This can only happen if we have
+				// re-introduced bugs into this agent bootstrap order, so we want to surface this.
+				for i, prefix := range restoredCIDRs {
+					id, exists := restoredCIDRidentities[prefix]
+					if !exists || id.ID != oldNIDs[i] {
+						log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
+						break
+					}
+				}
+			}
+
+			// Set up the list of IPCache listeners in the daemon, to be
+			// used by syncEndpointsAndHostIPs()
+			// xDS cache will be added later by calling AddListener(), but only if necessary.
+			params.AgentIPCache.SetListeners([]ipcache.IPIdentityMappingListener{
+				params.DatapathIPCache,
+			})
+
+			// Upsert restored CIDRs after the new ipcache has been opened above
+			if len(restoredCIDRidentities) > 0 {
+				params.AgentIPCache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
+			}
+			// Upsert restored local Ingress IPs
+			restoredIngressIPs := []string{}
+			for _, ingressIP := range oldIngressIPs {
+				_, err := params.AgentIPCache.Upsert(ingressIP.String(), nil, 0, nil, ipcache.Identity{
+					ID:     identity.ReservedIdentityIngress,
+					Source: source.Restored,
+				})
+				if err == nil {
+					restoredIngressIPs = append(restoredIngressIPs, ingressIP.String())
+				} else {
+					log.WithError(err).Warning("could not restore Ingress IP, a new one will be allocated")
+				}
+			}
+			if len(restoredIngressIPs) > 0 {
+				log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
+			}
+
+			return nil
+		},
+	})
+
+	return &IPCacheInitializer{}
+}
 
 type getIP struct {
 	d *Daemon

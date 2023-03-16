@@ -32,7 +32,7 @@ var bpfIPCacheListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf ipcache list")
 
 		bpfIPCacheList := make(map[string][]string)
-		if err := ipcache.IPCacheMap().Dump(bpfIPCacheList); err != nil {
+		if err := ipcache.NewMap().Dump(bpfIPCacheList); err != nil {
 			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
 			os.Exit(1)
 		}

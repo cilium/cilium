@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
-	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/clustermesh"
@@ -91,7 +90,6 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
-	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -303,7 +301,7 @@ func (d *Daemon) init() error {
 // createPrefixLengthCounter wraps around the counter library, providing
 // references to prefix lengths that will always be present.
 func createPrefixLengthCounter() *counter.PrefixLengthCounter {
-	max6, max4 := ipcachemap.IPCacheMap().GetMaxPrefixLengths()
+	max6, max4 := ipcachemap.GetMaxPrefixLengths()
 	return counter.DefaultPrefixLengthCounter(max6, max4)
 }
 
@@ -415,6 +413,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	identityAllocator CachingIdentityAllocator,
 	pr *policy.Repository,
 	policyUpdater *policy.Updater,
+	monitorAgent *monitoragent.Agent,
 ) (*Daemon, *endpointRestoreState, error) {
 
 	var (
@@ -569,7 +568,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	}
 
 	if option.Config.RunMonitorAgent {
-		d.monitorAgent = monitoragent.NewAgent(ctx)
+		d.monitorAgent = monitorAgent
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -581,64 +580,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 		return nil, nil, fmt.Errorf("error while initializing BPF pcap recorder: %w", err)
 	}
 
-	// Collect old CIDR identities
-	var oldNIDs []identity.NumericIdentity
-	var oldIngressIPs []*net.IPNet
-	if option.Config.RestoreState && !option.Config.DryMode {
-		if err := ipcachemap.IPCacheMap().DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
-			k := key.(*ipcachemap.Key)
-			v := value.(*ipcachemap.RemoteEndpointInfo)
-			nid := identity.NumericIdentity(v.SecurityIdentity)
-			if nid.HasLocalScope() {
-				d.restoredCIDRs = append(d.restoredCIDRs, k.Prefix())
-				oldNIDs = append(oldNIDs, nid)
-			} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
-				oldIngressIPs = append(oldIngressIPs, k.IPNet())
-				ip := k.IPNet().IP
-				if ip.To4() != nil {
-					node.SetIngressIPv4(ip)
-				} else {
-					node.SetIngressIPv6(ip)
-				}
-			}
-		}); err != nil && !os.IsNotExist(err) {
-			log.WithError(err).Debug("Error dumping ipcache")
-		}
-		// DumpWithCallback() leaves the ipcache map open, must close before opened for
-		// parallel mode in Daemon.initMaps()
-		ipcachemap.IPCacheMap().Close()
-	}
-
 	if err := d.initPolicy(authManager); err != nil {
 		return nil, nil, fmt.Errorf("error while initializing policy subsystem: %w", err)
-	}
-
-	// Preallocate IDs for old CIDRs. This must be done before any Identity allocations are
-	// possible so that the old IDs are still available. That is why we do this ASAP after the
-	// new (userspace) ipcache is created above.
-	//
-	// CIDRs were dumped from the old ipcache, they are re-allocated here, hopefully with the
-	// same numeric IDs as before, but the restored identities are to be upsterted to the new
-	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
-	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
-	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
-	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
-	if len(d.restoredCIDRs) > 0 {
-		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
-		_, err = d.ipcache.AllocateCIDRs(d.restoredCIDRs, oldNIDs, restoredCIDRidentities)
-		if err != nil {
-			log.WithError(err).Error("Error allocating old CIDR identities")
-		}
-		// Log a warning for the first CIDR identity than could not be restored with the
-		// same numeric identity as before the restart. This can only happen if we have
-		// re-introduced bugs into this agent bootstrap order, so we want to surface this.
-		for i, prefix := range d.restoredCIDRs {
-			id, exists := restoredCIDRidentities[prefix]
-			if !exists || id.ID != oldNIDs[i] {
-				log.WithField(logfields.Identity, oldNIDs[i]).Warn("Could not restore all CIDR identities")
-				break
-			}
-		}
 	}
 
 	proxy.Allocator = d.identityAllocator
@@ -756,26 +699,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup,
 	if err != nil {
 		log.WithError(err).Error("error while opening/creating BPF maps")
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
-	}
-	// Upsert restored CIDRs after the new ipcache has been opened above
-	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
-	}
-	// Upsert restored local Ingress IPs
-	restoredIngressIPs := []string{}
-	for _, ingressIP := range oldIngressIPs {
-		_, err := d.ipcache.Upsert(ingressIP.String(), nil, 0, nil, ipcache.Identity{
-			ID:     identity.ReservedIdentityIngress,
-			Source: source.Restored,
-		})
-		if err == nil {
-			restoredIngressIPs = append(restoredIngressIPs, ingressIP.String())
-		} else {
-			log.WithError(err).Warning("could not restore Ingress IP, a new one will be allocated")
-		}
-	}
-	if len(restoredIngressIPs) > 0 {
-		log.WithField(logfields.Ingress, restoredIngressIPs).Info("Restored ingress IPs")
 	}
 
 	// Now that BPF maps are opened, we can restore node IDs to the node

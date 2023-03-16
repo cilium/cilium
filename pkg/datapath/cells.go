@@ -7,6 +7,7 @@ import (
 	"log"
 	"path/filepath"
 
+	ipcacheDatapath "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
@@ -15,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipcache "github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/maps"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,6 +32,13 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 	),
+
+	// Provide BPF maps
+	maps.Cell,
+
+	// The IPCache datapath component, subscribes to the agent component, updates the map, and reloads the
+	// datapath when necessary.
+	ipcacheDatapath.Cell,
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeHandler {
 		return dp.Node()

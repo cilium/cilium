@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -121,7 +122,9 @@ type MockLogNotifier struct {
 
 // NewMockLogNotifier returns a MockLogNotifier ready to be used in the benchmarks below.
 func NewMockLogNotifier() *MockLogNotifier {
-	return &MockLogNotifier{agent.NewAgent(context.Background())}
+	return &MockLogNotifier{agent.NewAgent(&hive.DefaultLifecycle{}, &option.DaemonConfig{
+		DryMode: true,
+	})}
 }
 
 // NewProxyLogRecord sends the event to the monitor agent to notify the listeners.

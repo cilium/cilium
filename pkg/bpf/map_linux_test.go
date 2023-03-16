@@ -210,13 +210,11 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 		BPF_F_NO_PREALLOC,
 		0,
 		ConvertKeyValue).WithCache()
-	isNew, err := parallelMap.OpenParallel()
+	err := parallelMap.Recreate()
 	defer parallelMap.Close()
 	c.Assert(err, IsNil)
-	c.Assert(isNew, Equals, true)
 
-	isNew, err = parallelMap.OpenParallel()
-	c.Assert(isNew, Equals, false)
+	err = parallelMap.Recreate()
 	c.Assert(err, Not(IsNil))
 
 	// Check OpenMap warning section
@@ -245,8 +243,6 @@ func (s *BPFPrivilegedTestSuite) TestOpenParallel(c *C) {
 	value, err = parallelMap.Lookup(key2)
 	c.Assert(err, IsNil)
 	c.Assert(value, checker.DeepEquals, value2)
-
-	parallelMap.EndParallelMode()
 }
 
 func (s *BPFPrivilegedTestSuite) TestBasicManipulation(c *C) {

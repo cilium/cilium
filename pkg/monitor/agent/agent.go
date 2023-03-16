@@ -19,13 +19,18 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/option"
 )
+
+var Cell = cell.Provide(NewAgent)
 
 const eventsMapName = "cilium_events"
 
@@ -78,7 +83,19 @@ type Agent struct {
 // goroutine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewAgent(ctx context.Context) *Agent {
+func NewAgent(lifecycle hive.Lifecycle, config *option.DaemonConfig) *Agent {
+	if !option.Config.RunMonitorAgent || option.Config.DryMode {
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	lifecycle.Append(hive.Hook{
+		OnStop: func(hc hive.HookContext) error {
+			cancel()
+			return nil
+		},
+	})
+
 	return &Agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),

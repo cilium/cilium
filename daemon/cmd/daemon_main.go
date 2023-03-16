@@ -71,6 +71,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -1583,24 +1584,26 @@ var daemonCell = cell.Module(
 type daemonParams struct {
 	cell.In
 
-	Lifecycle         hive.Lifecycle
-	Clientset         k8sClient.Clientset
-	Datapath          datapath.Datapath
-	WGAgent           *wireguard.Agent `optional:"true"`
-	LocalNodeStore    node.LocalNodeStore
-	BGPController     *bgpv1.Controller
-	Shutdowner        hive.Shutdowner
-	SharedResources   k8s.SharedResources
-	CacheStatus       k8s.CacheStatus
-	NodeManager       nodeManager.NodeManager
-	EndpointManager   endpointmanager.EndpointManager
-	CertManager       certificatemanager.CertificateManager
-	SecretManager     certificatemanager.SecretManager
-	AuthManager       auth.Manager
-	IdentityAllocator CachingIdentityAllocator
-	Policy            *policy.Repository
-	PolicyUpdater     *policy.Updater
-	IPCache           *ipcache.IPCache
+	Lifecycle          hive.Lifecycle
+	Clientset          k8sClient.Clientset
+	Datapath           datapath.Datapath
+	WGAgent            *wireguard.Agent `optional:"true"`
+	LocalNodeStore     node.LocalNodeStore
+	BGPController      *bgpv1.Controller
+	Shutdowner         hive.Shutdowner
+	SharedResources    k8s.SharedResources
+	CacheStatus        k8s.CacheStatus
+	NodeManager        nodeManager.NodeManager
+	EndpointManager    endpointmanager.EndpointManager
+	CertManager        certificatemanager.CertificateManager
+	SecretManager      certificatemanager.SecretManager
+	AuthManager        auth.Manager
+	IdentityAllocator  CachingIdentityAllocator
+	Policy             *policy.Repository
+	PolicyUpdater      *policy.Updater
+	IPCache            *ipcache.IPCache
+	IPCacheInitializer *IPCacheInitializer // This param is just here so the initializers lifecycle is invoked
+	MonitorAgent       *agent.Agent
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1639,6 +1642,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 				params.IdentityAllocator,
 				params.Policy,
 				params.PolicyUpdater,
+				params.MonitorAgent,
 			)
 			if err != nil {
 				return fmt.Errorf("daemon creation failed: %w", err)

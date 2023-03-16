@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/controller"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -146,6 +147,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 			},
 			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
 			func() *option.DaemonConfig { return option.Config },
+			datapathIpcache.NewMockListener,
 		),
 		ControlPlane,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {

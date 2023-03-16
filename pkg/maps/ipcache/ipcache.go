@@ -7,14 +7,26 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
+
+var Cell = cell.Provide(NewMapInterface)
+
+type MapInterface interface {
+	Delete(key *Key) error
+	DumpWithCallback(cb DumpCallback) error
+	DumpOldState(cb DumpCallback) error
+	Update(key *Key, value *RemoteEndpointInfo) error
+}
+
+type DumpCallback func(key *Key, value *RemoteEndpointInfo)
 
 const (
 	// MaxEntries is the maximum number of keys that can be present in the
@@ -159,12 +171,19 @@ func (v *RemoteEndpointInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointe
 
 // Map represents an IPCache BPF map.
 type Map struct {
-	bpf.Map
+	m bpf.Map
+
+	oldState []kv
 }
 
-func newIPCacheMap(name string) *bpf.Map {
-	return bpf.NewMap(
-		name,
+type kv struct {
+	key   *Key
+	value *RemoteEndpointInfo
+}
+
+func NewMap() *Map {
+	inner := bpf.NewMap(
+		Name,
 		bpf.MapTypeLPMTrie,
 		&Key{},
 		int(unsafe.Sizeof(Key{})),
@@ -173,41 +192,115 @@ func newIPCacheMap(name string) *bpf.Map {
 		MaxEntries,
 		bpf.BPF_F_NO_PREALLOC, 0,
 		bpf.ConvertKeyValue)
+
+	return &Map{
+		m: *inner.WithCache().WithPressureMetric().
+			WithEvents(option.Config.GetEventBufferConfig(Name)),
+	}
 }
 
-// NewMap instantiates a Map.
-func NewMap(name string) *Map {
-	return &Map{
-		Map: *newIPCacheMap(name).WithCache().WithPressureMetric().
-			WithEvents(option.Config.GetEventBufferConfig(name)),
+// NewMapInterface instantiates a Map.
+func NewMapInterface(lifecycle hive.Lifecycle, config *option.DaemonConfig) MapInterface {
+	m := NewMap()
+
+	lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			if config.RestoreState {
+				// There are a number of components that want to re-use the existing state of the IPCache.
+				// So save that old state in memory until it is needed, and proceed with recreating the map.
+				if err := m.saveOldState(); err != nil {
+					return fmt.Errorf("saveOldState: %w", err)
+				}
+			}
+
+			// The ipcache is shared between endpoints. Recreating the map
+			// to allow existing endpoints that have not been regenerated yet
+			// to continue using the existing ipcache until the endpoint is
+			// regenerated for the first time. Existing endpoints are using a
+			// policy map which is potentially out of sync as local identities are
+			// re-allocated on startup. Recreating allows to continue using the
+			// old version until regeneration. Note that the old version is not
+			// updated with new identities. This is fine as any new identity
+			// appearing would require a regeneration of the endpoint anyway in
+			// order for the endpoint to gain the privilege of communication.
+			return m.m.Recreate()
+		},
+	})
+
+	return m
+}
+
+// Open the existing map (if any), and save the state of that map.
+// This data can be used by other components to restore partial state which allows the agent to restart with minimal
+// disruption.
+func (m *Map) saveOldState() error {
+	isNew, err := m.m.OpenOrCreate()
+	if err != nil {
+		return fmt.Errorf("OpenOrCreate: %w", err)
 	}
+
+	if !isNew {
+		err = m.DumpWithCallback(func(key *Key, value *RemoteEndpointInfo) {
+			m.oldState = append(m.oldState, kv{
+				key:   key.DeepCopy(),
+				value: value.DeepCopy(),
+			})
+		})
+
+		if err != nil {
+			_ = m.m.Close()
+			return fmt.Errorf("DumpWithCallback: %w", err)
+		}
+	}
+
+	if err := m.m.Close(); err != nil {
+		return fmt.Errorf("Close: %w", err)
+	}
+
+	return nil
+}
+
+// Dump dumps the map state, without recreating it.
+func (m *Map) Dump(hash map[string][]string) error {
+	_, err := m.m.OpenOrCreate()
+	if err != nil {
+		return fmt.Errorf("open or create: %w", err)
+	}
+
+	defer m.m.Close()
+
+	return m.m.Dump(hash)
+}
+
+func (m *Map) Delete(key *Key) error {
+	return m.m.Delete(key)
+}
+
+func (m *Map) DumpWithCallback(cb DumpCallback) error {
+	return m.m.DumpWithCallback(func(key bpf.MapKey, value bpf.MapValue) {
+		cb(key.(*Key), value.(*RemoteEndpointInfo))
+	})
+}
+
+func (m *Map) Update(key *Key, value *RemoteEndpointInfo) error {
+	return m.m.Update(key, value)
+}
+
+// DumpOldState dumps the state of the IPCache map from before it was recreated during initialization.
+// Calling this function also erase the that old state.
+func (m *Map) DumpOldState(cb DumpCallback) error {
+	for _, kv := range m.oldState {
+		cb(kv.key, kv.value)
+	}
+
+	// Let the old state be GC'ed, no need to keep it around.
+	m.oldState = nil
+
+	return nil
 }
 
 // GetMaxPrefixLengths determines how many unique prefix lengths are supported
 // simultaneously based on the underlying BPF map type in use.
-func (m *Map) GetMaxPrefixLengths() (ipv6, ipv4 int) {
+func GetMaxPrefixLengths() (ipv6, ipv4 int) {
 	return net.IPv6len*8 + 1, net.IPv4len*8 + 1
-}
-
-var (
-	// IPCache is a mapping of all endpoint IPs in the cluster which this
-	// Cilium agent is a part of to their corresponding security identities.
-	// It is a singleton; there is only one such map per agent.
-	ipcache *Map
-	once    = &sync.Once{}
-)
-
-// IPCacheMap gets the ipcache Map singleton. If it has not already been done,
-// this also initializes the Map.
-func IPCacheMap() *Map {
-	once.Do(func() {
-		ipcache = NewMap(Name)
-	})
-	return ipcache
-}
-
-// Reopen attempts to close and re-open the IPCache map at the standard path
-// on the filesystem.
-func Reopen() error {
-	return IPCacheMap().Reopen()
 }

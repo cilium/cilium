@@ -7,36 +7,41 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	ipcacheMap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
+var Cell = cell.Provide(NewListener)
+
+type BPFListenerInterface interface {
+	OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
+		oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
+		encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata)
+	OnIPIdentityCacheGC()
+	GetOldNIDs() []identity.NumericIdentity
+	GetOldCIDRs() []netip.Prefix
+	GetOldIngressIPs() []*net.IPNet
+}
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
-
-// datapath is an interface to the datapath implementation, used to apply
-// changes that are made within this module.
-type datapath interface {
-	TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error)
-}
-
-// monitorNotify is an interface to notify the monitor about ipcache changes.
-type monitorNotify interface {
-	SendNotification(msg monitorAPI.AgentNotifyMessage) error
-}
 
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
 // interface with an IPCache store that is backed by BPF maps.
@@ -47,29 +52,69 @@ type monitorNotify interface {
 type BPFListener struct {
 	// bpfMap is the BPF map that this listener will update when events are
 	// received from the IPCache.
-	bpfMap *ipcacheMap.Map
+	bpfMap ipcacheMap.MapInterface
 
-	// datapath allows this listener to trigger BPF program regeneration.
-	datapath datapath
+	oldCIDRs      []netip.Prefix
+	oldNIDs       []identity.NumericIdentity
+	oldIngressIPs []*net.IPNet
 
 	// monitorNotify is used to notify the monitor about ipcache updates
-	monitorNotify monitorNotify
+	monitorNotify *agent.Agent
 
 	ipcache *ipcache.IPCache
 }
 
-func newListener(m *ipcacheMap.Map, d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
+type NewListenerParams struct {
+	cell.In
+
+	Lifecycle     hive.Lifecycle
+	IPCacheMap    ipcacheMap.MapInterface
+	MonitorNotify *agent.Agent
+	AgentIPCache  *ipcache.IPCache
+}
+
+// NewListener returns a new listener to push IPCache entries into BPF maps.
+func NewListener(params NewListenerParams) BPFListenerInterface {
+	l := newListener(params.IPCacheMap, params.MonitorNotify, params.AgentIPCache)
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(hc hive.HookContext) error {
+			return params.IPCacheMap.DumpOldState(func(k *ipcacheMap.Key, v *ipcacheMap.RemoteEndpointInfo) {
+				nid := identity.NumericIdentity(v.SecurityIdentity)
+				if nid.HasLocalScope() {
+					l.oldCIDRs = append(l.oldCIDRs, k.Prefix())
+					l.oldNIDs = append(l.oldNIDs, nid)
+				} else if nid == identity.ReservedIdentityIngress && v.TunnelEndpoint.IsZero() {
+					l.oldIngressIPs = append(l.oldIngressIPs, k.IPNet())
+				}
+			})
+		},
+	})
+
+	return l
+}
+
+func newListener(m ipcacheMap.MapInterface, mn *agent.Agent, ipc *ipcache.IPCache) *BPFListener {
 	return &BPFListener{
 		bpfMap:        m,
-		datapath:      d,
 		monitorNotify: mn,
 		ipcache:       ipc,
 	}
 }
 
-// NewListener returns a new listener to push IPCache entries into BPF maps.
-func NewListener(d datapath, mn monitorNotify, ipc *ipcache.IPCache) *BPFListener {
-	return newListener(ipcacheMap.IPCacheMap(), d, mn, ipc)
+func (l *BPFListener) GetOldCIDRs() []netip.Prefix {
+	defer func() { l.oldCIDRs = nil }()
+	return l.oldCIDRs
+}
+
+func (l *BPFListener) GetOldNIDs() []identity.NumericIdentity {
+	defer func() { l.oldNIDs = nil }()
+	return l.oldNIDs
+}
+
+func (l *BPFListener) GetOldIngressIPs() []*net.IPNet {
+	defer func() { l.oldIngressIPs = nil }()
+	return l.oldIngressIPs
 }
 
 func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
@@ -100,11 +145,17 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 	case ipcache.Upsert:
 		msg := monitorAPI.IPCacheUpsertedMessage(cidr.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
-		l.monitorNotify.SendNotification(msg)
+
+		if l.monitorNotify != nil {
+			l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
+		}
 	case ipcache.Delete:
 		msg := monitorAPI.IPCacheDeletedMessage(cidr.String(), newIdentity, oldIdentityPtr,
 			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
-		l.monitorNotify.SendNotification(msg)
+
+		if l.monitorNotify != nil {
+			l.monitorNotify.SendEvent(monitorAPI.MessageTypeAgent, msg)
+		}
 	}
 }
 
@@ -189,10 +240,9 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 // do not exist in the in-memory ipcache.
 //
 // Must be called while holding l.ipcache.Lock for reading.
-func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) bpf.DumpCallback {
-	return func(key bpf.MapKey, _ bpf.MapValue) {
-		k := key.(*ipcacheMap.Key)
-		keyToIP := k.String()
+func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcacheMap.Key) ipcacheMap.DumpCallback {
+	return func(key *ipcacheMap.Key, _ *ipcacheMap.RemoteEndpointInfo) {
+		keyToIP := key.String()
 
 		// Don't RLock as part of the same goroutine.
 		if i, exists := l.ipcache.LookupByPrefixRLocked(keyToIP); !exists {
@@ -200,7 +250,7 @@ func (l *BPFListener) updateStaleEntriesFunction(keysToRemove map[string]*ipcach
 			case source.KVStore, source.Local:
 				// Cannot delete from map during callback because DumpWithCallback
 				// RLocks the map.
-				keysToRemove[keyToIP] = k.DeepCopy()
+				keysToRemove[keyToIP] = key.DeepCopy()
 			}
 		}
 	}

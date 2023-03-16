@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,5 +91,12 @@ var (
 
 		// IPCache, policy.Repository and CachingIdentityAllocator.
 		cell.Provide(newPolicyTrifecta),
+
+		// IPCache initializer, handles restoring of IPCache state from the datapath and setting the local node ingress
+		// IPs.
+		cell.Provide(newIPCacheInitializer),
+
+		// Monitor agent distributes monitor events
+		agent.Cell,
 	)
 )

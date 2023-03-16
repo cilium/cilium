@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
-	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -33,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
-	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -174,10 +172,6 @@ func (e *EndpointMapManager) RemoveMapPath(path string) {
 	} else {
 		log.WithField(logfields.Path, path).Info("Removed stale bpf map")
 	}
-}
-
-func endParallelMapMode() {
-	ipcachemap.IPCacheMap().EndParallelMode()
 }
 
 // syncHostIPs adds local host entries to bpf lxcmap, as well as ipcache, if
@@ -336,20 +330,6 @@ func (d *Daemon) initMaps() error {
 		return err
 	}
 
-	// The ipcache is shared between endpoints. Parallel mode needs to be
-	// used to allow existing endpoints that have not been regenerated yet
-	// to continue using the existing ipcache until the endpoint is
-	// regenerated for the first time. Existing endpoints are using a
-	// policy map which is potentially out of sync as local identities are
-	// re-allocated on startup. Parallel mode allows to continue using the
-	// old version until regeneration. Note that the old version is not
-	// updated with new identities. This is fine as any new identity
-	// appearing would require a regeneration of the endpoint anyway in
-	// order for the endpoint to gain the privilege of communication.
-	if _, err := ipcachemap.IPCacheMap().OpenParallel(); err != nil {
-		return err
-	}
-
 	if err := nodemap.NodeMap().OpenOrCreate(); err != nil {
 		return err
 	}
@@ -450,13 +430,6 @@ func (d *Daemon) initMaps() error {
 			return err
 		}
 	}
-
-	// Set up the list of IPCache listeners in the daemon, to be
-	// used by syncEndpointsAndHostIPs()
-	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	d.ipcache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d, d, d.ipcache),
-	})
 
 	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
 		if _, err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
