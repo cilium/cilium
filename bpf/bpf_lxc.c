@@ -1044,7 +1044,8 @@ ct_recreate4:
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
-						   ep, METRIC_EGRESS, from_l7lb, hairpin_flow);
+						   ep, METRIC_EGRESS, from_l7lb, hairpin_flow,
+						   false);
 		}
 	}
 
@@ -1683,7 +1684,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status *ct_status,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
-	    bool from_host __maybe_unused)
+	    bool from_host __maybe_unused, bool from_tunnel)
 {
 	struct ct_state ct_state_on_stack __maybe_unused, *ct_state, ct_state_new = {};
 	struct ipv4_ct_tuple tuple_on_stack __maybe_unused, *tuple;
@@ -1835,6 +1836,7 @@ skip_policy_enforcement:
 
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
+		ct_state_new.from_tunnel = from_tunnel;
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, *proxy_port > 0, false,
 				 verdict == DROP_POLICY_AUTH_REQUIRED);
@@ -1889,6 +1891,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	bool from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	bool proxy_redirect __maybe_unused = false;
 	enum ct_status ct_status = 0;
 	__u16 proxy_port = 0;
@@ -1896,9 +1899,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 
 	ret = ipv4_policy(ctx, ifindex, src_label, &ct_status, &tuple,
-			  &ext_err, &proxy_port, from_host);
+			  &ext_err, &proxy_port, from_host, from_tunnel);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
@@ -1977,7 +1981,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = ipv4_policy(ctx, 0, src_identity, &ct_status, NULL,
-			  &ext_err, &proxy_port, true);
+			  &ext_err, &proxy_port, true, false);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
 		proxy_redirect = true;
