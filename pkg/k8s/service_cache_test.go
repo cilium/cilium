@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -666,6 +667,85 @@ func (s *K8sSuite) TestExternalServiceMerging(c *check.C) {
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
+		return true
+	}, 2*time.Second), check.IsNil)
+}
+
+func (s *K8sSuite) TestExternalServiceDeletion(c *check.C) {
+	const cluster = "cluster"
+
+	createEndpoints := func(clusters ...string) externalEndpoints {
+		eeps := newExternalEndpoints()
+		for i, cluster := range clusters {
+			eps := newEndpoints()
+			eps.Backends[cmtypes.MustParseAddrCluster(fmt.Sprintf("1.1.1.%d", i))] = &Backend{}
+			eeps.endpoints[cluster] = eps
+		}
+
+		return eeps
+	}
+
+	svc := Service{IncludeExternal: true, Shared: true}
+	clsvc := serviceStore.ClusterService{Cluster: cluster, Namespace: "bar", Name: "foo"}
+	id1 := ServiceID{Namespace: "bar", Name: "foo"}
+	id2 := ServiceID{Cluster: cluster, Namespace: "bar", Name: "foo"}
+
+	swg := lock.NewStoppableWaitGroup()
+	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
+
+	// Store the service with the non-cluster-aware ID
+	svcCache.services[id1] = &svc
+	svcCache.externalEndpoints[id1] = createEndpoints(cluster)
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok := svcCache.services[id1]
+	c.Assert(ok, check.Equals, false)
+	_, ok = svcCache.externalEndpoints[id1]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, id1)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Store the service with the non-cluster-aware ID and multiple endpoints
+	svcCache.services[id1] = &svc
+	svcCache.externalEndpoints[id1] = createEndpoints(cluster, "other")
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok = svcCache.services[id1]
+	c.Assert(ok, check.Equals, true)
+	_, ok = svcCache.externalEndpoints[id1]
+	c.Assert(ok, check.Equals, true)
+	_, ok = svcCache.externalEndpoints[id1].endpoints[cluster]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, id1)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Store the service with the cluster-aware ID
+	svcCache.services[id2] = &svc
+	svcCache.externalEndpoints[id2] = createEndpoints(cluster)
+
+	svcCache.MergeExternalServiceDelete(&clsvc, swg)
+	_, ok = svcCache.services[id2]
+	c.Assert(ok, check.Equals, false)
+	_, ok = svcCache.externalEndpoints[id2]
+	c.Assert(ok, check.Equals, false)
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, id2)
 		return true
 	}, 2*time.Second), check.IsNil)
 }

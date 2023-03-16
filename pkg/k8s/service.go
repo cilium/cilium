@@ -259,12 +259,16 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 
 // ServiceID identifies the Kubernetes service
 type ServiceID struct {
+	Cluster   string `json:"cluster,omitempty"`
 	Name      string `json:"serviceName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 }
 
 // String returns the string representation of a service ID
 func (s ServiceID) String() string {
+	if s.Cluster != "" {
+		return fmt.Sprintf("%s/%s/%s", s.Cluster, s.Namespace, s.Name)
+	}
 	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
 }
 

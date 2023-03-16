@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 	core_v1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -527,6 +528,14 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	return endpoints, hasLocalEndpoints || hasExternalEndpoints
 }
 
+// mergeExternalServiceOption is the type for the options to customize the behavior of external services merging.
+type mergeExternalServiceOption int
+
+const (
+	// optClusterAware enables the cluster aware handling for external services merging.
+	optClusterAware mergeExternalServiceOption = iota
+)
+
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
 // the local service cache. The service endpoints are stored as external endpoints
 // and are correlated on demand with local services via correlateEndpoints().
@@ -542,9 +551,14 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *serviceStore.ClusterS
 	s.mergeServiceUpdateLocked(service, nil, swg)
 }
 
-func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterService, oldService *Service, swg *lock.StoppableWaitGroup) {
-	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterService,
+	oldService *Service, swg *lock.StoppableWaitGroup, opts ...mergeExternalServiceOption) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
+
+	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+	if slices.Contains(opts, optClusterAware) {
+		id.Cluster = service.Cluster
+	}
 
 	externalEndpoints, ok := s.externalEndpoints[id]
 	if !ok {
@@ -591,17 +605,30 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 // stored as external endpoints and are correlated on demand with local
 // services via correlateEndpoints().
 func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
-	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
-	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
-
 	// Ignore updates of own cluster
 	if service.Cluster == option.Config.ClusterName {
-		scopedLog.Debug("Not merging external service. Own cluster")
 		return
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	id := ServiceID{Cluster: service.Cluster, Name: service.Name, Namespace: service.Namespace}
+	var opts []mergeExternalServiceOption
+	if _, clusterAware := s.services[id]; clusterAware {
+		opts = append(opts, optClusterAware)
+	}
+
+	s.mergeExternalServiceDeleteLocked(service, swg, opts...)
+}
+
+func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup, opts ...mergeExternalServiceOption) {
+	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
+
+	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
+	if slices.Contains(opts, optClusterAware) {
+		id.Cluster = service.Cluster
+	}
 
 	externalEndpoints, ok := s.externalEndpoints[id]
 	if ok {
