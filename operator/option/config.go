@@ -427,7 +427,7 @@ type OperatorConfig struct {
 	// ENIGarbageCollectionInterval defines the interval of ENI GC
 	ENIGarbageCollectionInterval time.Duration
 
-	// ParallelAllocWorkers specifies the number of parallel workers to be used in ENI mode.
+	// ParallelAllocWorkers specifies the number of parallel workers to be used for accessing cloud provider APIs .
 	ParallelAllocWorkers int64
 
 	// AWSInstanceLimitMapping allows overwriting AWS instance limits defined in
@@ -620,6 +620,12 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		log.Infof("Auto-set %q to `true` because BGP support requires synchronizing services.",
 			SyncK8sServices)
 	}
+
+	// IPAM options
+
+	c.IPAMAPIQPSLimit = vp.GetFloat64(IPAMAPIQPSLimit)
+	c.IPAMAPIBurst = vp.GetInt(IPAMAPIBurst)
+	c.ParallelAllocWorkers = vp.GetInt64(ParallelAllocWorkers)
 
 	// AWS options
 
