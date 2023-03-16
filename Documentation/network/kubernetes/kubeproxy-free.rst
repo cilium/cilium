@@ -1094,11 +1094,15 @@ issue.
 
 This section elaborates on the various ``kubeProxyReplacement`` options:
 
-- ``kubeProxyReplacement=strict``: This option expects a kube-proxy-free
-  Kubernetes setup where Cilium is expected to fully replace all kube-proxy
-  functionality. Once the Cilium agent is up and running, it takes care of handling
-  Kubernetes services of type ClusterIP, NodePort, LoadBalancer, services with externalIPs
-  as well as HostPort. If the underlying kernel version requirements are not met
+- ``kubeProxyReplacement=strict``: When using this option, it's highly recommended
+  to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
+  all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
+  specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
+  leave it deployed in the background. Just be aware of the potential side effects on
+  existing nodes as mentioned above when running kube-proxy in co-existence. Once the
+  Cilium agent is up and running, it takes care of handling Kubernetes services of type
+  ClusterIP, NodePort, LoadBalancer, services with externalIPs as well as HostPort.
+  If the underlying kernel version requirements are not met
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
