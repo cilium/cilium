@@ -215,7 +215,10 @@ type policyIdentitiesLabelLookup struct {
 // cases!
 func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
 	ident := p.allocator.LookupIdentityByID(context.Background(), id)
-	return ident.LabelArray
+	if ident != nil {
+		return ident.LabelArray
+	}
+	return nil
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
