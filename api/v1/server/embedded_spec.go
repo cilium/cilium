@@ -4080,6 +4080,10 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "cluster": {
+              "description": "Service cluster",
+              "type": "string"
+            },
             "extTrafficPolicy": {
               "description": "Service external traffic policy",
               "type": "string",
@@ -9275,6 +9279,10 @@ func init() {
           "description": "Optional service configuration flags",
           "type": "object",
           "properties": {
+            "cluster": {
+              "description": "Service cluster",
+              "type": "string"
+            },
             "extTrafficPolicy": {
               "description": "Service external traffic policy",
               "type": "string",
@@ -9353,6 +9361,10 @@ func init() {
       "description": "Optional service configuration flags",
       "type": "object",
       "properties": {
+        "cluster": {
+          "description": "Service cluster",
+          "type": "string"
+        },
         "extTrafficPolicy": {
           "description": "Service external traffic policy",
           "type": "string",

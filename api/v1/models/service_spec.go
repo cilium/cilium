@@ -227,6 +227,9 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
+	// Service cluster
+	Cluster string `json:"cluster,omitempty"`
+
 	// Service external traffic policy
 	// Enum: [Cluster Local]
 	ExtTrafficPolicy string `json:"extTrafficPolicy,omitempty"`

@@ -96,6 +96,11 @@ func printServiceList(w *tabwriter.Writer, list []*models.Service) {
 			FrontendAddress:  feA.String(),
 			BackendAddresses: backendAddresses,
 		}
+
+		if svc.Spec.Flags.Cluster != "" {
+			SvcOutput.ServiceType = SvcOutput.ServiceType + " (Remote)"
+		}
+
 		svcs = append(svcs, SvcOutput)
 	}
 
