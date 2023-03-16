@@ -207,12 +207,12 @@ type ENI struct {
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
 
-	// Addresses is the list of all secondary IPv4 IPs associated with the ENI
+	// Addresses is the list of all secondary IPv6 IPs associated with the ENI
 	//
 	// +optional
 	IPv6Addresses []string `json:"ipv6-addresses,omitempty"`
 
-	// Prefixes is the list of all IPv4 /28 prefixes associated with the ENI
+	// Prefixes is the list of all IPv6 /80 prefixes associated with the ENI
 	//
 	// +optional
 	IPv6Prefixes []string `json:"ipv6-prefixes,omitempty"`
