@@ -350,7 +350,7 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 }
 
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
-	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: true, Shared: true}
+	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
 	cache := newGlobalServiceCache("cluster", "node")
 	merger := fakeServiceMerger{}

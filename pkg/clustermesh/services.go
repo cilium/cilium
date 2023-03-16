@@ -172,7 +172,7 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 		mesh := r.remoteCluster.mesh
 
 		// Short-circuit the handling of non-shared services
-		if !(svc.IncludeExternal && svc.Shared) {
+		if !svc.Shared {
 			if mesh.globalServices.has(svc) {
 				scopedLog.Debug("Previously shared service is no longer shared: triggering deletion event")
 				r.OnDelete(key)
