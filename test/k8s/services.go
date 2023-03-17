@@ -560,8 +560,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				// see #14047 for details.
 				"hostFirewall.enabled": "false",
 			})
-			// DSR with Geneve doesn't work in conjunction with XDP and IPv6 currently
-			testNodePortExternalIPv4Only(kubectl, ni, false, true, true)
+			testNodePortExternal(kubectl, ni, false, true, true)
 		})
 
 		It("Tests with TC, direct routing and Hybrid", func() {
