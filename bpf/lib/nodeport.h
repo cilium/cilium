@@ -1899,6 +1899,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
+	__u32 cluster_id = 0;
 	__u32 monitor = 0;
 
 	cilium_capture_in(ctx);
@@ -1950,7 +1951,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		} else {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&key, &tuple, svc, &ct_state_new,
-					has_l4_header, skip_l3_xlate);
+					has_l4_header, skip_l3_xlate, &cluster_id);
 		}
 		if (IS_ERR(ret))
 			return ret;
