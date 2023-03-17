@@ -59,6 +59,26 @@ on this is available on `Cilium SBOM`_.
 .. _`SPDX`: https://spdx.dev/
 .. _`Cilium SBOM`: https://docs.cilium.io/en/latest/configuration/sbom/
 
+Development
+===========
+
+For development and testing purpose, the Cilium community publishes snapshots,
+early release candidates (RC) and CI container images build from the `master
+branch <https://github.com/cilium/cilium/commits/master>`_. These images are
+not for use in production.
+
+For testing upgrades to new development releases please consult the latest
+development build of the `Cilium Upgrade Guide <https://docs.cilium.io/en/latest/operations/upgrade/>`_.
+
+Listed below are branches for testing along with their snapshots or RC releases,
+corresponding image pull tags and their release notes where applicable:
+
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `master <https://github.com/cilium/cilium/commits/master>`__             | daily      | ``quay.io/cilium/cilium-ci:latest``          | N/A                                                                                   |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+| `v1.14.0-snapshot.0 <https://github.com/cilium/cilium/commits/master>`__ | 2023-03-01 | ``quay.io/cilium/cilium:v1.14.0-snapshot.0`` | `Snapshot Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0>`__ |
++--------------------------------------------------------------------------+------------+----------------------------------------------+---------------------------------------------------------------------------------------+
+
 Functionality Overview
 ======================
 
