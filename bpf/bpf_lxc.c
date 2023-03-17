@@ -1045,7 +1045,7 @@ ct_recreate4:
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
 						   ep, METRIC_EGRESS, from_l7lb, hairpin_flow,
-						   false);
+						   false, 0);
 		}
 	}
 

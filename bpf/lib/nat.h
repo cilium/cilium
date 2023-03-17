@@ -369,8 +369,13 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       const struct ipv4_nat_target *target)
 {
 	int ret;
+	void *map;
 
-	*state = snat_v4_lookup(tuple);
+	map = get_cluster_snat_map_v4(target->cluster_id);
+	if (!map)
+		return DROP_SNAT_NO_MAP_FOUND;
+
+	*state = __snat_lookup(map, tuple);
 	ret = snat_v4_track_connection(ctx, tuple, *state, NAT_DIR_INGRESS, off, target);
 	if (ret < 0)
 		return ret;
