@@ -51,6 +51,7 @@ func (es *exampleEventSource) Events(ctx context.Context) <-chan ExampleEvent {
 }
 
 func (es *exampleEventSource) Start(hive.HookContext) error {
+	es.wp = workerpool.New(1)
 	// Start the emitter
 	return es.wp.Submit("emitter", es.emitter)
 }
@@ -97,9 +98,7 @@ func makeEvent() ExampleEvent {
 }
 
 func newExampleEvents(lc hive.Lifecycle) ExampleEvents {
-	es := &exampleEventSource{
-		wp: workerpool.New(1),
-	}
+	es := &exampleEventSource{}
 	// Multicast() constructs a one-to-many observable to which items can be emitted.
 	es.src, es.emit, es.complete = stream.Multicast[ExampleEvent]()
 	lc.Append(es)
