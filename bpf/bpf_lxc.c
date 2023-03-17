@@ -1138,6 +1138,13 @@ skip_vtep:
 		 */
 		else if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+		/* When we redirect, put cluster_id into mark */
+		else if (ret == CTX_ACT_REDIRECT) {
+			ctx_set_cluster_id_mark(ctx, cluster_id);
+			return ret;
+		}
+#endif
 		/* This is either redirect by encap code or an error has
 		 * occurred either way return and stack will consume ctx.
 		 */
