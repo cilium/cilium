@@ -780,10 +780,6 @@ create_ct:
 		goto drop_err;
 	}
 
-	ret = neigh_record_ip6(ctx);
-	if (ret < 0)
-		goto drop_err;
-
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
 	ret = DROP_MISSED_TAIL_CALL;
@@ -1875,10 +1871,6 @@ create_ct:
 		ret = DROP_UNKNOWN_CT;
 		goto drop_err;
 	}
-
-	ret = neigh_record_ip4(ctx);
-	if (ret < 0)
-		goto drop_err;
 
 	/* Recircle, so packet can continue on its way to the local backend: */
 	ctx_skip_nodeport_set(ctx);
