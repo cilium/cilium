@@ -65,7 +65,8 @@
 #if !defined(ENABLE_SOCKET_LB_FULL) || \
     defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     defined(ENABLE_L7_LB)               || \
-    defined(ENABLE_SCTP)
+    defined(ENABLE_SCTP)                || \
+    defined(ENABLE_CLUSTER_AWARE_ADDRESSING)
 # define ENABLE_PER_PACKET_LB 1
 #endif
 
