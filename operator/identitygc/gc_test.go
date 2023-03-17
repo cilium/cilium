@@ -29,16 +29,14 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(
-		m,
+func TestIdentitiesGC(t *testing.T) {
+	defer goleak.VerifyNone(
+		t,
 		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
 		// init function
 		goleak.IgnoreTopFunction("time.Sleep"),
 	)
-}
 
-func TestIdentitiesGC(t *testing.T) {
 	var clientset k8sClient.Clientset
 
 	hive := hive.New(
