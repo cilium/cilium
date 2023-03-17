@@ -375,6 +375,12 @@ Users (Alphabetically)
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
       U: ENI networking, L3/L4 policies, FQDN based policy, FQDN filtering
       Q: ungureanuvladvictor
+    
+    * N: Palark GmbH
+      D: Palark uses Cilium for networking in its Kubernetes platform provided to numerous customers as a part of its DevOps as a Service offering.
+      U: CNI, Networking, Network policy, Security, Hubble UI
+      L: https://blog.palark.com/why-cilium-for-kubernetes-networking/
+      Q: @shurup
 
     * N: Plaid Inc
       D: Plaid is using Cilium as their CNI plugin in self-hosted Kubernetes on AWS.
