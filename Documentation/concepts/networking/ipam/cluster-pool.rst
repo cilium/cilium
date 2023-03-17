@@ -28,14 +28,14 @@ Architecture
 This is useful if Kubernetes cannot be configured to hand out PodCIDRs or if
 more control is needed.
 
-In this mode, the Cilium agent will wait on startup until the ``PodCIDRs`` range
+In this mode, the Cilium agent will wait on startup until the ``podCIDRs`` range
 are made available via the Cilium Node ``v2.CiliumNode`` object for all enabled
 address families via the resource field set in the ``v2.CiliumNode``:
 
 ====================== ==============================
 Field                  Description
 ====================== ==============================
-``Spec.IPAM.PodCIDRs`` IPv4 and/or IPv6 PodCIDR range
+``spec.ipam.podCIDRs`` IPv4 and/or IPv6 PodCIDR range
 ====================== ==============================
 
 *************
@@ -52,11 +52,11 @@ Troubleshooting
 Look for allocation errors
 ==========================
 
-Check the ``Error`` field in the ``Status.Operator`` field:
+Check the ``Error`` field in the ``status.ipam.operator-status`` field:
 
 .. code-block:: shell-session
 
-    kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.operator.error}{"\n"}{end}'
+    kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.ipam.operator-status}{"\n"}{end}'
     
 Check for conflicting node CIDRs
 ================================
@@ -90,9 +90,9 @@ PodCIDR status section:
 +-------------------------+----------------------------------------------------+
 |Field                    | Description                                        |
 +=========================+====================================================+
-|``Spec.IPAM.PodCIDRs``   | List of assigned IPv4 and/or IPv6 PodCIDRs         |
+|``spec.ipam.podCIDRs``   | List of assigned IPv4 and/or IPv6 PodCIDRs         |
 +-------------------------+----------------------------------------------------+
-|``Status.IPAM.PodCIDRs`` | PodCIDR utilization                                |
+|``status.ipam.pod-cidrs``| PodCIDR utilization                                |
 |                         | (one of: ``in-use``, ``depleted``, or ``released``)|
 +-------------------------+----------------------------------------------------+
 
@@ -120,9 +120,9 @@ Helm options. The CIDR pool used in Cluster Pool v2 mode are configured the same
 way as regular cluster pool (see :ref:`gsg_ipam_crd_cluster_pool`).
 
 In addition, the thresholds for when a PodCIDR should be allocated or released
-can be configured per node via the following ``CiliumNode.Spec.IPAM`` fields:
+can be configured per node via the following ``CiliumNode.spec.ipam`` fields:
 
-``Spec.IPAM.PodCIDRAllocationThreshold``
+``spec.ipam.pod-cidr-allocation-threshold``
   Defines the minimum number of free IPs which must be available to this node
   via its PodCIDR pool.
 
@@ -136,7 +136,7 @@ can be configured per node via the following ``CiliumNode.Spec.IPAM`` fields:
   If unspecified, defaults to 8.
 
 
-``Spec.IPAM.PodCIDRReleaseThreshold``
+``spec.ipam.pod-cidr-release-threshold``
   Defines the maximum number of free IPs which may be available to this node via
   its PodCIDR pool.
 
