@@ -15,7 +15,7 @@ Example
 Using the LRU is very simple:
 
 ```go
-l, _ := New(128)
+l, _ := New[int, interface{}](128)
 for i := 0; i < 256; i++ {
     l.Add(i, nil)
 }

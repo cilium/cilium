@@ -28,4 +28,5 @@ type NetworkAcl struct {
 	IngressAclEntries IngressAclEntriesInDescribeNetworkAcls `json:"IngressAclEntries" xml:"IngressAclEntries"`
 	EgressAclEntries  EgressAclEntriesInDescribeNetworkAcls  `json:"EgressAclEntries" xml:"EgressAclEntries"`
 	Resources         ResourcesInDescribeNetworkAcls         `json:"Resources" xml:"Resources"`
+	Tags              TagsInDescribeNetworkAcls              `json:"Tags" xml:"Tags"`
 }

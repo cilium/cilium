@@ -84,8 +84,8 @@ type UnTagResourcesRequest struct {
 
 // UnTagResourcesTag is a repeated param struct in UnTagResourcesRequest
 type UnTagResourcesTag struct {
-	Value string `name:"Value"`
 	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // UnTagResourcesResponse is the response struct for api UnTagResources

@@ -89,6 +89,7 @@ type DescribeEipAddressesRequest struct {
 	Tag                       *[]DescribeEipAddressesTag `position:"Query" name:"Tag"  type:"Repeated"`
 	SegmentInstanceId         string                     `position:"Query" name:"SegmentInstanceId"`
 	DryRun                    requests.Boolean           `position:"Query" name:"DryRun"`
+	BandwidthPackageId        string                     `position:"Query" name:"BandwidthPackageId"`
 	ResourceOwnerAccount      string                     `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount              string                     `position:"Query" name:"OwnerAccount"`
 	Filter1Value              string                     `position:"Query" name:"Filter.1.Value"`
