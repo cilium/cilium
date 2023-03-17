@@ -81,6 +81,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	__u16 proxy_port = 0;
+	__u32 cluster_id = 0;
 	int l4_off;
 	int ret = 0;
 
@@ -106,13 +107,13 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
 				&key, &tuple, svc, &ct_state_new,
-				has_l4_header, false);
+				has_l4_header, false, &cluster_id);
 		if (IS_ERR(ret))
 			return ret;
 	}
 skip_service_lookup:
 	/* Store state to be picked up on the continuation tail call. */
-	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port);
+	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_CT_EGRESS);
 	return DROP_MISSED_TAIL_CALL;
 }
@@ -781,11 +782,18 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	enum ct_status ct_status;
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
+	__u32 cluster_id = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	has_l4_header = ipv4_has_l4_header(ip4);
+
+#ifdef ENABLE_PER_PACKET_LB
+	/* Restore ct_state from per packet lb handling in the previous tail call. */
+	lb4_ctx_restore_state(ctx, &ct_state_new, ip4->daddr, &proxy_port, &cluster_id);
+	hairpin_flow = ct_state_new.loopback;
+#endif /* ENABLE_PER_PACKET_LB */
 
 	/* Determine the destination category for policy fallback. */
 	if (1) {
@@ -804,12 +812,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->daddr, *dst_id);
 	}
-
-#ifdef ENABLE_PER_PACKET_LB
-	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, ip4->daddr, &proxy_port);
-	hairpin_flow = ct_state_new.loopback;
-#endif /* ENABLE_PER_PACKET_LB */
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 

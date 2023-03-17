@@ -725,6 +725,7 @@ enum {
 #define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_SRV6_SID_2		CB_IFINDEX	/* Alias, non-overlapping */
 #define CB_ENCAP_SECLABEL	CB_IFINDEX	/* XDP */
+#define CB_CLUSTER_ID_EGRESS	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_ADDR_V6_2		CB_POLICY	/* Alias, non-overlapping */
 #define	CB_BACKEND_ID		CB_POLICY	/* Alias, non-overlapping */
