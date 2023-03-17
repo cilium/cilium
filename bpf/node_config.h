@@ -16,6 +16,8 @@
  */
 #include "lib/utils.h"
 
+#define CLUSTER_ID 0
+
 #ifndef NODE_MAC
 DEFINE_MAC(NODE_MAC, 0xde, 0xad, 0xbe, 0xef, 0xc0, 0xde);
 #define NODE_MAC fetch_mac(NODE_MAC)
@@ -85,6 +87,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define PER_CLUSTER_SNAT_MAPPING_IPV4 test_cilium_per_cluster_snat_v4_external
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+#define IPV4_INTER_CLUSTER_SNAT 0xfffff50a
+#endif
 #define SNAT_MAPPING_IPV4_SIZE 524288
 #define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
