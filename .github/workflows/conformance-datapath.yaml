@@ -159,6 +159,7 @@ jobs:
             lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            host-fw: 'true'
 
           - name: '6'
             kernel: '6.0-main'
@@ -167,6 +168,7 @@ jobs:
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
+            host-fw: 'true'
 
           - name: '7'
             kernel: 'bpf-next-main'
@@ -327,7 +329,12 @@ jobs:
             fi
           fi
 
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT}"
+          HOST_FW=""
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
+
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
       - name: Set commit status to pending
