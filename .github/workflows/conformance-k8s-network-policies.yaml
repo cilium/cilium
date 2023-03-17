@@ -116,7 +116,7 @@ jobs:
         working-directory: test/k8s/manifests/netpol-cyclonus
         run: ./test-cyclonus.sh
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         run: |
           echo "=== Install Cilium CLI ==="
