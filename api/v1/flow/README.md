@@ -957,6 +957,7 @@ here.
 | NAT46 | 187 |  |
 | NAT64 | 188 |  |
 | AUTH_REQUIRED | 189 |  |
+| CT_NO_MAP_FOUND | 190 |  |
 
 
 
