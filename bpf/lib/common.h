@@ -640,6 +640,10 @@ enum metric_dir {
  */
 #define MARK_MAGIC_HEALTH		MARK_MAGIC_DECRYPT
 
+/* Shouldn't interfere with MARK_MAGIC_TO_PROXY. Lower 8bits carries cluster_id */
+#define MARK_MAGIC_CLUSTER_ID		MARK_MAGIC_TO_PROXY
+#define MARK_MAGIC_CLUSTER_ID_MASK	0x00FF
+
 /* IPv4 option used to carry service addr and port for DSR.
  *
  * Copy = 1 (option is copied to each fragment)
