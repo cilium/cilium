@@ -5,7 +5,9 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,6 +118,23 @@ func (s *LoaderTestSuite) TearDownTest(c *C) {
 }
 
 func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
+	ciliumHost, _, err := SetupBaseDevice(1500)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set up datapath base devices: %w", err)
+	}
+	cleanupFnHost := func() error {
+		// will delete ciliumNet as well because this is a veth pair
+		if err := netlink.LinkDel(ciliumHost); err != nil {
+			return fmt.Errorf("failed to delete datapath base devices: %w", err)
+		}
+		return nil
+	}
+	_, ipnet, _ := net.ParseCIDR("192.0.2.1/32")
+	err = netlink.AddrAdd(ciliumHost, &netlink.Addr{IPNet: ipnet})
+	if err != nil {
+		return cleanupFnHost, err
+	}
+
 	link := netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: ep.InterfaceName(),
@@ -123,15 +142,20 @@ func prepareEnv(ep *testutils.TestEndpoint) (func() error, error) {
 	}
 	if err := netlink.LinkAdd(&link); err != nil {
 		if !os.IsExist(err) {
-			return nil, fmt.Errorf("Failed to add link: %s", err)
+			return cleanupFnHost, fmt.Errorf("Failed to add link: %s", err)
 		}
 	}
 	cleanupFn := func() error {
-		if err := netlink.LinkDel(&link); err != nil {
-			return fmt.Errorf("Failed to delete link: %s", err)
+		var err error
+		if errEP := netlink.LinkDel(&link); errEP != nil {
+			err = fmt.Errorf("Failed to delete link: %s", errEP)
 		}
-		return nil
+		if errHost := cleanupFnHost(); errHost != nil {
+			err = errors.Join(err, errHost)
+		}
+		return err
 	}
+
 	return cleanupFn, nil
 }
 
