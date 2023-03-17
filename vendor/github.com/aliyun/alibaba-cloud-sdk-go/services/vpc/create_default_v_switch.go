@@ -20,21 +20,21 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
 )
 
-// CreateHaVip invokes the vpc.CreateHaVip API synchronously
-func (client *Client) CreateHaVip(request *CreateHaVipRequest) (response *CreateHaVipResponse, err error) {
-	response = CreateCreateHaVipResponse()
+// CreateDefaultVSwitch invokes the vpc.CreateDefaultVSwitch API synchronously
+func (client *Client) CreateDefaultVSwitch(request *CreateDefaultVSwitchRequest) (response *CreateDefaultVSwitchResponse, err error) {
+	response = CreateCreateDefaultVSwitchResponse()
 	err = client.DoAction(request, response)
 	return
 }
 
-// CreateHaVipWithChan invokes the vpc.CreateHaVip API asynchronously
-func (client *Client) CreateHaVipWithChan(request *CreateHaVipRequest) (<-chan *CreateHaVipResponse, <-chan error) {
-	responseChan := make(chan *CreateHaVipResponse, 1)
+// CreateDefaultVSwitchWithChan invokes the vpc.CreateDefaultVSwitch API asynchronously
+func (client *Client) CreateDefaultVSwitchWithChan(request *CreateDefaultVSwitchRequest) (<-chan *CreateDefaultVSwitchResponse, <-chan error) {
+	responseChan := make(chan *CreateDefaultVSwitchResponse, 1)
 	errChan := make(chan error, 1)
 	err := client.AddAsyncTask(func() {
 		defer close(responseChan)
 		defer close(errChan)
-		response, err := client.CreateHaVip(request)
+		response, err := client.CreateDefaultVSwitch(request)
 		if err != nil {
 			errChan <- err
 		} else {
@@ -49,14 +49,14 @@ func (client *Client) CreateHaVipWithChan(request *CreateHaVipRequest) (<-chan *
 	return responseChan, errChan
 }
 
-// CreateHaVipWithCallback invokes the vpc.CreateHaVip API asynchronously
-func (client *Client) CreateHaVipWithCallback(request *CreateHaVipRequest, callback func(response *CreateHaVipResponse, err error)) <-chan int {
+// CreateDefaultVSwitchWithCallback invokes the vpc.CreateDefaultVSwitch API asynchronously
+func (client *Client) CreateDefaultVSwitchWithCallback(request *CreateDefaultVSwitchRequest, callback func(response *CreateDefaultVSwitchResponse, err error)) <-chan int {
 	result := make(chan int, 1)
 	err := client.AddAsyncTask(func() {
-		var response *CreateHaVipResponse
+		var response *CreateDefaultVSwitchResponse
 		var err error
 		defer close(result)
-		response, err = client.CreateHaVip(request)
+		response, err = client.CreateDefaultVSwitch(request)
 		callback(response, err)
 		result <- 1
 	})
@@ -68,42 +68,38 @@ func (client *Client) CreateHaVipWithCallback(request *CreateHaVipRequest, callb
 	return result
 }
 
-// CreateHaVipRequest is the request struct for api CreateHaVip
-type CreateHaVipRequest struct {
+// CreateDefaultVSwitchRequest is the request struct for api CreateDefaultVSwitch
+type CreateDefaultVSwitchRequest struct {
 	*requests.RpcRequest
-	IpAddress            string           `position:"Query" name:"IpAddress"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Description          string           `position:"Query" name:"Description"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VSwitchId            string           `position:"Query" name:"VSwitchId"`
-	Name                 string           `position:"Query" name:"Name"`
+	Ipv6CidrBlock        requests.Integer `position:"Query" name:"Ipv6CidrBlock"`
+	ZoneId               string           `position:"Query" name:"ZoneId"`
 }
 
-// CreateHaVipResponse is the response struct for api CreateHaVip
-type CreateHaVipResponse struct {
+// CreateDefaultVSwitchResponse is the response struct for api CreateDefaultVSwitch
+type CreateDefaultVSwitchResponse struct {
 	*responses.BaseResponse
+	VSwitchId string `json:"VSwitchId" xml:"VSwitchId"`
 	RequestId string `json:"RequestId" xml:"RequestId"`
-	IpAddress string `json:"IpAddress" xml:"IpAddress"`
-	HaVipId   string `json:"HaVipId" xml:"HaVipId"`
 }
 
-// CreateCreateHaVipRequest creates a request to invoke CreateHaVip API
-func CreateCreateHaVipRequest() (request *CreateHaVipRequest) {
-	request = &CreateHaVipRequest{
+// CreateCreateDefaultVSwitchRequest creates a request to invoke CreateDefaultVSwitch API
+func CreateCreateDefaultVSwitchRequest() (request *CreateDefaultVSwitchRequest) {
+	request = &CreateDefaultVSwitchRequest{
 		RpcRequest: &requests.RpcRequest{},
 	}
-	request.InitWithApiInfo("Vpc", "2016-04-28", "CreateHaVip", "vpc", "openAPI")
+	request.InitWithApiInfo("Vpc", "2016-04-28", "CreateDefaultVSwitch", "vpc", "openAPI")
 	request.Method = requests.POST
 	return
 }
 
-// CreateCreateHaVipResponse creates a response to parse from CreateHaVip response
-func CreateCreateHaVipResponse() (response *CreateHaVipResponse) {
-	response = &CreateHaVipResponse{
+// CreateCreateDefaultVSwitchResponse creates a response to parse from CreateDefaultVSwitch response
+func CreateCreateDefaultVSwitchResponse() (response *CreateDefaultVSwitchResponse) {
+	response = &CreateDefaultVSwitchResponse{
 		BaseResponse: &responses.BaseResponse{},
 	}
 	return

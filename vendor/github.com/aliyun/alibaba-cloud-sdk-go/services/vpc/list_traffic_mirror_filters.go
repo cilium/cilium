@@ -71,14 +71,22 @@ func (client *Client) ListTrafficMirrorFiltersWithCallback(request *ListTrafficM
 // ListTrafficMirrorFiltersRequest is the request struct for api ListTrafficMirrorFilters
 type ListTrafficMirrorFiltersRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	TrafficMirrorFilterIds  *[]string        `position:"Query" name:"TrafficMirrorFilterIds"  type:"Repeated"`
-	TrafficMirrorFilterName string           `position:"Query" name:"TrafficMirrorFilterName"`
-	NextToken               string           `position:"Query" name:"NextToken"`
-	ResourceOwnerAccount    string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount            string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                 requests.Integer `position:"Query" name:"OwnerId"`
-	MaxResults              requests.Integer `position:"Query" name:"MaxResults"`
+	ResourceOwnerId         requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	TrafficMirrorFilterIds  *[]string                       `position:"Query" name:"TrafficMirrorFilterIds"  type:"Repeated"`
+	TrafficMirrorFilterName string                          `position:"Query" name:"TrafficMirrorFilterName"`
+	ResourceGroupId         string                          `position:"Query" name:"ResourceGroupId"`
+	NextToken               string                          `position:"Query" name:"NextToken"`
+	ResourceOwnerAccount    string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount            string                          `position:"Query" name:"OwnerAccount"`
+	OwnerId                 requests.Integer                `position:"Query" name:"OwnerId"`
+	Tags                    *[]ListTrafficMirrorFiltersTags `position:"Query" name:"Tags"  type:"Repeated"`
+	MaxResults              requests.Integer                `position:"Query" name:"MaxResults"`
+}
+
+// ListTrafficMirrorFiltersTags is a repeated param struct in ListTrafficMirrorFiltersRequest
+type ListTrafficMirrorFiltersTags struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // ListTrafficMirrorFiltersResponse is the response struct for api ListTrafficMirrorFilters

@@ -73,11 +73,19 @@ type DescribeHaVipsRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer        `position:"Query" name:"ResourceOwnerId"`
 	PageNumber           requests.Integer        `position:"Query" name:"PageNumber"`
+	ResourceGroupId      string                  `position:"Query" name:"ResourceGroupId"`
 	PageSize             requests.Integer        `position:"Query" name:"PageSize"`
 	ResourceOwnerAccount string                  `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string                  `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer        `position:"Query" name:"OwnerId"`
+	Tags                 *[]DescribeHaVipsTags   `position:"Query" name:"Tags"  type:"Repeated"`
 	Filter               *[]DescribeHaVipsFilter `position:"Query" name:"Filter"  type:"Repeated"`
+}
+
+// DescribeHaVipsTags is a repeated param struct in DescribeHaVipsRequest
+type DescribeHaVipsTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribeHaVipsFilter is a repeated param struct in DescribeHaVipsRequest
