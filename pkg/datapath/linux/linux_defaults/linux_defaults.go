@@ -63,9 +63,6 @@ const (
 	// RouterMarkNodePort
 	MaskMultinodeNodeport = 0x80
 
-	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
-	RouteProtocolIPSec = 50
-
 	// RTProto is the default protocol we install our fib rules and routes with
 	RTProto = unix.RTPROT_KERNEL
 

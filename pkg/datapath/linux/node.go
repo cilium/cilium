@@ -1327,7 +1327,7 @@ func (n *linuxNodeHandler) createNodeIPSecInRoute(ip *net.IPNet) route.Route {
 		Device:  device,
 		Prefix:  *ip,
 		Table:   linux_defaults.RouteTableIPSec,
-		Proto:   linux_defaults.RouteProtocolIPSec,
+		Proto:   linux_defaults.RTProto,
 		Type:    route.RTN_LOCAL,
 	}
 }
