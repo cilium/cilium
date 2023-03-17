@@ -1129,6 +1129,18 @@ skip_vtep:
 		key.family = ENDPOINT_KEY_IPV4;
 		key.cluster_id = (__u8)cluster_id;
 
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+		/*
+		 * The destination is remote node, but the connection is originated from tunnel.
+		 * Maybe the remote cluster performed SNAT for the inter-cluster communication
+		 * and this is the reply for that. In that case, we need to send it back to tunnel.
+		 */
+		if (ct_status == CT_REPLY) {
+			if (identity_is_remote_node(*dst_id) && ct_state->from_tunnel)
+				tunnel_endpoint = ip4->daddr;
+		}
+#endif
+
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
 					     &key, node_id, SECLABEL, *dst_id,
 					     &trace);
