@@ -2400,6 +2400,7 @@ definitions:
     type: string
     enum:
       - veth
+      - lb-only
   EndpointConfigurationSpec:
     description: An endpoint's configuration
     type: object

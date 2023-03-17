@@ -2148,7 +2148,8 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "lb-only"
       ]
     },
     "DebugInfo": {
@@ -6962,7 +6963,8 @@ func init() {
       "description": "Datapath mode",
       "type": "string",
       "enum": [
-        "veth"
+        "veth",
+        "lb-only"
       ]
     },
     "DebugInfo": {

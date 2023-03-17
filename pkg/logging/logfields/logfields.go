@@ -220,6 +220,8 @@ const (
 	// Veth is a veth object or ID
 	Veth = "veth"
 
+	DatapathMapPath = "datapathMapPath"
+
 	// VethPair is a tuple of Veth that are paired
 	VethPair = "vethPair"
 

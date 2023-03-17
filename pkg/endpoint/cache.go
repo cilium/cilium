@@ -28,6 +28,8 @@ type epInfoCache struct {
 	id     uint64
 	ifName string
 
+	datapathMapPath string
+
 	// For datapath.EndpointConfiguration
 	identity                               identity.NumericIdentity
 	mac                                    mac.MAC
@@ -64,6 +66,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		epdir:                  epdir,
 		id:                     e.GetID(),
 		ifName:                 e.ifName,
+		datapathMapPath:        e.DatapathMapPath(),
 		identity:               e.getIdentity(),
 		mac:                    e.GetNodeMAC(),
 		ipv4:                   e.IPv4Address(),
@@ -98,6 +101,10 @@ func (ep *epInfoCache) LXCMac() mac.MAC {
 // communicating with the endpoint.
 func (ep *epInfoCache) InterfaceName() string {
 	return ep.ifName
+}
+
+func (ep *epInfoCache) DatapathMapPath() string {
+	return ep.datapathMapPath
 }
 
 // GetID returns the endpoint's ID.

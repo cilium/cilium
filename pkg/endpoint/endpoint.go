@@ -19,12 +19,14 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -139,6 +141,9 @@ type Endpoint struct {
 	// dockerEndpointID is the Docker network endpoint ID if managed by
 	// libnetwork
 	dockerEndpointID string
+
+	// Corresponding BPF map identifier for tail call map
+	datapathMapID int
 
 	// ifName is the name of the host facing interface (veth pair) which
 	// connects into the endpoint
@@ -545,6 +550,9 @@ func (e *Endpoint) GetID16() uint16 {
 // In some datapath modes, it may return an empty string as there is no unique
 // host netns network interface for this endpoint.
 func (e *Endpoint) HostInterface() string {
+	if e.DatapathMapPath() != "" {
+		return ""
+	}
 	return e.ifName
 }
 
@@ -2120,6 +2128,32 @@ func (e *Endpoint) SyncEndpointHeaderFile() {
 	if e.dnsHistoryTrigger != nil {
 		e.dnsHistoryTrigger.Trigger()
 	}
+}
+
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
+// and pins the corresponding map into the BPF file system.
+func (e *Endpoint) PinDatapathMap() error {
+	if err := e.lockAlive(); err != nil {
+		return err
+	}
+	defer e.unlock()
+	return e.pinDatapathMap()
+}
+
+// PinDatapathMap retrieves a file descriptor from the map ID from the API call
+// and pins the corresponding map into the BPF file system.
+func (e *Endpoint) pinDatapathMap() error {
+	if e.datapathMapID == 0 {
+		return nil
+	}
+
+	mapFd, err := bpf.MapFdFromID(e.datapathMapID)
+	if err != nil {
+		return err
+	}
+	defer unix.Close(mapFd)
+
+	return bpf.ObjPin(mapFd, e.DatapathMapPath())
 }
 
 // Delete cleans up all resources associated with this endpoint, including the

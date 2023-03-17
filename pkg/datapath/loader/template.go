@@ -104,6 +104,10 @@ func (t *templateCfg) GetNodeMAC() mac.MAC {
 	return templateMAC
 }
 
+func (t *templateCfg) DatapathMapPath() string {
+	return ""
+}
+
 // IPv4Address always returns an IP in the documentation prefix (RFC5737) as
 // a nonsense address that should typically not be routable.
 func (t *templateCfg) IPv4Address() netip.Addr {

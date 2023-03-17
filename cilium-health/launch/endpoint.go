@@ -335,6 +335,10 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}
 
+	if err := ep.PinDatapathMap(); err != nil {
+		return nil, err
+	}
+
 	// Give the endpoint a security identity
 	ctx, cancel := context.WithTimeout(baseCtx, LaunchTime)
 	defer cancel()

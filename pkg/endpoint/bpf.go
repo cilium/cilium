@@ -55,6 +55,8 @@ const (
 	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	ciliumCHeaderPrefix = "CILIUM_BASE64_"
+
+	datapathMapNamePrefix = "cilium_lxc_dp_"
 )
 
 var (
@@ -75,6 +77,13 @@ func (e *Endpoint) callsMapPath() string {
 // endpoint.
 func (e *Endpoint) customCallsMapPath() string {
 	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
+}
+
+func (e *Endpoint) DatapathMapPath() string {
+	if e.datapathMapID > 0 {
+		return bpf.LocalMapPath(datapathMapNamePrefix, e.ID)
+	}
+	return ""
 }
 
 // writeInformationalComments writes annotations to the specified writer,
@@ -993,8 +1002,9 @@ func (e *Endpoint) deleteMaps() []error {
 	var errors []error
 
 	maps := map[string]string{
-		"policy": e.policyMapPath(),
-		"calls":  e.callsMapPath(),
+		"policy":   e.policyMapPath(),
+		"calls":    e.callsMapPath(),
+		"datapath": e.DatapathMapPath(),
 	}
 	if !e.isHost {
 		maps["custom"] = e.customCallsMapPath()
@@ -1530,12 +1540,18 @@ type linkCheckerFunc func(string) error
 
 // ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed.
 func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error {
-	if linkChecker == nil {
-		return fmt.Errorf("cannot check state of datapath; link checker is nil")
-	}
-	err := linkChecker(e.ifName)
-	if err != nil {
-		return fmt.Errorf("interface %s could not be found", e.ifName)
+	if edmp := e.DatapathMapPath(); edmp != "" {
+		if _, err := os.Stat(edmp); err != nil {
+			return fmt.Errorf("tail call map for datapath unavailable: %s", err)
+		}
+	} else {
+		if linkChecker == nil {
+			return fmt.Errorf("cannot check state of datapath; link checker is nil")
+		}
+		err := linkChecker(e.ifName)
+		if err != nil {
+			return fmt.Errorf("interface %s could not be found", e.ifName)
+		}
 	}
 	return nil
 }

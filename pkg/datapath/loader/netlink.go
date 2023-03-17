@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/ebpf"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -26,16 +28,65 @@ type baseDeviceMode string
 const (
 	directMode = baseDeviceMode("direct")
 	tunnelMode = baseDeviceMode("tunnel")
+
+	libbpfFixupMsg = "struct bpf_elf_map fixup performed due to size mismatch!"
+)
+
+const (
+	REPL_F_NETLINK      uint32 = 0
+	REPL_F_DATAPATH_MAP uint32 = 1 << 0
+	REPL_F_XDP_SKB      uint32 = 1 << 1 // nl.XDP_FLAGS_SKB_MODE
+	REPL_F_XDP_DRV      uint32 = 1 << 2 // nl.XDP_FLAGS_DRV_MODE
+)
+
+const (
+	ATTA_F_XDP_SKB    uint32 = 1 << 1     // nl.XDP_FLAGS_SKB_MODE
+	ATTA_F_XDP_DRV    uint32 = 1 << 2     // nl.XDP_FLAGS_DRV_MODE
+	ATTA_F_TC_INGRESS uint32 = 0xFFFFFFF2 // netlink.HANDLE_MIN_INGRESS
+	ATTA_F_TC_EGRESS  uint32 = 0xFFFFFFF3 // netlink.HANDLE_MIN_EGRESS
 )
 
 func directionToParent(dir string) uint32 {
 	switch dir {
-	case dirIngress:
+	case DirIngress:
 		return netlink.HANDLE_MIN_INGRESS
-	case dirEgress:
+	case DirEgress:
 		return netlink.HANDLE_MIN_EGRESS
 	}
 	return 0
+}
+
+// reverse direction
+func DirectionToEntryKey(dir string) string {
+	switch dir {
+	case DirIngress:
+		return "0"
+	case DirEgress:
+		return "1"
+	}
+	return "-1"
+}
+
+// FIXME: graft_map native call
+func directionToEntrySec(dir string) string {
+	switch dir {
+	case DirIngress:
+		return "to-container"
+	case DirEgress:
+		return "from-container"
+	}
+	return "unknown"
+}
+
+// FIXME: graft_map native call
+func DirectionToEntryIndex(dir string) int32 {
+	switch dir {
+	case DirIngress:
+		return 0
+	case DirEgress:
+		return 1
+	}
+	return -1
 }
 
 func replaceQdisc(link netlink.Link) error {
@@ -58,6 +109,26 @@ type progDefinition struct {
 	direction string
 }
 
+func evaluateRepalceTarget(ifNameOrMapPath string, commonFields logrus.Fields, replaceflags uint32) (*netlink.Link, *logrus.Entry, error) {
+	l := log.WithFields(commonFields)
+	if replaceflags&REPL_F_DATAPATH_MAP != 0 {
+		_, err := ebpf.LoadPinnedMap(ifNameOrMapPath, nil)
+		if errors.Is(err, unix.ENOENT) {
+			return nil, l, fmt.Errorf("given map %s was not pinned: %w", ifNameOrMapPath, err)
+		}
+		l = l.WithField("mapPath", ifNameOrMapPath)
+		return nil, l, nil
+	} else {
+		link, err := netlink.LinkByName(ifNameOrMapPath)
+		if err != nil {
+			return nil, l, fmt.Errorf("getting interface %s by name: %w", ifNameOrMapPath, err)
+		}
+		l = log.WithField("device", ifNameOrMapPath).WithField("ifindex", link.Attrs().Index)
+		return &link, l, nil
+	}
+	return nil, l, fmt.Errorf("failed to evaluate replaceflags %d", replaceflags)
+}
+
 // replaceDatapath replaces the qdisc and BPF program for an endpoint or XDP program.
 //
 // When successful, returns a finalizer to allow the map cleanup operation to be
@@ -71,19 +142,20 @@ type progDefinition struct {
 // For example, this is the case with from-netdev and to-netdev. If eth0:to-netdev
 // gets its program and maps replaced and unpinned, its eth0:from-netdev counterpart
 // will miss tail calls (and drop packets) until it has been replaced as well.
-func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDefinition, xdpMode string) (func(), error) {
+//
+// When the second parameter represents DatapathMapPath, replaces obj in tail call map.
+// In this case, xdpMode is not currently supported.
+// flags: TODO explain flags
+func replaceDatapath(ctx context.Context, ifNameOrMapPath, objPath string, progs []progDefinition, flags uint32) (func(), error) {
 	// Avoid unnecessarily loading a prog.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 
-	link, err := netlink.LinkByName(ifName)
+	link, l, err := evaluateRepalceTarget(ifNameOrMapPath, logrus.Fields{"objPath": objPath}, flags)
 	if err != nil {
-		return nil, fmt.Errorf("getting interface %s by name: %w", ifName, err)
+		return nil, fmt.Errorf("Evaluate replaceDatapath target error: %w", err)
 	}
-
-	l := log.WithField("device", ifName).WithField("objPath", objPath).
-		WithField("ifindex", link.Attrs().Index)
 
 	// Load the ELF from disk.
 	l.Debug("Loading CollectionSpec from ELF")
@@ -140,35 +212,59 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		return nil, err
 	}
 
+	if link != nil {
+		for _, prog := range progs {
+			scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
+			scopedLog.Debug("Attaching program to interface")
+			if err := AttachProgram(*link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction)|flags); err != nil {
+				// Program replacement unsuccessful, revert bpffs migration.
+				l.Debug("Reverting bpffs map migration")
+				if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
+					l.WithError(err).Error("Failed to revert bpffs map migration")
+				}
+				return nil, fmt.Errorf("program %s: %w", prog.progName, err)
+			}
+			scopedLog.Debug("Successfully attached program to interface")
+		}
+		return finalize, nil
+	}
+
 	for _, prog := range progs {
 		scopedLog := l.WithField("progName", prog.progName).WithField("direction", prog.direction)
-		scopedLog.Debug("Attaching program to interface")
-		if err := attachProgram(link, coll.Programs[prog.progName], prog.progName, directionToParent(prog.direction), xdpModeToFlag(xdpMode)); err != nil {
-			// Program replacement unsuccessful, revert bpffs migration.
+		scopedLog.Debug("Gragfting program to map")
+		if err := graftProgram(ctx, ifNameOrMapPath, objPath, directionToEntrySec(prog.direction), DirectionToEntryKey(prog.direction)); err != nil {
 			l.Debug("Reverting bpffs map migration")
 			if err := bpf.FinalizeBPFFSMigration(bpf.MapPrefixPath(), spec, true); err != nil {
 				l.WithError(err).Error("Failed to revert bpffs map migration")
 			}
-
 			return nil, fmt.Errorf("program %s: %w", prog.progName, err)
 		}
-		scopedLog.Debug("Successfully attached program to interface")
+		scopedLog.Debug("Successfully grafted program to map")
 	}
-
 	return finalize, nil
 }
 
-// attachProgram attaches prog to link.
-// If xdpFlags is non-zero, attaches prog to XDP.
-func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdiscParent uint32, xdpFlags uint32) error {
+func graftProgram(ctx context.Context, mapPath, objPath, progSec, key string) error {
+	// FIXME: replace exec with native call
+	args := []string{"exec", "bpf", "graft", mapPath, "key", key,
+		"obj", objPath, "sec", progSec,
+	}
+	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	if _, err := cmd.CombinedOutput(log, true); err != nil {
+		return fmt.Errorf("Failed to graft tc object: %s, mapPath: %s, objPath: %s, progSec: %s, key: %s", err, mapPath, objPath, progSec, key)
+	}
+	return nil
+}
+
+func AttachProgram(link netlink.Link, prog *ebpf.Program, progName string, attachFlags uint32) error {
 	if prog == nil {
 		return errors.New("cannot attach a nil program")
 	}
 
-	if xdpFlags != 0 {
+	if attachFlags&0xF0 == 0 {
 		// Omitting XDP_FLAGS_UPDATE_IF_NOEXIST equals running 'ip' with -force,
 		// and will clobber any existing XDP attachment to the interface.
-		if err := netlink.LinkSetXdpFdWithFlags(link, prog.FD(), int(xdpFlags)); err != nil {
+		if err := netlink.LinkSetXdpFdWithFlags(link, prog.FD(), int(attachFlags)); err != nil {
 			return fmt.Errorf("attaching XDP program to interface %s: %w", link.Attrs().Name, err)
 		}
 
@@ -182,7 +278,7 @@ func attachProgram(link netlink.Link, prog *ebpf.Program, progName string, qdisc
 	filter := &netlink.BpfFilter{
 		FilterAttrs: netlink.FilterAttrs{
 			LinkIndex: link.Attrs().Index,
-			Parent:    qdiscParent,
+			Parent:    attachFlags,
 			Handle:    1,
 			Protocol:  unix.ETH_P_ALL,
 			Priority:  option.Config.TCFilterPriority,

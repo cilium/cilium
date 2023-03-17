@@ -45,8 +45,8 @@ const (
 
 	symbolFromHostNetdevXDP = "cil_xdp_entry"
 
-	dirIngress = "ingress"
-	dirEgress  = "egress"
+	DirIngress = "ingress"
+	DirEgress  = "egress"
 )
 
 const (
@@ -202,7 +202,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	objPaths := make([]string, 2, nbInterfaces)
 	interfaceNames := make([]string, 2, nbInterfaces)
 	symbols[0], symbols[1] = symbolToHostEp, symbolFromHostEp
-	directions[0], directions[1] = dirIngress, dirEgress
+	directions[0], directions[1] = DirIngress, DirEgress
 	objPaths[0], objPaths[1] = objPath, objPath
 	interfaceNames[0], interfaceNames[1] = ep.InterfaceName(), ep.InterfaceName()
 
@@ -212,7 +212,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	} else {
 		interfaceNames = append(interfaceNames, defaults.SecondHostDevice)
 		symbols = append(symbols, symbolToHostEp)
-		directions = append(directions, dirIngress)
+		directions = append(directions, DirIngress)
 		secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
 		if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil); err != nil {
 			return err
@@ -236,7 +236,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 		interfaceNames = append(interfaceNames, device)
 		symbols = append(symbols, symbolFromHostNetdevEp)
-		directions = append(directions, dirIngress)
+		directions = append(directions, DirIngress)
 		if option.Config.AreDevicesRequired() &&
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
@@ -245,7 +245,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 			interfaceNames = append(interfaceNames, device)
 			symbols = append(symbols, symbolToHostNetdevEp)
-			directions = append(directions, dirEgress)
+			directions = append(directions, DirEgress)
 			objPaths = append(objPaths, netdevObjPath)
 		} else {
 			// Remove any previously attached device from egress path if BPF
@@ -260,7 +260,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	for i, interfaceName := range interfaceNames {
 		symbol := symbols[i]
 		progs := []progDefinition{{progName: symbol, direction: directions[i]}}
-		finalize, err := replaceDatapath(ctx, interfaceName, objPaths[i], progs, "")
+		finalize, err := replaceDatapath(ctx, interfaceName, objPaths[i], progs, REPL_F_NETLINK)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
 				logfields.Path: objPath,
@@ -291,22 +291,35 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			return err
 		}
 	} else {
-		progs := []progDefinition{{progName: symbolFromEndpoint, direction: dirIngress}}
+		progs := []progDefinition{{progName: symbolFromEndpoint, direction: DirIngress}}
 
 		if ep.RequireEgressProg() {
-			progs = append(progs, progDefinition{progName: symbolToEndpoint, direction: dirEgress})
-		} else {
+			progs = append(progs, progDefinition{progName: symbolToEndpoint, direction: DirEgress})
+		} else if ep.DatapathMapPath() == "" {
 			err := RemoveTCFilters(ep.InterfaceName(), netlink.HANDLE_MIN_EGRESS)
 			if err != nil {
 				log.WithField("device", ep.InterfaceName()).Error(err)
 			}
 		}
 
-		finalize, err := replaceDatapath(ctx, ep.InterfaceName(), objPath, progs, "")
+		var target string
+		var logfieldDatapath string
+		var repalceFlags uint32
+		if edmp := ep.DatapathMapPath(); edmp != "" {
+			target = edmp
+			repalceFlags = REPL_F_DATAPATH_MAP
+			logfieldDatapath = logfields.DatapathMapPath
+		} else {
+			target = ep.InterfaceName()
+			repalceFlags = REPL_F_NETLINK
+			logfieldDatapath = logfields.Veth
+		}
+
+		finalize, err := replaceDatapath(ctx, target, objPath, progs, repalceFlags)
 		if err != nil {
 			scopedLog := ep.Logger(Subsystem).WithFields(logrus.Fields{
-				logfields.Path: objPath,
-				logfields.Veth: ep.InterfaceName(),
+				logfields.Path:   objPath,
+				logfieldDatapath: target,
 			})
 			// Don't log an error here if the context was canceled or timed out;
 			// this log message should only represent failures with respect to
@@ -342,9 +355,9 @@ func (l *Loader) replaceNetworkDatapath(ctx context.Context, interfaces []string
 	if err := compileNetwork(ctx); err != nil {
 		log.WithError(err).Fatal("failed to compile encryption programs")
 	}
-	progs := []progDefinition{{progName: symbolFromNetwork, direction: dirIngress}}
+	progs := []progDefinition{{progName: symbolFromNetwork, direction: DirIngress}}
 	for _, iface := range option.Config.EncryptInterface {
-		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, "")
+		finalize, err := replaceDatapath(ctx, iface, networkObj, progs, REPL_F_NETLINK)
 		if err != nil {
 			log.WithField(logfields.Interface, iface).WithError(err).Fatal("Load encryption network failed")
 		}
