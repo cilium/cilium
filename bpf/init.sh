@@ -196,62 +196,6 @@ function rnd_mac_addr()
     printf '%02x%s' $upper $lower
 }
 
-function bpf_compile()
-{
-	IN=$1
-	OUT=$2
-	TYPE=$3
-	EXTRA_OPTS=$4
-
-	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
-	      -g -Wall -Wextra -Werror -Wshadow			\
-	      -Wno-address-of-packed-member			\
-	      -Wno-unknown-warning-option			\
-	      -Wno-gnu-variable-sized-type-not-at-end		\
-	      -Wdeclaration-after-statement			\
-	      -Wimplicit-int-conversion -Wenum-conversion	\
-	      -I. -I$DIR -I$LIB -I$LIB/include			\
-	      -D__NR_CPUS__=$NR_CPUS				\
-	      -DENABLE_ARP_RESPONDER=1				\
-	      $EXTRA_OPTS					\
-	      -c $LIB/$IN -o - |				\
-	llc -march=bpf -mcpu=$MCPU -filetype=$TYPE -o $OUT
-}
-
-function bpf_unload()
-{
-	DEV=$1
-	WHERE=$2
-
-	tc filter del dev $DEV $WHERE 2> /dev/null || true
-}
-
-function bpf_load()
-{
-	DEV=$1
-	OPTS=$2
-	WHERE=$3
-	IN=$4
-	OUT=$5
-	SEC=$6
-	CALLS_MAP=$7
-
-	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
-	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
-
-	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
-	bpf_compile $IN $OUT obj "$OPTS"
-	tc qdisc replace dev $DEV clsact || true
-	[ -z "$(tc filter show dev $DEV $WHERE | grep -v "pref $FILTER_PRIO bpf chain 0 $\|pref $FILTER_PRIO bpf chain 0 handle 0x1")" ] || tc filter del dev $DEV $WHERE
-
-	cilium bpf migrate-maps -s "$OUT"
-
-	if ! tc filter replace dev "$DEV" "$WHERE" prio "$FILTER_PRIO" handle 1 bpf da obj "$OUT" sec "$SEC"; then
-		cilium bpf migrate-maps -e "$OUT" -r 1
-		return 1
-	fi
-}
-
 function create_encap_dev()
 {
 	TUNNEL_OPTS="external"
@@ -407,17 +351,6 @@ if [ "${TUNNEL_MODE}" != "<nil>" ]; then
 	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-
-	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD} -DFROM_ENCAP_DEV=1"
-	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
-	fi
-
-	bpf_load "$ENCAP_DEV" "$COPTS" ingress bpf_overlay.c bpf_overlay.o from-overlay "$CALLS_MAP"
-	bpf_load "$ENCAP_DEV" "$COPTS" egress bpf_overlay.c bpf_overlay.o to-overlay "$CALLS_MAP"
-
-	cilium bpf migrate-maps -e bpf_overlay.o -r 0
 fi
 
 if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
@@ -464,5 +397,5 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 done
 
 if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
-	bpf_unload $HOST_DEV2 "egress"
+	tc filter del dev $HOST_DEV2 "egress" 2> /dev/null || true
 fi
