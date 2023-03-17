@@ -1,6 +1,7 @@
 This repository holds helm templates for the following Cilium releases:
 
 * [v1.14.0-snapshot.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.0/install/kubernetes/cilium)_)
+* [v1.13.1](https://github.com/cilium/cilium/releases/tag/v1.13.1) (_[source](https://github.com/cilium/cilium/tree/v1.13.1/install/kubernetes/cilium)_)
 * [v1.13.0](https://github.com/cilium/cilium/releases/tag/v1.13.0) (_[source](https://github.com/cilium/cilium/tree/v1.13.0/install/kubernetes/cilium)_)
 * [v1.13.0-rc5](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc5) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc5/install/kubernetes/cilium)_)
 * [v1.13.0-rc4](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc4) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc4/install/kubernetes/cilium)_)
@@ -8,6 +9,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.13.0-rc2](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc2) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc2/install/kubernetes/cilium)_)
 * [v1.13.0-rc1](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc1) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc1/install/kubernetes/cilium)_)
 * [v1.13.0-rc0](https://github.com/cilium/cilium/releases/tag/v1.13.0-rc0) (_[source](https://github.com/cilium/cilium/tree/v1.13.0-rc0/install/kubernetes/cilium)_)
+* [v1.12.8](https://github.com/cilium/cilium/releases/tag/v1.12.8) (_[source](https://github.com/cilium/cilium/tree/v1.12.8/install/kubernetes/cilium)_)
 * [v1.12.7](https://github.com/cilium/cilium/releases/tag/v1.12.7) (_[source](https://github.com/cilium/cilium/tree/v1.12.7/install/kubernetes/cilium)_)
 * [v1.12.6](https://github.com/cilium/cilium/releases/tag/v1.12.6) (_[source](https://github.com/cilium/cilium/tree/v1.12.6/install/kubernetes/cilium)_)
 * [v1.12.5](https://github.com/cilium/cilium/releases/tag/v1.12.5) (_[source](https://github.com/cilium/cilium/tree/v1.12.5/install/kubernetes/cilium)_)
@@ -20,6 +22,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.12.0-rc2](https://github.com/cilium/cilium/releases/tag/v1.12.0-rc2) (_[source](https://github.com/cilium/cilium/tree/v1.12.0-rc2/install/kubernetes/cilium)_)
 * [v1.12.0-rc1](https://github.com/cilium/cilium/releases/tag/v1.12.0-rc1) (_[source](https://github.com/cilium/cilium/tree/v1.12.0-rc1/install/kubernetes/cilium)_)
 * [v1.12.0-rc0](https://github.com/cilium/cilium/releases/tag/v1.12.0-rc0) (_[source](https://github.com/cilium/cilium/tree/v1.12.0-rc0/install/kubernetes/cilium)_)
+* [v1.11.15](https://github.com/cilium/cilium/releases/tag/v1.11.15) (_[source](https://github.com/cilium/cilium/tree/v1.11.15/install/kubernetes/cilium)_)
 * [v1.11.14](https://github.com/cilium/cilium/releases/tag/v1.11.14) (_[source](https://github.com/cilium/cilium/tree/v1.11.14/install/kubernetes/cilium)_)
 * [v1.11.13](https://github.com/cilium/cilium/releases/tag/v1.11.13) (_[source](https://github.com/cilium/cilium/tree/v1.11.13/install/kubernetes/cilium)_)
 * [v1.11.12](https://github.com/cilium/cilium/releases/tag/v1.11.12) (_[source](https://github.com/cilium/cilium/tree/v1.11.12/install/kubernetes/cilium)_)
@@ -134,6 +137,7 @@ This repository holds helm templates for the following Cilium releases:
 
 This repository holds helm templates for the following Tetragon releases:
 
+* [v0.8.4](https://github.com/cilium/tetragon/releases/tag/v0.8.4) (_[source](https://github.com/cilium/tetragon/tree/v0.8.4/install/kubernetes)_)
 * [v0.8.3](https://github.com/cilium/tetragon/releases/tag/v0.8.3) (_[source](https://github.com/cilium/tetragon/tree/v0.8.3/install/kubernetes)_)
 * [v0.8.2](https://github.com/cilium/tetragon/releases/tag/v0.8.2) (_[source](https://github.com/cilium/tetragon/tree/v0.8.2/install/kubernetes)_)
 * [v0.8.1](https://github.com/cilium/tetragon/releases/tag/v0.8.1) (_[source](https://github.com/cilium/tetragon/tree/v0.8.1/install/kubernetes)_)
