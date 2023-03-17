@@ -7,6 +7,7 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
+#include "bpf/compiler.h"
 #include "tailcall.h"
 #include "nat.h"
 #include "edt.h"
@@ -1255,13 +1256,17 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx)
+static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
+						  __u32 cluster_id __maybe_unused)
 {
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = 0, /* set by snat_v4_prepare_state() */
 		.egress_gateway = 0,
+#if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+		.cluster_id = cluster_id,
+#endif
 	};
 	int ret = CTX_ACT_OK;
 	bool snat_needed;
@@ -2291,8 +2296,11 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
+	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	enum trace_point obs_point;
 	int ret;
+
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	obs_point = TRACE_TO_OVERLAY;
@@ -2300,7 +2308,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx);
+	ret = nodeport_snat_fwd_ipv4(ctx, cluster_id);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -2310,7 +2318,8 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-__handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
+__handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
+		      struct trace_ctx *trace)
 {
 	int ret;
 
@@ -2320,8 +2329,10 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
-     defined(ENABLE_MASQUERADE)
+     defined(ENABLE_MASQUERADE) ||					\
+    (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
 	if (!ctx_snat_done(ctx)) {
+		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD);
 		ret = DROP_MISSED_TAIL_CALL;
 	}
@@ -2333,14 +2344,19 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 static __always_inline int handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace;
+	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 
-	return __handle_nat_fwd_ipv4(ctx, &trace);
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
+
+	return __handle_nat_fwd_ipv4(ctx, cluster_id, &trace);
 }
 
-declare_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
+declare_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
 				is_defined(ENABLE_IPV6)),
 			  __and(is_defined(ENABLE_HOST_FIREWALL),
 				is_defined(IS_BPF_HOST)),
+			  __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
+				is_defined(ENABLE_INTER_CLUSTER_SNAT)),
 			  is_defined(ENABLE_EGRESS_GATEWAY)),
 		    CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
@@ -2351,6 +2367,9 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	};
 	int ret;
 	enum trace_point obs_point;
+	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	obs_point = TRACE_TO_OVERLAY;
@@ -2358,7 +2377,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = __handle_nat_fwd_ipv4(ctx, &trace);
+	ret = __handle_nat_fwd_ipv4(ctx, cluster_id, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
@@ -2461,20 +2480,24 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx)
+static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id)
 {
 	int ret = CTX_ACT_OK;
 	__u16 proto;
+
+	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 
 	if (!validate_ethertype(ctx, &proto))
 		return CTX_ACT_OK;
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or3(__and(is_defined(ENABLE_IPV4),
+		invoke_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
 					       is_defined(ENABLE_IPV6)),
 					 __and(is_defined(ENABLE_HOST_FIREWALL),
 					       is_defined(IS_BPF_HOST)),
+					 __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
+					       is_defined(ENABLE_INTER_CLUSTER_SNAT)),
 					 is_defined(ENABLE_EGRESS_GATEWAY)),
 				   CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
 				   handle_nat_fwd_ipv4);

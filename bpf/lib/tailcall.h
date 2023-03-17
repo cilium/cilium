@@ -27,6 +27,10 @@
 #define __or3_0(y, z)  __or(y, z)
 #define __or3(x, y, z) __eval(__or3_, x)(y, z)
 
+#define __or4_1(x, y, z) 1
+#define __or4_0(x, y, z) __eval(__or3_, x)(y, z)
+#define __or4(w, x, y, z) __eval(__or4_, w)(x, y, z)
+
 #define __not_0 1
 #define __not_1 0
 #define __not(x) __eval(__not_, x)

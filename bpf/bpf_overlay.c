@@ -531,6 +531,7 @@ __section("to-overlay")
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	int ret;
+	__u32 cluster_id __maybe_unused = 0;
 
 	ret = encap_remap_v6_host_address(ctx, true);
 	if (unlikely(ret < 0))
@@ -557,7 +558,15 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 		ret = CTX_ACT_OK;
 		goto out;
 	}
-	ret = handle_nat_fwd(ctx);
+
+	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
+	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,
+	 * but SNAT check should always take presedence.
+	 */
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	cluster_id = ctx_get_cluster_id_mark(ctx);
+#endif
+	ret = handle_nat_fwd(ctx, cluster_id);
 #endif
 out:
 	if (IS_ERR(ret))

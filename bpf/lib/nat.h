@@ -109,6 +109,7 @@ struct ipv4_nat_target {
 	bool src_from_world;
 	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
+	__u32 cluster_id;
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -236,6 +237,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	struct ipv4_nat_entry rstate;
 	struct ipv4_ct_tuple rtuple;
 	__u16 port;
+	void *map;
 
 	memset(&rstate, 0, sizeof(rstate));
 	memset(ostate, 0, sizeof(*ostate));
@@ -258,13 +260,17 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		rstate.common.host_local = ostate->common.host_local;
 	}
 
+	map = get_cluster_snat_map_v4(target->cluster_id);
+	if (!map)
+		return DROP_SNAT_NO_MAP_FOUND;
+
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
-		if (!snat_v4_lookup(&rtuple)) {
+		if (!__snat_lookup(map, &rtuple)) {
 			ostate->common.created = bpf_mono_now();
 			rstate.common.created = ostate->common.created;
 
-			ret = snat_v4_update(otuple, ostate, &rtuple, &rstate);
+			ret = __snat_update(map, otuple, ostate, &rtuple, &rstate);
 			if (!ret)
 				break;
 		}
@@ -339,8 +345,13 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   const struct ipv4_nat_target *target)
 {
 	int ret;
+	void *map;
 
-	*state = snat_v4_lookup(tuple);
+	map = get_cluster_snat_map_v4(target->cluster_id);
+	if (!map)
+		return DROP_SNAT_NO_MAP_FOUND;
+
+	*state = __snat_lookup(map, tuple);
 	ret = snat_v4_track_connection(ctx, tuple, *state, NAT_DIR_EGRESS, off, target);
 	if (ret < 0)
 		return ret;
@@ -666,6 +677,14 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 		target->addr = IPV4_GATEWAY;
 		return true;
 	}
+
+# if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
+	if (target->cluster_id != 0 &&
+	    target->cluster_id != CLUSTER_ID) {
+		target->addr = IPV4_INTER_CLUSTER_SNAT;
+		return true;
+	}
+# endif
 #else
     /* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
      * preprocessor, as the former is known only during load time (templating).
