@@ -36,6 +36,9 @@ HOST_STRIP ?= strip
 ifeq ($(CROSS_ARCH),arm64)
   HOST_CC = aarch64-linux-gnu-gcc
   HOST_STRIP = aarch64-linux-gnu-strip
+else ifeq ($(CROSS_ARCH),riscv64)
+  HOST_CC = riscv64-linux-gnu-gcc
+  HOST_STRIP = riscv64-linux-gnu-strip
 else ifeq ($(CROSS_ARCH),amd64)
   HOST_CC = x86_64-linux-gnu-gcc
   HOST_STRIP = x86_64-linux-gnu-strip

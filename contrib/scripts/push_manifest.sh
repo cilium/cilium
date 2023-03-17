@@ -5,7 +5,7 @@ IMAGE_NAME=${1:-}
 IMAGE_TAG=${2:-latest}
 DOCKER_REPOSITORY=${3:-cilium}
 DOCKER_REGISTRY=${4:-}
-IMAGE_ARCH=("amd64" "arm64")
+IMAGE_ARCH=("amd64" "arm64" "riscv64")
 
 function using_help() {
   echo "Please specify a image name!"
@@ -40,6 +40,9 @@ case `uname -m` in
     ;;
   'aarch64' )
     ARCH=arm64
+    ;;
+  'riscv64' )
+    ARCH=riscv64
     ;;
 esac
 

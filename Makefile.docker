@@ -12,7 +12,7 @@ export DOCKER_BUILDKIT=1
 # platform only.
 ifdef ARCH
   # Default to multi-arch builds, always create the builder for all the platforms we support
-  DOCKER_PLATFORMS := linux/arm64,linux/amd64
+  DOCKER_PLATFORMS := linux/arm64,linux/amd64,linux/riscv64
   DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
   ifeq ($(DOCKER_BUILDER),default)
     DOCKER_BUILDKIT_DRIVER :=

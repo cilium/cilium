@@ -10,6 +10,9 @@ case `uname -m` in
   'aarch64' )
     CLANG_DIR="clang+llvm-$CLANG_VERSION-aarch64-linux-gnu"
     ;;
+  'riscv64' )
+    CLANG_DIR="clang+llvm-$CLANG_VERSION-riscv64-linux-gnu"
+    ;;
 esac
 }
 

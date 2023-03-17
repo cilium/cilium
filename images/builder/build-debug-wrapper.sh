@@ -10,7 +10,7 @@ set -o nounset
 
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 
-for arch in amd64 arm64 ; do
+for arch in amd64 arm64 riscv64 ; do
   mkdir -p "/out/linux/${arch}/bin"
   GOARCH="${arch}" CGO_ENABLED=0 go build -ldflags "-s -w" -o "/out/linux/${arch}/bin/debug-wrapper" "${SCRIPT_DIR}/debug-wrapper.go"
 done

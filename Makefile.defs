@@ -53,6 +53,8 @@ endif
 
 ifeq ($(shell uname -m),aarch64)
     ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20-arm64
+else ifeq ($(CROSS_ARCH),riscv64)
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20-riscv64
 else
     ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20
 endif
@@ -163,6 +165,8 @@ ifneq ($(GOARCH),$(NATIVE_ARCH))
 endif
 ifeq ($(CROSS_ARCH),arm64)
     CGO_CC = CC=aarch64-linux-gnu-gcc
+else ifeq ($(CROSS_ARCH),amd64)
+    CGO_CC = CC=riscv64-linux-gnu-gcc
 else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
 endif

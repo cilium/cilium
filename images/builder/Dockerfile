@@ -29,7 +29,11 @@ RUN \
       gcc-aarch64-linux-gnu \
       g++-aarch64-linux-gnu \
       libc6-dev-arm64-cross \
-      binutils-aarch64-linux-gnu \
+      binutils-riscv64-linux-gnu \
+      gcc-riscv64-linux-gnu \
+      g++-riscv64-linux-gnu \
+      libc6-dev-riscv64-cross \
+      binutils-riscv64-linux-gnu \
       gcc-x86-64-linux-gnu \
       g++-x86-64-linux-gnu \
       libc6-dev-amd64-cross \

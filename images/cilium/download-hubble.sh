@@ -26,3 +26,4 @@ done
 
 x86_64-linux-gnu-strip /out/linux/amd64/bin/hubble
 aarch64-linux-gnu-strip /out/linux/arm64/bin/hubble
+riscv64-linux-gnu-strip /out/linux/riscv64/bin/hubble

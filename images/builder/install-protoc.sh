@@ -12,6 +12,8 @@ protoc_version="3.20.1"
 arch=$(arch)
 if [[ "${arch}" == "aarch64" ]]; then
   arch="aarch_64"
+elif [[ "${arch}" == "riscv64" ]]; then
+  arch="riscv_64"
 fi
 
 curl --fail --show-error --silent --location \

@@ -12,7 +12,7 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-PLATFORMS=linux/amd64,linux/arm64
+PLATFORMS=linux/amd64,linux/arm64,linux/riscv64
 
 all-images: lint runtime-image builder-image cilium-image operator-image hubble-relay-image
 
