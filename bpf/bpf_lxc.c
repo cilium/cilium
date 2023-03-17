@@ -175,6 +175,20 @@ skip_service_lookup:
 #error "Either ENABLE_ARP_PASSTHROUGH or ENABLE_ARP_RESPONDER can be defined"
 #endif
 
+#ifdef ENABLE_IPV4
+static __always_inline void *
+select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
+	       struct ipv4_ct_tuple *tuple)
+{
+	__u32 cluster_id = 0;
+#ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
+	if (dir == CT_EGRESS)
+		cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+#endif
+	return get_cluster_ct_map4(tuple, cluster_id);
+}
+#endif
+
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 declare_tailcall_if(CONDITION, ID)						\
 int NAME(struct __ctx_buff *ctx)						\
@@ -186,6 +200,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	void *data, *data_end;							\
 	struct iphdr *ip4;							\
 	__u32 zero = 0;								\
+	void *map;									\
 										\
 	ct_state = (struct ct_state *)&ct_buffer.ct_state;			\
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer.tuple;			\
@@ -199,7 +214,11 @@ int NAME(struct __ctx_buff *ctx)						\
 										\
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);					\
 										\
-	ct_buffer.ret = ct_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off,	\
+	map = select_ct_map4(ctx, DIR, tuple);				\
+	if (!map)									\
+		return DROP_CT_NO_MAP_FOUND;					\
+											\
+	ct_buffer.ret = ct_lookup4(map, tuple, ctx, l4_off,		\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return ct_buffer.ret;						\
@@ -783,6 +802,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	__u16 proxy_port = 0;
 	bool from_l7lb = false;
 	__u32 cluster_id = 0;
+	void *ct_map, *ct_related_map = NULL;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -906,10 +926,19 @@ ct_recreate4:
 		 * reverse NAT.
 		 */
 		ct_state_new.src_sec_id = SECLABEL;
+
+		ct_map = get_cluster_ct_map4(tuple, cluster_id);
+		if (!ct_map)
+			return DROP_CT_NO_MAP_FOUND;
+
+		ct_related_map = get_cluster_ct_any_map4(cluster_id);
+		if (!ct_related_map)
+			return DROP_CT_NO_MAP_FOUND;
+
 		/* We could avoid creating related entries for legacy ClusterIP
 		 * handling here, but turns out that verifier cannot handle it.
 		 */
-		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx,
+		ret = ct_create4(ct_map, ct_related_map, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb, false);
 		if (IS_ERR(ret))
 			return ret;
