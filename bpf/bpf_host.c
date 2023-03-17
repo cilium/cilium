@@ -576,7 +576,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 
 		return ipv4_local_delivery(ctx, l3_off, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host, false,
-					   false);
+					   false, 0);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
