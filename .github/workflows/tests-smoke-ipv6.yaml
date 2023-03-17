@@ -147,7 +147,7 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.

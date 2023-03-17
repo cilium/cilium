@@ -179,7 +179,7 @@ jobs:
           sudo mv prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/bin
           cat metrics.prom | promtool check metrics
 
-      - name: Capture cilium-sysdump
+      - name: Report cluster failure status and capture cilium-sysdump
         if: ${{ failure() }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.
