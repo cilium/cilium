@@ -7,7 +7,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	. "github.com/cilium/cilium/pkg/stream"
 )
@@ -71,4 +74,39 @@ func TestToSlice(t *testing.T) {
 	xs, err := ToSlice(ctx, Range(0, 5))
 	assertNil(t, "ToSlice", err)
 	assertSlice(t, "ToSlice", []int{0, 1, 2, 3, 4}, xs)
+}
+
+func TestToChannel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	test := func(bufSize int, withErrCh bool) {
+		var errCh chan error
+		if withErrCh {
+			// Use unbuffered to make sure item channel is closed first.
+			errCh = make(chan error)
+			defer close(errCh)
+		}
+		nums := ToChannel(ctx, Range(0, 4), WithBufferSize(bufSize), WithErrorChan(errCh))
+
+		if bufSize != 0 {
+			// Check that the channel really gets buffered
+			assert.Equal(t, reflect.ValueOf(nums).Cap(), bufSize)
+		}
+
+		s := []int{}
+		for n := range nums {
+			s = append(s, n)
+		}
+		assert.Equal(t, s, []int{0, 1, 2, 3})
+
+		if errCh != nil {
+			assert.NoError(t, <-errCh)
+		}
+	}
+
+	test(0, false)
+	test(10, false)
+	test(0, true)
+	test(10, true)
 }

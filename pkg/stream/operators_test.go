@@ -122,7 +122,7 @@ func TestRetry(t *testing.T) {
 	obs = Retry(obs, shouldRetry)
 
 	errs := make(chan error)
-	items := ToChannel(ctx, errs, obs)
+	items := ToChannel(ctx, obs, WithErrorChan(errs))
 
 	emit(1)
 	if item := <-items; item != 1 {
@@ -199,7 +199,7 @@ func TestDebounce(t *testing.T) {
 
 	errs := make(chan error)
 	defer close(errs)
-	out := ToChannel(ctx, errs, src)
+	out := ToChannel(ctx, src, WithErrorChan(errs))
 
 	in <- -1
 	x := <-out // first item not delayed
