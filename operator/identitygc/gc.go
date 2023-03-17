@@ -90,7 +90,6 @@ func registerGC(p params) {
 		heartbeatTimeout: p.Cfg.HeartbeatTimeout,
 		gcRateInterval:   p.Cfg.RateInterval,
 		gcRateLimit:      p.Cfg.RateLimit,
-		wp:               workerpool.New(1),
 		heartbeatStore: newHeartbeatStore(
 			p.Cfg.HeartbeatTimeout,
 		),
@@ -106,6 +105,8 @@ func registerGC(p params) {
 	}
 	p.Lifecycle.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
+			gc.wp = workerpool.New(1)
+
 			switch gc.allocationMode {
 			case option.IdentityAllocationModeCRD:
 				return gc.startCRDModeGC(ctx)
