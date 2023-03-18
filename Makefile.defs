@@ -165,7 +165,7 @@ ifneq ($(GOARCH),$(NATIVE_ARCH))
 endif
 ifeq ($(CROSS_ARCH),arm64)
     CGO_CC = CC=aarch64-linux-gnu-gcc
-else ifeq ($(CROSS_ARCH),amd64)
+else ifeq ($(CROSS_ARCH),riscv64)
     CGO_CC = CC=riscv64-linux-gnu-gcc
 else ifeq ($(CROSS_ARCH),amd64)
     CGO_CC = CC=x86_64-linux-gnu-gcc
