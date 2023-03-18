@@ -4,7 +4,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: cilium-config-agent
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     app.kubernetes.io/part-of: cilium
 roleRef:
@@ -14,7 +14,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ template "cilium.namespace" . }}
 {{- end}}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name}}
@@ -33,7 +33,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.cilium.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ template "cilium.namespace" . }}
 {{- end }}
 
 {{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.name}}
@@ -52,6 +52,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.cilium.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 {{- end}}
 

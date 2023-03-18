@@ -18,7 +18,7 @@ spec:
       k8s-app: hubble-relay
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ template "cilium.namespace" . }}
   endpoints:
   - port: metrics
     interval: {{ .Values.hubble.relay.prometheus.serviceMonitor.interval | quote }}

@@ -20,7 +20,7 @@ spec:
       k8s-app: cilium
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ template "cilium.namespace" . }}
   endpoints:
   - port: metrics
     interval: {{ .Values.prometheus.serviceMonitor.interval | quote }}

@@ -4,7 +4,7 @@ apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
 kind: PodDisruptionBudget
 metadata:
   name: cilium-operator
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     io.cilium/app: operator
     name: cilium-operator

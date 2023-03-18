@@ -21,7 +21,7 @@ spec:
       name: cilium-operator
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ template "cilium.namespace" . }}
   endpoints:
   - port: metrics
     interval: {{ .Values.operator.prometheus.serviceMonitor.interval | quote }}

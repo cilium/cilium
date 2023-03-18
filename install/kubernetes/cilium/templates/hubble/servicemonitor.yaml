@@ -19,7 +19,7 @@ spec:
       k8s-app: hubble
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ template "cilium.namespace" . }}
   endpoints:
   - port: hubble-metrics
     interval: {{ .Values.hubble.metrics.serviceMonitor.interval | quote }}

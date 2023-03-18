@@ -19,7 +19,7 @@ spec:
           # line args instead of via config map. This allows users to inspect
           # the values used in past runs by inspecting the completed pod.
           args:
-            - "--cilium-namespace={{ .Release.Namespace }}"
+            - "--cilium-namespace={{ template "cilium.namespace" . }}"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}

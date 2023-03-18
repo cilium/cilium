@@ -14,7 +14,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccounts.operator.name | quote }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ template "cilium.namespace" . }}
 {{- end }}
 
 {{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.sync .Values.gatewayAPI.secretsNamespace.name }}
@@ -33,5 +33,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.serviceAccounts.operator.name | quote }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
 {{- end }}

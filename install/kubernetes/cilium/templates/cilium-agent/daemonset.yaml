@@ -15,7 +15,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: cilium
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ template "cilium.namespace" . }}
   labels:
     k8s-app: cilium
     app.kubernetes.io/part-of: cilium
