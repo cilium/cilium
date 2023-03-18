@@ -941,7 +941,7 @@ spec:
                 type: array
               egressDeny:
                 description: EgressDeny is a list of EgressDenyRule which are enforced
-                  at egress. Any rule inserted here will by denied regardless of the
+                  at egress. Any rule inserted here will be denied regardless of the
                   allowed egress rules in the 'egress' field. If omitted or empty,
                   this rule does not apply at egress.
                 items:
@@ -2127,7 +2127,7 @@ spec:
                 type: array
               ingressDeny:
                 description: IngressDeny is a list of IngressDenyRule which are enforced
-                  at ingress. Any rule inserted here will by denied regardless of
+                  at ingress. Any rule inserted here will be denied regardless of
                   the allowed ingress rules in the 'ingress' field. If omitted or
                   empty, this rule does not apply at ingress.
                 items:
@@ -3430,7 +3430,7 @@ spec:
                   type: array
                 egressDeny:
                   description: EgressDeny is a list of EgressDenyRule which are enforced
-                    at egress. Any rule inserted here will by denied regardless of
+                    at egress. Any rule inserted here will be denied regardless of
                     the allowed egress rules in the 'egress' field. If omitted or
                     empty, this rule does not apply at egress.
                   items:
@@ -4632,7 +4632,7 @@ spec:
                   type: array
                 ingressDeny:
                   description: IngressDeny is a list of IngressDenyRule which are
-                    enforced at ingress. Any rule inserted here will by denied regardless
+                    enforced at ingress. Any rule inserted here will be denied regardless
                     of the allowed ingress rules in the 'ingress' field. If omitted
                     or empty, this rule does not apply at ingress.
                   items:
