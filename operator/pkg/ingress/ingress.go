@@ -654,16 +654,22 @@ func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingres
 		return err
 	}
 
-	if err := deleteObjectIfExists(cec, ic.envoyConfigManager.getByKey, ic.clientset.CiliumV2().CiliumEnvoyConfigs(cec.GetNamespace()).Delete); err != nil {
-		return err
+	if cec != nil {
+		if err := deleteObjectIfExists(cec, ic.envoyConfigManager.getByKey, ic.clientset.CiliumV2().CiliumEnvoyConfigs(cec.GetNamespace()).Delete); err != nil {
+			return err
+		}
 	}
 
-	if err := deleteObjectIfExists(svc, ic.serviceManager.getByKey, ic.clientset.CoreV1().Services(svc.GetNamespace()).Delete); err != nil {
-		return err
+	if svc != nil {
+		if err := deleteObjectIfExists(svc, ic.serviceManager.getByKey, ic.clientset.CoreV1().Services(svc.GetNamespace()).Delete); err != nil {
+			return err
+		}
 	}
 
-	if err := deleteObjectIfExists(ep, ic.endpointManager.getByKey, ic.clientset.CoreV1().Endpoints(ep.GetNamespace()).Delete); err != nil {
-		return err
+	if ep != nil {
+		if err := deleteObjectIfExists(ep, ic.endpointManager.getByKey, ic.clientset.CoreV1().Endpoints(ep.GetNamespace()).Delete); err != nil {
+			return err
+		}
 	}
 
 	return nil
