@@ -150,8 +150,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Run BPF tests with code coverage reporting
+        env:
+          # Disable coverage report for these test cases since they are hitting
+          # https://github.com/cilium/coverbee/issues/7
+          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o"
         run: |
-          make -C test run_bpf_tests COVER=1 || (echo "Run 'make -C test run_bpf_tests COVER=1' locally to investigate failures"; exit 1)
+          make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
