@@ -16,6 +16,10 @@
 #define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
 #define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
 #define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
+/* These are special IP values in the CIDR 0.0.0.0/8 range that map to specific
+ * case for in the egress gateway policies handling.
+ */
+#define EGRESS_GATEWAY_NO_GATEWAY (0)
 
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
@@ -36,6 +40,10 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
 	if (!egress_gw_policy)
+		return false;
+
+	/* FIXME: no gateway traffic should be dropped in a future release */
+	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY)
 		return false;
 
 	/* If the gateway node is the local node, then just let the
@@ -59,6 +67,9 @@ bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
 	if (!egress_gw_policy)
 		return false;
 
+	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY)
+		return false;
+
 	*snat_addr = egress_gw_policy->egress_ip;
 	return true;
 }
@@ -73,6 +84,9 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
 	/* Find a matching policy by looking up the reverse address tuple: */
 	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
 	if (!egress_policy)
+		return false;
+
+	if (egress_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY)
 		return false;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
