@@ -31,8 +31,13 @@ import (
 )
 
 var (
-	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
-	zeroIPv4 = net.ParseIP("0.0.0.0")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	// GatewayNotFoundIPv4 is a special IP value used as gatewayIP in the BPF policy
+	// map to indicate no gateway was found for the given policy
+	GatewayNotFoundIPv4 = net.ParseIP("0.0.0.0")
+	// ExcludedCIDRIPv4 is a special IP value used as gatewayIP in the BPF policy map
+	// to indicate the entry is for an excluded CIDR and should skip egress gateway
+	ExcludedCIDRIPv4 = net.ParseIP("0.0.0.1")
 )
 
 // Cell provides a [Manager] for consumption with hive.
@@ -530,7 +535,7 @@ func (manager *Manager) addMissingEgressRules() {
 
 		gatewayIP := gwc.gatewayIP
 		if excludedCIDR {
-			gatewayIP = zeroIPv4
+			gatewayIP = ExcludedCIDRIPv4
 		}
 
 		if policyPresent && policyVal.Match(gwc.egressIP.IP, gatewayIP) {
@@ -570,7 +575,7 @@ nextPolicyKey:
 		matchPolicy := func(endpointIP net.IP, dstCIDR *net.IPNet, excludedCIDR bool, gwc *gatewayConfig) bool {
 			gatewayIP := gwc.gatewayIP
 			if excludedCIDR {
-				gatewayIP = zeroIPv4
+				gatewayIP = ExcludedCIDRIPv4
 			}
 
 			return policyKey.Match(endpointIP, dstCIDR) && policyVal.Match(gwc.egressIP.IP, gatewayIP)
