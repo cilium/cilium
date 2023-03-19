@@ -2681,6 +2681,12 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	// BPF NodePort and BPF Host Routing are using the direct routing device now.
 	// When tunneling is enabled, node-to-node redirection will be done by tunneling.
 	BPFHostRoutingEnabled := !c.EnableHostLegacyRouting
+
+	// XDP needs IPV4_DIRECT_ROUTING when building tunnel headers:
+	if c.EnableNodePort && c.NodePortAcceleration != NodePortAccelerationDisabled {
+		return true
+	}
+
 	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
 }
 
