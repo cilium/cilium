@@ -130,7 +130,7 @@ func downloadToFile(ctx context.Context, client *http.Client, url, file, headers
 	hdrs := createErrFile(file, fd)
 	defer func() {
 		if err := json.NewEncoder(hdrs).Encode(resp.Header); err != nil {
-			log.Error("failed to write request headers: %s", err)
+			log.Errorf("failed to write request headers: %s", err)
 		}
 		hdrs.Close()
 	}()
