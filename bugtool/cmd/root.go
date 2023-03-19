@@ -33,6 +33,12 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var config = &options.Config{}
+
+func init() {
+	config.Flags(BugtoolRootCmd.Flags())
+}
+
 // BugtoolRootCmd is the top level command for the bugtool.
 var BugtoolRootCmd = &cobra.Command{
 	Use:   "cilium-bugtool [OPTIONS]",
@@ -40,20 +46,13 @@ var BugtoolRootCmd = &cobra.Command{
 	Example: `	# Collect information and create archive file
 	$ cilium-bugtool
 	[...]
-
-	# Collect and retrieve archive if Cilium is running in a Kubernetes pod
-	$ kubectl get pods --namespace kube-system
-	NAME                          READY     STATUS    RESTARTS   AGE
-	cilium-kg8lv                  1/1       Running   0          13m
-	[...]
-	$ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
-	$ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar`,
-	Run: func(cmd *cobra.Command, args []string) {
+`,
+	Run: func(cmd *cobra.Command, _ []string) {
 		// Create config and parse flags
 		config := &options.Config{}
-		flags := &pflag.FlagSet{}
+		flags := pflag.NewFlagSet("bugtool", pflag.ExitOnError)
 		config.Flags(flags)
-		if err := flags.Parse(args[:]); err != nil {
+		if err := flags.Parse(os.Args[1:]); err != nil {
 			if errors.Is(err, pflag.ErrHelp) {
 				os.Exit(0)
 			}

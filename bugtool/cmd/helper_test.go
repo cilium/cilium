@@ -25,11 +25,6 @@ var (
 	baseDir, tmpDir string
 )
 
-type testStrings struct {
-	input  string
-	output string
-}
-
 type dummyTarWriter struct{}
 
 func (t *dummyTarWriter) Write(p []byte) (n int, err error) {

@@ -284,7 +284,6 @@ func catCommands() []string {
 		}
 		commands = append(commands, fmt.Sprintf("cat %s", f))
 	}
-	// TODO: handle K8s case as well.
 	return commands
 }
 

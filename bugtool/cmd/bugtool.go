@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package cmd
 
 import (
@@ -7,13 +10,14 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/cilium/workerpool"
+
 	"github.com/cilium/cilium/bugtool/dump"
 	"github.com/cilium/cilium/bugtool/options"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/version"
-	"github.com/cilium/workerpool"
 
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -61,7 +65,7 @@ func (bugtool *Bugtool) runTool(ctx context.Context, config *options.Config, roo
 		log.Debugf("Debug logging enabled")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 	if err := root.Validate(context.Background()); err != nil {
 		hive.ShutdownWithError(fmt.Errorf("failed to validate config: %w", err))
