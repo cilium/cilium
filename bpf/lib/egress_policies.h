@@ -16,6 +16,11 @@
 #define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
 #define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
 #define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
+/* These are special IP values in the CIDR 0.0.0.0/8 range that map to specific
+ * case for in the egress gateway policies handling.
+ */
+#define EGRESS_GATEWAY_NO_GATEWAY (0)
+#define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
 
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
@@ -38,10 +43,9 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 	if (!egress_gw_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip redirection
-	 */
-	if (!egress_gw_policy->gateway_ip)
+	/* FIXME: no gateway traffic should be dropped in a future release */
+	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+	    egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	/* If the gateway node is the local node, then just let the
@@ -65,10 +69,8 @@ bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
 	if (!egress_gw_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip SNAT
-	 */
-	if (!egress_gw_policy->gateway_ip)
+	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+	    egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	*snat_addr = egress_gw_policy->egress_ip;
@@ -87,10 +89,8 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
 	if (!egress_policy)
 		return false;
 
-	/* If the gateway IP is 0.0.0.0 it means this is an excluded CIDR, so
-	 * skip reply redirect
-	 */
-	if (!egress_policy->gateway_ip)
+	if (egress_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
+	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);

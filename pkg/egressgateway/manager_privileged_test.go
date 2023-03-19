@@ -56,6 +56,8 @@ const (
 	egressCIDR1 = "192.168.101.1/24"
 
 	zeroIP4 = "0.0.0.0"
+
+	gatewayExcludedCIDRValue = "0.0.0.1" // Special value for gatewayIP excluded CIDR, see pkg/egressgateway/manager.go
 )
 
 var (
@@ -245,7 +247,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	assertEgressRules(c, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR1, egressIP1, zeroIP4},
+		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
 
@@ -279,8 +281,8 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	assertEgressRules(c, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR1, egressIP1, zeroIP4},
-		{ep1IP, excludedCIDR2, egressIP1, zeroIP4},
+		{ep1IP, excludedCIDR1, egressIP1, gatewayExcludedCIDRValue},
+		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
 
@@ -320,7 +322,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 
 	assertEgressRules(c, []egressRule{
 		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep1IP, excludedCIDR2, egressIP1, zeroIP4},
+		{ep1IP, excludedCIDR2, egressIP1, gatewayExcludedCIDRValue},
 		{ep2IP, destCIDR, zeroIP4, node2IP},
 	})
 

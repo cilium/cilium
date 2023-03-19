@@ -256,7 +256,7 @@ int egressgw_skip_excluded_cidr_snat_setup(struct __ctx_buff *ctx)
 
 	struct egress_gw_policy_entry in_val_excluded_cidr = {
 		.egress_ip  = 0,
-		.gateway_ip = 0,
+		.gateway_ip = EGRESS_GATEWAY_EXCLUDED_CIDR,
 	};
 
 	map_update_elem(&EGRESS_POLICY_MAP, &in_key_excluded_cidr, &in_val_excluded_cidr, 0);
