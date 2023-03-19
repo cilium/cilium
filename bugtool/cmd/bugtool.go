@@ -99,7 +99,7 @@ func (bugtool *Bugtool) runTool(ctx context.Context, config *options.Config, roo
 		}
 	}
 
-	defer cleanup(bugtool.outDir, config.Archive)
+	defer cleanup(bugtool.outDir, config)
 
 	log.Debugf("Running bugtool with %d workers", config.ParallelWorkers)
 	sched := workerpool.New(config.ParallelWorkers)

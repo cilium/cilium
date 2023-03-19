@@ -16,7 +16,7 @@ var cmdRefDir string
 var cmdRef = &cobra.Command{
 	Use:   "cmdref",
 	Short: "Generate Cilium command reference",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		genCmdRef()
 	},
 	Hidden: true,
