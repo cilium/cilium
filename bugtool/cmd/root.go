@@ -75,11 +75,15 @@ var BugtoolRootCmd = &cobra.Command{
 }
 
 const (
-	disclaimer = `DISCLAIMER
-This tool has copied information about your environment.
-If you are going to register a issue on GitHub, please
-only provide files from the archive you have reviewed
-for sensitive information.
+	disclaimer = `
+╭───────────────────────────────────────────────────────────╮
+│ DISCLAIMER:                                               │
+│                                                           │
+│ This tool has copied information about your environment.  │
+│ If you are going to register a issue on GitHub, please    │
+│ only provide files from the archive you have reviewed     │
+│ for sensitive information.                                │
+╰───────────────────────────────────────────────────────────╯
 `
 	defaultDumpPath = "/tmp"
 )
