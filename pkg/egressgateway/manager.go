@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	log      = logging.DefaultLogger.WithField(logfields.LogSubsys, "egressgateway")
+	zeroIPv4 = net.ParseIP("0.0.0.0")
 )
 
 type k8sCacheSyncedChecker interface {
