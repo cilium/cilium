@@ -13,6 +13,7 @@ type labelsOption struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string
+	path              string
 }
 
 func WithMethod(method string) Option {
@@ -30,6 +31,12 @@ func WithSourceLabelsOption(sourceLabels map[string]string) Option {
 func WithDestinationLabelsOption(destinationLabels map[string]string) Option {
 	return func(option *labelsOption) {
 		option.destinationLabels = destinationLabels
+	}
+}
+
+func WithPath(path string) Option {
+	return func(option *labelsOption) {
+		option.path = path
 	}
 }
 
