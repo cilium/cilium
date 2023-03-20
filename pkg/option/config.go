@@ -1636,7 +1636,13 @@ type DaemonConfig struct {
 
 	// NodeEncryptionOptOutLabels contains the label selectors for nodes opting out of
 	// node-to-node encryption
-	NodeEncryptionOptOutLabels k8sLabels.Selector
+	// This field ignored when marshalling to JSON in DaemonConfig.StoreInFile,
+	// because a k8sLabels.Selector cannot be unmarshalled from JSON. The
+	// string is stored in NodeEncryptionOptOutLabelsString instead.
+	NodeEncryptionOptOutLabels k8sLabels.Selector `json:"-"`
+	// NodeEncryptionOptOutLabelsString is the string is used to construct
+	// the label selector in the above field.
+	NodeEncryptionOptOutLabelsString string
 
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
@@ -3250,7 +3256,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		parseBPFMapEventConfigs(c.bpfMapEventConfigs, m)
 	}
 
-	if sel, err := k8sLabels.Parse(vp.GetString(NodeEncryptionOptOutLabels)); err != nil {
+	c.NodeEncryptionOptOutLabelsString = vp.GetString(NodeEncryptionOptOutLabels)
+	if sel, err := k8sLabels.Parse(c.NodeEncryptionOptOutLabelsString); err != nil {
 		log.Fatalf("unable to parse label selector %s: %s", NodeEncryptionOptOutLabels, err)
 	} else {
 		c.NodeEncryptionOptOutLabels = sel
