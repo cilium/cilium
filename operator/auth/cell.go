@@ -6,6 +6,7 @@ package auth
 import (
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -16,6 +17,7 @@ const (
 var Cell = cell.Module(
 	"auth-identity",
 	"Cilium mTLS Identity management",
+	spire.Cell,
 	cell.Config(Config{}),
 	cell.Invoke(registerIdentityWatcher),
 )

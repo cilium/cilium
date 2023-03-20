@@ -17,22 +17,26 @@ cilium-operator-generic hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --enable-k8s-api-discovery              Enable discovery of Kubernetes API groups and resources with the discovery API
-      --gops-port uint16                      Port for gops server to listen on (default 9891)
-      --identity-gc-interval duration         GC interval for security identities (default 15m0s)
-      --identity-gc-rate-interval duration    Interval used for rate limiting the GC of security identities (default 1m0s)
-      --identity-gc-rate-limit int            Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
-      --identity-heartbeat-timeout duration   Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --k8s-api-server string                 Kubernetes API server URL
-      --k8s-client-burst int                  Burst value allowed for the K8s client
-      --k8s-client-qps float32                Queries per second limit for the K8s client
-      --k8s-heartbeat-timeout duration        Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
-      --k8s-kubeconfig-path string            Absolute path of the kubernetes kubeconfig file
-      --mesh-auth-mtls-enabled                Enable mTLS authentication in Cilium
-      --operator-pprof                        Enable serving pprof debugging API
-      --operator-pprof-address string         Address that pprof listens on (default "localhost")
-      --operator-pprof-port uint16            Port that pprof listens on (default 6061)
-      --skip-crd-creation                     When true, Kubernetes Custom Resource Definitions will not be created
+      --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
+      --gops-port uint16                                     Port for gops server to listen on (default 9891)
+      --identity-gc-interval duration                        GC interval for security identities (default 15m0s)
+      --identity-gc-rate-interval duration                   Interval used for rate limiting the GC of security identities (default 1m0s)
+      --identity-gc-rate-limit int                           Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 2500)
+      --identity-heartbeat-timeout duration                  Timeout after which identity expires on lack of heartbeat (default 30m0s)
+      --k8s-api-server string                                Kubernetes API server URL
+      --k8s-client-burst int                                 Burst value allowed for the K8s client
+      --k8s-client-qps float32                               Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration                       Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string                           Absolute path of the kubernetes kubeconfig file
+      --mesh-auth-mtls-enabled                               The flag to enable mTLS for the SPIRE server.
+      --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium.io")
+      --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
+      --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc.cluster.local:8081")
+      --mesh-auth-spire-server-connection-timeout duration   SPIRE server endpoint. (default 10s)
+      --operator-pprof                                       Enable serving pprof debugging API
+      --operator-pprof-address string                        Address that pprof listens on (default "localhost")
+      --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
 ```
 
 ### SEE ALSO
