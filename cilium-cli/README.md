@@ -44,7 +44,7 @@ binary releases.
 
 | Release                                                              | Release Date | Maintained | Supported Cilium Versions |
 |----------------------------------------------------------------------|--------------|------------|---------------------------|
-| [v0.13.1](https://github.com/cilium/cilium-cli/releases/tag/v0.13.1) | 2023-03-02   | Yes        | Cilium 1.11 and newer     |
+| [v0.13.2](https://github.com/cilium/cilium-cli/releases/tag/v0.13.2) | 2023-03-20   | Yes        | Cilium 1.11 and newer     |
 | [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | 2022-05-31   | No         | Cilium 1.10               |
 
 ## Capabilities
