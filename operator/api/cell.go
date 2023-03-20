@@ -39,11 +39,3 @@ type Config struct {
 func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(OperatorAPIServeAddr, OperatorAPIServeAddrDefault, "Address to serve API requests")
 }
-
-// SharedConfig contains the configuration that is shared between
-// this module and others.
-// This is done to avoid polluting this module with a direct dependency
-// on global operator configuration.
-type SharedConfig struct {
-	EnableK8s bool
-}

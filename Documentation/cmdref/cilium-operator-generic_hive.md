@@ -11,6 +11,7 @@ cilium-operator-generic hive [flags]
 ### Options
 
 ```
+      --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
   -h, --help                                                 help for hive

@@ -30,9 +30,8 @@ func HealthHandlerCell(
 		cell.Provide(func(
 			clientset k8sClient.Clientset,
 			logger logrus.FieldLogger,
-			cfg SharedConfig,
 		) operator.GetHealthzHandler {
-			if !cfg.EnableK8s || !clientset.IsEnabled() {
+			if !clientset.IsEnabled() {
 				return &healthHandler{
 					enabled: false,
 				}

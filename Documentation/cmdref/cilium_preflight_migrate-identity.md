@@ -22,6 +22,7 @@ cilium preflight migrate-identity [flags]
 ### Options
 
 ```
+      --enable-k8s                       Enable the k8s clientset (default true)
       --enable-k8s-api-discovery         Enable discovery of Kubernetes API groups and resources with the discovery API
   -h, --help                             help for migrate-identity
       --k8s-api-server string            Kubernetes API server URL

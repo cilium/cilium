@@ -14,6 +14,10 @@ import (
 )
 
 type Config struct {
+	// EnableK8s is a flag that, when set to false, forcibly disables the clientset, to let cilium
+	// operates with CNI-compatible orchestrators other than Kubernetes. Default to true.
+	EnableK8s bool
+
 	// K8sAPIServer is the kubernetes api address server (for https use --k8s-kubeconfig-path instead)
 	K8sAPIServer string
 
@@ -34,6 +38,7 @@ type Config struct {
 }
 
 var defaultConfig = Config{
+	EnableK8s:             true,
 	K8sAPIServer:          "",
 	K8sKubeConfigPath:     "",
 	K8sClientQPS:          defaults.K8sClientQPSLimit,
@@ -43,6 +48,7 @@ var defaultConfig = Config{
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool(option.EnableK8s, def.EnableK8s, "Enable the k8s clientset")
 	flags.String(option.K8sAPIServer, def.K8sAPIServer, "Kubernetes API server URL")
 	flags.String(option.K8sKubeConfigPath, def.K8sKubeConfigPath, "Absolute path of the kubernetes kubeconfig file")
 	flags.Float32(option.K8sClientQPSLimit, def.K8sClientQPS, "Queries per second limit for the K8s client")
@@ -52,6 +58,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 }
 
 func (cfg Config) isEnabled() bool {
+	if !cfg.EnableK8s {
+		return false
+	}
 	return cfg.K8sAPIServer != "" ||
 		cfg.K8sKubeConfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&

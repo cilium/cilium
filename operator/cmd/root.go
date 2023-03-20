@@ -108,14 +108,6 @@ var (
 			}
 		}),
 
-		cell.Provide(func(
-			operatorCfg *operatorOption.OperatorConfig,
-		) api.SharedConfig {
-			return api.SharedConfig{
-				EnableK8s: operatorCfg.EnableK8s,
-			}
-		}),
-
 		api.HealthHandlerCell(
 			kvstoreEnabled,
 			isLeader.Load,
