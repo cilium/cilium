@@ -42,11 +42,11 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-02-15 | ``quay.io/cilium/cilium:v1.13.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.0>`__  |
+| `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.13.1``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.1>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.12.7``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.7>`__  |
+| `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.12.8``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.8>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
-| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-02-13 | ``quay.io/cilium/cilium:v1.11.14`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.14>`__ |
+| `v1.11 <https://github.com/cilium/cilium/tree/v1.11>`__ | 2023-03-15 | ``quay.io/cilium/cilium:v1.11.15`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.11.15>`__ |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 
 Software Bill of Materials
