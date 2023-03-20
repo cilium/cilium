@@ -14,7 +14,7 @@ ACTS_YAML=".github/maintainers-little-helper.yaml"
 REMOTE="$(get_remote)"
 
 latest_stable=""
-for release in $(grep "General Announcement" README.rst \
+for release in $(grep "Release Notes" README.rst \
                  | sed 's/.*tree\/\(v'"$MAJ_REGEX"'\).*/\1/'); do
     latest=$(git describe --tags $REMOTE/$release \
              | sed 's/v//' | sed 's/\('"$MIN_REGEX"'\).*/\1/')
