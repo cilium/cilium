@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	"github.com/blang/semver/v4"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/connectivity/tests"
@@ -98,6 +100,9 @@ var (
 	//go:embed manifests/client-egress-l7-tls.yaml
 	clientEgressL7TLSPolicyYAML string
 
+	//go:embed manifests/client-egress-l7-http-matchheader-secret.yaml
+	clientEgressL7HTTPMatchheaderSecretYAML string
+
 	//go:embed manifests/echo-ingress-l7-http.yaml
 	echoIngressL7HTTPPolicyYAML string
 
@@ -125,12 +130,13 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 
 	// render templates, if any problems fail early
 	for key, temp := range map[string]string{
-		"clientEgressToCIDR1111PolicyYAML":      clientEgressToCIDR1111PolicyYAML,
-		"clientEgressToCIDR1111DenyPolicyYAML":  clientEgressToCIDR1111DenyPolicyYAML,
-		"clientEgressL7HTTPPolicyYAML":          clientEgressL7HTTPPolicyYAML,
-		"clientEgressL7HTTPNamedPortPolicyYAML": clientEgressL7HTTPNamedPortPolicyYAML,
-		"clientEgressToFQDNsCiliumIOPolicyYAML": clientEgressToFQDNsCiliumIOPolicyYAML,
-		"clientEgressL7TLSPolicyYAML":           clientEgressL7TLSPolicyYAML,
+		"clientEgressToCIDR1111PolicyYAML":        clientEgressToCIDR1111PolicyYAML,
+		"clientEgressToCIDR1111DenyPolicyYAML":    clientEgressToCIDR1111DenyPolicyYAML,
+		"clientEgressL7HTTPPolicyYAML":            clientEgressL7HTTPPolicyYAML,
+		"clientEgressL7HTTPNamedPortPolicyYAML":   clientEgressL7HTTPNamedPortPolicyYAML,
+		"clientEgressToFQDNsCiliumIOPolicyYAML":   clientEgressToFQDNsCiliumIOPolicyYAML,
+		"clientEgressL7TLSPolicyYAML":             clientEgressL7TLSPolicyYAML,
+		"clientEgressL7HTTPMatchheaderSecretYAML": clientEgressL7HTTPMatchheaderSecretYAML,
 	} {
 		val, err := utils.RenderTemplate(temp, ct.Params())
 		if err != nil {
@@ -695,6 +701,31 @@ func Run(ctx context.Context, ct *check.ConnectivityTest) error {
 		).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
+		})
+
+	// Test L7 HTTP with a header replace set in the policy
+	ct.NewTest("client-egress-l7-set-header").
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithSecret(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "header-match",
+			},
+			Data: map[string][]byte{
+				"value": []byte("Bearer 123456"),
+			},
+		}).
+		WithPolicy(renderedTemplates["clientEgressL7HTTPMatchheaderSecretYAML"]). // L7 allow policy with HTTP introspection (POST only)
+		WithScenarios(
+			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"other": "echo"})),
+			tests.PodToPodWithEndpoints(tests.WithMethod("POST"), tests.WithPath("auth-header-required"), tests.WithDestinationLabelsOption(map[string]string{"first": "echo"})),
+		).
+		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
+			if a.Source().HasLabel("other", "client") && // Only client2 has the header policy.
+				(a.Destination().Port() == 8080) { // port 8080 is traffic to echo Pod.
+				return check.ResultOK, check.ResultNone
+			}
+			return check.ResultCurlHTTPError, check.ResultNone // if the header is not set the request will get a 401
 		})
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
