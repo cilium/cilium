@@ -404,7 +404,7 @@ insufficient.
 Setting ``--conntrack-gc-interval`` to an interval lower than the current value
 may help. This controls the time interval between two garbage collection runs.
 
-By default ``--contrack-gc-interval`` is set to 0 which translates to
+By default ``--conntrack-gc-interval`` is set to 0 which translates to
 using a dynamic interval. In that case, the interval is updated after each
 garbage collection run depending on how many entries where garbage collected.
 If very few or no entries were garbage collected, the interval will increase;
