@@ -838,7 +838,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct ipv6_ct_tuple *tuple,
 				     const struct lb6_service *svc,
 				     struct ct_state *state,
-				     const bool skip_l3_xlate)
+				     const bool skip_l3_xlate,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__u8 flags = tuple->flags;
@@ -877,7 +878,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, NULL);
+		ret = ct_create6(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
@@ -1528,7 +1529,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct ct_state *state,
 				     bool has_l4_header,
 				     const bool skip_l3_xlate,
-				     __u32 *cluster_id __maybe_unused)
+				     __u32 *cluster_id __maybe_unused,
+				     __s8 *ext_err)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 saddr = tuple->saddr;
@@ -1570,7 +1572,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		state->backend_id = backend_id;
 		state->rev_nat_index = svc->rev_nat_index;
 
-		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, NULL);
+		ret = ct_create4(map, NULL, tuple, ctx, CT_SERVICE, state, false, false, ext_err);
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */

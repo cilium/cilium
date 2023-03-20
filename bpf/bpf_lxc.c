@@ -75,7 +75,8 @@
 #ifdef ENABLE_PER_PACKET_LB
 
 #ifdef ENABLE_IPV4
-static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4)
+static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *ip4,
+						       __s8 *ext_err)
 {
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state_new = {};
@@ -109,7 +110,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 #endif /* ENABLE_L7_LB */
 		ret = lb4_local(get_ct_map4(&tuple), ctx, ETH_HLEN, l4_off,
 				&key, &tuple, svc, &ct_state_new,
-				has_l4_header, false, &cluster_id);
+				has_l4_header, false, &cluster_id, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -122,7 +123,8 @@ skip_service_lookup:
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6)
+static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr *ip6,
+						       __s8 *ext_err)
 {
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state_new = {};
@@ -158,7 +160,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 		}
 #endif /* ENABLE_L7_LB */
 		ret = lb6_local(get_ct_map6(&tuple), ctx, ETH_HLEN, l4_off,
-				&key, &tuple, svc, &ct_state_new, false);
+				&key, &tuple, svc, &ct_state_new, false, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -464,7 +466,7 @@ ct_recreate6:
 		ct_state_new.src_sec_id = SECLABEL;
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				 NULL);
+				 ext_err);
 		if (IS_ERR(ret))
 			return ret;
 		trace.monitor = TRACE_PAYLOAD_LEN;
@@ -704,7 +706,8 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_EGRESS, tail_ipv6_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV6_FROM_LXC_CONT, tail_handle_ipv6_cont)
 
-static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
+static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
+					      __s8 *ext_err __maybe_unused)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -731,7 +734,7 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_6(ctx, ip6);
+	return __per_packet_lb_svc_xlate_6(ctx, ip6, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP6 */
 	return tail_ipv6_ct_egress(ctx);
@@ -741,11 +744,12 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
-	int ret = __tail_handle_ipv6(ctx);
+	__s8 ext_err = 0;
+	int ret = __tail_handle_ipv6(ctx, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, SECLABEL, ret,
-		    CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, SECLABEL, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 #endif /* ENABLE_IPV6 */
@@ -920,7 +924,7 @@ ct_recreate4:
 		 */
 		ret = ct_create4(ct_map, ct_related_map, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, proxy_port > 0, from_l7lb,
-				 NULL);
+				 ext_err);
 		if (IS_ERR(ret))
 			return ret;
 		break;
@@ -1246,7 +1250,8 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		is_defined(ENABLE_PER_PACKET_LB),
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
-static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
+static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
+					      __s8 *ext_err __maybe_unused)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1268,7 +1273,7 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* will tailcall internally or return error */
-	return __per_packet_lb_svc_xlate_4(ctx, ip4);
+	return __per_packet_lb_svc_xlate_4(ctx, ip4, ext_err);
 #else
 	/* won't be a tailcall, see TAIL_CT_LOOKUP4 */
 	return tail_ipv4_ct_egress(ctx);
@@ -1278,11 +1283,12 @@ static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
-	int ret = __tail_handle_ipv4(ctx);
+	__s8 ext_err = 0;
+	int ret = __tail_handle_ipv4(ctx, &ext_err);
 
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, SECLABEL, ret,
-		    CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, SECLABEL, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 
@@ -1507,8 +1513,14 @@ skip_policy_enforcement:
 
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
+		/* ext_err may contain a value from __policy_can_access, and
+		 * ct_create6 overwrites it only if it returns an error itself.
+		 * As the error from __policy_can_access is dropped in that
+		 * case, it's OK to return ext_err from ct_create6 along with
+		 * its error code.
+		 */
 		ret = ct_create6(get_ct_map6(tuple), &CT_MAP_ANY6, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false, NULL);
+				 &ct_state_new, *proxy_port > 0, false, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -1828,8 +1840,14 @@ skip_policy_enforcement:
 	if (ret == CT_NEW) {
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
+		/* ext_err may contain a value from __policy_can_access, and
+		 * ct_create4 overwrites it only if it returns an error itself.
+		 * As the error from __policy_can_access is dropped in that
+		 * case, it's OK to return ext_err from ct_create4 along with
+		 * its error code.
+		 */
 		ret = ct_create4(get_ct_map4(tuple), &CT_MAP_ANY4, tuple, ctx, CT_INGRESS,
-				 &ct_state_new, *proxy_port > 0, false, NULL);
+				 &ct_state_new, *proxy_port > 0, false, ext_err);
 		if (IS_ERR(ret))
 			return ret;
 
