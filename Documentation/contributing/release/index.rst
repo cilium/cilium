@@ -9,19 +9,16 @@
 Release Management
 ------------------
 
-This section describes the release processes for tracking, preparing, and
-creating new Cilium releases. This includes information around the release
-cycles and guides for developers responsible for backporting fixes or preparing
-upcoming stable releases.
+This section includes information around the release cycles and guides for
+developers responsible for backporting fixes.
+
+Release preparation steps can be found under `github.com/cilium/release <https://github.com/cilium/release/issues/new/choose>`_.
 
 .. toctree::
    :maxdepth: 2
 
    organization
    backports
-   stable
-   rc
-   feature
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
