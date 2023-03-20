@@ -1009,6 +1009,9 @@ data:
 {{- if .Values.auth.mTLS.enabled }}
   mesh-auth-mtls-enabled: "true"
   mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
+  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spireAgentSocketPath }}
+  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spireServerAddress }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spireServerConnectionTimeout }}
   mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spireAdminSocketPath }}
   mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spiffeTrustDomain }}
 {{- end }}
