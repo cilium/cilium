@@ -15,10 +15,11 @@
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY
 #define ENABLE_MASQUERADE
-#define ENCAP_IFINDEX 0
+#define ENCAP_IFINDEX		42
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_NODE_IP		v4_node_two
 
 #define EXTERNAL_SVC_IP		v4_ext_one
 #define EXTERNAL_SVC_PORT	__bpf_htons(1234)
@@ -31,6 +32,17 @@
 
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *ext_svc_mac = mac_two;
+
+#define ctx_redirect mock_ctx_redirect
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+{
+	if (ifindex == ENCAP_IFINDEX)
+		return CTX_ACT_REDIRECT;
+
+	return CTX_ACT_DROP;
+}
 
 #include "bpf_host.c"
 
@@ -121,6 +133,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool rep
 static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, bool reply,
 					       __u64 tx_packets, __u64 rx_packets)
 {
+	__u32 status_result = reply ? CTX_ACT_REDIRECT : CTX_ACT_OK;
 	void *data, *data_end;
 	__u32 *status_code;
 	struct tcphdr *l4;
@@ -136,7 +149,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	assert(*status_code == status_result);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -271,6 +284,17 @@ int egressgw_snat2_reply_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "tc_egressgw_snat2_reply")
 int egressgw_snat2_reply_setup(struct __ctx_buff *ctx)
 {
+	/* install ipcache entry for the CLIENT_IP: */
+	struct ipcache_key cache_key = {
+		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32),
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = CLIENT_IP,
+	};
+	struct remote_endpoint_info cache_value = {
+		.tunnel_endpoint = CLIENT_NODE_IP,
+	};
+	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
 	/* Fail if we didn't jump */
