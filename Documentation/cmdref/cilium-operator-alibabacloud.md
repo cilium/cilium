@@ -33,7 +33,7 @@ cilium-operator-alibabacloud [flags]
       --enable-cilium-endpoint-slice                         If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
       --enable-ipv4                                          Enable IPv4 support (default true)
       --enable-ipv6                                          Enable IPv6 support (default true)
-      --enable-k8s                                           Enable operation of Kubernetes-related services/controllers when using Cilium with Kubernetes (default true)
+      --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                            Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                            Enable k8s event handover to kvstore for improved scalability

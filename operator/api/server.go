@@ -33,8 +33,7 @@ type Server interface {
 type params struct {
 	cell.In
 
-	Cfg       Config
-	SharedCfg SharedConfig
+	Cfg Config
 
 	HealthHandler  operator.GetHealthzHandler
 	MetricsHandler metrics.GetMetricsHandler
@@ -66,10 +65,6 @@ type httpServer struct {
 func newServer(
 	p params,
 ) (Server, error) {
-	if !p.SharedCfg.EnableK8s {
-		return nil, nil
-	}
-
 	server := &server{
 		logger:         p.Logger,
 		shutdowner:     p.Shutdowner,

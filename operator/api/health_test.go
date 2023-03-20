@@ -30,10 +30,8 @@ func TestHealthHandlerK8sDisabled(t *testing.T) {
 
 	hive := hive.New(
 		k8sClient.FakeClientCell,
-		cell.Provide(func() SharedConfig {
-			return SharedConfig{
-				EnableK8s: false,
-			}
+		cell.Invoke(func(cs *k8sClient.FakeClientset) {
+			cs.Disable()
 		}),
 
 		HealthHandlerCell(
@@ -84,11 +82,6 @@ func TestHealthHandlerK8sEnabled(t *testing.T) {
 
 	hive := hive.New(
 		k8sClient.FakeClientCell,
-		cell.Provide(func() SharedConfig {
-			return SharedConfig{
-				EnableK8s: true,
-			}
-		}),
 
 		HealthHandlerCell(
 			func() bool {

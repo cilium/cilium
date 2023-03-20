@@ -115,6 +115,7 @@ cilium-agent [flags]
       --enable-ipv6-big-tcp                                     Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits
       --enable-ipv6-masquerade                                  Masquerade IPv6 traffic from endpoints leaving the host (default true)
       --enable-ipv6-ndp                                         Enable IPv6 NDP support
+      --enable-k8s                                              Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                                Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                               Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                               Enable k8s event handover to kvstore for improved scalability

@@ -17,6 +17,7 @@ cilium-operator-azure hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --enable-k8s                                           Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                             Enable discovery of Kubernetes API groups and resources with the discovery API
       --gops-port uint16                                     Port for gops server to listen on (default 9891)
       --identity-gc-interval duration                        GC interval for security identities (default 15m0s)
