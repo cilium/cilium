@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -20,20 +21,23 @@ import (
 type params struct {
 	cell.In
 
-	Logger    logrus.FieldLogger
-	Lifecycle hive.Lifecycle
-	Identity  resource.Resource[*ciliumv2.CiliumIdentity]
+	Logger         logrus.FieldLogger
+	Lifecycle      hive.Lifecycle
+	IdentityClient identity.Provider
+	Identity       resource.Resource[*ciliumv2.CiliumIdentity]
 
 	Cfg Config
 }
 
 // IdentityWatcher represents the Cilium identities watcher.
+// It watches for Cilium identities and upserts or deletes them in Spire.
 type IdentityWatcher struct {
 	logger logrus.FieldLogger
 
-	identity resource.Resource[*ciliumv2.CiliumIdentity]
-	wg       *workerpool.WorkerPool
-	cfg      Config
+	identityClient identity.Provider
+	identity       resource.Resource[*ciliumv2.CiliumIdentity]
+	wg             *workerpool.WorkerPool
+	cfg            Config
 }
 
 func registerIdentityWatcher(p params) {
@@ -41,10 +45,11 @@ func registerIdentityWatcher(p params) {
 		return
 	}
 	iw := &IdentityWatcher{
-		logger:   p.Logger,
-		identity: p.Identity,
-		wg:       workerpool.New(1),
-		cfg:      p.Cfg,
+		logger:         p.Logger,
+		identityClient: p.IdentityClient,
+		identity:       p.Identity,
+		wg:             workerpool.New(1),
+		cfg:            p.Cfg,
 	}
 	p.Lifecycle.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {
@@ -60,8 +65,16 @@ func registerIdentityWatcher(p params) {
 
 func (iw *IdentityWatcher) run(ctx context.Context) error {
 	for e := range iw.identity.Events(ctx) {
-		// Doing nothing right now
-		e.Done(nil)
+		var err error
+		switch e.Kind {
+		case resource.Upsert:
+			err = iw.identityClient.Upsert(ctx, e.Object.GetName())
+			iw.logger.WithError(err).WithField("identity", e.Object.GetName()).Info("Upsert identity")
+		case resource.Delete:
+			err = iw.identityClient.Delete(ctx, e.Object.GetName())
+			iw.logger.WithError(err).WithField("identity", e.Object.GetName()).Info("Delete identity")
+		}
+		e.Done(err)
 	}
 	return nil
 }
